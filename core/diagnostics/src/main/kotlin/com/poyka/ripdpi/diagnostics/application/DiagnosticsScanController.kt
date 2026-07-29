@@ -317,18 +317,23 @@ internal class DefaultDiagnosticsScanController
                     return@withLock false
                 }
                 val profile = scanAdmissionService.admitAutomaticProbe(settings) ?: return@withLock false
+                val prepared =
+                    scanRequestFactory.prepareScan(
+                        profile = profile,
+                        settings = settings,
+                        pathMode = ScanPathMode.RAW_PATH,
+                        scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                        launchTrigger = event.toLaunchTrigger(),
+                        exposeProgress = false,
+                        registerActiveBridge = false,
+                        sessionIdOverride = sessionId,
+                    )
+                val preparedFingerprintHash = prepared.networkFingerprint?.scopeKey()
+                if (preparedFingerprintHash != null && preparedFingerprintHash != event.currentFingerprintHash) {
+                    return@withLock true
+                }
                 startPreparedScan(
-                    prepared =
-                        scanRequestFactory.prepareScan(
-                            profile = profile,
-                            settings = settings,
-                            pathMode = ScanPathMode.RAW_PATH,
-                            scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
-                            launchTrigger = event.toLaunchTrigger(),
-                            exposeProgress = false,
-                            registerActiveBridge = false,
-                            sessionIdOverride = sessionId,
-                        ),
+                    prepared = prepared,
                     rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
                 )
                 false
