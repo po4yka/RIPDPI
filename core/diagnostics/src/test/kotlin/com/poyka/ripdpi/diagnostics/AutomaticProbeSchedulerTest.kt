@@ -344,6 +344,28 @@ class AutomaticProbeSchedulerTest {
         }
 
     @Test
+    fun `scheduler acknowledges missing evidence delivery when retry window expires`() =
+        runTest {
+            val event = handoverEvent()
+            val env =
+                newEnv(
+                    activeProbeSafetyPolicy =
+                        ActiveProbeSafetyPolicy(
+                            automaticHandoverProbeDelayMs = AutomaticProbeCoordinator.recentFailureLookbackMs(),
+                            automaticHandoverProbeCooldownMs = 0L,
+                            automaticStrategyFailureProbeCooldownMs = 0L,
+                        ),
+                )
+
+            env.scheduler.schedule(event)
+            advanceTimeBy(AutomaticProbeCoordinator.recentFailureLookbackMs())
+            runCurrent()
+
+            assertTrue(env.launcher.events.isEmpty())
+            assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
+        }
+
+    @Test
     fun `scheduler acknowledges permanently ineligible delivery`() =
         runTest {
             val env = newEnv(settings = defaultDiagnosticsAppSettings())
@@ -484,6 +506,61 @@ class AutomaticProbeSchedulerTest {
             assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
         }
 
+    @Test
+    fun `scheduler retries a transient launcher exception`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    telemetrySamples =
+                        listOf(telemetrySample(createdAt = now - 500L, failureClass = "dns_tampering")),
+                    now = now,
+                )
+            val event = handoverEvent()
+            env.launcher.nextFailure = IllegalStateException("transient startup failure")
+
+            env.scheduler.schedule(event)
+            advanceTimeBy(100L)
+            runCurrent()
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(listOf(event, event), env.launcher.events)
+            assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
+        }
+
+    @Test
+    fun `scheduler stops retrying after durable delivery eviction`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    telemetrySamples =
+                        listOf(telemetrySample(createdAt = now - 500L, failureClass = "dns_tampering")),
+                    now = now,
+                    launchResult = false,
+                )
+            val event = handoverEvent()
+            env.launcher.afterLaunch = {
+                env.handoverStore.pendingOverride = false
+            }
+
+            env.scheduler.schedule(event)
+            advanceTimeBy(100L)
+            runCurrent()
+            assertEquals(listOf(event), env.launcher.events)
+
+            assertTrue(!env.handoverStore.isPending(event.deliveryId))
+            env.launcher.launchResult = true
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(listOf(event), env.launcher.events)
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+        }
+
     private fun TestScope.newEnv(
         settings: com.poyka.ripdpi.proto.AppSettings =
             defaultDiagnosticsAppSettings()
@@ -548,6 +625,8 @@ private class RecordingAutomaticProbeLauncher(
 ) : AutomaticProbeLauncher {
     val events = mutableListOf<PolicyHandoverEvent>()
     var hasActiveScan = hasActiveScan
+    var nextFailure: Throwable? = null
+    var afterLaunch: (() -> Unit)? = null
 
     override fun hasActiveScan(): Boolean = hasActiveScan
 
@@ -556,6 +635,11 @@ private class RecordingAutomaticProbeLauncher(
         event: PolicyHandoverEvent,
     ): Boolean {
         events += event
+        afterLaunch?.invoke()
+        nextFailure?.let { failure ->
+            nextFailure = null
+            throw failure
+        }
         return launchResult
     }
 }

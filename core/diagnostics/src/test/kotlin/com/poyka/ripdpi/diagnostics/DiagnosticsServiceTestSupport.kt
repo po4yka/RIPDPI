@@ -1106,12 +1106,15 @@ internal class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
     override val events: SharedFlow<PolicyHandoverEvent> = state.asSharedFlow()
 
     val acknowledged = mutableListOf<String>()
+    var pendingOverride: Boolean? = null
 
     override suspend fun publish(event: PolicyHandoverEvent) = state.emit(event)
 
     override suspend fun acknowledge(deliveryId: String) {
         acknowledged += deliveryId
     }
+
+    override suspend fun isPending(deliveryId: String): Boolean = pendingOverride ?: (deliveryId !in acknowledged)
 }
 
 internal class FakeServiceStateStore(

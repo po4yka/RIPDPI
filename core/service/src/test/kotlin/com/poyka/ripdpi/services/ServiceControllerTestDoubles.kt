@@ -196,6 +196,8 @@ internal class TestPolicyHandoverEventStore : PolicyHandoverEventStore {
     override suspend fun acknowledge(deliveryId: String) {
         acknowledged += deliveryId
     }
+
+    override suspend fun isPending(deliveryId: String): Boolean = deliveryId !in acknowledged
 }
 
 internal class TestResolverOverrideStore(

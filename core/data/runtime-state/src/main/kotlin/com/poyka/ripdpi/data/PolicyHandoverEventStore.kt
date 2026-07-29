@@ -25,6 +25,8 @@ interface PolicyHandoverEventStore {
     suspend fun publish(event: PolicyHandoverEvent)
 
     suspend fun acknowledge(deliveryId: String)
+
+    suspend fun isPending(deliveryId: String): Boolean
 }
 
 fun policyHandoverDeliveryId(seed: String): String =

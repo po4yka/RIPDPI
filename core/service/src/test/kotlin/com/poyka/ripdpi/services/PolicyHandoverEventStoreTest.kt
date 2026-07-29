@@ -30,6 +30,7 @@ class PolicyHandoverEventStoreTest {
             eventStore(durableState).publish(event)
             val reconstructed = eventStore(durableState)
 
+            assertTrue(reconstructed.isPending(event.deliveryId))
             assertEquals(event, reconstructed.events.first())
             val persisted = durableState.states.values.single()
             assertFalse(persisted.value.contains("policySignature"))
@@ -37,7 +38,37 @@ class PolicyHandoverEventStoreTest {
 
             reconstructed.acknowledge(event.deliveryId)
 
+            assertFalse(reconstructed.isPending(event.deliveryId))
             assertNull(durableState.getDurableState(persisted.key))
+        }
+
+    @Test
+    fun `pending check evicts stale delivery and its dependency`() =
+        runTest {
+            val durableState = HandoverDurableStateStore()
+            val policies = HandoverRememberedPolicyStore()
+            val fingerprint = "fingerprint-stale"
+            val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
+            val dependencyKey = "runtime_terminal_policy:stale-pending"
+            durableState.upsertDurableState(
+                DiagnosticsDurableStateEntity(dependencyKey, policyId.toString(), 10L),
+            )
+            val event =
+                handoverEvent("delivery-stale-pending").copy(
+                    currentFingerprintHash = fingerprint,
+                    rememberedPolicyDependencyKey = dependencyKey,
+                )
+            val store = eventStore(durableState, policies)
+            store.publish(event)
+            val deliveryKey = "policy_handover_delivery:${event.deliveryId}"
+            val delivery = requireNotNull(durableState.states[deliveryKey])
+            durableState.upsertDurableState(
+                delivery.copy(updatedAt = System.currentTimeMillis() - 8L * 24L * 60L * 60L * 1_000L),
+            )
+
+            assertFalse(store.isPending(event.deliveryId))
+            assertNull(durableState.getDurableState(deliveryKey))
+            assertNull(durableState.getDurableState(dependencyKey))
         }
 
     @Test

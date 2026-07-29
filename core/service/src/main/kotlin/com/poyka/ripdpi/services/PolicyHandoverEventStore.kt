@@ -96,6 +96,16 @@ class DefaultPolicyHandoverEventStore
             }
         }
 
+        override suspend fun isPending(deliveryId: String): Boolean {
+            val state = durableStateStore.getDurableState(deliveryKey(deliveryId)) ?: return false
+            val event =
+                state
+                    .takeIf { it.updatedAt >= System.currentTimeMillis() - PolicyHandoverRetentionMaxAgeMs }
+                    ?.let { decodeEvent(it) }
+            if (event == null) clearDelivery(state)
+            return event?.deliveryId == deliveryId
+        }
+
         private suspend fun createEnvelope(event: PolicyHandoverEvent): PolicyHandoverDeliveryEnvelope {
             val dependencyKey = event.rememberedPolicyDependencyKey
             if (dependencyKey != null) {

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -50,11 +51,25 @@ class AutomaticProbeScheduler
             val job =
                 scope.launch(start = CoroutineStart.LAZY) {
                     try {
-                        delay(activeProbeSafetyPolicy.automaticHandoverProbeDelayMs)
-                        while (!launchIfEligible(event)) {
-                            delay(automaticProbeRetryDelayMs())
+                        val initialDelayMs = activeProbeSafetyPolicy.automaticHandoverProbeDelayMs
+                        var elapsedMs = initialDelayMs
+                        delay(initialDelayMs)
+                        while (policyHandoverEventStore.isPending(event.deliveryId)) {
+                            val attempt = runCatching { processDelivery(event) }
+                            val failure = attempt.exceptionOrNull()
+                            if (failure is CancellationException || failure is Error) throw failure
+                            if (attempt.getOrDefault(false)) return@launch
+                            if (elapsedMs >= automaticProbeRetryWindowMs()) {
+                                policyHandoverEventStore.acknowledge(event.deliveryId)
+                                return@launch
+                            }
+                            val retryDelayMs = automaticProbeRetryDelayMs()
+                            delay(retryDelayMs)
+                            elapsedMs += retryDelayMs
+                            if (!policyHandoverEventStore.isPending(event.deliveryId)) {
+                                return@launch
+                            }
                         }
-                        policyHandoverEventStore.acknowledge(event.deliveryId)
                     } finally {
                         pendingProbeJobs.remove(event.deliveryId)
                     }
@@ -64,6 +79,14 @@ class AutomaticProbeScheduler
             } else {
                 job.cancel()
             }
+        }
+
+        private suspend fun processDelivery(event: PolicyHandoverEvent): Boolean {
+            if (!policyHandoverEventStore.isPending(event.deliveryId)) return true
+            if (!launchIfEligible(event)) return false
+            if (!policyHandoverEventStore.isPending(event.deliveryId)) return true
+            policyHandoverEventStore.acknowledge(event.deliveryId)
+            return true
         }
 
         private suspend fun launchIfEligible(event: PolicyHandoverEvent): Boolean {
@@ -124,6 +147,8 @@ class AutomaticProbeScheduler
 
         private fun automaticProbeRetryDelayMs(): Long =
             activeProbeSafetyPolicy.automaticHandoverProbeDelayMs.coerceAtLeast(1L)
+
+        private fun automaticProbeRetryWindowMs(): Long = AutomaticProbeCoordinator.recentFailureLookbackMs()
 
         private companion object {
             val TransientRejectionReasons =
