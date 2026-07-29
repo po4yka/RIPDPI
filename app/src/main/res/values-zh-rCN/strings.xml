@@ -383,11 +383,11 @@
     <string name="diagnostics_share_summary_body">根据最新或选定的诊断会话构建简明的事件简报，并通过 Android 共享面板发送。</string>
     <string name="diagnostics_share_summary_action">共享摘要</string>
     <string name="diagnostics_share_archive_title">共享诊断存档</string>
-    <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, recent telemetry, runtime configuration, archive provenance, completeness notes, integrity hashes, and app-scoped logcat snapshot. Packet captures stay as separate local raw artifacts.</string>
+    <string name="diagnostics_share_archive_body">创建一个 ZIP，其中包含所选会话、策略矩阵、近期遥测、运行时配置、归档溯源信息、完备性说明、完整性哈希和仅限本应用的 logcat 快照。数据包捕获会保留为独立的本地原始工件。</string>
     <string name="diagnostics_share_archive_action">共享存档</string>
     <string name="diagnostics_share_archive_chooser">共享诊断存档</string>
     <string name="diagnostics_save_archive_title">保存诊断存档</string>
-    <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data, runtime configuration, provenance, completeness, integrity metadata, and app-scoped logcat when available. Packet captures are not embedded; export them separately from packet capture tools.</string>
+    <string name="diagnostics_save_archive_body">将 %1$s 保存到本地。归档会保留原始报告数据、运行时配置、溯源信息、完备性和完整性元数据，以及可用时仅限本应用的 logcat。数据包捕获不会嵌入其中；请通过数据包捕获工具单独导出。</string>
     <string name="diagnostics_save_archive_action">保存存档</string>
     <string name="diagnostics_archive_save_failed">保存诊断存档失败</string>
     <string name="diagnostics_save_logs_title">保存本地日志</string>
@@ -681,7 +681,7 @@
     <string name="diagnostics_section_carrier">运营商</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>
     <string name="diagnostics_share_metric_mode">模式</string>
-    <string name="diagnostics_share_redaction_line">Summary, manifest, and report entries redact support context and network identity fields. Packet captures are separate local raw artifacts and are not embedded in redacted diagnostics archives.</string>
+    <string name="diagnostics_share_redaction_line">摘要、清单和报告条目会对支持上下文及网络身份字段进行脱敏。数据包捕获是独立的本地原始工件，不会嵌入已脱敏的诊断归档。</string>
     <string name="diagnostics_sparkline_rx_bytes">RX 字节</string>
     <string name="diagnostics_telegram_download">下载</string>
     <string name="diagnostics_telegram_transferred">已传输</string>
@@ -730,11 +730,11 @@
     <string name="home_diagnostics_pcap_toggle">抓取数据包(高级)</string>
     <string name="diagnostics_pcap_card_title">数据包捕获</string>
     <string name="diagnostics_pcap_card_body_idle">Records raw IP packet bytes to a local PCAP file. Retention: 24 h / 3 most-recent files. PCAP is not created unless you start recording, and no automatic sharing occurs.</string>
-    <string name="diagnostics_pcap_card_body_recording">Recording raw packet bytes. Files are kept for 24 h (3 most-recent) as separate local PCAP artifacts and are not embedded in redacted diagnostics archives.</string>
+    <string name="diagnostics_pcap_card_body_recording">正在记录原始数据包字节。文件保留 24 小时，并且只保留最近 3 个。它们是独立的本地 PCAP 工件，不会嵌入已脱敏的诊断归档。</string>
     <string name="diagnostics_pcap_card_start">开始录制</string>
     <string name="diagnostics_pcap_card_stop">停止录制</string>
     <string name="diagnostics_pcap_disclosure_title">原始数据包捕获说明</string>
-    <string name="diagnostics_pcap_disclosure_body">Recording writes raw IP packet bytes to a local file and can include packet payloads. Retention is 24 h or 3 most-recent files, whichever is smaller, then cleanup deletes old captures. PCAP files are separate raw artifacts; redacted diagnostics archives do not embed them.</string>
+    <string name="diagnostics_pcap_disclosure_body">录制会将原始 IP 数据包字节写入本地文件，其中可能包含数据包有效载荷。文件保留 24 小时或最近 3 个，以限制更严格者为准；之后清理程序会删除旧的捕获文件。PCAP 文件是独立的原始工件；已脱敏的诊断归档不会嵌入这些文件。</string>
     <string name="home_diagnostics_regression_failed_label">新增失败</string>
     <string name="home_diagnostics_routing_sanity_section">应用路由健全性</string>
     <string name="home_diagnostics_stage_failed_marker">失败</string>
@@ -1275,7 +1275,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_section_device">设备</string>
     <string name="diagnostics_share_approach_format">归档包含 %1$s 的方案分析,其中含 %2$s 验证和运行时健康上下文。</string>
     <string name="diagnostics_share_metric_network">网络</string>
-    <string name="diagnostics_share_telemetry_line">It also adds recent live telemetry, global runtime events, completeness notes, and integrity hashes. Packet captures remain separate local raw artifacts.</string>
+    <string name="diagnostics_share_telemetry_line">其中还会加入近期实时遥测、全局运行时事件、完备性说明和完整性哈希。数据包捕获会保留为独立的本地原始工件。</string>
     <string name="diagnostics_sparkline_tx_bytes">TX 字节</string>
     <string name="diagnostics_telegram_error">错误</string>
     <string name="diagnostics_telegram_upload">上传</string>
@@ -2315,7 +2315,7 @@ fake_burst 3</string>
     <string name="customization_shape_sheet_point_two">如果图标素材发生变化,您的启动器可能需要刷新后才能显示新蒙版预览。</string>
     <string name="customization_themed_icon_body">跟随系统 Material You 主题</string>
     <string name="data_transparency_dpi_detection">DPI 检测结果:失败分类、策略有效性</string>
-    <string name="data_transparency_export_redaction">Exported summaries, manifests, and reports redact IP addresses, Wi-Fi identifiers, and support context. Raw packet captures are stored and exported separately, never embedded in redacted diagnostics archives.</string>
+    <string name="data_transparency_export_redaction">导出的摘要、清单和报告会对 IP 地址、Wi-Fi 标识符及支持上下文进行脱敏。原始数据包捕获会单独存储和导出，绝不会嵌入已脱敏的诊断归档。</string>
     <string name="data_transparency_network_identity">网络身份:网络特征的哈希指纹(WiFi SSID、运营商信息)</string>
     <string name="data_transparency_no_personal_data">No accounts or credentials; PCAP is only created by the advanced packet capture control and may contain raw packet payload bytes</string>
     <string name="data_transparency_what_we_collect_section">我们收集的内容</string>
@@ -2440,7 +2440,7 @@ fake_burst 3</string>
     <string name="home_diagnostics_dns_resolver_transparent_proxy">可能检测到透明 DNS 代理。</string>
     <string name="home_diagnostics_effectiveness_section">该网络上的绕过策略有效性</string>
     <string name="home_diagnostics_network_transparent_proxy">透明代理</string>
-    <string name="home_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run into a separate local PCAP file; redacted diagnostics archives do not embed packet captures.</string>
+    <string name="home_diagnostics_pcap_helper">需要 Root 权限。此操作会将本次运行的原始数据包字节捕获到独立的本地 PCAP 文件中；已脱敏的诊断归档不会嵌入数据包捕获。</string>
     <string name="home_diagnostics_recommendation_label">建议</string>
     <string name="home_diagnostics_regression_summary">新失败 %1$d 项,新恢复 %2$d 项,未变更 %3$d 项。</string>
     <string name="home_diagnostics_share_failed">分享分析日志和结果失败。</string>
@@ -2647,7 +2647,7 @@ fake_burst 3</string>
     <string name="settings_permissions_vpn_optional">仅当您希望以本地 VPN 模式运行 RIPDPI 时才需要。</string>
     <string name="settings_reset_dialog_body">这将把所有设置恢复为默认值。您的连接将被停止,所有自定义都会丢失。</string>
     <string name="settings_seqovl_unsupported_reason">序列重叠需要原始套接字访问权限,本设备不可用。请在设置中启用 Root 模式以使用此功能。</string>
-    <string name="settings_support_debug_bundle_body">Build a diagnostics ZIP with app-scoped logcat, recent debug information, archive metadata, completeness notes, and integrity hashes, then send it through the Android share sheet after you choose a recipient. Packet captures are not embedded.</string>
+    <string name="settings_support_debug_bundle_body">创建一个诊断 ZIP，其中包含仅限本应用的 logcat、近期调试信息、归档元数据、完备性说明和完整性哈希。选择接收方后，通过 Android 分享面板发送。数据包捕获不会嵌入其中。</string>
     <string name="settings_telemetry_salt_reset_body">重置用于哈希网络指纹的每次安装盐值。之前记录的哈希将无法再与未来会话关联。</string>
     <string name="settings_theme_helper">切换此偏好后界面会立即更新。</string>
     <string name="settings_warning_backup_pin_title">建议设置备用 PIN</string>
@@ -4170,7 +4170,7 @@ fake_burst 3</string>
     <string name="strategy_config_draft_save_failed_title">草稿未保存</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI 正在重试将草稿保存到本地。请保持此页面打开，直到警告消失。</string>
     <string name="diagnostics_device_gate_title">远程设备验收</string>
-    <string name="diagnostics_device_gate_body">Run while the VPN uses the target relay or VPN transport. Then reconnect, switch between Wi-Fi and mobile data, and keep the screen off for at least five minutes before turning it on. The report stays incomplete until every event is observed; unsupported or unconfigured transports remain incomplete.</string>
+    <string name="diagnostics_device_gate_body">在 VPN 使用目标中继或 VPN 传输方式时运行检查。然后重新连接，在 Wi-Fi 和移动数据之间切换，并将屏幕关闭至少五分钟后再重新开启。观察到所有事件之前，报告将保持不完整；不受支持或未配置的传输方式也会使报告保持不完整。</string>
     <string name="diagnostics_device_gate_run">开始验收检查</string>
     <string name="diagnostics_device_gate_rerun">重新开始验收检查</string>
     <string name="diagnostics_device_gate_share">分享已脱敏报告</string>

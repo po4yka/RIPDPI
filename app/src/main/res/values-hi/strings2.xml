@@ -298,7 +298,7 @@
     <string name="settings_customization_body">ऐप आइकन, अनुकूली आकार, और थीम वाले आइकन विकल्प।</string>
     <string name="settings_support_section">सहायता</string>
     <string name="settings_support_debug_bundle_title">सहायता बंडल साझा करें</string>
-    <string name="settings_support_debug_bundle_body">ऐप-सीमित logcat, हाल की डीबग जानकारी, संग्रह मेटाडेटा, और मौजूद होने पर चुने गए PCAP फ़ाइलों के साथ एक डायग्नोस्टिक्स ZIP बनाएँ, फिर प्राप्तकर्ता चुनने के बाद उसे Android शेयर शीट के ज़रिए भेजें।</string>
+    <string name="settings_support_debug_bundle_body">ऐप तक सीमित logcat, हाल की डीबग जानकारी, संग्रह मेटाडेटा, पूर्णता संबंधी नोट्स और अखंडता हैश वाला डायग्नोस्टिक्स ZIP बनाएँ। प्राप्तकर्ता चुनने के बाद इसे Android शेयर शीट के माध्यम से भेजें। पैकेट कैप्चर इसमें एम्बेड नहीं किए जाते।</string>
     <string name="settings_about_body">संस्करण, क्रेडिट, और प्रोजेक्ट दस्तावेज़ीकरण।</string>
     <string name="settings_share_debug_bundle_action">साझा करें</string>
     <string name="settings_manage_action">प्रबंधित करें</string>
@@ -372,7 +372,7 @@
     <string name="data_transparency_disable_monitoring">आप उन्नत सेटिंग्स में पैसिव निगरानी अक्षम कर सकते हैं</string>
     <string name="data_transparency_export_explicit">निर्यात संग्रह, लॉग फ़ाइलें, और शेयर केवल तभी बनाए जाते हैं जब आप स्पष्ट रूप से उनका अनुरोध करते हैं</string>
     <string name="data_transparency_export_privacy_section">निर्यात गोपनीयता</string>
-    <string name="data_transparency_export_redaction">निर्यात किए गए सारांश और मेनिफ़ेस्ट IP पते, Wi-Fi पहचानकर्ता, और सहायता संदर्भ को संपादित कर देते हैं; कच्ची रिपोर्ट फ़ाइलें और चुनी गई PCAP फ़ाइलें समस्या निवारण के लिए अक्षुण्ण रहती हैं</string>
+    <string name="data_transparency_export_redaction">निर्यात किए गए सारांश, मैनिफ़ेस्ट और रिपोर्ट IP पतों, Wi-Fi पहचानकर्ताओं और सहायता-संदर्भ को छिपाते हैं। अपरिष्कृत पैकेट कैप्चर अलग से संग्रहीत और निर्यात किए जाते हैं; उन्हें रिडैक्ट किए गए डायग्नोस्टिक्स संग्रहों में कभी एम्बेड नहीं किया जाता।</string>
     <string name="data_transparency_export_control">आप नियंत्रित करते हैं कि क्या सहेजा या साझा किया जाए, इसे कौन प्राप्त करे, और ऐप संग्रहण के बाहर सहेजे गए निर्यातों को कब हटाया जाए</string>
 
     <!-- Settings maintenance notice titles -->
@@ -612,8 +612,8 @@
     <string name="diagnostics_share_title">RIPDPI डायग्नोस्टिक्स</string>
     <string name="diagnostics_share_no_session">सारांश बनाने के लिए कोई डायग्नोस्टिक्स सत्र चुनें.</string>
     <string name="diagnostics_share_archive_line">आर्काइव में फ़ोकस किया गया डायग्नोस्टिक्स सत्र, उद्गम, रनटाइम कॉन्फ़िगरेशन मेटाडेटा, और उपलब्ध होने पर ऐप-स्कोप्ड logcat शामिल होता है.</string>
-    <string name="diagnostics_share_telemetry_line">इसमें हाल का लाइव टेलीमेट्री, वैश्विक रनटाइम इवेंट, पूर्णता नोट्स, इंटीग्रिटी हैश, और मौजूद होने पर ऑप्ट-इन किए गए PCAP फ़ाइलें भी जुड़ती हैं.</string>
-    <string name="diagnostics_share_redaction_line">सारांश और मैनिफ़ेस्ट सपोर्ट संदर्भ और नेटवर्क पहचान फ़ील्ड को छिपाते हैं, जबकि कच्चा रिपोर्ट डेटा और ऑप्ट-इन किए गए PCAP फ़ाइलें अक्षुण्ण रहती हैं.</string>
+    <string name="diagnostics_share_telemetry_line">इसमें हाल की लाइव टेलीमेट्री, वैश्विक रनटाइम घटनाएँ, पूर्णता संबंधी नोट्स और अखंडता हैश भी जोड़े जाते हैं। पैकेट कैप्चर अलग स्थानीय अपरिष्कृत आर्टिफ़ैक्ट के रूप में रहते हैं।</string>
+    <string name="diagnostics_share_redaction_line">सारांश, मैनिफ़ेस्ट और रिपोर्ट प्रविष्टियाँ सहायता-संदर्भ तथा नेटवर्क पहचान फ़ील्ड छिपाती हैं। पैकेट कैप्चर अलग स्थानीय अपरिष्कृत आर्टिफ़ैक्ट होते हैं और रिडैक्ट किए गए डायग्नोस्टिक्स संग्रहों में एम्बेड नहीं किए जाते।</string>
     <string name="diagnostics_share_approach_format">आर्काइव में %2$s सत्यापन और रनटाइम स्वास्थ्य संदर्भ के साथ %1$s के लिए अप्रोच एनालिटिक्स शामिल हैं.</string>
     <string name="diagnostics_share_metric_path">पथ</string>
     <string name="diagnostics_share_metric_network">नेटवर्क</string>
