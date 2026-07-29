@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -65,6 +66,7 @@ class DataPlaneEvidenceCollectorTest {
             proxyEvidence = ProxyForwardingEvidence.Empty,
             tunEvidence = null,
             tunSupport = TunEvidenceSupport.Unsupported,
+            proxyGenerationAuthoritative = true,
         )
         tracker.finalEvent()
 
@@ -91,6 +93,7 @@ class DataPlaneEvidenceCollectorTest {
             proxyEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 200),
             tunEvidence = TunForwardingEvidence(),
             tunSupport = TunEvidenceSupport.Supported,
+            tunGenerationAuthoritative = true,
         )
         tracker.finalEvent()
 
@@ -110,6 +113,59 @@ class DataPlaneEvidenceCollectorTest {
         assertFalse(finalEvent.message.contains("state=cross_layer_return_observed"))
         assertFalse(finalEvent.message.contains("tun_write_bytes=100"))
     }
+
+    @Test
+    fun transientZeroPayloadWithoutRunningTelemetryKeepsCurrentGeneration() =
+        runTest {
+            var polls = 0
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.Proxy,
+                    proxyEvidenceProvider = {
+                        polls += 1
+                        if (polls == 1) {
+                            ProxyForwardingEvidence(upstreamApplicationBytes = 200)
+                        } else {
+                            ProxyForwardingEvidence.Empty
+                        }
+                    },
+                )
+
+            collector.enrich(runningTelemetrySnapshot())
+            val finalized = collector.finalizeAndEnrich(emptyTelemetrySnapshot())
+
+            assertFalse(finalized.proxyTelemetry.nativeEvents.any { it.kind == "data_plane_counter_reset" })
+            val finalEvent = finalized.proxyTelemetry.nativeEvents.last()
+            assertTrue(finalEvent.message.contains("generation=1"))
+            assertTrue(finalEvent.message.contains("proxy_application_bytes=200"))
+        }
+
+    @Test
+    fun authoritativeRunningZeroPayloadStartsNewCollectorGeneration() =
+        runTest {
+            var polls = 0
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.Proxy,
+                    proxyEvidenceProvider = {
+                        polls += 1
+                        if (polls == 1) {
+                            ProxyForwardingEvidence(upstreamApplicationBytes = 200)
+                        } else {
+                            ProxyForwardingEvidence.Empty
+                        }
+                    },
+                )
+
+            collector.enrich(runningTelemetrySnapshot())
+            val finalized = collector.finalizeAndEnrich(runningTelemetrySnapshot())
+
+            assertTrue(finalized.proxyTelemetry.nativeEvents.any { it.kind == "data_plane_counter_reset" })
+            val finalEvent = finalized.proxyTelemetry.nativeEvents.last()
+            assertTrue(finalEvent.message.contains("generation=2"))
+            assertTrue(finalEvent.message.contains("proxy_application_bytes=0"))
+            assertFalse(finalEvent.message.contains("proxy_application_bytes=200"))
+        }
 
     @Test
     fun proxyModeMarksTunUnsupportedAndInboundUnavailable() =
@@ -451,6 +507,7 @@ class DataPlaneEvidenceCollectorTest {
             ProxyForwardingEvidence(upstreamApplicationBytes = 9),
             TunForwardingEvidence(tunWriteBytes = 800),
             TunEvidenceSupport.Supported,
+            proxyGenerationAuthoritative = true,
         )
 
         val afterProxyReset = tracker.events().last().message
@@ -496,6 +553,7 @@ class DataPlaneEvidenceCollectorTest {
             ProxyForwardingEvidence(upstreamApplicationBytes = 900),
             TunForwardingEvidence(tunWriteBytes = 8),
             TunEvidenceSupport.Supported,
+            tunGenerationAuthoritative = true,
         )
 
         tracker.observe(
@@ -562,6 +620,8 @@ class DataPlaneEvidenceCollectorTest {
             proxyEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 9),
             tunEvidence = TunForwardingEvidence(tunWriteBytes = 8),
             tunSupport = TunEvidenceSupport.Supported,
+            proxyGenerationAuthoritative = true,
+            tunGenerationAuthoritative = true,
         )
 
         val messages = tracker.events().map { it.message }
@@ -583,6 +643,8 @@ class DataPlaneEvidenceCollectorTest {
                 ProxyForwardingEvidence(upstreamApplicationBytes = 1),
                 TunForwardingEvidence(tunWriteBytes = 1),
                 TunEvidenceSupport.Supported,
+                proxyGenerationAuthoritative = true,
+                tunGenerationAuthoritative = true,
             )
         }
         assertEquals(16, tracker.events().size)
@@ -731,6 +793,8 @@ class DataPlaneEvidenceCollectorTest {
     private fun runningTelemetrySnapshot(): VpnTelemetrySnapshot =
         emptyTelemetrySnapshot().copy(
             proxyTelemetry = NativeRuntimeSnapshot(source = "proxy", state = "running"),
+            proxyTelemetryStatus = RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot),
             tunnelTelemetry = NativeRuntimeSnapshot(source = "tunnel", state = "running"),
+            tunnelTelemetryStatus = RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot),
         )
 }

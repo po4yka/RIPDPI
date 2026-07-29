@@ -4,6 +4,8 @@ import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -75,6 +77,10 @@ internal class DataPlaneEvidenceCollector(
                 } else {
                     TunEvidenceSupport.Supported
                 },
+            proxyGenerationAuthoritative =
+                snapshot.proxyTelemetry.hasAuthoritativeRunningGeneration(snapshot.proxyTelemetryStatus.state),
+            tunGenerationAuthoritative =
+                snapshot.tunnelTelemetry.hasAuthoritativeRunningGeneration(snapshot.tunnelTelemetryStatus.state),
         )
         if (finalCapture) tracker.finalEvent()
         return replayOnto(snapshot)
@@ -133,8 +139,15 @@ internal class DataPlaneCorrelationTracker(
         proxyEvidence: ProxyForwardingEvidence?,
         tunEvidence: TunForwardingEvidence?,
         tunSupport: TunEvidenceSupport,
+        proxyGenerationAuthoritative: Boolean = false,
+        tunGenerationAuthoritative: Boolean = false,
     ) {
-        beginNextGenerationIfNeeded(proxyEvidence, tunEvidence)
+        beginNextGenerationIfNeeded(
+            proxyEvidence = proxyEvidence,
+            tunEvidence = tunEvidence,
+            proxyGenerationAuthoritative = proxyGenerationAuthoritative,
+            tunGenerationAuthoritative = tunGenerationAuthoritative,
+        )
         recordProxyEvidence(proxyEvidence)
         recordTunEvidence(tunEvidence)
         if (tunSupport == TunEvidenceSupport.Supported) bestTunSupport = tunSupport
@@ -148,9 +161,12 @@ internal class DataPlaneCorrelationTracker(
     private fun beginNextGenerationIfNeeded(
         proxyEvidence: ProxyForwardingEvidence?,
         tunEvidence: TunForwardingEvidence?,
+        proxyGenerationAuthoritative: Boolean,
+        tunGenerationAuthoritative: Boolean,
     ) {
-        val proxyReset = proxyEvidence != null && lastProxyEvidence.hasResetTo(proxyEvidence)
-        val tunReset = tunEvidence != null && lastTunEvidence.hasResetTo(tunEvidence)
+        val proxyReset =
+            proxyGenerationAuthoritative && proxyEvidence != null && lastProxyEvidence.hasResetTo(proxyEvidence)
+        val tunReset = tunGenerationAuthoritative && tunEvidence != null && lastTunEvidence.hasResetTo(tunEvidence)
         if (!proxyReset && !tunReset) return
         beginNextGeneration(
             proxyReset = proxyReset,
@@ -386,6 +402,9 @@ internal enum class DataPlaneCorrelationState(
 }
 
 private fun Long?.orZero(): Long = this ?: 0L
+
+private fun NativeRuntimeSnapshot.hasAuthoritativeRunningGeneration(status: RuntimeTelemetryState): Boolean =
+    status == RuntimeTelemetryState.Snapshot && state == "running"
 
 private fun Long?.safe(): Long = this?.coerceAtLeast(0) ?: 0L
 
