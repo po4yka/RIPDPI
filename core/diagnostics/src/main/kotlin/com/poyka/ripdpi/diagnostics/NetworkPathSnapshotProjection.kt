@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.os.Build
+import androidx.annotation.RequiresApi
 import com.poyka.ripdpi.data.NetworkPathAssociationActiveDefault
 import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
 import com.poyka.ripdpi.data.NetworkPathAssociationUnknown
@@ -109,18 +110,6 @@ private fun projectPathObservation(
     val addresses = linkProperties?.linkAddresses.orEmpty()
     val routes = linkProperties?.routes.orEmpty()
     val dnsServers = linkProperties?.dnsServers.orEmpty()
-    val nat64Present =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            linkProperties?.nat64Prefix != null
-        } else {
-            false
-        }
-    val mtu =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            linkProperties?.mtu
-        } else {
-            null
-        }
     return NetworkPathObservation(
         association = association,
         generation = generation,
@@ -153,13 +142,25 @@ private fun projectPathObservation(
             networkPathCountWasTruncated(addresses.size) ||
                 networkPathCountWasTruncated(routes.size) ||
                 networkPathCountWasTruncated(dnsServers.size),
-        nat64Present = nat64Present,
+        nat64Present = linkProperties.networkPathNat64Present(),
         privateDnsCategory = linkProperties.networkPathPrivateDnsCategory(),
-        mtuBand = networkPathMtuBand(mtu),
+        mtuBand = networkPathMtuBand(linkProperties.networkPathMtu()),
         upstreamBandwidthBand = networkPathBandwidthBand(capabilities.linkUpstreamBandwidthKbps),
         downstreamBandwidthBand = networkPathBandwidthBand(capabilities.linkDownstreamBandwidthKbps),
     )
 }
+
+private fun LinkProperties?.networkPathNat64Present(): Boolean =
+    this != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && nat64PresentOnR()
+
+@RequiresApi(Build.VERSION_CODES.R)
+private fun LinkProperties.nat64PresentOnR(): Boolean = nat64Prefix != null
+
+private fun LinkProperties?.networkPathMtu(): Int? =
+    if (this != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) mtuOnQ() else null
+
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun LinkProperties.mtuOnQ(): Int = mtu
 
 private fun List<InetAddress>.networkPathFamilies(): List<String> =
     mapNotNull { address ->

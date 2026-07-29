@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
 import android.os.Build
+import androidx.annotation.RequiresApi
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -67,32 +68,33 @@ internal class AndroidProcessExitHistorySource
         override fun recentProcessExits(limit: Int): List<ProcessExitHistoryItem> {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
             val activityManager = context.getSystemService(ActivityManager::class.java)
-            return activityManager
-                ?.let { manager ->
-                    runCatching {
-                        val exits = manager.getHistoricalProcessExitReasons(context.packageName, 0, limit)
-                        val identityDiscriminators =
-                            processExitIdentityDiscriminators(exits.map { info -> info.timestamp to info.pid })
-                        exits.mapIndexed { index, info ->
-                            ProcessExitHistoryItem(
-                                timestampMs = info.timestamp,
-                                identityDiscriminator = identityDiscriminators[index],
-                                reason = info.reason,
-                                importance = info.importance,
-                                pssKb = info.pss,
-                                rssKb = info.rss,
-                                memoryLimiterMarkerPresent =
-                                    sdkInt >= DefaultLastExitInspector.AndroidMemoryLimiterApi &&
-                                        info.reason == ApplicationExitInfo.REASON_OTHER &&
-                                        info.description?.contains(DefaultLastExitInspector.DescriptionMarker) == true,
-                            )
-                        }
-                    }.getOrElse { error ->
-                        Logger.w(error) { "Unable to read historical process exit reasons" }
-                        emptyList()
-                    }
-                }.orEmpty()
+            return activityManager?.recentProcessExitsOnR(limit).orEmpty()
         }
+
+        @RequiresApi(Build.VERSION_CODES.R)
+        private fun ActivityManager.recentProcessExitsOnR(limit: Int): List<ProcessExitHistoryItem> =
+            runCatching {
+                val exits = getHistoricalProcessExitReasons(context.packageName, 0, limit)
+                val identityDiscriminators =
+                    processExitIdentityDiscriminators(exits.map { info -> info.timestamp to info.pid })
+                exits.mapIndexed { index, info ->
+                    ProcessExitHistoryItem(
+                        timestampMs = info.timestamp,
+                        identityDiscriminator = identityDiscriminators[index],
+                        reason = info.reason,
+                        importance = info.importance,
+                        pssKb = info.pss,
+                        rssKb = info.rss,
+                        memoryLimiterMarkerPresent =
+                            sdkInt >= DefaultLastExitInspector.AndroidMemoryLimiterApi &&
+                                info.reason == ApplicationExitInfo.REASON_OTHER &&
+                                info.description?.contains(DefaultLastExitInspector.DescriptionMarker) == true,
+                    )
+                }
+            }.getOrElse { error ->
+                Logger.w(error) { "Unable to read historical process exit reasons" }
+                emptyList()
+            }
     }
 
 @Singleton

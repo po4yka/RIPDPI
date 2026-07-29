@@ -38,6 +38,22 @@ class NetworkPathObservationProjectionTest {
     }
 
     @Test
+    @Config(sdk = [29])
+    fun `vpn projection captures mtu before nat64 becomes available`() {
+        val links = LinkProperties().also { it.mtu = 1_280 }
+
+        val observation =
+            projectActiveVpnObservation(
+                capabilities(NetworkCapabilities.TRANSPORT_VPN),
+                links,
+                generation = 1L,
+            )
+
+        assertFalse(requireNotNull(observation.nat64Present))
+        assertEquals("reduced", observation.mtuBand)
+    }
+
+    @Test
     fun `only actual active vpn capabilities produce active default observation`() {
         val nonVpn = projectActiveVpnObservation(capabilities(transport = null), LinkProperties(), generation = 1L)
         assertEquals(NetworkPathAssociationUnknown, nonVpn.association)
