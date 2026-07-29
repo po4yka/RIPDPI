@@ -73,9 +73,11 @@ class FileLogWriter(
         }
     }
 
-    fun readLogSnapshot(): FileLogSnapshot? =
+    fun readLogSnapshot(): FileLogSnapshot? = readLogSnapshotResult().getOrNull()
+
+    fun readLogSnapshotResult(): Result<FileLogSnapshot?> =
         synchronized(lock) {
-            try {
+            runCatching {
                 val totalBytes = listOf(prevLogFile, logFile).filter(File::exists).sumOf(File::length)
                 var remaining = maxFileSize.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 val currentBytes = readUtf8Tail(logFile, remaining)
@@ -94,8 +96,6 @@ class FileLogWriter(
                                     totalBytes > maxFileSize,
                         )
                     }
-            } catch (_: Exception) {
-                null
             }
         }
 

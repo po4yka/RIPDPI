@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -55,9 +56,15 @@ internal class DiagnosticsArchiveSourceLoader
             val contexts =
                 artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit + 1).first()
             val earliestSessionStart = sessions.minOfOrNull { it.startedAt }
-            val logcatCapture = runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
+            val logcatCapture =
+                runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
+                    .onFailure { error -> Logger.w(error) { "Failed to capture diagnostics logcat snapshot" } }
             val logcatSnapshot = logcatCapture.getOrNull()
-            val fileLogSnapshot = runCatching { fileLogWriter.readLogSnapshot() }.getOrNull()
+            val fileLogCapture =
+                fileLogWriter
+                    .readLogSnapshotResult()
+                    .onFailure { error -> Logger.w(error) { "Failed to capture diagnostics app log snapshot" } }
+            val fileLogSnapshot = fileLogCapture.getOrNull()
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
                     scanSessions = sessions,
@@ -68,6 +75,9 @@ internal class DiagnosticsArchiveSourceLoader
                 buildList {
                     logcatCapture.exceptionOrNull()?.let { error ->
                         add("logcat_capture_failed:${error::class.simpleName ?: "unknown"}")
+                    }
+                    fileLogCapture.exceptionOrNull()?.let { error ->
+                        add("app_log_capture_failed:${error::class.simpleName ?: "unknown"}")
                     }
                     if (telemetry.size > DiagnosticsArchiveFormat.telemetryLimit) {
                         add("telemetry_samples_truncated_at_${DiagnosticsArchiveFormat.telemetryLimit}")
