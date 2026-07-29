@@ -159,7 +159,7 @@ class DiagnosticsTimelineSourceTest {
         }
 
     @Test
-    fun `active connection session collects only while subscribed and retains its latest value`() =
+    fun `active connection session resets replay before refreshing a returning subscriber`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = timelineSource(stores, backgroundScope)
@@ -188,21 +188,26 @@ class DiagnosticsTimelineSourceTest {
             collector.cancelAndJoin()
             runCurrent()
             assertEquals(0, stores.usageSessionsCollectorCount.get())
+            assertNull(timelineSource.activeConnectionSession.value)
 
             stores.usageSessionsState.value =
                 listOf(
                     usageSession(id = "connection-next", startedAt = 30L, updatedAt = 40L, finishedAt = null),
                 )
             runCurrent()
-            assertEquals("connection-active", timelineSource.activeConnectionSession.value?.id)
+            assertNull(timelineSource.activeConnectionSession.value)
 
+            val returningEmissions = mutableListOf<String?>()
             val returningCollector =
                 backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                    timelineSource.activeConnectionSession.collect()
+                    timelineSource.activeConnectionSession.collect { session ->
+                        returningEmissions += session?.id
+                    }
                 }
             runCurrent()
 
             assertEquals(1, stores.usageSessionsCollectorCount.get())
+            assertEquals(listOf(null, "connection-next"), returningEmissions)
             assertEquals("connection-next", timelineSource.activeConnectionSession.value?.id)
             returningCollector.cancelAndJoin()
             runCurrent()
@@ -231,10 +236,16 @@ class DiagnosticsTimelineSourceTest {
         }
 
     @Test
-    fun `derived live flow owns active connection subscription`() =
+    fun `derived live flow never queries artifacts for a replayed prior session`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = timelineSource(stores, backgroundScope)
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "connection-old", startedAt = 10L, updatedAt = 20L, finishedAt = null),
+                )
+            stores.telemetryState.value =
+                listOf(telemetrySample(id = "telemetry-old", connectionSessionId = "connection-old"))
             val collector =
                 backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                     timelineSource.liveTelemetry.collect()
@@ -242,10 +253,37 @@ class DiagnosticsTimelineSourceTest {
             runCurrent()
 
             assertEquals(1, stores.usageSessionsCollectorCount.get())
+            assertEquals(listOf("connection-old"), stores.observedTelemetryConnectionSessionIds)
 
             collector.cancelAndJoin()
             runCurrent()
 
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
+            assertNull(timelineSource.activeConnectionSession.value)
+
+            stores.observedTelemetryConnectionSessionIds.clear()
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "connection-next", startedAt = 30L, updatedAt = 40L, finishedAt = null),
+                )
+            stores.telemetryState.value =
+                listOf(telemetrySample(id = "telemetry-next", connectionSessionId = "connection-next"))
+            val returningEmissions = mutableListOf<List<String>>()
+            val returningCollector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    timelineSource.liveTelemetry.collect { telemetry ->
+                        returningEmissions += telemetry.map { it.id }
+                    }
+                }
+            runCurrent()
+
+            assertEquals(listOf("connection-next"), stores.observedTelemetryConnectionSessionIds)
+            assertTrue(returningEmissions.first().isEmpty())
+            assertEquals(listOf("telemetry-next"), returningEmissions.last())
+            assertTrue(returningEmissions.none { ids -> "telemetry-old" in ids })
+
+            returningCollector.cancelAndJoin()
+            runCurrent()
             assertEquals(0, stores.usageSessionsCollectorCount.get())
         }
 

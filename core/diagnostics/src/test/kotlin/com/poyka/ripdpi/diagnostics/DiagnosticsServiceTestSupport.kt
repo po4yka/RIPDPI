@@ -84,6 +84,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Files
 import java.util.Locale
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class FakeAppSettingsRepository(
@@ -155,6 +156,7 @@ internal class FakeDiagnosticsHistoryStores :
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     val usageSessionsCollectorCount = AtomicInteger(0)
+    val observedTelemetryConnectionSessionIds = CopyOnWriteArrayList<String>()
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
@@ -226,10 +228,12 @@ internal class FakeDiagnosticsHistoryStores :
     override fun observeConnectionTelemetry(
         connectionSessionId: String,
         limit: Int,
-    ): Flow<List<TelemetrySampleEntity>> =
-        telemetryState.map { telemetry ->
+    ): Flow<List<TelemetrySampleEntity>> {
+        observedTelemetryConnectionSessionIds += connectionSessionId
+        return telemetryState.map { telemetry ->
             telemetry.filter { it.connectionSessionId == connectionSessionId }.take(limit)
         }
+    }
 
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
 
