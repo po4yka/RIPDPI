@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
+import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
@@ -62,7 +63,9 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
                 lines =
                     stringLines {
                         appendShareIntro(this)
-                        latestSession?.let { appendShareSession(it) }
+                        latestSession?.let { session ->
+                            appendShareSession(this, session, latestReport ?: session.report)
+                        }
                     },
             ),
         reportMetadata =
@@ -131,9 +134,19 @@ private fun DiagnosticsUiFactorySupport.appendShareIntro(builder: StringBuilder)
     builder.appendLine(context.getString(R.string.diagnostics_share_redaction_line))
 }
 
-private fun StringBuilder.appendShareSession(session: DiagnosticScanSession) {
-    appendLine(
-        "Session ${session.id.take(ShareSessionIdPreviewLength)} · ${session.pathMode} · ${session.status}",
+private fun DiagnosticsUiFactorySupport.appendShareSession(
+    builder: StringBuilder,
+    session: DiagnosticScanSession,
+    report: DiagnosticsSessionProjection?,
+) {
+    val presentation = core.completionPresentation(report, session.status, session.summary)
+    val semanticCompletion =
+        when (report?.completionKind) {
+            null, ScanCompletionKind.NORMAL -> presentation.completionLabel
+            ScanCompletionKind.PARTIAL_RESULTS, ScanCompletionKind.TERMINATED -> presentation.summaryLabel
+        }
+    builder.appendLine(
+        "Session ${session.id.take(ShareSessionIdPreviewLength)} · ${session.pathMode} · $semanticCompletion",
     )
 }
 
