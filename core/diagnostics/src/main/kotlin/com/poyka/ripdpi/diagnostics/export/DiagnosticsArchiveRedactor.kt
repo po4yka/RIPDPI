@@ -532,15 +532,16 @@ private val DnsNameRegex =
             "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?[.\\u3002\\uFF0E\\uFF61])+" +
             "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
     )
-private val QuotedStructuredPathRegex =
+private val LogicalLineContentRegex = Regex("[^\\r\\n]+")
+private val KnownAppLogcatPrefixRegex =
     Regex(
-        "((?:\"(?:file|path|filePath)\"\\s*:\\s*|\\b(?:file|path|filePath)\\s*=\\s*))" +
-            "([\"'])(?=(?:/|[A-Z]:\\\\))(?:\\\\.|(?!\\2)[^\\r\\n])*\\2",
+        "^(?:\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+" +
+            "(?:(?:\\d+\\s+){2}[VDIWEF]\\s+(?:ripdpi|ripdpi-native)|" +
+            "[VDIWEF]/(?:ripdpi|ripdpi-native)):\\s*|" +
+            "[VDIWEF]/(?:ripdpi|ripdpi-native)\\(\\s*\\d+\\):\\s*)",
         RegexOption.IGNORE_CASE,
     )
-private val AbsolutePathStartRegex = Regex("(?i)(?<![\\p{L}\\p{N}])(?:/|[A-Z]:\\\\)")
-private val LogicalLineContentRegex = Regex("[^\\r\\n]+")
-private val CanonicalLogcatPrefixRegex = Regex("^$AndroidLogcatLinePrefixPattern", RegexOption.IGNORE_CASE)
+private val SemanticPathKeys = setOf("file", "path", "filepath")
 private val EndpointFieldRegex =
     Regex(
         "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +
@@ -566,14 +567,90 @@ private const val JsonEndpointFieldValuePattern =
 private fun redactDiagnosticsPaths(value: String): String =
     LogicalLineContentRegex.replace(value) { match -> redactDiagnosticsPathLine(match.value) }
 
-// Unquoted and bare absolute paths have no reliable boundary once spaces or punctuation are allowed.
-// Fail closed per logical line, retaining only a canonical Android logcat prefix when present.
+// Ambiguous absolute paths have no reliable boundary once spaces, punctuation, or escape layers are allowed.
+// Fail closed per logical line, retaining only a strict known-app Android logcat prefix when present.
 private fun redactDiagnosticsPathLine(line: String): String {
-    val preciselyRedacted =
-        QuotedStructuredPathRegex.replace(line) { match ->
-            match.groupValues[1] + match.groupValues[2] + "<path-redacted>" + match.groupValues[2]
-        }
-    if (!AbsolutePathStartRegex.containsMatchIn(preciselyRedacted)) return preciselyRedacted
-    val logcatPrefix = CanonicalLogcatPrefixRegex.find(preciselyRedacted)?.value.orEmpty()
+    val semanticRedaction = redactSemanticQuotedPathValues(line)
+    if (!semanticRedaction.malformed && !containsResidualAbsolutePath(semanticRedaction.value)) {
+        return semanticRedaction.value
+    }
+    val logcatPrefix = KnownAppLogcatPrefixRegex.find(line)?.value.orEmpty()
     return logcatPrefix + "<path-redacted>"
 }
+
+private data class SemanticPathRedaction(
+    val value: String,
+    val malformed: Boolean,
+)
+
+private fun redactSemanticQuotedPathValues(line: String): SemanticPathRedaction {
+    val redacted = StringBuilder(line.length)
+    var copiedUntil = 0
+    var searchFrom = 0
+    while (searchFrom < line.length) {
+        val keyStart = line.indexOf('"', searchFrom)
+        val keyEnd = if (keyStart >= 0) findQuotedStringEnd(line, keyStart + 1) else null
+        if (keyStart < 0 || keyEnd == null) {
+            searchFrom = line.length
+        } else {
+            val key = line.substring(keyStart + 1, keyEnd).lowercase()
+            val colon = line.skipWhitespaceFrom(keyEnd + 1)
+            val valueQuote = line.skipWhitespaceFrom(colon + 1)
+            val isSemanticPathValue =
+                key in SemanticPathKeys && line.getOrNull(colon) == ':' && line.getOrNull(valueQuote) == '"'
+            if (isSemanticPathValue) {
+                val valueEnd =
+                    findQuotedStringEnd(line, valueQuote + 1)
+                        ?: return SemanticPathRedaction(line, malformed = true)
+                redacted.append(line, copiedUntil, valueQuote + 1)
+                redacted.append("<path-redacted>")
+                copiedUntil = valueEnd
+                searchFrom = valueEnd + 1
+            } else {
+                searchFrom = keyEnd + 1
+            }
+        }
+    }
+    redacted.append(line, copiedUntil, line.length)
+    return SemanticPathRedaction(redacted.toString(), malformed = false)
+}
+
+private fun findQuotedStringEnd(
+    value: String,
+    start: Int,
+): Int? {
+    var escaped = false
+    for (index in start until value.length) {
+        when {
+            escaped -> escaped = false
+            value[index] == '\\' -> escaped = true
+            value[index] == '"' -> return index
+        }
+    }
+    return null
+}
+
+private fun String.skipWhitespaceFrom(start: Int): Int {
+    var index = start
+    while (index < length && this[index].isWhitespace()) index += 1
+    return index
+}
+
+private fun containsResidualAbsolutePath(line: String): Boolean =
+    line.indices.any { index ->
+        val character = line[index]
+        // A backslash may be a Windows separator, a JSON escape layer, or the introducer for
+        // a case-insensitive Unicode slash/backslash escape. None is safe to preserve verbatim.
+        (character == '/' && line.isPathBoundaryBefore(index)) ||
+            line.hasDrivePathStartAt(index) ||
+            character == '\\'
+    }
+
+private fun String.isPathBoundaryBefore(index: Int): Boolean =
+    index == 0 || (!this[index - 1].isLetterOrDigit() && this[index - 1] != '_')
+
+private fun String.hasDrivePathStartAt(index: Int): Boolean =
+    isPathBoundaryBefore(index) &&
+        getOrNull(index)?.isLetter() == true &&
+        getOrNull(index + 1) == ':' &&
+        (getOrNull(index + 2) == '/' || getOrNull(index + 2) == '\\')

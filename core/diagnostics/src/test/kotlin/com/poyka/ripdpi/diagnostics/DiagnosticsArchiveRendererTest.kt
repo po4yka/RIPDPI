@@ -784,6 +784,23 @@ class DiagnosticsArchiveRendererTest {
             "qzxwvut",
             "UVdFUlRZVVlJT1BB",
             "jkvlmno",
+        ) + hostilePathArchiveValues()
+
+    private fun hostilePathArchiveValues(): List<String> =
+        listOf(
+            "unc-secret.pem",
+            "root-secret.pem",
+            "extended-secret.pem",
+            "extended-unc-secret.pem",
+            "PhysicalDrive0",
+            "nt-secret.pem",
+            "mixed-secret.pem",
+            "escaped-solidus-secret.pem",
+            "escaped-backslash-secret.pem",
+            "unicode-solidus-secret.pem",
+            "unicode-backslash-secret.pem",
+            "nested-unicode-secret.pem",
+            "encoded-drive-secret.pem",
         )
 
     private fun assertZipExcludes(
@@ -899,12 +916,31 @@ class DiagnosticsArchiveRendererTest {
                     "opened /data/private/key.pem successfully before retry; " +
                     "path=/data/foo;status=failed\n" +
                     "json={\"path\":\"/data/private/compact,key.pem\",\"status\":\"ready\"}\n" +
+                    hostileEncodedPathLines() +
+                    "\n" +
                     "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM\n$privateKeyEnd\n" +
                     "YQ==\n$privateKeyEnd\n" +
                     "YWI=\n$certificateEnd",
             policySignature = "host-policy.private.example",
         )
     }
+
+    private fun hostileEncodedPathLines(): String =
+        listOf(
+            "\\\\server\\share\\unc-secret.pem",
+            "\\Users\\Private\\root-secret.pem",
+            "\\\\?\\C:\\Users\\Private\\extended-secret.pem",
+            "\\\\?\\UNC\\server\\share\\extended-unc-secret.pem",
+            "\\\\.\\PhysicalDrive0",
+            "\\??\\C:\\Users\\Private\\nt-secret.pem",
+            "C:/Users\\Private/mixed-secret.pem",
+            "\\/storage\\/emulated\\/0\\/escaped-solidus-secret.pem",
+            """{"detail":"C:\\Users\\Private\\escaped-backslash-secret.pem"}""",
+            """{"detail":"\u002fdata\u002Fprivate\u002funicode-solidus-secret.pem"}""",
+            """{"detail":"\u005cUsers\u005CPrivate\u005cunicode-backslash-secret.pem"}""",
+            """{"detail":"\\u005cUsers\\u005CPrivate\\u005cnested-unicode-secret.pem"}""",
+            """{"detail":"C:\u005cUsers\u005cPrivate\u005cencoded-drive-secret.pem"}""",
+        ).joinToString("\n")
 
     private fun hostileReplayResult(): ReplayProbeResult {
         val privateKeyStart = listOf("-----BEGIN", "PRIVATE KEY-----").joinToString(" ")

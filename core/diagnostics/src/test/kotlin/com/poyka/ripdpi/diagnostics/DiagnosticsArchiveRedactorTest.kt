@@ -358,7 +358,7 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
-    fun `archive path redaction fails closed per ambiguous line and preserves quoted fields`() {
+    fun `archive path redaction fails closed per ambiguous line and preserves valid semantic json fields`() {
         val raw =
             "opened /data/private/key.pem successfully before retry\n" +
                 "path=/data/foo;status=failed\n" +
@@ -371,9 +371,80 @@ class DiagnosticsArchiveRedactorTest {
             "<path-redacted>\n" +
                 "<path-redacted>\n" +
                 "{\"path\":\"<path-redacted>\",\"status\":\"ready\"}\n" +
-                "file='<path-redacted>';status=quoted",
+                "<path-redacted>",
             redacted,
         )
+    }
+
+    @Test
+    fun `archive path redaction covers absolute path spellings and escape layers`() {
+        val pathLines =
+            listOf(
+                "/data/private/unix-secret.pem",
+                "C:\\Users\\Private\\drive-secret.pem",
+                "C:/Users/Private/forward-drive-secret.pem",
+                "\\\\server\\share\\unc-secret.pem",
+                "\\Users\\Private\\root-secret.pem",
+                "\\\\?\\C:\\Users\\Private\\extended-secret.pem",
+                "\\\\?\\UNC\\server\\share\\extended-unc-secret.pem",
+                "\\\\.\\PhysicalDrive0",
+                "\\??\\C:\\Users\\Private\\nt-secret.pem",
+                "C:/Users\\Private/mixed-secret.pem",
+                "\\/storage\\/emulated\\/0\\/escaped-solidus-secret.pem",
+                """{"detail":"C:\\Users\\Private\\escaped-backslash-secret.pem"}""",
+                """{"detail":"\u002fdata\u002Fprivate\u002funicode-solidus-secret.pem"}""",
+                """{"detail":"\u005cUsers\u005CPrivate\u005cunicode-backslash-secret.pem"}""",
+                """{"detail":"\\u005cUsers\\u005CPrivate\\u005cnested-unicode-secret.pem"}""",
+                """{"detail":"C:\u005cUsers\u005cPrivate\u005cencoded-drive-secret.pem"}""",
+            )
+        val raw = pathLines.joinToString("\n")
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals(List(pathLines.size) { "<path-redacted>" }.joinToString("\n"), redacted)
+    }
+
+    @Test
+    fun `archive path redaction scans every semantic quoted path key`() {
+        val raw =
+            """{"file":"/private/file.pem","path":"C:\\Private\\path.pem",""" +
+                """"filePath":"\\\\server\\share\\file-path.pem","status":"ready"}"""
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals(
+            """{"file":"<path-redacted>","path":"<path-redacted>","filePath":"<path-redacted>","status":"ready"}""",
+            redacted,
+        )
+    }
+
+    @Test
+    fun `archive path redaction preserves logical line separators exactly`() {
+        val raw = "/unix-secret\r\nC:\\Users\\drive-secret\r\\\\server\\share\\unc-secret\nsafe"
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals("<path-redacted>\r\n<path-redacted>\r<path-redacted>\nsafe", redacted)
+    }
+
+    @Test
+    fun `archive path redaction retains only strict known app logcat prefixes`() {
+        val raw =
+            "I/RIPDPI( 123): \\Users\\Private\\root-secret.pem\n" +
+                "I/Other( 123): \\Users\\Private\\unknown-tag-secret.pem"
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals("I/RIPDPI( 123): <path-redacted>\n<path-redacted>", redacted)
+    }
+
+    @Test(timeout = 1_000L)
+    fun `archive path redaction handles malformed semantic json in bounded time`() {
+        val raw = "{\"path\":\"C:" + "\\".repeat(4_096)
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals("<path-redacted>", redacted)
     }
 
     @Test
