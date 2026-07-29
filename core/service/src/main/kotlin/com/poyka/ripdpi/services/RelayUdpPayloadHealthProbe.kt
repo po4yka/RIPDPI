@@ -6,10 +6,13 @@ import kotlinx.coroutines.runInterruptible
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ProtocolException
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.util.Locale
 
 data class RelayUdpPayloadHealthEvidence(
@@ -155,6 +158,7 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
     private val targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     private val timeoutMillis: Int,
     private val payloadSizesBytes: List<Int>,
+    private val queryFactory: (Int) -> ByteArray = ::sizedDnsQuery,
 ) : RelayUdpPayloadHealthProbe {
     constructor() : this(
         targets =
@@ -179,11 +183,12 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
             runInterruptible(Dispatchers.IO) { probeBlocking(endpoint, families) }
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: SocketTimeoutException) {
+            controlFailedHealthEvidence(families)
+        } catch (interrupted: InterruptedIOException) {
+            throw interrupted
         } catch (_: IOException) {
-            RelayUdpPayloadHealthEvidence(
-                overallVerdict = RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue,
-                families = families.sortedBy(RelayUdpPayloadFamily::wireValue).map(::controlFailedEvidence),
-            )
+            controlFailedHealthEvidence(families)
         }
 
     private fun probeBlocking(
@@ -195,17 +200,30 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
                 .sortedBy(RelayUdpPayloadFamily::wireValue)
                 .map { family ->
                     val target = targets[family] ?: return@map notAttemptedEvidence(family)
-                    runCatching {
-                        probeFamily(endpoint, family, target)
-                    }.getOrElse {
-                        controlFailedEvidence(family)
-                    }
+                    probeFamilyOrControlFailure(endpoint, family, target)
                 }
         return RelayUdpPayloadHealthEvidence(
             overallVerdict = overallVerdict(familyResults),
             families = familyResults,
         )
     }
+
+    private fun probeFamilyOrControlFailure(
+        endpoint: RelayProbeEndpoint,
+        family: RelayUdpPayloadFamily,
+        target: InetSocketAddress,
+    ): RelayUdpPayloadFamilyHealthEvidence =
+        try {
+            probeFamily(endpoint, family, target)
+        } catch (_: SocketTimeoutException) {
+            controlFailedEvidence(family)
+        } catch (interrupted: InterruptedIOException) {
+            throw interrupted
+        } catch (_: ProtocolException) {
+            controlFailedEvidence(family)
+        } catch (_: IOException) {
+            controlFailedEvidence(family)
+        }
 
     private fun probeFamily(
         endpoint: RelayProbeEndpoint,
@@ -282,7 +300,7 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
             udp = udp,
             udpRelay = udpRelay,
             target = target,
-            query = sizedDnsQuery(payloadSizeBytes),
+            query = queryFactory(payloadSizeBytes),
             timeoutMillis = timeoutMillis,
         )
 }
@@ -350,6 +368,12 @@ private fun controlFailedEvidence(family: RelayUdpPayloadFamily): RelayUdpPayloa
             attempts = emptyList(),
             postControlAcknowledged = null,
         ),
+    )
+
+private fun controlFailedHealthEvidence(families: Set<RelayUdpPayloadFamily>): RelayUdpPayloadHealthEvidence =
+    RelayUdpPayloadHealthEvidence(
+        overallVerdict = RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue,
+        families = families.sortedBy(RelayUdpPayloadFamily::wireValue).map(::controlFailedEvidence),
     )
 
 private fun notAttemptedEvidence(family: RelayUdpPayloadFamily): RelayUdpPayloadFamilyHealthEvidence =

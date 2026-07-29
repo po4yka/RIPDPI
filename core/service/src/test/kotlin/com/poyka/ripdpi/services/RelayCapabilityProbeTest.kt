@@ -8,10 +8,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ProtocolException
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
@@ -256,6 +259,73 @@ class RelayCapabilityProbeTest {
     }
 }
 
+class RelayUdpPayloadFailureBoundaryTest {
+    @Test
+    fun `payload probe converts expected IO and protocol failures to evidence`() {
+        listOf(
+            IOException("expected IO failure"),
+            ProtocolException("expected protocol failure"),
+            SocketTimeoutException("expected timeout"),
+        ).forEach(::assertConvertedToControlFailure)
+    }
+
+    @Test
+    fun `payload probe propagates cancellation interruption errors and programming bugs`() {
+        listOf(
+            kotlinx.coroutines.CancellationException("cancelled"),
+            InterruptedException("interrupted"),
+            InterruptedIOException("interrupted IO"),
+            AssertionError("broken invariant"),
+            IllegalStateException("programming bug"),
+        ).forEach(::assertPropagated)
+    }
+
+    private fun assertConvertedToControlFailure(failure: Throwable) {
+        SocksUdpFixture(Behavior.PayloadLadder).use { fixture ->
+            val result =
+                runBlocking {
+                    fixture
+                        .payloadProbeWithQueryFactory { throw failure }
+                        .probe(
+                            endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
+                            families = setOf(RelayUdpPayloadFamily.Ipv4),
+                        )
+                }
+
+            val family = result.families.single()
+            assertEquals(RelayUdpPayloadControlOutcome.Failed.wireValue, family.controlBefore)
+            assertEquals(RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue, family.verdict)
+        }
+    }
+
+    private fun assertPropagated(failure: Throwable) {
+        SocksUdpFixture(Behavior.PayloadLadder).use { fixture ->
+            val thrown =
+                try {
+                    runBlocking {
+                        fixture
+                            .payloadProbeWithQueryFactory { throw failure }
+                            .probe(
+                                endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
+                                families = setOf(RelayUdpPayloadFamily.Ipv4),
+                            )
+                    }
+                    null
+                } catch (caught: Throwable) {
+                    caught
+                }
+
+            checkNotNull(thrown)
+            if (failure is InterruptedException) {
+                assertTrue(thrown is kotlinx.coroutines.CancellationException)
+            } else {
+                assertEquals(failure.javaClass, thrown.javaClass)
+                assertEquals(failure.message, thrown.message)
+            }
+        }
+    }
+}
+
 private enum class Behavior {
     Respond,
     Blackhole,
@@ -283,12 +353,7 @@ private class SocksUdpFixture(
         )
     val payloadProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            targets =
-                mapOf(
-                    RelayUdpPayloadFamily.Ipv4 to InetSocketAddress("203.0.113.53", 53),
-                    RelayUdpPayloadFamily.Ipv6 to
-                        InetSocketAddress(InetAddress.getByName("2001:db8::53"), 53),
-                ),
+            targets = payloadTargets(),
             timeoutMillis = 500,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
         )
@@ -373,6 +438,14 @@ private class SocksUdpFixture(
 
     fun addressTypes(): List<Int> = requests.map(UdpFixtureRequest::addressType)
 
+    fun payloadProbeWithQueryFactory(queryFactory: (Int) -> ByteArray): RelayUdpPayloadHealthProbe =
+        Socks5DnsUdpPayloadHealthProbe(
+            targets = payloadTargets(),
+            timeoutMillis = 500,
+            payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
+            queryFactory = queryFactory,
+        )
+
     private fun shouldRespond(
         requestIndex: Int,
         payloadSize: Int,
@@ -385,6 +458,12 @@ private class SocksUdpFixture(
             Behavior.PayloadLadder -> !(failPreControl && requestIndex == 0) && payloadSize <= payloadAckMaxBytes
         }
 }
+
+private fun payloadTargets(): Map<RelayUdpPayloadFamily, InetSocketAddress> =
+    mapOf(
+        RelayUdpPayloadFamily.Ipv4 to InetSocketAddress("203.0.113.53", 53),
+        RelayUdpPayloadFamily.Ipv6 to InetSocketAddress(InetAddress.getByName("2001:db8::53"), 53),
+    )
 
 private data class UdpFixtureRequest(
     val addressType: Int,
