@@ -342,6 +342,10 @@ class DiagnosticsArchiveSessionSelector
                     DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE
                 }
 
+                isComposite && primarySession == null -> {
+                    DiagnosticsArchiveSessionSelectionStatus.UNAVAILABLE
+                }
+
                 isComposite -> {
                     DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
                 }

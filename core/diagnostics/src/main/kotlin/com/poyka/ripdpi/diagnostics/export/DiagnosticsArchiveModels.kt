@@ -203,6 +203,9 @@ internal enum class DiagnosticsArchiveSessionSelectionStatus {
     @SerialName("latest_live_state")
     LATEST_LIVE_STATE,
 
+    @SerialName("unavailable")
+    UNAVAILABLE,
+
     @SerialName("support_bundle")
     SUPPORT_BUNDLE,
 }

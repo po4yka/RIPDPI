@@ -216,22 +216,33 @@ internal class DefaultDiagnosticsArchiveExporter
                     sessions = sourceData.sessions,
                 )
             }
-            val primarySessionId =
-                outcome.recommendedSessionId
-                    ?: outcome.stageSummaries
-                        .firstOrNull { stage ->
-                            stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED && stage.sessionId != null
-                        }?.sessionId
-            require(primarySessionId != null || !outcome.actionable) {
+            val recommendedSessionId = outcome.recommendedSessionId
+            require(recommendedSessionId != null || !outcome.actionable) {
                 "Actionable home diagnostics run has no recommended session: ${outcome.runId}"
             }
-            return primarySessionId?.let { sessionId ->
-                require(sessionId in outcome.bundleSessionIds) {
-                    "Primary session is outside the completed home diagnostics run: $sessionId"
+            return if (recommendedSessionId != null) {
+                require(
+                    outcome.stageSummaries.any { stage ->
+                        stage.sessionId == recommendedSessionId &&
+                            stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED
+                    },
+                ) {
+                    "Recommended session does not belong to a completed home diagnostics stage: $recommendedSessionId"
                 }
-                requireNotNull(compositeSessions.firstOrNull { it.id == sessionId }) {
-                    "Primary home diagnostics session is unavailable: $sessionId"
+                require(recommendedSessionId in outcome.bundleSessionIds) {
+                    "Primary session is outside the completed home diagnostics run: $recommendedSessionId"
                 }
+                requireNotNull(compositeSessions.firstOrNull { it.id == recommendedSessionId }) {
+                    "Primary home diagnostics session is unavailable: $recommendedSessionId"
+                }
+            } else {
+                outcome.stageSummaries
+                    .asSequence()
+                    .filter { stage -> stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED }
+                    .mapNotNull { stage -> stage.sessionId }
+                    .filter { sessionId -> sessionId in outcome.bundleSessionIds }
+                    .mapNotNull { sessionId -> compositeSessions.firstOrNull { it.id == sessionId } }
+                    .firstOrNull()
             }
         }
 

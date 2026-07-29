@@ -194,7 +194,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             ?: LogcatSnapshotCollector.AppVisibleSnapshotScope
                     add("logcatCaptureScope=$logcatScope")
                     add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
-                    add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
+                    add("selectedSession=${selection.selectedSessionLabel()}")
                     selection.homeRunId?.let { add("homeRunId=$it") }
                     selection.homeCompositeOutcome?.recommendedSessionId?.let { add("recommendedSession=$it") }
                     selection.homeCompositeOutcome?.let { outcome ->
@@ -239,6 +239,14 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 },
         )
     }
+
+    private fun DiagnosticsArchiveSelection.selectedSessionLabel(): String =
+        primarySession?.id
+            ?: if (sessionSelectionStatus == DiagnosticsArchiveSessionSelectionStatus.UNAVAILABLE) {
+                "unavailable"
+            } else {
+                "latest-live"
+            }
 
     internal fun buildCompositeEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> {
         val outcome = selection.homeCompositeOutcome ?: return emptyList()

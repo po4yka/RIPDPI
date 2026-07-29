@@ -51,6 +51,103 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
         stores: FakeDiagnosticsHistoryStores,
         session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
     ) = seedSingleSessionStoreForArchiveTest(stores, session, json)
+
+    protected suspend fun seedCompositeSessionStores(stores: FakeDiagnosticsHistoryStores) {
+        val auditSession =
+            diagnosticsSession(
+                id = "audit-session",
+                profileId = "automatic-audit",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "Audit complete",
+            ).copy(serviceMode = "vpn")
+        val defaultSession =
+            diagnosticsSession(
+                id = "default-session",
+                profileId = "default",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "Default diagnostics complete",
+            ).copy(serviceMode = "vpn")
+        val dpiSession =
+            diagnosticsSession(
+                id = "dpi-session",
+                profileId = "ru-dpi-full",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "DPI full diagnostics complete",
+            ).copy(serviceMode = "vpn")
+        stores.sessionsState.value = listOf(auditSession, defaultSession, dpiSession)
+        stores.replaceProbeResults("audit-session", listOf(probeResultEntity("audit-session", "blocked.example")))
+        stores.replaceProbeResults("default-session", listOf(probeResultEntity("default-session", "default.example")))
+        stores.replaceProbeResults("dpi-session", listOf(probeResultEntity("dpi-session", "dpi.example")))
+    }
+
+    protected fun buildSampleCompositeOutcome(): DiagnosticsHomeCompositeOutcome =
+        DiagnosticsHomeCompositeOutcome(
+            runId = "home-run-1",
+            fingerprintHash = "fp-home",
+            actionable = true,
+            headline = "Analysis complete and settings applied",
+            summary = "Composite diagnostics finished.",
+            recommendationSummary = "TCP split + QUIC fake",
+            confidenceSummary = "Confidence high",
+            coverageSummary = "Coverage 92%",
+            appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
+            recommendedSessionId = "audit-session",
+            stageSummaries =
+                listOf(
+                    DiagnosticsHomeCompositeStageSummary(
+                        stageKey = "automatic_audit",
+                        stageLabel = "Automatic audit",
+                        profileId = "automatic-audit",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        sessionId = "audit-session",
+                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                        headline = "Audit complete",
+                        summary = "Found a reusable recommendation.",
+                        recommendationContributor = true,
+                    ),
+                    DiagnosticsHomeCompositeStageSummary(
+                        stageKey = "default_connectivity",
+                        stageLabel = "Default diagnostics",
+                        profileId = "default",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        sessionId = "default-session",
+                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                        headline = "Default diagnostics complete",
+                        summary = "General connectivity checks passed.",
+                    ),
+                    DiagnosticsHomeCompositeStageSummary(
+                        stageKey = "dpi_full",
+                        stageLabel = "DPI detector full",
+                        profileId = "ru-dpi-full",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        sessionId = "dpi-session",
+                        status = DiagnosticsHomeCompositeStageStatus.FAILED,
+                        headline = "DPI full partial failure",
+                        summary = "Some extended checks were unavailable.",
+                    ),
+                ),
+            completedStageCount = 2,
+            failedStageCount = 1,
+            skippedStageCount = 0,
+            bundleSessionIds = listOf("audit-session", "default-session", "dpi-session"),
+            connectivityAssessment =
+                ConnectivityAssessment(
+                    assessmentCode = ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING,
+                    assessmentSummary = "Controls passed while blocked targets failed on raw path.",
+                    confidence = "high",
+                    rawPathEvidence =
+                        ConnectivityEvidence(
+                            sessionIds = listOf("default-session", "dpi-session"),
+                            controls = listOf("cloudflare.com", "www.google.com"),
+                            affectedTargets = listOf("www.youtube.com", "telegram.org"),
+                            controlSuccessCount = 2,
+                            affectedTargetFailureCount = 2,
+                        ),
+                    controlOutcome = "raw_controls_passed",
+                    affectedTargets = listOf("www.youtube.com", "telegram.org"),
+                    recommendedNextAction = "Treat this as a direct-network blocking issue.",
+                ),
+        )
 }
 
 internal class ArchiveCompositeRunService : DiagnosticsHomeCompositeRunService {
@@ -646,6 +743,67 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         }
 
     @Test
+    fun `createArchive skips purged completed stage when choosing home primary`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            stores.sessionsState.value = stores.sessionsState.value.filterNot { it.id == "audit-session" }
+            val outcome = nonActionableCompositeOutcome(runId = "home-purged-first-stage")
+            compositeRunService.putCompletedRun(outcome)
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 29L,
+                    ),
+                )
+
+            assertEquals("default-session", archive.sessionId)
+        }
+
+    @Test
+    fun `createArchive reports unavailable when home run has no available completed session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val baseOutcome = nonActionableCompositeOutcome(runId = "home-no-available-stage")
+            val outcome =
+                baseOutcome.copy(
+                    stageSummaries =
+                        baseOutcome.stageSummaries.map { stage ->
+                            stage.copy(status = DiagnosticsHomeCompositeStageStatus.FAILED)
+                        },
+                )
+            compositeRunService.putCompletedRun(outcome)
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 29L,
+                    ),
+                )
+
+            assertNull(archive.sessionId)
+            ZipFile(archive.absolutePath).use { zip ->
+                val manifest =
+                    json.decodeFromString(
+                        DiagnosticsArchiveManifest.serializer(),
+                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+                    )
+                val summary = zip.getInputStream(zip.getEntry("summary.txt")).bufferedReader().readText()
+                assertEquals(DiagnosticsArchiveSessionSelectionStatus.UNAVAILABLE, manifest.sessionSelectionStatus)
+                assertNull(manifest.includedSessionId)
+                assertTrue(summary.contains("selectedSession=unavailable"))
+                assertFalse(summary.contains("selectedSession=latest-live"))
+            }
+        }
+
+    @Test
     fun `createArchive rejects home analysis with an invalid bundled recommendation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -653,6 +811,17 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             val exporter = createArchiveExporter(stores)
 
             listOf(
+                buildSampleCompositeOutcome().copy(
+                    runId = "home-failed-recommendation",
+                    stageSummaries =
+                        buildSampleCompositeOutcome().stageSummaries.map { stage ->
+                            if (stage.sessionId == "audit-session") {
+                                stage.copy(status = DiagnosticsHomeCompositeStageStatus.FAILED)
+                            } else {
+                                stage
+                            }
+                        },
+                ),
                 buildSampleCompositeOutcome().copy(
                     runId = "home-external-recommendation",
                     recommendedSessionId = "external-session",
@@ -681,101 +850,15 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             assertTrue(stores.exportsState.value.isEmpty())
         }
 
-    private suspend fun seedCompositeSessionStores(stores: FakeDiagnosticsHistoryStores) {
-        val auditSession =
-            diagnosticsSession(
-                id = "audit-session",
-                profileId = "automatic-audit",
-                pathMode = ScanPathMode.RAW_PATH.name,
-                summary = "Audit complete",
-            ).copy(serviceMode = "vpn")
-        val defaultSession =
-            diagnosticsSession(
-                id = "default-session",
-                profileId = "default",
-                pathMode = ScanPathMode.RAW_PATH.name,
-                summary = "Default diagnostics complete",
-            ).copy(serviceMode = "vpn")
-        val dpiSession =
-            diagnosticsSession(
-                id = "dpi-session",
-                profileId = "ru-dpi-full",
-                pathMode = ScanPathMode.RAW_PATH.name,
-                summary = "DPI full diagnostics complete",
-            ).copy(serviceMode = "vpn")
-        stores.sessionsState.value = listOf(auditSession, defaultSession, dpiSession)
-        stores.replaceProbeResults("audit-session", listOf(probeResultEntity("audit-session", "blocked.example")))
-        stores.replaceProbeResults("default-session", listOf(probeResultEntity("default-session", "default.example")))
-        stores.replaceProbeResults("dpi-session", listOf(probeResultEntity("dpi-session", "dpi.example")))
-    }
-
-    private fun buildSampleCompositeOutcome(): DiagnosticsHomeCompositeOutcome =
-        DiagnosticsHomeCompositeOutcome(
-            runId = "home-run-1",
-            fingerprintHash = "fp-home",
-            actionable = true,
-            headline = "Analysis complete and settings applied",
-            summary = "Composite diagnostics finished.",
-            recommendationSummary = "TCP split + QUIC fake",
-            confidenceSummary = "Confidence high",
-            coverageSummary = "Coverage 92%",
-            appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
-            recommendedSessionId = "audit-session",
+    private fun nonActionableCompositeOutcome(runId: String): DiagnosticsHomeCompositeOutcome =
+        buildSampleCompositeOutcome().copy(
+            runId = runId,
+            actionable = false,
+            recommendedSessionId = null,
             stageSummaries =
-                listOf(
-                    DiagnosticsHomeCompositeStageSummary(
-                        stageKey = "automatic_audit",
-                        stageLabel = "Automatic audit",
-                        profileId = "automatic-audit",
-                        pathMode = ScanPathMode.RAW_PATH,
-                        sessionId = "audit-session",
-                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                        headline = "Audit complete",
-                        summary = "Found a reusable recommendation.",
-                        recommendationContributor = true,
-                    ),
-                    DiagnosticsHomeCompositeStageSummary(
-                        stageKey = "default_connectivity",
-                        stageLabel = "Default diagnostics",
-                        profileId = "default",
-                        pathMode = ScanPathMode.RAW_PATH,
-                        sessionId = "default-session",
-                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                        headline = "Default diagnostics complete",
-                        summary = "General connectivity checks passed.",
-                    ),
-                    DiagnosticsHomeCompositeStageSummary(
-                        stageKey = "dpi_full",
-                        stageLabel = "DPI detector full",
-                        profileId = "ru-dpi-full",
-                        pathMode = ScanPathMode.RAW_PATH,
-                        sessionId = "dpi-session",
-                        status = DiagnosticsHomeCompositeStageStatus.FAILED,
-                        headline = "DPI full partial failure",
-                        summary = "Some extended checks were unavailable.",
-                    ),
-                ),
-            completedStageCount = 2,
-            failedStageCount = 1,
-            skippedStageCount = 0,
-            bundleSessionIds = listOf("audit-session", "default-session", "dpi-session"),
-            connectivityAssessment =
-                ConnectivityAssessment(
-                    assessmentCode = ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING,
-                    assessmentSummary = "Controls passed while blocked targets failed on raw path.",
-                    confidence = "high",
-                    rawPathEvidence =
-                        ConnectivityEvidence(
-                            sessionIds = listOf("default-session", "dpi-session"),
-                            controls = listOf("cloudflare.com", "www.google.com"),
-                            affectedTargets = listOf("www.youtube.com", "telegram.org"),
-                            controlSuccessCount = 2,
-                            affectedTargetFailureCount = 2,
-                        ),
-                    controlOutcome = "raw_controls_passed",
-                    affectedTargets = listOf("www.youtube.com", "telegram.org"),
-                    recommendedNextAction = "Treat this as a direct-network blocking issue.",
-                ),
+                buildSampleCompositeOutcome().stageSummaries.map { stage ->
+                    stage.copy(recommendationContributor = false)
+                },
         )
 
     private fun assertCompositeArchiveContents(
