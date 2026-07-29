@@ -48,6 +48,7 @@ internal object DeveloperAnalyticsAllowListFilter {
     private val nativeRuntimeKeys = setOf("openFileDescriptors", "threadCount", "virtualMemoryKb", "residentSetKb")
     private val allowedConfigKeys =
         setOf(
+            "desyncMode",
             "dnsMode",
             "fullTunnelMode",
             "entropyMode",

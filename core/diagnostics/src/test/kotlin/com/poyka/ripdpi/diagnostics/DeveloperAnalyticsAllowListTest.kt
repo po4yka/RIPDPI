@@ -227,13 +227,23 @@ class DeveloperAnalyticsAllowListTest {
             )
         }
 
-        (obj["effectiveConfigDiff"] as? JsonArray)?.forEach { element ->
+        val configDiff = obj["effectiveConfigDiff"] as? JsonArray
+        configDiff?.forEach { element ->
             val key = runCatching { element.jsonObject["key"]?.jsonPrimitive?.content }.getOrNull()
             assertFalse(
                 "effectiveConfigDiff must not contain denied key '$key'",
                 key in setOf("rootModeEnabled", "enableCmdSettings"),
             )
         }
+        assertTrue(
+            "effectiveConfigDiff must retain allowed desyncMode evidence",
+            configDiff
+                ?.map { element -> element.jsonObject }
+                ?.any { entry ->
+                    entry["key"]?.jsonPrimitive?.content == "desyncMode" &&
+                        entry["actualValue"]?.jsonPrimitive?.content == "manual"
+                } == true,
+        )
     }
 
     private fun assertNetworkSnapshotProjection(obj: JsonObject) {
