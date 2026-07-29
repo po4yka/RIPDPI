@@ -2,12 +2,14 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsContext
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsSource
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -50,41 +52,56 @@ internal class DefaultDiagnosticsArchiveExporter
                 val target = fileStore.createTarget()
                 val developerAnalytics = collectDeveloperAnalytics(selection, target)
                 var exportRecordId: String? = null
-                try {
+                runCatching {
                     zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
                     val recordId = idGenerator.nextId()
                     exportRecordId = recordId
-                    exportRecordStore.insertExportRecord(
-                        ExportRecordEntity(
-                            id = recordId,
-                            sessionId = selection.primarySession?.id,
-                            uri = target.file.absolutePath,
-                            fileName = target.fileName,
-                            createdAt = target.createdAt,
-                        ),
-                    )
+                    exportRecordStore.insertExportRecord(target.toExportRecord(recordId, selection.primarySession?.id))
                     reconcileCache(reservedSlots = 0)
-                    DiagnosticsArchive(
-                        fileName = target.fileName,
-                        absolutePath = target.file.absolutePath,
-                        sessionId = selection.primarySession?.id,
-                        createdAt = target.createdAt,
-                        scope = DiagnosticsArchiveFormat.scope,
-                        schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                        privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                    )
-                } catch (error: Throwable) {
-                    runCatching { fileStore.deleteArchive(target.file) }
-                        .exceptionOrNull()
-                        ?.let(error::addSuppressed)
-                    exportRecordId?.let { recordId ->
-                        runCatching { exportRecordStore.deleteExportRecords(listOf(recordId)) }
-                            .exceptionOrNull()
-                            ?.let(error::addSuppressed)
-                    }
-                    throw error
+                    target.toArchive(selection.primarySession?.id)
+                }.getOrElse { error ->
+                    rollbackArchive(target, exportRecordId, error)
                 }
             }
+
+        private fun DiagnosticsArchiveTarget.toExportRecord(
+            recordId: String,
+            sessionId: String?,
+        ): ExportRecordEntity =
+            ExportRecordEntity(
+                id = recordId,
+                sessionId = sessionId,
+                uri = file.absolutePath,
+                fileName = fileName,
+                createdAt = createdAt,
+            )
+
+        private fun DiagnosticsArchiveTarget.toArchive(sessionId: String?): DiagnosticsArchive =
+            DiagnosticsArchive(
+                fileName = fileName,
+                absolutePath = file.absolutePath,
+                sessionId = sessionId,
+                createdAt = createdAt,
+                scope = DiagnosticsArchiveFormat.scope,
+                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                privacyMode = DiagnosticsArchiveFormat.privacyMode,
+            )
+
+        private suspend fun rollbackArchive(
+            target: DiagnosticsArchiveTarget,
+            exportRecordId: String?,
+            error: Throwable,
+        ): Nothing {
+            runCatching { fileStore.deleteArchive(target.file) }
+                .exceptionOrNull()
+                ?.let(error::addSuppressed)
+            exportRecordId?.let { recordId ->
+                runCatching { exportRecordStore.deleteExportRecords(listOf(recordId)) }
+                    .exceptionOrNull()
+                    ?.let(error::addSuppressed)
+            }
+            throw error
+        }
 
         private suspend fun reconcileCache(reservedSlots: Int) {
             var cleanupFailure: Throwable? = null
@@ -115,77 +132,13 @@ internal class DefaultDiagnosticsArchiveExporter
 
         private suspend fun buildArchiveSelection(request: DiagnosticsArchiveRequest): DiagnosticsArchiveSelection {
             val sourceData = sourceLoader.load()
-            val compositeOutcome =
-                request.homeRunId?.let { runId ->
-                    requireNotNull(sourceLoader.getCompletedHomeRun(runId)) {
-                        "Requested completed home diagnostics run is unavailable: $runId"
-                    }
-                }
-            compositeOutcome?.stageSummaries?.let { stages ->
-                val stageKeys = stages.map { it.stageKey }
-                require(stageKeys.distinct().size == stageKeys.size) {
-                    "Completed home diagnostics run contains duplicate stage keys"
-                }
-                require(stageKeys.all { it.matches(ArchiveStageKeyRegex) }) {
-                    "Completed home diagnostics run contains an unsafe stage key"
-                }
-            }
-            val compositeSessionIds =
-                if (compositeOutcome != null) {
-                    require(request.requestedSessionId == null) {
-                        "Home diagnostics archive cannot select a caller-provided primary session"
-                    }
-                    val unexpectedSessionIds = request.sessionIds - compositeOutcome.bundleSessionIds.toSet()
-                    require(unexpectedSessionIds.isEmpty()) {
-                        "Home diagnostics archive contains session IDs outside the completed run: " +
-                            unexpectedSessionIds.joinToString()
-                    }
-                    compositeOutcome.bundleSessionIds.distinct()
-                } else {
-                    emptyList()
-                }
-            val compositeSessions =
-                if (compositeOutcome != null) {
-                    sourceLoader.getScanSessions(compositeSessionIds)
-                } else {
-                    emptyList()
-                }
-            val requestedSession = request.requestedSessionId?.let { sourceLoader.getScanSession(it) }
-            val primarySession =
-                if (compositeOutcome != null) {
-                    val recommendedId =
-                        requireNotNull(compositeOutcome.recommendedSessionId) {
-                            "Completed home diagnostics run has no recommended session: ${compositeOutcome.runId}"
-                        }
-                    require(recommendedId in compositeOutcome.bundleSessionIds) {
-                        "Recommended session is outside the completed home diagnostics run: $recommendedId"
-                    }
-                    requireNotNull(compositeSessions.firstOrNull { it.id == recommendedId }) {
-                        "Recommended home diagnostics session is unavailable: $recommendedId"
-                    }
-                } else {
-                    sessionSelector.selectPrimarySession(
-                        requestedSessionId = request.requestedSessionId,
-                        requestedSession = requestedSession,
-                        sessions = sourceData.sessions,
-                    )
-                }
+            val compositeOutcome = loadCompositeOutcome(request)
+            val compositeSessions = loadCompositeSessions(request, compositeOutcome)
+            val primarySession = selectPrimarySession(request, sourceData, compositeOutcome, compositeSessions)
             val primaryResults = primarySession?.id?.let { sourceLoader.getProbeResults(it) }.orEmpty()
             val selectedSessionIds =
                 (listOfNotNull(primarySession?.id) + compositeSessions.map { it.id }).distinct()
-            val selectionSourceData =
-                sourceData.copy(
-                    snapshots =
-                        mergeArchiveArtifacts(
-                            sourceData.snapshots,
-                            selectedSessionIds.flatMap { sessionId -> sourceLoader.getSnapshots(sessionId) },
-                        ) { it.id },
-                    contexts =
-                        mergeArchiveArtifacts(
-                            sourceData.contexts,
-                            selectedSessionIds.flatMap { sessionId -> sourceLoader.getContexts(sessionId) },
-                        ) { it.id },
-                )
+            val selectionSourceData = hydrateSelectedArtifacts(sourceData, selectedSessionIds)
             val selection =
                 sessionSelector
                     .buildSelection(
@@ -201,13 +154,93 @@ internal class DefaultDiagnosticsArchiveExporter
                             sourceLoader.getStageTelemetry(session, connectionSessionIds)
                         },
                     )
-            val pcapFiles = emptyList<java.io.File>()
+            return finalizeSelection(selection)
+        }
+
+        private suspend fun loadCompositeOutcome(
+            request: DiagnosticsArchiveRequest,
+        ): DiagnosticsHomeCompositeOutcome? =
+            request.homeRunId?.let { runId ->
+                requireNotNull(sourceLoader.getCompletedHomeRun(runId)) {
+                    "Requested completed home diagnostics run is unavailable: $runId"
+                }.also(::validateCompositeStageKeys)
+            }
+
+        private fun validateCompositeStageKeys(outcome: DiagnosticsHomeCompositeOutcome) {
+            val stageKeys = outcome.stageSummaries.map { it.stageKey }
+            require(stageKeys.distinct().size == stageKeys.size) {
+                "Completed home diagnostics run contains duplicate stage keys"
+            }
+            require(stageKeys.all { it.matches(ArchiveStageKeyRegex) }) {
+                "Completed home diagnostics run contains an unsafe stage key"
+            }
+        }
+
+        private suspend fun loadCompositeSessions(
+            request: DiagnosticsArchiveRequest,
+            outcome: DiagnosticsHomeCompositeOutcome?,
+        ): List<ScanSessionEntity> {
+            if (outcome == null) return emptyList()
+            require(request.requestedSessionId == null) {
+                "Home diagnostics archive cannot select a caller-provided primary session"
+            }
+            val unexpectedSessionIds = request.sessionIds - outcome.bundleSessionIds.toSet()
+            require(unexpectedSessionIds.isEmpty()) {
+                "Home diagnostics archive contains session IDs outside the completed run: " +
+                    unexpectedSessionIds.joinToString()
+            }
+            return sourceLoader.getScanSessions(outcome.bundleSessionIds.distinct())
+        }
+
+        private suspend fun selectPrimarySession(
+            request: DiagnosticsArchiveRequest,
+            sourceData: DiagnosticsArchiveSourceData,
+            outcome: DiagnosticsHomeCompositeOutcome?,
+            compositeSessions: List<ScanSessionEntity>,
+        ): ScanSessionEntity? {
+            if (outcome == null) {
+                return sessionSelector.selectPrimarySession(
+                    requestedSessionId = request.requestedSessionId,
+                    requestedSession = request.requestedSessionId?.let { sourceLoader.getScanSession(it) },
+                    sessions = sourceData.sessions,
+                )
+            }
+            val recommendedId =
+                requireNotNull(outcome.recommendedSessionId) {
+                    "Completed home diagnostics run has no recommended session: ${outcome.runId}"
+                }
+            require(recommendedId in outcome.bundleSessionIds) {
+                "Recommended session is outside the completed home diagnostics run: $recommendedId"
+            }
+            return requireNotNull(compositeSessions.firstOrNull { it.id == recommendedId }) {
+                "Recommended home diagnostics session is unavailable: $recommendedId"
+            }
+        }
+
+        private suspend fun hydrateSelectedArtifacts(
+            sourceData: DiagnosticsArchiveSourceData,
+            selectedSessionIds: List<String>,
+        ): DiagnosticsArchiveSourceData =
+            sourceData.copy(
+                snapshots =
+                    mergeArchiveArtifacts(
+                        sourceData.snapshots,
+                        selectedSessionIds.flatMap { sessionId -> sourceLoader.getSnapshots(sessionId) },
+                    ) { it.id },
+                contexts =
+                    mergeArchiveArtifacts(
+                        sourceData.contexts,
+                        selectedSessionIds.flatMap { sessionId -> sourceLoader.getContexts(sessionId) },
+                    ) { it.id },
+            )
+
+        private fun finalizeSelection(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSelection {
             val missingCompletedStageWarnings =
                 selection.compositeStages
                     .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && stage.session == null }
                     .map { stage -> "completed_stage_evidence_unavailable:${stage.stageSummary.stageKey}" }
             return selection.copy(
-                pcapFiles = pcapFiles,
+                pcapFiles = emptyList(),
                 collectionWarnings = selection.collectionWarnings + missingCompletedStageWarnings,
                 includedFiles =
                     DiagnosticsArchiveFormat.includedFiles(

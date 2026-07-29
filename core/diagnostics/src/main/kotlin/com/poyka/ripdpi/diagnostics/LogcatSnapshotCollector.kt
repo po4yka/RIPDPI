@@ -101,7 +101,7 @@ open class LogcatSnapshotCollector
         }
 
         private fun readBounded(reader: java.io.BufferedReader): String {
-            val buffer = RollingByteTail(MAX_LOGCAT_BYTES + MAX_UTF8_BYTES_PER_CODE_POINT)
+            val buffer = RollingByteTail(MAX_LOGCAT_BYTES + MaxUtf8BytesPerCodePoint)
             val charBuf = CharArray(READ_BUFFER_CHARS)
             var charsRead = reader.read(charBuf)
             while (charsRead != -1) {
@@ -113,7 +113,9 @@ open class LogcatSnapshotCollector
         }
     }
 
-private const val MAX_UTF8_BYTES_PER_CODE_POINT = 4
+internal const val Utf8ContinuationMask = 0xC0
+internal const val Utf8ContinuationTag = 0x80
+private const val MaxUtf8BytesPerCodePoint = 4
 
 private class RollingByteTail(
     private val capacity: Int,
@@ -140,7 +142,7 @@ private class RollingByteTail(
 
     fun toByteArray(): ByteArray {
         var start = 0
-        while (start < bytes.size && bytes[start].toInt() and 0xC0 == 0x80) {
+        while (start < bytes.size && bytes[start].toInt() and Utf8ContinuationMask == Utf8ContinuationTag) {
             start += 1
         }
         return bytes.copyOfRange(start, bytes.size)
@@ -151,12 +153,22 @@ internal fun tailUtf8Bytes(
     value: String,
     maxBytes: Int,
 ): ByteArray {
-    if (maxBytes <= 0) return byteArrayOf()
     val bytes = value.toByteArray(Charsets.UTF_8)
-    if (bytes.size <= maxBytes) return bytes
-    var start = bytes.size - maxBytes
-    while (start < bytes.size && bytes[start].toInt() and 0xC0 == 0x80) {
-        start += 1
+    return when {
+        maxBytes <= 0 -> {
+            byteArrayOf()
+        }
+
+        bytes.size <= maxBytes -> {
+            bytes
+        }
+
+        else -> {
+            var start = bytes.size - maxBytes
+            while (start < bytes.size && bytes[start].toInt() and Utf8ContinuationMask == Utf8ContinuationTag) {
+                start += 1
+            }
+            bytes.copyOfRange(start, bytes.size)
+        }
     }
-    return bytes.copyOfRange(start, bytes.size)
 }

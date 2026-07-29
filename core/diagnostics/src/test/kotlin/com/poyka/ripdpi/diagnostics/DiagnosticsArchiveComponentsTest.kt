@@ -21,14 +21,16 @@ import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
 
+private val DiagnosticsArchiveComponentsJson =
+    Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
+
 class DiagnosticsArchiveComponentsTest {
-    private val json =
-        Json {
-            ignoreUnknownKeys = true
-            prettyPrint = true
-            encodeDefaults = true
-            explicitNulls = false
-        }
+    private val json = DiagnosticsArchiveComponentsJson
 
     private val redactor = DiagnosticsArchiveRedactor(json)
     private val selector = DiagnosticsArchiveSessionSelector(redactor, json)
@@ -235,54 +237,10 @@ class DiagnosticsArchiveComponentsTest {
     @Test
     fun `selector fetches primary and composite events without treating other sessions as global`() =
         runTest {
-            val primary = scanSession(id = "session-primary")
-            val stage = scanSession(id = "session-stage")
+            val fixture = compositeSelectionFixture()
+            val primary = fixture.primary
+            val stage = fixture.stage
             val fetchedSessionIds = mutableListOf<String>()
-            val sourceData =
-                DiagnosticsArchiveSourceData(
-                    sessions = listOf(primary, stage),
-                    usageSessions = emptyList(),
-                    snapshots = emptyList(),
-                    telemetry = emptyList(),
-                    events = listOf(nativeEvent(id = "ev-global", sessionId = null)),
-                    contexts = emptyList(),
-                    approachSummaries = emptyList(),
-                    appSettings = appSettings(),
-                    buildProvenance = buildProvenance(),
-                    collectionWarnings = emptyList(),
-                    logcatSnapshot = null,
-                    fileLogSnapshot = null,
-                )
-            val outcome =
-                DiagnosticsHomeCompositeOutcome(
-                    runId = "run-1",
-                    actionable = false,
-                    headline = "Complete",
-                    summary = "Complete",
-                    stageSummaries =
-                        listOf(
-                            DiagnosticsHomeCompositeStageSummary(
-                                stageKey = "primary",
-                                stageLabel = "Primary",
-                                profileId = primary.profileId,
-                                pathMode = ScanPathMode.IN_PATH,
-                                sessionId = primary.id,
-                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                headline = "Complete",
-                                summary = "Complete",
-                            ),
-                            DiagnosticsHomeCompositeStageSummary(
-                                stageKey = "stage",
-                                stageLabel = "Stage",
-                                profileId = stage.profileId,
-                                pathMode = ScanPathMode.IN_PATH,
-                                sessionId = stage.id,
-                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                headline = "Complete",
-                                summary = "Complete",
-                            ),
-                        ),
-                )
 
             val selection =
                 selector.buildSelection(
@@ -293,8 +251,8 @@ class DiagnosticsArchiveComponentsTest {
                         ),
                     primarySession = primary,
                     primaryResults = emptyList(),
-                    sourceData = sourceData,
-                    compositeOutcome = outcome,
+                    sourceData = fixture.sourceData,
+                    compositeOutcome = fixture.outcome,
                     compositeSessions = listOf(primary, stage),
                     loadProbeResults = { emptyList() },
                     loadNativeEvents = { sessionId ->
@@ -461,264 +419,328 @@ class DiagnosticsArchiveComponentsTest {
 
         assertTrue(error?.message.orEmpty().contains("missing-session"))
     }
-
-    private fun scanSession(
-        id: String,
-        strategyId: String? = null,
-        status: String = "finished",
-        reportJson: String? = json.encodeToString(scanReport(id).toEngineScanReportWire()),
-        startedAt: Long = 10L,
-    ) = ScanSessionEntity(
-        id = id,
-        profileId = "default",
-        strategyId = strategyId,
-        strategyLabel = strategyId,
-        pathMode = "IN_PATH",
-        serviceMode = "vpn",
-        status = status,
-        summary = "Blocked DNS",
-        reportJson = reportJson,
-        startedAt = startedAt,
-        finishedAt = if (status == "finished") startedAt + 5L else null,
-    )
-
-    private fun stageWithoutSession(
-        stageKey: String,
-        status: DiagnosticsHomeCompositeStageStatus,
-    ) = DiagnosticsHomeCompositeStageSummary(
-        stageKey = stageKey,
-        stageLabel = stageKey,
-        profileId = "default",
-        pathMode = ScanPathMode.RAW_PATH,
-        status = status,
-        headline = stageKey,
-        summary = stageKey,
-    )
-
-    private fun probeResult(sessionId: String) =
-        ProbeResultEntity(
-            id = "probe-$sessionId",
-            sessionId = sessionId,
-            probeType = "dns",
-            target = "blocked.example",
-            outcome = "substituted",
-            detailJson =
-                json.encodeToString(
-                    ListSerializer(ProbeDetail.serializer()),
-                    listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
-                ),
-            createdAt = 30L,
-        )
-
-    private fun networkSnapshotEntity(
-        id: String = "snap",
-        sessionId: String?,
-        capturedAt: Long = 20L,
-    ) = NetworkSnapshotEntity(
-        id = id,
-        sessionId = sessionId,
-        snapshotKind = if (sessionId == null) "passive" else "post_scan",
-        payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkSnapshotModel()),
-        capturedAt = capturedAt,
-    )
-
-    private fun diagnosticContextEntity(
-        id: String = "ctx",
-        sessionId: String?,
-        capturedAt: Long = 21L,
-    ) = DiagnosticContextEntity(
-        id = id,
-        sessionId = sessionId,
-        contextKind = if (sessionId == null) "passive" else "post_scan",
-        payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticContextModel()),
-        capturedAt = capturedAt,
-    )
-
-    private fun telemetrySample(publicIp: String?) =
-        TelemetrySampleEntity(
-            id = "telemetry",
-            sessionId = null,
-            activeMode = "vpn",
-            connectionState = "connected",
-            networkType = "wifi",
-            publicIp = publicIp,
-            txPackets = 1,
-            txBytes = 2,
-            rxPackets = 3,
-            rxBytes = 4,
-            createdAt = 50L,
-        )
-
-    private fun nativeEvent(
-        id: String,
-        sessionId: String?,
-        level: String = "info",
-    ) = NativeSessionEventEntity(
-        id = id,
-        sessionId = sessionId,
-        source = "proxy",
-        level = level,
-        message = "warning",
-        createdAt = 60L,
-    )
-
-    private fun approachSummary(strategyId: String) =
-        BypassApproachSummary(
-            approachId = BypassApproachId(BypassApproachKind.Strategy, strategyId),
-            displayName = "Fast Strategy",
-            secondaryLabel = "Strategy",
-            verificationState = "validated",
-            validatedScanCount = 1,
-            validatedSuccessCount = 1,
-            validatedSuccessRate = 1.0f,
-            lastValidatedResult = "ok",
-            usageCount = 2,
-            totalRuntimeDurationMs = 100L,
-            recentRuntimeHealth = BypassRuntimeHealthSummary(),
-            lastUsedAt = 99L,
-        )
-
-    private fun scanReport(sessionId: String) =
-        ScanReport(
-            sessionId = sessionId,
-            profileId = "default",
-            pathMode = ScanPathMode.IN_PATH,
-            startedAt = 10L,
-            finishedAt = 15L,
-            summary = "Blocked DNS",
-            results =
-                listOf(
-                    ProbeResult(
-                        probeType = "dns",
-                        target = "blocked.example",
-                        outcome = "substituted",
-                        details = listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
-                    ),
-                ),
-            diagnoses =
-                listOf(
-                    Diagnosis(
-                        code = "dns_tampering",
-                        summary = "DNS answers were substituted",
-                        target = "blocked.example",
-                        evidence = listOf("dns:blocked.example=substituted"),
-                    ),
-                ),
-            classifierVersion = "ru_ooni_v1",
-            packVersions = mapOf("ru-independent-media" to 1),
-        )
-
-    private fun networkSnapshotModel() =
-        NetworkSnapshotModel(
-            transport = "wifi",
-            capabilities = listOf("validated"),
-            dnsServers = listOf("1.1.1.1"),
-            privateDnsMode = "strict",
-            mtu = 1500,
-            localAddresses = listOf("192.0.2.10"),
-            publicIp = "198.51.100.8",
-            publicAsn = "AS64500",
-            captivePortalDetected = false,
-            networkValidated = true,
-            wifiDetails =
-                WifiNetworkDetails(
-                    ssid = "RIPDPI Lab",
-                    bssid = "00:11:22:33:44:55",
-                    band = "5 GHz",
-                    wifiStandard = "802.11ac",
-                    gateway = "192.0.2.1",
-                ),
-            capturedAt = 20L,
-        )
-
-    private fun diagnosticContextModel() =
-        DiagnosticContextModel(
-            service =
-                ServiceContextModel(
-                    serviceStatus = "connected",
-                    configuredMode = "vpn",
-                    activeMode = "vpn",
-                    selectedProfileId = "default",
-                    selectedProfileName = "Default",
-                    configSource = "ui",
-                    proxyEndpoint = "127.0.0.1:1080",
-                    desyncMethod = "split",
-                    chainSummary = "tcp: split(1)",
-                    routeGroup = "wifi",
-                    sessionUptimeMs = 1_000L,
-                    lastNativeErrorHeadline = "none",
-                    restartCount = 0,
-                    hostAutolearnEnabled = "enabled",
-                    learnedHostCount = 1,
-                    penalizedHostCount = 0,
-                    lastAutolearnHost = "example.org",
-                    lastAutolearnGroup = "wifi",
-                    lastAutolearnAction = "allow",
-                ),
-            permissions =
-                PermissionContextModel(
-                    vpnPermissionState = "granted",
-                    notificationPermissionState = "granted",
-                    batteryOptimizationState = "ignored",
-                    dataSaverState = "disabled",
-                ),
-            device =
-                DeviceContextModel(
-                    appVersionName = "0.0.1",
-                    appVersionCode = 1L,
-                    buildType = "debug",
-                    androidVersion = "14",
-                    apiLevel = 34,
-                    manufacturer = "Google",
-                    model = "Pixel",
-                    primaryAbi = "arm64-v8a",
-                    locale = "en-US",
-                    timezone = "UTC",
-                ),
-            environment =
-                EnvironmentContextModel(
-                    batterySaverState = "off",
-                    powerSaveModeState = "off",
-                    networkMeteredState = "false",
-                    roamingState = "false",
-                ),
-        )
-
-    private fun archiveRequest(
-        reason: DiagnosticsArchiveReason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
-        sessionId: String? = "session-1",
-    ) = DiagnosticsArchiveRequest(
-        requestedSessionId = sessionId,
-        reason = reason,
-        requestedAt = 24L,
-    )
-
-    private fun buildProvenance() =
-        DiagnosticsArchiveBuildProvenance(
-            applicationId = "com.poyka.ripdpi",
-            appVersionName = "0.0.2",
-            appVersionCode = 2L,
-            buildType = "debug",
-            gitCommit = "unavailable",
-            nativeLibraries =
-                listOf(
-                    DiagnosticsArchiveNativeLibraryProvenance(
-                        name = "libripdpi.so",
-                        version = "unavailable",
-                    ),
-                    DiagnosticsArchiveNativeLibraryProvenance(
-                        name = "libripdpi-tunnel.so",
-                        version = "unavailable",
-                    ),
-                ),
-        )
-
-    private fun appSettings(): AppSettings =
-        AppSettings
-            .newBuilder()
-            .setRipdpiMode("vpn")
-            .setEnableCmdSettings(true)
-            .setCmdArgs("--fake --split 2")
-            .setDiagnosticsActiveProfileId("default")
-            .build()
 }
+
+private data class CompositeSelectionFixture(
+    val primary: ScanSessionEntity,
+    val stage: ScanSessionEntity,
+    val sourceData: DiagnosticsArchiveSourceData,
+    val outcome: DiagnosticsHomeCompositeOutcome,
+)
+
+private fun compositeSelectionFixture(): CompositeSelectionFixture {
+    val primary = scanSession(id = "session-primary")
+    val stage = scanSession(id = "session-stage")
+    return CompositeSelectionFixture(
+        primary = primary,
+        stage = stage,
+        sourceData =
+            DiagnosticsArchiveSourceData(
+                sessions = listOf(primary, stage),
+                usageSessions = emptyList(),
+                snapshots = emptyList(),
+                telemetry = emptyList(),
+                events = listOf(nativeEvent(id = "ev-global", sessionId = null)),
+                contexts = emptyList(),
+                approachSummaries = emptyList(),
+                appSettings = appSettings(),
+                buildProvenance = buildProvenance(),
+                collectionWarnings = emptyList(),
+                logcatSnapshot = null,
+                fileLogSnapshot = null,
+            ),
+        outcome =
+            DiagnosticsHomeCompositeOutcome(
+                runId = "run-1",
+                actionable = false,
+                headline = "Complete",
+                summary = "Complete",
+                stageSummaries =
+                    listOf(
+                        compositeStageSummary("primary", "Primary", primary),
+                        compositeStageSummary("stage", "Stage", stage),
+                    ),
+            ),
+    )
+}
+
+private fun compositeStageSummary(
+    stageKey: String,
+    stageLabel: String,
+    session: ScanSessionEntity,
+): DiagnosticsHomeCompositeStageSummary =
+    DiagnosticsHomeCompositeStageSummary(
+        stageKey = stageKey,
+        stageLabel = stageLabel,
+        profileId = session.profileId,
+        pathMode = ScanPathMode.IN_PATH,
+        sessionId = session.id,
+        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+        headline = "Complete",
+        summary = "Complete",
+    )
+
+private fun scanSession(
+    id: String,
+    strategyId: String? = null,
+    status: String = "finished",
+    reportJson: String? = DiagnosticsArchiveComponentsJson.encodeToString(scanReport(id).toEngineScanReportWire()),
+    startedAt: Long = 10L,
+) = ScanSessionEntity(
+    id = id,
+    profileId = "default",
+    strategyId = strategyId,
+    strategyLabel = strategyId,
+    pathMode = "IN_PATH",
+    serviceMode = "vpn",
+    status = status,
+    summary = "Blocked DNS",
+    reportJson = reportJson,
+    startedAt = startedAt,
+    finishedAt = if (status == "finished") startedAt + 5L else null,
+)
+
+private fun stageWithoutSession(
+    stageKey: String,
+    status: DiagnosticsHomeCompositeStageStatus,
+) = DiagnosticsHomeCompositeStageSummary(
+    stageKey = stageKey,
+    stageLabel = stageKey,
+    profileId = "default",
+    pathMode = ScanPathMode.RAW_PATH,
+    status = status,
+    headline = stageKey,
+    summary = stageKey,
+)
+
+private fun probeResult(sessionId: String) =
+    ProbeResultEntity(
+        id = "probe-$sessionId",
+        sessionId = sessionId,
+        probeType = "dns",
+        target = "blocked.example",
+        outcome = "substituted",
+        detailJson =
+            DiagnosticsArchiveComponentsJson.encodeToString(
+                ListSerializer(ProbeDetail.serializer()),
+                listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
+            ),
+        createdAt = 30L,
+    )
+
+private fun networkSnapshotEntity(
+    id: String = "snap",
+    sessionId: String?,
+    capturedAt: Long = 20L,
+) = NetworkSnapshotEntity(
+    id = id,
+    sessionId = sessionId,
+    snapshotKind = if (sessionId == null) "passive" else "post_scan",
+    payloadJson =
+        DiagnosticsArchiveComponentsJson.encodeToString(NetworkSnapshotModel.serializer(), networkSnapshotModel()),
+    capturedAt = capturedAt,
+)
+
+private fun diagnosticContextEntity(
+    id: String = "ctx",
+    sessionId: String?,
+    capturedAt: Long = 21L,
+) = DiagnosticContextEntity(
+    id = id,
+    sessionId = sessionId,
+    contextKind = if (sessionId == null) "passive" else "post_scan",
+    payloadJson =
+        DiagnosticsArchiveComponentsJson.encodeToString(
+            DiagnosticContextModel.serializer(),
+            diagnosticContextModel(),
+        ),
+    capturedAt = capturedAt,
+)
+
+private fun telemetrySample(publicIp: String?) =
+    TelemetrySampleEntity(
+        id = "telemetry",
+        sessionId = null,
+        activeMode = "vpn",
+        connectionState = "connected",
+        networkType = "wifi",
+        publicIp = publicIp,
+        txPackets = 1,
+        txBytes = 2,
+        rxPackets = 3,
+        rxBytes = 4,
+        createdAt = 50L,
+    )
+
+private fun nativeEvent(
+    id: String,
+    sessionId: String?,
+    level: String = "info",
+) = NativeSessionEventEntity(
+    id = id,
+    sessionId = sessionId,
+    source = "proxy",
+    level = level,
+    message = "warning",
+    createdAt = 60L,
+)
+
+private fun approachSummary(strategyId: String) =
+    BypassApproachSummary(
+        approachId = BypassApproachId(BypassApproachKind.Strategy, strategyId),
+        displayName = "Fast Strategy",
+        secondaryLabel = "Strategy",
+        verificationState = "validated",
+        validatedScanCount = 1,
+        validatedSuccessCount = 1,
+        validatedSuccessRate = 1.0f,
+        lastValidatedResult = "ok",
+        usageCount = 2,
+        totalRuntimeDurationMs = 100L,
+        recentRuntimeHealth = BypassRuntimeHealthSummary(),
+        lastUsedAt = 99L,
+    )
+
+private fun scanReport(sessionId: String) =
+    ScanReport(
+        sessionId = sessionId,
+        profileId = "default",
+        pathMode = ScanPathMode.IN_PATH,
+        startedAt = 10L,
+        finishedAt = 15L,
+        summary = "Blocked DNS",
+        results =
+            listOf(
+                ProbeResult(
+                    probeType = "dns",
+                    target = "blocked.example",
+                    outcome = "substituted",
+                    details = listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
+                ),
+            ),
+        diagnoses =
+            listOf(
+                Diagnosis(
+                    code = "dns_tampering",
+                    summary = "DNS answers were substituted",
+                    target = "blocked.example",
+                    evidence = listOf("dns:blocked.example=substituted"),
+                ),
+            ),
+        classifierVersion = "ru_ooni_v1",
+        packVersions = mapOf("ru-independent-media" to 1),
+    )
+
+private fun networkSnapshotModel() =
+    NetworkSnapshotModel(
+        transport = "wifi",
+        capabilities = listOf("validated"),
+        dnsServers = listOf("1.1.1.1"),
+        privateDnsMode = "strict",
+        mtu = 1500,
+        localAddresses = listOf("192.0.2.10"),
+        publicIp = "198.51.100.8",
+        publicAsn = "AS64500",
+        captivePortalDetected = false,
+        networkValidated = true,
+        wifiDetails =
+            WifiNetworkDetails(
+                ssid = "RIPDPI Lab",
+                bssid = "00:11:22:33:44:55",
+                band = "5 GHz",
+                wifiStandard = "802.11ac",
+                gateway = "192.0.2.1",
+            ),
+        capturedAt = 20L,
+    )
+
+private fun diagnosticContextModel() =
+    DiagnosticContextModel(
+        service =
+            ServiceContextModel(
+                serviceStatus = "connected",
+                configuredMode = "vpn",
+                activeMode = "vpn",
+                selectedProfileId = "default",
+                selectedProfileName = "Default",
+                configSource = "ui",
+                proxyEndpoint = "127.0.0.1:1080",
+                desyncMethod = "split",
+                chainSummary = "tcp: split(1)",
+                routeGroup = "wifi",
+                sessionUptimeMs = 1_000L,
+                lastNativeErrorHeadline = "none",
+                restartCount = 0,
+                hostAutolearnEnabled = "enabled",
+                learnedHostCount = 1,
+                penalizedHostCount = 0,
+                lastAutolearnHost = "example.org",
+                lastAutolearnGroup = "wifi",
+                lastAutolearnAction = "allow",
+            ),
+        permissions =
+            PermissionContextModel(
+                vpnPermissionState = "granted",
+                notificationPermissionState = "granted",
+                batteryOptimizationState = "ignored",
+                dataSaverState = "disabled",
+            ),
+        device =
+            DeviceContextModel(
+                appVersionName = "0.0.1",
+                appVersionCode = 1L,
+                buildType = "debug",
+                androidVersion = "14",
+                apiLevel = 34,
+                manufacturer = "Google",
+                model = "Pixel",
+                primaryAbi = "arm64-v8a",
+                locale = "en-US",
+                timezone = "UTC",
+            ),
+        environment =
+            EnvironmentContextModel(
+                batterySaverState = "off",
+                powerSaveModeState = "off",
+                networkMeteredState = "false",
+                roamingState = "false",
+            ),
+    )
+
+private fun archiveRequest(
+    reason: DiagnosticsArchiveReason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+    sessionId: String? = "session-1",
+) = DiagnosticsArchiveRequest(
+    requestedSessionId = sessionId,
+    reason = reason,
+    requestedAt = 24L,
+)
+
+private fun buildProvenance() =
+    DiagnosticsArchiveBuildProvenance(
+        applicationId = "com.poyka.ripdpi",
+        appVersionName = "0.0.2",
+        appVersionCode = 2L,
+        buildType = "debug",
+        gitCommit = "unavailable",
+        nativeLibraries =
+            listOf(
+                DiagnosticsArchiveNativeLibraryProvenance(
+                    name = "libripdpi.so",
+                    version = "unavailable",
+                ),
+                DiagnosticsArchiveNativeLibraryProvenance(
+                    name = "libripdpi-tunnel.so",
+                    version = "unavailable",
+                ),
+            ),
+    )
+
+private fun appSettings(): AppSettings =
+    AppSettings
+        .newBuilder()
+        .setRipdpiMode("vpn")
+        .setEnableCmdSettings(true)
+        .setCmdArgs("--fake --split 2")
+        .setDiagnosticsActiveProfileId("default")
+        .build()

@@ -60,7 +60,9 @@ class FileLogWriter(
                 val lineBytes = truncateUtf8Bytes(line, maxFileSize)
                 rotateIfNeeded(lineBytes.size)
                 if (encodedLine.size > lineBytes.size) {
-                    truncatedMarkerFile.createNewFile()
+                    check(truncatedMarkerFile.exists() || truncatedMarkerFile.createNewFile()) {
+                        "Unable to persist app log truncation marker"
+                    }
                 }
                 FileOutputStream(logFile, true).use { fos ->
                     fos.write(lineBytes)
@@ -134,7 +136,7 @@ class FileLogWriter(
             input.readFully(bytes)
         }
         var start = 0
-        while (start < bytes.size && bytes[start].toInt() and 0xC0 == 0x80) {
+        while (start < bytes.size && bytes[start].toInt() and Utf8ContinuationMask == Utf8ContinuationTag) {
             start += 1
         }
         return bytes.copyOfRange(start, bytes.size)
@@ -151,12 +153,22 @@ internal fun truncateUtf8Bytes(
     value: String,
     maxBytes: Long,
 ): ByteArray {
-    if (maxBytes <= 0) return byteArrayOf()
     val bytes = value.toByteArray(Charsets.UTF_8)
-    if (bytes.size.toLong() <= maxBytes) return bytes
-    var end = maxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-    while (end > 0 && bytes[end].toInt() and 0xC0 == 0x80) {
-        end -= 1
+    return when {
+        maxBytes <= 0 -> {
+            byteArrayOf()
+        }
+
+        bytes.size.toLong() <= maxBytes -> {
+            bytes
+        }
+
+        else -> {
+            var end = maxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            while (end > 0 && bytes[end].toInt() and Utf8ContinuationMask == Utf8ContinuationTag) {
+                end -= 1
+            }
+            bytes.copyOf(end)
+        }
     }
-    return bytes.copyOf(end)
 }

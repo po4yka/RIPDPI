@@ -14,39 +14,67 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.util.zip.ZipFile
 
-class DiagnosticsArchiveExporterTest {
-    private val json = diagnosticsTestJson()
+internal abstract class DiagnosticsArchiveExporterTestBase {
+    protected val json = diagnosticsTestJson()
+    protected val compositeRunService = ArchiveCompositeRunService()
 
-    private val compositeRunService =
-        object : DiagnosticsHomeCompositeRunService {
-            private val completedRuns = mutableMapOf<String, DiagnosticsHomeCompositeOutcome>()
+    protected fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
+        val context = TestContext()
+        return createArchiveExporter(stores, context = context, rootModeEnabled = false)
+    }
 
-            override suspend fun startHomeAnalysis(
-                options: DiagnosticsHomeRunOptions,
-            ): DiagnosticsHomeCompositeRunStarted = error("unused")
+    protected fun createArchiveExporter(
+        stores: FakeDiagnosticsHistoryStores,
+        context: TestContext,
+        rootModeEnabled: Boolean,
+    ): DefaultDiagnosticsArchiveExporter =
+        createArchiveExporterForTest(
+            stores = stores,
+            context = context,
+            rootModeEnabled = rootModeEnabled,
+            compositeRunService = compositeRunService,
+            json = json,
+        )
 
-            override suspend fun startQuickAnalysis(
-                options: DiagnosticsHomeRunOptions,
-            ): DiagnosticsHomeCompositeRunStarted = error("unused")
+    protected fun probeResultEntity(
+        sessionId: String,
+        target: String,
+    ): ProbeResultEntity = probeResultEntityForArchiveTest(sessionId, target)
 
-            override fun observeHomeRun(runId: String) = error("unused")
+    protected suspend fun seedSingleSessionStore(
+        stores: FakeDiagnosticsHistoryStores,
+        session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    ) = seedSingleSessionStoreForArchiveTest(stores, session, json)
+}
 
-            override suspend fun cancelHomeRun(runId: String) = error("unused")
+internal class ArchiveCompositeRunService : DiagnosticsHomeCompositeRunService {
+    private val completedRuns = mutableMapOf<String, DiagnosticsHomeCompositeOutcome>()
 
-            override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
-                requireNotNull(completedRuns[runId]) { "Missing completed run $runId" }
+    override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted =
+        error("unused")
 
-            override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
+    override suspend fun startQuickAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted =
+        error("unused")
 
-            override suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome? = null
+    override fun observeHomeRun(runId: String) = error("unused")
 
-            override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
+    override suspend fun cancelHomeRun(runId: String) = error("unused")
 
-            fun putCompletedRun(outcome: DiagnosticsHomeCompositeOutcome) {
-                completedRuns[outcome.runId] = outcome
-            }
-        }
+    override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
+        requireNotNull(completedRuns[runId]) { "Missing completed run $runId" }
 
+    override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
+
+    override suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome? = null
+
+    override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
+
+    fun putCompletedRun(outcome: DiagnosticsHomeCompositeOutcome) {
+        completedRuns[outcome.runId] = outcome
+    }
+}
+
+internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBase() {
     @Test
     fun `createArchive persists requested session export and writes schema v4 archive`() =
         runTest {
@@ -270,11 +298,6 @@ class DiagnosticsArchiveExporterTest {
             }
         }
 
-    private suspend fun seedSingleSessionStore(
-        stores: FakeDiagnosticsHistoryStores,
-        session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
-    ) = seedSingleSessionStoreForArchiveTest(stores, session, json)
-
     private fun assertSingleSessionArchiveContents(
         zip: java.util.zip.ZipFile,
         sessionId: String,
@@ -351,7 +374,9 @@ class DiagnosticsArchiveExporterTest {
 
             assertTrue(stores.exportsState.value.isEmpty())
         }
+}
 
+internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExporterTestBase() {
     @Test
     fun `createArchive rejects unavailable requested home run without falling back`() =
         runTest {
@@ -903,27 +928,4 @@ class DiagnosticsArchiveExporterTest {
             pcapEntries.isEmpty(),
         )
     }
-
-    private fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
-        val context = TestContext()
-        return createArchiveExporter(stores, context = context, rootModeEnabled = false)
-    }
-
-    private fun createArchiveExporter(
-        stores: FakeDiagnosticsHistoryStores,
-        context: TestContext,
-        rootModeEnabled: Boolean,
-    ): DefaultDiagnosticsArchiveExporter =
-        createArchiveExporterForTest(
-            stores = stores,
-            context = context,
-            rootModeEnabled = rootModeEnabled,
-            compositeRunService = compositeRunService,
-            json = json,
-        )
-
-    private fun probeResultEntity(
-        sessionId: String,
-        target: String,
-    ): ProbeResultEntity = probeResultEntityForArchiveTest(sessionId, target)
 }
