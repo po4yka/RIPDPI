@@ -61,6 +61,7 @@ class RuntimeTerminalArtifactBatchTest {
             "state=outbound_only mode=vpn generation=4 final=true event_kind=data_plane_final",
             batch.events.last().message,
         )
+        assertEquals(terminalDataPlaneEventId("session-safe"), batch.events.last().id)
         assertNull(batch.telemetrySample?.publicIp)
         assertNull(batch.telemetrySample?.resolverEndpoint)
         assertNull(batch.telemetrySample?.proxyTelemetryMessage)

@@ -82,7 +82,7 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
             if (tokens["final"] != "true") return null
             terminalEvent(
                 connectionSessionId = connectionSessionId,
-                index = index,
+                id = terminalDataPlaneEventId(connectionSessionId),
                 level = "info",
                 message = "state=$state mode=$mode generation=$generation final=true event_kind=data_plane_final",
                 createdAt = createdAt,
@@ -94,7 +94,7 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
             if (tokens["event"] != "protect_failed") return null
             terminalEvent(
                 connectionSessionId = connectionSessionId,
-                index = index,
+                id = "runtime_terminal_event:$connectionSessionId:$index",
                 level = "warn",
                 message = "event=protect_failed event_kind=protect_failure",
                 createdAt = createdAt,
@@ -110,14 +110,14 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
 
 private fun terminalEvent(
     connectionSessionId: String,
-    index: Int,
+    id: String,
     level: String,
     message: String,
     createdAt: Long,
     subsystem: String,
 ): NativeSessionEventEntity =
     NativeSessionEventEntity(
-        id = "runtime_terminal_event:$connectionSessionId:$index",
+        id = id,
         sessionId = null,
         connectionSessionId = connectionSessionId,
         source = "service",
@@ -126,6 +126,9 @@ private fun terminalEvent(
         createdAt = createdAt,
         subsystem = subsystem,
     )
+
+internal fun terminalDataPlaneEventId(connectionSessionId: String): String =
+    "runtime_terminal_event:$connectionSessionId:data_plane_final"
 
 private fun TelemetrySampleEntity.toPrivacySafeTerminalProjection(): TelemetrySampleEntity =
     copy(

@@ -108,7 +108,9 @@ class RuntimeArtifactPersister
                 .forEach { event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(
-                            id = UUID.randomUUID().toString(),
+                            id =
+                                event.terminalDataPlaneEventId(connectionSessionId)
+                                    ?: UUID.randomUUID().toString(),
                             connectionSessionId = connectionSessionId,
                         ),
                     )
@@ -127,7 +129,9 @@ class RuntimeArtifactPersister
                 .forEachIndexed { index, event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(
-                            id = "$TerminalRuntimeEventIdPrefix:$connectionSessionId:$index",
+                            id =
+                                event.terminalDataPlaneEventId(connectionSessionId)
+                                    ?: "$TerminalRuntimeEventIdPrefix:$connectionSessionId:$index",
                             connectionSessionId = connectionSessionId,
                         ),
                     )
@@ -527,6 +531,11 @@ class RuntimeArtifactPersister
 
 private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
     "$RuntimeRootCauseAssessmentSource:$connectionSessionId"
+
+private fun NativeRuntimeEvent.terminalDataPlaneEventId(connectionSessionId: String?): String? =
+    connectionSessionId
+        ?.takeIf { kind == "data_plane_final" }
+        ?.let(::terminalDataPlaneEventId)
 
 private fun NativeRuntimeEvent.toSessionEvent(
     id: String,
