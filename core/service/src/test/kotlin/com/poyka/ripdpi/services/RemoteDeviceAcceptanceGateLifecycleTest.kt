@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,6 +65,21 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
             runCurrent()
 
             assertEquals(1, writer.cancelledRuns.size)
+        }
+
+    @Test
+    fun `cancellation during baseline terminalizes the pending run`() =
+        runTest {
+            val writer = RecordingRemoteDeviceAcceptanceEvidenceWriter(cancelAfterBegin = true)
+            val serviceState = runningServiceState(updatedAt = 1L)
+            val screen = MutableRemoteAcceptanceScreenStateObserver(interactive = true)
+            val gate = gate(serviceState = serviceState, screen = screen, writer = writer)
+
+            gate.start(backgroundScope)
+            runCurrent()
+
+            assertEquals(1, writer.begunRuns.size)
+            assertEquals(writer.begunRuns, writer.cancelledRuns)
         }
 
     @Test
@@ -317,7 +333,9 @@ private fun successfulPayloadHealth(families: Set<RelayUdpPayloadFamily>): Relay
             },
     )
 
-private class RecordingRemoteDeviceAcceptanceEvidenceWriter : RemoteDeviceAcceptanceEvidenceWriter {
+private class RecordingRemoteDeviceAcceptanceEvidenceWriter(
+    private val cancelAfterBegin: Boolean = false,
+) : RemoteDeviceAcceptanceEvidenceWriter {
     val begunRuns = mutableListOf<String>()
     val events = mutableListOf<DeviceRuntimeEvidence.BackgroundSurvival>()
     val cancelledRuns = mutableListOf<String>()
@@ -327,6 +345,9 @@ private class RecordingRemoteDeviceAcceptanceEvidenceWriter : RemoteDeviceAccept
         observedAtMillis: Long,
     ) {
         begunRuns += runGeneration
+        if (cancelAfterBegin) {
+            throw CancellationException("cancel after pending marker")
+        }
     }
 
     override suspend fun record(

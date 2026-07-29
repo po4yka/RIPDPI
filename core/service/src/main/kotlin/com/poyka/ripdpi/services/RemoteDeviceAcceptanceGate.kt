@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
+import android.database.SQLException
 import android.os.SystemClock
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneCounters
@@ -74,9 +76,22 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
             scope.launch {
                 previousRun?.cancelAndJoin()
                 if (!isCurrent(run)) return@launch
-                evidenceWriter.beginRun(run.generation, System.currentTimeMillis())
-                if (!isCurrent(run)) return@launch
-                runAcceptance(run)
+                try {
+                    evidenceWriter.beginRun(run.generation, System.currentTimeMillis())
+                    if (!isCurrent(run)) return@launch
+                    runAcceptance(run)
+                } catch (cancelled: CancellationException) {
+                    try {
+                        persistCancellation(run)
+                    } catch (cleanupCancellation: CancellationException) {
+                        Logger.w(cleanupCancellation) { "Remote acceptance cancellation evidence was cancelled" }
+                    } catch (databaseFailure: SQLException) {
+                        Logger.w(databaseFailure) { "Remote acceptance cancellation evidence database write failed" }
+                    } catch (stateFailure: IllegalStateException) {
+                        Logger.w(stateFailure) { "Remote acceptance cancellation evidence state write failed" }
+                    }
+                    throw cancelled
+                }
             }
     }
 
@@ -86,24 +101,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
     private suspend fun runAcceptance(run: RemoteAcceptanceRun) {
         val startedAt = SystemClock.elapsedRealtime()
         val initialSnapshot = serviceStateStore.telemetry.value
-        _report.value =
-            RemoteDeviceAcceptanceReport(
-                status = RemoteDeviceAcceptanceStatus.Running,
-                device = captureRemoteDeviceAcceptanceDevice(),
-                transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
-            )
-        val baseline = baselineProbe.capture(initialSnapshot)
-        if (!isCurrent(run)) return
-        _report.value = baseline
-        observeGuidedSteps(run, startedAt, initialSnapshot)
-    }
-
-    private suspend fun observeGuidedSteps(
-        run: RemoteAcceptanceRun,
-        startedAt: Long,
-        initialSnapshot: ServiceTelemetrySnapshot,
-    ) {
-        val state =
+        run.guidedState =
             GuidedRunState(
                 baselineUnderlay = captureUnderlayTransport(),
                 lastHandoverState = initialSnapshot.networkHandoverState,
@@ -113,28 +111,39 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                         evidenceRecorder = { event -> evidenceWriter.record(run.generation, event) },
                     ),
             )
+        _report.value =
+            RemoteDeviceAcceptanceReport(
+                status = RemoteDeviceAcceptanceStatus.Running,
+                device = captureRemoteDeviceAcceptanceDevice(),
+                transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
+            )
+        val baseline = baselineProbe.capture(initialSnapshot)
+        if (!isCurrent(run)) return
+        _report.value = baseline
+        observeGuidedSteps(run, startedAt, requireNotNull(run.guidedState))
+    }
 
-        try {
-            combine(
-                serviceStateStore.status,
-                serviceStateStore.telemetry,
-                screenStateObserver.isInteractive,
-            ) { status, telemetry, interactive ->
-                GuidedObservation(
-                    status.first,
-                    status.second,
-                    telemetry,
-                    interactive,
-                    captureUnderlayTransport(),
-                )
-            }.collect { observation ->
-                if (isCurrent(run)) {
-                    handleGuidedObservation(run, startedAt, state, observation)
-                }
+    private suspend fun observeGuidedSteps(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        state: GuidedRunState,
+    ) {
+        combine(
+            serviceStateStore.status,
+            serviceStateStore.telemetry,
+            screenStateObserver.isInteractive,
+        ) { status, telemetry, interactive ->
+            GuidedObservation(
+                status.first,
+                status.second,
+                telemetry,
+                interactive,
+                captureUnderlayTransport(),
+            )
+        }.collect { observation ->
+            if (isCurrent(run)) {
+                handleGuidedObservation(run, startedAt, state, observation)
             }
-        } catch (cancelled: CancellationException) {
-            persistCancellation(run, state)
-            throw cancelled
         }
     }
 
@@ -443,16 +452,12 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         )
     }
 
-    private suspend fun persistCancellation(
-        run: RemoteAcceptanceRun,
-        state: GuidedRunState,
-    ) {
+    private suspend fun persistCancellation(run: RemoteAcceptanceRun) {
         withContext(NonCancellable) {
-            withTimeoutOrNull(RemoteAcceptanceCancellationPersistTimeoutMs) {
-                val wroteScreenOffCancellation = state.cancelScreenOff(serviceStateStore.telemetry.value)
-                if (!wroteScreenOffCancellation) {
-                    evidenceWriter.cancelRun(run.generation, System.currentTimeMillis())
-                }
+            val wroteScreenOffCancellation =
+                run.guidedState?.cancelScreenOff(serviceStateStore.telemetry.value) == true
+            if (!wroteScreenOffCancellation) {
+                evidenceWriter.cancelRun(run.generation, System.currentTimeMillis())
             }
         }
     }
@@ -483,7 +488,9 @@ internal fun guidedDataPlaneResult(status: RemoteDeviceAcceptanceStatus): Guided
 private data class RemoteAcceptanceRun(
     val ordinal: Long,
     val generation: String,
-)
+) {
+    var guidedState: GuidedRunState? = null
+}
 
 private data class FreshTelemetrySample(
     val fresh: Boolean,
@@ -727,7 +734,6 @@ private const val UnderlayWifi = "wifi"
 private const val UnderlayCellular = "cellular"
 internal const val RemoteAcceptanceScreenOffDwellMs = 300_000L
 internal const val RemoteAcceptanceTelemetryFreshTimeoutMs = 6_000L
-private const val RemoteAcceptanceCancellationPersistTimeoutMs = 2_000L
 internal const val StepNoDirectEgress = "no_direct_fallback"
 internal const val ErrorScreenOffNoDataPlaneDelta = "background_no_data_plane_delta"
 internal const val ErrorScreenOffServiceStopped = "background_service_stopped"
