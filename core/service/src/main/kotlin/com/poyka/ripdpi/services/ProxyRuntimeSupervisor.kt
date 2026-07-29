@@ -15,7 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Supervises the native proxy runtime — starts it, owns its coroutine `Job`,
@@ -28,11 +28,11 @@ internal class ProxyRuntimeSupervisor(
     private val ripDpiProxyFactory: RipDpiProxyFactory,
     private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
     private val stopTimeoutMillis: Long = 5_000L,
+    private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
 ) {
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
-
-    private val runtimeGeneration = AtomicLong()
+    private val forwardingLease = AtomicReference<ProxyForwardingLease?>()
 
     @Volatile
     private var stopRequested: Boolean = false
@@ -48,8 +48,9 @@ internal class ProxyRuntimeSupervisor(
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
-        val generation = runtimeGeneration.incrementAndGet()
+        val lease = ProxyForwardingLease(proxyInstance)
         proxyRuntime = proxyInstance
+        forwardingLease.set(lease)
         stopRequested = false
         val shouldReportExit = AtomicBoolean(true)
         exitReporting = shouldReportExit
@@ -63,7 +64,7 @@ internal class ProxyRuntimeSupervisor(
                     exitResult.complete(result)
                     exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested))
                 } finally {
-                    runtimeGeneration.compareAndSet(generation, generation + 1L)
+                    forwardingLease.compareAndSet(lease, null)
                     if (!exitResult.isCompleted) {
                         val cancellation = Result.failure<Int>(CancellationException("Proxy job cancelled"))
                         exitResult.complete(cancellation)
@@ -96,7 +97,7 @@ internal class ProxyRuntimeSupervisor(
             } catch (readinessError: Exception) {
                 val proxyStartWasActive = job.isActive
                 shouldReportExit.set(false)
-                runtimeGeneration.incrementAndGet()
+                forwardingLease.compareAndSet(lease, null)
                 try {
                     runCatching {
                         if (proxyStartWasActive) {
@@ -134,8 +135,8 @@ internal class ProxyRuntimeSupervisor(
             return
         }
 
+        forwardingLease.set(null)
         try {
-            runtimeGeneration.incrementAndGet()
             stopRequested = true
             proxyInstance.stopProxy()
             withTimeoutOrNull(stopTimeoutMillis) {
@@ -150,7 +151,7 @@ internal class ProxyRuntimeSupervisor(
     }
 
     fun detach() {
-        runtimeGeneration.incrementAndGet()
+        forwardingLease.set(null)
         exitReporting?.set(false)
         proxyJob = null
         proxyRuntime = null
@@ -173,13 +174,14 @@ internal class ProxyRuntimeSupervisor(
     }
 
     suspend fun pollTelemetryAndForwardingEvidence(): RuntimeTelemetryEvidencePoll<ProxyForwardingEvidence> {
-        val runtime =
-            proxyRuntime
+        val lease =
+            forwardingLease.get()
                 ?: return RuntimeTelemetryEvidencePoll(
                     RuntimeTelemetryOutcome.NoData,
                     RuntimeForwardingEvidence.Unavailable,
                 )
-        val generation = runtimeGeneration.get()
+        afterForwardingLeaseAcquired()
+        val runtime = lease.runtime
         val telemetry =
             try {
                 RuntimeTelemetryOutcome.Snapshot(runtime.pollTelemetry())
@@ -202,15 +204,15 @@ internal class ProxyRuntimeSupervisor(
         return RuntimeTelemetryEvidencePoll(
             telemetry = telemetry,
             forwardingEvidence =
-                evidence.takeIf { proxyRuntime === runtime && runtimeGeneration.get() == generation }
+                evidence.takeIf { forwardingLease.get() === lease }
                     ?: RuntimeForwardingEvidence.Unavailable,
         )
     }
 
     suspend fun pollForwardingEvidence(): ProxyForwardingEvidence? {
-        val runtime = proxyRuntime ?: return null
+        val lease = forwardingLease.get() ?: return null
         return try {
-            runtime.pollForwardingEvidence()
+            lease.runtime.pollForwardingEvidence().takeIf { forwardingLease.get() === lease }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -218,3 +220,7 @@ internal class ProxyRuntimeSupervisor(
         }
     }
 }
+
+private class ProxyForwardingLease(
+    val runtime: RipDpiProxyRuntime,
+)

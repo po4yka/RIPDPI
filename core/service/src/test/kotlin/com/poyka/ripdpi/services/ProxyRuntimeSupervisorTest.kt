@@ -26,6 +26,44 @@ private const val TestLocalProxyAuth = "alpha-123"
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {
     @Test
+    fun stopAtFormerSplitAcquisitionBoundaryRejectsRetiringRuntimeEvidence() =
+        runTest {
+            val leaseAcquired = CompletableDeferred<Unit>()
+            val releaseLeaseAcquisition = CompletableDeferred<Unit>()
+            val nativeStopStarted = CompletableDeferred<Unit>()
+            val releaseNativeStop = CompletableDeferred<Unit>()
+            val runtime =
+                TestProxyRuntime().apply {
+                    beforeStop = {
+                        nativeStopStarted.complete(Unit)
+                        releaseNativeStop.await()
+                    }
+                }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    afterForwardingLeaseAcquired = {
+                        leaseAcquired.complete(Unit)
+                        releaseLeaseAcquisition.await()
+                    },
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            val poll = async { supervisor.pollTelemetryAndForwardingEvidence() }
+            leaseAcquired.await()
+            val stopping = async { supervisor.stop() }
+            nativeStopStarted.await()
+            releaseLeaseAcquisition.complete(Unit)
+
+            assertSame(RuntimeForwardingEvidence.Unavailable, poll.await().forwardingEvidence)
+            releaseNativeStop.complete(Unit)
+            stopping.await()
+        }
+
+    @Test
     fun combinedPollRejectsEvidenceWhenRuntimeStopsMidPoll() =
         runTest {
             val evidencePollStarted = CompletableDeferred<Unit>()

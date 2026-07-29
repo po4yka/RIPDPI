@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 private const val DefaultSocksListenerPort = 1080
 private const val DefaultMixedInboundListenerPort = 2080
@@ -47,6 +47,7 @@ internal class VpnTunnelRuntime(
     private val flowAttributionBridge: FlowAttributionBridge? = null,
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
     private val geositeDbPath: String? = null,
+    private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
 ) {
     @Volatile
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -59,8 +60,7 @@ internal class VpnTunnelRuntime(
 
     @Volatile
     private var pendingSession: VpnTunnelSession? = null
-
-    private val bridgeGeneration = AtomicLong()
+    private val forwardingLease = AtomicReference<TunnelForwardingLease?>()
     private var tunnelStartCount: Int = 0
 
     @Volatile
@@ -164,7 +164,7 @@ internal class VpnTunnelRuntime(
         // Publish it before retiring the old bridge so every subsequent failure keeps
         // a live interface that captures traffic instead of falling back to direct.
         tunSession = pendingTunnel.session
-        bridgeGeneration.incrementAndGet()
+        forwardingLease.set(null)
         tun2SocksBridge = null
         retiringBridge = null
         try {
@@ -303,7 +303,7 @@ internal class VpnTunnelRuntime(
             throw error
         }
         tun2SocksBridge = tunnelBridge
-        bridgeGeneration.incrementAndGet()
+        forwardingLease.set(TunnelForwardingLease(tunnelBridge))
         retiringBridge = null
         tunSession = pendingTunnel.session
         if (pendingSession === pendingTunnel.session) {
@@ -322,8 +322,8 @@ internal class VpnTunnelRuntime(
         val activeBridge = tun2SocksBridge
         val inactiveBridge = retiringBridge
 
+        forwardingLease.set(null)
         try {
-            bridgeGeneration.incrementAndGet()
             activeBridge?.stop()
         } finally {
             try {
@@ -353,13 +353,14 @@ internal class VpnTunnelRuntime(
     }
 
     suspend fun pollTelemetryAndForwardingEvidence(): RuntimeTelemetryEvidencePoll<TunForwardingEvidence> {
-        val bridge =
-            tun2SocksBridge
+        val lease =
+            forwardingLease.get()
                 ?: return RuntimeTelemetryEvidencePoll(
                     RuntimeTelemetryOutcome.NoData,
                     RuntimeForwardingEvidence.Unavailable,
                 )
-        val generation = bridgeGeneration.get()
+        afterForwardingLeaseAcquired()
+        val bridge = lease.bridge
         val telemetry =
             try {
                 RuntimeTelemetryOutcome.Snapshot(bridge.telemetry())
@@ -382,7 +383,7 @@ internal class VpnTunnelRuntime(
         return RuntimeTelemetryEvidencePoll(
             telemetry = telemetry,
             forwardingEvidence =
-                evidence.takeIf { tun2SocksBridge === bridge && bridgeGeneration.get() == generation }
+                evidence.takeIf { forwardingLease.get() === lease }
                     ?: RuntimeForwardingEvidence.Unavailable,
         )
     }
@@ -398,7 +399,7 @@ internal class VpnTunnelRuntime(
                 activeBridge?.let(::add)
                 if (inactiveBridge !== activeBridge) inactiveBridge?.let(::add)
             }
-        bridgeGeneration.incrementAndGet()
+        forwardingLease.set(null)
         tun2SocksBridge = null
         retiringBridge = null
 
@@ -421,9 +422,9 @@ internal class VpnTunnelRuntime(
     }
 
     suspend fun pollForwardingEvidence(): TunForwardingEvidence? {
-        val bridge = tun2SocksBridge ?: return null
+        val lease = forwardingLease.get() ?: return null
         return try {
-            bridge.forwardingEvidence()
+            lease.bridge.forwardingEvidence().takeIf { forwardingLease.get() === lease }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -458,6 +459,10 @@ internal class VpnTunnelRuntime(
         val signature: String,
     )
 }
+
+private class TunnelForwardingLease(
+    val bridge: Tun2SocksBridge,
+)
 
 /**
  * Returns the effective local listener port using the same resolution logic as

@@ -17,6 +17,40 @@ import java.io.IOException
 
 class VpnTunnelForwardingEvidenceTest {
     @Test
+    fun stopAtFormerSplitAcquisitionBoundaryRejectsRetiringTunnelEvidence() =
+        runTest {
+            val leaseAcquired = CompletableDeferred<Unit>()
+            val releaseLeaseAcquisition = CompletableDeferred<Unit>()
+            val nativeStopStarted = CompletableDeferred<Unit>()
+            val releaseNativeStop = CompletableDeferred<Unit>()
+            val bridge =
+                TestTun2SocksBridge().apply {
+                    beforeStop = {
+                        nativeStopStarted.complete(Unit)
+                        releaseNativeStop.await()
+                    }
+                }
+            val runtime =
+                startedRuntime(
+                    bridge = bridge,
+                    afterForwardingLeaseAcquired = {
+                        leaseAcquired.complete(Unit)
+                        releaseLeaseAcquisition.await()
+                    },
+                )
+
+            val poll = async { runtime.pollTelemetryAndForwardingEvidence() }
+            leaseAcquired.await()
+            val stopping = async { runtime.stop() }
+            nativeStopStarted.await()
+            releaseLeaseAcquisition.complete(Unit)
+
+            assertSame(RuntimeForwardingEvidence.Unavailable, poll.await().forwardingEvidence)
+            releaseNativeStop.complete(Unit)
+            stopping.await()
+        }
+
+    @Test
     fun combinedPollRejectsEvidenceWhenForwardingIsRetainedFailClosedMidPoll() =
         runTest {
             val evidencePollStarted = CompletableDeferred<Unit>()
@@ -94,6 +128,7 @@ class VpnTunnelForwardingEvidenceTest {
 
     private suspend fun kotlinx.coroutines.CoroutineScope.startedRuntime(
         bridge: TestTun2SocksBridge,
+        afterForwardingLeaseAcquired: suspend () -> Unit = {},
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = TestVpnServiceHost(this),
@@ -101,6 +136,7 @@ class VpnTunnelForwardingEvidenceTest {
             proxyGroupRepository = TestProxyGroupRepository(),
             tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
             vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+            afterForwardingLeaseAcquired = afterForwardingLeaseAcquired,
         ).also { runtime ->
             runtime.start(
                 activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),

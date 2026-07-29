@@ -719,6 +719,7 @@ internal class TestProxyRuntime(
     var startFailure: Throwable? = null
     var awaitReadyFailure: Exception? = null
     var stopFailure: Throwable? = null
+    var beforeStop: suspend () -> Unit = {}
     var telemetryFailure: Throwable? = null
     var forwardingEvidenceFailure: Throwable? = null
     var beforeForwardingEvidence: suspend () -> Unit = {}
@@ -756,6 +757,7 @@ internal class TestProxyRuntime(
     override suspend fun stopProxy() {
         stopCount += 1
         events += "proxy:stop"
+        beforeStop()
         stopFailure?.let { throw it }
         if (!exitCode.isCompleted) {
             exitCode.complete(0)
@@ -1123,6 +1125,7 @@ internal class TestTun2SocksBridge(
     var stopCount: Int = 0
         private set
     var beforeStart: (suspend () -> Unit)? = null
+    var beforeStop: suspend () -> Unit = {}
     var startFailure: Throwable? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
@@ -1154,6 +1157,7 @@ internal class TestTun2SocksBridge(
     override suspend fun stop() {
         stopCount += 1
         events += "tunnel:stop"
+        beforeStop()
         stopFailure?.let { throw it }
     }
 
