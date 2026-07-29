@@ -394,6 +394,57 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
             assertFalse(persistedEvidence.message.contains("event_kind="))
             assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         }
+
+    @Test
+    fun `runtime protect failure reaches the classifier through the canonical envelope`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            val telemetry =
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "proxy",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "vpn_protect",
+                                        level = "debug",
+                                        message = "vpn protect backend=jni outcome=rejected",
+                                        createdAt = 1L,
+                                        kind = "vpn_protect",
+                                        runtimeId = "private-runtime",
+                                        mode = "private-mode",
+                                        policySignature = "private-policy",
+                                        fingerprintHash = "private-fingerprint",
+                                        subsystem = "protect",
+                                    ),
+                                ),
+                        ),
+                    updatedAt = 1L,
+                )
+
+            persister.persistRuntimeEvents(telemetry, connectionSessionId = "conn-a")
+            stores.nativeEventsState.value +=
+                terminalDataPlaneEvent("conn-a", createdAt = 2L).copy(
+                    message = "state=evidence_unavailable mode=vpn generation=1 final=true event_kind=data_plane_final",
+                )
+            persister.persistTerminalRootCauseAssessment(
+                connectionSessionId = "conn-a",
+                createdAt = 3L,
+                terminalEvidenceSealed = true,
+            )
+
+            val protectEvent = stores.nativeEventsState.value.single { event -> event.subsystem == "protect" }
+            val assessment = decodeRootCauseAssessment(rootCauseAssessments(stores).single())
+            assertEquals("service", protectEvent.source)
+            assertEquals("warn", protectEvent.level)
+            assertEquals("event=protect_failed event_kind=protect_failure", protectEvent.message)
+            assertFalse(protectEvent.message.contains("backend"))
+            assertFalse(protectEvent.message.contains("outcome"))
+            assertEquals(RuntimeRootCauseVerdict.VPN_PATH_LOSS, assessment.verdict)
+            assertEquals(listOf("protect_failure"), assessment.evidenceRefs.map { it.category })
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

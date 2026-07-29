@@ -12,6 +12,47 @@ import org.junit.Test
 
 class RuntimeTerminalArtifactBatchTest {
     @Test
+    fun `terminal batch normalizes runtime protect failures without producer details`() {
+        val canary = "privacy-canary-protect-detail"
+        val batch =
+            buildPrivacySafeTerminalArtifactBatch(
+                connectionSessionId = "session-safe",
+                typedEvents = emptyList(),
+                nativeEvents =
+                    listOf(
+                        NativeRuntimeEvent(
+                            source = "vpn_protect",
+                            level = "debug",
+                            message = "vpn protect backend=uds outcome=rejected",
+                            createdAt = 11L,
+                            kind = "vpn_protect",
+                            runtimeId = canary,
+                            mode = canary,
+                            policySignature = canary,
+                            fingerprintHash = canary,
+                            subsystem = "protect",
+                        ),
+                        NativeRuntimeEvent(
+                            source = "vpn_protect",
+                            level = "debug",
+                            message = "vpn protect backend=uds outcome=error detail=$canary",
+                            createdAt = 12L,
+                            kind = "vpn_protect",
+                            subsystem = "protect",
+                        ),
+                    ),
+                telemetrySample = null,
+            )
+
+        assertEquals(1, batch.events.size)
+        assertEquals("service", batch.events.single().source)
+        assertEquals("warn", batch.events.single().level)
+        assertEquals("protect", batch.events.single().subsystem)
+        assertEquals("event=protect_failed event_kind=protect_failure", batch.events.single().message)
+        assertFalse(RuntimeHistoryJson.encodeToString(batch).contains(canary))
+    }
+
+    @Test
     fun `terminal batch serializes only privacy safe typed evidence`() {
         val canary = "privacy-canary-routing-data"
         val batch =

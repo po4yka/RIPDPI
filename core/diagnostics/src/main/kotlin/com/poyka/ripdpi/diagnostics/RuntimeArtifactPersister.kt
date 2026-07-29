@@ -105,6 +105,7 @@ class RuntimeArtifactPersister
                 )
             }
             (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+                .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEach { event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(
@@ -126,6 +127,7 @@ class RuntimeArtifactPersister
                 connectionSessionId = connectionSessionId,
             )
             (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+                .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEachIndexed { index, event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(

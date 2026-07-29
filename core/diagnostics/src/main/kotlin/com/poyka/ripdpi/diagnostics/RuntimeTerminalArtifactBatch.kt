@@ -23,7 +23,9 @@ internal fun buildPrivacySafeTerminalArtifactBatch(
             (
                 typedEvents.mapNotNull { event -> event.toPrivacySafeTypedEvent(connectionSessionId) } +
                     nativeEvents.mapIndexedNotNull { index, event ->
-                        event.toPrivacySafeTerminalEvent(connectionSessionId, index)
+                        event
+                            .toPrivacySafePersistedRuntimeEvent()
+                            ?.toPrivacySafeTerminalEvent(connectionSessionId, index)
                     }
             ).distinctBy(NativeSessionEventEntity::id),
         telemetrySample = telemetrySample?.toPrivacySafeTerminalProjection(),
