@@ -188,7 +188,7 @@ class RemoteDeviceRecoveryReceiptTest {
         val generations = ArrayDeque(listOf("generation-a", "generation-b"))
         val collector = collector(generation = { generations.removeFirst() })
         val stale = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
-        val current = collector.beginStart(processDeathRecoveryStartAction, "instance-b")
+        collector.beginStart(processDeathRecoveryStartAction, "instance-b")
 
         collector.recordTunReady(stale)
         collector.recordTunnelTelemetry(

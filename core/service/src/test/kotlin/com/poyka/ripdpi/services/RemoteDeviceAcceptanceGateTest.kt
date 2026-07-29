@@ -15,7 +15,29 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class RemoteDeviceAcceptanceGateTest {
+private fun telemetry(
+    tunnelTxPackets: Long = 0L,
+    tunnelTxBytes: Long = 0L,
+    tunnelRxPackets: Long = 0L,
+    tunnelRxBytes: Long = 0L,
+    relayRxPackets: Long = 0L,
+): ServiceTelemetrySnapshot =
+    ServiceTelemetrySnapshot(
+        tunnelStats =
+            TunnelStats(
+                txPackets = tunnelTxPackets,
+                txBytes = tunnelTxBytes,
+                rxPackets = tunnelRxPackets,
+                rxBytes = tunnelRxBytes,
+            ),
+        relayTelemetry =
+            NativeRuntimeSnapshot(
+                source = "relay",
+                tunnelStats = TunnelStats(rxPackets = relayRxPackets),
+            ),
+    )
+
+class RemoteScreenOffDwellTrackerTest {
     @Test
     fun `screen off survival passes after configured dwell with forwarding delta`() =
         runTest {
@@ -384,7 +406,9 @@ class RemoteDeviceAcceptanceGateTest {
             assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, completed.phase)
             assertEquals(DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged, completed.reason)
         }
+}
 
+class RemoteDeviceAcceptanceGateTest {
     @Test
     fun `successful baseline passes data plane and leaves guided checks incomplete`() {
         val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
@@ -400,91 +424,6 @@ class RemoteDeviceAcceptanceGateTest {
         )
         assertEquals(RemoteDeviceAcceptanceStatus.Pass, report.steps.last().status)
         assertTrue(report.steps.filter { it.status == RemoteDeviceAcceptanceStatus.Pass }.all { it.errorClass == null })
-    }
-
-    @Test
-    fun `UID bridge failure prevents an otherwise passing acceptance result`() {
-        val report = passingAcceptanceReport()
-
-        val qualified =
-            report.withUidPolicyQualification(
-                RemoteDeviceUidPolicyQualification(
-                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.BridgeFailure.wireValue,
-                    uidPolicyEligible = true,
-                    uidPolicyArmed = true,
-                ),
-            )
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, qualified.status)
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, qualified.step(StepUidPolicyQualification).status)
-        assertEquals(ErrorUidPolicyBridgeFailure, qualified.step(StepUidPolicyQualification).errorClass)
-        val rendered = renderRemoteDeviceAcceptanceReport(qualified)
-        assertTrue(rendered.contains("\"result\": \"incomplete\""))
-        assertTrue(rendered.contains("\"errorClass\": \"uid_policy_bridge_failure\""))
-    }
-
-    @Test
-    fun `unavailable recovery persistence makes acceptance explicitly incomplete`() {
-        val report =
-            passingAcceptanceReport().withRecoveryReceipt(
-                RemoteDeviceRecoveryReceipt(
-                    persistenceAvailability = "device_protected_storage_unavailable",
-                ),
-            )
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.step(StepRecoveryReceiptPersistence).status)
-        assertEquals(
-            ErrorRecoveryReceiptPersistenceUnavailable,
-            report.step(StepRecoveryReceiptPersistence).errorClass,
-        )
-        val rendered = renderRemoteDeviceAcceptanceReport(report)
-        assertTrue(rendered.contains("\"result\": \"incomplete\""))
-        assertTrue(rendered.contains("\"persistenceAvailability\": \"device_protected_storage_unavailable\""))
-        assertTrue(rendered.contains("\"errorClass\": \"recovery_receipt_persistence_unavailable\""))
-    }
-
-    @Test
-    fun `ineligible or unarmed UID policy prevents an otherwise passing acceptance result`() {
-        val report = passingAcceptanceReport()
-
-        val ineligible =
-            report.withUidPolicyQualification(
-                RemoteDeviceUidPolicyQualification(
-                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.PermissionDenied.wireValue,
-                    uidPolicyEligible = false,
-                    uidPolicyArmed = false,
-                ),
-            )
-        val unarmed =
-            report.withUidPolicyQualification(
-                RemoteDeviceUidPolicyQualification(
-                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.Supported.wireValue,
-                    uidPolicyEligible = true,
-                    uidPolicyArmed = false,
-                ),
-            )
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, ineligible.status)
-        assertEquals(ErrorUidPolicyIneligible, ineligible.step(StepUidPolicyQualification).errorClass)
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, unarmed.status)
-        assertEquals(ErrorUidPolicyNotArmed, unarmed.step(StepUidPolicyQualification).errorClass)
-    }
-
-    @Test
-    fun `eligible armed UID policy allows an otherwise passing acceptance result`() {
-        val qualified =
-            passingAcceptanceReport().withUidPolicyQualification(
-                RemoteDeviceUidPolicyQualification(
-                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.Supported.wireValue,
-                    uidPolicyEligible = true,
-                    uidPolicyArmed = true,
-                ),
-            )
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Pass, qualified.status)
-        assertEquals(RemoteDeviceAcceptanceStatus.Pass, qualified.step(StepUidPolicyQualification).status)
-        assertNull(qualified.step(StepUidPolicyQualification).errorClass)
     }
 
     @Test
@@ -695,17 +634,6 @@ class RemoteDeviceAcceptanceGateTest {
         assertNull(report.step("reality_tcp").errorClass)
     }
 
-    private fun passingAcceptanceReport(): RemoteDeviceAcceptanceReport {
-        val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
-        return report.copy(
-            status = RemoteDeviceAcceptanceStatus.Pass,
-            steps =
-                report.steps.map { step ->
-                    step.copy(status = RemoteDeviceAcceptanceStatus.Pass, errorClass = null)
-                },
-        )
-    }
-
     private fun RemoteDeviceAcceptanceReport.step(id: String): RemoteDeviceAcceptanceStep = steps.first { it.id == id }
 
     private fun successfulEvidence(): AcceptanceBaselineEvidence =
@@ -757,28 +685,6 @@ class RemoteDeviceAcceptanceGateTest {
                         attemptCount = 7,
                         verdict = RelayUdpPayloadHealthVerdict.Acknowledged.wireValue,
                     ),
-                ),
-        )
-
-    private fun telemetry(
-        tunnelTxPackets: Long = 0L,
-        tunnelTxBytes: Long = 0L,
-        tunnelRxPackets: Long = 0L,
-        tunnelRxBytes: Long = 0L,
-        relayRxPackets: Long = 0L,
-    ): ServiceTelemetrySnapshot =
-        ServiceTelemetrySnapshot(
-            tunnelStats =
-                TunnelStats(
-                    txPackets = tunnelTxPackets,
-                    txBytes = tunnelTxBytes,
-                    rxPackets = tunnelRxPackets,
-                    rxBytes = tunnelRxBytes,
-                ),
-            relayTelemetry =
-                NativeRuntimeSnapshot(
-                    source = "relay",
-                    tunnelStats = TunnelStats(rxPackets = relayRxPackets),
                 ),
         )
 

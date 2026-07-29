@@ -72,6 +72,27 @@ class RemoteDeviceRecoveryReceiptPersistenceTest {
         assertTrue(persistence.compareAndSet(null, first))
         assertFalse(persistence.compareAndSet("wrong-hash", stale))
         assertEquals(first, persistence.load())
+        assertEquals(RemoteDeviceRecoveryReceiptPersistenceAvailability.Available, persistence.availability)
+    }
+
+    @Test
+    fun `commit failure latches write health after storage was initially available`() {
+        val context = CommitFailingDeviceProtectedStorageContext(RuntimeEnvironment.getApplication())
+        val persistence = SharedPreferencesRemoteDeviceRecoveryReceiptPersistence(context)
+        val collector =
+            RemoteDeviceRecoveryReceiptCollector(
+                elapsedRealtime = { 1_000L },
+                generationFactory = { "generation" },
+                persistence = persistence,
+            )
+
+        assertEquals(RemoteDeviceRecoveryReceiptPersistenceAvailability.Available, persistence.availability)
+
+        collector.beginStart(bootRecoveryStartAction, "service-instance")
+
+        assertEquals(RemoteDeviceRecoveryReceiptPersistenceAvailability.WriteFailed, persistence.availability)
+        assertEquals("write_failed", collector.snapshot().persistenceAvailability)
+        assertNull(persistence.load())
     }
 
     @Test
@@ -93,6 +114,40 @@ class RemoteDeviceRecoveryReceiptPersistenceTest {
         assertFalse(persistence.compareAndSet(expectedGenerationHash = null, state = state))
         assertFalse(context.credentialProtectedPreferencesRequested)
     }
+}
+
+private class CommitFailingDeviceProtectedStorageContext(
+    base: Context,
+) : ContextWrapper(base) {
+    override fun createDeviceProtectedStorageContext(): Context {
+        val deviceProtectedContext = baseContext.createDeviceProtectedStorageContext()
+        return object : ContextWrapper(deviceProtectedContext) {
+            override fun getSharedPreferences(
+                name: String?,
+                mode: Int,
+            ): SharedPreferences = CommitFailingSharedPreferences(super.getSharedPreferences(name, mode))
+        }
+    }
+}
+
+private class CommitFailingSharedPreferences(
+    private val delegate: SharedPreferences,
+) : SharedPreferences by delegate {
+    override fun edit(): SharedPreferences.Editor = CommitFailingEditor(delegate.edit())
+}
+
+private class CommitFailingEditor(
+    private val delegate: SharedPreferences.Editor,
+) : SharedPreferences.Editor by delegate {
+    override fun putString(
+        key: String?,
+        value: String?,
+    ): SharedPreferences.Editor {
+        delegate.putString(key, value)
+        return this
+    }
+
+    override fun commit(): Boolean = false
 }
 
 private class FailingDeviceProtectedStorageContext(

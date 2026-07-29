@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,6 +29,7 @@ internal enum class RemoteDeviceRecoveryReceiptPersistenceAvailability(
 ) {
     Available("available"),
     DeviceProtectedStorageUnavailable("device_protected_storage_unavailable"),
+    WriteFailed("write_failed"),
 }
 
 @Singleton
@@ -43,12 +45,17 @@ internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
                     .getSharedPreferences(RemoteDeviceRecoveryReceiptPreferencesName, Context.MODE_PRIVATE)
             }.getOrNull()
 
-        override val availability =
-            if (preferences == null) {
-                RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable
-            } else {
-                RemoteDeviceRecoveryReceiptPersistenceAvailability.Available
-            }
+        private val availabilityState =
+            AtomicReference(
+                if (preferences == null) {
+                    RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable
+                } else {
+                    RemoteDeviceRecoveryReceiptPersistenceAvailability.Available
+                },
+            )
+
+        override val availability: RemoteDeviceRecoveryReceiptPersistenceAvailability
+            get() = availabilityState.get()
 
         override fun load(): PersistedRemoteDeviceRecoveryReceipt? {
             val preferences = preferences ?: return null
@@ -90,21 +97,29 @@ internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
                     return@synchronized false
                 }
                 val receipt = state.receipt.privacySafe()
-                preferences
-                    .edit()
-                    .putString(KeyGenerationHash, state.generationHash)
-                    .putString(KeyServiceInstanceHash, state.serviceInstanceHash)
-                    .putString(KeyGeneration, receipt.generation)
-                    .putString(KeyStartOrigin, receipt.startOrigin)
-                    .putString(KeyUserUnlocked, receipt.userUnlocked)
-                    .putString(KeyAlwaysOn, receipt.alwaysOn)
-                    .putString(KeyLockdown, receipt.lockdown)
-                    .putString(KeyServiceInstanceChanged, receipt.serviceInstanceChanged)
-                    .putString(KeyTimeToForegroundService, receipt.timeToForegroundService)
-                    .putString(KeyTimeToTun, receipt.timeToTun)
-                    .putString(KeyTimeToFirstFlow, receipt.timeToFirstFlow)
-                    .putString(KeyPostStartDataPlaneOutcome, receipt.postStartDataPlaneOutcome)
-                    .commit()
+                val committed =
+                    preferences
+                        .edit()
+                        .putString(KeyGenerationHash, state.generationHash)
+                        .putString(KeyServiceInstanceHash, state.serviceInstanceHash)
+                        .putString(KeyGeneration, receipt.generation)
+                        .putString(KeyStartOrigin, receipt.startOrigin)
+                        .putString(KeyUserUnlocked, receipt.userUnlocked)
+                        .putString(KeyAlwaysOn, receipt.alwaysOn)
+                        .putString(KeyLockdown, receipt.lockdown)
+                        .putString(KeyServiceInstanceChanged, receipt.serviceInstanceChanged)
+                        .putString(KeyTimeToForegroundService, receipt.timeToForegroundService)
+                        .putString(KeyTimeToTun, receipt.timeToTun)
+                        .putString(KeyTimeToFirstFlow, receipt.timeToFirstFlow)
+                        .putString(KeyPostStartDataPlaneOutcome, receipt.postStartDataPlaneOutcome)
+                        .commit()
+                if (!committed) {
+                    availabilityState.compareAndSet(
+                        RemoteDeviceRecoveryReceiptPersistenceAvailability.Available,
+                        RemoteDeviceRecoveryReceiptPersistenceAvailability.WriteFailed,
+                    )
+                }
+                committed
             }
         }
     }

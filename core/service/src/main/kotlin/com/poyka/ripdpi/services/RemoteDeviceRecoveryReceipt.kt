@@ -159,8 +159,7 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
 
     fun cancelServiceInstance(serviceInstanceId: String) {
         synchronized(lock) {
-            val state = active ?: return
-            if (state.serviceInstanceId != serviceInstanceId) return
+            val state = active?.takeIf { it.serviceInstanceId == serviceInstanceId } ?: return
             if (latest.postStartDataPlaneOutcome in ObservedDataPlaneOutcomes) {
                 active = null
                 return
@@ -282,10 +281,10 @@ private fun elapsedBucket(
     val elapsed = observedAtElapsedMs - startedAtElapsedMs
     return when {
         elapsed < 0L -> UnknownReceiptValue
-        elapsed < 1_000L -> "under_1s"
-        elapsed < 5_000L -> "1_to_5s"
-        elapsed < 10_000L -> "5_to_10s"
-        elapsed < 30_000L -> "10_to_30s"
+        elapsed < OneSecondMs -> "under_1s"
+        elapsed < FiveSecondsMs -> "1_to_5s"
+        elapsed < TenSecondsMs -> "5_to_10s"
+        elapsed < ThirtySecondsMs -> "10_to_30s"
         else -> "30s_or_more"
     }
 }
@@ -336,3 +335,7 @@ internal const val PendingReceiptValue = "pending"
 internal const val PresentReceiptValue = "present"
 private const val EnabledReceiptValue = "enabled"
 private const val DisabledReceiptValue = "disabled"
+private const val OneSecondMs = 1_000L
+private const val FiveSecondsMs = 5_000L
+private const val TenSecondsMs = 10_000L
+private const val ThirtySecondsMs = 30_000L

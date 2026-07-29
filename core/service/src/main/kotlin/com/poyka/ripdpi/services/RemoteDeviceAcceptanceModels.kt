@@ -396,6 +396,16 @@ internal fun RemoteDeviceAcceptanceReport.withRecoveryReceipt(
                 )
             }
 
+            RemoteDeviceRecoveryReceiptPersistenceAvailability.WriteFailed.wireValue -> {
+                steps.upsert(
+                    RemoteDeviceAcceptanceStep(
+                        id = StepRecoveryReceiptPersistence,
+                        status = RemoteDeviceAcceptanceStatus.Incomplete,
+                        errorClass = ErrorRecoveryReceiptPersistenceWriteFailed,
+                    ),
+                )
+            }
+
             else -> {
                 steps
             }
@@ -621,6 +631,7 @@ internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
 internal const val ErrorRecoveryReceiptPersistenceUnavailable = "recovery_receipt_persistence_unavailable"
+internal const val ErrorRecoveryReceiptPersistenceWriteFailed = "recovery_receipt_persistence_write_failed"
 internal const val ErrorUidPolicyBridgeFailure = "uid_policy_bridge_failure"
 internal const val ErrorUidPolicyIneligible = "uid_policy_ineligible"
 internal const val ErrorUidPolicyNotArmed = "uid_policy_not_armed"
