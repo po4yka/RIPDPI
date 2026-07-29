@@ -460,9 +460,12 @@ class ActiveScanRegistry
             }
         }
 
-        fun isCancellationRequested(sessionId: String): Boolean = cancelledSessionIds.contains(sessionId)
-
-        fun cancellationSummary(sessionId: String): String? = cancelledSessionSummaries[sessionId]
+        fun cancellationSummaryFor(sessionId: String): String? =
+            if (cancelledSessionIds.contains(sessionId)) {
+                cancelledSessionSummaries[sessionId] ?: "Diagnostics scan canceled"
+            } else {
+                null
+            }
 
         suspend fun clearBridge(
             bridge: NetworkDiagnosticsBridge,
