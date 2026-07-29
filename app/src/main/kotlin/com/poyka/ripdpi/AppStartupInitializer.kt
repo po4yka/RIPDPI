@@ -96,7 +96,9 @@ class AppStartupInitializer
             applicationScope.launch {
                 val profileMutationRecovery =
                     try {
-                        recoverBeforeReadiness()
+                        val recovered = recoverBeforeReadiness()
+                        reconcileRemoteAcceptanceBeforeReadiness()
+                        recovered
                     } catch (cancellation: CancellationException) {
                         startupRunning.set(false)
                         throw cancellation
@@ -131,22 +133,7 @@ class AppStartupInitializer
                 .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
             val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
             Logger.i { report.toLogMessage() }
-            try {
-                startupDiagnosticsProbes.remoteDeviceAcceptanceStartupReconciler.reconcilePendingRun()
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (databaseFailure: SQLException) {
-                Logger.w(databaseFailure) { "Remote acceptance startup reconciliation database write failed" }
-            } catch (stateFailure: IllegalStateException) {
-                Logger.w(stateFailure) { "Remote acceptance startup reconciliation state write failed" }
-            }
-            // Record privacy-safe categories for recent process exits. This
-            // diagnostics read is isolated so a failure never affects startup.
-            runCatching {
-                startupDiagnosticsProbes.lastExitInspector.recordRecentProcessExits()
-            }.onFailure { error ->
-                Logger.w(error) { "Recent process exit scan failed" }
-            }
+            recordRecentProcessExits()
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
             // API 37). A captured heap dump is delivered to our result callback.
             runCatching {
@@ -158,6 +145,30 @@ class AppStartupInitializer
                 detectionObservationStarter.startObserving(context, applicationScope)
             }.onFailure { error ->
                 Logger.w(error) { "App startup detection observation failed" }
+            }
+        }
+
+        private suspend fun reconcileRemoteAcceptanceBeforeReadiness() {
+            try {
+                startupDiagnosticsProbes.remoteDeviceAcceptanceStartupReconciler.reconcilePendingRun()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: SQLException) {
+                Logger.w { startupRecoveryWarning(StartupRecoveryWarning.RemoteAcceptanceDatabase) }
+            } catch (_: IllegalStateException) {
+                Logger.w { startupRecoveryWarning(StartupRecoveryWarning.RemoteAcceptanceState) }
+            }
+        }
+
+        private suspend fun recordRecentProcessExits() {
+            // Record privacy-safe categories for recent process exits. This
+            // diagnostics read is isolated so a failure never affects startup.
+            try {
+                startupDiagnosticsProbes.lastExitInspector.recordRecentProcessExits()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                Logger.w { startupRecoveryWarning(StartupRecoveryWarning.RecentProcessExit) }
             }
         }
 
@@ -348,3 +359,24 @@ internal enum class AppStartupSubsystemStatus {
     Succeeded,
     Failed,
 }
+
+internal enum class StartupRecoveryWarning {
+    RemoteAcceptanceDatabase,
+    RemoteAcceptanceState,
+    RecentProcessExit,
+}
+
+internal fun startupRecoveryWarning(warning: StartupRecoveryWarning): String =
+    when (warning) {
+        StartupRecoveryWarning.RemoteAcceptanceDatabase -> {
+            "Remote acceptance startup reconciliation failed: database"
+        }
+
+        StartupRecoveryWarning.RemoteAcceptanceState -> {
+            "Remote acceptance startup reconciliation failed: state"
+        }
+
+        StartupRecoveryWarning.RecentProcessExit -> {
+            "Recent process exit scan failed"
+        }
+    }

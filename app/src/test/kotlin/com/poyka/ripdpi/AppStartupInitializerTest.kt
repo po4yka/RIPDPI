@@ -41,9 +41,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -360,6 +362,46 @@ class AppStartupInitializerTest {
         }
 
     @Test
+    fun `startup reconciliation completes before Ready can start a new acceptance run`() =
+        runTest {
+            val reconciliationStarted = CompletableDeferred<Unit>()
+            val releaseReconciliation = CompletableDeferred<Unit>()
+            val reconciler =
+                RecordingRemoteDeviceAcceptanceStartupReconciler(
+                    started = reconciliationStarted,
+                    release = releaseReconciliation,
+                )
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    remoteDeviceAcceptanceStartupReconciler = reconciler,
+                    scope = backgroundScope,
+                )
+            var newRunStarted = false
+            backgroundScope.launch {
+                initializer.readiness.first { it == AppStartupReadinessState.Ready }
+                newRunStarted = true
+            }
+
+            initializer.initialize()
+            runCurrent()
+            reconciliationStarted.await()
+
+            assertEquals(AppStartupReadinessState.Pending, initializer.readiness.value)
+            assertFalse(newRunStarted)
+            assertFalse(reconciler.completed)
+
+            releaseReconciliation.complete(Unit)
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertTrue(reconciler.completed)
+            assertTrue(newRunStarted)
+        }
+
+    @Test
     fun `process exit scan failure does not stop later startup probes`() =
         runTest {
             val lastExitInspector =
@@ -384,6 +426,44 @@ class AppStartupInitializerTest {
             assertEquals(1, lastExitInspector.calls)
             assertEquals(1, detectionObservationStarter.startCalls)
         }
+
+    @Test
+    fun `process exit scan cancellation stops later startup probes`() =
+        runTest {
+            val lastExitInspector =
+                RecordingLastExitInspector(
+                    failure = CancellationException("secret-process-exit-canary"),
+                )
+            val detectionObservationStarter = RecordingDetectionObservationStarter()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    detectionObservationStarter = detectionObservationStarter,
+                    lastExitInspector = lastExitInspector,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(1, lastExitInspector.calls)
+            assertEquals(0, detectionObservationStarter.startCalls)
+        }
+
+    @Test
+    fun `startup recovery warnings never include throwable details`() {
+        val canary = "secret-recovery-canary"
+
+        StartupRecoveryWarning.entries.forEach { warning ->
+            val message = startupRecoveryWarning(warning)
+            assertFalse(message.contains(canary))
+            assertFalse(message.contains("Throwable"))
+            assertFalse(message.contains("Exception"))
+        }
+    }
 
     @Test
     fun `detection observation failure is swallowed after successful subsystem initialization`() =
@@ -693,12 +773,20 @@ private object NoOpRemoteDeviceAcceptanceStartupReconciler : RemoteDeviceAccepta
     override suspend fun reconcilePendingRun() = Unit
 }
 
-private class RecordingRemoteDeviceAcceptanceStartupReconciler : RemoteDeviceAcceptanceStartupReconciler {
+private class RecordingRemoteDeviceAcceptanceStartupReconciler(
+    private val started: CompletableDeferred<Unit>? = null,
+    private val release: CompletableDeferred<Unit>? = null,
+) : RemoteDeviceAcceptanceStartupReconciler {
     var calls: Int = 0
+        private set
+    var completed: Boolean = false
         private set
 
     override suspend fun reconcilePendingRun() {
         calls += 1
+        started?.complete(Unit)
+        release?.await()
+        completed = true
     }
 }
 
