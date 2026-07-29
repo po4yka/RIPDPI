@@ -28,6 +28,18 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         headline = stageSummary.headline,
         summary = stageSummary.summary,
         recommendationContributor = stageSummary.recommendationContributor,
+        sourceSnapshotCount = sourceSnapshotCount,
+        includedSnapshotCount = snapshots.size,
+        snapshotsTruncated = sourceSnapshotCount > DiagnosticsArchiveFormat.snapshotLimit,
+        sourceContextCount = sourceContextCount,
+        includedContextCount = contexts.size,
+        contextsTruncated = sourceContextCount > DiagnosticsArchiveFormat.snapshotLimit,
+        sourceEventCount = sourceEventCount,
+        includedEventCount = events.size,
+        eventsTruncated = sourceEventCount > DiagnosticsArchiveFormat.sessionEventLimit,
+        sourceTelemetryCount = sourceTelemetryCount,
+        includedTelemetryCount = telemetry.size,
+        telemetryTruncated = sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit,
     )
 
 internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =
@@ -208,16 +220,27 @@ internal fun buildSectionStatuses(
         selection.includedFiles.forEach { fileName ->
             val compositeStage =
                 selection.compositeStages.firstOrNull { stage ->
-                    fileName == "stages/${stage.stageSummary.stageKey}/native-events.csv"
+                    fileName.startsWith("stages/${stage.stageSummary.stageKey}/")
                 }
             put(
                 fileName,
                 if (compositeStage != null) {
-                    if (compositeStage.sourceEventCount > DiagnosticsArchiveFormat.sessionEventLimit) {
-                        DiagnosticsArchiveSectionStatus.TRUNCATED
-                    } else {
-                        DiagnosticsArchiveSectionStatus.INCLUDED
-                    }
+                    sectionStatusForFileName(
+                        fileName = fileName,
+                        flags =
+                            SectionTruncationFlags(
+                                telemetry =
+                                    compositeStage.sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit,
+                                nativeEvents =
+                                    compositeStage.sourceEventCount > DiagnosticsArchiveFormat.sessionEventLimit,
+                                snapshots =
+                                    compositeStage.sourceSnapshotCount > DiagnosticsArchiveFormat.snapshotLimit,
+                                contexts =
+                                    compositeStage.sourceContextCount > DiagnosticsArchiveFormat.snapshotLimit,
+                                logcat = false,
+                                appLog = false,
+                            ),
+                    )
                 } else {
                     if (fileName == "app-log.txt" && truncationFlags.appLog) {
                         DiagnosticsArchiveSectionStatus.TRUNCATED

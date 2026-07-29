@@ -487,11 +487,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             latestPassiveSnapshot = null,
             latestPassiveContext = null,
             telemetry =
-                stage.session
-                    ?.id
-                    ?.let { sessionId ->
-                        selection.payload.telemetry.filter { sample -> sample.sessionId == sessionId }
-                    }.orEmpty()
+                stage.telemetry
                     .map { sample ->
                         sample.copy(
                             publicIp = if (sample.publicIp != null) "redacted" else null,

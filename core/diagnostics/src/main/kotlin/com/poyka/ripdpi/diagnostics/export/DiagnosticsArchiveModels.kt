@@ -16,7 +16,6 @@ import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.FileLogSnapshot
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.LogcatSnapshot
@@ -194,17 +193,6 @@ internal enum class DiagnosticsArchiveRunType {
     @SerialName("home_composite")
     HOME_COMPOSITE,
 }
-
-internal data class DiagnosticsArchiveCompositeStageSelection(
-    val stageSummary: DiagnosticsHomeCompositeStageSummary,
-    val session: ScanSessionEntity?,
-    val report: EngineScanReportWire?,
-    val results: List<ProbeResultEntity>,
-    val snapshots: List<NetworkSnapshotEntity>,
-    val contexts: List<DiagnosticContextEntity>,
-    val events: List<NativeSessionEventEntity>,
-    val sourceEventCount: Int = events.size,
-)
 
 @Serializable
 internal enum class DiagnosticsArchiveSessionSelectionStatus {
@@ -623,31 +611,6 @@ internal data class DiagnosticsArchiveHomeAnalysisPayload(
     val bundleSessionIds: List<String> = emptyList(),
     val connectivityAssessment: ConnectivityAssessment? = null,
     val internetLossReproAction: HomeReproAction? = null,
-)
-
-@Serializable
-internal data class DiagnosticsArchiveStageIndexEntry(
-    val stageKey: String,
-    val stageLabel: String,
-    val profileId: String,
-    val pathMode: String,
-    val sessionId: String? = null,
-    val status: String,
-    val headline: String,
-    val summary: String,
-    val recommendationContributor: Boolean = false,
-)
-
-@Serializable
-internal data class DiagnosticsArchiveStageIndexPayload(
-    val runId: String,
-    val stages: List<DiagnosticsArchiveStageIndexEntry>,
-)
-
-@Serializable
-internal data class DiagnosticsArchiveStageSummariesPayload(
-    val runId: String,
-    val stages: List<DiagnosticsArchiveStageIndexEntry>,
 )
 
 @Serializable

@@ -158,6 +158,9 @@ internal class DefaultDiagnosticsArchiveExporter
                         compositeSessions = compositeSessions,
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
                         loadNativeEvents = { sessionId -> sourceLoader.getNativeEvents(sessionId) },
+                        loadStageTelemetry = { session, connectionSessionIds ->
+                            sourceLoader.getStageTelemetry(session, connectionSessionIds)
+                        },
                     )
             val pcapFiles =
                 if (request.includePcap && sourceData.appSettings.rootModeEnabled) {

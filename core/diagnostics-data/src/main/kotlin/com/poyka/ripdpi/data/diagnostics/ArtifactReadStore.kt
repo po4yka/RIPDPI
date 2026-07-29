@@ -51,6 +51,21 @@ internal class ArtifactReadStore(
             createdAfter = createdAfter,
         )
 
+    override suspend fun getTelemetryForArchiveStage(
+        sessionId: String,
+        connectionSessionIds: List<String>,
+        startedAt: Long,
+        finishedAt: Long,
+        limit: Int,
+    ): List<TelemetrySampleEntity> =
+        dao.getTelemetryForArchiveStage(
+            sessionId = sessionId,
+            connectionSessionIds = connectionSessionIds,
+            startedAt = startedAt,
+            finishedAt = finishedAt,
+            limit = limit,
+        )
+
     override fun observeConnectionTelemetry(
         connectionSessionId: String,
         limit: Int,

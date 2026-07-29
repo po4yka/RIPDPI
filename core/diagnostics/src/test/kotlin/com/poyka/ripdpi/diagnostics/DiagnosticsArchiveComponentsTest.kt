@@ -267,6 +267,21 @@ class DiagnosticsArchiveComponentsTest {
                         fetchedSessionIds += sessionId
                         listOf(nativeEvent(id = "ev-$sessionId", sessionId = sessionId))
                     },
+                    loadStageTelemetry = { session, _ ->
+                        val count =
+                            if (session.id == primary.id) {
+                                DiagnosticsArchiveFormat.telemetryLimit + 1
+                            } else {
+                                1
+                            }
+                        List(count) { index ->
+                            telemetrySample(publicIp = null).copy(
+                                id = "telemetry-${session.id}-$index",
+                                sessionId = null,
+                                createdAt = session.startedAt + index,
+                            )
+                        }
+                    },
                 )
 
             assertEquals(listOf("ev-session-primary"), selection.primaryEvents.map { it.id })
@@ -276,6 +291,12 @@ class DiagnosticsArchiveComponentsTest {
                 selection.compositeStages.map { stageSelection -> stageSelection.events.map { it.id } },
             )
             assertEquals(listOf("session-primary", "session-stage"), fetchedSessionIds)
+            val primaryStage = selection.compositeStages.first()
+            assertEquals(DiagnosticsArchiveFormat.telemetryLimit, primaryStage.telemetry.size)
+            assertEquals(DiagnosticsArchiveFormat.telemetryLimit + 1, primaryStage.sourceTelemetryCount)
+            val primaryIndex = buildStageIndexEntries(selection).first()
+            assertTrue(primaryIndex.telemetryTruncated)
+            assertEquals(DiagnosticsArchiveFormat.telemetryLimit, primaryIndex.includedTelemetryCount)
         }
 
     @Test

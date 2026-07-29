@@ -129,6 +129,14 @@ interface DiagnosticsArtifactQueryStore {
         createdAfter: Long,
     ): TelemetrySampleEntity?
 
+    suspend fun getTelemetryForArchiveStage(
+        sessionId: String,
+        connectionSessionIds: List<String>,
+        startedAt: Long,
+        finishedAt: Long,
+        limit: Int,
+    ): List<TelemetrySampleEntity>
+
     suspend fun getNativeEventsForSession(
         sessionId: String,
         limit: Int = 500,

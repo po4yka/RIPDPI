@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
@@ -57,6 +58,9 @@ class DiagnosticsArchiveSessionSelector
             compositeSessions: List<ScanSessionEntity> = emptyList(),
             loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
             loadNativeEvents: suspend (String) -> List<NativeSessionEventEntity>,
+            loadStageTelemetry: suspend (ScanSessionEntity, Set<String>) -> List<TelemetrySampleEntity> = { _, _ ->
+                emptyList()
+            },
         ): DiagnosticsArchiveSelection {
             val eventCache = mutableMapOf<String, List<NativeSessionEventEntity>>()
 
@@ -74,6 +78,7 @@ class DiagnosticsArchiveSessionSelector
                     sourceData,
                     loadProbeResults,
                     ::loadSessionEvents,
+                    loadStageTelemetry,
                 )
             val includedFiles = buildIncludedFiles(isComposite, compositeStages, sourceData)
             val payload = buildArchivePayload(primarySession, primaryResults, primary, sourceData)
@@ -239,6 +244,7 @@ class DiagnosticsArchiveSessionSelector
             sourceData: DiagnosticsArchiveSourceData,
             loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
             loadNativeEvents: suspend (String) -> List<NativeSessionEventEntity>,
+            loadStageTelemetry: suspend (ScanSessionEntity, Set<String>) -> List<TelemetrySampleEntity>,
         ): List<DiagnosticsArchiveCompositeStageSelection> {
             if (!isComposite || compositeOutcome == null) return emptyList()
             return compositeOutcome.stageSummaries.map { stageSummary ->
@@ -260,21 +266,28 @@ class DiagnosticsArchiveSessionSelector
                         ?.takeIf(String::isNotBlank)
                         ?.let(json::decodeEngineScanReportWire)
                 val events = loadNativeEvents(session.id)
+                val snapshots = sourceData.snapshots.filter { it.sessionId == session.id }
+                val contexts = sourceData.contexts.filter { it.sessionId == session.id }
+                val connectionSessionIds =
+                    buildSet {
+                        snapshots.mapNotNullTo(this) { it.connectionSessionId }
+                        contexts.mapNotNullTo(this) { it.connectionSessionId }
+                        events.mapNotNullTo(this) { it.connectionSessionId }
+                    }
+                val telemetry = loadStageTelemetry(session, connectionSessionIds)
                 DiagnosticsArchiveCompositeStageSelection(
                     stageSummary = stageSummary,
                     session = session,
                     report = report,
                     results = loadProbeResults(session.id),
-                    snapshots =
-                        sourceData.snapshots
-                            .filter { it.sessionId == session.id }
-                            .take(DiagnosticsArchiveFormat.snapshotLimit),
-                    contexts =
-                        sourceData.contexts
-                            .filter { it.sessionId == session.id }
-                            .take(DiagnosticsArchiveFormat.snapshotLimit),
+                    snapshots = snapshots.take(DiagnosticsArchiveFormat.snapshotLimit),
+                    contexts = contexts.take(DiagnosticsArchiveFormat.snapshotLimit),
                     events = events.take(DiagnosticsArchiveFormat.sessionEventLimit),
+                    telemetry = telemetry.take(DiagnosticsArchiveFormat.telemetryLimit),
+                    sourceSnapshotCount = snapshots.size,
+                    sourceContextCount = contexts.size,
                     sourceEventCount = events.size,
+                    sourceTelemetryCount = telemetry.size,
                 )
             }
         }

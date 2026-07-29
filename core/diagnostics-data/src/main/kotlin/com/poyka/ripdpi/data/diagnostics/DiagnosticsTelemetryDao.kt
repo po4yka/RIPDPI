@@ -30,6 +30,28 @@ interface DiagnosticsTelemetryDao {
     @Query(
         """
         SELECT * FROM telemetry_samples
+        WHERE createdAt >= :startedAt
+            AND createdAt <= :finishedAt
+            AND (
+                sessionId = :sessionId
+                OR connectionSessionId IN (:connectionSessionIds)
+                OR (sessionId IS NULL AND connectionSessionId IS NULL)
+            )
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getTelemetryForArchiveStage(
+        sessionId: String,
+        connectionSessionIds: List<String>,
+        startedAt: Long,
+        finishedAt: Long,
+        limit: Int,
+    ): List<TelemetrySampleEntity>
+
+    @Query(
+        """
+        SELECT * FROM telemetry_samples
         WHERE connectionSessionId = :connectionSessionId
         ORDER BY createdAt DESC
         LIMIT :limit
