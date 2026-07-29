@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
@@ -29,7 +30,7 @@ internal fun buildArchiveProvenance(
     val context = selectArchiveRuntimeContext(selection).context
     val runtimeProvenance =
         DiagnosticsArchiveRuntimeProvenance(
-            runtimeId = allEvents.latestCorrelation { it.runtimeId }?.let(::redactDiagnosticsFreeText),
+            runtimeId = allEvents.latestCorrelation { it.runtimeId }?.let(::redactDiagnosticsArchiveText),
             mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode },
             policySignature = archiveStableCorrelatorProjection(allEvents.latestCorrelation { it.policySignature }),
             fingerprintHash =
@@ -488,7 +489,7 @@ internal fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6):
                         message.contains("listener stopped")
                 )
         }.take(limit)
-        .map { event -> "${event.subsystem ?: event.source}: ${redactDiagnosticsFreeText(event.message)}" }
+        .map { event -> "${event.subsystem ?: event.source}: ${redactDiagnosticsArchiveText(event.message)}" }
         .toList()
 
 internal fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5): List<String> =
@@ -497,13 +498,43 @@ internal fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5)
         .filter { event ->
             event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
         }.take(limit)
-        .map { event -> "${event.subsystem ?: event.source}: ${redactDiagnosticsFreeText(event.message)}" }
+        .map { event -> "${event.subsystem ?: event.source}: ${redactDiagnosticsArchiveText(event.message)}" }
         .toList()
 
 internal fun BypassApproachSummary.successRateLabel(): String =
     validatedSuccessRate?.let { rate ->
         "${(rate * SuccessRatePercentScale).toInt()}%"
     } ?: "unverified"
+
+internal fun BypassApproachSummary.projectForArchive(index: Int? = null): BypassApproachSummary {
+    val kindLabel = approachId.kind.name.lowercase()
+    val categoricalId = "$kindLabel-${index?.plus(1) ?: "unknown"}"
+    return copy(
+        approachId = BypassApproachId(kind = approachId.kind, value = categoricalId),
+        displayName = "redacted",
+        secondaryLabel = kindLabel,
+        verificationState = verificationState.takeIf { it in setOf("validated", "unverified") } ?: "unknown",
+        lastValidatedResult = lastValidatedResult?.let { "redacted" },
+        recentRuntimeHealth =
+            recentRuntimeHealth.copy(
+                lastEndedReason = recentRuntimeHealth.lastEndedReason?.let { "redacted" },
+            ),
+        topFailureOutcomes = topFailureOutcomes.mapIndexed { outcomeIndex, _ -> "failure-${outcomeIndex + 1}" },
+        outcomeBreakdown =
+            outcomeBreakdown.mapIndexed { outcomeIndex, outcome ->
+                outcome.copy(
+                    probeType = "probe-${outcomeIndex + 1}",
+                    dominantFailureOutcome = outcome.dominantFailureOutcome?.let { "redacted" },
+                )
+            },
+    )
+}
+
+internal fun DiagnosticsArchiveSelection.selectedApproachProjection(): BypassApproachSummary? =
+    selectedApproachSummary?.let { selected ->
+        val index = payload.approachSummaries.indexOf(selected).takeIf { it >= 0 }
+        selected.projectForArchive(index)
+    }
 
 internal fun DiagnosticsArchiveBuildProvenance.toSummary(): DiagnosticsArchiveBuildProvenanceSummary =
     DiagnosticsArchiveBuildProvenanceSummary(

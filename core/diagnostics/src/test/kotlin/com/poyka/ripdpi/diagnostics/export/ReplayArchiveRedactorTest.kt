@@ -62,6 +62,19 @@ class ReplayArchiveRedactorTest {
     }
 
     @Test
+    fun hostileExceptionDetail_isStrictlyRedacted() {
+        val certificateStart = listOf("-----BEGIN", "CERTIFICATE-----").joinToString(" ")
+        val raw =
+            "https://admin:password@private.example/path?token=secret " +
+                "file=/data/private/replay.trace $certificateStart\ncertificate-material"
+
+        val result = redactor.redact(raw)
+
+        listOf("admin:password", "private.example", "/data/private", "secret", "certificate-material")
+            .forEach { sensitive -> assertFalse(result.contains(sensitive)) }
+    }
+
+    @Test
     fun noIp_passesThroughUnchanged() {
         val original = "TLS 1.3 handshake completed in 47 ms"
         assertEquals(original, redactor.redact(original))

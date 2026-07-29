@@ -132,6 +132,10 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
             telemetry = selection.payload.telemetry.map { it.redactForArchive() },
             globalEvents = selection.payload.globalEvents.map(redactor::redact),
+            approachSummaries =
+                selection.payload.approachSummaries.mapIndexed { index, summary ->
+                    summary.projectForArchive(index)
+                },
         )
 
     internal fun buildSnapshotPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSnapshotPayload =
@@ -208,7 +212,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             )
                         }
                     }
-                    runtimeId?.let { add("runtimeId=${redactDiagnosticsFreeText(it)}") }
+                    runtimeId?.let { add("runtimeId=${redactDiagnosticsArchiveText(it)}") }
                     mode?.let { add("mode=$it") }
                     policySignature?.let { add("policySignature=${archiveStableCorrelatorProjection(it)}") }
                     fingerprintHash?.let {
@@ -217,7 +221,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     }
                     recentWarnings.firstOrNull()?.let { add("lastFailure=$it") }
                     allEvents.lifecycleMilestones().forEach { add("lifecycle=$it") }
-                    selection.selectedApproachSummary?.let {
+                    selection.selectedApproachProjection()?.let {
                         add("approach=${it.displayName}")
                         add("approachVerification=${it.verificationState}")
                         add("approachSuccessRate=${it.successRateLabel()}")
@@ -355,7 +359,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             telemetrySampleCount = selection.payload.telemetry.size,
             globalEventCount = selection.globalEvents.size,
             approachCount = selection.payload.approachSummaries.size,
-            selectedApproach = selection.selectedApproachSummary,
+            selectedApproach = selection.selectedApproachProjection(),
             networkSummary = selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary(),
             contextSummary =
                 selectArchiveRuntimeContext(selection)
@@ -367,7 +371,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     .firstOrNull()
                     ?.redactForArchive()
                     ?.toArchiveTelemetrySummary(),
-            runtimeId = runtimeId?.let(::redactDiagnosticsFreeText),
+            runtimeId = runtimeId?.let(::redactDiagnosticsArchiveText),
             mode = mode,
             policySignature = archiveStableCorrelatorProjection(policySignature),
             fingerprintHash = fingerprintHash,
@@ -492,7 +496,10 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             telemetry =
                 stage.telemetry.map { it.redactForArchive() },
             globalEvents = emptyList(),
-            approachSummaries = selection.payload.approachSummaries,
+            approachSummaries =
+                selection.payload.approachSummaries.mapIndexed { index, summary ->
+                    summary.projectForArchive(index)
+                },
         )
 
     private fun buildSummaryDocument(selection: DiagnosticsArchiveSelection): DiagnosticsSummaryDocument =

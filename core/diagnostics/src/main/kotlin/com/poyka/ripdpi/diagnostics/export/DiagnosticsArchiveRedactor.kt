@@ -140,8 +140,8 @@ class DiagnosticsArchiveRedactor
 
         fun redact(entity: NativeSessionEventEntity): NativeSessionEventEntity =
             entity.copy(
-                message = redactDiagnosticsFreeText(entity.message),
-                runtimeId = entity.runtimeId?.let(::redactDiagnosticsFreeText),
+                message = redactDiagnosticsArchiveText(entity.message),
+                runtimeId = entity.runtimeId?.let(::redactDiagnosticsArchiveText),
                 policySignature = archiveStableCorrelatorProjection(entity.policySignature),
                 fingerprintHash = archiveFingerprintProjection(entity.fingerprintHash),
             )
@@ -483,7 +483,10 @@ private fun String.replaceWhenContainsAny(
 
 private val AuthorizationHeaderRegex = Regex("(?i)\\b(Proxy-Authorization:|Authorization:)\\s*(?:Basic|Bearer)\\s+\\S+")
 private val PemBlockRegex =
-    Regex("-----BEGIN [^-]+-----.*?-----END [^-]+-----", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    Regex(
+        "-----BEGIN [^-\\r\\n]+-----.*?(?:-----END [^-\\r\\n]+-----|\\z)",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
 private val CredentialUrlRegex = Regex("([a-z][a-z0-9+.-]*:)//[^\\s/@:]+:[^\\s/@]+@", RegexOption.IGNORE_CASE)
 private val SensitiveQueryRegex = Regex("(?i)\\b(token|auth|password|secret|key)=([^\\s&]+)")
 private val BssidRegex = Regex("\\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\\b")
@@ -492,7 +495,14 @@ private val UnquotedNetworkNameRegex = Regex("(?im)\\b(ssid|operator|carrier)\\s
 private val UrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
 private val Ipv4Regex =
     Regex("(?<![A-Za-z0-9])(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}(?![A-Za-z0-9])")
-private val Ipv6Regex = Regex("(?i)(?<![A-Za-z0-9])(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{0,4}(?![A-Za-z0-9])")
+private val Ipv6Regex =
+    Regex(
+        "(?i)(?<![0-9a-f:])(?:" +
+            "(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|" +
+            "(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?::" +
+            "(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?" +
+            ")(?![0-9a-f:])",
+    )
 private val DnsNameRegex =
     Regex("(?i)\\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}\\b")
 private val UnixPathRegex = Regex("(?<![A-Za-z0-9])/(?:[^\\s,;:\"'<>]+/)*[^\\s,;:\"'<>]+")

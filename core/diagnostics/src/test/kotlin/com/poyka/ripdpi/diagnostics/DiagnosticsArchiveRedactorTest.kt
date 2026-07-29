@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsArchiveText
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsLogcat
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -274,7 +275,7 @@ class DiagnosticsArchiveRedactorTest {
             "Authorization: Bearer secret-token " +
                 "https://admin:hunter2@private.example.test/api?token=abc123 " +
                 "host=private.example.test addr=203.0.113.10 ssid=\"CoffeeShop\" bssid=11:22:33:44:55:66\n" +
-                "resolver 2001:db8::53 dns.stable.example path=/data/user/0/com.example/private.txt\n" +
+                "resolver ::1 fe80::1 2001:db8::53 dns.stable.example path=/data/user/0/com.example/private.txt\n" +
                 "operator=Sensitive Mobile Operator; carrier=Sensitive Carrier\n" +
                 "$privateKeyStart\nprivate-key-material\n$privateKeyEnd"
 
@@ -289,6 +290,8 @@ class DiagnosticsArchiveRedactorTest {
         assertFalse("SSID value must not appear verbatim", redacted.contains("CoffeeShop"))
         assertFalse("BSSID must not appear verbatim", redacted.contains("11:22:33:44:55:66"))
         assertFalse("IPv6 must not appear verbatim", redacted.contains("2001:db8::53"))
+        assertFalse("IPv6 loopback must not appear verbatim", redacted.contains("::1"))
+        assertFalse("IPv6 link-local address must not appear verbatim", redacted.contains("fe80::1"))
         assertFalse("DNS name must not appear verbatim", redacted.contains("dns.stable.example"))
         assertFalse(
             "filesystem path must not appear verbatim",
@@ -298,5 +301,17 @@ class DiagnosticsArchiveRedactorTest {
         assertFalse("carrier must not appear verbatim", redacted.contains("Sensitive Carrier"))
         assertFalse("PEM body must not appear verbatim", redacted.contains("private-key-material"))
         assertTrue("redacted marker must be present", redacted.contains("redacted"))
+    }
+
+    @Test
+    fun `archive redactor fails closed on truncated pem material`() {
+        val privateKeyStart = listOf("-----BEGIN", "PRIVATE KEY-----").joinToString(" ")
+        val raw = "before\n$privateKeyStart\ntruncated-private-material\nwithout-end-marker"
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertTrue(redacted.startsWith("before\n<pem-redacted>"))
+        assertFalse(redacted.contains("truncated-private-material"))
+        assertFalse(redacted.contains("without-end-marker"))
     }
 }

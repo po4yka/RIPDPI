@@ -437,7 +437,7 @@ private fun buildRecommendationTrace(
     val evidence = buildRecommendationEvidence(strategyProbe, resolver, assessment, selection)
     return DiagnosticsArchiveRecommendationTrace(
         selectedApproach =
-            selection.selectedApproachSummary?.displayName
+            selection.selectedApproachProjection()?.displayName
                 ?: recommendation?.tcpCandidateLabel
                 ?: resolver?.selectedResolverId
                 ?: "unavailable",

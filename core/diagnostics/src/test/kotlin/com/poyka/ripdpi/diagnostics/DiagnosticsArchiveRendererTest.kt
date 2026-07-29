@@ -8,7 +8,14 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
+import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
+import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
+import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
+import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
+import com.poyka.ripdpi.diagnostics.replay.ReplayStepKind
+import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
@@ -483,7 +490,7 @@ class DiagnosticsArchiveRendererTest {
 
     @Test
     fun `zip writer persists provided entries verbatim`() {
-        val target = Files.createTempFile("archive-writer", ".zip").toFile()
+        val target = Files.createTempDirectory("archive-writer").resolve("archive.zip").toFile()
 
         DiagnosticsArchiveZipWriter().write(
             target = target,
@@ -582,16 +589,17 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
-    fun `renderer redacts sensitive ip ssid and bssid values from archive byte buffers`() {
+    fun `whole zip redacts hostile native replay approach network and credential values`() {
         val selection = buildSensitiveRendererSelection()
+        val archiveDirectory = Files.createTempDirectory("archive-redact")
         val target =
             DiagnosticsArchiveTarget(
-                file = Files.createTempFile("archive-redact", ".zip").toFile(),
+                file = archiveDirectory.resolve("ripdpi-diagnostics-redact.zip").toFile(),
                 fileName = "ripdpi-diagnostics-redact.zip",
                 createdAt = 46L,
             )
 
-        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        DiagnosticsArchiveZipWriter().write(target.file, renderer.render(target, selection))
         val hostileValues =
             listOf(
                 "203.0.113.99",
@@ -619,42 +627,38 @@ class DiagnosticsArchiveRendererTest {
                 "opaque-tls-server-name",
                 "opaque-doh-url",
                 "opaque-dnscrypt-public-key",
+                "replay-user:replay-password",
+                "replay.private.example",
+                "replay-secret-token",
+                "private-certificate-material",
+                "native-certificate-material",
+                "private-truncated-key-material",
+                "native-secret-token",
+                "approach-private-value",
+                "Private Approach Name",
+                "private-validation-result",
+                "private-runtime-end-reason",
+                "private-failure-outcome",
+                "::1",
+                "fe80::1",
+                "2001:db8::53",
             )
 
-        entries.values.forEach { entry ->
-            val content = entry.bytes.decodeToString()
-            hostileValues.forEach { hostileValue ->
-                assertFalse(
-                    "$hostileValue must not appear in ${entry.name}",
-                    content.contains(hostileValue),
-                )
+        ZipFile(target.file).use { zip ->
+            zip.entries().asSequence().filterNot { it.isDirectory }.forEach { entry ->
+                val content = zip.getInputStream(entry).readBytes().decodeToString()
+                hostileValues.forEach { hostileValue ->
+                    assertFalse(
+                        "$hostileValue must not appear in ${entry.name}",
+                        content.contains(hostileValue),
+                    )
+                }
             }
         }
     }
 
     private fun buildSensitiveRendererSelection(): DiagnosticsArchiveSelection {
-        val sensitiveSnapshot =
-            NetworkSnapshotModel(
-                transport = "wifi",
-                capabilities = listOf("validated"),
-                dnsServers = listOf("203.0.113.53"),
-                privateDnsMode = "strict",
-                mtu = 1500,
-                localAddresses = listOf("192.0.2.42"),
-                publicIp = "203.0.113.99",
-                publicAsn = "AS64501",
-                captivePortalDetected = false,
-                networkValidated = true,
-                wifiDetails =
-                    WifiNetworkDetails(
-                        ssid = "SensitiveNetwork",
-                        bssid = "AA:BB:CC:DD:EE:FF",
-                        band = "5 GHz",
-                        wifiStandard = "802.11ax",
-                        gateway = "192.0.2.1",
-                    ),
-                capturedAt = 46L,
-            )
+        val sensitiveSnapshot = sensitiveNetworkSnapshot()
         val base = buildFullRendererSelection()
         val hostileResult =
             rendererProbeResult(sessionId = "session-1").copy(
@@ -662,19 +666,21 @@ class DiagnosticsArchiveRendererTest {
                 detailJson =
                     """{"target":"detail.private.example","address":"2001:db8::44","path":"/data/private/trace"}""",
             )
-        val hostileEvent =
-            rendererNativeEvent(id = "hostile-event", sessionId = "session-1").copy(
-                message = "carrier=Sensitive Carrier; resolver=198.51.100.77",
-                policySignature = "host-policy.private.example",
-            )
+        val hostileEvent = hostileNativeEvent()
+        val hostileReplay = hostileReplayResult()
+        val hostileApproach = hostileApproachSummary()
         return base.copy(
             payload =
                 base.payload.copy(
                     results = listOf(hostileResult),
                     sessionEvents = listOf(hostileEvent),
+                    approachSummaries = listOf(hostileApproach),
                 ),
             primaryResults = listOf(hostileResult),
             primaryEvents = listOf(hostileEvent),
+            selectedApproachSummary = hostileApproach,
+            replayResults = listOf(hostileReplay),
+            includedFiles = base.includedFiles + "replay-results.json",
             primarySnapshots =
                 listOf(
                     NetworkSnapshotEntity(
@@ -688,6 +694,79 @@ class DiagnosticsArchiveRendererTest {
             latestSnapshotModel = sensitiveSnapshot,
         )
     }
+
+    private fun sensitiveNetworkSnapshot() =
+        NetworkSnapshotModel(
+            transport = "wifi",
+            capabilities = listOf("validated"),
+            dnsServers = listOf("203.0.113.53"),
+            privateDnsMode = "strict",
+            mtu = 1500,
+            localAddresses = listOf("192.0.2.42"),
+            publicIp = "203.0.113.99",
+            publicAsn = "AS64501",
+            captivePortalDetected = false,
+            networkValidated = true,
+            wifiDetails =
+                WifiNetworkDetails(
+                    ssid = "SensitiveNetwork",
+                    bssid = "AA:BB:CC:DD:EE:FF",
+                    band = "5 GHz",
+                    wifiStandard = "802.11ax",
+                    gateway = "192.0.2.1",
+                ),
+            capturedAt = 46L,
+        )
+
+    private fun hostileNativeEvent(): NativeSessionEventEntity {
+        val certificateStart = listOf("-----BEGIN", "CERTIFICATE-----").joinToString(" ")
+        val certificateEnd = listOf("-----END", "CERTIFICATE-----").joinToString(" ")
+        return rendererNativeEvent(id = "hostile-event", sessionId = "session-1").copy(
+            message =
+                "Authorization: Bearer native-secret-token; carrier=Sensitive Carrier; " +
+                    "resolver=198.51.100.77; loopback=::1; linkLocal=fe80::1; resolverV6=2001:db8::53; " +
+                    "$certificateStart\nnative-certificate-material\n$certificateEnd\n" +
+                    "url=https://native.private.example/secret/path; file=/data/private/native.trace",
+            policySignature = "host-policy.private.example",
+        )
+    }
+
+    private fun hostileReplayResult(): ReplayProbeResult {
+        val privateKeyStart = listOf("-----BEGIN", "PRIVATE KEY-----").joinToString(" ")
+        val certificateStart = listOf("-----BEGIN", "CERTIFICATE-----").joinToString(" ")
+        val certificateEnd = listOf("-----END", "CERTIFICATE-----").joinToString(" ")
+        val detail =
+            "https://replay-user:replay-password@replay.private.example/private/path?token=replay-secret-token " +
+                "$certificateStart\nprivate-certificate-material\n$certificateEnd\n" +
+                "$privateKeyStart\nprivate-truncated-key-material"
+        return ReplayProbeResult(
+            request = ReplayProbeRequest("replay.private.example", "strategy-fast", 1_000L),
+            events =
+                persistentListOf(
+                    ReplayStepEvent.StepFailed(
+                        ReplayStepKind.TlsHandshake,
+                        ReplayErrorKind.TlsHandshakeFailed,
+                        detail,
+                    ),
+                ),
+            verdict = ReplayVerdict.Failure,
+            terminalStep = ReplayStepKind.TlsHandshake,
+            recommendationKey = "replay_failure",
+        )
+    }
+
+    private fun hostileApproachSummary() =
+        rendererApproachSummary(strategyId = "approach-private-value").copy(
+            displayName = "Private Approach Name",
+            secondaryLabel = "private.secondary.example",
+            lastValidatedResult = "private-validation-result",
+            recentRuntimeHealth =
+                BypassRuntimeHealthSummary(
+                    totalErrors = 1,
+                    lastEndedReason = "private-runtime-end-reason",
+                ),
+            topFailureOutcomes = listOf("private-failure-outcome"),
+        )
 
     @Test
     fun `renderer never exports content from undecodable snapshot or context payloads`() {
