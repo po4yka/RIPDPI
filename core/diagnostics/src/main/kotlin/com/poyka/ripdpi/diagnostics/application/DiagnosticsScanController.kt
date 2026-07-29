@@ -314,7 +314,7 @@ internal class DefaultDiagnosticsScanController
                 val existingSession = scanRecordStore.getScanSession(sessionId)
                 if (existingSession != null && existingSession.status != "running") return@withLock true
                 if (existingSession?.status == "running" && activeScanRegistry.hasRegisteredExecution(sessionId)) {
-                    return@withLock true
+                    return@withLock false
                 }
                 val profile = scanAdmissionService.admitAutomaticProbe(settings) ?: return@withLock false
                 startPreparedScan(
@@ -331,7 +331,7 @@ internal class DefaultDiagnosticsScanController
                         ),
                     rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
                 )
-                true
+                false
             }
 
         private suspend fun startPreparedScan(

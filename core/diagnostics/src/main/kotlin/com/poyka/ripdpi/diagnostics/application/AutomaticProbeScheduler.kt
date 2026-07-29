@@ -23,6 +23,7 @@ import javax.inject.Singleton
 interface AutomaticProbeLauncher {
     fun hasActiveScan(): Boolean
 
+    /** Returns true only when this delivery already has a durable terminal scan row and may be acknowledged. */
     suspend fun launchAutomaticProbe(
         settings: com.poyka.ripdpi.proto.AppSettings,
         event: PolicyHandoverEvent,

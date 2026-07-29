@@ -56,9 +56,19 @@ class DiagnosticsScanControllerTest {
                 )
             val event = transportSwitchHandoverEvent()
 
-            assertTrue(services.scanController.launchAutomaticProbe(settings, event))
-            assertTrue(services.scanController.launchAutomaticProbe(settings, event))
+            assertFalse(services.scanController.launchAutomaticProbe(settings, event))
+            assertFalse(services.scanController.launchAutomaticProbe(settings, event))
 
+            assertEquals(1, stores.sessionsState.value.size)
+
+            val sessionId =
+                stores.sessionsState.value
+                    .single()
+                    .id
+            completeHiddenScan(bridgeFactory, sessionId, settings)
+            advanceUntilIdle()
+
+            assertTrue(services.scanController.launchAutomaticProbe(settings, event))
             assertEquals(1, stores.sessionsState.value.size)
         }
 
@@ -144,7 +154,7 @@ class DiagnosticsScanControllerTest {
                         json = json,
                     )
 
-                assertTrue(replayServices.scanController.launchAutomaticProbe(settings, event))
+                assertFalse(replayServices.scanController.launchAutomaticProbe(settings, event))
                 assertEquals(1, stores.sessionsState.value.size)
                 assertTrue(replayServices.scanController.hiddenAutomaticProbeActive.value)
             }
@@ -279,7 +289,7 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            assertTrue(
+            assertFalse(
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event =
@@ -328,7 +338,7 @@ class DiagnosticsScanControllerTest {
                 }
             val services = createServicesWithHiddenProbeCapable(appSettingsRepository, stores, bridgeFactory)
 
-            assertTrue(
+            assertFalse(
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event = transportSwitchHandoverEvent(),
@@ -441,7 +451,7 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            assertTrue(
+            assertFalse(
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event =
@@ -742,7 +752,7 @@ class DiagnosticsScanControllerTest {
                             occurredAt = 10L,
                         ),
                 )
-            assertTrue(launched)
+            assertFalse(launched)
             val launchedSession = stores.sessionsState.value.single()
             val sessionId = launchedSession.id
             bridgeFactory.bridge.enqueueProgress(
