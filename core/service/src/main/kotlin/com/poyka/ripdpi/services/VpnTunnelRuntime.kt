@@ -294,12 +294,19 @@ internal class VpnTunnelRuntime(
         retainFailedBridge: Boolean,
     ) {
         val tunnelBridge = tun2SocksBridgeFactory.create()
+        flowAttributionBridge?.activateUidPolicy(
+            NativeUidPolicy(
+                mode = pendingTunnel.config.uidPolicyMode,
+                uids = pendingTunnel.config.uidPolicyUids,
+            ),
+        )
         try {
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.Commit)
             withTimeout(NativeTunnelStartTimeoutMillis) {
                 tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
             }
         } catch (error: Exception) {
+            flowAttributionBridge?.deactivateUidPolicy()
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.FailClosed)
             if (retainFailedBridge) retiringBridge = tunnelBridge
             throw error
@@ -337,6 +344,7 @@ internal class VpnTunnelRuntime(
                 session.close()
                 tunSession = null
                 pendingSession = null
+                flowAttributionBridge?.deactivateUidPolicy()
             }
         }
     }
@@ -425,6 +433,7 @@ internal class VpnTunnelRuntime(
             }
         }
         stopFailure?.let { throw it }
+        flowAttributionBridge?.deactivateUidPolicy()
         tunSession = session
         return !isForwarding
     }

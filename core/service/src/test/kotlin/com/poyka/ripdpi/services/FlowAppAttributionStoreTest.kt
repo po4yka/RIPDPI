@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FlowAppAttributionStoreTest {
@@ -153,6 +155,59 @@ class FlowAppAttributionStoreTest {
             )
 
         assertEquals(NativeUidPolicy("denylist", listOf(10420, 10421)), policy)
+    }
+
+    @Test
+    fun `qualification epoch counts categorical attribution outcomes and protocol denials`() {
+        val epoch = UidPolicyQualificationEpoch(NativeUidPolicy("allowlist", listOf(10123)))
+
+        epoch.record(protocol = 6, uid = 10123, requestKind = AdmissionOnlyFlowRequest)
+        epoch.record(protocol = 6, uid = 10420, requestKind = AdmissionOnlyFlowRequest)
+        epoch.record(protocol = 17, uid = InvalidUid, requestKind = AdmissionOnlyFlowRequest)
+        epoch.record(protocol = 132, uid = 10421, requestKind = AdmissionOnlyFlowRequest)
+
+        assertEquals(3L, epoch.uidResolvedCount.get())
+        assertEquals(1L, epoch.uidUnresolvedCount.get())
+        assertEquals(1L, epoch.uidPolicyDeniedTcpCount.get())
+        assertEquals(1L, epoch.uidPolicyDeniedUdpCount.get())
+        assertEquals(1L, epoch.uidPolicyDeniedOtherCount.get())
+    }
+
+    @Test
+    fun `non-admission attribution does not fabricate a policy denial`() {
+        val epoch = UidPolicyQualificationEpoch(NativeUidPolicy("denylist", listOf(10123)))
+
+        epoch.record(protocol = 6, uid = 10123, requestKind = 0)
+
+        assertEquals(1L, epoch.uidResolvedCount.get())
+        assertEquals(0L, epoch.uidPolicyDeniedTcpCount.get())
+    }
+
+    @Test
+    fun `bridge qualification is armed only for an active native policy epoch`() {
+        val bridge =
+            FlowAttributionBridge(
+                RecordingResolutionStore(),
+                null,
+                SoBindToDeviceUidPolicyEligibility.forTest(
+                    sdkInt = android.os.Build.VERSION_CODES.S,
+                    kernelRelease = "6.1.99-android",
+                    probe = { BindToDeviceProbeOutcome.Supported },
+                ),
+            )
+
+        bridge.activateUidPolicy(NativeUidPolicy("allowlist", listOf(10420)))
+        bridge.noteFlow(6, "10.0.0.2", 53000, "198.18.0.10", 443, AdmissionOnlyFlowRequest)
+
+        assertTrue(bridge.snapshot().uidPolicyArmed)
+        assertEquals(1L, bridge.snapshot().uidResolvedCount)
+        assertEquals(1L, bridge.snapshot().uidPolicyDeniedTcpCount)
+
+        bridge.deactivateUidPolicy()
+
+        assertFalse(bridge.snapshot().uidPolicyArmed)
+        assertEquals(0L, bridge.snapshot().uidResolvedCount)
+        assertEquals(0L, bridge.snapshot().uidPolicyDeniedTcpCount)
     }
 }
 

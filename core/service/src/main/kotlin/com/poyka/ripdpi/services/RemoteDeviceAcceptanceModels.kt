@@ -41,6 +41,7 @@ data class RemoteDeviceAcceptanceReport(
     val pathHealth: RelayUdpPayloadHealthEvidence? = null,
     val underlay: RemoteDeviceAcceptanceUnderlay = RemoteDeviceAcceptanceUnderlay(),
     val recoveryReceipt: RemoteDeviceRecoveryReceipt = RemoteDeviceRecoveryReceipt(),
+    val uidPolicyQualification: RemoteDeviceUidPolicyQualification = RemoteDeviceUidPolicyQualification(),
 )
 
 data class RemoteDeviceAcceptanceUnderlay(
@@ -196,6 +197,7 @@ private fun RemoteDeviceAcceptanceReport.toRedactedPayload(): RedactedAcceptance
         pathHealth = pathHealth?.toRedacted(),
         underlay = underlay.toRedacted(),
         recoveryReceipt = recoveryReceipt.toRedacted(),
+        uidPolicyQualification = uidPolicyQualification.toRedacted(),
     )
 
 @Serializable
@@ -207,6 +209,7 @@ private data class RedactedAcceptanceReport(
     val steps: List<RedactedAcceptanceStep>,
     val underlay: RedactedAcceptanceUnderlay,
     val recoveryReceipt: RedactedRecoveryReceipt,
+    val uidPolicyQualification: RedactedUidPolicyQualification,
     val pathHealth: RedactedRelayUdpPayloadHealth? = null,
 )
 
@@ -222,6 +225,19 @@ private data class RedactedRecoveryReceipt(
     val timeToTun: String,
     val timeToFirstFlow: String,
     val postStartDataPlaneOutcome: String,
+)
+
+@Serializable
+private data class RedactedUidPolicyQualification(
+    val kernelMajorMinorBand: String,
+    val unprivilegedBindToDevice: String,
+    val uidPolicyEligible: Boolean,
+    val uidPolicyArmed: Boolean,
+    val uidResolvedCount: Long,
+    val uidUnresolvedCount: Long,
+    val uidPolicyDeniedTcpCount: Long,
+    val uidPolicyDeniedUdpCount: Long,
+    val uidPolicyDeniedOtherCount: Long,
 )
 
 @Serializable
@@ -290,6 +306,21 @@ private fun RemoteDeviceRecoveryReceipt.toRedacted(): RedactedRecoveryReceipt =
             timeToTun = safe.timeToTun,
             timeToFirstFlow = safe.timeToFirstFlow,
             postStartDataPlaneOutcome = safe.postStartDataPlaneOutcome,
+        )
+    }
+
+private fun RemoteDeviceUidPolicyQualification.toRedacted(): RedactedUidPolicyQualification =
+    privacySafe().let { safe ->
+        RedactedUidPolicyQualification(
+            kernelMajorMinorBand = safe.kernelMajorMinorBand,
+            unprivilegedBindToDevice = safe.unprivilegedBindToDevice,
+            uidPolicyEligible = safe.uidPolicyEligible,
+            uidPolicyArmed = safe.uidPolicyArmed,
+            uidResolvedCount = safe.uidResolvedCount,
+            uidUnresolvedCount = safe.uidUnresolvedCount,
+            uidPolicyDeniedTcpCount = safe.uidPolicyDeniedTcpCount,
+            uidPolicyDeniedUdpCount = safe.uidPolicyDeniedUdpCount,
+            uidPolicyDeniedOtherCount = safe.uidPolicyDeniedOtherCount,
         )
     }
 

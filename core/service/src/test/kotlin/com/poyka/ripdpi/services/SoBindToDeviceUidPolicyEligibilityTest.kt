@@ -3,13 +3,13 @@ package com.poyka.ripdpi.services
 import android.os.Build
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.FileDescriptor
 
 class SoBindToDeviceUidPolicyEligibilityTest {
     @Test
-    fun `android 9 is ineligible without probing`() {
+    fun `android 9 is ineligible and marks the probe not supported without running it`() {
         var probeCalls = 0
         val eligibility =
             SoBindToDeviceUidPolicyEligibility.forTest(
@@ -17,75 +17,83 @@ class SoBindToDeviceUidPolicyEligibilityTest {
                 kernelRelease = "6.1.99-android14-11-gki",
                 probe = {
                     probeCalls += 1
-                    true
+                    BindToDeviceProbeOutcome.Supported
                 },
             )
 
         assertFalse(eligibility.isEligible())
-        assertTrue("API 28 must not perform the capability probe", probeCalls == 0)
+        assertEquals("6.1", eligibility.qualification().kernelMajorMinorBand)
+        assertEquals("not_supported", eligibility.qualification().unprivilegedBindToDevice)
+        assertEquals(0, probeCalls)
     }
 
     @Test
     fun `android 10 accepts a successful capability probe on an old kernel`() {
-        val eligibility = eligibility(Build.VERSION_CODES.Q, "4.19.157-android10", probeResult = true)
+        val eligibility = eligibility(Build.VERSION_CODES.Q, "4.19.157-android10", BindToDeviceProbeOutcome.Supported)
 
         assertTrue(eligibility.isEligible())
+        assertEquals("4.19", eligibility.qualification().kernelMajorMinorBand)
+        assertEquals("supported", eligibility.qualification().unprivilegedBindToDevice)
     }
 
     @Test
-    fun `android 10 rejects a failed capability probe on an old kernel`() {
-        val eligibility = eligibility(Build.VERSION_CODES.Q, "4.19.157-android10", probeResult = false)
+    fun `android 10 rejects a denied capability probe on an old kernel`() {
+        val eligibility =
+            eligibility(Build.VERSION_CODES.Q, "4.19.157-android10", BindToDeviceProbeOutcome.PermissionDenied)
 
         assertFalse(eligibility.isEligible())
+        assertEquals("permission_denied", eligibility.qualification().unprivilegedBindToDevice)
     }
 
     @Test
-    fun `android 10 accepts kernel 5_7 when the probe fails`() {
-        val eligibility = eligibility(Build.VERSION_CODES.Q, "5.7.0-android", probeResult = false)
+    fun `android 10 accepts kernel 5_7 when the probe is unavailable`() {
+        val eligibility = eligibility(Build.VERSION_CODES.Q, "5.7.0-android", BindToDeviceProbeOutcome.Unavailable)
 
         assertTrue(eligibility.isEligible())
+        assertEquals("5.7", eligibility.qualification().kernelMajorMinorBand)
     }
 
     @Test
-    fun `android 10 rejects kernel 5_6 when the probe fails`() {
-        val eligibility = eligibility(Build.VERSION_CODES.Q, "5.6.19-android", probeResult = false)
-
-        assertFalse(eligibility.isEligible())
+    fun `android 10 rejects kernel 5_6 when the probe is unavailable`() {
+        assertFalse(
+            eligibility(Build.VERSION_CODES.Q, "5.6.19-android", BindToDeviceProbeOutcome.Unavailable).isEligible(),
+        )
     }
 
     @Test
-    fun `android 12 accepts an unreadable kernel when the probe fails`() {
-        val eligibility = eligibility(Build.VERSION_CODES.S, "not-a-kernel-release", probeResult = false)
+    fun `android 12 accepts an unreadable kernel when the probe is unavailable`() {
+        val eligibility =
+            eligibility(Build.VERSION_CODES.S, "not-a-kernel-release", BindToDeviceProbeOutcome.Unavailable)
 
         assertTrue(eligibility.isEligible())
+        assertEquals("unknown", eligibility.qualification().kernelMajorMinorBand)
     }
 
     @Test
-    fun `android 11 rejects missing and malformed kernel releases when the probe fails`() {
+    fun `android 11 rejects missing and malformed kernel releases when the probe is unavailable`() {
         listOf(null, "", "not-a-kernel-release").forEach { release ->
-            assertFalse(eligibility(Build.VERSION_CODES.R, release, probeResult = false).isEligible())
+            assertFalse(eligibility(Build.VERSION_CODES.R, release, BindToDeviceProbeOutcome.Unavailable).isEligible())
         }
     }
 
     @Test
-    fun `android 12 accepts missing blank and malformed kernel releases when the probe fails`() {
+    fun `android 12 accepts missing blank and malformed kernel releases when the probe is unavailable`() {
         listOf(null, "", "not-a-kernel-release").forEach { release ->
-            assertTrue(eligibility(Build.VERSION_CODES.S, release, probeResult = false).isEligible())
+            assertTrue(eligibility(Build.VERSION_CODES.S, release, BindToDeviceProbeOutcome.Unavailable).isEligible())
         }
-    }
-
-    @Test
-    fun `android 10 accepts a newer kernel when the probe fails`() {
-        assertTrue(eligibility(Build.VERSION_CODES.Q, "6.1.99-android14-11-gki", probeResult = false).isEligible())
     }
 
     @Test
     fun `kernel parser rejects a version with leading garbage`() {
-        assertFalse(eligibility(Build.VERSION_CODES.R, "release-6.1.99-android", probeResult = false).isEligible())
+        val eligibility =
+            eligibility(Build.VERSION_CODES.R, "release-6.1.99-android", BindToDeviceProbeOutcome.Unavailable)
+
+        assertFalse(eligibility.isEligible())
+        assertEquals("unknown", eligibility.qualification().kernelMajorMinorBand)
     }
 
     @Test
-    fun `capability decision is cached for the process singleton`() {
+    fun `capability evidence is cached for the process singleton`() {
         var probeCalls = 0
         val eligibility =
             SoBindToDeviceUidPolicyEligibility.forTest(
@@ -93,82 +101,53 @@ class SoBindToDeviceUidPolicyEligibilityTest {
                 kernelRelease = "4.19.157-android10",
                 probe = {
                     probeCalls += 1
-                    true
+                    BindToDeviceProbeOutcome.Supported
                 },
             )
 
         assertTrue(eligibility.isEligible())
-        assertTrue(eligibility.isEligible())
-        assertTrue("SO_BINDTODEVICE must be probed once", probeCalls == 1)
+        assertEquals("supported", eligibility.qualification().unprivilegedBindToDevice)
+        assertEquals(1, probeCalls)
     }
 
     @Test
-    fun `capability probe closes its socket after a bind error`() {
-        val socket = FileDescriptor()
-        var closedSocket: FileDescriptor? = null
-
-        val succeeded =
-            probeUnprivilegedBindToDevice(
-                openSocket = { socket },
-                bindSocket = { throw IllegalStateException("denied") },
-                closeSocket = { closedSocket = it },
+    fun `unexpected native probe failure is not disguised as unavailable`() {
+        val eligibility =
+            SoBindToDeviceUidPolicyEligibility.forTest(
+                sdkInt = Build.VERSION_CODES.Q,
+                kernelRelease = "6.1.99-android14",
+                probe = { throw IllegalStateException("contained native failure") },
             )
 
-        assertFalse(succeeded)
-        assertEquals(socket, closedSocket)
+        assertThrows(IllegalStateException::class.java) { eligibility.qualification() }
     }
 
     @Test
-    fun `capability probe closes its socket exactly once after a successful bind`() {
-        val socket = FileDescriptor()
-        var closeCalls = 0
+    fun `privacy projection rejects raw kernel and arbitrary probe values`() {
+        val safe =
+            RemoteDeviceUidPolicyQualification(
+                kernelMajorMinorBand = "6.1.99-android14-secret",
+                unprivilegedBindToDevice = "errno=13 interface=wlan0",
+                uidResolvedCount = -1,
+                uidUnresolvedCount = -2,
+                uidPolicyDeniedTcpCount = -3,
+                uidPolicyDeniedUdpCount = -4,
+                uidPolicyDeniedOtherCount = -5,
+            ).privacySafe()
 
-        val succeeded =
-            probeUnprivilegedBindToDevice(
-                openSocket = { socket },
-                bindSocket = {},
-                closeSocket = { closeCalls += 1 },
-            )
-
-        assertTrue(succeeded)
-        assertEquals(1, closeCalls)
-    }
-
-    @Test
-    fun `capability probe rejects a successful bind when closing fails`() {
-        val socket = FileDescriptor()
-
-        val succeeded =
-            probeUnprivilegedBindToDevice(
-                openSocket = { socket },
-                bindSocket = {},
-                closeSocket = { throw IllegalStateException("close failed") },
-            )
-
-        assertFalse(succeeded)
-    }
-
-    @Test
-    fun `capability probe treats an open error as unsupported`() {
-        var bindCalls = 0
-        var closeCalls = 0
-
-        val succeeded =
-            probeUnprivilegedBindToDevice(
-                openSocket = { throw IllegalStateException("socket unavailable") },
-                bindSocket = { bindCalls += 1 },
-                closeSocket = { closeCalls += 1 },
-            )
-
-        assertFalse(succeeded)
-        assertEquals(0, bindCalls)
-        assertEquals(0, closeCalls)
+        assertEquals("unknown", safe.kernelMajorMinorBand)
+        assertEquals("unavailable", safe.unprivilegedBindToDevice)
+        assertEquals(0, safe.uidResolvedCount)
+        assertEquals(0, safe.uidUnresolvedCount)
+        assertEquals(0, safe.uidPolicyDeniedTcpCount)
+        assertEquals(0, safe.uidPolicyDeniedUdpCount)
+        assertEquals(0, safe.uidPolicyDeniedOtherCount)
     }
 
     private fun eligibility(
         sdkInt: Int,
         kernelRelease: String?,
-        probeResult: Boolean,
+        probeOutcome: BindToDeviceProbeOutcome,
     ): SoBindToDeviceUidPolicyEligibility =
-        SoBindToDeviceUidPolicyEligibility.forTest(sdkInt, kernelRelease) { probeResult }
+        SoBindToDeviceUidPolicyEligibility.forTest(sdkInt, kernelRelease) { probeOutcome }
 }

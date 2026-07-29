@@ -8,6 +8,10 @@
     native <methods>;
 }
 
+-keepclasseswithmembernames class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings {
+    native <methods>;
+}
+
 -keepclasseswithmembernames class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings {
     native <methods>;
 }

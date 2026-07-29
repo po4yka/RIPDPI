@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.annotation.Keep
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 internal data class NativeUidPolicy(
@@ -57,6 +59,14 @@ internal fun resolveFlowRequest(
         store.resolveFlowUid(protocol, localIp, localPort, remoteIp, remotePort)
     }
 
+internal interface RemoteDeviceUidPolicyQualificationSource {
+    fun snapshot(): RemoteDeviceUidPolicyQualification
+}
+
+internal object EmptyRemoteDeviceUidPolicyQualificationSource : RemoteDeviceUidPolicyQualificationSource {
+    override fun snapshot(): RemoteDeviceUidPolicyQualification = RemoteDeviceUidPolicyQualification()
+}
+
 /**
  * The Kotlin object the tun2socks native worker calls over JNI (`noteFlow`) to
  * report a freshly seen flow's 5-tuple. It delegates straight to
@@ -75,16 +85,32 @@ class FlowAttributionBridge
         private val store: FlowAppAttributionStore,
         @param:ApplicationContext private val context: Context?,
         private val eligibility: SoBindToDeviceUidPolicyEligibility,
-    ) {
+    ) : RemoteDeviceUidPolicyQualificationSource {
+        private val qualificationEpoch = AtomicReference(UidPolicyQualificationEpoch(NativeUidPolicy.Disarmed))
+
         internal fun nativeUidPolicy(plan: VpnAppRoutingPlan): NativeUidPolicy {
-            val packageManager = context?.packageManager ?: return NativeUidPolicy.Disarmed
-            return nativeUidPolicyFor(plan, eligibility.isEligible(), context.packageName) { packageName ->
-                try {
-                    packageManager.getApplicationInfo(packageName, 0).uid
-                } catch (_: PackageManager.NameNotFoundException) {
-                    null
+            val packageManager = context?.packageManager
+            val policy =
+                if (packageManager == null) {
+                    NativeUidPolicy.Disarmed
+                } else {
+                    nativeUidPolicyFor(plan, eligibility.isEligible(), context.packageName) { packageName ->
+                        try {
+                            packageManager.getApplicationInfo(packageName, 0).uid
+                        } catch (_: PackageManager.NameNotFoundException) {
+                            null
+                        }
+                    }
                 }
-            }
+            return policy
+        }
+
+        internal fun activateUidPolicy(policy: NativeUidPolicy) {
+            qualificationEpoch.set(UidPolicyQualificationEpoch(policy))
+        }
+
+        internal fun deactivateUidPolicy() {
+            qualificationEpoch.set(UidPolicyQualificationEpoch(NativeUidPolicy.Disarmed))
         }
 
         @Keep
@@ -95,5 +121,61 @@ class FlowAttributionBridge
             remoteIp: String,
             remotePort: Int,
             requestKind: Int,
-        ): Int = resolveFlowRequest(store, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+        ): Int {
+            val uid = resolveFlowRequest(store, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+            qualificationEpoch.get().record(protocol, uid, requestKind)
+            return uid
+        }
+
+        override fun snapshot(): RemoteDeviceUidPolicyQualification {
+            val epoch = qualificationEpoch.get()
+            return eligibility
+                .qualification()
+                .copy(
+                    uidPolicyArmed = epoch.policy.mode != NativeUidPolicy.Disarmed.mode,
+                    uidResolvedCount = epoch.uidResolvedCount.get(),
+                    uidUnresolvedCount = epoch.uidUnresolvedCount.get(),
+                    uidPolicyDeniedTcpCount = epoch.uidPolicyDeniedTcpCount.get(),
+                    uidPolicyDeniedUdpCount = epoch.uidPolicyDeniedUdpCount.get(),
+                    uidPolicyDeniedOtherCount = epoch.uidPolicyDeniedOtherCount.get(),
+                ).privacySafe()
+        }
     }
+
+internal class UidPolicyQualificationEpoch(
+    val policy: NativeUidPolicy,
+) {
+    val uidResolvedCount = AtomicLong()
+    val uidUnresolvedCount = AtomicLong()
+    val uidPolicyDeniedTcpCount = AtomicLong()
+    val uidPolicyDeniedUdpCount = AtomicLong()
+    val uidPolicyDeniedOtherCount = AtomicLong()
+
+    fun record(
+        protocol: Int,
+        uid: Int,
+        requestKind: Int,
+    ) {
+        if (uid == InvalidUid) {
+            uidUnresolvedCount.incrementAndGet()
+        } else {
+            uidResolvedCount.incrementAndGet()
+        }
+        if (requestKind != AdmissionOnlyFlowRequest || !policy.denies(uid)) return
+        when (protocol) {
+            TcpProtocolNumber -> uidPolicyDeniedTcpCount.incrementAndGet()
+            UdpProtocolNumber -> uidPolicyDeniedUdpCount.incrementAndGet()
+            else -> uidPolicyDeniedOtherCount.incrementAndGet()
+        }
+    }
+}
+
+private fun NativeUidPolicy.denies(uid: Int): Boolean =
+    when (mode) {
+        "allowlist" -> uid == InvalidUid || uid !in uids
+        "denylist" -> uid == InvalidUid || uid in uids
+        else -> false
+    }
+
+private const val TcpProtocolNumber = 6
+private const val UdpProtocolNumber = 17

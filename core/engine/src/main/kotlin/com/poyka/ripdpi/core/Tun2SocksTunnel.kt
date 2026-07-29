@@ -123,6 +123,18 @@ object Tun2SocksNativeLoader {
     fun ensureLoaded() = Unit
 }
 
+/** Control-plane JNI probe for the kernel's unprivileged `SO_BINDTODEVICE` behavior. */
+class TunDeviceQualificationNativeBindings
+    @Inject
+    constructor() {
+        fun probeUnprivilegedBindToDevice(): Int {
+            Tun2SocksNativeLoader.ensureLoaded()
+            return jniProbeUnprivilegedBindToDevice()
+        }
+
+        private external fun jniProbeUnprivilegedBindToDevice(): Int
+    }
+
 class Tun2SocksNativeBindings
     @Inject
     constructor() : Tun2SocksBindings {

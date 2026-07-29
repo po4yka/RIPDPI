@@ -565,7 +565,20 @@ class RemoteDeviceAcceptanceGateTest {
 
     @Test
     fun `redacted report contains only approved device transport and step fields`() {
-        val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
+        val report =
+            buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence()).copy(
+                uidPolicyQualification =
+                    RemoteDeviceUidPolicyQualification(
+                        kernelMajorMinorBand = "6.1",
+                        unprivilegedBindToDevice = "supported",
+                        uidPolicyEligible = true,
+                        uidPolicyArmed = true,
+                        uidResolvedCount = 4,
+                        uidUnresolvedCount = 1,
+                        uidPolicyDeniedTcpCount = 1,
+                        uidPolicyDeniedUdpCount = 2,
+                    ),
+            )
 
         val rendered = renderRemoteDeviceAcceptanceReport(report)
 
@@ -581,6 +594,10 @@ class RemoteDeviceAcceptanceGateTest {
         assertTrue(rendered.contains("nat64Reachability"))
         assertTrue(rendered.contains("unknown"))
         assertTrue(rendered.contains("durationMs"))
+        assertTrue(rendered.contains("kernelMajorMinorBand"))
+        assertTrue(rendered.contains("6.1"))
+        assertTrue(rendered.contains("unprivilegedBindToDevice"))
+        assertTrue(rendered.contains("uidPolicyDeniedUdpCount"))
         assertFalse(rendered.contains("profile", ignoreCase = true))
         assertFalse(rendered.contains("credential", ignoreCase = true))
         assertFalse(rendered.contains("endpoint", ignoreCase = true))

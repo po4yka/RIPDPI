@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -94,6 +95,44 @@ class VpnTunnelRuntimePolicyTest {
 
             assertEquals(3, signatures.size)
             assertTrue(signatures[1] != signatures[2])
+        }
+
+    @Test
+    fun uidPolicyQualificationTracksTheLiveTunnelLifecycle() =
+        runTest {
+            val bridge =
+                FlowAttributionBridge(
+                    NoOpFlowAppAttributionStore,
+                    null,
+                    SoBindToDeviceUidPolicyEligibility.forTest(
+                        sdkInt = android.os.Build.VERSION_CODES.S,
+                        kernelRelease = "6.1.99-android",
+                        probe = { BindToDeviceProbeOutcome.Supported },
+                    ),
+                )
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = policyAwareHost(),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge()),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                    flowAttributionBridge = bridge,
+                    nativeUidPolicyProvider = { NativeUidPolicy("allowlist", listOf(10_321)) },
+                )
+
+            runtime.start(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertTrue(bridge.snapshot().uidPolicyArmed)
+
+            runtime.stop()
+
+            assertFalse(bridge.snapshot().uidPolicyArmed)
         }
 
     private fun kotlinx.coroutines.test.TestScope.policyAwareHost(): TestVpnServiceHost =

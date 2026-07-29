@@ -43,6 +43,8 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
     private val telemetryFreshTimeoutMs: Long,
     private val cancellationPersistenceTimeoutMs: Long,
     private val recoveryReceiptSource: RemoteDeviceRecoveryReceiptSource = EmptyRemoteDeviceRecoveryReceiptSource,
+    private val uidPolicyQualificationSource: RemoteDeviceUidPolicyQualificationSource =
+        EmptyRemoteDeviceUidPolicyQualificationSource,
 ) : RemoteDeviceAcceptanceGate {
     @Inject
     constructor(
@@ -52,6 +54,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         networkFingerprintProvider: NetworkFingerprintProvider,
         evidenceWriter: RemoteDeviceAcceptanceEvidenceWriter,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
+        flowAttributionBridge: FlowAttributionBridge,
     ) : this(
         serviceStateStore = serviceStateStore,
         screenStateObserver = screenStateObserver,
@@ -62,6 +65,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         telemetryFreshTimeoutMs = RemoteAcceptanceTelemetryFreshTimeoutMs,
         cancellationPersistenceTimeoutMs = RemoteAcceptanceCancellationPersistenceTimeoutMs,
         recoveryReceiptSource = recoveryReceiptCollector,
+        uidPolicyQualificationSource = flowAttributionBridge,
     )
 
     private val _report = MutableStateFlow(RemoteDeviceAcceptanceReport())
@@ -114,7 +118,10 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
             }
     }
 
-    override fun renderRedactedReport(): String = renderRemoteDeviceAcceptanceReport(_report.value)
+    override fun renderRedactedReport(): String =
+        renderRemoteDeviceAcceptanceReport(
+            _report.value.copy(uidPolicyQualification = uidPolicyQualificationSource.snapshot()),
+        )
 
     /** Cancel-safe: an in-flight screen-off check records a terminal cancellation event. */
     private suspend fun runAcceptance(run: RemoteAcceptanceRun) {
@@ -136,10 +143,15 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 device = captureRemoteDeviceAcceptanceDevice(),
                 transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
                 recoveryReceipt = recoveryReceiptSource.snapshot(),
+                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
             )
         val baseline = baselineProbe.capture(initialSnapshot)
         if (!isCurrent(run)) return
-        _report.value = baseline.copy(recoveryReceipt = recoveryReceiptSource.snapshot())
+        _report.value =
+            baseline.copy(
+                recoveryReceipt = recoveryReceiptSource.snapshot(),
+                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
+            )
         observeGuidedSteps(run, startedAt, requireNotNull(run.guidedState))
     }
 
@@ -449,6 +461,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 status = deriveAcceptanceStatus(steps),
                 steps = steps,
                 recoveryReceipt = recoveryReceiptSource.snapshot(),
+                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
             )
     }
 

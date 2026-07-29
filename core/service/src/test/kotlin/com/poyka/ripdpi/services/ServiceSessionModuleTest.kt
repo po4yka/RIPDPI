@@ -456,7 +456,7 @@ private fun testFlowAttributionBridge(): FlowAttributionBridge =
         SoBindToDeviceUidPolicyEligibility.forTest(
             sdkInt = android.os.Build.VERSION_CODES.S,
             kernelRelease = "5.10.0-android",
-            probe = { true },
+            probe = { BindToDeviceProbeOutcome.Supported },
         ),
     )
 
@@ -468,7 +468,7 @@ private class NoOpAmneziaWgRuntimeSupervisorFactory :
     )
 
 /** No-op [FlowAppAttributionStore] for constructing a [FlowAttributionBridge] in module wiring tests. */
-private object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
+internal object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
     override fun noteFlow(
         protocol: Int,
         localIp: String,
