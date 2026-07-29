@@ -22,6 +22,7 @@ import java.net.ProtocolException
 import java.net.Proxy
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -391,90 +392,85 @@ private fun requireSocksProtocol(
     if (!condition) throw ProtocolException(message)
 }
 
-@Suppress("MagicNumber")
 private fun readSocksAddress(input: DataInputStream): InetAddress =
     when (input.readUnsignedByte()) {
-        AddressIpv4.toInt() -> InetAddress.getByAddress(input.readNBytesExact(4))
-        AddressIpv6.toInt() -> InetAddress.getByAddress(input.readNBytesExact(16))
+        AddressIpv4.toInt() -> InetAddress.getByAddress(input.readNBytesExact(Ipv4AddressBytes))
+        AddressIpv6.toInt() -> InetAddress.getByAddress(input.readNBytesExact(Ipv6AddressBytes))
         else -> throw ProtocolException("SOCKS address type is unsupported")
     }
 
-@Suppress("MagicNumber")
 private fun encodeSocksUdpFrame(
     target: InetSocketAddress,
     payload: ByteArray,
 ): ByteArray {
     val address = target.address ?: throw ProtocolException("UDP probe target must be an IP address")
     val addressBytes = address.address
-    val addressType = if (addressBytes.size == 4) AddressIpv4 else AddressIpv6
-    return ByteArray(4 + addressBytes.size + 2 + payload.size).also { frame ->
-        frame[3] = addressType
-        addressBytes.copyInto(frame, destinationOffset = 4)
-        val portOffset = 4 + addressBytes.size
-        frame[portOffset] = (target.port ushr 8).toByte()
-        frame[portOffset + 1] = target.port.toByte()
-        payload.copyInto(frame, destinationOffset = portOffset + 2)
+    val addressType = if (addressBytes.size == Ipv4AddressBytes) AddressIpv4 else AddressIpv6
+    return ByteArray(SocksUdpAddressOffset + addressBytes.size + SocksPortBytes + payload.size).also { frame ->
+        frame[SocksUdpAddressTypeOffset] = addressType
+        addressBytes.copyInto(frame, destinationOffset = SocksUdpAddressOffset)
+        val portOffset = SocksUdpAddressOffset + addressBytes.size
+        frame.writeUnsignedShort(portOffset, target.port)
+        payload.copyInto(frame, destinationOffset = portOffset + SocksPortBytes)
     }
 }
 
-@Suppress("ComplexCondition", "MagicNumber", "ReturnCount")
 private fun decodeSocksUdpPayload(
     frame: ByteArray,
     length: Int,
-): ByteArray? {
-    if (length < MinimumSocksUdpFrameBytes || frame[0] != 0.toByte() || frame[1] != 0.toByte() ||
-        frame[2] != 0.toByte()
-    ) {
-        return null
-    }
-    val addressLength =
-        when (frame[3]) {
-            AddressIpv4 -> {
-                4
-            }
-
-            AddressIpv6 -> {
-                16
-            }
-
-            AddressDomain -> {
-                if (length < 5) return null
-                1 + frame[4].toUByte().toInt()
-            }
-
-            else -> {
-                return null
-            }
+): ByteArray? =
+    if (hasValidSocksUdpHeader(frame, length)) {
+        socksAddressLength(frame)?.let { addressLength ->
+            val payloadOffset = SocksUdpAddressOffset + addressLength + SocksPortBytes
+            frame.copyPayloadOrNull(payloadOffset, length)
         }
-    val payloadOffset = 4 + addressLength + 2
-    if (payloadOffset >= length) return null
-    return frame.copyOfRange(payloadOffset, length)
+    } else {
+        null
+    }
+
+private fun hasValidSocksUdpHeader(
+    frame: ByteArray,
+    length: Int,
+): Boolean {
+    if (length < MinimumSocksUdpFrameBytes) return false
+    val reservedBytesValid =
+        frame[SocksUdpReservedFirstOffset] == SocksReserved &&
+            frame[SocksUdpReservedSecondOffset] == SocksReserved
+    val fragmentationDisabled = frame[SocksUdpFragmentOffset] == SocksNoFragment
+    return reservedBytesValid && fragmentationDisabled
 }
 
-@Suppress("MagicNumber")
+private fun socksAddressLength(frame: ByteArray): Int? =
+    when (frame[SocksUdpAddressTypeOffset]) {
+        AddressIpv4 -> {
+            Ipv4AddressBytes
+        }
+
+        AddressIpv6 -> {
+            Ipv6AddressBytes
+        }
+
+        AddressDomain -> {
+            frame
+                .getOrNull(SocksUdpAddressOffset)
+                ?.toUByte()
+                ?.toInt()
+                ?.plus(SocksDomainLengthPrefixBytes)
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun ByteArray.copyPayloadOrNull(
+    payloadOffset: Int,
+    frameLength: Int,
+): ByteArray? = if (payloadOffset < frameLength) copyOfRange(payloadOffset, frameLength) else null
+
 private fun dnsQuery(payloadSizeBytes: Int = BaseDnsQueryBytes): ByteArray {
-    val queryId = SecureRandom().nextInt(1 shl 16)
-    val question =
-        byteArrayOf(
-            7,
-            'e'.code.toByte(),
-            'x'.code.toByte(),
-            'a'.code.toByte(),
-            'm'.code.toByte(),
-            'p'.code.toByte(),
-            'l'.code.toByte(),
-            'e'.code.toByte(),
-            3,
-            'c'.code.toByte(),
-            'o'.code.toByte(),
-            'm'.code.toByte(),
-            0,
-            0,
-            1,
-            0,
-            1,
-        )
-    val baseQueryBytes = DnsHeaderBytes + question.size
+    val queryId = SecureRandom().nextInt(DnsTransactionIdUpperBound)
+    val baseQueryBytes = DnsHeaderBytes + DnsQuestion.size
     val includePadding = payloadSizeBytes >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
     val querySize =
         if (includePadding) {
@@ -483,41 +479,57 @@ private fun dnsQuery(payloadSizeBytes: Int = BaseDnsQueryBytes): ByteArray {
             baseQueryBytes
         }
     return ByteArray(querySize).also { query ->
-        query[0] = (queryId ushr 8).toByte()
-        query[1] = queryId.toByte()
-        query[2] = 1
-        query[5] = 1
-        question.copyInto(query, destinationOffset = DnsHeaderBytes)
+        query.writeUnsignedShort(DnsTransactionIdOffset, queryId)
+        query.writeUnsignedShort(DnsFlagsOffset, DnsRecursionDesiredFlag)
+        query.writeUnsignedShort(DnsQuestionCountOffset, DnsSingleRecordCount)
+        DnsQuestion.copyInto(query, destinationOffset = DnsHeaderBytes)
         if (includePadding) {
-            query[11] = 1
+            query.writeUnsignedShort(DnsAdditionalCountOffset, DnsSingleRecordCount)
             val optOffset = baseQueryBytes
-            query[optOffset] = 0
-            query[optOffset + 1] = 0
-            query[optOffset + 2] = 41
-            query[optOffset + 3] = (EdnsUdpPayloadSize ushr 8).toByte()
-            query[optOffset + 4] = EdnsUdpPayloadSize.toByte()
             val paddingLength = payloadSizeBytes - baseQueryBytes - EdnsPaddingMinimumOverheadBytes
-            val rdLength = paddingLength + EdnsOptionHeaderBytes
-            query[optOffset + 9] = (rdLength ushr 8).toByte()
-            query[optOffset + 10] = rdLength.toByte()
-            query[optOffset + 11] = 0
-            query[optOffset + 12] = DnsEdnsPaddingOption
-            query[optOffset + 13] = (paddingLength ushr 8).toByte()
-            query[optOffset + 14] = paddingLength.toByte()
+            writeEdnsPadding(query, optOffset, paddingLength)
         }
     }
 }
 
-@Suppress("MagicNumber")
+private fun writeEdnsPadding(
+    query: ByteArray,
+    optOffset: Int,
+    paddingLength: Int,
+) {
+    query[optOffset + EdnsNameOffset] = DnsNameTerminator
+    query.writeUnsignedShort(optOffset + EdnsRecordTypeOffset, DnsRecordTypeOpt)
+    query.writeUnsignedShort(optOffset + EdnsUdpPayloadSizeOffset, EdnsUdpPayloadSize)
+    query.writeUnsignedShort(
+        optOffset + EdnsRecordDataLengthOffset,
+        paddingLength + EdnsOptionHeaderBytes,
+    )
+    query.writeUnsignedShort(optOffset + EdnsOptionCodeOffset, DnsEdnsPaddingOption)
+    query.writeUnsignedShort(optOffset + EdnsOptionLengthOffset, paddingLength)
+}
+
 private fun isMatchingDnsResponse(
     query: ByteArray,
     response: ByteArray,
-): Boolean =
-    response.size >= DnsHeaderBytes &&
-        response[0] == query[0] &&
-        response[1] == query[1] &&
-        response[2].toInt() and DnsResponseFlag != 0 &&
-        ((response[4].toUByte().toInt() shl 8) or response[5].toUByte().toInt()) > 0
+): Boolean {
+    if (response.size < DnsHeaderBytes) return false
+    val transactionMatches =
+        response.readUnsignedShort(DnsTransactionIdOffset) == query.readUnsignedShort(DnsTransactionIdOffset)
+    val isResponse = response.readUnsignedShort(DnsFlagsOffset) and DnsResponseFlag != 0
+    val hasQuestion = response.readUnsignedShort(DnsQuestionCountOffset) > 0
+    return transactionMatches && isResponse && hasQuestion
+}
+
+private fun ByteArray.writeUnsignedShort(
+    offset: Int,
+    value: Int,
+) {
+    this[offset] = (value ushr ByteBits).toByte()
+    this[offset + LowByteOffset] = value.toByte()
+}
+
+private fun ByteArray.readUnsignedShort(offset: Int): Int =
+    (this[offset].toUByte().toInt() shl ByteBits) or this[offset + LowByteOffset].toUByte().toInt()
 
 private fun DataInputStream.readNBytesExact(size: Int): ByteArray = ByteArray(size).also { bytes -> readFully(bytes) }
 
@@ -527,15 +539,44 @@ private const val TcpProbeTimeoutSeconds = 10L
 private const val UdpProbeTimeoutMillis = 5_000
 private const val MaxUdpProbeResponseBytes = 4_096
 private const val MinimumSocksUdpFrameBytes = 10
+private const val Ipv4AddressBytes = 4
+private const val Ipv6AddressBytes = 16
+private const val SocksUdpReservedFirstOffset = 0
+private const val SocksUdpReservedSecondOffset = 1
+private const val SocksUdpFragmentOffset = 2
+private const val SocksUdpAddressTypeOffset = 3
+private const val SocksUdpAddressOffset = 4
+private const val SocksPortBytes = 2
+private const val SocksDomainLengthPrefixBytes = 1
+private const val SocksNoFragment: Byte = 0
 private const val DnsHeaderBytes = 12
 private const val BaseDnsQueryBytes = 29
-private const val DnsResponseFlag = 0x80
+private const val DnsResponseFlag = 0x8000
+private const val DnsTransactionIdUpperBound = 1 shl 16
+private const val DnsTransactionIdOffset = 0
+private const val DnsFlagsOffset = 2
+private const val DnsQuestionCountOffset = 4
+private const val DnsAdditionalCountOffset = 10
+private const val DnsRecursionDesiredFlag = 0x0100
+private const val DnsSingleRecordCount = 1
+private const val DnsRecordTypeA = 1
+private const val DnsClassInternet = 1
+private const val DnsRecordTypeOpt = 41
+private const val DnsNameTerminator: Byte = 0
 private const val DnsPort = 53
 private const val DefaultDnsAddress = "94.140.14.14"
 private const val EdnsUdpPayloadSize = 1_232
 private const val EdnsPaddingMinimumOverheadBytes = 15
 private const val EdnsOptionHeaderBytes = 4
-private const val DnsEdnsPaddingOption: Byte = 12
+private const val DnsEdnsPaddingOption = 12
+private const val EdnsNameOffset = 0
+private const val EdnsRecordTypeOffset = 1
+private const val EdnsUdpPayloadSizeOffset = 3
+private const val EdnsRecordDataLengthOffset = 9
+private const val EdnsOptionCodeOffset = 11
+private const val EdnsOptionLengthOffset = 13
+private const val ByteBits = 8
+private const val LowByteOffset = 1
 private const val SocksVersion: Byte = 5
 private const val NoAuthentication: Byte = 0
 private const val SocksNoAuthMethodCount: Byte = 1
@@ -547,6 +588,16 @@ private const val AddressIpv4: Byte = 1
 private const val AddressDomain: Byte = 3
 private const val AddressIpv6: Byte = 4
 private val SuccessfulStatusRange = 200..299
+private val DnsExampleLabel = "example".toByteArray(StandardCharsets.US_ASCII)
+private val DnsComLabel = "com".toByteArray(StandardCharsets.US_ASCII)
+private val DnsQuestion =
+    byteArrayOf(DnsExampleLabel.size.toByte()) +
+        DnsExampleLabel +
+        byteArrayOf(DnsComLabel.size.toByte()) +
+        DnsComLabel +
+        byteArrayOf(DnsNameTerminator) +
+        unsignedShortBytes(DnsRecordTypeA) +
+        unsignedShortBytes(DnsClassInternet)
 private val SocksUdpAssociateRequest =
     byteArrayOf(
         SocksVersion,
@@ -559,4 +610,10 @@ private val SocksUdpAssociateRequest =
         SocksReserved,
         SocksReserved,
         SocksReserved,
+    )
+
+private fun unsignedShortBytes(value: Int): ByteArray =
+    byteArrayOf(
+        (value ushr ByteBits).toByte(),
+        value.toByte(),
     )
