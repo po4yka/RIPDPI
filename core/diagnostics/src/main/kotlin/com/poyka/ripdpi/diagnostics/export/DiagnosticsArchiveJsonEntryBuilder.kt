@@ -132,7 +132,11 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
             telemetry =
                 selection.payload.telemetry.map { sample ->
-                    sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
+                    sample.copy(
+                        publicIp = if (sample.publicIp != null) "redacted" else null,
+                        telemetryNetworkFingerprintHash =
+                            archiveFingerprintProjection(sample.telemetryNetworkFingerprintHash),
+                    )
                 },
             globalEvents = selection.payload.globalEvents.map(redactor::redact),
         )
@@ -171,10 +175,12 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
         val policySignature = allEvents.latestCorrelation { it.policySignature }
         val fingerprintHash =
-            selection.payload.telemetry
-                .firstOrNull()
-                ?.telemetryNetworkFingerprintHash
-                ?: allEvents.latestCorrelation { it.fingerprintHash }
+            archiveFingerprintProjection(
+                selection.payload.telemetry
+                    .firstOrNull()
+                    ?.telemetryNetworkFingerprintHash
+                    ?: allEvents.latestCorrelation { it.fingerprintHash },
+            )
         val recentWarnings = allEvents.recentWarningPreview()
         return DiagnosticsSummaryTextRenderer.render(
             document = summaryDocument,
@@ -244,7 +250,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value =
                         DiagnosticsArchiveHomeAnalysisPayload(
                             runId = outcome.runId,
-                            fingerprintHash = outcome.fingerprintHash,
+                            fingerprintHash = archiveFingerprintProjection(outcome.fingerprintHash),
                             actionable = outcome.actionable,
                             headline = outcome.headline,
                             summary = outcome.summary,
@@ -317,10 +323,12 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
         val policySignature = allEvents.latestCorrelation { it.policySignature }
         val fingerprintHash =
-            selection.payload.telemetry
-                .firstOrNull()
-                ?.telemetryNetworkFingerprintHash
-                ?: allEvents.latestCorrelation { it.fingerprintHash }
+            archiveFingerprintProjection(
+                selection.payload.telemetry
+                    .firstOrNull()
+                    ?.telemetryNetworkFingerprintHash
+                    ?: allEvents.latestCorrelation { it.fingerprintHash },
+            )
         val recentWarnings = allEvents.recentWarningPreview()
         val isSingleSession = selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION
         return DiagnosticsArchiveManifest(
@@ -478,7 +486,11 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                         selection.payload.telemetry.filter { sample -> sample.sessionId == sessionId }
                     }.orEmpty()
                     .map { sample ->
-                        sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
+                        sample.copy(
+                            publicIp = if (sample.publicIp != null) "redacted" else null,
+                            telemetryNetworkFingerprintHash =
+                                archiveFingerprintProjection(sample.telemetryNetworkFingerprintHash),
+                        )
                     },
             globalEvents = emptyList(),
             approachSummaries = selection.payload.approachSummaries,
@@ -493,7 +505,13 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 selectArchiveRuntimeContext(selection)
                     .context
                     ?.let(redactor::redact),
-            latestTelemetry = selection.payload.telemetry.firstOrNull(),
+            latestTelemetry =
+                selection.payload.telemetry.firstOrNull()?.let { sample ->
+                    sample.copy(
+                        telemetryNetworkFingerprintHash =
+                            archiveFingerprintProjection(sample.telemetryNetworkFingerprintHash),
+                    )
+                },
             selectedResults = selection.primaryResults,
             warnings =
                 (selection.primaryEvents + selection.globalEvents).filter { event ->

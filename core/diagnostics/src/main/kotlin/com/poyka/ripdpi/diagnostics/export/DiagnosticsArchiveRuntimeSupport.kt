@@ -12,6 +12,9 @@ import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import java.security.MessageDigest
 
 private const val SuccessRatePercentScale = 100
+private const val ArchiveNetworkFingerprint = "redacted"
+
+internal fun archiveFingerprintProjection(value: String?): String? = value?.let { ArchiveNetworkFingerprint }
 
 internal fun textEntry(
     name: String,
@@ -30,15 +33,19 @@ internal fun buildArchiveProvenance(
             mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode },
             policySignature = allEvents.latestCorrelation { it.policySignature }?.let(::redactDiagnosticsFreeText),
             fingerprintHash =
-                selection.payload.telemetry
-                    .firstOrNull()
-                    ?.telemetryNetworkFingerprintHash
-                    ?: allEvents.latestCorrelation { it.fingerprintHash },
+                archiveFingerprintProjection(
+                    selection.payload.telemetry
+                        .firstOrNull()
+                        ?.telemetryNetworkFingerprintHash
+                        ?: allEvents.latestCorrelation { it.fingerprintHash },
+                ),
             networkScope =
-                selection.payload.telemetry
-                    .firstOrNull()
-                    ?.telemetryNetworkFingerprintHash
-                    ?: allEvents.latestCorrelation { it.fingerprintHash },
+                archiveFingerprintProjection(
+                    selection.payload.telemetry
+                        .firstOrNull()
+                        ?.telemetryNetworkFingerprintHash
+                        ?: allEvents.latestCorrelation { it.fingerprintHash },
+                ),
             androidVersion = context?.device?.androidVersion,
             apiLevel = context?.device?.apiLevel,
             primaryAbi = context?.device?.primaryAbi,

@@ -169,9 +169,10 @@ private fun resolveNetworkIdentityBucket(
             ?.takeIf { it.isNotBlank() }
             ?: "steady"
     val fingerprint =
-        latestTelemetry?.telemetryNetworkFingerprintHash
-            ?: (selection.primaryEvents + selection.globalEvents).latestCorrelation { it.fingerprintHash }
-            ?: "unavailable"
+        archiveFingerprintProjection(
+            latestTelemetry?.telemetryNetworkFingerprintHash
+                ?: (selection.primaryEvents + selection.globalEvents).latestCorrelation { it.fingerprintHash },
+        ) ?: "unavailable"
     return "$transport:$handoverClass:$fingerprint"
 }
 

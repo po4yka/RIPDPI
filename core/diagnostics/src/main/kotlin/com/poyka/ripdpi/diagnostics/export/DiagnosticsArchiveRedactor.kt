@@ -120,6 +120,7 @@ class DiagnosticsArchiveRedactor
                 message = redactDiagnosticsFreeText(entity.message),
                 runtimeId = entity.runtimeId?.let(::redactDiagnosticsFreeText),
                 policySignature = entity.policySignature?.let(::redactDiagnosticsFreeText),
+                fingerprintHash = archiveFingerprintProjection(entity.fingerprintHash),
             )
 
         fun redact(entity: ProbeResultEntity): ProbeResultEntity =

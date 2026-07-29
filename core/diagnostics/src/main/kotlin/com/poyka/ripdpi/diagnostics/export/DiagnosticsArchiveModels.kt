@@ -708,7 +708,7 @@ internal fun TelemetrySampleEntity.toArchiveTelemetrySummary(): ArchiveTelemetry
         warpTelemetryMessage = warpTelemetryMessage,
         tunnelTelemetryState = tunnelTelemetryState,
         tunnelTelemetryMessage = tunnelTelemetryMessage,
-        telemetryNetworkFingerprintHash = telemetryNetworkFingerprintHash,
+        telemetryNetworkFingerprintHash = archiveFingerprintProjection(telemetryNetworkFingerprintHash),
         winningTcpStrategyFamily = winningTcpStrategyFamily,
         winningQuicStrategyFamily = winningQuicStrategyFamily,
         winningStrategyFamily = winningStrategyFamily(),

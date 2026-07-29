@@ -641,6 +641,12 @@ class DiagnosticsArchiveRendererTest {
             assertFalse(content.contains("triggerPreviousFingerprintHash"))
             assertFalse(content.contains("triggerCurrentFingerprintHash"))
         }
+        entries.values.forEach { entry ->
+            assertFalse(
+                "Stable fingerprint must not appear in ${entry.name}",
+                entry.bytes.decodeToString().contains("fp-render"),
+            )
+        }
     }
 
     private fun buildFullRendererSelection(): DiagnosticsArchiveSelection =

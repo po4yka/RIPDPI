@@ -85,7 +85,7 @@ private fun buildTelemetryCsv(
                     sample.warpTelemetryMessage.orEmpty(),
                     sample.tunnelTelemetryState,
                     sample.tunnelTelemetryMessage.orEmpty(),
-                    sample.telemetryNetworkFingerprintHash.orEmpty(),
+                    archiveFingerprintProjection(sample.telemetryNetworkFingerprintHash).orEmpty(),
                     sample.winningTcpStrategyFamily.orEmpty(),
                     sample.winningQuicStrategyFamily.orEmpty(),
                     sample.winningStrategyFamily().orEmpty(),
@@ -150,7 +150,7 @@ internal fun buildNativeEventsCsv(
                     csvField(event.runtimeId?.let(::redactDiagnosticsFreeText).orEmpty()),
                     csvField(event.mode.orEmpty()),
                     csvField(event.policySignature?.let(::redactDiagnosticsFreeText).orEmpty()),
-                    csvField(event.fingerprintHash.orEmpty()),
+                    csvField(archiveFingerprintProjection(event.fingerprintHash).orEmpty()),
                     csvField(event.subsystem.orEmpty()),
                 ).joinToString(","),
             )
@@ -167,7 +167,7 @@ internal fun buildNativeEventsCsv(
                     csvField(event.runtimeId?.let(::redactDiagnosticsFreeText).orEmpty()),
                     csvField(event.mode.orEmpty()),
                     csvField(event.policySignature?.let(::redactDiagnosticsFreeText).orEmpty()),
-                    csvField(event.fingerprintHash.orEmpty()),
+                    csvField(archiveFingerprintProjection(event.fingerprintHash).orEmpty()),
                     csvField(event.subsystem.orEmpty()),
                 ).joinToString(","),
             )
