@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
+import com.poyka.ripdpi.diagnostics.export.buildStageIndexEntries
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
@@ -311,6 +312,10 @@ class DiagnosticsArchiveComponentsTest {
                                 stageKey = "failed",
                                 status = DiagnosticsHomeCompositeStageStatus.FAILED,
                             ),
+                            stageWithoutSession(
+                                stageKey = "completed-without-evidence",
+                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                            ),
                         ),
                 )
 
@@ -330,7 +335,7 @@ class DiagnosticsArchiveComponentsTest {
                     loadNativeEvents = { error("A stage without a session must not load native events") },
                 )
 
-            assertEquals(2, selection.compositeStages.size)
+            assertEquals(3, selection.compositeStages.size)
             selection.compositeStages.forEach { stage ->
                 assertEquals(null, stage.session)
                 assertTrue(stage.results.isEmpty())
@@ -341,6 +346,12 @@ class DiagnosticsArchiveComponentsTest {
             assertEquals("snap-passive", selection.latestPassiveSnapshot?.id)
             assertEquals("ctx-passive", selection.latestPassiveContext?.id)
             assertEquals(listOf("ev-global"), selection.globalEvents.map { it.id })
+            assertEquals(
+                "evidence_unavailable",
+                buildStageIndexEntries(selection)
+                    .single { it.stageKey == "completed-without-evidence" }
+                    .status,
+            )
         }
 
     @Test

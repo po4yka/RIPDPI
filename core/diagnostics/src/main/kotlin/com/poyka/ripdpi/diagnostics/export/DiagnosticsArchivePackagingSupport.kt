@@ -5,25 +5,29 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 
 internal fun buildStageIndexEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveStageIndexEntry> =
     selection.compositeStages.map { stage ->
-        stage.stageSummary.toArchiveStageIndexEntry()
+        stage.toArchiveStageIndexEntry()
     }
 
-private fun DiagnosticsHomeCompositeStageSummary.toArchiveStageIndexEntry(): DiagnosticsArchiveStageIndexEntry =
+private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(): DiagnosticsArchiveStageIndexEntry =
     DiagnosticsArchiveStageIndexEntry(
-        stageKey = stageKey,
-        stageLabel = stageLabel,
-        profileId = profileId,
-        pathMode = pathMode.name,
-        sessionId = sessionId,
-        status = status.name.lowercase(),
-        headline = headline,
-        summary = summary,
-        recommendationContributor = recommendationContributor,
+        stageKey = stageSummary.stageKey,
+        stageLabel = stageSummary.stageLabel,
+        profileId = stageSummary.profileId,
+        pathMode = stageSummary.pathMode.name,
+        sessionId = stageSummary.sessionId,
+        status =
+            if (stageSummary.status.name == "COMPLETED" && session == null) {
+                "evidence_unavailable"
+            } else {
+                stageSummary.status.name.lowercase()
+            },
+        headline = stageSummary.headline,
+        summary = stageSummary.summary,
+        recommendationContributor = stageSummary.recommendationContributor,
     )
 
 internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =

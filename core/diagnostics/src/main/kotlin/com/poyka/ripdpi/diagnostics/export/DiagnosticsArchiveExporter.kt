@@ -86,12 +86,20 @@ internal class DefaultDiagnosticsArchiveExporter
         private suspend fun buildArchiveSelection(request: DiagnosticsArchiveRequest): DiagnosticsArchiveSelection {
             val sourceData = sourceLoader.load()
             val compositeOutcome =
-                request.homeRunId
-                    ?.takeIf { request.sessionIds.isNotEmpty() }
-                    ?.let { runId -> sourceLoader.getCompletedHomeRun(runId) }
+                request.homeRunId?.let { runId ->
+                    requireNotNull(sourceLoader.getCompletedHomeRun(runId)) {
+                        "Requested completed home diagnostics run is unavailable: $runId"
+                    }
+                }
+            val compositeSessionIds =
+                if (compositeOutcome != null) {
+                    (request.sessionIds + compositeOutcome.bundleSessionIds).distinct()
+                } else {
+                    emptyList()
+                }
             val compositeSessions =
-                if (request.homeRunId != null && request.sessionIds.isNotEmpty()) {
-                    sourceLoader.getScanSessions(request.sessionIds)
+                if (compositeOutcome != null) {
+                    sourceLoader.getScanSessions(compositeSessionIds)
                 } else {
                     emptyList()
                 }
@@ -142,8 +150,13 @@ internal class DefaultDiagnosticsArchiveExporter
                 } else {
                     emptyList()
                 }
+            val missingCompletedStageWarnings =
+                selection.compositeStages
+                    .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && stage.session == null }
+                    .map { stage -> "completed_stage_evidence_unavailable:${stage.stageSummary.stageKey}" }
             return selection.copy(
                 pcapFiles = pcapFiles,
+                collectionWarnings = selection.collectionWarnings + missingCompletedStageWarnings,
                 includedFiles =
                     DiagnosticsArchiveFormat.includedFiles(
                         logcatIncluded = selection.logcatSnapshot != null,

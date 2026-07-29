@@ -301,6 +301,45 @@ class DiagnosticsArchiveExporterTest {
         }
 
     @Test
+    fun `createArchive rejects unavailable requested home run without falling back`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val fallback =
+                diagnosticsSession(
+                    id = "fallback-session",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Must not be exported",
+                )
+            seedSingleSessionStore(stores, fallback)
+            val context = TestContext()
+            val exporter = createArchiveExporter(stores, context, rootModeEnabled = false)
+
+            val failure =
+                runCatching {
+                    exporter.createArchive(
+                        DiagnosticsArchiveRequest(
+                            sessionIds = listOf(fallback.id),
+                            homeRunId = "missing-home-run",
+                            reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                            requestedAt = 24L,
+                        ),
+                    )
+                }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertTrue(failure?.message.orEmpty().contains("missing-home-run"))
+            assertTrue(stores.exportsState.value.isEmpty())
+            assertTrue(
+                context.cacheDir
+                    .resolve(DiagnosticsArchiveFormat.directoryName)
+                    .listFiles()
+                    .orEmpty()
+                    .isEmpty(),
+            )
+        }
+
+    @Test
     fun `createArchive writes composite home analysis bundle with staged files`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
