@@ -205,6 +205,7 @@ class RuntimeArtifactPersister
             connectionSessionId: String,
             createdAt: Long,
             terminalEvidenceSealed: Boolean = false,
+            requireCanonicalDataPlaneFinal: Boolean = true,
         ) = rootCauseAssessmentMutex.withLock {
             if (connectionSessionId in persistedRootCauseConnectionSessionIds) return@withLock
 
@@ -235,9 +236,12 @@ class RuntimeArtifactPersister
                     terminalAtMillis = createdAt,
                     terminalEvidenceSealed =
                         terminalEvidenceSealed &&
-                            persistedEvents
-                                .ifEmpty { fallbackEvents }
-                                .hasCanonicalDataPlaneFinalEvent(),
+                            (
+                                !requireCanonicalDataPlaneFinal ||
+                                    persistedEvents
+                                        .ifEmpty { fallbackEvents }
+                                        .hasCanonicalDataPlaneFinalEvent()
+                            ),
                 )
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(

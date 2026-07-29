@@ -50,6 +50,7 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
             connectionSessionId = session.id,
             createdAt = exitEvent.createdAt,
             terminalEvidenceSealed = true,
+            requireCanonicalDataPlaneFinal = false,
         )
         finalizeStaleSession(session, exitEvent.createdAt)
     }

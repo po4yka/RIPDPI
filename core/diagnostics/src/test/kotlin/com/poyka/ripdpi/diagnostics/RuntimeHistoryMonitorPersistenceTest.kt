@@ -393,7 +393,10 @@ class RuntimeHistoryMonitorPersistenceTest {
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-a")
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-b")
-            stores.nativeEventsState.value += terminalDataPlaneEvent("conn-a", createdAt = 4L)
+            stores.nativeEventsState.value +=
+                terminalDataPlaneEvent("conn-a", createdAt = 4L).copy(
+                    message = "state=evidence_unavailable mode=vpn generation=1 final=true event_kind=data_plane_final",
+                )
             persister.persistTerminalRootCauseAssessment(
                 connectionSessionId = "conn-a",
                 createdAt = 5L,
