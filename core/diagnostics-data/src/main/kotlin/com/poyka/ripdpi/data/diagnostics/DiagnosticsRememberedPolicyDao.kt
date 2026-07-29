@@ -59,15 +59,21 @@ interface DiagnosticsRememberedPolicyDao {
     @Query(
         """
         DELETE FROM remembered_network_policies
-        WHERE id NOT IN (
+        WHERE NOT EXISTS (
+            SELECT 1 FROM diagnostics_durable_state AS dependency
+            WHERE substr(dependency.`key`, 1, length('runtime_terminal_policy:')) =
+                    'runtime_terminal_policy:'
+                AND dependency.value = CAST(remembered_network_policies.id AS TEXT)
+        )
+        AND id NOT IN (
             SELECT policy.id FROM remembered_network_policies AS policy
-            ORDER BY CASE WHEN EXISTS (
+            WHERE NOT EXISTS (
                 SELECT 1 FROM diagnostics_durable_state AS dependency
                 WHERE substr(dependency.`key`, 1, length('runtime_terminal_policy:')) =
                         'runtime_terminal_policy:'
                     AND dependency.value = CAST(policy.id AS TEXT)
-            ) THEN 1 ELSE 0 END DESC,
-            policy.updatedAt DESC
+            )
+            ORDER BY policy.updatedAt DESC
             LIMIT :retainCount
         )
         """,
