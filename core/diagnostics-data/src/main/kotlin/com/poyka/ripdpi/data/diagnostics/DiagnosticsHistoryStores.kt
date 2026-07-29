@@ -185,6 +185,12 @@ interface DiagnosticsDurableStateStore {
         state: DiagnosticsDurableStateEntity,
     )
 
+    suspend fun insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+        event: NativeSessionEventEntity,
+        state: DiagnosticsDurableStateEntity,
+        expectedValue: String,
+    ): Boolean
+
     suspend fun insertNativeSessionEventAndClearDurableState(
         event: NativeSessionEventEntity,
         key: String,
@@ -446,6 +452,24 @@ class RoomDiagnosticsArtifactStore
                     dao.upsertDiagnosticsDurableState(state)
                 }
             }
+
+            override suspend fun insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+                event: NativeSessionEventEntity,
+                state: DiagnosticsDurableStateEntity,
+                expectedValue: String,
+            ): Boolean =
+                db.withTransaction {
+                    if (dao.getDiagnosticsDurableState(state.key)?.value != expectedValue) {
+                        return@withTransaction false
+                    }
+                    dao.insertNativeSessionEvent(event)
+                    dao.replaceDiagnosticsDurableStateIfCurrent(
+                        key = state.key,
+                        expectedValue = expectedValue,
+                        replacementValue = state.value,
+                        updatedAt = state.updatedAt,
+                    ) == 1
+                }
 
             override suspend fun insertNativeSessionEventAndClearDurableState(
                 event: NativeSessionEventEntity,

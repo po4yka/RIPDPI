@@ -511,6 +511,12 @@ private class HandoverDurableStateStore : DiagnosticsDurableStateStore {
         state: DiagnosticsDurableStateEntity,
     ) = unsupported()
 
+    override suspend fun insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+        event: NativeSessionEventEntity,
+        state: DiagnosticsDurableStateEntity,
+        expectedValue: String,
+    ): Boolean = unsupported()
+
     override suspend fun insertNativeSessionEventAndClearDurableState(
         event: NativeSessionEventEntity,
         key: String,

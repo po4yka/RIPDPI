@@ -102,9 +102,10 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
                     expectedValue = runGeneration,
                 )
             } else {
-                durableStateStore.insertNativeSessionEventAndUpsertDurableState(
+                durableStateStore.insertNativeSessionEventAndUpsertDurableStateIfCurrent(
                     event = nativeEvent,
                     state = pendingGenerationState(runGeneration, event.observedAtMillis),
+                    expectedValue = runGeneration,
                 )
             }
         }

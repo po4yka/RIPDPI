@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -167,6 +169,62 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             assertEquals(30L, interrupted.createdAt)
             assertTrue(interrupted.message.contains("phase=run_interrupted"))
             assertTrue(interrupted.message.contains("reason=interrupted_before_startup"))
+        }
+
+    @Test
+    fun `blocked old nonterminal write cannot replace new generation before startup recovery`() =
+        runTest {
+            val oldWriteBlocked = CompletableDeferred<Unit>()
+            val releaseOldWrite = CompletableDeferred<Unit>()
+            val oldGeneration = "00000000-0000-0000-0000-00000000000a"
+            val newGeneration = "00000000-0000-0000-0000-00000000000b"
+            val store =
+                RecordingDurableStateStore(
+                    beforeNonterminalCas = { expectedValue ->
+                        if (expectedValue == oldGeneration) {
+                            oldWriteBlocked.complete(Unit)
+                            releaseOldWrite.await()
+                        }
+                    },
+                )
+            val oldWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+            oldWriter.beginRun(oldGeneration, observedAtMillis = 10L)
+            val delayedOldWrite =
+                async {
+                    oldWriter.record(
+                        oldGeneration,
+                        backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted),
+                    )
+                }
+            oldWriteBlocked.await()
+
+            DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+                .beginRun(newGeneration, observedAtMillis = 30L)
+            releaseOldWrite.complete(Unit)
+            delayedOldWrite.await()
+
+            assertEquals(
+                newGeneration,
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
+            assertFalse(
+                store.nativeEvents.any { event ->
+                    event.runtimeId == oldGeneration && event.message.contains("phase=screen_off_started")
+                },
+            )
+
+            DefaultRemoteDeviceAcceptanceEvidenceWriter(
+                durableStateStore = store,
+                wallClock = { 40L },
+            ).reconcilePendingRun()
+
+            assertFalse(store.durableStates.containsKey(RemoteAcceptancePendingGenerationKey))
+            assertTrue(
+                store.nativeEvents.any { event ->
+                    event.runtimeId == newGeneration &&
+                        event.message.contains("reason=interrupted_before_startup")
+                },
+            )
         }
 
     @Test
@@ -359,7 +417,9 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
         )
 }
 
-private class RecordingDurableStateStore : DiagnosticsDurableStateStore {
+private class RecordingDurableStateStore(
+    private val beforeNonterminalCas: suspend (expectedValue: String) -> Unit = {},
+) : DiagnosticsDurableStateStore {
     val nativeEvents = mutableListOf<NativeSessionEventEntity>()
     val durableStates = mutableMapOf<String, DiagnosticsDurableStateEntity>()
 
@@ -411,6 +471,17 @@ private class RecordingDurableStateStore : DiagnosticsDurableStateStore {
         nativeEvents.removeAll { existing -> existing.id == event.id }
         nativeEvents += event
         durableStates[state.key] = state
+    }
+
+    override suspend fun insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+        event: NativeSessionEventEntity,
+        state: DiagnosticsDurableStateEntity,
+        expectedValue: String,
+    ): Boolean {
+        beforeNonterminalCas(expectedValue)
+        if (durableStates[state.key]?.value != expectedValue) return false
+        insertNativeSessionEventAndUpsertDurableState(event, state)
+        return true
     }
 
     override suspend fun insertNativeSessionEventAndClearDurableState(
