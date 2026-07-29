@@ -35,7 +35,6 @@ interface DiagnosticsTelemetryDao {
             AND (
                 sessionId = :sessionId
                 OR connectionSessionId IN (:connectionSessionIds)
-                OR (sessionId IS NULL AND connectionSessionId IS NULL)
             )
         ORDER BY createdAt DESC
         LIMIT :limit

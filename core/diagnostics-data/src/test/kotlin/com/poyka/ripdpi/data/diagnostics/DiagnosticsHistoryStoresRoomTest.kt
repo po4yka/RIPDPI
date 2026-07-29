@@ -189,6 +189,17 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
             store.insertTelemetrySample(
                 telemetry(id = "tel-2", sessionId = "scan-2", connectionSessionId = "conn-2", createdAt = 30L),
             )
+            store.insertTelemetrySample(
+                telemetry(
+                    id = "tel-stage-connection",
+                    sessionId = null,
+                    connectionSessionId = "conn-1",
+                    createdAt = 21L,
+                ),
+            )
+            store.insertTelemetrySample(
+                telemetry(id = "tel-unscoped", sessionId = null, connectionSessionId = null, createdAt = 22L),
+            )
             store.insertNativeSessionEvent(
                 nativeEvent(id = "evt-1", sessionId = "scan-1", connectionSessionId = "conn-1", createdAt = 20L),
             )
@@ -223,7 +234,21 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                 store.observeConnectionSnapshots(connectionSessionId = "conn-1", limit = 10).first().map { it.id },
             )
             assertEquals(listOf("ctx-1"), store.observeConnectionContexts("conn-1", 10).first().map { it.id })
-            assertEquals(listOf("tel-1"), store.observeConnectionTelemetry("conn-1", 10).first().map { it.id })
+            assertEquals(
+                listOf("tel-stage-connection", "tel-1"),
+                store.observeConnectionTelemetry("conn-1", 10).first().map { it.id },
+            )
+            assertEquals(
+                listOf("tel-stage-connection", "tel-1"),
+                store
+                    .getTelemetryForArchiveStage(
+                        sessionId = "scan-1",
+                        connectionSessionIds = listOf("conn-1"),
+                        startedAt = 10L,
+                        finishedAt = 25L,
+                        limit = 10,
+                    ).map { it.id },
+            )
             assertEquals(
                 listOf("evt-1", "transition-1"),
                 store.observeConnectionNativeEvents("conn-1", 10).first().map { it.id },

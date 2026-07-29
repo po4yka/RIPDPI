@@ -244,8 +244,7 @@ internal class FakeDiagnosticsHistoryStores :
             .filter { sample -> sample.createdAt in startedAt..finishedAt }
             .filter { sample ->
                 sample.sessionId == sessionId ||
-                    sample.connectionSessionId in connectionSessionIds ||
-                    (sample.sessionId == null && sample.connectionSessionId == null)
+                    sample.connectionSessionId in connectionSessionIds
             }.sortedByDescending(TelemetrySampleEntity::createdAt)
             .take(limit)
             .toList()
