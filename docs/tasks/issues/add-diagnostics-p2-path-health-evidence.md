@@ -70,3 +70,10 @@ plane.
 - 2026-07-29: Reconstructed P2 scope from the diagnostics review. Confirmed the
   existing PMTUD worktree is a clean ancestor whose two commits are already in
   `main`; production device-level PMTU evidence remains absent.
+- 2026-07-29: Split the runtime-verdict hardening follow-up into serialized
+  ownership lanes after independent review: terminal outbox payload,
+  dependency retention, and durable policy handover are owned by one writer;
+  typed DNS transition commit-after-write semantics by a second writer; and
+  generic process-exit classification by a third writer. The shared outbox and
+  Room files remain a single serialized lane and are reviewed before
+  integration.
