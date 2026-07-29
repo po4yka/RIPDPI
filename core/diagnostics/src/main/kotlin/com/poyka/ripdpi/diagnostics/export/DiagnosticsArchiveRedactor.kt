@@ -533,8 +533,13 @@ private val DnsNameRegex =
             "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?[.\\u3002\\uFF0E\\uFF61])+" +
             "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
     )
-private val UnixPathRegex = Regex("(?<![\\p{L}\\p{N}])/(?:[^,;:\"'<>\\r\\n])+")
-private val WindowsPathRegex = Regex("(?i)\\b[A-Z]:\\\\(?:[^,;:\"'<>\\r\\n])+")
+private const val PathTerminatorPattern =
+    "(?:[,;:](?=[ \\t]|\\r?$)|[\"'<>](?=[,;:.!?)]?(?:[ \\t]|\\r?$))|" +
+        "[ \\t]+(?=[\\p{L}\\p{N}_-]+[ \\t]*=)|\\r?$)"
+private val UnixPathRegex =
+    Regex("(?m)(?<![\\p{L}\\p{N}])/(?:[^\\r\\n])*?(?=$PathTerminatorPattern)")
+private val WindowsPathRegex =
+    Regex("(?im)\\b[A-Z]:\\\\(?:[^\\r\\n])*?(?=$PathTerminatorPattern)")
 private val EndpointFieldRegex =
     Regex(
         "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +

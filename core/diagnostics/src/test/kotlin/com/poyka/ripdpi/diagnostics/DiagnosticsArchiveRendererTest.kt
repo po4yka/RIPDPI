@@ -761,6 +761,16 @@ class DiagnosticsArchiveRendererTest {
             "xn--p1ai",
             "/data/private/My Files/native trace.log",
             "My Files/native trace.log",
+            "/storage/emulated/0/John,Doe/private.pem",
+            "John,Doe/private.pem",
+            "/data/private/key:backup.pem",
+            "key:backup.pem",
+            "/data/private/John'Doe/key.pem",
+            "John'Doe/key.pem",
+            "C:\\Users\\John,Doe\\key:backup.pem",
+            "John,Doe\\key:backup.pem",
+            "C:\\Users\\John\"Doe\\private.pem",
+            "John\"Doe\\private.pem",
             "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM",
             "YQ==",
             "YWI=",
@@ -872,7 +882,12 @@ class DiagnosticsArchiveRendererTest {
                     "unicode=пример.рф; idna=пример。рф,пример．рф,пример｡рф; " +
                     "punycode=resolver.xn--p1ai,resolver。xn--p1ai; " +
                     "url=https://native.private.example/secret/path; " +
-                    "file=/data/private/My Files/native trace.log;\n" +
+                    "file=/data/private/My Files/native trace.log; " +
+                    "unixComma=/storage/emulated/0/John,Doe/private.pem; " +
+                    "unixColon=/data/private/key:backup.pem; " +
+                    "unixQuote=/data/private/John'Doe/key.pem; " +
+                    "windows=C:\\Users\\John,Doe\\key:backup.pem; " +
+                    "windowsQuote=C:\\Users\\John\"Doe\\private.pem; status=failed\n" +
                     "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM\n$privateKeyEnd\n" +
                     "YQ==\n$privateKeyEnd\n" +
                     "YWI=\n$certificateEnd",

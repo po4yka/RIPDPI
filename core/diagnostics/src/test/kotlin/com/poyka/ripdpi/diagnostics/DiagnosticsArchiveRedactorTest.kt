@@ -321,7 +321,12 @@ class DiagnosticsArchiveRedactorTest {
             "unicode=пример.рф ideographic=пример。рф fullwidth=пример．рф halfwidth=пример｡рф " +
                 "punycode=resolver.xn--p1ai idnaPunycode=resolver。xn--p1ai " +
                 "unix=/data/user/0/My Files/private trace.log; " +
-                "windows=C:\\Users\\Private User\\trace file.log; status=failed"
+                "unixComma=/storage/emulated/0/John,Doe/private.pem; " +
+                "unixColon=/data/private/key:backup.pem; " +
+                "unixQuote=/data/private/John'Doe/key.pem; " +
+                "windows=C:\\Users\\Private User\\trace file.log; " +
+                "windowsPunctuation=C:\\Users\\John,Doe\\key:backup.pem; " +
+                "windowsQuote=C:\\Users\\John\"Doe\\private.pem; status=failed"
 
         val redacted = redactDiagnosticsArchiveText(raw)
 
@@ -337,6 +342,16 @@ class DiagnosticsArchiveRedactorTest {
             "My Files/private trace.log",
             "C:\\Users\\Private User\\trace file.log",
             "Private User\\trace file.log",
+            "/storage/emulated/0/John,Doe/private.pem",
+            "John,Doe/private.pem",
+            "/data/private/key:backup.pem",
+            "key:backup.pem",
+            "/data/private/John'Doe/key.pem",
+            "John'Doe/key.pem",
+            "C:\\Users\\John,Doe\\key:backup.pem",
+            "John,Doe\\key:backup.pem",
+            "C:\\Users\\John\"Doe\\private.pem",
+            "John\"Doe\\private.pem",
         ).forEach { sensitive -> assertFalse(redacted.contains(sensitive)) }
         assertTrue(redacted.contains("status=failed"))
     }
