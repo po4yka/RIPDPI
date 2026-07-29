@@ -289,6 +289,7 @@
     <string name="diagnostics_scan_metadata_termination_reason">Stop reason</string>
     <string name="diagnostics_scan_completion_normal">Scan completed</string>
     <string name="diagnostics_scan_completion_partial_results">Partial results</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">Partial results · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">Scan stopped</string>
     <string name="diagnostics_scan_termination_network_unavailable">Offline — scan unavailable</string>
     <string name="diagnostics_scan_termination_user_cancelled">Cancelled by user</string>

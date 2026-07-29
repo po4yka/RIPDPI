@@ -39,6 +39,26 @@ class DiagnosticsDisplaySummaryTest {
     }
 
     @Test
+    fun `partial completion preserves availability and termination reason`() {
+        val terminationSummaries =
+            mapOf(
+                ScanTerminationReason.USER_CANCELLED to ScanCancelledByUserSummary,
+                ScanTerminationReason.DEADLINE_EXCEEDED to ScanDeadlineExceededSummary,
+                ScanTerminationReason.WORKER_PANICKED to ScanWorkerPanickedSummary,
+            )
+
+        terminationSummaries.forEach { (reason, reasonSummary) ->
+            assertEquals(
+                ScanCompletedWithPartialResultsSummary + ScanPartialResultsReasonSeparator + reasonSummary,
+                standaloneCompletionReport(
+                    completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                    terminationReason = reason,
+                ).displaySummary(),
+            )
+        }
+    }
+
+    @Test
     fun `summary projector uses dns fallback summary for archive rendering`() {
         val session =
             ScanSessionEntity(

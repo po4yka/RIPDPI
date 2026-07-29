@@ -281,6 +281,7 @@
     <string name="diagnostics_scan_metadata_termination_reason">रुकने का कारण</string>
     <string name="diagnostics_scan_completion_normal">स्कैन पूरा हुआ</string>
     <string name="diagnostics_scan_completion_partial_results">आंशिक परिणाम</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">आंशिक परिणाम · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">स्कैन रुक गया</string>
     <string name="diagnostics_scan_termination_network_unavailable">ऑफ़लाइन — स्कैन उपलब्ध नहीं</string>
     <string name="diagnostics_scan_termination_user_cancelled">उपयोगकर्ता ने रद्द किया</string>

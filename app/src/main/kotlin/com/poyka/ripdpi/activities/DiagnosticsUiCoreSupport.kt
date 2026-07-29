@@ -79,12 +79,20 @@ internal class DiagnosticsUiCoreSupport
         internal val strings: StringResolver,
     )
 
+internal data class DiagnosticsCompletionUiPresentation(
+    val completionLabel: String,
+    val summaryLabel: String,
+    val reasonLabel: String?,
+    val tone: DiagnosticsTone?,
+)
+
 internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
     session: DiagnosticScanSession,
 ): DiagnosticsSessionRowUiModel {
     val report = session.report
     val pathMode = parsePathMode(session.pathMode)
     val directModeVerdict = report?.directModeVerdict
+    val completionPresentation = completionPresentation(report, session.status, session.summary)
     return DiagnosticsSessionRowUiModel(
         id = session.id,
         profileId = session.profileId,
@@ -99,7 +107,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
         pathMode = session.pathMode,
         serviceMode = session.serviceMode ?: strings.getString(R.string.diagnostics_field_unknown),
         status = session.status,
-        completionLabel = completionLabel(report, session.status),
+        completionLabel = completionPresentation.completionLabel,
         startedAtLabel = formatTimestamp(session.startedAt),
         summary = session.summary,
         metrics =
@@ -126,7 +134,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                 }
             }.toImmutableList(),
         tone =
-            completionTone(report)
+            completionPresentation.tone
                 ?: report
                     ?.results
                     ?.takeIf { it.isNotEmpty() }
@@ -154,7 +162,9 @@ internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
     val report = session.report
     return when {
         context != null && report != null -> {
-            completionSummaryResource(report)?.let { context.getString(it) } ?: session.summary
+            DiagnosticsUiCoreSupport(formatter, context)
+                .completionPresentation(report, session.status, session.summary)
+                .summaryLabel
         }
 
         session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null -> {
@@ -170,24 +180,64 @@ internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
 internal fun DiagnosticsUiCoreSupport.completionLabel(
     report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection?,
     fallback: String,
-): String =
-    report?.terminationReason?.let(::terminationReasonLabel)
-        ?: report?.completionKind?.let(::completionKindLabel)
-        ?: fallback
+): String = completionPresentation(report, fallback, fallback).completionLabel
+
+internal fun DiagnosticsUiCoreSupport.completionPresentation(
+    report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection?,
+    fallbackStatus: String,
+    fallbackSummary: String,
+): DiagnosticsCompletionUiPresentation {
+    if (report == null) {
+        return DiagnosticsCompletionUiPresentation(
+            completionLabel = fallbackStatus,
+            summaryLabel = fallbackSummary,
+            reasonLabel = null,
+            tone = null,
+        )
+    }
+
+    val reasonLabel = report.terminationReason?.let(::terminationReasonLabel)
+    val reasonTone = report.terminationReason?.completionTone()
+    return when (report.completionKind) {
+        ScanCompletionKind.NORMAL -> {
+            DiagnosticsCompletionUiPresentation(
+                completionLabel = completionKindLabel(ScanCompletionKind.NORMAL),
+                summaryLabel = fallbackSummary,
+                reasonLabel = reasonLabel,
+                tone = null,
+            )
+        }
+
+        ScanCompletionKind.PARTIAL_RESULTS -> {
+            val partialLabel = completionKindLabel(ScanCompletionKind.PARTIAL_RESULTS)
+            DiagnosticsCompletionUiPresentation(
+                completionLabel = partialLabel,
+                summaryLabel =
+                    reasonLabel?.let { reason ->
+                        strings.getString(R.string.diagnostics_scan_completion_partial_with_reason_format, reason)
+                    } ?: partialLabel,
+                reasonLabel = reasonLabel,
+                tone = reasonTone ?: DiagnosticsTone.Warning,
+            )
+        }
+
+        ScanCompletionKind.TERMINATED -> {
+            val terminatedLabel = completionKindLabel(ScanCompletionKind.TERMINATED)
+            DiagnosticsCompletionUiPresentation(
+                completionLabel = reasonLabel ?: terminatedLabel,
+                summaryLabel = reasonLabel ?: terminatedLabel,
+                reasonLabel = reasonLabel,
+                tone = reasonTone ?: DiagnosticsTone.Warning,
+            )
+        }
+    }
+}
 
 internal fun DiagnosticsUiCoreSupport.completionKindLabel(completionKind: ScanCompletionKind): String =
     strings.getString(completionKind.labelResource())
 
 internal fun DiagnosticsUiCoreSupport.terminationReasonLabel(reason: ScanTerminationReason): String =
     strings.getString(reason.labelResource())
-
-private fun completionSummaryResource(
-    report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection,
-): Int? =
-    report.terminationReason?.labelResource()
-        ?: report.completionKind
-            .takeUnless { it == ScanCompletionKind.NORMAL }
-            ?.labelResource()
 
 private fun ScanCompletionKind.labelResource(): Int =
     when (this) {
@@ -205,16 +255,16 @@ private fun ScanTerminationReason.labelResource(): Int =
         ScanTerminationReason.WORKER_PANICKED -> R.string.diagnostics_scan_termination_worker_panicked
     }
 
-private fun completionTone(
-    report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection?,
-): DiagnosticsTone? =
-    when {
-        report == null -> null
-        report.completionKind == ScanCompletionKind.PARTIAL_RESULTS -> DiagnosticsTone.Warning
-        report.completionKind != ScanCompletionKind.TERMINATED -> null
-        report.terminationReason == ScanTerminationReason.USER_CANCELLED -> DiagnosticsTone.Neutral
-        report.terminationReason == null -> DiagnosticsTone.Warning
-        else -> DiagnosticsTone.Negative
+private fun ScanTerminationReason.completionTone(): DiagnosticsTone =
+    when (this) {
+        ScanTerminationReason.USER_CANCELLED -> DiagnosticsTone.Neutral
+
+        ScanTerminationReason.DEADLINE_EXCEEDED -> DiagnosticsTone.Warning
+
+        ScanTerminationReason.NETWORK_UNAVAILABLE,
+        ScanTerminationReason.ENGINE_ERROR,
+        ScanTerminationReason.WORKER_PANICKED,
+        -> DiagnosticsTone.Negative
     }
 
 internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(

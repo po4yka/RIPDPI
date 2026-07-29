@@ -724,6 +724,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="diagnostics_scan_metadata_termination_reason">Motivo de detención</string>
     <string name="diagnostics_scan_completion_normal">Escaneo completado</string>
     <string name="diagnostics_scan_completion_partial_results">Resultados parciales</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">Resultados parciales · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">Escaneo detenido</string>
     <string name="diagnostics_scan_termination_network_unavailable">Sin conexión — escaneo no disponible</string>
     <string name="diagnostics_scan_termination_user_cancelled">Cancelado por el usuario</string>

@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.ZoneId
@@ -115,10 +116,10 @@ class DiagnosticsUiCoreSupportTest {
 
             assertEquals("string-$labelResource", row.completionLabel)
             assertEquals(
-                if (reason == ScanTerminationReason.USER_CANCELLED) {
-                    DiagnosticsTone.Neutral
-                } else {
-                    DiagnosticsTone.Negative
+                when (reason) {
+                    ScanTerminationReason.USER_CANCELLED -> DiagnosticsTone.Neutral
+                    ScanTerminationReason.DEADLINE_EXCEEDED -> DiagnosticsTone.Warning
+                    else -> DiagnosticsTone.Negative
                 },
                 row.tone,
             )
@@ -127,6 +128,61 @@ class DiagnosticsUiCoreSupportTest {
         val partial = support.toSessionRowUiModel(completionSession(ScanCompletionKind.PARTIAL_RESULTS))
         assertEquals("string-${R.string.diagnostics_scan_completion_partial_results}", partial.completionLabel)
         assertEquals(DiagnosticsTone.Warning, partial.tone)
+    }
+
+    @Test
+    fun `partial completion preserves availability and reason severity`() {
+        val resolver =
+            object : StringResolver {
+                override fun getString(
+                    resId: Int,
+                    vararg formatArgs: Any,
+                ): String =
+                    when (resId) {
+                        R.string.diagnostics_scan_completion_partial_results -> {
+                            "Partial results"
+                        }
+
+                        R.string.diagnostics_scan_completion_partial_with_reason_format -> {
+                            "Partial results · ${formatArgs.single()}"
+                        }
+
+                        R.string.diagnostics_scan_termination_user_cancelled -> {
+                            "Cancelled by user"
+                        }
+
+                        R.string.diagnostics_scan_termination_deadline_exceeded -> {
+                            "Time limit reached"
+                        }
+
+                        R.string.diagnostics_scan_termination_worker_panicked -> {
+                            "Worker process failed"
+                        }
+
+                        else -> {
+                            "string-$resId"
+                        }
+                    }
+            }
+        val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), resolver)
+        val expectations =
+            mapOf(
+                ScanTerminationReason.USER_CANCELLED to
+                    Pair("Cancelled by user", DiagnosticsTone.Neutral),
+                ScanTerminationReason.DEADLINE_EXCEEDED to
+                    Pair("Time limit reached", DiagnosticsTone.Warning),
+                ScanTerminationReason.WORKER_PANICKED to
+                    Pair("Worker process failed", DiagnosticsTone.Negative),
+            )
+
+        expectations.forEach { (reason, expectation) ->
+            val session = completionSession(ScanCompletionKind.PARTIAL_RESULTS, reason)
+            val row = support.toSessionRowUiModel(session)
+
+            assertEquals("Partial results", row.completionLabel)
+            assertEquals("Partial results · ${expectation.first}", support.displaySessionSummary(resolver, session))
+            assertEquals(expectation.second, row.tone)
+        }
     }
 
     @Test

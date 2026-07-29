@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 
 internal const val ScanCancelledSummary = "Scan cancelled"
 internal const val ScanCompletedWithPartialResultsSummary = "Scan completed with partial results"
+internal const val ScanPartialResultsReasonSeparator = " · "
 internal const val ScanUnavailableOfflineSummary = "Scan unavailable while offline"
 internal const val ScanCancelledByUserSummary = "Scan cancelled by user"
 internal const val ScanDeadlineExceededSummary = "Scan time limit reached"
@@ -56,7 +57,9 @@ private fun deriveDisplaySummary(
 ): String =
     when {
         completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
-            ScanCompletedWithPartialResultsSummary
+            terminationReason.displaySummary()?.let { reasonSummary ->
+                ScanCompletedWithPartialResultsSummary + ScanPartialResultsReasonSeparator + reasonSummary
+            } ?: ScanCompletedWithPartialResultsSummary
         }
 
         completionKind == ScanCompletionKind.TERMINATED -> {

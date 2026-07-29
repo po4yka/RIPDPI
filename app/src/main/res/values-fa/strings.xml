@@ -282,6 +282,7 @@
     <string name="diagnostics_scan_metadata_termination_reason">دلیل توقف</string>
     <string name="diagnostics_scan_completion_normal">پویش کامل شد</string>
     <string name="diagnostics_scan_completion_partial_results">نتایج جزئی</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">نتایج جزئی · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">پویش متوقف شد</string>
     <string name="diagnostics_scan_termination_network_unavailable">آفلاین — پویش در دسترس نیست</string>
     <string name="diagnostics_scan_termination_user_cancelled">توسط کاربر لغو شد</string>

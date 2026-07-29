@@ -282,6 +282,7 @@
     <string name="diagnostics_scan_metadata_termination_reason">سبب التوقف</string>
     <string name="diagnostics_scan_completion_normal">اكتمل الفحص</string>
     <string name="diagnostics_scan_completion_partial_results">نتائج جزئية</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">نتائج جزئية · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">توقف الفحص</string>
     <string name="diagnostics_scan_termination_network_unavailable">غير متصل — الفحص غير متاح</string>
     <string name="diagnostics_scan_termination_user_cancelled">ألغاه المستخدم</string>

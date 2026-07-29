@@ -724,6 +724,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="diagnostics_scan_metadata_termination_reason">Motif de l\'arrêt</string>
     <string name="diagnostics_scan_completion_normal">Analyse terminée</string>
     <string name="diagnostics_scan_completion_partial_results">Résultats partiels</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">Résultats partiels · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">Analyse arrêtée</string>
     <string name="diagnostics_scan_termination_network_unavailable">Hors ligne — analyse indisponible</string>
     <string name="diagnostics_scan_termination_user_cancelled">Annulée par l\'utilisateur</string>

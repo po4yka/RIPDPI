@@ -724,6 +724,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="diagnostics_scan_metadata_termination_reason">Grund für den Abbruch</string>
     <string name="diagnostics_scan_completion_normal">Scan abgeschlossen</string>
     <string name="diagnostics_scan_completion_partial_results">Teilergebnisse</string>
+    <string name="diagnostics_scan_completion_partial_with_reason_format">Teilergebnisse · %1$s</string>
     <string name="diagnostics_scan_completion_terminated">Scan beendet</string>
     <string name="diagnostics_scan_termination_network_unavailable">Offline — Scan nicht verfügbar</string>
     <string name="diagnostics_scan_termination_user_cancelled">Vom Benutzer abgebrochen</string>
