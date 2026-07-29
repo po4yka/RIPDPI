@@ -488,9 +488,22 @@ private val PemBlockRegex =
         "-----BEGIN [^-\\r\\n]+-----.*?(?:-----END [^-\\r\\n]+-----|\\z)",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
+private const val PemLongBase64LinePattern = "[A-Za-z0-9+/=]{8,}"
+private const val PemShortBase64LinePattern =
+    "(?=[^\\r\\n]*(?-i:[A-Z0-9+/=]))[A-Za-z0-9+/]{1,7}={0,2}"
+private const val SensitivePemEndLabelPattern =
+    "[A-Z0-9 ]*(?:CERTIFICATE(?: REQUEST)?|PRIVATE KEY|PUBLIC KEY)[A-Z0-9 ]*"
+private const val AndroidLogcatLinePrefixPattern =
+    "\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+" +
+        "(?:(?:\\d+\\s+){2}[VDIWEF]\\s+[^:\\r\\n]+|[VDIWEF]/[^:\\r\\n]+):\\s*"
 private val PemTailRegex =
     Regex(
-        "(?m)(^|\\r?\\n)(?:[A-Za-z0-9+/=]{8,}[ \\t]*\\r?\\n)+-----END [^-\\r\\n]+-----",
+        "(?m)(^|\\r?\\n)(?:" +
+            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemLongBase64LinePattern[ \\t]*\\r?\\n)+" +
+            "(?:$AndroidLogcatLinePrefixPattern)?-----END $SensitivePemEndLabelPattern-----|" +
+            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemLongBase64LinePattern[ \\t]*\\r?\\n)*" +
+            "(?:$AndroidLogcatLinePrefixPattern)?$PemShortBase64LinePattern[ \\t]*\\r?\\n" +
+            "(?:$AndroidLogcatLinePrefixPattern)?-----END $SensitivePemEndLabelPattern-----)",
         RegexOption.IGNORE_CASE,
     )
 private val CredentialUrlRegex = Regex("([a-z][a-z0-9+.-]*:)//[^\\s/@:]+:[^\\s/@]+@", RegexOption.IGNORE_CASE)
@@ -512,7 +525,7 @@ private val Ipv6Regex =
 private val DnsNameRegex =
     Regex(
         "(?iu)(?<![\\p{L}\\p{N}_-])" +
-            "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?\\.)+" +
+            "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?[.\\u3002\\uFF0E\\uFF61])+" +
             "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
     )
 private val UnixPathRegex = Regex("(?<![\\p{L}\\p{N}])/(?:[^,;:\"'<>\\r\\n])+")

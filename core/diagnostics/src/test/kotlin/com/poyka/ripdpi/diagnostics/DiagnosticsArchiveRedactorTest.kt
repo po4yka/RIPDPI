@@ -318,7 +318,8 @@ class DiagnosticsArchiveRedactorTest {
     @Test
     fun `archive redactor removes unicode punycode and spaced filesystem tokens`() {
         val raw =
-            "unicode=пример.рф punycode=resolver.xn--p1ai " +
+            "unicode=пример.рф ideographic=пример。рф fullwidth=пример．рф halfwidth=пример｡рф " +
+                "punycode=resolver.xn--p1ai idnaPunycode=resolver。xn--p1ai " +
                 "unix=/data/user/0/My Files/private trace.log; " +
                 "windows=C:\\Users\\Private User\\trace file.log; status=failed"
 
@@ -326,7 +327,11 @@ class DiagnosticsArchiveRedactorTest {
 
         listOf(
             "пример.рф",
+            "пример。рф",
+            "пример．рф",
+            "пример｡рф",
             "resolver.xn--p1ai",
+            "resolver。xn--p1ai",
             "xn--p1ai",
             "/data/user/0/My Files/private trace.log",
             "My Files/private trace.log",
@@ -345,6 +350,59 @@ class DiagnosticsArchiveRedactorTest {
         val redacted = redactDiagnosticsArchiveText(raw)
 
         assertFalse(redacted.contains(base64Tail))
+        assertFalse(redacted.contains(privateKeyEnd))
+        assertTrue(redacted.contains("before"))
+        assertTrue(redacted.contains("after"))
+    }
+
+    @Test
+    fun `archive redactor removes short pem tails without consuming ordinary text`() {
+        val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
+        val certificateEnd = listOf("-----END", "CERTIFICATE-----").joinToString(" ")
+        val shortTails =
+            listOf(
+                "A" to privateKeyEnd,
+                "AB" to certificateEnd,
+                "ABC" to privateKeyEnd,
+                "ABCD" to certificateEnd,
+                "ABCDE" to privateKeyEnd,
+                "ABCDEF" to certificateEnd,
+                "ABCDEFG" to privateKeyEnd,
+                "YQ==" to privateKeyEnd,
+                "YWI=" to certificateEnd,
+                "eg==" to certificateEnd,
+            )
+
+        shortTails.forEach { (tail, endMarker) ->
+            val raw = "before\n$tail\n$endMarker\nafter"
+            val redacted = redactDiagnosticsArchiveText(raw)
+
+            assertEquals("before\n<pem-redacted>\nafter", redacted)
+        }
+
+        listOf(
+            "before\nnote\n$privateKeyEnd\nafter",
+            "before\nordinary\n-----END TRACE-----\nafter",
+        ).forEach { ordinary ->
+            assertEquals(ordinary, redactDiagnosticsArchiveText(ordinary))
+        }
+    }
+
+    @Test
+    fun `archive redactor removes logcat prefixed pem tail`() {
+        val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
+        val briefPrefix = "03-12 10:00:00.010 I/RIPDPI: "
+        val threadtimePrefix = "03-12 10:00:00.011 123 456 I RIPDPI: "
+        val raw =
+            "before\n" +
+                "${briefPrefix}YQ==\n$privateKeyEnd\n" +
+                "ABC\n$threadtimePrefix$privateKeyEnd\n" +
+                "after"
+
+        val redacted = redactDiagnosticsLogcat(raw)
+
+        assertFalse(redacted.contains("YQ=="))
+        assertFalse(redacted.contains("ABC"))
         assertFalse(redacted.contains(privateKeyEnd))
         assertTrue(redacted.contains("before"))
         assertTrue(redacted.contains("after"))

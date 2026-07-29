@@ -706,11 +706,17 @@ class DiagnosticsArchiveRendererTest {
             "fe80::1",
             "2001:db8::53",
             "пример.рф",
+            "пример。рф",
+            "пример．рф",
+            "пример｡рф",
             "resolver.xn--p1ai",
+            "resolver。xn--p1ai",
             "xn--p1ai",
             "/data/private/My Files/native trace.log",
             "My Files/native trace.log",
             "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM",
+            "YQ==",
+            "YWI=",
         )
 
     private fun assertZipExcludes(
@@ -765,6 +771,15 @@ class DiagnosticsArchiveRendererTest {
                     ),
                 ),
             latestSnapshotModel = sensitiveSnapshot,
+            logcatSnapshot =
+                LogcatSnapshot(
+                    content =
+                        "03-12 10:00:00.010 I/RIPDPI: YQ==\n" +
+                            "03-12 10:00:00.011 I/RIPDPI: -----END PRIVATE KEY-----\n" +
+                            "03-12 10:00:00.012 I/RIPDPI: resolver。xn--p1ai\n",
+                    captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                    byteCount = 192,
+                ),
         )
     }
 
@@ -800,10 +815,13 @@ class DiagnosticsArchiveRendererTest {
                 "Authorization: Bearer native-secret-token; carrier=Sensitive Carrier; " +
                     "resolver=198.51.100.77; loopback=::1; linkLocal=fe80::1; resolverV6=2001:db8::53; " +
                     "$certificateStart\nnative-certificate-material\n$certificateEnd\n" +
-                    "unicode=пример.рф; punycode=resolver.xn--p1ai; " +
+                    "unicode=пример.рф; idna=пример。рф,пример．рф,пример｡рф; " +
+                    "punycode=resolver.xn--p1ai,resolver。xn--p1ai; " +
                     "url=https://native.private.example/secret/path; " +
                     "file=/data/private/My Files/native trace.log;\n" +
-                    "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM\n$privateKeyEnd",
+                    "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM\n$privateKeyEnd\n" +
+                    "YQ==\n$privateKeyEnd\n" +
+                    "YWI=\n$certificateEnd",
             policySignature = "host-policy.private.example",
         )
     }
