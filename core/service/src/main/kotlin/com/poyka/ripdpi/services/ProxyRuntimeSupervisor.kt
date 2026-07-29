@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Supervises the native proxy runtime — starts it, owns its coroutine `Job`,
@@ -31,8 +32,7 @@ internal class ProxyRuntimeSupervisor(
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
 
-    @Volatile
-    private var runtimeGeneration: Long = 0L
+    private val runtimeGeneration = AtomicLong()
 
     @Volatile
     private var stopRequested: Boolean = false
@@ -48,8 +48,8 @@ internal class ProxyRuntimeSupervisor(
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
+        val generation = runtimeGeneration.incrementAndGet()
         proxyRuntime = proxyInstance
-        runtimeGeneration += 1L
         stopRequested = false
         val shouldReportExit = AtomicBoolean(true)
         exitReporting = shouldReportExit
@@ -63,6 +63,7 @@ internal class ProxyRuntimeSupervisor(
                     exitResult.complete(result)
                     exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested))
                 } finally {
+                    runtimeGeneration.compareAndSet(generation, generation + 1L)
                     if (!exitResult.isCompleted) {
                         val cancellation = Result.failure<Int>(CancellationException("Proxy job cancelled"))
                         exitResult.complete(cancellation)
@@ -95,6 +96,7 @@ internal class ProxyRuntimeSupervisor(
             } catch (readinessError: Exception) {
                 val proxyStartWasActive = job.isActive
                 shouldReportExit.set(false)
+                runtimeGeneration.incrementAndGet()
                 try {
                     runCatching {
                         if (proxyStartWasActive) {
@@ -133,6 +135,7 @@ internal class ProxyRuntimeSupervisor(
         }
 
         try {
+            runtimeGeneration.incrementAndGet()
             stopRequested = true
             proxyInstance.stopProxy()
             withTimeoutOrNull(stopTimeoutMillis) {
@@ -147,6 +150,7 @@ internal class ProxyRuntimeSupervisor(
     }
 
     fun detach() {
+        runtimeGeneration.incrementAndGet()
         exitReporting?.set(false)
         proxyJob = null
         proxyRuntime = null
@@ -175,18 +179,18 @@ internal class ProxyRuntimeSupervisor(
                     RuntimeTelemetryOutcome.NoData,
                     RuntimeForwardingEvidence.Unavailable,
                 )
-        val generation = runtimeGeneration
+        val generation = runtimeGeneration.get()
         val telemetry =
-            runCatching { runtime.pollTelemetry() }
-                .fold(
-                    onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
-                    onFailure = { error ->
-                        RuntimeTelemetryOutcome.EngineError(
-                            message = error.message ?: "Proxy telemetry polling failed",
-                            causeClass = error.javaClass.name,
-                        )
-                    },
+            try {
+                RuntimeTelemetryOutcome.Snapshot(runtime.pollTelemetry())
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                RuntimeTelemetryOutcome.EngineError(
+                    message = error.message ?: "Proxy telemetry polling failed",
+                    causeClass = error.javaClass.name,
                 )
+            }
         val evidence =
             try {
                 RuntimeForwardingEvidence.Available(runtime.pollForwardingEvidence())
@@ -198,7 +202,7 @@ internal class ProxyRuntimeSupervisor(
         return RuntimeTelemetryEvidencePoll(
             telemetry = telemetry,
             forwardingEvidence =
-                evidence.takeIf { proxyRuntime === runtime && runtimeGeneration == generation }
+                evidence.takeIf { proxyRuntime === runtime && runtimeGeneration.get() == generation }
                     ?: RuntimeForwardingEvidence.Unavailable,
         )
     }

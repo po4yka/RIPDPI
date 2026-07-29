@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicLong
 
 private const val DefaultSocksListenerPort = 1080
 private const val DefaultMixedInboundListenerPort = 2080
@@ -59,8 +60,7 @@ internal class VpnTunnelRuntime(
     @Volatile
     private var pendingSession: VpnTunnelSession? = null
 
-    @Volatile
-    private var bridgeGeneration: Long = 0L
+    private val bridgeGeneration = AtomicLong()
     private var tunnelStartCount: Int = 0
 
     @Volatile
@@ -164,6 +164,7 @@ internal class VpnTunnelRuntime(
         // Publish it before retiring the old bridge so every subsequent failure keeps
         // a live interface that captures traffic instead of falling back to direct.
         tunSession = pendingTunnel.session
+        bridgeGeneration.incrementAndGet()
         tun2SocksBridge = null
         retiringBridge = null
         try {
@@ -302,7 +303,7 @@ internal class VpnTunnelRuntime(
             throw error
         }
         tun2SocksBridge = tunnelBridge
-        bridgeGeneration += 1L
+        bridgeGeneration.incrementAndGet()
         retiringBridge = null
         tunSession = pendingTunnel.session
         if (pendingSession === pendingTunnel.session) {
@@ -322,6 +323,7 @@ internal class VpnTunnelRuntime(
         val inactiveBridge = retiringBridge
 
         try {
+            bridgeGeneration.incrementAndGet()
             activeBridge?.stop()
         } finally {
             try {
@@ -357,18 +359,18 @@ internal class VpnTunnelRuntime(
                     RuntimeTelemetryOutcome.NoData,
                     RuntimeForwardingEvidence.Unavailable,
                 )
-        val generation = bridgeGeneration
+        val generation = bridgeGeneration.get()
         val telemetry =
-            runCatching { bridge.telemetry() }
-                .fold(
-                    onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
-                    onFailure = { error ->
-                        RuntimeTelemetryOutcome.EngineError(
-                            message = error.message ?: "Tunnel telemetry polling failed",
-                            causeClass = error.javaClass.name,
-                        )
-                    },
+            try {
+                RuntimeTelemetryOutcome.Snapshot(bridge.telemetry())
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                RuntimeTelemetryOutcome.EngineError(
+                    message = error.message ?: "Tunnel telemetry polling failed",
+                    causeClass = error.javaClass.name,
                 )
+            }
         val evidence =
             try {
                 RuntimeForwardingEvidence.Available(bridge.forwardingEvidence())
@@ -380,7 +382,7 @@ internal class VpnTunnelRuntime(
         return RuntimeTelemetryEvidencePoll(
             telemetry = telemetry,
             forwardingEvidence =
-                evidence.takeIf { tun2SocksBridge === bridge && bridgeGeneration == generation }
+                evidence.takeIf { tun2SocksBridge === bridge && bridgeGeneration.get() == generation }
                     ?: RuntimeForwardingEvidence.Unavailable,
         )
     }
@@ -396,6 +398,7 @@ internal class VpnTunnelRuntime(
                 activeBridge?.let(::add)
                 if (inactiveBridge !== activeBridge) inactiveBridge?.let(::add)
             }
+        bridgeGeneration.incrementAndGet()
         tun2SocksBridge = null
         retiringBridge = null
 

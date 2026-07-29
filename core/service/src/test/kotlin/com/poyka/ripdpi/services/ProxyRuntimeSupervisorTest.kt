@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -24,6 +25,57 @@ private const val TestLocalProxyAuth = "alpha-123"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {
+    @Test
+    fun combinedPollRejectsEvidenceWhenRuntimeStopsMidPoll() =
+        runTest {
+            val evidencePollStarted = CompletableDeferred<Unit>()
+            val releaseEvidencePoll = CompletableDeferred<Unit>()
+            val runtime =
+                TestProxyRuntime().apply {
+                    beforeForwardingEvidence = {
+                        evidencePollStarted.complete(Unit)
+                        releaseEvidencePoll.await()
+                    }
+                }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            val poll = async { supervisor.pollTelemetryAndForwardingEvidence() }
+            evidencePollStarted.await()
+            val stopping = async { supervisor.stop() }
+            runCurrent()
+            releaseEvidencePoll.complete(Unit)
+
+            assertSame(RuntimeForwardingEvidence.Unavailable, poll.await().forwardingEvidence)
+            stopping.await()
+        }
+
+    @Test
+    fun combinedPollPropagatesTelemetryCancellation() =
+        runTest {
+            val runtime = TestProxyRuntime()
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            runtime.telemetryFailure = CancellationException("cancel poll")
+
+            val failure = runCatching { supervisor.pollTelemetryAndForwardingEvidence() }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+            supervisor.stop()
+        }
+
     @Test
     fun combinedPollRejectsEvidenceWhenRuntimeHandleDisappearsMidPoll() =
         runTest {

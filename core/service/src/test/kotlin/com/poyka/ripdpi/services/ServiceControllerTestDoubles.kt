@@ -1127,6 +1127,7 @@ internal class TestTun2SocksBridge(
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
     var forwardingEvidenceFailure: Throwable? = null
+    var beforeForwardingEvidence: suspend () -> Unit = {}
     var forwardingEvidence: TunForwardingEvidence = TunForwardingEvidence()
     var telemetry: NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
@@ -1164,6 +1165,7 @@ internal class TestTun2SocksBridge(
     }
 
     override suspend fun forwardingEvidence(): TunForwardingEvidence {
+        beforeForwardingEvidence()
         forwardingEvidenceFailure?.let { throw it }
         return forwardingEvidence
     }
