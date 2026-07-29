@@ -34,7 +34,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class RuntimeHistoryMonitorPersistenceTest {
+internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersistenceTestSupport() {
     @Test
     fun `telemetry persistence does not cancel an in flight write`() =
         runTest {
@@ -394,7 +394,10 @@ class RuntimeHistoryMonitorPersistenceTest {
             assertFalse(persistedEvidence.message.contains("event_kind="))
             assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class RuntimeHealthSignalPersistenceTest : RuntimeHistoryMonitorPersistenceTestSupport() {
     @Test
     fun `dns runtime health threshold persists one deterministic typed event`() =
         runTest {
@@ -741,7 +744,10 @@ class RuntimeHistoryMonitorPersistenceTest {
             assertFalse(typedEvent.message.contains("fd=33"))
             assertFalse(typedEvent.message.contains("java.io.IOException"))
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class RuntimeLifecyclePersistenceTest : RuntimeHistoryMonitorPersistenceTestSupport() {
     @Test
     fun `root cause assessment retries after cancelled write`() =
         runTest {
@@ -985,15 +991,17 @@ class RuntimeHistoryMonitorPersistenceTest {
             )
             monitorScope.cancel()
         }
+}
 
-    private fun kotlinx.coroutines.test.TestScope.monitorScope(): CoroutineScope =
+internal abstract class RuntimeHistoryMonitorPersistenceTestSupport {
+    protected fun kotlinx.coroutines.test.TestScope.monitorScope(): CoroutineScope =
         CoroutineScope(
             SupervisorJob() +
                 StandardTestDispatcher(testScheduler) +
                 CoroutineExceptionHandler { _, _ -> },
         )
 
-    private fun createMonitor(
+    protected fun createMonitor(
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
@@ -1011,7 +1019,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             scope = scope,
         )
 
-    private fun createArtifactPersister(
+    protected fun createArtifactPersister(
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore = DefaultServiceStateStore(),
     ): RuntimeArtifactPersister =
@@ -1025,7 +1033,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
         )
 
-    private fun telemetryWithEvent(
+    protected fun telemetryWithEvent(
         message: String,
         createdAt: Long,
     ): ServiceTelemetrySnapshot =
@@ -1046,7 +1054,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = createdAt,
         )
 
-    private fun finalDataPlaneTelemetry(createdAt: Long = 10L): ServiceTelemetrySnapshot =
+    protected fun finalDataPlaneTelemetry(createdAt: Long = 10L): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
             proxyTelemetry =
                 NativeRuntimeSnapshot(
@@ -1066,7 +1074,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = createdAt,
         )
 
-    private fun handoverTelemetry(
+    protected fun handoverTelemetry(
         state: String,
         updatedAt: Long,
     ): ServiceTelemetrySnapshot =
@@ -1075,7 +1083,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = updatedAt,
         )
 
-    private fun dnsTelemetry(
+    protected fun dnsTelemetry(
         queries: Long,
         failures: Long,
         updatedAt: Long,
@@ -1094,7 +1102,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = updatedAt,
         )
 
-    private fun dnsTelemetry(
+    protected fun dnsTelemetry(
         proxyQueries: Long,
         proxyFailures: Long,
         tunnelQueries: Long,
@@ -1121,7 +1129,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = updatedAt,
         )
 
-    private fun relayTelemetry(
+    protected fun relayTelemetry(
         updatedAt: Long,
         state: String,
         health: String,
@@ -1138,12 +1146,12 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = updatedAt,
         )
 
-    private fun handoverEvents(stores: FakeDiagnosticsHistoryStores) =
+    protected fun handoverEvents(stores: FakeDiagnosticsHistoryStores) =
         stores.nativeEventsState.value.filter { event ->
             event.source == "android_device_state" && event.message.contains("trigger=handover")
         }
 
-    private fun terminalDataPlaneEvent(
+    protected fun terminalDataPlaneEvent(
         connectionSessionId: String,
         createdAt: Long,
     ): NativeSessionEventEntity =
@@ -1158,16 +1166,16 @@ class RuntimeHistoryMonitorPersistenceTest {
             subsystem = "data_plane",
         )
 
-    private fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
+    protected fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
         stores.nativeEventsState.value.filter { event -> event.source == RuntimeRootCauseAssessmentSource }
 
-    private fun decodeRootCauseAssessment(event: NativeSessionEventEntity): RuntimeRootCauseAssessment =
+    protected fun decodeRootCauseAssessment(event: NativeSessionEventEntity): RuntimeRootCauseAssessment =
         RuntimeHistoryJson.decodeFromString(
             RuntimeRootCauseAssessment.serializer(),
             event.message.substringAfter("runtime_root_cause_assessment "),
         )
 
-    private fun typedRuntimeEvents(
+    protected fun typedRuntimeEvents(
         stores: FakeDiagnosticsHistoryStores,
         subsystem: String,
     ): List<NativeSessionEventEntity> =

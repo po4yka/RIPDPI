@@ -40,7 +40,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class RuntimeTerminalSealPersistenceTest {
+internal class RuntimeTerminalSealPersistenceTest : RuntimeTerminalPersistenceTestSupport() {
     @Test
     fun `corrupt terminal outbox is discarded without blocking valid recovery or exposing payload`() =
         runTest {
@@ -394,7 +394,10 @@ class RuntimeTerminalSealPersistenceTest {
             assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
             restoredScope.cancel()
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersistenceTestSupport() {
     @Test
     fun `failure or cancellation at every terminal phase cannot reopen the detached session`() =
         runTest {
@@ -561,8 +564,10 @@ class RuntimeTerminalSealPersistenceTest {
             assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
             restoredScope.cancel()
         }
+}
 
-    private suspend fun TestScope.assertRestartCreatesFreshSession(
+internal abstract class RuntimeTerminalPersistenceTestSupport {
+    protected suspend fun TestScope.assertRestartCreatesFreshSession(
         phase: TerminalFailurePhase,
         createFailure: () -> Throwable,
     ) {
@@ -619,7 +624,7 @@ class RuntimeTerminalSealPersistenceTest {
         restoredScope.cancel()
     }
 
-    private fun armTerminalFailure(
+    protected fun armTerminalFailure(
         stores: FakeDiagnosticsHistoryStores,
         phase: TerminalFailurePhase,
         createFailure: () -> Throwable,
@@ -659,14 +664,14 @@ class RuntimeTerminalSealPersistenceTest {
         }
     }
 
-    private fun TestScope.monitorScope(): CoroutineScope =
+    protected fun TestScope.monitorScope(): CoroutineScope =
         CoroutineScope(
             SupervisorJob() +
                 StandardTestDispatcher(testScheduler) +
                 CoroutineExceptionHandler { _, _ -> },
         )
 
-    private fun createMonitor(
+    protected fun createMonitor(
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
@@ -681,7 +686,7 @@ class RuntimeTerminalSealPersistenceTest {
             scope = scope,
         )
 
-    private fun createArtifactPersister(
+    protected fun createArtifactPersister(
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore = DefaultServiceStateStore(),
     ): RuntimeArtifactPersister =
@@ -695,7 +700,7 @@ class RuntimeTerminalSealPersistenceTest {
             nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
         )
 
-    private fun createSessionCoordinator(
+    protected fun createSessionCoordinator(
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
@@ -727,12 +732,12 @@ class RuntimeTerminalSealPersistenceTest {
             scope = scope,
         )
 
-    private fun emptyActiveConnectionPolicyStore(): ActiveConnectionPolicyStore =
+    protected fun emptyActiveConnectionPolicyStore(): ActiveConnectionPolicyStore =
         object : ActiveConnectionPolicyStore {
             override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = MutableStateFlow(emptyMap())
         }
 
-    private fun activeRememberedPolicy(): ActiveConnectionPolicy =
+    protected fun activeRememberedPolicy(): ActiveConnectionPolicy =
         ActiveConnectionPolicy(
             mode = Mode.VPN,
             policy =
@@ -766,7 +771,7 @@ class RuntimeTerminalSealPersistenceTest {
             appliedAt = 1L,
         )
 
-    private fun finalDataPlaneTelemetry(): ServiceTelemetrySnapshot =
+    protected fun finalDataPlaneTelemetry(): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
             proxyTelemetry =
                 NativeRuntimeSnapshot(
@@ -786,7 +791,7 @@ class RuntimeTerminalSealPersistenceTest {
             updatedAt = System.currentTimeMillis(),
         )
 
-    private fun noisyEventsWithBackwardClockRecovery(): List<NativeSessionEventEntity> =
+    protected fun noisyEventsWithBackwardClockRecovery(): List<NativeSessionEventEntity> =
         List(70) { index ->
             event(
                 id = "noise-$index",
@@ -819,7 +824,7 @@ class RuntimeTerminalSealPersistenceTest {
                 ),
             )
 
-    private fun transition(
+    protected fun transition(
         message: String,
         createdAt: Long,
     ): NativeSessionEventEntity =
@@ -831,7 +836,7 @@ class RuntimeTerminalSealPersistenceTest {
             subsystem = "network_transition",
         )
 
-    private fun event(
+    protected fun event(
         id: String,
         source: String,
         message: String,
@@ -849,20 +854,20 @@ class RuntimeTerminalSealPersistenceTest {
             subsystem = subsystem,
         )
 
-    private fun decodeAssessment(stores: FakeDiagnosticsHistoryStores): RuntimeRootCauseAssessment =
+    protected fun decodeAssessment(stores: FakeDiagnosticsHistoryStores): RuntimeRootCauseAssessment =
         RuntimeHistoryJson.decodeFromString(
             RuntimeRootCauseAssessment.serializer(),
             rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
         )
 
-    private fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
+    protected fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
         stores.nativeEventsState.value.filter { event -> event.source == RuntimeRootCauseAssessmentSource }
 
-    private companion object {
+    protected companion object {
         const val ConnectionSessionId = "conn-a"
     }
 
-    private enum class TerminalFailurePhase {
+    protected enum class TerminalFailurePhase {
         RUNTIME_EVENTS,
         TERMINAL_SAMPLE,
         POLICY_FINALIZATION,
@@ -870,7 +875,7 @@ class RuntimeTerminalSealPersistenceTest {
         ROOT_CAUSE_ASSESSMENT,
     }
 
-    private class MutableActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
+    protected class MutableActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
         private val state = MutableStateFlow<Map<Mode, ActiveConnectionPolicy>>(emptyMap())
         override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = state
 
