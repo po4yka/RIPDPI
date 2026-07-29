@@ -355,6 +355,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
             underlayObservationProvider = FixedRemoteAcceptanceUnderlayProvider,
             deviceProvider = { Device },
             monotonicClock = { 1_000L },
+            probeTargets = FixtureRemoteAcceptanceProbeTargets,
         )
     }
 
@@ -391,6 +392,12 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
 
     private companion object {
         val Device = RemoteDeviceAcceptanceDevice("SM-S928B", "unavailable", 35, "arm64-v8a")
+        val FixtureRemoteAcceptanceProbeTargets =
+            RemoteAcceptanceProbeTargets(
+                connectivityUrl = "https://acceptance.invalid/connectivity",
+                ipv4Url = "https://acceptance-ipv4.invalid/generate_204",
+                ipv6Url = "https://acceptance-ipv6.invalid/generate_204",
+            )
     }
 }
 

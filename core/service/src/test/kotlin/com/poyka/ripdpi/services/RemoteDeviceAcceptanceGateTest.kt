@@ -660,7 +660,7 @@ class RemoteDeviceAcceptanceGateTest {
                     hasIpv6Dns = true,
                     nat64Advertised = true,
                 ),
-            directEgressObserved = false,
+            pathPolicyInconsistent = false,
             durationMs = 42L,
         )
 

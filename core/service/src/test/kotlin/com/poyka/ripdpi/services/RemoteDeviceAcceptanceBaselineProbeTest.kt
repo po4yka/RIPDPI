@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -21,6 +23,64 @@ import org.junit.Test
 
 class RemoteDeviceAcceptanceBaselineProbeTest {
     @Test
+    fun `stale AWG telemetry cannot override selected relay egress`() =
+        runTest {
+            val snapshot = runningRealitySnapshot(staleAwgTelemetry = true)
+            val store = TestServiceStateStore(AppStatus.Running to Mode.VPN)
+            store.updateTelemetry(snapshot)
+            val probe =
+                RemoteDeviceAcceptanceBaselineProbe(
+                    serviceStateStore = store,
+                    relayCapabilityProbe = successfulCapabilityProbe(mutableListOf()),
+                    underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
+                    deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
+                )
+
+            val report = probe.capture(snapshot)
+
+            assertEquals(RelayKindVlessReality, report.transportKind)
+            assertEquals(AcceptanceProbeApplicability.Required.wireValue, report.step(StepRealityTcp).applicability)
+            assertEquals(
+                AcceptanceProbeApplicability.NotApplicable.wireValue,
+                report.step(StepAmneziaWgRuntime).applicability,
+            )
+        }
+
+    @Test
+    fun `missing configured targets do not make hidden public probe calls`() =
+        runTest {
+            val requestedUrls = mutableListOf<String>()
+            val snapshot = runningRealitySnapshot()
+            val store = TestServiceStateStore(AppStatus.Running to Mode.VPN)
+            store.updateTelemetry(snapshot)
+            val probe =
+                RemoteDeviceAcceptanceBaselineProbe(
+                    serviceStateStore = store,
+                    relayCapabilityProbe =
+                        RelayCapabilityProbe(
+                            tcpProbe =
+                                RelayTcpProbe { _, url ->
+                                    requestedUrls += url
+                                    RelayTcpProbeResult(succeeded = true, statusCode = 204)
+                                },
+                            udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                        ),
+                    underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
+                    deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
+                )
+
+            val report = probe.capture(snapshot)
+
+            assertTrue(requestedUrls.isEmpty())
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
+            assertEquals(ErrorRemoteAcceptanceProbeTargetMissing, report.step(StepRealityTcp).errorClass)
+            assertEquals(ErrorRemoteAcceptanceProbeTargetMissing, report.step(StepIpv4).errorClass)
+        }
+
+    @Test
     fun `family steps use Reality egress probes instead of app active network`() =
         runTest {
             val requestedUrls = mutableListOf<String>()
@@ -32,7 +92,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     tcpProbe =
                         RelayTcpProbe { _, url ->
                             requestedUrls += url
-                            if (url == RemoteAcceptanceIpv6ProbeUrl) {
+                            if (url == FixtureIpv6ProbeUrl) {
                                 RelayTcpProbeResult(
                                     succeeded = false,
                                     failure = RelayProbeFailure.TcpConnect,
@@ -54,15 +114,16 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             val report = probe.capture(snapshot)
 
             assertEquals(
                 setOf(
-                    RemoteAcceptanceConnectivityProbeUrl,
-                    RemoteAcceptanceIpv4ProbeUrl,
-                    RemoteAcceptanceIpv6ProbeUrl,
+                    FixtureConnectivityProbeUrl,
+                    FixtureIpv4ProbeUrl,
+                    FixtureIpv6ProbeUrl,
                 ),
                 requestedUrls.toSet(),
             )
@@ -103,6 +164,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(underlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             val report = probe.capture(snapshot)
@@ -134,6 +196,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(underlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             val report = probe.capture(snapshot)
@@ -177,6 +240,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                         underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                         deviceProvider = { Device },
                         monotonicClock = { 1_000L },
+                        probeTargets = FixtureRemoteAcceptanceProbeTargets,
                     )
                 probe.capture(snapshot)
             }
@@ -209,6 +273,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             val report = probe.capture(initial)
@@ -251,6 +316,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             val report = probe.capture(initial)
@@ -287,6 +353,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             probe.capture(snapshot)
@@ -320,6 +387,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             probe.capture(firstSnapshot)
@@ -356,6 +424,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                         ),
                     deviceProvider = { Device },
                     monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
                 )
 
             probe.capture(snapshot)
@@ -484,6 +553,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         listenerAddress: String? = "127.0.0.1:1080",
         protocolKind: String? = RelayKindVlessReality,
         serviceStartedAt: Long = 100L,
+        staleAwgTelemetry: Boolean = false,
     ): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
             status = AppStatus.Running,
@@ -497,12 +567,33 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     listenerAddress = listenerAddress,
                     protocolKind = protocolKind,
                 ),
+            awgTelemetry =
+                if (staleAwgTelemetry) {
+                    NativeRuntimeSnapshot(source = "amneziawg", state = "running", health = "healthy")
+                } else {
+                    NativeRuntimeSnapshot.idle(source = "amneziawg")
+                },
+            awgTelemetryStatus =
+                if (staleAwgTelemetry) {
+                    RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot)
+                } else {
+                    RuntimeTelemetryStatus.NoData
+                },
         )
 
     private fun RemoteDeviceAcceptanceReport.step(id: String): RemoteDeviceAcceptanceStep = steps.first { it.id == id }
 
     private companion object {
         val Device = RemoteDeviceAcceptanceDevice("SM-S928B", "XSG", 35, "arm64-v8a")
+        const val FixtureConnectivityProbeUrl = "https://acceptance.invalid/connectivity"
+        const val FixtureIpv4ProbeUrl = "https://acceptance-ipv4.invalid/generate_204"
+        const val FixtureIpv6ProbeUrl = "https://acceptance-ipv6.invalid/generate_204"
+        val FixtureRemoteAcceptanceProbeTargets =
+            RemoteAcceptanceProbeTargets(
+                connectivityUrl = FixtureConnectivityProbeUrl,
+                ipv4Url = FixtureIpv4ProbeUrl,
+                ipv6Url = FixtureIpv6ProbeUrl,
+            )
         val DualStackUnderlay =
             NetworkPathObservation(
                 generation = 1L,

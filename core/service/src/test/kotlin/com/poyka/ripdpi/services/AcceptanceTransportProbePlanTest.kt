@@ -39,13 +39,22 @@ class AcceptanceTransportProbePlanTest {
 
     @Test
     fun `published AmneziaWG runtime never borrows relay SOCKS applicability`() {
-        val plan = acceptanceTransportProbePlan(RelayKindOff, awgRuntimePublished = true)
+        val plan = acceptanceTransportProbePlan(RelayKindOff, awgSelected = true)
 
         assertEquals("amneziawg", plan.transportKind)
         assertEquals(AcceptanceProbeApplicability.NotApplicable, plan.relayTcp)
         assertEquals(AcceptanceProbeApplicability.NotApplicable, plan.relayUdp)
         assertEquals(AcceptanceProbeApplicability.NotApplicable, plan.relayUdpPayload)
         assertEquals(AcceptanceProbeApplicability.Required, plan.awgRuntime)
+        assertFalse(plan.requiresRelayListener)
+    }
+
+    @Test
+    fun `unknown selected egress makes stale AWG telemetry inconclusive`() {
+        val plan = acceptanceTransportProbePlan("vless_reality", awgSelected = null)
+
+        assertEquals(AcceptanceProbeApplicability.Unavailable, plan.relayTcp)
+        assertEquals(AcceptanceProbeApplicability.Unavailable, plan.awgRuntime)
         assertFalse(plan.requiresRelayListener)
     }
 

@@ -117,9 +117,9 @@ private fun AcceptanceBaselineEvidence.deferredRuntimeSteps(): List<RemoteDevice
             durationMs = durationMs,
         ),
         resultStep(
-            StepNoDirectEgress,
-            !directEgressObserved,
-            ErrorDirectEgress,
+            StepPathPolicyConsistency,
+            !pathPolicyInconsistent,
+            ErrorPathPolicyInconsistent,
             durationMs,
         ),
     )
@@ -258,13 +258,18 @@ private fun applicabilityStep(
             RemoteDeviceAcceptanceStep(
                 id = id,
                 status =
-                    if (succeeded == true) {
-                        RemoteDeviceAcceptanceStatus.Pass
-                    } else {
-                        RemoteDeviceAcceptanceStatus.Fail
+                    when (succeeded) {
+                        true -> RemoteDeviceAcceptanceStatus.Pass
+                        false -> RemoteDeviceAcceptanceStatus.Fail
+                        null -> RemoteDeviceAcceptanceStatus.Incomplete
                     },
                 durationMs = durationMs,
-                errorClass = ErrorAmneziaWgRuntimeUnhealthy.takeUnless { succeeded == true },
+                errorClass =
+                    when (succeeded) {
+                        true -> null
+                        false -> ErrorAmneziaWgRuntimeUnhealthy
+                        null -> ErrorRuntimeContextUnavailable
+                    },
                 applicability = applicability.wireValue,
             )
         }
@@ -294,7 +299,7 @@ internal const val ErrorIpv4Egress = "ipv4_egress_failed"
 internal const val ErrorIpv6Egress = "ipv6_egress_failed"
 internal const val ErrorPayloadHealthUnavailable = "payload_health_unavailable"
 internal const val ErrorPayloadHealthContextDrift = "payload_health_context_drift"
-internal const val ErrorDirectEgress = "direct_egress_observed"
+internal const val ErrorPathPolicyInconsistent = "path_policy_inconsistent"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
 internal const val ErrorRecoveryReceiptPersistenceUnavailable = "recovery_receipt_persistence_unavailable"
@@ -304,6 +309,7 @@ internal const val ErrorUidPolicyIneligible = "uid_policy_ineligible"
 internal const val ErrorUidPolicyNotArmed = "uid_policy_not_armed"
 internal const val ErrorProbeNotApplicable = "probe_not_applicable"
 internal const val ErrorRuntimeContextUnavailable = "runtime_context_unavailable"
+internal const val ErrorRemoteAcceptanceProbeTargetMissing = "missing_probe_target"
 internal const val ErrorAmneziaWgRuntimeUnhealthy = "amneziawg_runtime_unhealthy"
 internal const val RelayPathKind = "relay_path"
 internal val acceptanceStepIds =
@@ -320,7 +326,7 @@ internal val acceptanceStepIds =
         StepRecoveryReceiptPersistence,
         StepUidPolicyQualification,
         StepAmneziaWgRuntime,
-        StepNoDirectEgress,
+        StepPathPolicyConsistency,
     )
 internal val acceptanceDataPlaneStepIds =
     setOf(
@@ -331,5 +337,5 @@ internal val acceptanceDataPlaneStepIds =
         StepIpv4,
         StepIpv6,
         StepAmneziaWgRuntime,
-        StepNoDirectEgress,
+        StepPathPolicyConsistency,
     )

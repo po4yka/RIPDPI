@@ -195,7 +195,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 observedAtMillis = System.currentTimeMillis(),
                 telemetry = observation.telemetry,
             )
-        recordDirectFallback(startedAt, observation)
+        recordPathPolicyInconsistency(startedAt, observation)
         when (screenOffObservation) {
             is RemoteScreenOffDwellObservation.Completed -> {
                 applyScreenOffResult(run, startedAt, screenOffObservation.result)
@@ -372,15 +372,15 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         }
     }
 
-    private fun recordDirectFallback(
+    private fun recordPathPolicyInconsistency(
         startedAt: Long,
         observation: GuidedObservation,
     ) {
         if (!observation.telemetry.relayFailed) return
         updateStep(
-            stepId = StepNoDirectEgress,
+            stepId = StepPathPolicyConsistency,
             status = RemoteDeviceAcceptanceStatus.Fail,
-            errorClass = ErrorDirectEgress,
+            errorClass = ErrorPathPolicyInconsistent,
             durationMs = elapsedSince(startedAt),
         )
     }
@@ -748,7 +748,7 @@ private const val UnderlayWifi = "wifi"
 private const val UnderlayCellular = "cellular"
 internal const val RemoteAcceptanceScreenOffDwellMs = 300_000L
 internal const val RemoteAcceptanceTelemetryFreshTimeoutMs = 6_000L
-internal const val StepNoDirectEgress = "no_direct_fallback"
+internal const val StepPathPolicyConsistency = "path_policy_consistency"
 internal const val ErrorScreenOffDwellTooShort = "background_dwell_too_short"
 internal const val ErrorScreenOffNoDataPlaneDelta = "background_no_data_plane_delta"
 internal const val ErrorScreenOffProbeMissing = "background_screen_off_probe_missing"

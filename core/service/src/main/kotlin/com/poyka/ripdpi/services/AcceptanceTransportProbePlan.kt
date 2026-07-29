@@ -24,11 +24,12 @@ internal data class AcceptanceTransportProbePlan(
 
 internal fun acceptanceTransportProbePlan(
     relayKind: String,
-    awgRuntimePublished: Boolean = false,
+    awgSelected: Boolean? = false,
 ): AcceptanceTransportProbePlan =
     relayKindDescriptor(relayKind).let { descriptor ->
         when {
-            awgRuntimePublished -> amneziaWgTransportProbePlan()
+            awgSelected == true -> amneziaWgTransportProbePlan()
+            awgSelected == null -> unavailableTransportProbePlan(relayKind)
             descriptor == null || (!descriptor.tcp && !descriptor.udp) -> unavailableTransportProbePlan(relayKind)
             else -> descriptor.toAcceptanceTransportProbePlan()
         }

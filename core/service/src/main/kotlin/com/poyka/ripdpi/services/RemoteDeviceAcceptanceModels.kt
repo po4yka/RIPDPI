@@ -76,7 +76,7 @@ internal data class AcceptanceBaselineEvidence(
     val payloadHealthError: String? = null,
     val contextError: String? = null,
     val underlay: RemoteDeviceAcceptanceUnderlay,
-    val directEgressObserved: Boolean,
+    val pathPolicyInconsistent: Boolean,
     val durationMs: Long,
     val probePlan: AcceptanceTransportProbePlan = acceptanceTransportProbePlan(transportKind),
     val awgRuntimeHealthy: Boolean? = null,

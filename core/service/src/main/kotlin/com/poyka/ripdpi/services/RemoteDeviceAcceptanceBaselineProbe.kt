@@ -26,8 +26,10 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private val serviceStateStore: ServiceStateStore,
     private val relayCapabilityProbe: RelayCapabilityProbe,
     private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
+    private val awgEgressSelectionProvider: AwgEgressSelectionProvider = NoSelectedAwgEgressProvider,
     private val deviceProvider: () -> RemoteDeviceAcceptanceDevice,
     private val monotonicClock: () -> Long,
+    private val probeTargets: RemoteAcceptanceProbeTargets = RemoteAcceptanceProbeTargets(),
     private val payloadHealthCache: RelayUdpPayloadHealthCache = RelayUdpPayloadHealthCache(),
 ) {
     @Inject
@@ -35,10 +37,12 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         serviceStateStore: ServiceStateStore,
         relayCapabilityProbe: RelayCapabilityProbe,
         underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
+        awgEgressSelectionProvider: AwgEgressSelectionProvider,
     ) : this(
         serviceStateStore,
         relayCapabilityProbe,
         underlayObservationProvider,
+        awgEgressSelectionProvider,
         ::captureRemoteDeviceAcceptanceDevice,
         SystemClock::elapsedRealtime,
     )
@@ -65,9 +69,9 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     ipv4Probe = probeEvidence.ipv4,
                     ipv6Probe = probeEvidence.ipv6,
                     payloadHealth = probeEvidence.payloadHealth.takeIf { contextError == null },
-                    contextError = contextError,
+                    contextError = contextError ?: probeEvidence.contextError,
                     underlay = underlay,
-                    directEgressObserved = snapshot.relayFailed,
+                    pathPolicyInconsistent = snapshot.relayFailed,
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
                     probePlan = before.probePlan,
                     awgRuntimeHealthy = before.awgRuntimeHealthy,
@@ -75,7 +79,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         )
     }
 
-    private fun captureContext(snapshot: ServiceTelemetrySnapshot): AcceptanceCaptureContext {
+    private suspend fun captureContext(snapshot: ServiceTelemetrySnapshot): AcceptanceCaptureContext {
         val (status, mode) = serviceStateStore.status.value
         return AcceptanceCaptureContext(
             status = status,
@@ -84,23 +88,46 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             relayListenerAddress = snapshot.relayTelemetry.listenerAddress?.trim(),
             awgRuntimePublished = snapshot.awgTelemetryStatus.state == RuntimeTelemetryState.Snapshot,
             awgRuntimeHealth = snapshot.awgTelemetry.health,
+            awgSelected = selectedAwgEgressStatus(),
             serviceStartedAt = snapshot.serviceStartedAt,
             underlayObservation = underlayObservationProvider.capture(),
         )
     }
 
+    private suspend fun selectedAwgEgressStatus(): Boolean? =
+        try {
+            awgEgressSelectionProvider.selectedAwgEgress() != null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+
     private suspend fun captureRelayEvidence(context: AcceptanceCaptureContext): AcceptanceRelayEvidence {
         val endpoint = context.endpoint
-        if (!context.serviceRunning || !context.probePlan.requiresRelayListener || endpoint == null) {
-            return AcceptanceRelayEvidence()
-        }
+        val unavailableEvidence =
+            when {
+                !context.serviceRunning || !context.probePlan.requiresRelayListener || endpoint == null -> {
+                    AcceptanceRelayEvidence()
+                }
+
+                !probeTargets.hasRequiredTargetFor(context.probePlan) -> {
+                    AcceptanceRelayEvidence(contextError = ErrorRemoteAcceptanceProbeTargetMissing)
+                }
+
+                else -> {
+                    null
+                }
+            }
+        if (unavailableEvidence != null) return unavailableEvidence
+        val relayEndpoint = checkNotNull(endpoint)
         val families = context.underlayObservation.mandatoryRelayUdpPayloadFamilies()
         return coroutineScope {
             val connectivity =
                 async {
                     probeOrNull(
-                        endpoint,
-                        RemoteAcceptanceConnectivityProbeUrl,
+                        relayEndpoint,
+                        probeTargets.connectivityUrl.requireTarget(),
                         EgressRequirements(
                             tcpConnect = context.probePlan.relayTcp == AcceptanceProbeApplicability.Required,
                             udpAssociate = context.probePlan.relayUdp == AcceptanceProbeApplicability.Required,
@@ -110,7 +137,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             val ipv4 =
                 async {
                     if (context.probePlan.relayTcp == AcceptanceProbeApplicability.Required) {
-                        probeOrNull(endpoint, RemoteAcceptanceIpv4ProbeUrl, TcpOnlyRequirements)
+                        probeOrNull(relayEndpoint, probeTargets.ipv4Url.requireTarget(), TcpOnlyRequirements)
                     } else {
                         null
                     }
@@ -118,7 +145,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             val ipv6 =
                 async {
                     if (context.probePlan.relayTcp == AcceptanceProbeApplicability.Required) {
-                        probeOrNull(endpoint, RemoteAcceptanceIpv6ProbeUrl, TcpOnlyRequirements)
+                        probeOrNull(relayEndpoint, probeTargets.ipv6Url.requireTarget(), TcpOnlyRequirements)
                     } else {
                         null
                     }
@@ -127,7 +154,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                 async {
                     if (context.probePlan.relayUdpPayload == AcceptanceProbeApplicability.Required) {
                         payloadHealthOrNull(
-                            endpoint = endpoint,
+                            endpoint = relayEndpoint,
                             families = families,
                             underlayGeneration = context.underlayObservation.generation,
                             serviceStartedAt = context.serviceStartedAt,
@@ -192,7 +219,18 @@ private data class AcceptanceRelayEvidence(
     val ipv4: RelayCapabilityProbeEvidence? = null,
     val ipv6: RelayCapabilityProbeEvidence? = null,
     val payloadHealth: RelayUdpPayloadHealthEvidence? = null,
+    val contextError: String? = null,
 )
+
+internal data class RemoteAcceptanceProbeTargets(
+    val connectivityUrl: String? = null,
+    val ipv4Url: String? = null,
+    val ipv6Url: String? = null,
+) {
+    fun hasRequiredTargetFor(plan: AcceptanceTransportProbePlan): Boolean =
+        connectivityUrl != null &&
+            (plan.relayTcp != AcceptanceProbeApplicability.Required || (ipv4Url != null && ipv6Url != null))
+}
 
 private data class AcceptanceCaptureContext(
     val status: AppStatus,
@@ -201,6 +239,7 @@ private data class AcceptanceCaptureContext(
     val relayListenerAddress: String?,
     val awgRuntimePublished: Boolean,
     val awgRuntimeHealth: String,
+    val awgSelected: Boolean?,
     val serviceStartedAt: Long?,
     val underlayObservation: NetworkPathObservation,
 ) {
@@ -211,10 +250,13 @@ private data class AcceptanceCaptureContext(
         get() = probePlan.transportKind
 
     val probePlan: AcceptanceTransportProbePlan
-        get() = acceptanceTransportProbePlan(relayProtocolKind, awgRuntimePublished)
+        get() = acceptanceTransportProbePlan(relayProtocolKind, awgSelected)
 
     val awgRuntimeHealthy: Boolean?
-        get() = awgRuntimeHealth.takeIf { awgRuntimePublished }?.let { it == HealthyRuntimeState }
+        get() =
+            awgRuntimeHealth
+                .takeIf { awgSelected == true && awgRuntimePublished }
+                ?.let { it == HealthyRuntimeState }
 
     val endpoint: RelayProbeEndpoint?
         get() = parseLocalRelayEndpoint(relayListenerAddress)
@@ -227,6 +269,7 @@ private data class AcceptanceCaptureContext(
                 relayListenerAddress != after.relayListenerAddress ||
                 awgRuntimePublished != after.awgRuntimePublished ||
                 awgRuntimeHealth != after.awgRuntimeHealth ||
+                awgSelected != after.awgSelected ||
                 serviceStartedAt != after.serviceStartedAt ||
                 underlayObservation.generation != after.underlayObservation.generation
         }
@@ -386,11 +429,14 @@ private fun parseLocalRelayEndpoint(listenerAddress: String?): RelayProbeEndpoin
             }.getOrNull()
         }
 
-internal const val RemoteAcceptanceConnectivityProbeUrl = "https://connectivitycheck.gstatic.com/generate_204"
-internal const val RemoteAcceptanceIpv4ProbeUrl = "https://ipv4.google.com/generate_204"
-internal const val RemoteAcceptanceIpv6ProbeUrl = "https://ipv6.google.com/generate_204"
+private fun String?.requireTarget(): String = checkNotNull(this)
+
 private val TcpOnlyRequirements = EgressRequirements(tcpConnect = true, udpAssociate = false)
 private const val MaxNetworkPort = 65_535
 private const val MaxPayloadHealthCacheEntries = 16
 private const val PayloadHealthCacheCooldownMs = 60_000L
 private const val HealthyRuntimeState = "healthy"
+
+private object NoSelectedAwgEgressProvider : AwgEgressSelectionProvider {
+    override suspend fun selectedAwgEgress(): com.poyka.ripdpi.data.awg.AwgActivationRequest? = null
+}
