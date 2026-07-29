@@ -120,10 +120,9 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
 
     override fun renderRedactedReport(): String =
         renderRemoteDeviceAcceptanceReport(
-            _report.value.copy(
-                recoveryReceipt = recoveryReceiptSource.snapshot(),
-                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
-            ),
+            _report.value
+                .copy(recoveryReceipt = recoveryReceiptSource.snapshot())
+                .withUidPolicyQualification(uidPolicyQualificationSource.snapshot()),
         )
 
     /** Cancel-safe: an in-flight screen-off check records a terminal cancellation event. */
@@ -146,15 +145,13 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 device = captureRemoteDeviceAcceptanceDevice(),
                 transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
                 recoveryReceipt = recoveryReceiptSource.snapshot(),
-                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
-            )
+            ).withUidPolicyQualification(uidPolicyQualificationSource.snapshot())
         val baseline = baselineProbe.capture(initialSnapshot)
         if (!isCurrent(run)) return
         _report.value =
-            baseline.copy(
-                recoveryReceipt = recoveryReceiptSource.snapshot(),
-                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
-            )
+            baseline
+                .copy(recoveryReceipt = recoveryReceiptSource.snapshot())
+                .withUidPolicyQualification(uidPolicyQualificationSource.snapshot())
         observeGuidedSteps(run, startedAt, requireNotNull(run.guidedState))
     }
 
@@ -460,12 +457,13 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 }
             }
         _report.value =
-            current.copy(
-                status = deriveAcceptanceStatus(steps),
-                steps = steps,
-                recoveryReceipt = recoveryReceiptSource.snapshot(),
-                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
-            )
+            current
+                .copy(
+                    steps = steps,
+                    recoveryReceipt = recoveryReceiptSource.snapshot(),
+                ).withUidPolicyQualification(
+                    uidPolicyQualificationSource.snapshot(),
+                )
     }
 
     private fun stepStatus(stepId: String): RemoteDeviceAcceptanceStatus =

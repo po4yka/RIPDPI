@@ -403,6 +403,70 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
+    fun `UID bridge failure prevents an otherwise passing acceptance result`() {
+        val report = passingAcceptanceReport()
+
+        val qualified =
+            report.withUidPolicyQualification(
+                RemoteDeviceUidPolicyQualification(
+                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.BridgeFailure.wireValue,
+                    uidPolicyEligible = true,
+                    uidPolicyArmed = true,
+                ),
+            )
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, qualified.status)
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, qualified.step(StepUidPolicyQualification).status)
+        assertEquals(ErrorUidPolicyBridgeFailure, qualified.step(StepUidPolicyQualification).errorClass)
+        val rendered = renderRemoteDeviceAcceptanceReport(qualified)
+        assertTrue(rendered.contains("\"result\": \"incomplete\""))
+        assertTrue(rendered.contains("\"errorClass\": \"uid_policy_bridge_failure\""))
+    }
+
+    @Test
+    fun `ineligible or unarmed UID policy prevents an otherwise passing acceptance result`() {
+        val report = passingAcceptanceReport()
+
+        val ineligible =
+            report.withUidPolicyQualification(
+                RemoteDeviceUidPolicyQualification(
+                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.PermissionDenied.wireValue,
+                    uidPolicyEligible = false,
+                    uidPolicyArmed = false,
+                ),
+            )
+        val unarmed =
+            report.withUidPolicyQualification(
+                RemoteDeviceUidPolicyQualification(
+                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.Supported.wireValue,
+                    uidPolicyEligible = true,
+                    uidPolicyArmed = false,
+                ),
+            )
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, ineligible.status)
+        assertEquals(ErrorUidPolicyIneligible, ineligible.step(StepUidPolicyQualification).errorClass)
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, unarmed.status)
+        assertEquals(ErrorUidPolicyNotArmed, unarmed.step(StepUidPolicyQualification).errorClass)
+    }
+
+    @Test
+    fun `eligible armed UID policy allows an otherwise passing acceptance result`() {
+        val qualified =
+            passingAcceptanceReport().withUidPolicyQualification(
+                RemoteDeviceUidPolicyQualification(
+                    unprivilegedBindToDevice = BindToDeviceProbeOutcome.Supported.wireValue,
+                    uidPolicyEligible = true,
+                    uidPolicyArmed = true,
+                ),
+            )
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Pass, qualified.status)
+        assertEquals(RemoteDeviceAcceptanceStatus.Pass, qualified.step(StepUidPolicyQualification).status)
+        assertNull(qualified.step(StepUidPolicyQualification).errorClass)
+    }
+
+    @Test
     fun `DNS response failure proves association but fails UDP DNS`() {
         val evidence =
             successfulEvidence().copy(
@@ -608,6 +672,17 @@ class RemoteDeviceAcceptanceGateTest {
         assertFalse(rendered.contains("nat64Prefix", ignoreCase = true))
         assertFalse(rendered.contains("networkHandle", ignoreCase = true))
         assertNull(report.step("reality_tcp").errorClass)
+    }
+
+    private fun passingAcceptanceReport(): RemoteDeviceAcceptanceReport {
+        val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
+        return report.copy(
+            status = RemoteDeviceAcceptanceStatus.Pass,
+            steps =
+                report.steps.map { step ->
+                    step.copy(status = RemoteDeviceAcceptanceStatus.Pass, errorClass = null)
+                },
+        )
     }
 
     private fun RemoteDeviceAcceptanceReport.step(id: String): RemoteDeviceAcceptanceStep = steps.first { it.id == id }

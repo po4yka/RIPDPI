@@ -161,6 +161,7 @@ private fun AcceptanceBaselineEvidence.toAcceptanceSteps(preflightError: String?
         pendingStep(StepReconnect),
         pendingStep(StepHandover),
         pendingStep(StepScreenOff),
+        pendingStep(StepUidPolicyQualification),
         resultStep(
             StepNoDirectEgress,
             !directEgressObserved,
@@ -171,7 +172,11 @@ private fun AcceptanceBaselineEvidence.toAcceptanceSteps(preflightError: String?
 }
 
 internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
-    RemoteDeviceAcceptanceReportJson.encodeToString(report.toRedactedPayload())
+    RemoteDeviceAcceptanceReportJson.encodeToString(
+        report
+            .withUidPolicyQualification(report.uidPolicyQualification)
+            .toRedactedPayload(),
+    )
 
 private fun RemoteDeviceAcceptanceReport.toRedactedPayload(): RedactedAcceptanceReport =
     RedactedAcceptanceReport(
@@ -336,6 +341,64 @@ internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlaneStatus(): RemoteDev
 internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlanePassed(): Boolean =
     acceptanceDataPlaneStatus() == RemoteDeviceAcceptanceStatus.Pass
 
+internal fun RemoteDeviceAcceptanceReport.withUidPolicyQualification(
+    qualification: RemoteDeviceUidPolicyQualification,
+): RemoteDeviceAcceptanceReport {
+    val safe = qualification.privacySafe()
+    val qualificationStep = safe.toAcceptanceStep()
+    val nextSteps =
+        if (steps.any { step -> step.id == StepUidPolicyQualification }) {
+            steps.map { step ->
+                if (step.id == StepUidPolicyQualification) qualificationStep else step
+            }
+        } else {
+            steps + qualificationStep
+        }
+    return copy(
+        status =
+            when (status) {
+                RemoteDeviceAcceptanceStatus.Idle,
+                RemoteDeviceAcceptanceStatus.Running,
+                -> status
+
+                else -> deriveAcceptanceStatus(nextSteps)
+            },
+        steps = nextSteps,
+        uidPolicyQualification = safe,
+    )
+}
+
+private fun RemoteDeviceUidPolicyQualification.toAcceptanceStep(): RemoteDeviceAcceptanceStep {
+    val errorClass =
+        when {
+            unprivilegedBindToDevice == BindToDeviceProbeOutcome.BridgeFailure.wireValue -> {
+                ErrorUidPolicyBridgeFailure
+            }
+
+            !uidPolicyEligible -> {
+                ErrorUidPolicyIneligible
+            }
+
+            !uidPolicyArmed -> {
+                ErrorUidPolicyNotArmed
+            }
+
+            else -> {
+                null
+            }
+        }
+    return RemoteDeviceAcceptanceStep(
+        id = StepUidPolicyQualification,
+        status =
+            if (errorClass == null) {
+                RemoteDeviceAcceptanceStatus.Pass
+            } else {
+                RemoteDeviceAcceptanceStatus.Incomplete
+            },
+        errorClass = errorClass,
+    )
+}
+
 internal fun deriveAcceptanceStatus(steps: List<RemoteDeviceAcceptanceStep>): RemoteDeviceAcceptanceStatus =
     when {
         steps.any { it.status == RemoteDeviceAcceptanceStatus.Fail } -> RemoteDeviceAcceptanceStatus.Fail
@@ -489,6 +552,7 @@ internal const val StepIpv6 = "ipv6_reality_egress"
 internal const val StepReconnect = "reconnect"
 internal const val StepHandover = "wifi_mobile_handover"
 internal const val StepScreenOff = "screen_off_survival"
+internal const val StepUidPolicyQualification = "uid_policy_qualification"
 internal const val ErrorServiceNotRunning = "service_not_running"
 internal const val ErrorTransportMismatch = "transport_mismatch"
 internal const val ErrorListenerUnavailable = "local_listener_unavailable"
@@ -500,6 +564,9 @@ internal const val ErrorPayloadHealthContextDrift = "payload_health_context_drif
 internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
+internal const val ErrorUidPolicyBridgeFailure = "uid_policy_bridge_failure"
+internal const val ErrorUidPolicyIneligible = "uid_policy_ineligible"
+internal const val ErrorUidPolicyNotArmed = "uid_policy_not_armed"
 internal const val RelayPathKind = "relay_path"
 private const val MaxDeviceFieldLength = 64
 private const val UnavailableVendorPolicyMembership = "unavailable"
@@ -514,6 +581,7 @@ private val acceptanceStepIds =
         StepReconnect,
         StepHandover,
         StepScreenOff,
+        StepUidPolicyQualification,
         StepNoDirectEgress,
     )
 private val acceptanceDataPlaneStepIds =
