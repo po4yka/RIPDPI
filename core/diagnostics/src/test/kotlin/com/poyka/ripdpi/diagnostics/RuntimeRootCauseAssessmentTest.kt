@@ -326,6 +326,11 @@ class RuntimeRootCauseEvidenceBoundaryTest {
 
 class RuntimeRootCausePathEvidenceTest {
     @Test
+    fun `root cause taxonomy keeps payload loss separate from PMTU`() {
+        assertFalse(RuntimeRootCauseVerdict.entries.any { verdict -> verdict.name.contains("MTU") })
+    }
+
+    @Test
     fun `free form relay text does not classify without canonical tokens`() {
         val assessment =
             assessRootCause(

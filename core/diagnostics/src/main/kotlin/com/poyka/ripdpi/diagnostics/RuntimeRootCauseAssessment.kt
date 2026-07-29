@@ -44,9 +44,6 @@ internal enum class RuntimeRootCauseVerdict {
     @SerialName("DNS_FAILURE")
     DNS_FAILURE,
 
-    @SerialName("MTU_BLACKHOLE")
-    MTU_BLACKHOLE,
-
     @SerialName("RELAY_STALL")
     RELAY_STALL,
 
@@ -363,9 +360,6 @@ private fun selectDirectVerdicts(evidence: RuntimeEvidenceAccumulator): List<Run
         RuntimeRootCauseVerdict.DNS_FAILURE.takeIf {
             evidence.has(RuntimeEvidenceCategory.DnsFailure)
         },
-        RuntimeRootCauseVerdict.MTU_BLACKHOLE.takeIf {
-            evidence.has(RuntimeEvidenceCategory.MtuBlackhole)
-        },
         RuntimeRootCauseVerdict.RELAY_STALL.takeIf {
             evidence.has(RuntimeEvidenceCategory.RelayStall)
         },
@@ -480,7 +474,6 @@ private enum class RuntimeEvidenceCategory(
     DataPlaneOutboundNoReturn("data_plane_outbound_no_return"),
     DataPlaneForwardingHealthy("data_plane_forwarding_healthy"),
     DnsFailure("dns_failure"),
-    MtuBlackhole("mtu_blackhole"),
     RelayStall("relay_stall"),
     RelayRuntimeFailure("relay_runtime_failure"),
     ProtectFailure("protect_failure"),
@@ -505,10 +498,6 @@ private fun RuntimeRootCauseVerdict.evidenceCategories(): Set<RuntimeEvidenceCat
 
         RuntimeRootCauseVerdict.DNS_FAILURE -> {
             setOf(RuntimeEvidenceCategory.DnsFailure)
-        }
-
-        RuntimeRootCauseVerdict.MTU_BLACKHOLE -> {
-            setOf(RuntimeEvidenceCategory.MtuBlackhole)
         }
 
         RuntimeRootCauseVerdict.RELAY_STALL -> {
