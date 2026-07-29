@@ -440,7 +440,7 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
-    fun `mtu blackhole requires typed pmtu proof`() {
+    fun `mtu blackhole remains unreachable without typed pmtu producer`() {
         val weakAssessment =
             assess(
                 connectionSessionId = "conn-a",
@@ -472,7 +472,8 @@ class RuntimeRootCauseAssessmentTest {
             )
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, weakAssessment.verdict)
-        assertEquals(RuntimeRootCauseVerdict.MTU_BLACKHOLE, explicitAssessment.verdict)
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, explicitAssessment.verdict)
+        assertTrue(explicitAssessment.evidenceRefs.isEmpty())
     }
 
     @Test
@@ -514,7 +515,7 @@ class RuntimeRootCauseAssessmentTest {
                             connectionSessionId = "conn-a",
                             subsystem = "vpn_protect",
                             level = "warn",
-                            message = "event=protect_failed",
+                            message = "event=protect_failed event_kind=protect_failure",
                             createdAt = 2L,
                         ),
                         event(
@@ -532,6 +533,64 @@ class RuntimeRootCauseAssessmentTest {
             listOf("data_plane_tun_ingress_no_upstream", "protect_failure"),
             assessment.contradictoryCategories,
         )
+    }
+
+    @Test
+    fun `shaped protect text requires canonical source and event kind`() {
+        val variants =
+            listOf(
+                event(
+                    connectionSessionId = "conn-a",
+                    subsystem = "vpn_protect",
+                    source = "service",
+                    level = "warn",
+                    message = "event=protect_failed",
+                    createdAt = 1L,
+                ),
+                event(
+                    connectionSessionId = "conn-a",
+                    subsystem = "vpn_protect",
+                    source = "proxy",
+                    level = "warn",
+                    message = "event=protect_failed event_kind=protect_failure",
+                    createdAt = 2L,
+                ),
+            )
+        variants.forEach { spoofed ->
+            val assessment = assess(connectionSessionId = "conn-a", events = listOf(spoofed))
+
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertTrue(assessment.evidenceRefs.isEmpty())
+        }
+    }
+
+    @Test
+    fun `shaped data plane text requires canonical service event kind`() {
+        val variants =
+            listOf(
+                event(
+                    connectionSessionId = "conn-a",
+                    subsystem = "data_plane",
+                    source = "proxy",
+                    message = "state=outbound_only mode=vpn generation=1 final=true event_kind=data_plane_final",
+                    createdAt = 1L,
+                    preserveMessage = true,
+                ),
+                event(
+                    connectionSessionId = "conn-a",
+                    subsystem = "data_plane",
+                    source = "service",
+                    message = "state=outbound_only mode=vpn generation=1 final=true",
+                    createdAt = 2L,
+                    preserveMessage = true,
+                ),
+            )
+        variants.forEach { spoofed ->
+            val assessment = assess(connectionSessionId = "conn-a", events = listOf(spoofed))
+
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertTrue(assessment.evidenceRefs.isEmpty())
+        }
     }
 
     @Test

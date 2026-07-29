@@ -15,9 +15,12 @@ import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.Locale
@@ -39,6 +42,7 @@ class RuntimeArtifactPersister
     ) {
         private val eventKeysMutex = Mutex()
         private val persistedEventKeys = LinkedHashSet<String>()
+        private val inFlightEventKeys = LinkedHashMap<String, CompletableDeferred<Unit>>()
         private val runtimeEvidenceMutex = Mutex()
         private val rootCauseAssessmentMutex = Mutex()
         private val runtimeEventsByConnectionSessionId = LinkedHashMap<String, ArrayDeque<NativeSessionEventEntity>>()
@@ -279,14 +283,43 @@ class RuntimeArtifactPersister
 
         private suspend fun persistRuntimeEvent(event: NativeSessionEventEntity) {
             val key = "${event.source}|${event.level}|${event.message}|${event.createdAt}"
-            eventKeysMutex.withLock {
-                if (!persistedEventKeys.add(key)) {
-                    return
+            while (true) {
+                val inFlight =
+                    eventKeysMutex.withLock {
+                        if (key in persistedEventKeys) return
+                        val existing = inFlightEventKeys[key]
+                        if (existing != null) {
+                            existing
+                        } else {
+                            inFlightEventKeys[key] = CompletableDeferred()
+                            null
+                        }
+                    }
+                if (inFlight != null) {
+                    inFlight.await()
+                    continue
                 }
-                trimPersistedEventKeys()
+
+                try {
+                    artifactWriteStore.insertNativeSessionEvent(event)
+                    withContext(NonCancellable) {
+                        eventKeysMutex.withLock {
+                            persistedEventKeys.add(key)
+                            trimPersistedEventKeys()
+                            inFlightEventKeys.remove(key)?.complete(Unit)
+                        }
+                    }
+                    recordRuntimeEvidenceEvent(event)
+                    return
+                } catch (error: Throwable) {
+                    withContext(NonCancellable) {
+                        eventKeysMutex.withLock {
+                            inFlightEventKeys.remove(key)?.complete(Unit)
+                        }
+                    }
+                    throw error
+                }
             }
-            artifactWriteStore.insertNativeSessionEvent(event)
-            recordRuntimeEvidenceEvent(event)
         }
 
         private suspend fun recordRuntimeEvidenceEvent(event: NativeSessionEventEntity) {
@@ -616,6 +649,7 @@ private val PersistedRuntimeEventKinds =
         "data_plane_correlation",
         "data_plane_counter_reset",
         "data_plane_final",
+        "protect_failure",
     )
 private val RelayRuntimeStates =
     setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")

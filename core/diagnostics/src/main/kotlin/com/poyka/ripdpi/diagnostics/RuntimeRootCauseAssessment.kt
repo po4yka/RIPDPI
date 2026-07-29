@@ -121,7 +121,7 @@ private fun collectEvidence(
             }
 
             "vpn_protect", "protect" -> {
-                if (level in WarningLevels) {
+                if (event.isCanonicalProtectFailure(tokens, level)) {
                     evidence.add(RuntimeEvidenceCategory.ProtectFailure, event)
                 }
             }
@@ -129,7 +129,6 @@ private fun collectEvidence(
         // DNS and relay verdicts remain fail-closed until their producers emit an allowlisted kind.
         collectTypedRuntimeHealthEvidence(connectionSessionId, event, tokens, evidence)
         collectCorrelatedProcessExitEvidence(connectionSessionId, event, tokens, evidence)
-        collectExplicitMtuEvidence(event, tokens, evidence)
     }
     return evidence
 }
@@ -141,7 +140,7 @@ private fun collectNetworkTransitionEvidence(
     val reducer = NetworkTransitionEvidenceReducer()
     events
         .asSequence()
-        .filter { event -> event.subsystem == "network_transition" }
+        .filter(NativeSessionEventEntity::isCanonicalNetworkTransition)
         .filter { event -> event.transitionSequenceOrNull() != null }
         .sortedWith(
             compareBy<NativeSessionEventEntity> { event -> requireNotNull(event.transitionSequenceOrNull()) }
@@ -275,16 +274,6 @@ private fun collectCorrelatedProcessExitEvidence(
         tokens.isQualifyingOemProcessKill()
     ) {
         evidence.add(RuntimeEvidenceCategory.OemProcessKill, event)
-    }
-}
-
-private fun collectExplicitMtuEvidence(
-    event: NativeSessionEventEntity,
-    tokens: Map<String, String>,
-    evidence: RuntimeEvidenceAccumulator,
-) {
-    if (event.subsystem == "pmtu" && tokens.hasExactPmtuBlackholeEvidence()) {
-        evidence.add(RuntimeEvidenceCategory.MtuBlackhole, event)
     }
 }
 
@@ -516,6 +505,26 @@ private fun NativeSessionEventEntity.transitionSequenceOrNull(): Long? =
         null
     }
 
+private fun NativeSessionEventEntity.isCanonicalNetworkTransition(): Boolean {
+    val tokens = message.toKeyValueTokens()
+    return source == "android_network_callback" &&
+        level.lowercase(Locale.US) == "info" &&
+        subsystem == "network_transition" &&
+        tokens["kind"] in NetworkTransitionKinds &&
+        tokens["generation"]?.toLongOrNull() != null &&
+        tokens["sequence"]?.toLongOrNull() != null
+}
+
+private fun NativeSessionEventEntity.isCanonicalProtectFailure(
+    tokens: Map<String, String>,
+    level: String,
+): Boolean =
+    source == "service" &&
+        subsystem in ProtectSubsystems &&
+        level in WarningLevels &&
+        tokens["event_kind"] == "protect_failure" &&
+        tokens["event"] == "protect_failed"
+
 private fun networkCapabilityMissing(
     validated: String?,
     internet: String?,
@@ -553,23 +562,16 @@ private fun List<NativeSessionEventEntity>.latestCanonicalDataPlaneFinalEvent():
                 .thenBy { event -> event.id },
         )
 
-private fun Map<String, String>.hasExactPmtuBlackholeEvidence(): Boolean =
-    this["verdict"] == "mtu_blackhole" &&
-        this["provenance"] in PmtuProbeProvenance &&
-        this["small_control"] == "success" &&
-        this["larger_failures"]?.toIntOrNull()?.let { count -> count >= MinPmtuLargeFailures } == true &&
-        this["post_control_recovery"] == "success" &&
-        this["ptb_observation"] == "not_observed_in_run"
-
 private const val MaxRuntimeRootCauseEvents = 64
 private const val MaxRuntimeRootCauseEvidenceRefs = 8
 private const val RuntimeRootCauseWindowMillis = 5 * 60 * 1000L
-private const val MinPmtuLargeFailures = 2
 
 private val WarningLevels = setOf("warn", "error")
 private val TypedRuntimeHealthLevels = setOf("info", "warn")
-private val PmtuProbeProvenance = setOf("pmtu_probe_v1", "typed_pmtu_probe_v1")
 private val NetworkCapabilityStates = setOf("present", "absent")
+private val NetworkTransitionKinds =
+    setOf("available", "losing", "lost", "capabilities_changed", "link_properties_changed")
+private val ProtectSubsystems = setOf("vpn_protect", "protect")
 private val OemProcessKillReasons = setOf("low_memory", "excessive_resource_usage")
 private val OemProcessKillImportanceBands = setOf("foreground_service", "service", "perceptible")
 private val RelayFailedValues = setOf("true", "false")

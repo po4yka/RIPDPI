@@ -92,6 +92,82 @@ class RuntimeHistoryMonitorPersistenceTest {
         }
 
     @Test
+    fun `runtime event dedupe retries exact event after failed insert`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            var failNextWrite = true
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.message == "dedupe-retry" && failNextWrite) {
+                    failNextWrite = false
+                    error("injected runtime event failure")
+                }
+            }
+
+            val failed =
+                runCatching {
+                    persister.persistRuntimeEvents(telemetryWithEvent("dedupe-retry", createdAt = 1L), "conn-a")
+                }.exceptionOrNull()
+            persister.persistRuntimeEvents(telemetryWithEvent("dedupe-retry", createdAt = 1L), "conn-a")
+
+            assertTrue(failed is IllegalStateException)
+            assertEquals(listOf("dedupe-retry"), stores.nativeEventsState.value.map { event -> event.message })
+        }
+
+    @Test
+    fun `runtime event dedupe retries exact event after cancelled insert`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            var cancelNextWrite = true
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.message == "dedupe-cancel" && cancelNextWrite) {
+                    cancelNextWrite = false
+                    throw CancellationException("injected runtime event cancellation")
+                }
+            }
+
+            val cancelled =
+                runCatching {
+                    persister.persistRuntimeEvents(telemetryWithEvent("dedupe-cancel", createdAt = 1L), "conn-a")
+                }.exceptionOrNull()
+            persister.persistRuntimeEvents(telemetryWithEvent("dedupe-cancel", createdAt = 1L), "conn-a")
+
+            assertTrue(cancelled is CancellationException)
+            assertEquals(listOf("dedupe-cancel"), stores.nativeEventsState.value.map { event -> event.message })
+        }
+
+    @Test
+    fun `runtime event dedupe serializes concurrent exact duplicates`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            val firstWriteStarted = CompletableDeferred<Unit>()
+            val releaseFirstWrite = CompletableDeferred<Unit>()
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.message == "dedupe-concurrent") {
+                    firstWriteStarted.complete(Unit)
+                    releaseFirstWrite.await()
+                }
+            }
+
+            val first =
+                launch {
+                    persister.persistRuntimeEvents(telemetryWithEvent("dedupe-concurrent", createdAt = 1L), "conn-a")
+                }
+            firstWriteStarted.await()
+            val second =
+                launch {
+                    persister.persistRuntimeEvents(telemetryWithEvent("dedupe-concurrent", createdAt = 1L), "conn-a")
+                }
+            runCurrent()
+            releaseFirstWrite.complete(Unit)
+            joinAll(first, second)
+
+            assertEquals(listOf("dedupe-concurrent"), stores.nativeEventsState.value.map { event -> event.message })
+        }
+
+    @Test
     fun `status before telemetry persists final data plane event on active session`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

@@ -45,6 +45,28 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
     }
 
     @Test
+    fun `shaped network transition text requires canonical callback source`() {
+        val assessment =
+            assess(
+                events =
+                    listOf(
+                        event(
+                            subsystem = "network_transition",
+                            message =
+                                "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                    "validated=absent;generation=7;sequence=1",
+                            createdAt = 1L,
+                            source = "service",
+                        ),
+                    ),
+                sealed = true,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
     fun `same generation loss needs a successful terminal seal`() {
         val events =
             listOf(
