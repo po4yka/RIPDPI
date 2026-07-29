@@ -63,14 +63,14 @@ internal class DiagnosticsArchiveSourceLoader
                         when (error) {
                             is CancellationException -> throw error
                             is Error -> throw error
-                            else -> Logger.w(error) { "Failed to capture diagnostics logcat snapshot" }
+                            else -> Logger.w { diagnosticsArchiveCaptureFailureLogText("logcat", error) }
                         }
                     }
             val logcatSnapshot = logcatCapture.getOrNull()
             val fileLogCapture =
                 fileLogWriter
                     .readLogSnapshotResult()
-                    .onFailure { error -> Logger.w(error) { "Failed to capture diagnostics app log snapshot" } }
+                    .onFailure { error -> Logger.w { diagnosticsArchiveCaptureFailureLogText("app_log", error) } }
             val fileLogSnapshot = fileLogCapture.getOrNull()
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
@@ -159,3 +159,9 @@ internal class DiagnosticsArchiveSourceLoader
         internal suspend fun getCompletedHomeRun(runId: String): DiagnosticsHomeCompositeOutcome? =
             diagnosticsHomeCompositeRunService.getCompletedRun(runId)
     }
+
+internal fun diagnosticsArchiveCaptureFailureLogText(
+    captureKind: String,
+    error: Throwable,
+): String =
+    "Diagnostics archive capture failed: captureKind=$captureKind errorClass=${error::class.simpleName ?: "unknown"}"
