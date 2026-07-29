@@ -11,6 +11,7 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
@@ -83,6 +84,78 @@ class RelayUdpProbeMatchingTest {
                     assertNull(serverFailure.get())
                     assertTrue(acknowledged)
                 }
+            }
+        }
+    }
+
+    @Test
+    fun `payload probe rejects matching response from wrong relay`() {
+        DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { relay ->
+            DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { unrelatedSender ->
+                DatagramSocket().use { client ->
+                    val serverFailure = AtomicReference<Throwable?>()
+                    val worker =
+                        thread(name = "relay-udp-wrong-relay-only") {
+                            try {
+                                val request = relay.receiveFrame()
+                                unrelatedSender.sendFrame(request.bytes.asDnsResponse(), request.source)
+                            } catch (failure: Throwable) {
+                                serverFailure.set(failure)
+                            }
+                        }
+
+                    val acknowledged =
+                        sendDnsProbePayload(
+                            client,
+                            relay.localSocketAddress as InetSocketAddress,
+                            InetSocketAddress("203.0.113.53", DnsPort),
+                            dnsQuery(FirstTransactionId),
+                            ShortTimeoutMillis,
+                        )
+
+                    worker.join(TestThreadJoinMillis)
+                    assertNull(serverFailure.get())
+                    assertFalse(acknowledged)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `payload probe rejects continuous wrong targets at absolute deadline`() {
+        DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { relay ->
+            DatagramSocket().use { client ->
+                val serverFailure = AtomicReference<Throwable?>()
+                val worker =
+                    thread(name = "relay-udp-wrong-target-stream") {
+                        try {
+                            val request = relay.receiveFrame()
+                            repeat(ContinuousContaminantCount) {
+                                relay.sendFrame(
+                                    request.bytes.withDifferentIpv4Target().asDnsResponse(),
+                                    request.source,
+                                )
+                            }
+                        } catch (failure: Throwable) {
+                            serverFailure.set(failure)
+                        }
+                    }
+                val startedAt = System.nanoTime()
+
+                val acknowledged =
+                    sendDnsProbePayload(
+                        client,
+                        relay.localSocketAddress as InetSocketAddress,
+                        InetSocketAddress("203.0.113.53", DnsPort),
+                        dnsQuery(FirstTransactionId),
+                        ShortTimeoutMillis,
+                    )
+                val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+
+                worker.join(TestThreadJoinMillis)
+                assertNull(serverFailure.get())
+                assertFalse(acknowledged)
+                assertTrue(elapsedMillis < MaximumDeadlineTestMillis)
             }
         }
     }
@@ -195,6 +268,8 @@ private const val FirstTransactionId = 0x1234
 private const val SecondTransactionId = 0x5678
 private const val ShortTimeoutMillis = 50
 private const val TestTimeoutMillis = 500
+private const val MaximumDeadlineTestMillis = 500
+private const val ContinuousContaminantCount = 128
 private const val TestThreadJoinMillis = 1_000L
 private const val MaxTestDatagramBytes = 4_096
 private const val TestDnsQueryBytes = 29
