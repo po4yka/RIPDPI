@@ -393,11 +393,11 @@
     <string name="diagnostics_share_archive_title">Share diagnostics archive</string>
     <string name="diagnostics_archive_artifact_disclosure">The provenance file includes local SHA-256 fingerprints of installed app artifacts for comparison. These fingerprints are not independent proof of authenticity.</string>
     <string name="data_transparency_installed_artifact_fingerprints">Diagnostics archives include local SHA-256 fingerprints of installed app artifacts. They support comparison but are not independent proof of authenticity.</string>
-    <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, recent telemetry, runtime configuration, archive provenance, completeness notes, integrity hashes, app-scoped logcat snapshot, and recent PCAP files only when advanced packet capture was enabled. Summary and manifest files stay redacted; sharing happens through the Android share sheet after you choose a target.</string>
+    <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, recent telemetry, runtime configuration, archive provenance, completeness notes, integrity hashes, and app-scoped logcat snapshot. Packet captures stay as separate local raw artifacts.</string>
     <string name="diagnostics_share_archive_action">Share archive</string>
     <string name="diagnostics_share_archive_chooser">Share diagnostics archive</string>
     <string name="diagnostics_save_archive_title">Save diagnostics archive</string>
-    <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data, runtime configuration, provenance, completeness, integrity metadata, app-scoped logcat when available, and opted-in PCAP files if present. Summary and manifest files redact network identity fields; delete the saved file from your chosen location when you no longer need it.</string>
+    <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data, runtime configuration, provenance, completeness, integrity metadata, and app-scoped logcat when available. Packet captures are not embedded; export them separately from packet capture tools.</string>
     <string name="diagnostics_save_archive_action">Save archive</string>
     <string name="diagnostics_archive_save_failed">Failed to save diagnostics archive</string>
     <string name="diagnostics_save_logs_title">Save local logs</string>
@@ -545,14 +545,14 @@
     <string name="home_diagnostics_vpn_detectors_title">Apps that detect VPNs</string>
     <string name="home_diagnostics_vpn_detectors_summary">%1$d installed apps are known VPN detectors.</string>
     <string name="home_diagnostics_pcap_toggle">Capture packets (advanced)</string>
-    <string name="home_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run and may include the PCAP in later diagnostics exports.</string>
+    <string name="home_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run into a separate local PCAP file; redacted diagnostics archives do not embed packet captures.</string>
     <string name="diagnostics_pcap_card_title">Packet Capture</string>
     <string name="diagnostics_pcap_card_body_idle">Records raw IP packet bytes to a local PCAP file. Retention: 24 h / 3 most-recent files. PCAP is not created unless you start recording, and no automatic sharing occurs.</string>
-    <string name="diagnostics_pcap_card_body_recording">Recording raw packet bytes. Files are kept for 24 h (3 most-recent) and may be included in diagnostics archives you explicitly share or save.</string>
+    <string name="diagnostics_pcap_card_body_recording">Recording raw packet bytes. Files are kept for 24 h (3 most-recent) as separate local PCAP artifacts and are not embedded in redacted diagnostics archives.</string>
     <string name="diagnostics_pcap_card_start">Start Recording</string>
     <string name="diagnostics_pcap_card_stop">Stop Recording</string>
     <string name="diagnostics_pcap_disclosure_title">Raw-packet capture disclosure</string>
-    <string name="diagnostics_pcap_disclosure_body">Recording writes raw IP packet bytes to a local file and can include packet payloads. Retention is 24 h or 3 most-recent files, whichever is smaller, then cleanup deletes old captures. PCAP files are included only in archives you explicitly share or save after recording. You can stop recording at any time.</string>
+    <string name="diagnostics_pcap_disclosure_body">Recording writes raw IP packet bytes to a local file and can include packet payloads. Retention is 24 h or 3 most-recent files, whichever is smaller, then cleanup deletes old captures. PCAP files are separate raw artifacts; redacted diagnostics archives do not embed them.</string>
     <string name="home_diagnostics_detection_permission_required">Some detection checks need Android location or phone permissions to read Wi-Fi or cellular network identity. RIPDPI uses this only to compare network policy behavior; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="home_diagnostics_actionable_section">What to do next</string>
     <string name="home_diagnostics_network_section">On this network</string>
@@ -2190,7 +2190,7 @@ Source: %2$s</string>
     <string name="settings_customization_body">App icon, adaptive shape, and themed icon options.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_support_debug_bundle_title">Share support bundle</string>
-    <string name="settings_support_debug_bundle_body">Build a diagnostics ZIP with app-scoped logcat, recent debug information, archive metadata, and opted-in PCAP files if present, then send it through the Android share sheet after you choose a recipient.</string>
+    <string name="settings_support_debug_bundle_body">Build a diagnostics ZIP with app-scoped logcat, recent debug information, archive metadata, completeness notes, and integrity hashes, then send it through the Android share sheet after you choose a recipient. Packet captures are not embedded.</string>
     <string name="settings_about_body">Version, credits, and project documentation.</string>
     <string name="settings_share_debug_bundle_action">Share</string>
     <string name="settings_manage_action">Manage</string>
@@ -2266,7 +2266,7 @@ Source: %2$s</string>
     <string name="data_transparency_disable_monitoring">You can disable passive monitoring in Advanced Settings</string>
     <string name="data_transparency_export_explicit">Export archives, log files, and shares are only created when you explicitly request them</string>
     <string name="data_transparency_export_privacy_section">Export privacy</string>
-    <string name="data_transparency_export_redaction">Exported summaries and manifests redact IP addresses, Wi-Fi identifiers, and support context; raw report files and opted-in PCAP files remain intact for troubleshooting</string>
+    <string name="data_transparency_export_redaction">Exported summaries, manifests, and reports redact IP addresses, Wi-Fi identifiers, and support context. Raw packet captures are stored and exported separately, never embedded in redacted diagnostics archives.</string>
     <string name="data_transparency_export_control">You control what is saved or shared, who receives it, and when to delete saved exports outside app storage</string>
 
     <!-- Settings maintenance notice titles -->
@@ -2527,8 +2527,8 @@ Source: %2$s</string>
     <string name="diagnostics_share_title">RIPDPI diagnostics</string>
     <string name="diagnostics_share_no_session">Select a diagnostics session to generate a summary.</string>
     <string name="diagnostics_share_archive_line">Archive includes the focused diagnostics session, provenance, runtime configuration metadata, and app-scoped logcat when available.</string>
-    <string name="diagnostics_share_telemetry_line">It also adds recent live telemetry, global runtime events, completeness notes, integrity hashes, and opted-in PCAP files if present.</string>
-    <string name="diagnostics_share_redaction_line">Summary and manifest redact support context and network identity fields, while raw report data and opted-in PCAP files stay intact.</string>
+    <string name="diagnostics_share_telemetry_line">It also adds recent live telemetry, global runtime events, completeness notes, and integrity hashes. Packet captures remain separate local raw artifacts.</string>
+    <string name="diagnostics_share_redaction_line">Summary, manifest, and report entries redact support context and network identity fields. Packet captures are separate local raw artifacts and are not embedded in redacted diagnostics archives.</string>
     <string name="diagnostics_share_approach_format">Archive includes approach analytics for %1$s with %2$s validation and runtime health context.</string>
     <string name="diagnostics_share_metric_path">Path</string>
     <string name="diagnostics_share_metric_network">Network</string>
@@ -4314,7 +4314,7 @@ Source: %2$s</string>
     <string name="strategy_config_draft_save_failed_title">Draft not saved</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.</string>
     <string name="diagnostics_device_gate_title">Remote device acceptance</string>
-    <string name="diagnostics_device_gate_body">Run while the VPN uses Reality. Then reconnect, switch between Wi-Fi and mobile data, and keep the screen off for at least five minutes before turning it on. The report stays incomplete until every event is observed.</string>
+    <string name="diagnostics_device_gate_body">Run while the VPN uses the target relay or VPN transport. Then reconnect, switch between Wi-Fi and mobile data, and keep the screen off for at least five minutes before turning it on. The report stays incomplete until every event is observed; unsupported or unconfigured transports remain incomplete.</string>
     <string name="diagnostics_device_gate_run">Start acceptance check</string>
     <string name="diagnostics_device_gate_rerun">Restart acceptance check</string>
     <string name="diagnostics_device_gate_share">Share redacted report</string>
