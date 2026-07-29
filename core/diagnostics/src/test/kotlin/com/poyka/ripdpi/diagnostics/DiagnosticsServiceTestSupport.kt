@@ -63,6 +63,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -814,6 +815,8 @@ internal class FakeNetworkDiagnosticsBridge(
 ) : NetworkDiagnosticsBridge {
     var startedRequestJson: String? = null
     var autoCompleteOnStart: Boolean = true
+    var startScanEntered: CompletableDeferred<Unit>? = null
+    var releaseStartScan: CompletableDeferred<Unit>? = null
     var cancelCount: Int = 0
     var destroyCount: Int = 0
     val faults = FaultQueue<DiagnosticsBridgeFaultTarget>()
@@ -828,6 +831,8 @@ internal class FakeNetworkDiagnosticsBridge(
         requestJson: String,
         sessionId: String,
     ) {
+        startScanEntered?.complete(Unit)
+        releaseStartScan?.await()
         faults.next(DiagnosticsBridgeFaultTarget.START_SCAN)?.throwOrIgnore()
         startedRequestJson = requestJson
         if (autoCompleteOnStart) {

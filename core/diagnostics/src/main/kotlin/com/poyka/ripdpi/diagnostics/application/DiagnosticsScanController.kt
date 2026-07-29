@@ -388,14 +388,21 @@ internal class DefaultDiagnosticsScanController
                         requestJson = prepared.requestJson,
                     )
                 }.exceptionOrNull()
+            if (startFailure is CancellationException) {
+                cleanupStartupFailure(
+                    prepared = prepared,
+                    handle = handle,
+                    summary = "Diagnostics scan canceled during startup",
+                    primaryFailure = startFailure,
+                )
+                throw startFailure
+            }
             if (startFailure != null) {
-                activeScanRegistry.removePreparedScan(prepared.sessionId)
-                runCatching { bridgeExecutionService.destroy(handle) }
-                clearPreparedProgress(prepared)
-                DiagnosticsReportPersister.persistScanFailure(
-                    prepared.sessionId,
-                    startFailure.message ?: "Diagnostics scan failed to start",
-                    scanRecordStore,
+                cleanupStartupFailure(
+                    prepared = prepared,
+                    handle = handle,
+                    summary = startFailure.message ?: "Diagnostics scan failed to start",
+                    primaryFailure = startFailure,
                 )
                 throw startFailure
             }
@@ -420,8 +427,14 @@ internal class DefaultDiagnosticsScanController
                 )
             }
             if (!scope.isActive) {
-                cleanupStartupCancellation(prepared, bridgeSession.handle)
-                throw CancellationException("Diagnostics scan cancelled during startup")
+                val cancellation = CancellationException("Diagnostics scan cancelled during startup")
+                cleanupStartupFailure(
+                    prepared = prepared,
+                    handle = bridgeSession.handle,
+                    summary = "Diagnostics scan canceled during startup",
+                    primaryFailure = cancellation,
+                )
+                throw cancellation
             }
 
             val executionJob =
@@ -441,30 +454,43 @@ internal class DefaultDiagnosticsScanController
                 )
             if (!executionRegistered || !executionJob.start()) {
                 executionJob.cancel()
-                cleanupStartupCancellation(prepared, bridgeSession.handle)
-                throw CancellationException("Diagnostics scan cancelled during startup")
+                val cancellation = CancellationException("Diagnostics scan cancelled during startup")
+                cleanupStartupFailure(
+                    prepared = prepared,
+                    handle = bridgeSession.handle,
+                    summary = "Diagnostics scan canceled during startup",
+                    primaryFailure = cancellation,
+                )
+                throw cancellation
             }
         }
 
-        private suspend fun cleanupStartupCancellation(
+        private suspend fun cleanupStartupFailure(
             prepared: PreparedDiagnosticsScan,
             handle: BridgeSessionHandle,
+            summary: String,
+            primaryFailure: Throwable,
         ) {
             withContext(NonCancellable) {
-                val runningSession =
-                    scanRecordStore.getScanSession(prepared.sessionId)?.takeIf { session ->
-                        session.status == "running"
-                    }
-                if (runningSession != null) {
-                    DiagnosticsReportPersister.persistScanFailure(
-                        prepared.sessionId,
-                        "Diagnostics scan canceled during startup",
-                        scanRecordStore,
-                    )
-                }
+                runCatching {
+                    scanRecordStore
+                        .getScanSession(prepared.sessionId)
+                        ?.takeIf { session -> session.status == "running" }
+                        ?.let {
+                            DiagnosticsReportPersister.persistScanFailure(prepared.sessionId, summary, scanRecordStore)
+                        }
+                }.exceptionOrNull()
+                    ?.takeIf { it !== primaryFailure }
+                    ?.let(primaryFailure::addSuppressed)
                 runCatching { bridgeExecutionService.destroy(handle) }
+                    .exceptionOrNull()
+                    ?.takeIf { it !== primaryFailure }
+                    ?.let(primaryFailure::addSuppressed)
                 activeScanRegistry.removePreparedScan(prepared.sessionId)
-                clearPreparedProgress(prepared)
+                runCatching { clearPreparedProgress(prepared) }
+                    .exceptionOrNull()
+                    ?.takeIf { it !== primaryFailure }
+                    ?.let(primaryFailure::addSuppressed)
             }
         }
 

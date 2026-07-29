@@ -5,9 +5,11 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -180,6 +182,48 @@ class DiagnosticsScanControllerTest {
             }
 
             assertEquals(1, bridgeFactory.bridge.destroyCount)
+            assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+            assertNull(services.timelineSource.activeScanProgress.value)
+            val failedSession = stores.sessionsState.value.single()
+            assertEquals("failed", failedSession.status)
+            assertEquals("Diagnostics scan canceled during startup", failedSession.summary)
+        }
+
+    @Test
+    fun `cancellation while bridge start is suspended clears startup state`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val startScanEntered = CompletableDeferred<Unit>()
+            val releaseStartScan = CompletableDeferred<Unit>()
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.startScanEntered = startScanEntered
+                    bridge.releaseStartScan = releaseStartScan
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val start = async { services.scanController.startScan(ScanPathMode.IN_PATH) }
+            startScanEntered.await()
+            val cancellation = CancellationException("cancelled while bridge start is suspended")
+            start.cancel(cancellation)
+
+            val thrown = assertControllerSuspendFailsWith<CancellationException> { start.await() }
+            assertEquals(cancellation.message, thrown.message)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+            assertFalse(services.scanController.hasActiveScan())
             assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
             assertNull(services.timelineSource.activeScanProgress.value)
             val failedSession = stores.sessionsState.value.single()
