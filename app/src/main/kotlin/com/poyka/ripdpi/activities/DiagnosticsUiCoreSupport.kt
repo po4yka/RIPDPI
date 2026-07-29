@@ -10,7 +10,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTone
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
@@ -97,6 +99,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
         pathMode = session.pathMode,
         serviceMode = session.serviceMode ?: strings.getString(R.string.diagnostics_field_unknown),
         status = session.status,
+        completionLabel = completionLabel(report, session.status),
         startedAtLabel = formatTimestamp(session.startedAt),
         summary = session.summary,
         metrics =
@@ -123,10 +126,11 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                 }
             }.toImmutableList(),
         tone =
-            report
-                ?.results
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { results -> toneForAggregatedProbeResults(pathMode, results) }
+            completionTone(report)
+                ?: report
+                    ?.results
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { results -> toneForAggregatedProbeResults(pathMode, results) }
                 ?: toneForSessionStatus(session.status),
         launchOrigin = session.launchOrigin,
         triggerClassification = session.launchTrigger?.classification,
@@ -147,10 +151,68 @@ internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
     context: StringResolver?,
     session: DiagnosticScanSession,
 ): String =
-    if (session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null) {
-        context.getString(R.string.diagnostics_hidden_probe_canceled_summary)
-    } else {
-        session.summary
+    when {
+        context != null && session.report != null -> {
+            completionSummaryResource(session.report)?.let { context.getString(it) } ?: session.summary
+        }
+
+        session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null -> {
+            context.getString(R.string.diagnostics_hidden_probe_canceled_summary)
+        }
+
+        else -> {
+            session.summary
+        }
+    }
+
+internal fun DiagnosticsUiCoreSupport.completionLabel(
+    report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection?,
+    fallback: String,
+): String =
+    report?.terminationReason?.let(::terminationReasonLabel)
+        ?: report?.completionKind?.let(::completionKindLabel)
+        ?: fallback
+
+internal fun DiagnosticsUiCoreSupport.completionKindLabel(completionKind: ScanCompletionKind): String =
+    strings.getString(completionKind.labelResource())
+
+internal fun DiagnosticsUiCoreSupport.terminationReasonLabel(reason: ScanTerminationReason): String =
+    strings.getString(reason.labelResource())
+
+private fun completionSummaryResource(
+    report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection,
+): Int? =
+    report.terminationReason?.labelResource()
+        ?: report.completionKind
+            .takeUnless { it == ScanCompletionKind.NORMAL }
+            ?.labelResource()
+
+private fun ScanCompletionKind.labelResource(): Int =
+    when (this) {
+        ScanCompletionKind.NORMAL -> R.string.diagnostics_scan_completion_normal
+        ScanCompletionKind.PARTIAL_RESULTS -> R.string.diagnostics_scan_completion_partial_results
+        ScanCompletionKind.TERMINATED -> R.string.diagnostics_scan_completion_terminated
+    }
+
+private fun ScanTerminationReason.labelResource(): Int =
+    when (this) {
+        ScanTerminationReason.NETWORK_UNAVAILABLE -> R.string.diagnostics_scan_termination_network_unavailable
+        ScanTerminationReason.USER_CANCELLED -> R.string.diagnostics_scan_termination_user_cancelled
+        ScanTerminationReason.DEADLINE_EXCEEDED -> R.string.diagnostics_scan_termination_deadline_exceeded
+        ScanTerminationReason.ENGINE_ERROR -> R.string.diagnostics_scan_termination_engine_error
+        ScanTerminationReason.WORKER_PANICKED -> R.string.diagnostics_scan_termination_worker_panicked
+    }
+
+private fun completionTone(
+    report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection?,
+): DiagnosticsTone? =
+    when {
+        report == null -> null
+        report.completionKind == ScanCompletionKind.PARTIAL_RESULTS -> DiagnosticsTone.Warning
+        report.completionKind != ScanCompletionKind.TERMINATED -> null
+        report.terminationReason == ScanTerminationReason.USER_CANCELLED -> DiagnosticsTone.Neutral
+        report.terminationReason == null -> DiagnosticsTone.Warning
+        else -> DiagnosticsTone.Negative
     }
 
 internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(

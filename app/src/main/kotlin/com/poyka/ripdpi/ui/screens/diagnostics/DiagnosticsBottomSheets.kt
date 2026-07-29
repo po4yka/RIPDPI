@@ -65,7 +65,7 @@ internal fun DiagnosticsBottomSheetHost(
                 testTag = RipDpiTestTags.DiagnosticsSessionDetailSheet,
             ) {
                 StatusIndicator(
-                    label = detail.session.status,
+                    label = detail.session.completionLabel ?: detail.session.status,
                     tone = statusTone(detail.session.tone),
                 )
                 if (detail.hasSensitiveDetails) {

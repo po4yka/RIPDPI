@@ -6,6 +6,27 @@ import org.junit.Test
 
 class DiagnosticsSummaryProjectorTest {
     @Test
+    fun `standalone termination is included in report metadata`() {
+        val document =
+            DiagnosticsSummaryProjector().project(
+                session = null,
+                report =
+                    DiagnosticsSessionProjection(
+                        completionKind = ScanCompletionKind.TERMINATED,
+                        terminationReason = ScanTerminationReason.WORKER_PANICKED,
+                    ),
+                latestSnapshotModel = null,
+                latestContextModel = null,
+                latestTelemetry = null,
+                selectedResults = emptyList(),
+                warnings = emptyList(),
+            )
+
+        assertTrue(document.reportMetadata.lines.contains("completionKind=TERMINATED"))
+        assertTrue(document.reportMetadata.lines.contains("terminationReason=WORKER_PANICKED"))
+    }
+
+    @Test
     @Suppress("detekt.LongMethod")
     fun `strategy probe audit assessment is included in report metadata`() {
         val document =

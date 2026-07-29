@@ -13,6 +13,32 @@ class DiagnosticsDisplaySummaryTest {
     private val json = diagnosticsTestJson()
 
     @Test
+    fun `top level completion determines standalone display summary`() {
+        val terminationSummaries =
+            mapOf(
+                ScanTerminationReason.NETWORK_UNAVAILABLE to ScanUnavailableOfflineSummary,
+                ScanTerminationReason.USER_CANCELLED to ScanCancelledByUserSummary,
+                ScanTerminationReason.DEADLINE_EXCEEDED to ScanDeadlineExceededSummary,
+                ScanTerminationReason.ENGINE_ERROR to ScanEngineErrorSummary,
+                ScanTerminationReason.WORKER_PANICKED to ScanWorkerPanickedSummary,
+            )
+
+        terminationSummaries.forEach { (reason, expected) ->
+            assertEquals(
+                expected,
+                standaloneCompletionReport(
+                    completionKind = ScanCompletionKind.TERMINATED,
+                    terminationReason = reason,
+                ).displaySummary(),
+            )
+        }
+        assertEquals(
+            ScanCompletedWithPartialResultsSummary,
+            standaloneCompletionReport(ScanCompletionKind.PARTIAL_RESULTS).displaySummary(),
+        )
+    }
+
+    @Test
     fun `summary projector uses dns fallback summary for archive rendering`() {
         val session =
             ScanSessionEntity(
@@ -385,4 +411,18 @@ class DiagnosticsDisplaySummaryTest {
                 ),
             completionKind = completionKind,
         )
+
+    private fun standaloneCompletionReport(
+        completionKind: ScanCompletionKind,
+        terminationReason: ScanTerminationReason? = null,
+    ) = ScanReport(
+        sessionId = "session-completion",
+        profileId = "default",
+        pathMode = ScanPathMode.RAW_PATH,
+        startedAt = 10L,
+        finishedAt = 20L,
+        summary = "Lifecycle completed",
+        completionKind = completionKind,
+        terminationReason = terminationReason,
+    )
 }

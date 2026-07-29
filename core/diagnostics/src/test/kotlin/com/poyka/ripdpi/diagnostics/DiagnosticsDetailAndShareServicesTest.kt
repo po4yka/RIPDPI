@@ -155,6 +155,49 @@ class DiagnosticsDetailAndShareServicesTest {
         }
 
     @Test
+    fun `share summary surfaces standalone completion and termination`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-terminated",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "Lifecycle completed",
+                ).copy(
+                    reportJson =
+                        json.encodeToString(
+                            EngineScanReportWire.serializer(),
+                            ScanReport(
+                                sessionId = "session-terminated",
+                                profileId = "default",
+                                pathMode = ScanPathMode.RAW_PATH,
+                                startedAt = 10L,
+                                finishedAt = 20L,
+                                summary = "Lifecycle completed",
+                                completionKind = ScanCompletionKind.TERMINATED,
+                                terminationReason = ScanTerminationReason.ENGINE_ERROR,
+                            ).toEngineScanReportWire(),
+                        ),
+                )
+            stores.sessionsState.value = listOf(session)
+            val shareService =
+                DefaultDiagnosticsShareService(
+                    scanRecordStore = stores,
+                    artifactReadStore = stores,
+                    artifactQueryStore = stores,
+                    archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(session.id)),
+                    json = json,
+                )
+
+            val summary = shareService.buildShareSummary(session.id)
+
+            assertTrue(summary.body.contains("completionKind=TERMINATED"))
+            assertTrue(summary.body.contains("terminationReason=ENGINE_ERROR"))
+            assertTrue(summary.body.contains("summary=$ScanEngineErrorSummary"))
+        }
+
+    @Test
     fun `share summary renders diagnostic tls state from probe details`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

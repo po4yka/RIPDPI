@@ -2,9 +2,6 @@ package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import com.poyka.ripdpi.data.DirectModeReasonCode
-import com.poyka.ripdpi.data.DirectModeVerdictResult
-import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
@@ -17,7 +14,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -560,28 +556,6 @@ data class DiagnosticsSparklineUiModel(
     val label: String,
     val values: ImmutableList<Float>,
     val tone: DiagnosticsTone = DiagnosticsTone.Info,
-)
-
-@Stable
-data class DiagnosticsSessionRowUiModel(
-    val id: String,
-    val profileId: String,
-    val title: String,
-    val subtitle: String,
-    val pathMode: String,
-    val serviceMode: String,
-    val status: String,
-    val startedAtLabel: String,
-    val summary: String,
-    val metrics: ImmutableList<DiagnosticsMetricUiModel>,
-    val tone: DiagnosticsTone,
-    val launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
-    val triggerClassification: String? = null,
-    val ownedStackLaunchUrl: String? = null,
-    val ownedStackOnly: Boolean = false,
-    val directModeResult: DirectModeVerdictResult? = null,
-    val directModeReasonCode: DirectModeReasonCode? = null,
-    val directTransportClass: DirectTransportClass? = null,
 )
 
 @Immutable

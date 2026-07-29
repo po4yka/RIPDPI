@@ -82,6 +82,13 @@ class DiagnosticsSummaryProjector
 
         private fun buildMetadataLines(report: DiagnosticsSessionProjection?): List<String> =
             buildList {
+                report
+                    ?.takeIf {
+                        it.completionKind != ScanCompletionKind.NORMAL || it.terminationReason != null
+                    }?.let {
+                        add("completionKind=${it.completionKind.name}")
+                        it.terminationReason?.let { reason -> add("terminationReason=${reason.name}") }
+                    }
                 report?.strategyProbeReport?.let { strategyProbe ->
                     val recommendedTcp =
                         strategyProbe.tcpCandidates.firstOrNull { candidate ->

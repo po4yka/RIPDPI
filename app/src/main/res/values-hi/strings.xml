@@ -277,6 +277,16 @@
     <string name="diagnostics_scan_trigger_unknown">अज्ञात ट्रिगर</string>
     <string name="diagnostics_scan_trigger_handover_summary_format">हैंडओवर के बाद: %1$s</string>
     <string name="diagnostics_scan_metadata_launch_source">लॉन्च स्रोत</string>
+    <string name="diagnostics_scan_metadata_completion">समापन</string>
+    <string name="diagnostics_scan_metadata_termination_reason">रुकने का कारण</string>
+    <string name="diagnostics_scan_completion_normal">स्कैन पूरा हुआ</string>
+    <string name="diagnostics_scan_completion_partial_results">आंशिक परिणाम</string>
+    <string name="diagnostics_scan_completion_terminated">स्कैन रुक गया</string>
+    <string name="diagnostics_scan_termination_network_unavailable">ऑफ़लाइन — स्कैन उपलब्ध नहीं</string>
+    <string name="diagnostics_scan_termination_user_cancelled">उपयोगकर्ता ने रद्द किया</string>
+    <string name="diagnostics_scan_termination_deadline_exceeded">समय सीमा पूरी हुई</string>
+    <string name="diagnostics_scan_termination_engine_error">इंजन त्रुटि</string>
+    <string name="diagnostics_scan_termination_worker_panicked">वर्कर प्रक्रिया विफल हुई</string>
     <string name="diagnostics_scan_metadata_trigger">ट्रिगर</string>
     <string name="diagnostics_scan_metadata_handover_class">हैंडओवर श्रेणी</string>
     <string name="diagnostics_scan_metadata_triggered_at">ट्रिगर का समय</string>

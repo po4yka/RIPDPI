@@ -2,6 +2,9 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.Diagnosis
+import com.poyka.ripdpi.diagnostics.ScanCompletionKind
+import com.poyka.ripdpi.diagnostics.ScanTerminationReason
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,5 +59,42 @@ class DiagnosticsSessionDetailUiFactoryTest {
             diagnosis.recommendation,
         )
         assertEquals(DiagnosticsTone.Warning, diagnosis.tone)
+    }
+
+    @Test
+    fun `session detail surfaces top level completion and termination reason`() {
+        val input = historyDiagnosticsDetail("scan-terminated")
+        val detail =
+            factory.toSessionDetailUiModel(
+                detail =
+                    input.copy(
+                        session =
+                            input.session.copy(
+                                report =
+                                    DiagnosticsSessionProjection(
+                                        completionKind = ScanCompletionKind.TERMINATED,
+                                        terminationReason = ScanTerminationReason.NETWORK_UNAVAILABLE,
+                                    ),
+                            ),
+                    ),
+                showSensitiveDetails = false,
+            )
+
+        assertTrue(
+            detail.reportMetadata.contains(
+                DiagnosticsFieldUiModel(
+                    support.context.getString(R.string.diagnostics_scan_metadata_completion),
+                    support.context.getString(R.string.diagnostics_scan_completion_terminated),
+                ),
+            ),
+        )
+        assertTrue(
+            detail.reportMetadata.contains(
+                DiagnosticsFieldUiModel(
+                    support.context.getString(R.string.diagnostics_scan_metadata_termination_reason),
+                    support.context.getString(R.string.diagnostics_scan_termination_network_unavailable),
+                ),
+            ),
+        )
     }
 }

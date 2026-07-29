@@ -278,6 +278,16 @@
     <string name="diagnostics_scan_trigger_unknown">مشغّل غير معروف</string>
     <string name="diagnostics_scan_trigger_handover_summary_format">بعد التسليم: %1$s</string>
     <string name="diagnostics_scan_metadata_launch_source">مصدر التشغيل</string>
+    <string name="diagnostics_scan_metadata_completion">حالة الاكتمال</string>
+    <string name="diagnostics_scan_metadata_termination_reason">سبب التوقف</string>
+    <string name="diagnostics_scan_completion_normal">اكتمل الفحص</string>
+    <string name="diagnostics_scan_completion_partial_results">نتائج جزئية</string>
+    <string name="diagnostics_scan_completion_terminated">توقف الفحص</string>
+    <string name="diagnostics_scan_termination_network_unavailable">غير متصل — الفحص غير متاح</string>
+    <string name="diagnostics_scan_termination_user_cancelled">ألغاه المستخدم</string>
+    <string name="diagnostics_scan_termination_deadline_exceeded">انتهت المهلة الزمنية</string>
+    <string name="diagnostics_scan_termination_engine_error">خطأ في المحرك</string>
+    <string name="diagnostics_scan_termination_worker_panicked">تعطلت عملية العامل</string>
     <string name="diagnostics_scan_metadata_trigger">المشغّل</string>
     <string name="diagnostics_scan_metadata_handover_class">نوع التسليم</string>
     <string name="diagnostics_scan_metadata_triggered_at">وقت التشغيل</string>

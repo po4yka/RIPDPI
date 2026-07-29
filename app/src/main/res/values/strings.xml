@@ -285,6 +285,16 @@
     <string name="diagnostics_scan_trigger_unknown">Unknown trigger</string>
     <string name="diagnostics_scan_trigger_handover_summary_format">After handover: %1$s</string>
     <string name="diagnostics_scan_metadata_launch_source">Launch source</string>
+    <string name="diagnostics_scan_metadata_completion">Completion</string>
+    <string name="diagnostics_scan_metadata_termination_reason">Stop reason</string>
+    <string name="diagnostics_scan_completion_normal">Scan completed</string>
+    <string name="diagnostics_scan_completion_partial_results">Partial results</string>
+    <string name="diagnostics_scan_completion_terminated">Scan stopped</string>
+    <string name="diagnostics_scan_termination_network_unavailable">Offline — scan unavailable</string>
+    <string name="diagnostics_scan_termination_user_cancelled">Cancelled by user</string>
+    <string name="diagnostics_scan_termination_deadline_exceeded">Time limit reached</string>
+    <string name="diagnostics_scan_termination_engine_error">Engine error</string>
+    <string name="diagnostics_scan_termination_worker_panicked">Worker process failed</string>
     <string name="diagnostics_scan_metadata_trigger">Trigger</string>
     <string name="diagnostics_scan_metadata_handover_class">Handover class</string>
     <string name="diagnostics_scan_metadata_triggered_at">Triggered at</string>

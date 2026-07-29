@@ -228,7 +228,7 @@ internal fun SessionRow(
                 }
             }
             StatusIndicator(
-                label = session.status,
+                label = session.completionLabel ?: session.status,
                 tone = statusTone(session.tone),
             )
         }

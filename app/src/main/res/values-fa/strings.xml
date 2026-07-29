@@ -278,6 +278,16 @@
     <string name="diagnostics_scan_trigger_unknown">محرک ناشناخته</string>
     <string name="diagnostics_scan_trigger_handover_summary_format">پس از تحویل: %1$s</string>
     <string name="diagnostics_scan_metadata_launch_source">منبع راه‌اندازی</string>
+    <string name="diagnostics_scan_metadata_completion">وضعیت پایان</string>
+    <string name="diagnostics_scan_metadata_termination_reason">دلیل توقف</string>
+    <string name="diagnostics_scan_completion_normal">پویش کامل شد</string>
+    <string name="diagnostics_scan_completion_partial_results">نتایج جزئی</string>
+    <string name="diagnostics_scan_completion_terminated">پویش متوقف شد</string>
+    <string name="diagnostics_scan_termination_network_unavailable">آفلاین — پویش در دسترس نیست</string>
+    <string name="diagnostics_scan_termination_user_cancelled">توسط کاربر لغو شد</string>
+    <string name="diagnostics_scan_termination_deadline_exceeded">مهلت زمانی به پایان رسید</string>
+    <string name="diagnostics_scan_termination_engine_error">خطای موتور</string>
+    <string name="diagnostics_scan_termination_worker_panicked">فرایند کاری از کار افتاد</string>
     <string name="diagnostics_scan_metadata_trigger">محرک</string>
     <string name="diagnostics_scan_metadata_handover_class">کلاس تحویل</string>
     <string name="diagnostics_scan_metadata_triggered_at">زمان فعال‌سازی</string>

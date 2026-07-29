@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scan_metadata_completion">Завершение</string>
+    <string name="diagnostics_scan_metadata_termination_reason">Причина остановки</string>
+    <string name="diagnostics_scan_completion_normal">Сканирование завершено</string>
+    <string name="diagnostics_scan_completion_partial_results">Частичные результаты</string>
+    <string name="diagnostics_scan_completion_terminated">Сканирование остановлено</string>
+    <string name="diagnostics_scan_termination_network_unavailable">Нет сети — сканирование недоступно</string>
+    <string name="diagnostics_scan_termination_user_cancelled">Отменено пользователем</string>
+    <string name="diagnostics_scan_termination_deadline_exceeded">Превышен лимит времени</string>
+    <string name="diagnostics_scan_termination_engine_error">Ошибка движка</string>
+    <string name="diagnostics_scan_termination_worker_panicked">Сбой рабочего процесса</string>
+</resources>

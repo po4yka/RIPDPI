@@ -45,6 +45,22 @@ internal class DiagnosticsSessionDetailUiFactory
             val diagnoses = report?.diagnoses?.map(support::toDiagnosisUiModel).orEmpty()
             val reportMetadata =
                 buildList {
+                    report?.let {
+                        add(
+                            DiagnosticsFieldUiModel(
+                                support.context.getString(R.string.diagnostics_scan_metadata_completion),
+                                support.core.completionKindLabel(it.completionKind),
+                            ),
+                        )
+                        it.terminationReason?.let { reason ->
+                            add(
+                                DiagnosticsFieldUiModel(
+                                    support.context.getString(R.string.diagnostics_scan_metadata_termination_reason),
+                                    support.core.terminationReasonLabel(reason),
+                                ),
+                            )
+                        }
+                    }
                     if (detail.session.launchOrigin !=
                         com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin.UNKNOWN
                     ) {

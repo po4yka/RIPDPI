@@ -278,6 +278,16 @@
     <string name="diagnostics_scan_trigger_unknown">未知触发器</string>
     <string name="diagnostics_scan_trigger_handover_summary_format">切换后：%1$s</string>
     <string name="diagnostics_scan_metadata_launch_source">启动源</string>
+    <string name="diagnostics_scan_metadata_completion">完成状态</string>
+    <string name="diagnostics_scan_metadata_termination_reason">停止原因</string>
+    <string name="diagnostics_scan_completion_normal">扫描已完成</string>
+    <string name="diagnostics_scan_completion_partial_results">部分结果</string>
+    <string name="diagnostics_scan_completion_terminated">扫描已停止</string>
+    <string name="diagnostics_scan_termination_network_unavailable">离线 — 扫描不可用</string>
+    <string name="diagnostics_scan_termination_user_cancelled">用户已取消</string>
+    <string name="diagnostics_scan_termination_deadline_exceeded">已达到时间限制</string>
+    <string name="diagnostics_scan_termination_engine_error">引擎错误</string>
+    <string name="diagnostics_scan_termination_worker_panicked">工作线程进程失败</string>
     <string name="diagnostics_scan_metadata_trigger">触发器</string>
     <string name="diagnostics_scan_metadata_handover_class">切换类别</string>
     <string name="diagnostics_scan_metadata_triggered_at">触发时间</string>

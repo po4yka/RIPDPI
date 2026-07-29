@@ -159,6 +159,16 @@ private fun StringBuilder.appendShareTelemetry(telemetry: DiagnosticTelemetrySam
 
 private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSessionProjection): List<String> =
     buildList {
+        add(
+            "${context.getString(R.string.diagnostics_scan_metadata_completion)}: " +
+                core.completionKindLabel(report.completionKind),
+        )
+        report.terminationReason?.let { reason ->
+            add(
+                "${context.getString(R.string.diagnostics_scan_metadata_termination_reason)}: " +
+                    core.terminationReasonLabel(reason),
+            )
+        }
         add("${report.results.size} probe results in the latest report")
         report.engineAnalysisVersion?.let { add("Engine analysis: $it") }
         report.classifierVersion?.let { add("Classifier: $it") }

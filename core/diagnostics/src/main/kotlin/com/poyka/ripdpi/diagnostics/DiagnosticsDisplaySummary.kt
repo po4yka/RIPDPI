@@ -7,6 +7,11 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 
 internal const val ScanCancelledSummary = "Scan cancelled"
 internal const val ScanCompletedWithPartialResultsSummary = "Scan completed with partial results"
+internal const val ScanUnavailableOfflineSummary = "Scan unavailable while offline"
+internal const val ScanCancelledByUserSummary = "Scan cancelled by user"
+internal const val ScanDeadlineExceededSummary = "Scan time limit reached"
+internal const val ScanEngineErrorSummary = "Scan stopped by an engine error"
+internal const val ScanWorkerPanickedSummary = "Scan stopped after a worker failure"
 
 private const val ScanCompletedWithDnsFallbackSummary = "Scan completed with DNS fallback"
 private const val TransparentDirectModeSummary = "Direct mode works transparently"
@@ -19,6 +24,8 @@ internal fun ScanReport.displaySummary(defaultSummary: String = summary): String
         directModeVerdict = directModeVerdict,
         directPathHealthState = directPathHealthState(),
         strategyCompletionKind = strategyProbeReport?.completionKind,
+        completionKind = completionKind,
+        terminationReason = terminationReason,
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
 
@@ -33,6 +40,8 @@ internal fun DiagnosticsSessionProjection.displaySummary(rawSummary: String): St
         directModeVerdict = directModeVerdict,
         directPathHealthState = null,
         strategyCompletionKind = strategyProbeReport?.completionKind,
+        completionKind = completionKind,
+        terminationReason = terminationReason,
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
 
@@ -41,9 +50,19 @@ private fun deriveDisplaySummary(
     directModeVerdict: DirectModeVerdict?,
     directPathHealthState: DirectPathHealthState?,
     strategyCompletionKind: StrategyProbeCompletionKind?,
+    completionKind: ScanCompletionKind,
+    terminationReason: ScanTerminationReason?,
     hasPartialResults: Boolean,
 ): String =
     when {
+        completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
+            ScanCompletedWithPartialResultsSummary
+        }
+
+        completionKind == ScanCompletionKind.TERMINATED -> {
+            terminationReason.displaySummary() ?: rawSummary
+        }
+
         directModeVerdictSummary(directModeVerdict) != null -> {
             directModeVerdictSummary(directModeVerdict).orEmpty()
         }
@@ -63,6 +82,16 @@ private fun deriveDisplaySummary(
         else -> {
             rawSummary
         }
+    }
+
+private fun ScanTerminationReason?.displaySummary(): String? =
+    when (this) {
+        ScanTerminationReason.NETWORK_UNAVAILABLE -> ScanUnavailableOfflineSummary
+        ScanTerminationReason.USER_CANCELLED -> ScanCancelledByUserSummary
+        ScanTerminationReason.DEADLINE_EXCEEDED -> ScanDeadlineExceededSummary
+        ScanTerminationReason.ENGINE_ERROR -> ScanEngineErrorSummary
+        ScanTerminationReason.WORKER_PANICKED -> ScanWorkerPanickedSummary
+        null -> null
     }
 
 private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
