@@ -435,8 +435,11 @@ internal class DefaultDiagnosticsScanController
                 )
             if (!executionRegistered || !executionJob.start()) {
                 executionJob.cancel()
-                activeScanRegistry.removePreparedScan(prepared.sessionId)
-                clearPreparedProgress(prepared)
+                withContext(NonCancellable) {
+                    runCatching { bridgeExecutionService.destroy(bridgeSession.handle) }
+                    activeScanRegistry.removePreparedScan(prepared.sessionId)
+                    clearPreparedProgress(prepared)
+                }
                 throw CancellationException("Diagnostics scan cancelled during startup")
             }
         }
