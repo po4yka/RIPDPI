@@ -165,11 +165,15 @@ interface DiagnosticsFailureArtifactWriteStore {
     )
 }
 
-interface DiagnosticsDurableStateStore {
-    suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity?
-
+interface DiagnosticsDurableStateObservationStore {
     fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>>
+}
 
+interface DiagnosticsDurableStateReadStore : DiagnosticsDurableStateObservationStore {
+    suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity?
+}
+
+interface DiagnosticsDurableStateWriteStore : DiagnosticsDurableStateReadStore {
     suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity)
 
     suspend fun upsertBoundedDurableState(
@@ -230,6 +234,8 @@ interface DiagnosticsDurableStateStore {
         missingTerminalEvent: NativeSessionEventEntity,
     )
 }
+
+interface DiagnosticsDurableStateStore : DiagnosticsDurableStateWriteStore
 
 interface BypassUsageHistoryStore {
     fun observeBypassUsageSessions(limit: Int = 100): Flow<List<BypassUsageSessionEntity>>
