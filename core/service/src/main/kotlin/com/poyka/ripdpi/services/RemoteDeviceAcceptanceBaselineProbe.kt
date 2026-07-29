@@ -71,7 +71,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     payloadHealth = probeEvidence.payloadHealth.takeIf { contextError == null },
                     contextError = contextError ?: probeEvidence.contextError,
                     underlay = underlay,
-                    pathPolicyInconsistent = snapshot.relayFailed,
+                    pathPolicyAssessment = before.pathPolicyAssessment(snapshot.relayFailed),
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
                     probePlan = before.probePlan,
                     awgRuntimeHealthy = before.awgRuntimeHealthy,
@@ -260,6 +260,37 @@ private data class AcceptanceCaptureContext(
 
     val endpoint: RelayProbeEndpoint?
         get() = parseLocalRelayEndpoint(relayListenerAddress)
+
+    fun pathPolicyAssessment(relayFallbackObserved: Boolean): AcceptancePathPolicyAssessment =
+        when {
+            relayFallbackObserved -> {
+                AcceptancePathPolicyAssessment.Inconsistent
+            }
+
+            !serviceRunning || awgSelected == null -> {
+                AcceptancePathPolicyAssessment.Unavailable
+            }
+
+            awgSelected -> {
+                if (awgRuntimePublished && awgRuntimeHealth == HealthyRuntimeState) {
+                    AcceptancePathPolicyAssessment.Consistent
+                } else {
+                    AcceptancePathPolicyAssessment.Inconclusive
+                }
+            }
+
+            probePlan.requiresRelayListener && endpoint != null -> {
+                AcceptancePathPolicyAssessment.Consistent
+            }
+
+            probePlan.requiresRelayListener -> {
+                AcceptancePathPolicyAssessment.Inconclusive
+            }
+
+            else -> {
+                AcceptancePathPolicyAssessment.Unavailable
+            }
+        }
 
     fun driftError(after: AcceptanceCaptureContext): String? =
         ErrorPayloadHealthContextDrift.takeIf {

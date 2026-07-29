@@ -116,13 +116,30 @@ private fun AcceptanceBaselineEvidence.deferredRuntimeSteps(): List<RemoteDevice
             succeeded = awgRuntimeHealthy,
             durationMs = durationMs,
         ),
-        resultStep(
-            StepPathPolicyConsistency,
-            !pathPolicyInconsistent,
-            ErrorPathPolicyInconsistent,
-            durationMs,
-        ),
+        pathPolicyConsistencyStep(pathPolicyAssessment, durationMs),
     )
+
+private fun pathPolicyConsistencyStep(
+    assessment: AcceptancePathPolicyAssessment,
+    durationMs: Long,
+): RemoteDeviceAcceptanceStep =
+    when (assessment) {
+        AcceptancePathPolicyAssessment.Consistent -> {
+            resultStep(StepPathPolicyConsistency, succeeded = true, failure = null, durationMs)
+        }
+
+        AcceptancePathPolicyAssessment.Inconsistent -> {
+            resultStep(StepPathPolicyConsistency, succeeded = false, ErrorPathPolicyInconsistent, durationMs)
+        }
+
+        AcceptancePathPolicyAssessment.Inconclusive -> {
+            incompleteStep(StepPathPolicyConsistency, ErrorPathPolicyInconclusive, durationMs)
+        }
+
+        AcceptancePathPolicyAssessment.Unavailable -> {
+            incompleteStep(StepPathPolicyConsistency, ErrorPathPolicyContextUnavailable, durationMs)
+        }
+    }
 
 internal fun deriveAcceptanceStatus(steps: List<RemoteDeviceAcceptanceStep>): RemoteDeviceAcceptanceStatus =
     steps.filterNot { it.applicability == AcceptanceProbeApplicability.NotApplicable.wireValue }.let { applicable ->
@@ -157,6 +174,18 @@ private fun resultStep(
         durationMs = durationMs,
         errorClass = if (succeeded) null else failure,
         pathKind = pathKind,
+    )
+
+private fun incompleteStep(
+    id: String,
+    errorClass: String,
+    durationMs: Long,
+): RemoteDeviceAcceptanceStep =
+    RemoteDeviceAcceptanceStep(
+        id = id,
+        status = RemoteDeviceAcceptanceStatus.Incomplete,
+        durationMs = durationMs,
+        errorClass = errorClass,
     )
 
 private fun networkEvidenceStep(
@@ -300,6 +329,8 @@ internal const val ErrorIpv6Egress = "ipv6_egress_failed"
 internal const val ErrorPayloadHealthUnavailable = "payload_health_unavailable"
 internal const val ErrorPayloadHealthContextDrift = "payload_health_context_drift"
 internal const val ErrorPathPolicyInconsistent = "path_policy_inconsistent"
+internal const val ErrorPathPolicyInconclusive = "path_policy_inconclusive"
+internal const val ErrorPathPolicyContextUnavailable = "path_policy_context_unavailable"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
 internal const val ErrorRecoveryReceiptPersistenceUnavailable = "recovery_receipt_persistence_unavailable"

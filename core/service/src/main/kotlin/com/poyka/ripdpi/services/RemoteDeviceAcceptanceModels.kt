@@ -76,11 +76,18 @@ internal data class AcceptanceBaselineEvidence(
     val payloadHealthError: String? = null,
     val contextError: String? = null,
     val underlay: RemoteDeviceAcceptanceUnderlay,
-    val pathPolicyInconsistent: Boolean,
+    val pathPolicyAssessment: AcceptancePathPolicyAssessment,
     val durationMs: Long,
     val probePlan: AcceptanceTransportProbePlan = acceptanceTransportProbePlan(transportKind),
     val awgRuntimeHealthy: Boolean? = null,
 )
+
+internal enum class AcceptancePathPolicyAssessment {
+    Consistent,
+    Inconsistent,
+    Inconclusive,
+    Unavailable,
+}
 
 internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
     RemoteDeviceAcceptanceReportJson.encodeToString(

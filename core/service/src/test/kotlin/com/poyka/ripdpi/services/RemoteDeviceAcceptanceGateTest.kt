@@ -427,6 +427,44 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
+    fun `path policy assessment distinguishes observed consistency from missing evidence`() {
+        val expectations =
+            listOf(
+                Triple(
+                    AcceptancePathPolicyAssessment.Consistent,
+                    RemoteDeviceAcceptanceStatus.Pass,
+                    null,
+                ),
+                Triple(
+                    AcceptancePathPolicyAssessment.Inconsistent,
+                    RemoteDeviceAcceptanceStatus.Fail,
+                    ErrorPathPolicyInconsistent,
+                ),
+                Triple(
+                    AcceptancePathPolicyAssessment.Inconclusive,
+                    RemoteDeviceAcceptanceStatus.Incomplete,
+                    ErrorPathPolicyInconclusive,
+                ),
+                Triple(
+                    AcceptancePathPolicyAssessment.Unavailable,
+                    RemoteDeviceAcceptanceStatus.Incomplete,
+                    ErrorPathPolicyContextUnavailable,
+                ),
+            )
+
+        expectations.forEach { (assessment, expectedStatus, expectedError) ->
+            val step =
+                buildRemoteDeviceAcceptanceBaseline(
+                    Device,
+                    successfulEvidence().copy(pathPolicyAssessment = assessment),
+                ).step(StepPathPolicyConsistency)
+
+            assertEquals(expectedStatus, step.status)
+            assertEquals(expectedError, step.errorClass)
+        }
+    }
+
+    @Test
     fun `DNS response failure proves association but fails UDP DNS`() {
         val evidence =
             successfulEvidence().copy(
@@ -660,7 +698,7 @@ class RemoteDeviceAcceptanceGateTest {
                     hasIpv6Dns = true,
                     nat64Advertised = true,
                 ),
-            pathPolicyInconsistent = false,
+            pathPolicyAssessment = AcceptancePathPolicyAssessment.Consistent,
             durationMs = 42L,
         )
 
