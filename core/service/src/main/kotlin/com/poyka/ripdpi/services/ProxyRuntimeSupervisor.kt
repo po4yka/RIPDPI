@@ -32,6 +32,9 @@ internal class ProxyRuntimeSupervisor(
     private var proxyJob: Job? = null
 
     @Volatile
+    private var runtimeGeneration: Long = 0L
+
+    @Volatile
     private var stopRequested: Boolean = false
     private var exitReporting: AtomicBoolean? = null
 
@@ -46,6 +49,7 @@ internal class ProxyRuntimeSupervisor(
 
         val proxyInstance = ripDpiProxyFactory.create()
         proxyRuntime = proxyInstance
+        runtimeGeneration += 1L
         stopRequested = false
         val shouldReportExit = AtomicBoolean(true)
         exitReporting = shouldReportExit
@@ -162,6 +166,41 @@ internal class ProxyRuntimeSupervisor(
                     )
                 },
             )
+    }
+
+    suspend fun pollTelemetryAndForwardingEvidence(): RuntimeTelemetryEvidencePoll<ProxyForwardingEvidence> {
+        val runtime =
+            proxyRuntime
+                ?: return RuntimeTelemetryEvidencePoll(
+                    RuntimeTelemetryOutcome.NoData,
+                    RuntimeForwardingEvidence.Unavailable,
+                )
+        val generation = runtimeGeneration
+        val telemetry =
+            runCatching { runtime.pollTelemetry() }
+                .fold(
+                    onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                    onFailure = { error ->
+                        RuntimeTelemetryOutcome.EngineError(
+                            message = error.message ?: "Proxy telemetry polling failed",
+                            causeClass = error.javaClass.name,
+                        )
+                    },
+                )
+        val evidence =
+            try {
+                RuntimeForwardingEvidence.Available(runtime.pollForwardingEvidence())
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                RuntimeForwardingEvidence.Unavailable
+            }
+        return RuntimeTelemetryEvidencePoll(
+            telemetry = telemetry,
+            forwardingEvidence =
+                evidence.takeIf { proxyRuntime === runtime && runtimeGeneration == generation }
+                    ?: RuntimeForwardingEvidence.Unavailable,
+        )
     }
 
     suspend fun pollForwardingEvidence(): ProxyForwardingEvidence? {

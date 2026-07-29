@@ -122,11 +122,13 @@ internal class VpnTelemetryCoordinator(
         evidenceCollector: DataPlaneEvidenceCollector,
         finalCapture: Boolean = false,
     ): VpnTelemetrySnapshot {
-        val proxyTelemetryOutcome = dependencies.proxyRuntimeSupervisor.pollTelemetry()
+        val proxyPoll = dependencies.proxyRuntimeSupervisor.pollTelemetryAndForwardingEvidence()
+        val proxyTelemetryOutcome = proxyPoll.telemetry
         val relayTelemetryOutcome = dependencies.upstreamRelaySupervisor.pollTelemetry()
         val warpTelemetryOutcome = dependencies.warpRuntimeSupervisor.pollTelemetry()
         val awgTelemetryOutcome = dependencies.amneziaWgRuntimeSupervisor.pollTelemetry()
-        val tunnelTelemetryOutcome = dependencies.vpnTunnelRuntime.pollTelemetry()
+        val tunnelPoll = dependencies.vpnTunnelRuntime.pollTelemetryAndForwardingEvidence()
+        val tunnelTelemetryOutcome = tunnelPoll.telemetry
         val tunnelTelemetry = tunnelTelemetryOutcome.snapshotOrIdle(source = "tunnel")
         val snapshot =
             VpnTelemetrySnapshot(
@@ -142,9 +144,17 @@ internal class VpnTelemetryCoordinator(
                 tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
             )
         return if (finalCapture) {
-            evidenceCollector.finalizeAndEnrich(snapshot)
+            evidenceCollector.finalizeAndEnrich(
+                snapshot,
+                proxyPoll.forwardingEvidence,
+                tunnelPoll.forwardingEvidence,
+            )
         } else {
-            evidenceCollector.enrich(snapshot)
+            evidenceCollector.enrich(
+                snapshot,
+                proxyPoll.forwardingEvidence,
+                tunnelPoll.forwardingEvidence,
+            )
         }
     }
 

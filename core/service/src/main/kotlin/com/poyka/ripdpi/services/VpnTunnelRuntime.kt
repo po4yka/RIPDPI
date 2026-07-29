@@ -58,6 +58,9 @@ internal class VpnTunnelRuntime(
 
     @Volatile
     private var pendingSession: VpnTunnelSession? = null
+
+    @Volatile
+    private var bridgeGeneration: Long = 0L
     private var tunnelStartCount: Int = 0
 
     @Volatile
@@ -299,6 +302,7 @@ internal class VpnTunnelRuntime(
             throw error
         }
         tun2SocksBridge = tunnelBridge
+        bridgeGeneration += 1L
         retiringBridge = null
         tunSession = pendingTunnel.session
         if (pendingSession === pendingTunnel.session) {
@@ -344,6 +348,41 @@ internal class VpnTunnelRuntime(
                     )
                 },
             )
+    }
+
+    suspend fun pollTelemetryAndForwardingEvidence(): RuntimeTelemetryEvidencePoll<TunForwardingEvidence> {
+        val bridge =
+            tun2SocksBridge
+                ?: return RuntimeTelemetryEvidencePoll(
+                    RuntimeTelemetryOutcome.NoData,
+                    RuntimeForwardingEvidence.Unavailable,
+                )
+        val generation = bridgeGeneration
+        val telemetry =
+            runCatching { bridge.telemetry() }
+                .fold(
+                    onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                    onFailure = { error ->
+                        RuntimeTelemetryOutcome.EngineError(
+                            message = error.message ?: "Tunnel telemetry polling failed",
+                            causeClass = error.javaClass.name,
+                        )
+                    },
+                )
+        val evidence =
+            try {
+                RuntimeForwardingEvidence.Available(bridge.forwardingEvidence())
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                RuntimeForwardingEvidence.Unavailable
+            }
+        return RuntimeTelemetryEvidencePoll(
+            telemetry = telemetry,
+            forwardingEvidence =
+                evidence.takeIf { tun2SocksBridge === bridge && bridgeGeneration == generation }
+                    ?: RuntimeForwardingEvidence.Unavailable,
+        )
     }
 
     /** Stops native forwarding while deliberately retaining the installed TUN. */

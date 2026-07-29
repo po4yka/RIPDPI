@@ -168,6 +168,42 @@ class DataPlaneEvidenceCollectorTest {
         }
 
     @Test
+    fun unavailableLeaseDoesNotResetUntilRestartEvidenceSharesRunningLease() =
+        runTest {
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.Proxy,
+                    proxyEvidenceProvider = { error("explicit evidence observation expected") },
+                )
+
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(
+                    ProxyForwardingEvidence(upstreamApplicationBytes = 200),
+                ),
+            )
+            val afterHandleLoss =
+                collector.enrich(
+                    runningTelemetrySnapshot(),
+                    RuntimeForwardingEvidence.Unavailable,
+                )
+
+            assertFalse(afterHandleLoss.proxyTelemetry.nativeEvents.any { it.kind == "data_plane_counter_reset" })
+
+            val afterRestart =
+                collector.finalizeAndEnrich(
+                    runningTelemetrySnapshot(),
+                    RuntimeForwardingEvidence.Available(ProxyForwardingEvidence.Empty),
+                )
+
+            assertTrue(afterRestart.proxyTelemetry.nativeEvents.any { it.kind == "data_plane_counter_reset" })
+            val finalEvent = afterRestart.proxyTelemetry.nativeEvents.last()
+            assertTrue(finalEvent.message.contains("generation=2"))
+            assertTrue(finalEvent.message.contains("proxy_application_bytes=0"))
+            assertFalse(finalEvent.message.contains("proxy_application_bytes=200"))
+        }
+
+    @Test
     fun proxyModeMarksTunUnsupportedAndInboundUnavailable() =
         runTest {
             val collector =

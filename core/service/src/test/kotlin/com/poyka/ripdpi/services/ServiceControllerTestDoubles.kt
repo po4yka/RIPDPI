@@ -721,6 +721,7 @@ internal class TestProxyRuntime(
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
     var forwardingEvidenceFailure: Throwable? = null
+    var beforeForwardingEvidence: suspend () -> Unit = {}
     var forwardingEvidence: ProxyForwardingEvidence = ProxyForwardingEvidence.Empty
     var telemetry: NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
@@ -767,6 +768,7 @@ internal class TestProxyRuntime(
     }
 
     override suspend fun pollForwardingEvidence(): ProxyForwardingEvidence {
+        beforeForwardingEvidence()
         forwardingEvidenceFailure?.let { throw it }
         return forwardingEvidence
     }

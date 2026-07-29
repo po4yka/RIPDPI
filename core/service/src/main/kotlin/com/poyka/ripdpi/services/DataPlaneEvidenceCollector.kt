@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -12,6 +13,19 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicReference
 
 private const val DataPlaneEventCap = 16
+
+internal sealed interface RuntimeForwardingEvidence<out T> {
+    data class Available<T>(
+        val value: T,
+    ) : RuntimeForwardingEvidence<T>
+
+    data object Unavailable : RuntimeForwardingEvidence<Nothing>
+}
+
+internal data class RuntimeTelemetryEvidencePoll<T>(
+    val telemetry: RuntimeTelemetryOutcome,
+    val forwardingEvidence: RuntimeForwardingEvidence<T>,
+)
 
 internal suspend fun <T> captureFinalDataPlaneEvidence(
     activeCollector: AtomicReference<DataPlaneEvidenceCollector?>,
@@ -52,10 +66,35 @@ internal class DataPlaneEvidenceCollector(
             if (finalized) replayOnto(snapshot) else pollAndEnrich(snapshot, finalCapture = false)
         }
 
+    suspend fun enrich(
+        snapshot: VpnTelemetrySnapshot,
+        proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
+        tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence> = RuntimeForwardingEvidence.Unavailable,
+    ): VpnTelemetrySnapshot =
+        pollMutex.withLock {
+            if (finalized) {
+                replayOnto(snapshot)
+            } else {
+                observeAndEnrich(snapshot, proxyEvidence, tunEvidence, finalCapture = false)
+            }
+        }
+
     suspend fun finalizeAndEnrich(snapshot: VpnTelemetrySnapshot): VpnTelemetrySnapshot =
         pollMutex.withLock {
             if (finalized) return@withLock replayOnto(snapshot)
             val finalizedSnapshot = pollAndEnrich(snapshot, finalCapture = true)
+            finalized = true
+            finalizedSnapshot
+        }
+
+    suspend fun finalizeAndEnrich(
+        snapshot: VpnTelemetrySnapshot,
+        proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
+        tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence> = RuntimeForwardingEvidence.Unavailable,
+    ): VpnTelemetrySnapshot =
+        pollMutex.withLock {
+            if (finalized) return@withLock replayOnto(snapshot)
+            val finalizedSnapshot = observeAndEnrich(snapshot, proxyEvidence, tunEvidence, finalCapture = true)
             finalized = true
             finalizedSnapshot
         }
@@ -66,21 +105,41 @@ internal class DataPlaneEvidenceCollector(
     ): VpnTelemetrySnapshot {
         val proxyEvidence = pollSafely(proxyEvidenceProvider)
         val tunEvidence = tunEvidenceProvider?.let { pollSafely(it) }
+        return observeAndEnrich(
+            snapshot = snapshot,
+            proxyEvidence = proxyEvidence.toRuntimeForwardingEvidence(),
+            tunEvidence = tunEvidence.toRuntimeForwardingEvidence(),
+            finalCapture = finalCapture,
+            tunProviderSupported = tunEvidenceProvider != null,
+        )
+    }
+
+    private fun observeAndEnrich(
+        snapshot: VpnTelemetrySnapshot,
+        proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
+        tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence>,
+        finalCapture: Boolean,
+        tunProviderSupported: Boolean = mode == Mode.VPN,
+    ): VpnTelemetrySnapshot {
+        val proxyValue = proxyEvidence.valueOrNull()
+        val tunValue = tunEvidence.valueOrNull()
         tracker.observe(
-            proxyEvidence = proxyEvidence,
-            tunEvidence = tunEvidence,
+            proxyEvidence = proxyValue,
+            tunEvidence = tunValue,
             tunSupport =
-                if (tunEvidenceProvider == null) {
+                if (!tunProviderSupported) {
                     TunEvidenceSupport.Unsupported
-                } else if (tunEvidence == null) {
+                } else if (tunEvidence === RuntimeForwardingEvidence.Unavailable) {
                     TunEvidenceSupport.Unavailable
                 } else {
                     TunEvidenceSupport.Supported
                 },
             proxyGenerationAuthoritative =
-                snapshot.proxyTelemetry.hasAuthoritativeRunningGeneration(snapshot.proxyTelemetryStatus.state),
+                proxyEvidence is RuntimeForwardingEvidence.Available &&
+                    snapshot.proxyTelemetry.hasAuthoritativeRunningGeneration(snapshot.proxyTelemetryStatus.state),
             tunGenerationAuthoritative =
-                snapshot.tunnelTelemetry.hasAuthoritativeRunningGeneration(snapshot.tunnelTelemetryStatus.state),
+                tunEvidence is RuntimeForwardingEvidence.Available &&
+                    snapshot.tunnelTelemetry.hasAuthoritativeRunningGeneration(snapshot.tunnelTelemetryStatus.state),
         )
         if (finalCapture) tracker.finalEvent()
         return replayOnto(snapshot)
@@ -405,6 +464,12 @@ private fun Long?.orZero(): Long = this ?: 0L
 
 private fun NativeRuntimeSnapshot.hasAuthoritativeRunningGeneration(status: RuntimeTelemetryState): Boolean =
     status == RuntimeTelemetryState.Snapshot && state == "running"
+
+private fun <T> T?.toRuntimeForwardingEvidence(): RuntimeForwardingEvidence<T> =
+    this?.let { value -> RuntimeForwardingEvidence.Available(value) } ?: RuntimeForwardingEvidence.Unavailable
+
+private fun <T> RuntimeForwardingEvidence<T>.valueOrNull(): T? =
+    (this as? RuntimeForwardingEvidence.Available<T>)?.value
 
 private fun Long?.safe(): Long = this?.coerceAtLeast(0) ?: 0L
 

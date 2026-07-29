@@ -68,7 +68,8 @@ internal class ProxyTelemetryCoordinator(
         evidenceCollector: DataPlaneEvidenceCollector,
         finalCapture: Boolean = false,
     ): VpnTelemetrySnapshot {
-        val proxyTelemetryOutcome = proxyRuntimeSupervisor.pollTelemetry()
+        val proxyPoll = proxyRuntimeSupervisor.pollTelemetryAndForwardingEvidence()
+        val proxyTelemetryOutcome = proxyPoll.telemetry
         val relayTelemetryOutcome = upstreamRelaySupervisor.pollTelemetry()
         val warpTelemetryOutcome = warpRuntimeSupervisor.pollTelemetry()
         val snapshot =
@@ -85,9 +86,9 @@ internal class ProxyTelemetryCoordinator(
                 tunnelTelemetryStatus = RuntimeTelemetryOutcome.NoData.toStatus(),
             )
         return if (finalCapture) {
-            evidenceCollector.finalizeAndEnrich(snapshot)
+            evidenceCollector.finalizeAndEnrich(snapshot, proxyPoll.forwardingEvidence)
         } else {
-            evidenceCollector.enrich(snapshot)
+            evidenceCollector.enrich(snapshot, proxyPoll.forwardingEvidence)
         }
     }
 

@@ -2,10 +2,13 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 
@@ -36,10 +39,17 @@ class VpnTunnelForwardingEvidenceTest {
                     ),
             )
 
-            assertEquals(22L, runtime.pollForwardingEvidence()?.tunReadBytes)
-            assertEquals(11L, runtime.pollForwardingEvidence()?.tunWriteBytes)
+            val combinedPoll = runtime.pollTelemetryAndForwardingEvidence()
+            assertTrue(combinedPoll.telemetry is RuntimeTelemetryOutcome.Snapshot)
+            val available = combinedPoll.forwardingEvidence as RuntimeForwardingEvidence.Available
+            assertEquals(22L, available.value.tunReadBytes)
+            assertEquals(11L, available.value.tunWriteBytes)
             bridge.forwardingEvidenceFailure = IOException("poll failed")
             assertNull(runtime.pollForwardingEvidence())
+            assertSame(
+                RuntimeForwardingEvidence.Unavailable,
+                runtime.pollTelemetryAndForwardingEvidence().forwardingEvidence,
+            )
 
             runtime.stop()
         }
