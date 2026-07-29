@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.core.content.pm.PackageInfoCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
 import java.util.zip.ZipFile
@@ -163,7 +164,9 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
                     }
                 }
                 true
-            } catch (_: Exception) {
+            } catch (_: IOException) {
+                false
+            } catch (_: SecurityException) {
                 false
             }
     }
@@ -222,7 +225,7 @@ internal class AndroidInstalledArtifactSnapshotSource
                 InstalledArtifactSnapshotResult.Failure(
                     DiagnosticsArchiveInstalledArtifactFailure.PACKAGE_UNAVAILABLE,
                 )
-            } catch (_: Exception) {
+            } catch (_: SecurityException) {
                 InstalledArtifactSnapshotResult.Failure(
                     DiagnosticsArchiveInstalledArtifactFailure.PACKAGE_QUERY_FAILED,
                 )
@@ -309,18 +312,34 @@ private fun PackageInfo.currentSignerCertificates(): List<ByteArray> =
 private fun PackageInfo.signingLineageBand(): DiagnosticsArchiveSigningLineageBand =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         val currentSigningInfo = signingInfo
-        when {
-            currentSigningInfo == null -> DiagnosticsArchiveSigningLineageBand.UNAVAILABLE
-            currentSigningInfo.hasMultipleSigners() -> DiagnosticsArchiveSigningLineageBand.MULTIPLE_CURRENT
-            currentSigningInfo.hasPastSigningCertificates() -> DiagnosticsArchiveSigningLineageBand.SINGLE_WITH_HISTORY
-            else -> DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT
-        }
+        classifySigningLineage(
+            sdkInt = Build.VERSION.SDK_INT,
+            currentSignerCount = currentSigningInfo?.apkContentsSigners.orEmpty().size,
+            signingInfoAvailable = currentSigningInfo != null,
+            hasPastSigningCertificates = currentSigningInfo?.hasPastSigningCertificates() == true,
+        )
     } else {
-        when (signatures.orEmpty().size) {
-            0 -> DiagnosticsArchiveSigningLineageBand.UNAVAILABLE
-            1 -> DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT
-            else -> DiagnosticsArchiveSigningLineageBand.MULTIPLE_CURRENT
-        }
+        classifySigningLineage(
+            sdkInt = Build.VERSION.SDK_INT,
+            currentSignerCount = signatures.orEmpty().size,
+            signingInfoAvailable = false,
+            hasPastSigningCertificates = false,
+        )
+    }
+
+internal fun classifySigningLineage(
+    sdkInt: Int,
+    currentSignerCount: Int,
+    signingInfoAvailable: Boolean,
+    hasPastSigningCertificates: Boolean,
+): DiagnosticsArchiveSigningLineageBand =
+    when {
+        currentSignerCount == 0 -> DiagnosticsArchiveSigningLineageBand.UNAVAILABLE
+        currentSignerCount > 1 -> DiagnosticsArchiveSigningLineageBand.MULTIPLE_CURRENT
+        sdkInt < Build.VERSION_CODES.P -> DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT_HISTORY_UNAVAILABLE
+        !signingInfoAvailable -> DiagnosticsArchiveSigningLineageBand.UNAVAILABLE
+        hasPastSigningCertificates -> DiagnosticsArchiveSigningLineageBand.SINGLE_WITH_HISTORY
+        else -> DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT
     }
 
 private fun InstalledArtifactSnapshotResult.Failure.toUnavailableArtifact() =
@@ -342,7 +361,9 @@ private fun MutableSet<DiagnosticsArchiveInstalledArtifactFailure>.recordSplitAp
 private fun hashFile(file: File): String? =
     try {
         file.inputStream().buffered().use(::sha256Hex)
-    } catch (_: Exception) {
+    } catch (_: IOException) {
+        null
+    } catch (_: SecurityException) {
         null
     }
 

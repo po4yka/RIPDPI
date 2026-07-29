@@ -14,6 +14,46 @@ import java.util.zip.ZipOutputStream
 
 class DiagnosticsArchiveInstalledArtifactCollectorTest {
     @Test
+    fun `signing lineage never claims absent history when platform cannot expose it`() {
+        assertEquals(
+            DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT_HISTORY_UNAVAILABLE,
+            classifySigningLineage(
+                sdkInt = 27,
+                currentSignerCount = 1,
+                signingInfoAvailable = false,
+                hasPastSigningCertificates = false,
+            ),
+        )
+        assertEquals(
+            DiagnosticsArchiveSigningLineageBand.SINGLE_WITH_HISTORY,
+            classifySigningLineage(
+                sdkInt = 28,
+                currentSignerCount = 1,
+                signingInfoAvailable = true,
+                hasPastSigningCertificates = true,
+            ),
+        )
+        assertEquals(
+            DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT,
+            classifySigningLineage(
+                sdkInt = 28,
+                currentSignerCount = 1,
+                signingInfoAvailable = true,
+                hasPastSigningCertificates = false,
+            ),
+        )
+        assertEquals(
+            DiagnosticsArchiveSigningLineageBand.MULTIPLE_CURRENT,
+            classifySigningLineage(
+                sdkInt = 27,
+                currentSignerCount = 2,
+                signingInfoAvailable = false,
+                hasPastSigningCertificates = false,
+            ),
+        )
+    }
+
+    @Test
     fun `collector hashes base splits current signers and allowlisted packaged libraries`() {
         val directory = Files.createTempDirectory("installed-artifact-complete").toFile()
         val baseApk = writeApk(directory.resolve("base-private-name.apk"), "arm64-v8a", "arm64")

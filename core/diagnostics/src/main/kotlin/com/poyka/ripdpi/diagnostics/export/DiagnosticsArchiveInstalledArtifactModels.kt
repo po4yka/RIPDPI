@@ -26,6 +26,7 @@ internal enum class DiagnosticsArchiveInstalledArtifactCollectionStatus {
 internal enum class DiagnosticsArchiveSigningLineageBand {
     SINGLE_CURRENT,
     SINGLE_WITH_HISTORY,
+    SINGLE_CURRENT_HISTORY_UNAVAILABLE,
     MULTIPLE_CURRENT,
     UNAVAILABLE,
 }
