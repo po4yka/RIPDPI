@@ -124,6 +124,28 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
         }
 
     @Test
+    fun `startup reconciliation terminalizes a pending run without replacement`() =
+        runTest {
+            val store = RecordingDurableStateStore()
+            val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+            firstWriter.beginRun("run-a", observedAtMillis = 10L)
+
+            val recreatedWriter =
+                DefaultRemoteDeviceAcceptanceEvidenceWriter(
+                    durableStateStore = store,
+                    wallClock = { 30L },
+                )
+            recreatedWriter.reconcilePendingRun()
+
+            assertFalse(store.durableStates.containsKey(RemoteAcceptancePendingGenerationKey))
+            val interrupted = store.nativeEvents.single()
+            assertEquals("run-a", interrupted.runtimeId)
+            assertEquals(30L, interrupted.createdAt)
+            assertTrue(interrupted.message.contains("phase=run_interrupted"))
+            assertTrue(interrupted.message.contains("reason=interrupted_before_startup"))
+        }
+
+    @Test
     fun `durable writer uses deterministic semantic ids`() =
         runTest {
             val firstStore = RecordingDurableStateStore()

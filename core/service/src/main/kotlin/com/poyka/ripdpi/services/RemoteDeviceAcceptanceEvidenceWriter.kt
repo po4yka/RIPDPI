@@ -36,96 +36,125 @@ internal interface RemoteDeviceAcceptanceEvidenceWriter {
     )
 }
 
+interface RemoteDeviceAcceptanceStartupReconciler {
+    suspend fun reconcilePendingRun()
+}
+
 @Singleton
-internal class DefaultRemoteDeviceAcceptanceEvidenceWriter
+internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
+    private val durableStateStore: DiagnosticsDurableStateStore,
+    private val wallClock: () -> Long,
+) : RemoteDeviceAcceptanceEvidenceWriter,
+    RemoteDeviceAcceptanceStartupReconciler {
     @Inject
     constructor(
-        private val durableStateStore: DiagnosticsDurableStateStore,
-    ) : RemoteDeviceAcceptanceEvidenceWriter {
-        private val lock = Mutex()
+        durableStateStore: DiagnosticsDurableStateStore,
+    ) : this(durableStateStore, System::currentTimeMillis)
 
-        override suspend fun beginRun(
-            runGeneration: String,
-            observedAtMillis: Long,
-        ) {
-            lock.withLock {
-                val nextState = pendingGenerationState(runGeneration, observedAtMillis)
-                val interrupted =
-                    durableStateStore
-                        .getDurableState(RemoteAcceptancePendingGenerationKey)
-                        ?.value
-                        ?.takeIf { it != runGeneration }
-                if (interrupted != null) {
-                    reconcilePendingGeneration(
-                        interrupted = interrupted,
-                        replacementState = nextState,
-                        observedAtMillis = observedAtMillis,
-                    )
-                } else {
-                    durableStateStore.upsertDurableState(nextState)
-                }
+    private val lock = Mutex()
+
+    override suspend fun beginRun(
+        runGeneration: String,
+        observedAtMillis: Long,
+    ) {
+        lock.withLock {
+            val nextState = pendingGenerationState(runGeneration, observedAtMillis)
+            val interrupted =
+                durableStateStore
+                    .getDurableState(RemoteAcceptancePendingGenerationKey)
+                    ?.value
+                    ?.takeIf { it != runGeneration }
+            if (interrupted != null) {
+                reconcilePendingGeneration(
+                    interrupted = interrupted,
+                    replacementState = nextState,
+                    observedAtMillis = observedAtMillis,
+                )
+            } else {
+                durableStateStore.upsertDurableState(nextState)
             }
         }
+    }
 
-        override suspend fun record(
-            runGeneration: String,
-            event: DeviceRuntimeEvidence.BackgroundSurvival,
-        ) {
-            lock.withLock {
-                val durableEvent = event.toDurableEvent(runGeneration)
-                val nativeEvent = durableEvent.toNativeSessionEvent(event.observedAtMillis)
-                if (event.isTerminalBackgroundEvent()) {
-                    durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
-                        event = nativeEvent,
-                        key = RemoteAcceptancePendingGenerationKey,
-                        expectedValue = runGeneration,
-                    )
-                } else {
-                    durableStateStore.insertNativeSessionEventAndUpsertDurableState(
-                        event = nativeEvent,
-                        state = pendingGenerationState(runGeneration, event.observedAtMillis),
-                    )
-                }
-            }
-        }
-
-        override suspend fun cancelRun(
-            runGeneration: String,
-            observedAtMillis: Long,
-        ) {
-            lock.withLock {
+    override suspend fun record(
+        runGeneration: String,
+        event: DeviceRuntimeEvidence.BackgroundSurvival,
+    ) {
+        lock.withLock {
+            val durableEvent = event.toDurableEvent(runGeneration)
+            val nativeEvent = durableEvent.toNativeSessionEvent(event.observedAtMillis)
+            if (event.isTerminalBackgroundEvent()) {
                 durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
-                    event =
-                        durableLifecycleEvent(
-                            runGeneration = runGeneration,
-                            phase = RemoteAcceptanceCancelledPhase,
-                            reason = RemoteAcceptanceCancelledReason,
-                        ).toNativeSessionEvent(observedAtMillis),
+                    event = nativeEvent,
                     key = RemoteAcceptancePendingGenerationKey,
                     expectedValue = runGeneration,
                 )
+            } else {
+                durableStateStore.insertNativeSessionEventAndUpsertDurableState(
+                    event = nativeEvent,
+                    state = pendingGenerationState(runGeneration, event.observedAtMillis),
+                )
             }
         }
+    }
 
-        private suspend fun reconcilePendingGeneration(
-            interrupted: String,
-            replacementState: DiagnosticsDurableStateEntity,
-            observedAtMillis: Long,
-        ) {
-            durableStateStore.reconcileDurableStateWithTerminalEvent(
-                key = RemoteAcceptancePendingGenerationKey,
-                expectedValue = interrupted,
-                replacementState = replacementState,
-                terminalEventId = runTerminalEventId(interrupted),
-                missingTerminalEvent =
+    override suspend fun cancelRun(
+        runGeneration: String,
+        observedAtMillis: Long,
+    ) {
+        lock.withLock {
+            durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
+                event =
                     durableLifecycleEvent(
-                        runGeneration = interrupted,
-                        phase = RemoteAcceptanceInterruptedPhase,
-                        reason = RemoteAcceptanceInterruptedBeforeNextRun,
+                        runGeneration = runGeneration,
+                        phase = RemoteAcceptanceCancelledPhase,
+                        reason = RemoteAcceptanceCancelledReason,
                     ).toNativeSessionEvent(observedAtMillis),
+                key = RemoteAcceptancePendingGenerationKey,
+                expectedValue = runGeneration,
             )
         }
     }
+
+    override suspend fun reconcilePendingRun() {
+        lock.withLock {
+            val interrupted =
+                durableStateStore
+                    .getDurableState(RemoteAcceptancePendingGenerationKey)
+                    ?.value
+                    ?: return@withLock
+            durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
+                event =
+                    durableLifecycleEvent(
+                        runGeneration = interrupted,
+                        phase = RemoteAcceptanceInterruptedPhase,
+                        reason = RemoteAcceptanceInterruptedBeforeStartup,
+                    ).toNativeSessionEvent(wallClock()),
+                key = RemoteAcceptancePendingGenerationKey,
+                expectedValue = interrupted,
+            )
+        }
+    }
+
+    private suspend fun reconcilePendingGeneration(
+        interrupted: String,
+        replacementState: DiagnosticsDurableStateEntity,
+        observedAtMillis: Long,
+    ) {
+        durableStateStore.reconcileDurableStateWithTerminalEvent(
+            key = RemoteAcceptancePendingGenerationKey,
+            expectedValue = interrupted,
+            replacementState = replacementState,
+            terminalEventId = runTerminalEventId(interrupted),
+            missingTerminalEvent =
+                durableLifecycleEvent(
+                    runGeneration = interrupted,
+                    phase = RemoteAcceptanceInterruptedPhase,
+                    reason = RemoteAcceptanceInterruptedBeforeNextRun,
+                ).toNativeSessionEvent(observedAtMillis),
+        )
+    }
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -135,6 +164,12 @@ internal abstract class RemoteDeviceAcceptanceEvidenceWriterModule {
     abstract fun bindRemoteDeviceAcceptanceEvidenceWriter(
         writer: DefaultRemoteDeviceAcceptanceEvidenceWriter,
     ): RemoteDeviceAcceptanceEvidenceWriter
+
+    @Binds
+    @Singleton
+    abstract fun bindRemoteDeviceAcceptanceStartupReconciler(
+        writer: DefaultRemoteDeviceAcceptanceEvidenceWriter,
+    ): RemoteDeviceAcceptanceStartupReconciler
 }
 
 private data class RemoteAcceptanceDurableEvent(
@@ -315,6 +350,7 @@ private const val RemoteAcceptanceSubsystem = "remote_acceptance"
 private const val RemoteAcceptanceEventIdHashChars = 32
 internal const val RemoteAcceptancePendingGenerationKey = "remote_acceptance_pending_generation"
 private const val RemoteAcceptanceInterruptedBeforeNextRun = "interrupted_before_next_run"
+private const val RemoteAcceptanceInterruptedBeforeStartup = "interrupted_before_startup"
 private const val RemoteAcceptanceCancelledReason = "cancelled"
 private const val RemoteAcceptanceInterruptedPhase = "run_interrupted"
 private const val RemoteAcceptanceCancelledPhase = "run_cancelled"

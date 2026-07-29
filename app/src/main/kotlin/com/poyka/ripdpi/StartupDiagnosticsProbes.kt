@@ -2,6 +2,7 @@ package com.poyka.ripdpi
 
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStartupReconciler
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,4 +17,5 @@ class StartupDiagnosticsProbes
     constructor(
         val lastExitInspector: LastExitInspector,
         val memoryProfilingRegistrar: MemoryProfilingRegistrar,
+        val remoteDeviceAcceptanceStartupReconciler: RemoteDeviceAcceptanceStartupReconciler,
     )

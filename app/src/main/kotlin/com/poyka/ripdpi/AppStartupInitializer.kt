@@ -1,6 +1,7 @@
 package com.poyka.ripdpi
 
 import android.content.Context
+import android.database.SQLException
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.backup.ResetEventName
 import com.poyka.ripdpi.backup.ResetEventRecorder
@@ -130,6 +131,15 @@ class AppStartupInitializer
                 .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
             val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
             Logger.i { report.toLogMessage() }
+            try {
+                startupDiagnosticsProbes.remoteDeviceAcceptanceStartupReconciler.reconcilePendingRun()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (databaseFailure: SQLException) {
+                Logger.w(databaseFailure) { "Remote acceptance startup reconciliation database write failed" }
+            } catch (stateFailure: IllegalStateException) {
+                Logger.w(stateFailure) { "Remote acceptance startup reconciliation state write failed" }
+            }
             // Record privacy-safe categories for recent process exits. This
             // diagnostics read is isolated so a failure never affects startup.
             runCatching {

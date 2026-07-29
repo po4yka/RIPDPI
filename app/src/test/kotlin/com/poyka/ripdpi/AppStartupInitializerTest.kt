@@ -27,6 +27,7 @@ import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.FlowAppAttributionStore
 import com.poyka.ripdpi.services.FlowAttribution
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStartupReconciler
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -339,6 +340,26 @@ class AppStartupInitializerTest {
         }
 
     @Test
+    fun `public initialize reconciles pending remote acceptance evidence`() =
+        runTest {
+            val reconciler = RecordingRemoteDeviceAcceptanceStartupReconciler()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    remoteDeviceAcceptanceStartupReconciler = reconciler,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(1, reconciler.calls)
+        }
+
+    @Test
     fun `process exit scan failure does not stop later startup probes`() =
         runTest {
             val lastExitInspector =
@@ -613,6 +634,8 @@ class AppStartupInitializerTest {
         resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
         lastExitInspector: LastExitInspector = NoOpLastExitInspector,
         memoryProfilingRegistrar: MemoryProfilingRegistrar = NoOpMemoryProfilingRegistrar,
+        remoteDeviceAcceptanceStartupReconciler: RemoteDeviceAcceptanceStartupReconciler =
+            NoOpRemoteDeviceAcceptanceStartupReconciler,
         profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
         scope: CoroutineScope,
     ): AppStartupInitializer =
@@ -631,6 +654,7 @@ class AppStartupInitializerTest {
                 StartupDiagnosticsProbes(
                     lastExitInspector = lastExitInspector,
                     memoryProfilingRegistrar = memoryProfilingRegistrar,
+                    remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
                 ),
             simpleFlavorStartupHooks = SimpleFlavorStartupHooks(Optional.empty(), Optional.empty()),
             appShortcutsPublisher =
@@ -663,6 +687,19 @@ private class RecordingLastExitInspector(
 
 private object NoOpMemoryProfilingRegistrar : MemoryProfilingRegistrar {
     override fun register() = Unit
+}
+
+private object NoOpRemoteDeviceAcceptanceStartupReconciler : RemoteDeviceAcceptanceStartupReconciler {
+    override suspend fun reconcilePendingRun() = Unit
+}
+
+private class RecordingRemoteDeviceAcceptanceStartupReconciler : RemoteDeviceAcceptanceStartupReconciler {
+    var calls: Int = 0
+        private set
+
+    override suspend fun reconcilePendingRun() {
+        calls += 1
+    }
 }
 
 private object NoOpResetEventRecorder : ResetEventRecorder {

@@ -23,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -106,7 +107,6 @@ class ProcessDeathReconstructionTest {
     fun pendingRemoteAcceptanceRunReconstructsAfterProcessDeath() {
         val runSuffix = System.nanoTime().toString(radix = 16)
         val interruptedRun = "process-death-$runSuffix-a"
-        val nextRun = "process-death-$runSuffix-b"
 
         runBlocking { diagnosticsHistoryResetStore.clearRuntimeHistory() }
 
@@ -132,27 +132,10 @@ class ProcessDeathReconstructionTest {
 
             killAndRelaunchApp(requiredDeadPid = firstBegin.processPid)
 
-            val secondBegin =
-                beginRemoteAcceptanceRunInAppProcess(
-                    runGeneration = nextRun,
-                    observedAtMillis = 20L,
-                )
-            assertNotEquals(
-                "Remote acceptance debug receiver must still run outside the instrumentation process",
-                Process.myPid(),
-                secondBegin.processPid,
-            )
-            assertNotEquals(
-                "Remote acceptance beginRun must execute in a relaunched app process",
-                firstBegin.processPid,
-                secondBegin.processPid,
-            )
             runBlocking {
-                assertEquals(
-                    nextRun,
+                assertNull(
                     diagnosticsDurableStateStore
-                        .getDurableState(secondBegin.pendingGenerationKey)
-                        ?.value,
+                        .getDurableState(firstBegin.pendingGenerationKey),
                 )
 
                 val interruptedEvents =
@@ -165,6 +148,7 @@ class ProcessDeathReconstructionTest {
                 assertEquals(interruptedRun, interruptedEvent.runtimeId)
                 assertEquals("remote_device_acceptance", interruptedEvent.source)
                 assertEquals("remote_acceptance", interruptedEvent.subsystem)
+                assertTrue(interruptedEvent.message.contains("reason=interrupted_before_startup"))
                 assertNull(interruptedEvent.sessionId)
                 assertNull(interruptedEvent.connectionSessionId)
                 assertNull(interruptedEvent.fingerprintHash)
