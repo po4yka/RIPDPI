@@ -717,6 +717,9 @@ class DiagnosticsArchiveRendererTest {
             "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM",
             "YQ==",
             "YWI=",
+            "qzxwvut",
+            "UVdFUlRZVVlJT1BB",
+            "jkvlmno",
         )
 
     private fun assertZipExcludes(
@@ -774,8 +777,12 @@ class DiagnosticsArchiveRendererTest {
             logcatSnapshot =
                 LogcatSnapshot(
                     content =
-                        "03-12 10:00:00.010 I/RIPDPI: YQ==\n" +
-                            "03-12 10:00:00.011 I/RIPDPI: -----END PRIVATE KEY-----\n" +
+                        "I/RIPDPI( 123): qzxwvut\n" +
+                            "I/RIPDPI( 123): UVdFUlRZVVlJT1BB\n" +
+                            "I/RIPDPI( 123): jkvlmno\n" +
+                            "I/RIPDPI( 123): -----END PRIVATE KEY-----\n" +
+                            "I/RIPDPI( 123): YQ==\n" +
+                            "I/RIPDPI( 123): -----END CERTIFICATE-----\n" +
                             "03-12 10:00:00.012 I/RIPDPI: resolver。xn--p1ai\n",
                     captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
                     byteCount = 192,

@@ -488,21 +488,26 @@ private val PemBlockRegex =
         "-----BEGIN [^-\\r\\n]+-----.*?(?:-----END [^-\\r\\n]+-----|\\z)",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
-private const val PemLongBase64LinePattern = "[A-Za-z0-9+/=]{8,}"
-private const val PemShortBase64LinePattern =
-    "(?=[^\\r\\n]*(?-i:[A-Z0-9+/=]))[A-Za-z0-9+/]{1,7}={0,2}"
+private const val PemFullBase64LinePattern = "[A-Za-z0-9+/]{8,}={0,2}"
+private const val PemShortBase64FragmentPattern = "[A-Za-z0-9+/]{1,7}={0,2}"
 private const val SensitivePemEndLabelPattern =
     "[A-Z0-9 ]*(?:CERTIFICATE(?: REQUEST)?|PRIVATE KEY|PUBLIC KEY)[A-Z0-9 ]*"
 private const val AndroidLogcatLinePrefixPattern =
-    "\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+" +
-        "(?:(?:\\d+\\s+){2}[VDIWEF]\\s+[^:\\r\\n]+|[VDIWEF]/[^:\\r\\n]+):\\s*"
+    "(?:\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+" +
+        "(?:(?:\\d+\\s+){2}[VDIWEF]\\s+[^:\\r\\n]+|[VDIWEF]/[^:\\r\\n]+):\\s*|" +
+        "[VDIWEF]/[^()\\r\\n]+\\(\\s*\\d+\\):\\s*)"
+
+// Fail closed: base64-alphabet lines immediately before a sensitive END marker are secret material,
+// even when a fragment could also be read as an ordinary word.
 private val PemTailRegex =
     Regex(
-        "(?m)(^|\\r?\\n)(?:" +
-            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemLongBase64LinePattern[ \\t]*\\r?\\n)+" +
-            "(?:$AndroidLogcatLinePrefixPattern)?-----END $SensitivePemEndLabelPattern-----|" +
-            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemLongBase64LinePattern[ \\t]*\\r?\\n)*" +
-            "(?:$AndroidLogcatLinePrefixPattern)?$PemShortBase64LinePattern[ \\t]*\\r?\\n" +
+        "(?m)(^|\\r?\\n)(?:(?:" +
+            "(?:$AndroidLogcatLinePrefixPattern)?$PemShortBase64FragmentPattern[ \\t]*\\r?\\n" +
+            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemFullBase64LinePattern[ \\t]*\\r?\\n)*" +
+            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemShortBase64FragmentPattern[ \\t]*\\r?\\n)?|" +
+            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemFullBase64LinePattern[ \\t]*\\r?\\n)+" +
+            "(?:(?:$AndroidLogcatLinePrefixPattern)?$PemShortBase64FragmentPattern[ \\t]*\\r?\\n)?" +
+            ")" +
             "(?:$AndroidLogcatLinePrefixPattern)?-----END $SensitivePemEndLabelPattern-----)",
         RegexOption.IGNORE_CASE,
     )

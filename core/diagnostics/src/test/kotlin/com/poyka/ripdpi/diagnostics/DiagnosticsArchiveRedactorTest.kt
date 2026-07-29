@@ -356,7 +356,7 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
-    fun `archive redactor removes short pem tails without consuming ordinary text`() {
+    fun `archive redactor removes short pem tails with fail closed sensitive end policy`() {
         val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
         val certificateEnd = listOf("-----END", "CERTIFICATE-----").joinToString(" ")
         val shortTails =
@@ -371,17 +371,21 @@ class DiagnosticsArchiveRedactorTest {
                 "YQ==" to privateKeyEnd,
                 "YWI=" to certificateEnd,
                 "eg==" to certificateEnd,
+                "aaaa" to privateKeyEnd,
             )
 
         shortTails.forEach { (tail, endMarker) ->
-            val raw = "before\n$tail\n$endMarker\nafter"
+            val raw = "before:\n$tail\n$endMarker\nafter"
             val redacted = redactDiagnosticsArchiveText(raw)
 
-            assertEquals("before\n<pem-redacted>\nafter", redacted)
+            assertEquals("before:\n<pem-redacted>\nafter", redacted)
         }
 
+        val failClosed = "ordinary preface: keep\nnote\n$privateKeyEnd\nafter"
+        assertEquals("ordinary preface: keep\n<pem-redacted>\nafter", redactDiagnosticsArchiveText(failClosed))
+
         listOf(
-            "before\nnote\n$privateKeyEnd\nafter",
+            "before\nordinary text without a marker\nafter",
             "before\nordinary\n-----END TRACE-----\nafter",
         ).forEach { ordinary ->
             assertEquals(ordinary, redactDiagnosticsArchiveText(ordinary))
@@ -389,20 +393,35 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
+    fun `archive redactor removes head cut multiline pem tail from earliest fragment`() {
+        val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
+        val fullLine = "QUJDREVGR0hJSktM"
+        val raw = "ordinary preface: keep\nABC\n$fullLine\naaaa\n$privateKeyEnd\nafter"
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals("ordinary preface: keep\n<pem-redacted>\nafter", redacted)
+    }
+
+    @Test
     fun `archive redactor removes logcat prefixed pem tail`() {
         val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
         val briefPrefix = "03-12 10:00:00.010 I/RIPDPI: "
         val threadtimePrefix = "03-12 10:00:00.011 123 456 I RIPDPI: "
+        val canonicalBriefPrefix = "I/RIPDPI( 123): "
+        val fullLine = "QUJDREVGR0hJSktM"
         val raw =
             "before\n" +
-                "${briefPrefix}YQ==\n$privateKeyEnd\n" +
-                "ABC\n$threadtimePrefix$privateKeyEnd\n" +
+                "${briefPrefix}ABC\n$fullLine\n${threadtimePrefix}aaaa\n$threadtimePrefix$privateKeyEnd\n" +
+                "${canonicalBriefPrefix}YQ==\n$canonicalBriefPrefix$privateKeyEnd\n" +
                 "after"
 
         val redacted = redactDiagnosticsLogcat(raw)
 
         assertFalse(redacted.contains("YQ=="))
         assertFalse(redacted.contains("ABC"))
+        assertFalse(redacted.contains("aaaa"))
+        assertFalse(redacted.contains(fullLine))
         assertFalse(redacted.contains(privateKeyEnd))
         assertTrue(redacted.contains("before"))
         assertTrue(redacted.contains("after"))
