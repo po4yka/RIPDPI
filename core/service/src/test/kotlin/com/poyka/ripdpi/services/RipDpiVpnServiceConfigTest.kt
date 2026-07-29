@@ -60,6 +60,21 @@ class RipDpiVpnServiceConfigTest {
             )
 
         assertEquals(1_280, parameters.tunnelMtu)
+        assertNull(parameters.appliedEncapsulationBudgetBytes)
+    }
+
+    @Test
+    fun tunnelNetworkPolicyReportsEffectiveBudgetWhenFloorClampsReduction() {
+        val linkProperties = LinkProperties().apply { mtu = 1_300 }
+
+        val parameters =
+            VpnTunnelNetworkPolicy.parameters(
+                linkProperties = linkProperties,
+                capabilities = NetworkCapabilities(),
+            )
+
+        assertEquals(1_280, parameters.tunnelMtu)
+        assertEquals(20, parameters.appliedEncapsulationBudgetBytes)
     }
 
     @Test
@@ -71,6 +86,7 @@ class RipDpiVpnServiceConfigTest {
             )
 
         assertEquals(defaultTun2SocksTunnelMtu, parameters.tunnelMtu)
+        assertNull(parameters.appliedEncapsulationBudgetBytes)
     }
 
     @Test

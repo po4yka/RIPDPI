@@ -148,7 +148,12 @@ class VpnTunnelRuntimeTest {
     @Test
     fun startPassesAdaptiveTunnelMtuToNativeConfig() =
         runTest {
-            val parameters = VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true)
+            val parameters =
+                VpnTunnelNetworkParameters(
+                    tunnelMtu = 1_320,
+                    metered = true,
+                    appliedEncapsulationBudgetBytes = 80,
+                )
             val host =
                 TestVpnServiceHost(backgroundScope).apply {
                     tunnelNetworkParameters = parameters
@@ -177,7 +182,7 @@ class VpnTunnelRuntimeTest {
             assertEquals(1_320, bridge.startedConfig?.tunnelMtu)
             assertEquals(parameters, sessionProvider.lastNetworkParameters)
             assertEquals(1_320, receiptStore.snapshot()?.appliedTunnelMtu)
-            assertEquals(80, receiptStore.snapshot()?.configuredEncapsulationBudgetBytes)
+            assertEquals(80, receiptStore.snapshot()?.appliedEncapsulationBudgetBytes)
             assertEquals(true, receiptStore.snapshot()?.metered)
             assertEquals("tun2socks", receiptStore.snapshot()?.effectiveEgress)
         }

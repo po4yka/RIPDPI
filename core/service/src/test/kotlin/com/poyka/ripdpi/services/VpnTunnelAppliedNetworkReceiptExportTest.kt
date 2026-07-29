@@ -40,7 +40,11 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
             val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
             serviceStateStore.updateTelemetry(snapshot)
             receiptStore.publish(
-                VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true),
+                VpnTunnelNetworkParameters(
+                    tunnelMtu = 1_320,
+                    metered = true,
+                    appliedEncapsulationBudgetBytes = 80,
+                ),
                 apiLevel = Build.VERSION_CODES.Q,
             )
             val probe =
@@ -92,6 +96,35 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
             )
 
         assertEquals(true, receipt.metered)
+    }
+
+    @Test
+    fun `receipt exports effective budget and keeps unknown budget unavailable`() {
+        val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
+        val observation = FixedUnderlayObservationProvider.capture()
+        val clampedReceipt =
+            receiptStore.publish(
+                VpnTunnelNetworkParameters(
+                    tunnelMtu = 1_280,
+                    appliedEncapsulationBudgetBytes = 20,
+                ),
+                apiLevel = Build.VERSION_CODES.Q,
+            )
+
+        assertEquals(
+            20,
+            observation.toRemoteDeviceAcceptanceUnderlay(clampedReceipt).configuredEncapsulationBudgetBytes,
+        )
+
+        val unknownReceipt =
+            receiptStore.publish(
+                VpnTunnelNetworkParameters(),
+                apiLevel = Build.VERSION_CODES.Q,
+            )
+
+        assertNull(
+            observation.toRemoteDeviceAcceptanceUnderlay(unknownReceipt).configuredEncapsulationBudgetBytes,
+        )
     }
 
     private fun successfulCapabilityProbe(): RelayCapabilityProbe =

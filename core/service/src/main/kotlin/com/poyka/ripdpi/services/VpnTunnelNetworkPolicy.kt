@@ -12,12 +12,13 @@ import javax.inject.Singleton
 data class VpnTunnelNetworkParameters(
     val tunnelMtu: Int = defaultTun2SocksTunnelMtu,
     val metered: Boolean = false,
+    val appliedEncapsulationBudgetBytes: Int? = null,
 )
 
 data class VpnTunnelAppliedNetworkReceipt(
     val generation: Long,
     val appliedTunnelMtu: Int,
-    val configuredEncapsulationBudgetBytes: Int,
+    val appliedEncapsulationBudgetBytes: Int?,
     val metered: Boolean?,
     val effectiveEgress: String,
 )
@@ -36,7 +37,7 @@ class VpnTunnelAppliedNetworkReceiptStore
             VpnTunnelAppliedNetworkReceipt(
                 generation = nextGeneration.incrementAndGet(),
                 appliedTunnelMtu = parameters.tunnelMtu,
-                configuredEncapsulationBudgetBytes = VpnTunnelNetworkPolicy.TunnelEncapsulationBudgetBytes,
+                appliedEncapsulationBudgetBytes = parameters.appliedEncapsulationBudgetBytes,
                 metered = parameters.metered.takeIf { apiLevel >= Build.VERSION_CODES.Q },
                 effectiveEgress = AppliedTun2SocksEgress,
             ).also(
@@ -58,24 +59,31 @@ internal object VpnTunnelNetworkPolicy {
     fun parameters(
         linkProperties: LinkProperties?,
         capabilities: NetworkCapabilities?,
-    ): VpnTunnelNetworkParameters =
-        VpnTunnelNetworkParameters(
-            tunnelMtu = tunnelMtu(linkProperties),
+    ): VpnTunnelNetworkParameters {
+        val linkMtu = observedLinkMtu(linkProperties)
+        val tunnelMtu = linkMtu?.let(::clampTunnelMtu) ?: defaultTun2SocksTunnelMtu
+        return VpnTunnelNetworkParameters(
+            tunnelMtu = tunnelMtu,
             metered = isMetered(capabilities),
+            appliedEncapsulationBudgetBytes = linkMtu?.minus(tunnelMtu)?.takeIf { it >= 0 },
         )
-
-    fun tunnelMtu(linkProperties: LinkProperties?): Int {
-        val linkMtu =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                linkProperties?.mtu?.takeIf { it > 0 }
-            } else {
-                null
-            } ?: return defaultTun2SocksTunnelMtu
-        return (linkMtu - TunnelEncapsulationBudgetBytes).coerceIn(TunnelMtuFloor, TunnelMtuCeiling)
     }
+
+    fun tunnelMtu(linkProperties: LinkProperties?): Int =
+        observedLinkMtu(linkProperties)?.let(::clampTunnelMtu) ?: defaultTun2SocksTunnelMtu
 
     fun isMetered(capabilities: NetworkCapabilities?): Boolean =
         capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
+
+    private fun observedLinkMtu(linkProperties: LinkProperties?): Int? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            linkProperties?.mtu?.takeIf { it > 0 }
+        } else {
+            null
+        }
+
+    private fun clampTunnelMtu(linkMtu: Int): Int =
+        (linkMtu - TunnelEncapsulationBudgetBytes).coerceIn(TunnelMtuFloor, TunnelMtuCeiling)
 }
 
 private const val AppliedTun2SocksEgress = "tun2socks"
