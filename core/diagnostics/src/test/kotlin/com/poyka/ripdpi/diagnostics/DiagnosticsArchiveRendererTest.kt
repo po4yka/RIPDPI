@@ -846,7 +846,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(summaryText.contains("pack.ru-independent-media=1"))
         assertFalse(reportText.contains("198.51.100.8"))
         assertTrue(reportText.contains("\"classifierVersion\": \"ru_ooni_v1\""))
-        assertTrue(analysisText.contains("\"networkIdentityBucket\": \"wifi:steady:fp-render\""))
+        assertTrue(analysisText.contains("\"networkIdentityBucket\": \"wifi:steady:redacted\""))
         assertTrue(
             analysisText.contains("\"targetBucket\": \"foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no\""),
         )
