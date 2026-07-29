@@ -388,6 +388,34 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `terminal outbox migrates legacy native event marker atomically`() =
+        runTest {
+            val store = RoomDiagnosticsTerminalOutboxStore(db, dao)
+            val legacyMarker =
+                nativeEvent(
+                    id = "runtime_terminal_outbox:usage-legacy",
+                    sessionId = null,
+                    createdAt = 30L,
+                ).copy(
+                    message = "legacy-v1-marker",
+                    subsystem = "runtime_terminal_outbox",
+                )
+            dao.insertNativeSessionEvent(legacyMarker)
+
+            assertEquals(
+                listOf(
+                    DiagnosticsDurableStateEntity(
+                        key = legacyMarker.id,
+                        value = legacyMarker.message,
+                        updatedAt = legacyMarker.createdAt,
+                    ),
+                ),
+                store.getPendingTerminalOutboxes(),
+            )
+            assertNull(dao.getNativeEventById(legacyMarker.id))
+        }
+
+    @Test
     fun `remembered policy record store returns validated match and prunes old records`() =
         runTest {
             val store = RoomRememberedNetworkPolicyRecordStore(dao, clock)

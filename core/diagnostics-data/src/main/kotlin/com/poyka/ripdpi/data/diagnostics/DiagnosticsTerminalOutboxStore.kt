@@ -67,7 +67,10 @@ class RoomDiagnosticsTerminalOutboxStore
             }
 
         override suspend fun getPendingTerminalOutboxes(limit: Int): List<DiagnosticsDurableStateEntity> =
-            dao.getDiagnosticsDurableStateByPrefix(TerminalOutboxDurableStatePrefix, limit)
+            db.withTransaction {
+                migrateLegacyTerminalOutboxes(limit)
+                dao.getDiagnosticsDurableStateByPrefix(TerminalOutboxDurableStatePrefix, limit)
+            }
 
         override suspend fun checkpointTerminalOutbox(
             expectedMarker: DiagnosticsDurableStateEntity,
@@ -140,6 +143,22 @@ class RoomDiagnosticsTerminalOutboxStore
 
         private suspend fun isCurrent(marker: DiagnosticsDurableStateEntity): Boolean =
             dao.getDiagnosticsDurableState(marker.key)?.value == marker.value
+
+        private suspend fun migrateLegacyTerminalOutboxes(limit: Int) {
+            dao.getPendingTerminalOutboxes(limit).forEach { legacyMarker ->
+                val durableKey = legacyMarker.id.takeIf { it.startsWith(TerminalOutboxDurableStatePrefix) }
+                if (durableKey != null && dao.getDiagnosticsDurableState(durableKey) == null) {
+                    dao.upsertDiagnosticsDurableState(
+                        DiagnosticsDurableStateEntity(
+                            key = durableKey,
+                            value = legacyMarker.message,
+                            updatedAt = legacyMarker.createdAt,
+                        ),
+                    )
+                }
+                dao.deleteNativeSessionEvent(legacyMarker.id)
+            }
+        }
     }
 
 const val TerminalOutboxDurableStatePrefix = "runtime_terminal_outbox:"
