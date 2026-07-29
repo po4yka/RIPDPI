@@ -93,10 +93,11 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
     val pathMode = parsePathMode(session.pathMode)
     val directModeVerdict = report?.directModeVerdict
     val completionPresentation = completionPresentation(report, session.status, session.summary)
+    val displaySummary = displaySessionSummary(strings, session)
     return DiagnosticsSessionRowUiModel(
         id = session.id,
         profileId = session.profileId,
-        title = session.summary,
+        title = displaySummary,
         subtitle =
             strings.getString(
                 R.string.diagnostics_session_subtitle_format,
@@ -109,7 +110,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
         status = session.status,
         completionLabel = completionPresentation.completionLabel,
         startedAtLabel = formatTimestamp(session.startedAt),
-        summary = session.summary,
+        summary = displaySummary,
         metrics =
             buildList {
                 add(

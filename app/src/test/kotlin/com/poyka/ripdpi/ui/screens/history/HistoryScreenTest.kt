@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.ui.screens.history
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionFiltersUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionsUiModel
@@ -31,6 +34,23 @@ class HistoryScreenTest {
 
     @Test
     fun historyDiagnosticsCardShowsAutomaticProbeBadge() {
+        val session =
+            DiagnosticsSessionRowUiModel(
+                id = "scan-auto",
+                profileId = "automatic-probing",
+                title = "Automatic probe summary",
+                subtitle = "RAW_PATH · VPN · Mar 27",
+                pathMode = "RAW_PATH",
+                serviceMode = "VPN",
+                status = "completed",
+                completionLabel = "Частичные результаты",
+                startedAtLabel = "Mar 27",
+                summary = "Automatic probe summary",
+                metrics = persistentListOf(),
+                tone = DiagnosticsTone.Warning,
+                launchOrigin = DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND,
+                triggerClassification = "transport_switch",
+            )
         composeRule.setContent {
             RipDpiTheme {
                 HistoryScreen(
@@ -40,26 +60,19 @@ class HistoryScreenTest {
                             diagnostics =
                                 DiagnosticsSessionsUiModel(
                                     filters = DiagnosticsSessionFiltersUiModel(),
-                                    sessions =
-                                        persistentListOf(
-                                            DiagnosticsSessionRowUiModel(
-                                                id = "scan-auto",
-                                                profileId = "automatic-probing",
-                                                title = "Automatic probe summary",
-                                                subtitle = "RAW_PATH · VPN · Mar 27",
-                                                pathMode = "RAW_PATH",
-                                                serviceMode = "VPN",
-                                                status = "completed",
-                                                startedAtLabel = "Mar 27",
-                                                summary = "Automatic probe summary",
-                                                metrics = persistentListOf(),
-                                                tone = DiagnosticsTone.Positive,
-                                                launchOrigin = DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND,
-                                                triggerClassification = "transport_switch",
-                                            ),
-                                        ),
+                                    sessions = persistentListOf(session),
                                     pathModes = persistentListOf("RAW_PATH"),
                                     statuses = persistentListOf("completed"),
+                                ),
+                            selectedDiagnosticsDetail =
+                                DiagnosticsSessionDetailUiModel(
+                                    session = session,
+                                    probeGroups = persistentListOf(),
+                                    snapshots = persistentListOf(),
+                                    events = persistentListOf(),
+                                    contextGroups = persistentListOf(),
+                                    hasSensitiveDetails = false,
+                                    sensitiveDetailsVisible = false,
                                 ),
                         ),
                     onBack = {},
@@ -92,6 +105,7 @@ class HistoryScreenTest {
                 RipDpiTestTags.historyDiagnosticsAutomaticBadge("scan-auto"),
                 useUnmergedTree = true,
             ).assertIsDisplayed()
+        composeRule.onAllNodesWithText("Частичные результаты").assertCountEquals(2)
     }
 
     @Test

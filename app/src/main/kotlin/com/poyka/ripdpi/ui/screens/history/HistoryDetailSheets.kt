@@ -64,7 +64,7 @@ internal fun DiagnosticsDetailSheet(
         testTag = RipDpiTestTags.HistoryDiagnosticsDetailSheet,
     ) {
         StatusIndicator(
-            label = detail.session.status,
+            label = detail.session.completionLabel ?: detail.session.status,
             tone = statusTone(detail.session.tone),
         )
         if (detail.reportMetadata.isNotEmpty()) {

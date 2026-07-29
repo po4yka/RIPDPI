@@ -88,7 +88,7 @@ internal fun DiagnosticsSessionCard(
         variant = RipDpiCardVariant.Elevated,
     ) {
         StatusIndicator(
-            label = session.status,
+            label = session.completionLabel ?: session.status,
             tone = statusTone(session.tone),
         )
         if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
