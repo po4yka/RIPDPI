@@ -8,6 +8,10 @@ import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import dagger.BindsOptionalOf
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
@@ -20,6 +24,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.URI
+import java.util.Optional
 import javax.inject.Inject
 
 internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
@@ -38,6 +43,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         relayCapabilityProbe: RelayCapabilityProbe,
         underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
         awgEgressSelectionProvider: AwgEgressSelectionProvider,
+        probeTargetsProvider: Optional<RemoteAcceptanceProbeTargetsProvider>,
     ) : this(
         serviceStateStore,
         relayCapabilityProbe,
@@ -45,6 +51,9 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         awgEgressSelectionProvider,
         ::captureRemoteDeviceAcceptanceDevice,
         SystemClock::elapsedRealtime,
+        probeTargetsProvider
+            .map(RemoteAcceptanceProbeTargetsProvider::targets)
+            .orElseGet(::RemoteAcceptanceProbeTargets),
     )
 
     /**
@@ -259,6 +268,17 @@ internal data class RemoteAcceptanceProbeTargets(
                 plan.relayUdpPayload != AcceptanceProbeApplicability.Required ||
                     payloadFamilies.all { family -> udpPayloadTargets[family].isValidProbeTarget() }
             )
+}
+
+internal fun interface RemoteAcceptanceProbeTargetsProvider {
+    fun targets(): RemoteAcceptanceProbeTargets
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal abstract class RemoteAcceptanceProbeTargetsProviderModule {
+    @BindsOptionalOf
+    abstract fun bindOptionalRemoteAcceptanceProbeTargetsProvider(): RemoteAcceptanceProbeTargetsProvider
 }
 
 private fun String?.isValidAcceptanceProbeUrl(): Boolean =
