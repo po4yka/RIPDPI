@@ -8,6 +8,7 @@ import androidx.work.Configuration
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.platformLogWriter
+import com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator
 import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
 import com.poyka.ripdpi.diagnostics.FileLogWriter
 import com.poyka.ripdpi.diagnostics.crash.CrashReportWriter
@@ -35,6 +36,9 @@ class RipDpiApp :
     @Inject
     lateinit var runtimeEvidenceReporter: AndroidRuntimeEvidenceReporter
 
+    @Inject
+    lateinit var applicationCoroutineScopeTerminator: ApplicationCoroutineScopeTerminator
+
     // Hilt-WorkManager integration: WorkManager queries this provider when
     // it needs to instantiate a `@HiltWorker`-annotated worker so the
     // worker's constructor dependencies resolve through Hilt instead of
@@ -60,6 +64,11 @@ class RipDpiApp :
         Logger.setLogWriters(platformLogWriter(), fileLogWriter, breadcrumbWriter)
         Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Warn)
         startupInitializer.initialize()
+    }
+
+    override fun onTerminate() {
+        applicationCoroutineScopeTerminator.terminate()
+        super.onTerminate()
     }
 
     // Android reclaims memory from backgrounded processes and, on Android 17,
