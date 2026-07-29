@@ -161,11 +161,10 @@ interface DiagnosticsDurableStateStore {
         expectedValue: String,
         dependencyKey: String,
         expectedDependencyValue: String,
-    ): Boolean {
-        if (getDurableState(dependencyKey)?.value != expectedDependencyValue) return false
-        if (!clearDurableStateIfCurrent(key, expectedValue)) return false
-        return clearDurableStateIfCurrent(dependencyKey, expectedDependencyValue)
-    }
+    ): Boolean =
+        getDurableState(dependencyKey)?.value == expectedDependencyValue &&
+            clearDurableStateIfCurrent(key, expectedValue) &&
+            clearDurableStateIfCurrent(dependencyKey, expectedDependencyValue)
 
     suspend fun insertNativeSessionEventAndUpsertDurableState(
         event: NativeSessionEventEntity,
