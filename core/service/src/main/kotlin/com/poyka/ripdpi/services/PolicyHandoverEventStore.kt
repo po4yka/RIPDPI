@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.diagnostics.PolicyHandoverDeliveryDurableStatePrefi
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,7 +21,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -285,9 +285,4 @@ private data class PolicyHandoverDeliveryEnvelopeV2(
 private const val PolicyHandoverDeliverySchemaVersion = 3
 private const val PolicyHandoverRetentionLimit = 64
 private const val PolicyHandoverRetentionMaxAgeMs = 7L * 24L * 60L * 60L * 1_000L
-private val PolicyHandoverJson =
-    Json {
-        ignoreUnknownKeys = false
-        encodeDefaults = true
-        explicitNulls = false
-    }
+private val PolicyHandoverJson = RipDpiContractJson
