@@ -28,6 +28,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.net.InetAddress
+import java.net.InetSocketAddress
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -346,9 +348,9 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
                                 RelayTcpProbeResult(succeeded = false, failure = RelayProbeFailure.TcpConnect)
                             }
                         },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             successfulPayloadHealth(families)
                         },
                 ),
@@ -394,9 +396,16 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         val Device = RemoteDeviceAcceptanceDevice("SM-S928B", "unavailable", 35, "arm64-v8a")
         val FixtureRemoteAcceptanceProbeTargets =
             RemoteAcceptanceProbeTargets(
+                catalogVersion = "fixture-v1",
                 connectivityUrl = "https://acceptance.invalid/connectivity",
                 ipv4Url = "https://acceptance-ipv4.invalid/generate_204",
                 ipv6Url = "https://acceptance-ipv6.invalid/generate_204",
+                udpAssociateTarget = InetSocketAddress("203.0.113.53", 53),
+                udpPayloadTargets =
+                    mapOf(
+                        RelayUdpPayloadFamily.Ipv4 to InetSocketAddress("203.0.113.53", 53),
+                        RelayUdpPayloadFamily.Ipv6 to InetSocketAddress(InetAddress.getByName("2001:db8::53"), 53),
+                    ),
             )
     }
 }

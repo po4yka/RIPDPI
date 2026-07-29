@@ -111,7 +111,10 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     AcceptanceRelayEvidence()
                 }
 
-                !probeTargets.hasRequiredTargetFor(context.probePlan) -> {
+                !probeTargets.hasRequiredTargetFor(
+                    context.probePlan,
+                    context.underlayObservation.mandatoryRelayUdpPayloadFamilies(),
+                ) -> {
                     AcceptanceRelayEvidence(contextError = ErrorRemoteAcceptanceProbeTargetMissing)
                 }
 
@@ -131,6 +134,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                         EgressRequirements(
                             tcpConnect = context.probePlan.relayTcp == AcceptanceProbeApplicability.Required,
                             udpAssociate = context.probePlan.relayUdp == AcceptanceProbeApplicability.Required,
+                            udpAssociateTarget = probeTargets.udpAssociateTarget,
                         ),
                     )
                 }
@@ -156,6 +160,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                         payloadHealthOrNull(
                             endpoint = relayEndpoint,
                             families = families,
+                            targets = probeTargets.udpPayloadTargets,
                             underlayGeneration = context.underlayObservation.generation,
                             serviceStartedAt = context.serviceStartedAt,
                         )
@@ -187,26 +192,35 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private suspend fun payloadHealthOrNull(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
+        targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
         underlayGeneration: Long?,
         serviceStartedAt: Long?,
     ): RelayUdpPayloadHealthEvidence? =
         if (underlayGeneration == null) {
-            loadPayloadHealth(endpoint, families)
+            loadPayloadHealth(endpoint, families, targets)
         } else {
             payloadHealthCache.getOrPut(
-                key = RelayUdpPayloadHealthCacheKey(endpoint, underlayGeneration, serviceStartedAt, families),
+                key =
+                    RelayUdpPayloadHealthCacheKey(
+                        endpoint,
+                        underlayGeneration,
+                        serviceStartedAt,
+                        families,
+                        probeTargets.catalogVersion,
+                    ),
                 nowMs = monotonicClock(),
             ) {
-                loadPayloadHealth(endpoint, families)
+                loadPayloadHealth(endpoint, families, targets)
             }
         }
 
     private suspend fun loadPayloadHealth(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
+        targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     ): RelayUdpPayloadHealthEvidence? =
         try {
-            relayCapabilityProbe.probePayloadHealth(endpoint, families)
+            relayCapabilityProbe.probePayloadHealth(endpoint, families, targets)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -223,14 +237,45 @@ private data class AcceptanceRelayEvidence(
 )
 
 internal data class RemoteAcceptanceProbeTargets(
+    val catalogVersion: String? = null,
     val connectivityUrl: String? = null,
     val ipv4Url: String? = null,
     val ipv6Url: String? = null,
+    val udpAssociateTarget: InetSocketAddress? = null,
+    val udpPayloadTargets: Map<RelayUdpPayloadFamily, InetSocketAddress> = emptyMap(),
 ) {
-    fun hasRequiredTargetFor(plan: AcceptanceTransportProbePlan): Boolean =
-        connectivityUrl != null &&
-            (plan.relayTcp != AcceptanceProbeApplicability.Required || (ipv4Url != null && ipv6Url != null))
+    fun hasRequiredTargetFor(
+        plan: AcceptanceTransportProbePlan,
+        payloadFamilies: Set<RelayUdpPayloadFamily>,
+    ): Boolean =
+        !catalogVersion.isNullOrBlank() &&
+            connectivityUrl.isValidAcceptanceProbeUrl() &&
+            (
+                plan.relayTcp != AcceptanceProbeApplicability.Required ||
+                    (ipv4Url.isValidAcceptanceProbeUrl() && ipv6Url.isValidAcceptanceProbeUrl())
+            ) &&
+            (plan.relayUdp != AcceptanceProbeApplicability.Required || udpAssociateTarget.isValidProbeTarget()) &&
+            (
+                plan.relayUdpPayload != AcceptanceProbeApplicability.Required ||
+                    payloadFamilies.all { family -> udpPayloadTargets[family].isValidProbeTarget() }
+            )
 }
+
+private fun String?.isValidAcceptanceProbeUrl(): Boolean =
+    this?.let { value ->
+        runCatching { URI(value) }
+            .getOrNull()
+            ?.let { uri ->
+                uri.scheme.equals("https", ignoreCase = true) &&
+                    !uri.host.isNullOrBlank() &&
+                    uri.rawUserInfo == null &&
+                    uri.rawQuery == null &&
+                    uri.rawFragment == null
+            }
+    } == true
+
+private fun InetSocketAddress?.isValidProbeTarget(): Boolean =
+    this != null && port in ValidProbePortRange && !hostString.isNullOrBlank()
 
 private data class AcceptanceCaptureContext(
     val status: AppStatus,
@@ -311,6 +356,7 @@ internal data class RelayUdpPayloadHealthCacheKey(
     val underlayGeneration: Long?,
     val serviceStartedAt: Long?,
     val families: Set<RelayUdpPayloadFamily>,
+    val targetCatalogVersion: String? = null,
 )
 
 internal data class CachedRelayUdpPayloadHealth(
@@ -466,6 +512,7 @@ private val TcpOnlyRequirements = EgressRequirements(tcpConnect = true, udpAssoc
 private const val MaxNetworkPort = 65_535
 private const val MaxPayloadHealthCacheEntries = 16
 private const val PayloadHealthCacheCooldownMs = 60_000L
+private val ValidProbePortRange = 1..65_535
 private const val HealthyRuntimeState = "healthy"
 
 private object NoSelectedAwgEgressProvider : AwgEgressSelectionProvider {

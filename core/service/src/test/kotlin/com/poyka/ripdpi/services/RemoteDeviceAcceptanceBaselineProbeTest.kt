@@ -20,6 +20,8 @@ import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.InetAddress
+import java.net.InetSocketAddress
 
 class RemoteDeviceAcceptanceBaselineProbeTest {
     @Test
@@ -52,6 +54,8 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
     fun `missing configured targets do not make hidden public probe calls`() =
         runTest {
             val requestedUrls = mutableListOf<String>()
+            var udpCalls = 0
+            var payloadCalls = 0
             val snapshot = runningRealitySnapshot()
             val store = TestServiceStateStore(AppStatus.Running to Mode.VPN)
             store.updateTelemetry(snapshot)
@@ -65,7 +69,16 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                                     requestedUrls += url
                                     RelayTcpProbeResult(succeeded = true, statusCode = 204)
                                 },
-                            udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                            udpProbe =
+                                RelayUdpAssociateProbe { _, _ ->
+                                    udpCalls += 1
+                                    RelayUdpProbeResult.success()
+                                },
+                            payloadHealthProbe =
+                                RelayUdpPayloadHealthProbe { _, families, _ ->
+                                    payloadCalls += 1
+                                    successfulPayloadHealth(families)
+                                },
                         ),
                     underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
                     deviceProvider = { Device },
@@ -75,6 +88,8 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             val report = probe.capture(snapshot)
 
             assertTrue(requestedUrls.isEmpty())
+            assertEquals(0, udpCalls)
+            assertEquals(0, payloadCalls)
             assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
             assertEquals(ErrorRemoteAcceptanceProbeTargetMissing, report.step(StepRealityTcp).errorClass)
             assertEquals(ErrorRemoteAcceptanceProbeTargetMissing, report.step(StepIpv4).errorClass)
@@ -101,9 +116,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                                 RelayTcpProbeResult(succeeded = true, statusCode = 204)
                             }
                         },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             successfulPayloadHealth(families)
                         },
                 )
@@ -214,9 +229,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             val capabilityProbe =
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             payloadCalls += 1
                             successfulPayloadHealth(families)
                         },
@@ -257,9 +272,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             val capabilityProbe =
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             serviceStateStore.updateTelemetry(
                                 runningRealitySnapshot(listenerAddress = "127.0.0.1:1081"),
                             )
@@ -303,9 +318,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                             )
                             error("connectivity probe unavailable")
                         },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             successfulPayloadHealth(families)
                         },
                 )
@@ -339,9 +354,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             val capabilityProbe =
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             payloadCalls += 1
                             successfulPayloadHealth(families)
                         },
@@ -373,9 +388,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             val capabilityProbe =
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             payloadCalls += 1
                             successfulPayloadHealth(families)
                         },
@@ -407,9 +422,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             val capabilityProbe =
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
                     payloadHealthProbe =
-                        RelayUdpPayloadHealthProbe { _, families ->
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
                             payloadCalls += 1
                             successfulPayloadHealth(families)
                         },
@@ -495,6 +510,31 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         }
 
     @Test
+    fun `payload health cache target catalog version change invalidates evidence`() =
+        runTest {
+            val cache = RelayUdpPayloadHealthCache()
+            var payloadCalls = 0
+            val loader =
+                suspend {
+                    payloadCalls += 1
+                    successfulPayloadHealth(setOf(RelayUdpPayloadFamily.Ipv4))
+                }
+
+            cache.getOrPut(
+                payloadCacheKey().copy(targetCatalogVersion = "v1"),
+                nowMs = 1_000L,
+                loader = loader,
+            )
+            cache.getOrPut(
+                payloadCacheKey().copy(targetCatalogVersion = "v2"),
+                nowMs = 1_000L,
+                loader = loader,
+            )
+
+            assertEquals(2, payloadCalls)
+        }
+
+    @Test
     fun `payload health cache follower retries after shared leader is cancelled`() =
         runTest {
             val cache = RelayUdpPayloadHealthCache()
@@ -541,9 +581,9 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
     ): RelayCapabilityProbe =
         RelayCapabilityProbe(
             tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-            udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+            udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
             payloadHealthProbe =
-                RelayUdpPayloadHealthProbe { _, families ->
+                RelayUdpPayloadHealthProbe { _, families, _ ->
                     observedFamilies += families
                     successfulPayloadHealth(families)
                 },
@@ -588,11 +628,20 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         const val FixtureConnectivityProbeUrl = "https://acceptance.invalid/connectivity"
         const val FixtureIpv4ProbeUrl = "https://acceptance-ipv4.invalid/generate_204"
         const val FixtureIpv6ProbeUrl = "https://acceptance-ipv6.invalid/generate_204"
+        val FixtureUdpAssociateTarget = InetSocketAddress("203.0.113.53", 53)
+        val FixtureUdpPayloadTargets =
+            mapOf(
+                RelayUdpPayloadFamily.Ipv4 to InetSocketAddress("203.0.113.53", 53),
+                RelayUdpPayloadFamily.Ipv6 to InetSocketAddress(InetAddress.getByName("2001:db8::53"), 53),
+            )
         val FixtureRemoteAcceptanceProbeTargets =
             RemoteAcceptanceProbeTargets(
+                catalogVersion = "fixture-v1",
                 connectivityUrl = FixtureConnectivityProbeUrl,
                 ipv4Url = FixtureIpv4ProbeUrl,
                 ipv6Url = FixtureIpv6ProbeUrl,
+                udpAssociateTarget = FixtureUdpAssociateTarget,
+                udpPayloadTargets = FixtureUdpPayloadTargets,
             )
         val DualStackUnderlay =
             NetworkPathObservation(

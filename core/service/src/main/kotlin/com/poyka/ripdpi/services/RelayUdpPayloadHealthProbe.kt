@@ -8,7 +8,6 @@ import java.io.DataOutputStream
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.DatagramSocket
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ProtocolException
 import java.net.Socket
@@ -96,6 +95,7 @@ internal fun interface RelayUdpPayloadHealthProbe {
     suspend fun probe(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
+        targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     ): RelayUdpPayloadHealthEvidence
 }
 
@@ -157,7 +157,6 @@ internal fun classifyRelayUdpPayloadFamily(
 }
 
 internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
-    private val targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     private val timeoutMillis: Int,
     private val payloadSizesBytes: List<Int>,
     initialTransactionId: Int = SecureRandom().nextInt(DnsTransactionIdUpperBound),
@@ -172,12 +171,6 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
     }
 
     constructor() : this(
-        targets =
-            mapOf(
-                RelayUdpPayloadFamily.Ipv4 to InetSocketAddress(DefaultDnsIpv4Address, DnsPort),
-                RelayUdpPayloadFamily.Ipv6 to
-                    InetSocketAddress(InetAddress.getByName(DefaultDnsIpv6Address), DnsPort),
-            ),
         timeoutMillis = UdpPayloadProbeTimeoutMillis,
         payloadSizesBytes = DefaultUdpPayloadLadderBytes,
     )
@@ -189,9 +182,10 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
     override suspend fun probe(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
+        targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     ): RelayUdpPayloadHealthEvidence =
         try {
-            runInterruptible(Dispatchers.IO) { probeBlocking(endpoint, families) }
+            runInterruptible(Dispatchers.IO) { probeBlocking(endpoint, families, targets) }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: SocketTimeoutException) {
@@ -205,6 +199,7 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
     private fun probeBlocking(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
+        targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     ): RelayUdpPayloadHealthEvidence {
         val familyResults =
             families
@@ -325,7 +320,7 @@ private fun sizedDnsQuery(
     payloadSizeBytes: Int,
     queryId: Int,
 ): ByteArray {
-    val question = "example.com".dnsQuestion()
+    val question = "invalid".dnsQuestion()
     val baseQueryBytes = DnsHeaderBytes + question.size
     val includePadding = payloadSizeBytes >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
     val querySize = if (includePadding) payloadSizeBytes else baseQueryBytes
@@ -440,9 +435,6 @@ private const val DnsRecursionDesiredFlag: Byte = 1
 private const val DnsSingleRecordCount: Byte = 1
 private const val DnsZeroByte: Byte = 0
 private const val DnsRootLabel: Byte = 0
-private const val DnsPort = 53
-private const val DefaultDnsIpv4Address = "94.140.14.14"
-private const val DefaultDnsIpv6Address = "2a10:50c0::ad1:ff"
 private const val EdnsUdpPayloadSize = 1_232
 private const val EdnsPaddingMinimumOverheadBytes = 15
 private const val EdnsOptionHeaderBytes = 4

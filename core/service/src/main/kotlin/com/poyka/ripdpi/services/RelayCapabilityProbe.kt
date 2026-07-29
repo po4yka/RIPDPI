@@ -55,6 +55,7 @@ enum class RelayProbeFailure(
 ) {
     TcpConnect("tcp_connect"),
     TcpHttpStatus("tcp_http_status"),
+    UdpProbeTargetMissing("udp_probe_target_missing"),
     UdpAssociateOpen("udp_associate_open"),
     UdpWrite("udp_write"),
     UdpReadTimeout("udp_read_timeout"),
@@ -101,7 +102,10 @@ internal fun classifyUdpAssociationIoFailure(associationOpened: Boolean): RelayP
     if (associationOpened) RelayProbeFailure.UdpIo else RelayProbeFailure.UdpAssociateOpen
 
 internal fun interface RelayUdpAssociateProbe {
-    suspend fun probe(endpoint: RelayProbeEndpoint): RelayUdpProbeResult
+    suspend fun probe(
+        endpoint: RelayProbeEndpoint,
+        dnsTarget: InetSocketAddress,
+    ): RelayUdpProbeResult
 }
 
 /**
@@ -152,12 +156,22 @@ class RelayCapabilityProbe internal constructor(
                 }
             val udp =
                 if (requirements.udpAssociate) {
-                    async { udpProbe.probe(endpoint) }
+                    val dnsTarget = requirements.udpAssociateTarget
+                    if (dnsTarget == null) {
+                        null
+                    } else {
+                        async { udpProbe.probe(endpoint, dnsTarget) }
+                    }
                 } else {
                     null
                 }
             val tcpResult = tcp?.await() ?: RelayTcpProbeResult(succeeded = true)
-            val udpResult = udp?.await() ?: RelayUdpProbeResult.notRequired()
+            val udpResult =
+                when {
+                    udp != null -> udp.await()
+                    requirements.udpAssociate -> RelayUdpProbeResult.failure(RelayProbeFailure.UdpProbeTargetMissing)
+                    else -> RelayUdpProbeResult.notRequired()
+                }
             RelayCapabilityProbeEvidence(
                 tcpSucceeded = tcpResult.succeeded,
                 tcpStatusCode = tcpResult.statusCode,
@@ -173,7 +187,8 @@ class RelayCapabilityProbe internal constructor(
     suspend fun probePayloadHealth(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
-    ): RelayUdpPayloadHealthEvidence = payloadHealthProbe.probe(endpoint, families)
+        targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
+    ): RelayUdpPayloadHealthEvidence = payloadHealthProbe.probe(endpoint, families, targets)
 }
 
 private class OkHttpRelayTcpProbe : RelayTcpProbe {
@@ -244,11 +259,9 @@ private class OkHttpRelayTcpProbe : RelayTcpProbe {
 }
 
 internal class Socks5DnsUdpAssociateProbe internal constructor(
-    private val dnsTarget: InetSocketAddress,
     private val timeoutMillis: Int,
 ) : RelayUdpAssociateProbe {
     constructor() : this(
-        dnsTarget = InetSocketAddress(DefaultDnsAddress, DnsPort),
         timeoutMillis = UdpProbeTimeoutMillis,
     )
 
@@ -256,9 +269,12 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
      * cancel-safe at the coroutine boundary: all blocking socket operations
      * have a fixed deadline and every socket is closed before returning.
      */
-    override suspend fun probe(endpoint: RelayProbeEndpoint): RelayUdpProbeResult =
+    override suspend fun probe(
+        endpoint: RelayProbeEndpoint,
+        dnsTarget: InetSocketAddress,
+    ): RelayUdpProbeResult =
         try {
-            runInterruptible(Dispatchers.IO) { probeBlocking(endpoint) }
+            runInterruptible(Dispatchers.IO) { probeBlocking(endpoint, dnsTarget) }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: SocketTimeoutException) {
@@ -267,7 +283,10 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
             RelayUdpProbeResult.failure(RelayProbeFailure.UdpIo)
         }
 
-    private fun probeBlocking(endpoint: RelayProbeEndpoint): RelayUdpProbeResult {
+    private fun probeBlocking(
+        endpoint: RelayProbeEndpoint,
+        dnsTarget: InetSocketAddress,
+    ): RelayUdpProbeResult {
         var associationOpened = false
         return try {
             Socket().use { control ->
@@ -416,10 +435,8 @@ private fun dnsQuestion(): ByteArray {
         }
     return byteArrayOf(nonceLabel.size.toByte()) +
         nonceLabel +
-        byteArrayOf(DnsExampleLabel.size.toByte()) +
-        DnsExampleLabel +
-        byteArrayOf(DnsComLabel.size.toByte()) +
-        DnsComLabel +
+        byteArrayOf(DnsInvalidLabel.size.toByte()) +
+        DnsInvalidLabel +
         byteArrayOf(DnsNameTerminator) +
         unsignedShortBytes(DnsRecordTypeA) +
         unsignedShortBytes(DnsClassInternet)
@@ -469,8 +486,6 @@ private const val DnsRecordTypeA = 1
 private const val DnsClassInternet = 1
 private const val DnsRecordTypeOpt = 41
 private const val DnsNameTerminator: Byte = 0
-private const val DnsPort = 53
-private const val DefaultDnsAddress = "94.140.14.14"
 private const val EdnsUdpPayloadSize = 1_232
 private const val EdnsPaddingMinimumOverheadBytes = 15
 private const val EdnsOptionHeaderBytes = 4
@@ -494,8 +509,7 @@ private const val ReplySucceeded = 0
 private const val AddressIpv4: Byte = 1
 private const val AddressIpv6: Byte = 4
 private val SuccessfulStatusRange = 200..299
-private val DnsExampleLabel = "example".toByteArray(StandardCharsets.US_ASCII)
-private val DnsComLabel = "com".toByteArray(StandardCharsets.US_ASCII)
+private val DnsInvalidLabel = "invalid".toByteArray(StandardCharsets.US_ASCII)
 private val DnsNonceAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789".toByteArray(StandardCharsets.US_ASCII)
 private val DnsSecureRandom = SecureRandom()
 private val SocksUdpAssociateRequest =

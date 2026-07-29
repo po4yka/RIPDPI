@@ -58,7 +58,40 @@ class RelayCapabilityProbeTest {
             val probe =
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
-                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout) },
+                    udpProbe =
+                        RelayUdpAssociateProbe { _, _ ->
+                            RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout)
+                        },
+                )
+
+            val result =
+                probe.probe(
+                    endpoint = RelayProbeEndpoint("127.0.0.1", 1080),
+                    url = "https://probe.example/generate_204",
+                    requirements =
+                        EgressRequirements(
+                            tcpConnect = true,
+                            udpAssociate = true,
+                            udpAssociateTarget = FixtureUdpTarget,
+                        ),
+                )
+
+            assertFalse(result.succeeded)
+            assertEquals(RelayProbeFailure.UdpReadTimeout.wireValue, result.failure)
+        }
+
+    @Test
+    fun `udp requirement fails closed without an explicit udp target`() =
+        runBlocking {
+            var udpProbeCalls = 0
+            val probe =
+                RelayCapabilityProbe(
+                    tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
+                    udpProbe =
+                        RelayUdpAssociateProbe { _, _ ->
+                            udpProbeCalls++
+                            RelayUdpProbeResult.success()
+                        },
                 )
 
             val result =
@@ -69,7 +102,8 @@ class RelayCapabilityProbeTest {
                 )
 
             assertFalse(result.succeeded)
-            assertEquals(RelayProbeFailure.UdpReadTimeout.wireValue, result.failure)
+            assertEquals(RelayProbeFailure.UdpProbeTargetMissing.wireValue, result.failure)
+            assertEquals(0, udpProbeCalls)
         }
 
     @Test
@@ -80,7 +114,7 @@ class RelayCapabilityProbeTest {
                 RelayCapabilityProbe(
                     tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
                     udpProbe =
-                        RelayUdpAssociateProbe {
+                        RelayUdpAssociateProbe { _, _ ->
                             udpProbeCalls++
                             RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout)
                         },
@@ -101,7 +135,7 @@ class RelayCapabilityProbeTest {
     @Test
     fun `socks udp probe accepts a matching dns response`() {
         SocksUdpFixture(Behavior.Respond).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertTrue(result.succeeded)
             assertNull(result.failure)
@@ -112,7 +146,7 @@ class RelayCapabilityProbeTest {
     fun `socks udp probe adds question entropy beyond transaction id`() {
         SocksUdpFixture(Behavior.Respond).use { fixture ->
             repeat(2) {
-                val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+                val result = fixture.probeUdp()
                 assertTrue(result.succeeded)
             }
 
@@ -128,7 +162,7 @@ class RelayCapabilityProbeTest {
             behavior = Behavior.ContaminantsThenRespond,
             probeTimeoutMillis = 400,
         ).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertTrue(fixture.legitimateResponseSent())
             assertTrue(result.succeeded)
@@ -139,7 +173,7 @@ class RelayCapabilityProbeTest {
     @Test
     fun `socks udp probe rejects matching payload from wrong relay`() {
         SocksUdpFixture(Behavior.WrongRelayOnly).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertFalse(result.succeeded)
             assertEquals(RelayProbeFailure.DnsResponse, result.failure)
@@ -149,7 +183,7 @@ class RelayCapabilityProbeTest {
     @Test
     fun `socks udp probe rejects same transaction id with wrong question`() {
         SocksUdpFixture(Behavior.SameIdWrongQuestionOnly).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertFalse(result.succeeded)
             assertEquals(RelayProbeFailure.DnsResponse, result.failure)
@@ -164,7 +198,7 @@ class RelayCapabilityProbeTest {
         ).use { fixture ->
             val startedAt = System.nanoTime()
 
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
             val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
 
             assertFalse(result.succeeded)
@@ -176,7 +210,7 @@ class RelayCapabilityProbeTest {
     @Test
     fun `socks udp probe classifies a missing dns response as read timeout`() {
         SocksUdpFixture(Behavior.Blackhole).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertFalse(result.succeeded)
             assertTrue(result.associationOpened)
@@ -187,7 +221,7 @@ class RelayCapabilityProbeTest {
     @Test
     fun `socks udp probe rejects a failed udp association`() {
         SocksUdpFixture(Behavior.RejectAssociation).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertFalse(result.succeeded)
             assertEquals(RelayProbeFailure.UdpAssociateOpen, result.failure)
@@ -197,7 +231,7 @@ class RelayCapabilityProbeTest {
     @Test
     fun `socks udp probe rejects a non-response dns payload`() {
         SocksUdpFixture(Behavior.MalformedDns).use { fixture ->
-            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val result = fixture.probeUdp()
 
             assertFalse(result.succeeded)
             assertEquals(RelayProbeFailure.DnsResponse, result.failure)
@@ -254,6 +288,7 @@ class RelayCapabilityProbeTest {
                     fixture.payloadProbe.probe(
                         endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                         families = setOf(RelayUdpPayloadFamily.Ipv4, RelayUdpPayloadFamily.Ipv6),
+                        targets = payloadTargets(),
                     )
                 }
 
@@ -312,6 +347,7 @@ class RelayCapabilityProbeTest {
                     fixture.payloadProbe.probe(
                         endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                         families = setOf(RelayUdpPayloadFamily.Ipv4),
+                        targets = payloadTargets(),
                     )
                 }
 
@@ -333,6 +369,7 @@ class RelayCapabilityProbeTest {
                     .probe(
                         endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                         families = setOf(RelayUdpPayloadFamily.Ipv4),
+                        targets = payloadTargets(),
                     )
             }
 
@@ -376,6 +413,7 @@ class RelayUdpPayloadFailureBoundaryTest {
                         .probe(
                             endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                             families = setOf(RelayUdpPayloadFamily.Ipv4),
+                            targets = payloadTargets(),
                         )
                 }
 
@@ -395,6 +433,7 @@ class RelayUdpPayloadFailureBoundaryTest {
                             .probe(
                                 endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                                 families = setOf(RelayUdpPayloadFamily.Ipv4),
+                                targets = payloadTargets(),
                             )
                     }
                     null
@@ -439,14 +478,13 @@ private class SocksUdpFixture(
     private val worker = thread(name = "socks-udp-probe-fixture") { serve() }
 
     val port: Int = tcp.localPort
+    val udpTarget: InetSocketAddress = InetSocketAddress("203.0.113.53", 53)
     val probe =
         Socks5DnsUdpAssociateProbe(
-            dnsTarget = InetSocketAddress("203.0.113.53", 53),
             timeoutMillis = probeTimeoutMillis,
         )
     val payloadProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            targets = payloadTargets(),
             timeoutMillis = 500,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
         )
@@ -538,9 +576,13 @@ private class SocksUdpFixture(
 
     fun legitimateResponseSent(): Boolean = sentLegitimateResponse.get()
 
+    fun probeUdp(): RelayUdpProbeResult =
+        runBlocking {
+            probe.probe(RelayProbeEndpoint("127.0.0.1", port), udpTarget)
+        }
+
     fun payloadProbeWithQueryFactory(queryFactory: (Int, Int) -> ByteArray): RelayUdpPayloadHealthProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            targets = payloadTargets(),
             timeoutMillis = 500,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
             queryFactory = queryFactory,
@@ -548,7 +590,6 @@ private class SocksUdpFixture(
 
     fun payloadProbeWithInitialTransactionId(initialTransactionId: Int): RelayUdpPayloadHealthProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            targets = payloadTargets(),
             timeoutMillis = 500,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
             initialTransactionId = initialTransactionId,
@@ -746,3 +787,4 @@ private const val SocksIpv4AddressType: Byte = 1
 private const val DelayedLegitimateResponseMillis = 50L
 private const val ContinuousContaminantMillis = 400L
 private const val MaximumBasicProbeDeadlineMillis = 500L
+private val FixtureUdpTarget = InetSocketAddress("203.0.113.53", 53)

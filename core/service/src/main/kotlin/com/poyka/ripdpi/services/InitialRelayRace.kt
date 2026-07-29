@@ -5,6 +5,7 @@ import dagger.BindsOptionalOf
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import java.net.InetSocketAddress
 
 enum class InitialRelayTransportClass(
     val wireValue: String,
@@ -16,6 +17,7 @@ enum class InitialRelayTransportClass(
 data class EgressRequirements(
     val tcpConnect: Boolean = true,
     val udpAssociate: Boolean = true,
+    val udpAssociateTarget: InetSocketAddress? = null,
 )
 
 data class InitialRelayCandidate(
