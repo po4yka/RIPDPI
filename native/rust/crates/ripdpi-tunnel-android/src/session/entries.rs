@@ -3,9 +3,10 @@ use jni::objects::JString;
 use jni::sys::{jint, jlong, jlongArray};
 use jni::{EnvUnowned, Outcome};
 
+use super::forwarding_evidence::forwarding_evidence_session;
 use super::icmp::icmp_ingress_packets_session;
 use super::lifecycle::{create_session, destroy_session, start_session, stop_session};
-use super::stats::{forwarding_evidence_session, stats_session};
+use super::stats::stats_session;
 use super::telemetry::telemetry_session;
 
 pub(crate) fn tunnel_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
