@@ -133,6 +133,52 @@ class PolicyHandoverEventStoreTest {
             assertNull(durableState.getDurableState(persisted.key))
             assertNull(durableState.getDurableState(dependencyKey))
         }
+
+    @Test
+    fun `dependency delivery is quarantined when policy reference is missing or embeds fingerprint`() =
+        runTest {
+            val durableState = HandoverDurableStateStore()
+            val policies = HandoverRememberedPolicyStore()
+            val fingerprint = "sensitive-network-hash"
+            val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
+            val missingDependencyKey = "runtime_terminal_policy:missing"
+            val embeddedFingerprintKey = "runtime_terminal_policy:embedded"
+            durableState.upsertDurableState(
+                DiagnosticsDurableStateEntity(missingDependencyKey, policyId.toString(), 10L),
+            )
+            durableState.upsertDurableState(
+                DiagnosticsDurableStateEntity(embeddedFingerprintKey, policyId.toString(), 11L),
+            )
+            val store = eventStore(durableState, policies)
+            val missingDependencyEvent =
+                handoverEvent("delivery-missing-dependency").copy(
+                    currentFingerprintHash = fingerprint,
+                    rememberedPolicyDependencyKey = missingDependencyKey,
+                )
+            val embeddedFingerprintEvent =
+                handoverEvent("delivery-embedded-fingerprint").copy(
+                    currentFingerprintHash = fingerprint,
+                    rememberedPolicyDependencyKey = embeddedFingerprintKey,
+                )
+            store.publish(missingDependencyEvent)
+            store.publish(embeddedFingerprintEvent)
+            durableState.clearDurableStateIfCurrent(missingDependencyKey, policyId.toString())
+            val embeddedKey = "policy_handover_delivery:${embeddedFingerprintEvent.deliveryId}"
+            val embeddedState = requireNotNull(durableState.states[embeddedKey])
+            durableState.upsertDurableState(
+                embeddedState.copy(
+                    value = embeddedState.value.dropLast(1) + ",\"currentFingerprintHash\":\"$fingerprint\"}",
+                ),
+            )
+            val valid = handoverEvent("delivery-valid-after-quarantine")
+            store.publish(valid)
+
+            assertEquals(valid, store.events.first())
+
+            assertNull(durableState.getDurableState("policy_handover_delivery:${missingDependencyEvent.deliveryId}"))
+            assertNull(durableState.getDurableState(embeddedKey))
+            assertNull(durableState.getDurableState(embeddedFingerprintKey))
+        }
 }
 
 private fun eventStore(
@@ -258,13 +304,11 @@ private class HandoverDurableStateStore : DiagnosticsDurableStateStore {
         expectedValue: String,
         dependencyKey: String,
         expectedDependencyValue: String,
-    ): Boolean {
-        if (state.value[key]?.value != expectedValue) return false
-        if (state.value[dependencyKey]?.value != expectedDependencyValue) return false
-        state.value -= key
-        state.value -= dependencyKey
-        return true
-    }
+    ): Boolean =
+        state.value[key]?.value == expectedValue &&
+            state.value[dependencyKey]?.value == expectedDependencyValue &&
+            clearDurableStateIfCurrent(key, expectedValue) &&
+            clearDurableStateIfCurrent(dependencyKey, expectedDependencyValue)
 
     override suspend fun insertNativeSessionEventAndUpsertDurableState(
         event: NativeSessionEventEntity,
