@@ -470,26 +470,6 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindProcessExitRuntimeReconciler(
-        reconciler: DefaultProcessExitRuntimeReconciler,
-    ): ProcessExitRuntimeReconciler
-
-    @Binds
-    @Singleton
-    internal abstract fun bindProcessExitHistorySource(
-        source: AndroidProcessExitHistorySource,
-    ): ProcessExitHistorySource
-
-    @Binds
-    @Singleton
-    abstract fun bindMemoryProfilingRegistrar(registrar: DefaultMemoryProfilingRegistrar): MemoryProfilingRegistrar
-
-    @Binds
-    @Singleton
-    abstract fun bindNativeMemoryProbe(probe: DefaultNativeMemoryProbe): NativeMemoryProbe
-
-    @Binds
-    @Singleton
     internal abstract fun bindDiagnosticsArchiveExporter(
         exporter: DefaultDiagnosticsArchiveExporter,
     ): DiagnosticsArchiveExporter
@@ -542,4 +522,28 @@ abstract class DiagnosticsManagerModule {
 
         private fun hoursToMillis(hours: Long): Long = secondsToMillis(hours * MinutesPerHour * SecondsPerMinute)
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DiagnosticsRuntimeEvidenceModule {
+    @Binds
+    @Singleton
+    abstract fun bindProcessExitRuntimeReconciler(
+        reconciler: DefaultProcessExitRuntimeReconciler,
+    ): ProcessExitRuntimeReconciler
+
+    @Binds
+    @Singleton
+    internal abstract fun bindProcessExitHistorySource(
+        source: AndroidProcessExitHistorySource,
+    ): ProcessExitHistorySource
+
+    @Binds
+    @Singleton
+    abstract fun bindMemoryProfilingRegistrar(registrar: DefaultMemoryProfilingRegistrar): MemoryProfilingRegistrar
+
+    @Binds
+    @Singleton
+    abstract fun bindNativeMemoryProbe(probe: DefaultNativeMemoryProbe): NativeMemoryProbe
 }
