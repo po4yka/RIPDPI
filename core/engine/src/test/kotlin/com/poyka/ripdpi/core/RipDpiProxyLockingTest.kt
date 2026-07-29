@@ -181,7 +181,7 @@ class RipDpiProxyLockingTest {
                         }
                         """.trimIndent()
                 }
-            val proxy = RipDpiProxy(bindings, bindings)
+            val proxy = RipDpiProxy(bindings)
 
             assertEquals(ProxyForwardingEvidence.Empty, proxy.pollForwardingEvidence())
 

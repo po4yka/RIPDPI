@@ -297,7 +297,9 @@ class RipDpiProxy : RipDpiProxyRuntime {
 
     constructor(nativeBindings: RipDpiProxyBindings) {
         this.nativeBindings = nativeBindings
-        this.forwardingEvidenceBindings = RipDpiProxyNativeForwardingEvidenceBindings
+        this.forwardingEvidenceBindings =
+            nativeBindings as? RipDpiProxyForwardingEvidenceBindings
+                ?: RipDpiProxyNativeForwardingEvidenceBindings
     }
 
     internal constructor(
