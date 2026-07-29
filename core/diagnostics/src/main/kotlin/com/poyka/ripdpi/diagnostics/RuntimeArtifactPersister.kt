@@ -245,7 +245,7 @@ class RuntimeArtifactPersister
                 )
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
-                    id = "$RuntimeRootCauseAssessmentSource:$connectionSessionId",
+                    id = rootCauseAssessmentEventId(connectionSessionId),
                     sessionId = null,
                     connectionSessionId = connectionSessionId,
                     source = RuntimeRootCauseAssessmentSource,
@@ -296,6 +296,9 @@ class RuntimeArtifactPersister
                 }
             events.forEach { event -> persistRuntimeEvent(event) }
         }
+
+        suspend fun hasTerminalRootCauseAssessment(connectionSessionId: String): Boolean =
+            artifactReadStore.getNativeSessionEvent(rootCauseAssessmentEventId(connectionSessionId)) != null
 
         suspend fun trimHistory(retentionDays: Int) {
             historyRetentionStore.trimOldData(retentionDays)
@@ -678,6 +681,9 @@ private fun String.toRelayRuntimeCategory(allowedValues: Set<String>): String {
     val normalized = lowercase(Locale.US).replace('-', '_')
     return normalized.takeIf(allowedValues::contains) ?: "unknown"
 }
+
+private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
+    "$RuntimeRootCauseAssessmentSource:$connectionSessionId"
 
 private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {
     while (size > MaxRuntimeRootCauseTrackedSessions) {

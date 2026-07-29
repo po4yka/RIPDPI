@@ -183,6 +183,35 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
     }
 
     @Test
+    fun `older live underlay recovery clears a newer generation capability failure`() {
+        val assessment =
+            assess(
+                events =
+                    listOf(
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=absent;generation=1;sequence=1",
+                            1L,
+                        ),
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=absent;generation=2;sequence=2",
+                            2L,
+                        ),
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=present;generation=1;sequence=3",
+                            3L,
+                        ),
+                    ),
+                sealed = true,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
     fun `monotonic transition sequence survives wall clock reversal`() {
         val assessment =
             assess(

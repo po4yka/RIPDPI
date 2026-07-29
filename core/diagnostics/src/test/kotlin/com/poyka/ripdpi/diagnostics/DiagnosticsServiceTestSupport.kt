@@ -145,6 +145,9 @@ internal class FakeDiagnosticsHistoryStores :
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     val usageSessionsCollectorCount = AtomicInteger(0)
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
+    var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
+    var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
+    var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
     var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
@@ -242,6 +245,9 @@ internal class FakeDiagnosticsHistoryStores :
             }
         }
 
+    override suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity? =
+        nativeEventsState.value.find { event -> event.id == eventId }
+
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
 
     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
@@ -334,6 +340,7 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
+        beforeInsertTelemetrySample(sample)
         telemetryState.value = telemetryState.value + sample
     }
 
@@ -347,10 +354,12 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
+        beforeUpsertBypassUsageSession(session)
         usageSessionsState.value = usageSessionsState.value.upsertById(session) { it.id }
     }
 
     override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long {
+        beforeUpsertRememberedNetworkPolicy(policy)
         val persisted =
             if (policy.id == 0L) {
                 policy.copy(id = (rememberedPoliciesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)

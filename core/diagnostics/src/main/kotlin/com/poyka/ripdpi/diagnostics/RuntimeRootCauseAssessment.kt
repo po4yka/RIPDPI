@@ -199,8 +199,8 @@ private fun collectNetworkTransitionEvidence(
 private class NetworkTransitionEvidenceReducer {
     private val authoritativeNonVpnGenerations = mutableSetOf<Long>()
     private val activeValidatedNonVpnGenerations = mutableSetOf<Long>()
+    private val terminallyLostGenerations = mutableSetOf<Long>()
     private var unresolvedGeneration: Long? = null
-    private var unresolvedFromLost: Boolean = false
 
     var unresolvedFailure: NativeSessionEventEntity? = null
         private set
@@ -211,13 +211,15 @@ private class NetworkTransitionEvidenceReducer {
         val validated = tokens["validated"]
         val internet = tokens["internet"]
         if (tokens["path"] == "non_vpn" && hasAuthoritativeCapabilities(validated, internet)) {
+            if (generation in terminallyLostGenerations) return
             authoritativeNonVpnGenerations.add(generation)
             acceptCapabilities(event, generation, validated, internet)
         } else if (tokens["kind"] == "lost" && generation in authoritativeNonVpnGenerations) {
+            terminallyLostGenerations.add(generation)
             authoritativeNonVpnGenerations.remove(generation)
             activeValidatedNonVpnGenerations.remove(generation)
             if (activeValidatedNonVpnGenerations.isEmpty()) {
-                recordFailure(event, generation, fromLost = true)
+                recordFailure(event, generation)
             }
         }
     }
@@ -231,34 +233,22 @@ private class NetworkTransitionEvidenceReducer {
         if (networkCapabilityMissing(validated, internet)) {
             activeValidatedNonVpnGenerations.remove(generation)
             if (activeValidatedNonVpnGenerations.isEmpty()) {
-                recordFailure(event, generation, fromLost = false)
+                recordFailure(event, generation)
             }
-        } else if (unresolvedGeneration == generation && unresolvedFromLost) {
-            return
-        } else if (canRecoverAt(generation)) {
-            activeValidatedNonVpnGenerations.add(generation)
-            unresolvedGeneration = null
-            unresolvedFromLost = false
-            unresolvedFailure = null
         } else {
             activeValidatedNonVpnGenerations.add(generation)
+            unresolvedGeneration = null
+            unresolvedFailure = null
         }
-    }
-
-    private fun canRecoverAt(generation: Long): Boolean {
-        val failedGeneration = unresolvedGeneration ?: return false
-        return generation > failedGeneration || (generation == failedGeneration && !unresolvedFromLost)
     }
 
     private fun recordFailure(
         event: NativeSessionEventEntity,
         generation: Long,
-        fromLost: Boolean,
     ) {
         val failedGeneration = unresolvedGeneration
         if (failedGeneration == null || generation >= failedGeneration) {
             unresolvedGeneration = generation
-            unresolvedFromLost = fromLost
             unresolvedFailure = event
         }
     }

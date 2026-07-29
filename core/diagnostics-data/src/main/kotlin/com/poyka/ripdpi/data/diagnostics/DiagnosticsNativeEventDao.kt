@@ -62,6 +62,9 @@ interface DiagnosticsNativeEventDao {
         connectionSessionId: String,
     ): Flow<List<NativeSessionEventEntity>>
 
+    @Query("SELECT * FROM native_session_events WHERE id = :eventId LIMIT 1")
+    suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
 

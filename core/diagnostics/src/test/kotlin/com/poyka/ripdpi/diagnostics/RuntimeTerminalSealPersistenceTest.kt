@@ -6,12 +6,17 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -143,31 +148,73 @@ class RuntimeTerminalSealPersistenceTest {
         }
 
     @Test
-    fun `failed or cancelled terminal assessment cannot reopen the finished session`() =
+    fun `failure or cancellation at every terminal phase cannot reopen the detached session`() =
         runTest {
             val failures =
                 listOf<() -> Throwable>(
-                    { IllegalStateException("injected assessment failure") },
-                    { CancellationException("injected assessment cancellation") },
+                    { IllegalStateException("injected terminal failure") },
+                    { CancellationException("injected terminal cancellation") },
                 )
 
-            failures.forEach { createFailure ->
-                assertRestartCreatesFreshSession(createFailure)
+            TerminalFailurePhase.entries.forEach { phase ->
+                failures.forEach { createFailure ->
+                    assertRestartCreatesFreshSession(phase, createFailure)
+                }
             }
         }
 
-    private suspend fun TestScope.assertRestartCreatesFreshSession(createFailure: () -> Throwable) {
+    @Test
+    fun `fresh coordinator reconstructs missing assessment from a finished session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val firstStateStore = DefaultServiceStateStore()
+            val firstScope = monitorScope()
+            val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope)
+            firstCoordinator.registerNetworkTransitionFlush { true }
+            armTerminalFailure(stores, TerminalFailurePhase.ROOT_CAUSE_ASSESSMENT) {
+                IllegalStateException("injected process-death boundary")
+            }
+
+            firstStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            firstStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            firstStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(
+                runCatching {
+                    firstCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+                }.isFailure,
+            )
+            assertTrue(
+                stores.usageSessionsState.value
+                    .single()
+                    .finishedAt != null,
+            )
+            assertTrue(rootCauseAssessments(stores).isEmpty())
+            firstScope.cancel()
+
+            val restoredStateStore = DefaultServiceStateStore()
+            val restoredScope = monitorScope()
+            val restoredCoordinator = createSessionCoordinator(stores, restoredStateStore, restoredScope)
+            restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            val assessment = decodeAssessment(stores)
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertFalse(assessment.terminalEvidenceSealed)
+            restoredScope.cancel()
+        }
+
+    private suspend fun TestScope.assertRestartCreatesFreshSession(
+        phase: TerminalFailurePhase,
+        createFailure: () -> Throwable,
+    ) {
         val stores = FakeDiagnosticsHistoryStores()
         val serviceStateStore = DefaultServiceStateStore()
         val coordinatorScope = monitorScope()
-        val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
-        var failNextAssessment = true
-        stores.beforeInsertNativeSessionEvent = { event ->
-            if (event.source == RuntimeRootCauseAssessmentSource && failNextAssessment) {
-                failNextAssessment = false
-                throw createFailure()
-            }
+        val activePolicyStore = MutableActiveConnectionPolicyStore()
+        if (phase == TerminalFailurePhase.POLICY_FINALIZATION) {
+            activePolicyStore.set(activeRememberedPolicy())
         }
+        val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope, activePolicyStore)
         coordinator.registerNetworkTransitionFlush { true }
 
         serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
@@ -177,18 +224,17 @@ class RuntimeTerminalSealPersistenceTest {
                 .single()
                 .id
         serviceStateStore.updateTelemetry(finalDataPlaneTelemetry())
+        if (phase == TerminalFailurePhase.POLICY_FINALIZATION) {
+            coordinator.handleFailure(Sender.Proxy, FailureReason.NativeError("policy failure proof"))
+        }
+        armTerminalFailure(stores, phase, createFailure)
         serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
 
         val terminalFailure =
             runCatching {
                 coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
             }.exceptionOrNull()
-        assertTrue(terminalFailure != null)
-        assertTrue(
-            stores.usageSessionsState.value
-                .single()
-                .finishedAt != null,
-        )
+        assertTrue("$phase did not fail with ${createFailure().javaClass.simpleName}", terminalFailure != null)
 
         serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
         coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
@@ -199,6 +245,48 @@ class RuntimeTerminalSealPersistenceTest {
         assertTrue(sessions.single { session -> session.id == finishedSessionId }.finishedAt != null)
         assertEquals(null, restarted.finishedAt)
         coordinatorScope.cancel()
+    }
+
+    private fun armTerminalFailure(
+        stores: FakeDiagnosticsHistoryStores,
+        phase: TerminalFailurePhase,
+        createFailure: () -> Throwable,
+    ) {
+        var armed = true
+
+        fun failOnce() {
+            if (armed) {
+                armed = false
+                throw createFailure()
+            }
+        }
+        when (phase) {
+            TerminalFailurePhase.RUNTIME_EVENTS -> {
+                stores.beforeInsertNativeSessionEvent = { event ->
+                    if (event.subsystem == "data_plane") failOnce()
+                }
+            }
+
+            TerminalFailurePhase.TERMINAL_SAMPLE -> {
+                stores.beforeInsertTelemetrySample = { failOnce() }
+            }
+
+            TerminalFailurePhase.POLICY_FINALIZATION -> {
+                stores.beforeUpsertRememberedNetworkPolicy = { failOnce() }
+            }
+
+            TerminalFailurePhase.SESSION_UPSERT -> {
+                stores.beforeUpsertBypassUsageSession = { session ->
+                    if (session.finishedAt != null) failOnce()
+                }
+            }
+
+            TerminalFailurePhase.ROOT_CAUSE_ASSESSMENT -> {
+                stores.beforeInsertNativeSessionEvent = { event ->
+                    if (event.source == RuntimeRootCauseAssessmentSource) failOnce()
+                }
+            }
+        }
     }
 
     private fun TestScope.monitorScope(): CoroutineScope =
@@ -241,6 +329,7 @@ class RuntimeTerminalSealPersistenceTest {
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
+        activeConnectionPolicyStore: ActiveConnectionPolicyStore = emptyActiveConnectionPolicyStore(),
     ): RuntimeSessionCoordinator =
         RuntimeSessionCoordinator(
             appSettingsRepository = FakeAppSettingsRepository(),
@@ -248,7 +337,7 @@ class RuntimeTerminalSealPersistenceTest {
             bypassUsageHistoryStore = stores,
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
             serviceStateStore = serviceStateStore,
-            activeConnectionPolicyStore = emptyActiveConnectionPolicyStore(),
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
             rememberedPolicySessionTracker =
                 RememberedPolicySessionTracker(
                     rememberedNetworkPolicyStore =
@@ -270,6 +359,40 @@ class RuntimeTerminalSealPersistenceTest {
         object : ActiveConnectionPolicyStore {
             override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = MutableStateFlow(emptyMap())
         }
+
+    private fun activeRememberedPolicy(): ActiveConnectionPolicy =
+        ActiveConnectionPolicy(
+            mode = Mode.VPN,
+            policy =
+                RememberedNetworkPolicyJson(
+                    fingerprintHash = "terminal-policy",
+                    mode = Mode.VPN.preferenceValue,
+                    summary =
+                        NetworkFingerprintSummary(
+                            transport = "wifi",
+                            networkState = "validated",
+                            identityKind = "wifi",
+                            privateDnsMode = "system",
+                            dnsServerCount = 1,
+                        ),
+                    proxyConfigJson = "{}",
+                ),
+            matchedPolicy =
+                RememberedNetworkPolicyEntity(
+                    fingerprintHash = "terminal-policy",
+                    mode = Mode.VPN.preferenceValue,
+                    summaryJson = "{}",
+                    proxyConfigJson = "{}",
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION.encodeStorageValue(),
+                    status = RememberedNetworkPolicyStatusValidated,
+                    firstObservedAt = 1L,
+                    updatedAt = 1L,
+                ),
+            usedRememberedPolicy = true,
+            fingerprintHash = "terminal-policy",
+            policySignature = "terminal-policy-signature",
+            appliedAt = 1L,
+        )
 
     private fun finalDataPlaneTelemetry(): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
@@ -365,5 +488,22 @@ class RuntimeTerminalSealPersistenceTest {
 
     private companion object {
         const val ConnectionSessionId = "conn-a"
+    }
+
+    private enum class TerminalFailurePhase {
+        RUNTIME_EVENTS,
+        TERMINAL_SAMPLE,
+        POLICY_FINALIZATION,
+        SESSION_UPSERT,
+        ROOT_CAUSE_ASSESSMENT,
+    }
+
+    private class MutableActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
+        private val state = MutableStateFlow<Map<Mode, ActiveConnectionPolicy>>(emptyMap())
+        override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = state
+
+        fun set(policy: ActiveConnectionPolicy) {
+            state.value = mapOf(policy.mode to policy)
+        }
     }
 }

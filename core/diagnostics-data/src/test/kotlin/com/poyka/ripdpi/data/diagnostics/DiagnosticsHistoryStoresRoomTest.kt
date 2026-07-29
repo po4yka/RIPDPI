@@ -164,6 +164,7 @@ class DiagnosticsHistoryStoresRoomTest {
             )
             assertEquals("evt-1", store.getNativeEventById("evt-1")?.id)
             assertNull(store.getNativeEventById("evt-missing"))
+            assertEquals("transition-1", store.getNativeSessionEvent("transition-1")?.id)
             assertEquals(listOf("evt-global"), store.getGlobalNativeEvents(limit = 10).map { it.id })
             assertEquals(listOf("exp-1"), store.observeExportRecords(limit = 10).first().map { it.id })
         }
