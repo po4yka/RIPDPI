@@ -29,11 +29,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
+import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
@@ -94,6 +96,14 @@ import org.junit.Rule
 import org.junit.Test
 import javax.inject.Named
 
+private fun shellNativeMemoryProbe(): NativeMemoryProbe =
+    NativeMemoryProbe {
+        NativeMemorySample(
+            nativeHeapBytes = 0L,
+            processRssBytes = 0L,
+        )
+    }
+
 @HiltAndroidTest
 @UninstallModules(
     AppSettingsRepositoryModule::class,
@@ -105,6 +115,7 @@ import javax.inject.Named
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
+    DiagnosticsRuntimeEvidenceModule::class,
     PermissionStatusProviderModule::class,
     AppPlatformBindingsModule::class,
     com.poyka.ripdpi.activities.MainActivityHostModule::class,
@@ -179,7 +190,7 @@ class MainActivityShellInstrumentedTest {
 
     @BindValue
     @JvmField
-    var nativeMemoryProbe: NativeMemoryProbe = StubInstrumentedNativeMemoryProbe()
+    var nativeMemoryProbe: NativeMemoryProbe = shellNativeMemoryProbe()
 
     @BindValue
     @JvmField

@@ -43,11 +43,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
+import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionStatusProviderModule
@@ -107,6 +109,14 @@ import org.junit.Test
 import javax.inject.Named
 
 private const val NavigationProfileId = "default"
+
+private fun instrumentedNativeMemoryProbe(): NativeMemoryProbe =
+    NativeMemoryProbe {
+        NativeMemorySample(
+            nativeHeapBytes = 0L,
+            processRssBytes = 0L,
+        )
+    }
 
 private fun navigationSettings(
     onboardingComplete: Boolean = true,
@@ -198,6 +208,7 @@ private fun AndroidComposeTestRule<*, MainActivity>.pressBack() {
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
+    DiagnosticsRuntimeEvidenceModule::class,
     PermissionStatusProviderModule::class,
     AppPlatformBindingsModule::class,
     com.poyka.ripdpi.activities.MainActivityHostModule::class,
@@ -266,7 +277,7 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
-    var nativeMemoryProbe: NativeMemoryProbe = StubInstrumentedNativeMemoryProbe()
+    var nativeMemoryProbe: NativeMemoryProbe = instrumentedNativeMemoryProbe()
 
     @BindValue
     @JvmField
@@ -526,6 +537,7 @@ class MainActivityNavigationInstrumentedTest {
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
+    DiagnosticsRuntimeEvidenceModule::class,
     PermissionStatusProviderModule::class,
     AppPlatformBindingsModule::class,
     com.poyka.ripdpi.activities.MainActivityHostModule::class,
@@ -596,7 +608,7 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var nativeMemoryProbe: NativeMemoryProbe = StubInstrumentedNativeMemoryProbe()
+    var nativeMemoryProbe: NativeMemoryProbe = instrumentedNativeMemoryProbe()
 
     @BindValue
     @JvmField
@@ -688,6 +700,7 @@ class MainActivityOnboardingStartupInstrumentedTest {
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
+    DiagnosticsRuntimeEvidenceModule::class,
     PermissionStatusProviderModule::class,
     AppPlatformBindingsModule::class,
     com.poyka.ripdpi.activities.MainActivityHostModule::class,
@@ -759,7 +772,7 @@ class MainActivityBiometricStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var nativeMemoryProbe: NativeMemoryProbe = StubInstrumentedNativeMemoryProbe()
+    var nativeMemoryProbe: NativeMemoryProbe = instrumentedNativeMemoryProbe()
 
     @BindValue
     @JvmField
