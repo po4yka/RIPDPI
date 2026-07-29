@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
@@ -121,6 +122,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 
     internal fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
         selection.payload.copy(
+            session = redactSession(selection.payload.session),
             primaryReport = selection.primaryReport,
             results = selection.payload.results.map(redactor::redact),
             sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
@@ -461,7 +463,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
             scope = DiagnosticsArchiveFormat.scope,
             privacyMode = DiagnosticsArchiveFormat.privacyMode,
-            session = stage.session,
+            session = redactSession(stage.session),
             primaryReport = stage.report,
             results = stage.results.map(redactor::redact),
             sessionSnapshots = stage.snapshots.map(redactor::redact),
@@ -492,6 +494,12 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 (selection.primaryEvents + selection.globalEvents).filter { event ->
                     event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
                 },
+        )
+
+    private fun redactSession(session: ScanSessionEntity?): ScanSessionEntity? =
+        session?.copy(
+            triggerPreviousFingerprintHash = null,
+            triggerCurrentFingerprintHash = null,
         )
 
     private fun <T> jsonEntry(
