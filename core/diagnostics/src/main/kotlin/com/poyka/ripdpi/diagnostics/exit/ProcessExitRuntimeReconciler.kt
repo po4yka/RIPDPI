@@ -126,9 +126,9 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
             current.copy(
                 finishedAt = exitAt,
                 updatedAt = exitAt,
-                connectionState = "Failed",
-                health = "degraded",
-                endedReason = "process_exit:${classification.wireValue}",
+                connectionState = classification.connectionState,
+                health = classification.health ?: current.health,
+                endedReason = classification.endedReason,
                 failureMessage = classification.failureMessage,
             ),
         )
@@ -219,8 +219,12 @@ private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitCl
             ProcessExitClassification.ResourcePressure
         }
 
+        reason in ExpectedLifecycleExitReasons && subtype == DefaultLastExitInspector.NoSubtype -> {
+            ProcessExitClassification.ExpectedLifecycle
+        }
+
         subtype == DefaultLastExitInspector.NoSubtype -> {
-            ProcessExitClassification.Ordinary
+            ProcessExitClassification.Unexpected
         }
 
         else -> {
@@ -231,17 +235,34 @@ private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitCl
 
 private data class ProcessExitClassification(
     val wireValue: String,
-    val failureMessage: String,
+    val connectionState: String,
+    val health: String?,
+    val endedReason: String,
+    val failureMessage: String?,
 ) {
     companion object {
         val ResourcePressure: ProcessExitClassification =
             ProcessExitClassification(
                 wireValue = "inconclusive",
+                connectionState = "Failed",
+                health = "degraded",
+                endedReason = "process_exit:inconclusive",
                 failureMessage = "Android reported a resource-pressure process exit.",
             )
-        val Ordinary: ProcessExitClassification =
+        val ExpectedLifecycle: ProcessExitClassification =
             ProcessExitClassification(
                 wireValue = "inconclusive",
+                connectionState = "Stopped",
+                health = null,
+                endedReason = "process_exit:stopped",
+                failureMessage = null,
+            )
+        val Unexpected: ProcessExitClassification =
+            ProcessExitClassification(
+                wireValue = "inconclusive",
+                connectionState = "Failed",
+                health = "degraded",
+                endedReason = "process_exit:inconclusive",
                 failureMessage = "Android reported a process exit.",
             )
     }
@@ -284,6 +305,15 @@ private const val HexDigits = "0123456789abcdef"
 private const val CanonicalTupleSeparator = "|"
 private val RuntimeConnectionStates = setOf(AppStatus.Running.name, AppStatus.Reconnecting.name)
 private val GenericPressureReasons = setOf("low_memory", "excessive_resource_usage")
+private val ExpectedLifecycleExitReasons =
+    setOf(
+        "exit_self",
+        "permission_change",
+        "user_requested",
+        "user_stopped",
+        "package_state_change",
+        "package_updated",
+    )
 private val CanonicalProcessExitReasons =
     setOf(
         "unknown",

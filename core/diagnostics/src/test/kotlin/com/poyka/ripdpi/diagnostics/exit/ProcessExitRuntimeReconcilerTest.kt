@@ -66,6 +66,8 @@ class ProcessExitRuntimeReconcilerTest {
             assertFalse(assessment.terminalEvidenceSealed)
             assertEquals(130L, finalized.finishedAt)
             assertEquals("process_exit:inconclusive", finalized.endedReason)
+            assertEquals("Failed", finalized.connectionState)
+            assertEquals("degraded", finalized.health)
             assertEquals("Android reported a resource-pressure process exit.", finalized.failureMessage)
         }
 
@@ -93,30 +95,30 @@ class ProcessExitRuntimeReconcilerTest {
         }
 
     @Test
-    fun `all canonical Android exit reasons close a session as inconclusive`() =
+    fun `canonical Android exit reasons map to neutral or failed terminal lifecycle`() =
         runTest {
-            val reasons =
-                listOf(
-                    "unknown",
-                    "exit_self",
-                    "signaled",
-                    "low_memory",
-                    "crash",
-                    "crash_native",
-                    "anr",
-                    "initialization_failure",
-                    "permission_change",
-                    "excessive_resource_usage",
-                    "user_requested",
-                    "user_stopped",
-                    "dependency_died",
-                    "other",
-                    "freezer",
-                    "package_state_change",
-                    "package_updated",
+            val expectations =
+                mapOf(
+                    "unknown" to failedExit,
+                    "exit_self" to neutralExit,
+                    "signaled" to failedExit,
+                    "low_memory" to pressureExit,
+                    "crash" to failedExit,
+                    "crash_native" to failedExit,
+                    "anr" to failedExit,
+                    "initialization_failure" to failedExit,
+                    "permission_change" to neutralExit,
+                    "excessive_resource_usage" to pressureExit,
+                    "user_requested" to neutralExit,
+                    "user_stopped" to neutralExit,
+                    "dependency_died" to failedExit,
+                    "other" to failedExit,
+                    "freezer" to failedExit,
+                    "package_state_change" to neutralExit,
+                    "package_updated" to neutralExit,
                 )
 
-            reasons.forEach { reason ->
+            expectations.forEach { (reason, expected) ->
                 val stores = FakeDiagnosticsHistoryStores()
                 stores.usageSessionsState.value = listOf(usageSession(startedAt = 100L, updatedAt = 100L))
 
@@ -127,18 +129,12 @@ class ProcessExitRuntimeReconcilerTest {
                 assertTrue(correlations(stores).single().message.contains("reason=$reason"))
                 assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, rootCauseAssessment(stores).verdict)
                 assertFalse(rootCauseAssessment(stores).terminalEvidenceSealed)
-                assertEquals(
-                    150L,
-                    stores.usageSessionsState.value
-                        .single()
-                        .finishedAt,
-                )
-                assertEquals(
-                    "process_exit:inconclusive",
-                    stores.usageSessionsState.value
-                        .single()
-                        .endedReason,
-                )
+                val finalized = stores.usageSessionsState.value.single()
+                assertEquals(150L, finalized.finishedAt)
+                assertEquals(expected.connectionState, finalized.connectionState)
+                assertEquals(expected.health, finalized.health)
+                assertEquals(expected.endedReason, finalized.endedReason)
+                assertEquals(expected.failureMessage, finalized.failureMessage)
             }
         }
 
@@ -280,7 +276,9 @@ class ProcessExitRuntimeReconcilerTest {
             assertEquals(150L, sessions.getValue("conn-new").finishedAt)
             assertNull(sessions.getValue("conn-old").finishedAt)
             assertEquals(1, correlations(stores).size)
-            assertEquals("Android reported a process exit.", sessions.getValue("conn-new").failureMessage)
+            assertEquals("Stopped", sessions.getValue("conn-new").connectionState)
+            assertEquals("process_exit:stopped", sessions.getValue("conn-new").endedReason)
+            assertNull(sessions.getValue("conn-new").failureMessage)
         }
 
     @Test
@@ -521,4 +519,35 @@ class ProcessExitRuntimeReconcilerTest {
             RuntimeRootCauseAssessment.serializer(),
             rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
         )
+
+    private data class ExpectedTerminalExit(
+        val connectionState: String,
+        val health: String,
+        val endedReason: String,
+        val failureMessage: String?,
+    )
+
+    private companion object {
+        val neutralExit =
+            ExpectedTerminalExit(
+                connectionState = "Stopped",
+                health = "idle",
+                endedReason = "process_exit:stopped",
+                failureMessage = null,
+            )
+        val failedExit =
+            ExpectedTerminalExit(
+                connectionState = "Failed",
+                health = "degraded",
+                endedReason = "process_exit:inconclusive",
+                failureMessage = "Android reported a process exit.",
+            )
+        val pressureExit =
+            ExpectedTerminalExit(
+                connectionState = "Failed",
+                health = "degraded",
+                endedReason = "process_exit:inconclusive",
+                failureMessage = "Android reported a resource-pressure process exit.",
+            )
+    }
 }
