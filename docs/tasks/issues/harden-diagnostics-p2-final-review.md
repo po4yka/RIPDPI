@@ -42,6 +42,9 @@ P2 review before integrating the diagnostics evidence series into `main`.
 11. **Post-review acceptance startup** owns pending-generation validation,
     reconciliation ordering, bounded cancellation persistence, categorical
     logging, and startup cancellation propagation.
+12. **Robolectric application-scope isolation** owns cancellation and joining
+    of process-wide test scopes before Room teardown so eager diagnostics
+    collectors cannot leak into the next test.
 
 ## Boundaries
 
