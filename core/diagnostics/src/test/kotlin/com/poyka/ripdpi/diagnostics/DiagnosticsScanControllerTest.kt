@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -88,86 +89,97 @@ class DiagnosticsScanControllerTest {
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
             AutomaticStartupFailurePoint.entries.forEach { failurePoint ->
-                val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
-                val event = transportSwitchHandoverEvent().copy(deliveryId = "delivery-${failurePoint.name}")
-                val firstBridgeFactory =
-                    if (failurePoint == AutomaticStartupFailurePoint.BEFORE_EXECUTION_REGISTRATION) {
-                        object : com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory {
-                            override fun create() = error("injected startup failure")
-                        }
-                    } else {
-                        FakeNetworkDiagnosticsBridgeFactory(json)
-                    }
-                when (failurePoint) {
-                    AutomaticStartupFailurePoint.AFTER_SESSION -> {
-                        stores.afterUpsertScanSession = { error("injected startup failure") }
-                    }
-
-                    AutomaticStartupFailurePoint.AFTER_SNAPSHOT -> {
-                        stores.afterUpsertSnapshot = { error("injected startup failure") }
-                    }
-
-                    AutomaticStartupFailurePoint.AFTER_CONTEXT -> {
-                        stores.afterUpsertContextSnapshot = { error("injected startup failure") }
-                    }
-
-                    AutomaticStartupFailurePoint.BEFORE_EXECUTION_REGISTRATION -> {
-                    }
-                }
-                val firstServices =
-                    createDiagnosticsServices(
-                        context = TestContext(),
-                        appSettingsRepository = FakeAppSettingsRepository(settings),
-                        stores = stores,
-                        networkMetadataProvider = FakeNetworkMetadataProvider(),
-                        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
-                        networkDiagnosticsBridgeFactory = firstBridgeFactory,
-                        runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                        serviceStateStore = FakeServiceStateStore(),
-                        networkFingerprintProvider = automaticProbeFingerprintProvider,
-                        scope = backgroundScope,
-                        controllerScope = backgroundScope,
-                        json = json,
-                    )
-
-                assertSuspendFailsWith<IllegalStateException> {
-                    firstServices.scanController.launchAutomaticProbe(settings, event)
-                }
-                assertEquals(
-                    "running",
-                    stores.sessionsState.value
-                        .single()
-                        .status,
-                )
-                stores.afterUpsertScanSession = {}
-                stores.afterUpsertSnapshot = {}
-                stores.afterUpsertContextSnapshot = {}
-
-                val replayBridgeFactory =
-                    FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                        bridge.autoCompleteOnStart = false
-                    }
-                val replayServices =
-                    createDiagnosticsServices(
-                        context = TestContext(),
-                        appSettingsRepository = FakeAppSettingsRepository(settings),
-                        stores = stores,
-                        networkMetadataProvider = FakeNetworkMetadataProvider(),
-                        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
-                        networkDiagnosticsBridgeFactory = replayBridgeFactory,
-                        runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                        serviceStateStore = FakeServiceStateStore(),
-                        networkFingerprintProvider = automaticProbeFingerprintProvider,
-                        scope = backgroundScope,
-                        controllerScope = backgroundScope,
-                        json = json,
-                    )
-
-                assertFalse(replayServices.scanController.launchAutomaticProbe(settings, event))
-                assertEquals(1, stores.sessionsState.value.size)
-                assertTrue(replayServices.scanController.hiddenAutomaticProbeActive.value)
+                assertAutomaticReplayRestartsOrphanedSession(settings, failurePoint)
             }
         }
+
+    private suspend fun TestScope.assertAutomaticReplayRestartsOrphanedSession(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        failurePoint: AutomaticStartupFailurePoint,
+    ) {
+        val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+        val event = transportSwitchHandoverEvent().copy(deliveryId = "delivery-${failurePoint.name}")
+        val firstBridgeFactory = startupFailureBridgeFactory(failurePoint)
+        stores.injectStartupFailure(failurePoint)
+        val firstServices = automaticProbeServices(settings, stores, firstBridgeFactory)
+
+        assertSuspendFailsWith<IllegalStateException> {
+            firstServices.scanController.launchAutomaticProbe(settings, event)
+        }
+        assertEquals(
+            "running",
+            stores.sessionsState.value
+                .single()
+                .status,
+        )
+
+        stores.clearStartupFailures()
+        val replayBridgeFactory =
+            FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+        val replayServices = automaticProbeServices(settings, stores, replayBridgeFactory)
+
+        assertFalse(replayServices.scanController.launchAutomaticProbe(settings, event))
+        assertEquals(1, stores.sessionsState.value.size)
+        assertTrue(replayServices.scanController.hiddenAutomaticProbeActive.value)
+    }
+
+    private fun startupFailureBridgeFactory(
+        failurePoint: AutomaticStartupFailurePoint,
+    ): com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory =
+        if (failurePoint == AutomaticStartupFailurePoint.BEFORE_EXECUTION_REGISTRATION) {
+            object : com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory {
+                override fun create() = error("injected startup failure")
+            }
+        } else {
+            FakeNetworkDiagnosticsBridgeFactory(json)
+        }
+
+    private fun FakeDiagnosticsHistoryStores.injectStartupFailure(failurePoint: AutomaticStartupFailurePoint) {
+        when (failurePoint) {
+            AutomaticStartupFailurePoint.AFTER_SESSION -> {
+                afterUpsertScanSession = { error("injected startup failure") }
+            }
+
+            AutomaticStartupFailurePoint.AFTER_SNAPSHOT -> {
+                afterUpsertSnapshot = { error("injected startup failure") }
+            }
+
+            AutomaticStartupFailurePoint.AFTER_CONTEXT -> {
+                afterUpsertContextSnapshot = { error("injected startup failure") }
+            }
+
+            AutomaticStartupFailurePoint.BEFORE_EXECUTION_REGISTRATION -> {
+            }
+        }
+    }
+
+    private fun FakeDiagnosticsHistoryStores.clearStartupFailures() {
+        afterUpsertScanSession = {}
+        afterUpsertSnapshot = {}
+        afterUpsertContextSnapshot = {}
+    }
+
+    private fun TestScope.automaticProbeServices(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        stores: FakeDiagnosticsHistoryStores,
+        bridgeFactory: com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory,
+    ): DiagnosticsServicesBundle =
+        createDiagnosticsServices(
+            context = TestContext(),
+            appSettingsRepository = FakeAppSettingsRepository(settings),
+            stores = stores,
+            networkMetadataProvider = FakeNetworkMetadataProvider(),
+            diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            networkDiagnosticsBridgeFactory = bridgeFactory,
+            runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+            serviceStateStore = FakeServiceStateStore(),
+            networkFingerprintProvider = automaticProbeFingerprintProvider,
+            scope = backgroundScope,
+            controllerScope = backgroundScope,
+            json = json,
+        )
 
     @Test
     fun `in-path scan launch injects proxy settings into request`() =
