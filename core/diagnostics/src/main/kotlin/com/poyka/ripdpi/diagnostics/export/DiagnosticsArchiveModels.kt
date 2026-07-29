@@ -142,6 +142,7 @@ internal data class DiagnosticsArchiveSourceData(
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
     val replayResults: List<ReplayProbeResult> = emptyList(),
+    val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
 )
 
 internal data class DiagnosticsArchiveSelection(
@@ -176,6 +177,7 @@ internal data class DiagnosticsArchiveSelection(
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
+    val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
 )
 
 internal enum class DiagnosticsArchiveSnapshotSource {
@@ -309,6 +311,7 @@ internal data class DiagnosticsArchiveProvenancePayload(
     val triggerMetadata: DiagnosticsArchiveTriggerMetadata? = null,
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val runtimeProvenance: DiagnosticsArchiveRuntimeProvenance,
+    val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
 )
 
 @Serializable

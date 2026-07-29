@@ -7,6 +7,11 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifact
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollectionStatus
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledNativeLibrary
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeAbi
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSigningLineageBand
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
@@ -67,6 +72,72 @@ class DiagnosticsArchiveRendererTest {
         assertRenderedEntryContent(entries)
         assertRenderedManifestAndProvenance(entries)
         assertGoldenContracts(entries)
+    }
+
+    @Test
+    fun `renderer confines installed artifact fingerprints to provenance entry`() {
+        val baseHash = "a".repeat(64)
+        val splitHash = "b".repeat(64)
+        val signerHash = "c".repeat(64)
+        val nativeHash = "d".repeat(64)
+        val selection =
+            buildFullRendererSelection().copy(
+                installedArtifact =
+                    DiagnosticsArchiveInstalledArtifact(
+                        collectionStatus = DiagnosticsArchiveInstalledArtifactCollectionStatus.COMPLETE,
+                        baseApkSha256 = baseHash,
+                        splitApkSha256 = listOf(splitHash),
+                        currentSignerCertificateSha256 = listOf(signerHash),
+                        signingLineage = DiagnosticsArchiveSigningLineageBand.SINGLE_WITH_HISTORY,
+                        packagedNativeLibrarySha256 =
+                            listOf(
+                                DiagnosticsArchiveInstalledNativeLibrary(
+                                    abi = DiagnosticsArchiveNativeAbi.ARM64,
+                                    name = "libripdpi.so",
+                                    sha256 = nativeHash,
+                                ),
+                            ),
+                        debuggable = false,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-installed-artifact", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-installed-artifact.zip",
+                createdAt = 45L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val provenanceText = entries.getValue("archive-provenance.json").bytes.decodeToString()
+        val provenance = json.decodeFromString(DiagnosticsArchiveProvenancePayload.serializer(), provenanceText)
+
+        assertEquals(
+            DiagnosticsArchiveInstalledArtifactCollectionStatus.COMPLETE,
+            provenance.installedArtifact?.collectionStatus,
+        )
+        assertTrue(provenanceText.contains(baseHash))
+        assertTrue(provenanceText.contains(splitHash))
+        assertTrue(provenanceText.contains(signerHash))
+        assertTrue(provenanceText.contains(nativeHash))
+        entries.filterKeys { it != "archive-provenance.json" }.forEach { (name, entry) ->
+            val content = entry.bytes.decodeToString()
+            assertFalse("installedArtifact must be absent from $name", content.contains("installedArtifact"))
+            listOf(baseHash, splitHash, signerHash, nativeHash).forEach { hash ->
+                assertFalse("artifact hash must be absent from $name", content.contains(hash))
+            }
+        }
+        listOf(
+            "sourceDir",
+            "splitName",
+            "installer",
+            "lastUpdateTime",
+            "modifiedAt",
+            "size",
+            "subject",
+            "issuer",
+            "serial",
+            "exception",
+        ).forEach { forbidden -> assertFalse("$forbidden must not appear", provenanceText.contains(forbidden)) }
     }
 
     @Test

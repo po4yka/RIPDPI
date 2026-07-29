@@ -106,6 +106,7 @@ class DiagnosticsArchiveSessionSelector
                 latestContextModel = primary.latestContextModel,
                 sessionContextModel = primary.sessionContextModel,
                 buildProvenance = sourceData.buildProvenance,
+                installedArtifact = sourceData.installedArtifact,
                 sessionSelectionStatus = resolveSessionSelectionStatus(request, isComposite, primarySession),
                 homeRunId = request.homeRunId,
                 homeCompositeOutcome = compositeOutcome,

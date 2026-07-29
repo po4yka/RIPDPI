@@ -96,6 +96,7 @@ internal class DiagnosticsArchiveSourceLoader
                 logcatSnapshot = logcatSnapshot,
                 fileLogSnapshot = fileLogSnapshot,
                 replayResults = replayResultStore.recent(),
+                installedArtifact = buildInfoProvider.installedArtifact(),
             )
         }
 

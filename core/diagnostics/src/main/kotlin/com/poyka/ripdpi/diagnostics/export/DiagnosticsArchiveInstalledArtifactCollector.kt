@@ -1,0 +1,360 @@
+package com.poyka.ripdpi.diagnostics.export
+
+import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.pm.PackageInfoCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.InputStream
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+import javax.inject.Inject
+import javax.inject.Singleton
+
+private const val Sha256BufferSize = 16 * 1024
+private const val CollectionAttemptCount = 2
+private const val NativeLibraryPathPartCount = 3
+
+private val PackagedNativeLibraryAllowList =
+    setOf(
+        "libripdpi.so",
+        "libripdpi-tunnel.so",
+        "libripdpi-relay.so",
+        "libripdpi-warp.so",
+    )
+
+@Singleton
+internal class DiagnosticsArchiveInstalledArtifactCollector
+    internal constructor(
+        private val snapshotSource: () -> InstalledArtifactSnapshotResult,
+    ) {
+        @Inject
+        constructor(snapshotSource: AndroidInstalledArtifactSnapshotSource) : this(snapshotSource::snapshotOrFailure)
+
+        internal fun collect(): DiagnosticsArchiveInstalledArtifact {
+            var resolved: DiagnosticsArchiveInstalledArtifact? = null
+            repeat(CollectionAttemptCount) {
+                if (resolved == null) {
+                    val before = snapshotSource()
+                    if (before is InstalledArtifactSnapshotResult.Failure) {
+                        resolved = before.toUnavailableArtifact()
+                    } else {
+                        val snapshot = (before as InstalledArtifactSnapshotResult.Success).snapshot
+                        val collected = collect(snapshot)
+                        val after = snapshotSource()
+                        resolved =
+                            when {
+                                after is InstalledArtifactSnapshotResult.Failure -> {
+                                    after.toUnavailableArtifact()
+                                }
+
+                                after is InstalledArtifactSnapshotResult.Success &&
+                                    snapshot.identity == after.snapshot.identity -> {
+                                    collected
+                                }
+
+                                else -> {
+                                    null
+                                }
+                            }
+                    }
+                }
+            }
+            return resolved
+                ?: DiagnosticsArchiveInstalledArtifact(
+                    collectionStatus = DiagnosticsArchiveInstalledArtifactCollectionStatus.INCONSISTENT,
+                    failures = listOf(DiagnosticsArchiveInstalledArtifactFailure.ARTIFACT_CHANGED_DURING_COLLECTION),
+                )
+        }
+
+        private fun collect(snapshot: InstalledArtifactSnapshot): DiagnosticsArchiveInstalledArtifact {
+            val failures = linkedSetOf<DiagnosticsArchiveInstalledArtifactFailure>()
+            val baseApkSha256 = hashFile(snapshot.baseApk) ?: failures.recordBaseApkReadFailure()
+            val splitApkSha256 =
+                snapshot.splitApks
+                    .mapNotNull { splitApk ->
+                        hashFile(splitApk) ?: failures.recordSplitApkReadFailure()
+                    }.sorted()
+            val currentSignerCertificateSha256 =
+                snapshot.currentSignerCertificates
+                    .map(::sha256Hex)
+                    .distinct()
+                    .sorted()
+                    .also { hashes ->
+                        if (hashes.isEmpty()) failures += DiagnosticsArchiveInstalledArtifactFailure.SIGNERS_UNAVAILABLE
+                    }
+            val packagedNativeLibraries = collectPackagedNativeLibraries(snapshot.allApks, failures)
+            val collectionStatus =
+                when {
+                    DiagnosticsArchiveInstalledArtifactFailure.NATIVE_LIBRARY_CONFLICT in failures -> {
+                        DiagnosticsArchiveInstalledArtifactCollectionStatus.INCONSISTENT
+                    }
+
+                    baseApkSha256 == null &&
+                        currentSignerCertificateSha256.isEmpty() &&
+                        packagedNativeLibraries.isEmpty() -> {
+                        DiagnosticsArchiveInstalledArtifactCollectionStatus.UNAVAILABLE
+                    }
+
+                    failures.isEmpty() -> {
+                        DiagnosticsArchiveInstalledArtifactCollectionStatus.COMPLETE
+                    }
+
+                    else -> {
+                        DiagnosticsArchiveInstalledArtifactCollectionStatus.PARTIAL
+                    }
+                }
+            return DiagnosticsArchiveInstalledArtifact(
+                collectionStatus = collectionStatus,
+                baseApkSha256 = baseApkSha256,
+                splitApkSha256 = splitApkSha256,
+                currentSignerCertificateSha256 = currentSignerCertificateSha256,
+                signingLineage = snapshot.signingLineage,
+                packagedNativeLibrarySha256 = packagedNativeLibraries,
+                debuggable = snapshot.debuggable,
+                failures = failures.sortedBy { it.ordinal },
+            )
+        }
+
+        private fun collectPackagedNativeLibraries(
+            apkFiles: List<File>,
+            failures: MutableSet<DiagnosticsArchiveInstalledArtifactFailure>,
+        ): List<DiagnosticsArchiveInstalledNativeLibrary> {
+            val hashesByKey = linkedMapOf<NativeLibraryKey, MutableSet<String>>()
+            apkFiles.forEach { apkFile ->
+                if (!scanPackagedNativeLibraries(apkFile, hashesByKey)) {
+                    failures += DiagnosticsArchiveInstalledArtifactFailure.NATIVE_LIBRARY_SCAN_FAILED
+                }
+            }
+            val detectedAbis = hashesByKey.keys.mapTo(linkedSetOf()) { it.abi }
+            val missingLibrary =
+                detectedAbis.isEmpty() ||
+                    detectedAbis.any { abi ->
+                        PackagedNativeLibraryAllowList.any { name -> NativeLibraryKey(abi, name) !in hashesByKey }
+                    }
+            if (missingLibrary) failures += DiagnosticsArchiveInstalledArtifactFailure.NATIVE_LIBRARY_MISSING
+            if (hashesByKey.values.any { it.size > 1 }) {
+                failures += DiagnosticsArchiveInstalledArtifactFailure.NATIVE_LIBRARY_CONFLICT
+            }
+            return hashesByKey
+                .filterValues { it.size == 1 }
+                .map { (key, hashes) ->
+                    DiagnosticsArchiveInstalledNativeLibrary(
+                        abi = key.abi,
+                        name = key.name,
+                        sha256 = hashes.single(),
+                    )
+                }.sortedWith(compareBy({ it.abi.ordinal }, { it.name }, { it.sha256 }))
+        }
+
+        private fun scanPackagedNativeLibraries(
+            apkFile: File,
+            hashesByKey: MutableMap<NativeLibraryKey, MutableSet<String>>,
+        ): Boolean =
+            try {
+                ZipFile(apkFile).use { zip ->
+                    zip.entries().asSequence().filterNot { it.isDirectory }.forEach entryLoop@{ entry ->
+                        val key = nativeLibraryKey(entry.name) ?: return@entryLoop
+                        val hash = zip.getInputStream(entry).use(::sha256Hex)
+                        hashesByKey.getOrPut(key, ::linkedSetOf).add(hash)
+                    }
+                }
+                true
+            } catch (_: Exception) {
+                false
+            }
+    }
+
+@Singleton
+internal class AndroidInstalledArtifactSnapshotSource
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) {
+        @Suppress("DEPRECATION")
+        internal fun snapshotOrFailure(): InstalledArtifactSnapshotResult =
+            try {
+                val signingFlag =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        PackageManager.GET_SIGNING_CERTIFICATES
+                    } else {
+                        PackageManager.GET_SIGNATURES
+                    }
+                val packageInfo = context.packageManager.getPackageInfo(context.packageName, signingFlag)
+                val applicationInfo =
+                    packageInfo.applicationInfo
+                        ?: return InstalledArtifactSnapshotResult.Failure(
+                            DiagnosticsArchiveInstalledArtifactFailure.SOURCE_UNAVAILABLE,
+                        )
+                val baseSource =
+                    applicationInfo.sourceDir
+                        ?: return InstalledArtifactSnapshotResult.Failure(
+                            DiagnosticsArchiveInstalledArtifactFailure.SOURCE_UNAVAILABLE,
+                        )
+                val currentSigners = packageInfo.currentSignerCertificates()
+                val baseApk = File(baseSource)
+                val splitApks =
+                    applicationInfo.splitSourceDirs
+                        .orEmpty()
+                        .map(::File)
+                        .sortedBy(File::getPath)
+                InstalledArtifactSnapshotResult.Success(
+                    InstalledArtifactSnapshot(
+                        identity =
+                            InstalledArtifactIdentity(
+                                versionCode = PackageInfoCompat.getLongVersionCode(packageInfo),
+                                lastUpdateTime = packageInfo.lastUpdateTime,
+                                sourceFiles = (listOf(baseApk) + splitApks).map(::fileIdentity),
+                                currentSignerSha256 = currentSigners.map(::sha256Hex).distinct().sorted(),
+                                debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0,
+                            ),
+                        baseApk = baseApk,
+                        splitApks = splitApks,
+                        currentSignerCertificates = currentSigners,
+                        signingLineage = packageInfo.signingLineageBand(),
+                        debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0,
+                    ),
+                )
+            } catch (_: PackageManager.NameNotFoundException) {
+                InstalledArtifactSnapshotResult.Failure(
+                    DiagnosticsArchiveInstalledArtifactFailure.PACKAGE_UNAVAILABLE,
+                )
+            } catch (_: Exception) {
+                InstalledArtifactSnapshotResult.Failure(
+                    DiagnosticsArchiveInstalledArtifactFailure.PACKAGE_QUERY_FAILED,
+                )
+            }
+    }
+
+internal sealed interface InstalledArtifactSnapshotResult {
+    data class Success(
+        val snapshot: InstalledArtifactSnapshot,
+    ) : InstalledArtifactSnapshotResult
+
+    data class Failure(
+        val reason: DiagnosticsArchiveInstalledArtifactFailure,
+    ) : InstalledArtifactSnapshotResult
+}
+
+internal data class InstalledArtifactSnapshot(
+    val identity: InstalledArtifactIdentity,
+    val baseApk: File,
+    val splitApks: List<File>,
+    val currentSignerCertificates: List<ByteArray>,
+    val signingLineage: DiagnosticsArchiveSigningLineageBand,
+    val debuggable: Boolean,
+) {
+    val allApks: List<File> = listOf(baseApk) + splitApks
+}
+
+internal data class InstalledArtifactIdentity(
+    val versionCode: Long,
+    val lastUpdateTime: Long,
+    val sourceFiles: List<InstalledArtifactFileIdentity>,
+    val currentSignerSha256: List<String>,
+    val debuggable: Boolean,
+)
+
+internal data class InstalledArtifactFileIdentity(
+    val path: String,
+    val size: Long,
+    val modifiedAt: Long,
+)
+
+private data class NativeLibraryKey(
+    val abi: DiagnosticsArchiveNativeAbi,
+    val name: String,
+)
+
+private fun nativeLibraryKey(entryName: String): NativeLibraryKey? {
+    val parts = entryName.split('/')
+    if (
+        parts.size != NativeLibraryPathPartCount ||
+        parts[0] != "lib" ||
+        parts[2] !in PackagedNativeLibraryAllowList
+    ) {
+        return null
+    }
+    return NativeLibraryKey(abi = parts[1].toArchiveAbi(), name = parts[2])
+}
+
+private fun String.toArchiveAbi(): DiagnosticsArchiveNativeAbi =
+    when (this) {
+        "arm64-v8a" -> DiagnosticsArchiveNativeAbi.ARM64
+        "armeabi", "armeabi-v7a" -> DiagnosticsArchiveNativeAbi.ARM32
+        "x86_64" -> DiagnosticsArchiveNativeAbi.X86_64
+        "x86" -> DiagnosticsArchiveNativeAbi.X86
+        else -> DiagnosticsArchiveNativeAbi.OTHER
+    }
+
+private fun fileIdentity(file: File): InstalledArtifactFileIdentity =
+    InstalledArtifactFileIdentity(
+        path = file.path,
+        size = file.length(),
+        modifiedAt = file.lastModified(),
+    )
+
+@Suppress("DEPRECATION")
+private fun PackageInfo.currentSignerCertificates(): List<ByteArray> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        signingInfo?.apkContentsSigners.orEmpty().map { it.toByteArray() }
+    } else {
+        signatures.orEmpty().map { it.toByteArray() }
+    }
+
+@Suppress("DEPRECATION")
+private fun PackageInfo.signingLineageBand(): DiagnosticsArchiveSigningLineageBand =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        val currentSigningInfo = signingInfo
+        when {
+            currentSigningInfo == null -> DiagnosticsArchiveSigningLineageBand.UNAVAILABLE
+            currentSigningInfo.hasMultipleSigners() -> DiagnosticsArchiveSigningLineageBand.MULTIPLE_CURRENT
+            currentSigningInfo.hasPastSigningCertificates() -> DiagnosticsArchiveSigningLineageBand.SINGLE_WITH_HISTORY
+            else -> DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT
+        }
+    } else {
+        when (signatures.orEmpty().size) {
+            0 -> DiagnosticsArchiveSigningLineageBand.UNAVAILABLE
+            1 -> DiagnosticsArchiveSigningLineageBand.SINGLE_CURRENT
+            else -> DiagnosticsArchiveSigningLineageBand.MULTIPLE_CURRENT
+        }
+    }
+
+private fun InstalledArtifactSnapshotResult.Failure.toUnavailableArtifact() =
+    DiagnosticsArchiveInstalledArtifact(
+        collectionStatus = DiagnosticsArchiveInstalledArtifactCollectionStatus.UNAVAILABLE,
+        failures = listOf(reason),
+    )
+
+private fun MutableSet<DiagnosticsArchiveInstalledArtifactFailure>.recordBaseApkReadFailure(): String? {
+    add(DiagnosticsArchiveInstalledArtifactFailure.BASE_APK_READ_FAILED)
+    return null
+}
+
+private fun MutableSet<DiagnosticsArchiveInstalledArtifactFailure>.recordSplitApkReadFailure(): String? {
+    add(DiagnosticsArchiveInstalledArtifactFailure.SPLIT_APK_READ_FAILED)
+    return null
+}
+
+private fun hashFile(file: File): String? =
+    try {
+        file.inputStream().buffered().use(::sha256Hex)
+    } catch (_: Exception) {
+        null
+    }
+
+private fun sha256Hex(input: InputStream): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val buffer = ByteArray(Sha256BufferSize)
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        if (count > 0) digest.update(buffer, 0, count)
+    }
+    return digest.digest().toHex()
+}
+
+private fun ByteArray.toHex(): String = joinToString(separator = "") { byte -> "%02x".format(byte) }

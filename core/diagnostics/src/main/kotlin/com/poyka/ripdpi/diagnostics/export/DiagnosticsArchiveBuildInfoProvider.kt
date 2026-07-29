@@ -14,6 +14,8 @@ import javax.inject.Singleton
 
 internal interface DiagnosticsArchiveBuildInfoProvider {
     fun buildProvenance(): DiagnosticsArchiveBuildProvenance
+
+    fun installedArtifact(): DiagnosticsArchiveInstalledArtifact? = null
 }
 
 @Singleton
@@ -23,6 +25,7 @@ internal class AndroidDiagnosticsArchiveBuildInfoProvider
         @param:ApplicationContext private val context: Context,
         @param:Named("gitCommit") private val gitCommit: String,
         @param:Named("nativeLibVersion") private val nativeLibVersion: String,
+        private val installedArtifactCollector: DiagnosticsArchiveInstalledArtifactCollector,
     ) : DiagnosticsArchiveBuildInfoProvider {
         override fun buildProvenance(): DiagnosticsArchiveBuildProvenance {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -50,6 +53,8 @@ internal class AndroidDiagnosticsArchiveBuildInfoProvider
                     ),
             )
         }
+
+        override fun installedArtifact(): DiagnosticsArchiveInstalledArtifact = installedArtifactCollector.collect()
     }
 
 @Module

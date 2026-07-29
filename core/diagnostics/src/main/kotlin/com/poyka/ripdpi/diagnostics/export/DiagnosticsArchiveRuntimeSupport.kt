@@ -79,6 +79,7 @@ internal fun buildArchiveProvenance(
             },
         buildProvenance = selection.buildProvenance,
         runtimeProvenance = runtimeProvenance,
+        installedArtifact = selection.installedArtifact,
     )
 }
 
