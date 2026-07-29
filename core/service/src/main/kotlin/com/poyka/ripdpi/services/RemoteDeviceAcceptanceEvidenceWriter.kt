@@ -16,6 +16,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.security.MessageDigest
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -59,19 +60,29 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
     ) {
         lock.withLock {
             val nextState = pendingGenerationState(runGeneration, observedAtMillis)
-            val interrupted =
+            val persisted =
                 durableStateStore
                     .getDurableState(RemoteAcceptancePendingGenerationKey)
-                    ?.value
-                    ?.takeIf { it != runGeneration }
-            if (interrupted != null) {
-                reconcilePendingGeneration(
-                    interrupted = interrupted,
-                    replacementState = nextState,
-                    observedAtMillis = observedAtMillis,
-                )
-            } else {
-                durableStateStore.upsertDurableState(nextState)
+            when {
+                persisted == null || persisted.value == runGeneration -> {
+                    durableStateStore.upsertDurableState(nextState)
+                }
+
+                persisted.value.canonicalRunGenerationOrNull() == null -> {
+                    durableStateStore.clearDurableStateIfCurrent(
+                        RemoteAcceptancePendingGenerationKey,
+                        persisted.value,
+                    )
+                    durableStateStore.upsertDurableState(nextState)
+                }
+
+                else -> {
+                    reconcilePendingGeneration(
+                        interrupted = persisted.value,
+                        replacementState = nextState,
+                        observedAtMillis = observedAtMillis,
+                    )
+                }
             }
         }
     }
@@ -118,11 +129,18 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
 
     override suspend fun reconcilePendingRun() {
         lock.withLock {
-            val interrupted =
+            val persisted =
                 durableStateStore
                     .getDurableState(RemoteAcceptancePendingGenerationKey)
-                    ?.value
                     ?: return@withLock
+            val interrupted = persisted.value.canonicalRunGenerationOrNull()
+            if (interrupted == null) {
+                durableStateStore.clearDurableStateIfCurrent(
+                    RemoteAcceptancePendingGenerationKey,
+                    persisted.value,
+                )
+                return@withLock
+            }
             durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
                 event =
                     durableLifecycleEvent(
@@ -343,11 +361,17 @@ private fun String.sha256Hex(): String =
         .digest(toByteArray(Charsets.UTF_8))
         .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
+private fun String.canonicalRunGenerationOrNull(): String? =
+    takeIf { value -> value.length == CanonicalUuidLength }
+        ?.let { value -> runCatching { UUID.fromString(value).toString() }.getOrNull() }
+        ?.takeIf { canonical -> canonical == this }
+
 private const val RemoteAcceptanceBackgroundEvent = "remote_acceptance_background"
 private const val RemoteAcceptanceEventSource = "remote_device_acceptance"
 private const val RemoteAcceptanceEventLevelInfo = "info"
 private const val RemoteAcceptanceSubsystem = "remote_acceptance"
 private const val RemoteAcceptanceEventIdHashChars = 32
+private const val CanonicalUuidLength = 36
 internal const val RemoteAcceptancePendingGenerationKey = "remote_acceptance_pending_generation"
 private const val RemoteAcceptanceInterruptedBeforeNextRun = "interrupted_before_next_run"
 private const val RemoteAcceptanceInterruptedBeforeStartup = "interrupted_before_startup"

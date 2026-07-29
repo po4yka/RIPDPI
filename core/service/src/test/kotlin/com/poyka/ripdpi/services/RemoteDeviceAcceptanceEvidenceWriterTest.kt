@@ -30,15 +30,21 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val store = RecordingDurableStateStore()
             val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
 
-            writer.beginRun("run-a", observedAtMillis = 10L)
-            assertEquals("run-a", store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value)
+            writer.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
+            assertEquals(
+                "00000000-0000-0000-0000-00000000000a",
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
 
-            writer.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
+            writer.record(
+                "00000000-0000-0000-0000-00000000000a",
+                backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted),
+            )
 
             val event = store.nativeEvents.single()
-            assertEquals("run-a", event.runtimeId)
+            assertEquals("00000000-0000-0000-0000-00000000000a", event.runtimeId)
             assertEquals("remote_device_acceptance", event.source)
-            assertTrue(event.message.contains("run_generation=run-a"))
+            assertTrue(event.message.contains("run_generation=00000000-0000-0000-0000-00000000000a"))
             assertTrue(event.message.contains("phase=screen_off_started"))
             assertTrue(event.message.contains("outcome=pending"))
             assertEquals(event.id, store.nativeEvents.single().id)
@@ -53,32 +59,41 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val store = RecordingDurableStateStore()
             val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
 
-            writer.beginRun("run-a", observedAtMillis = 10L)
-            writer.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
+            writer.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
             writer.record(
-                "run-a",
+                "00000000-0000-0000-0000-00000000000a",
+                backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted),
+            )
+            writer.record(
+                "00000000-0000-0000-0000-00000000000a",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                     reason = DeviceRuntimeBackgroundSurvivalReason.Cancelled,
                 ),
             )
-            writer.beginRun("run-b", observedAtMillis = 30L)
-            writer.record("run-b", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
+            writer.beginRun("00000000-0000-0000-0000-00000000000b", observedAtMillis = 30L)
             writer.record(
-                "run-b",
+                "00000000-0000-0000-0000-00000000000b",
+                backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted),
+            )
+            writer.record(
+                "00000000-0000-0000-0000-00000000000b",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Failed,
                     reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
                 ),
             )
-            writer.beginRun("run-c", observedAtMillis = 40L)
+            writer.beginRun("00000000-0000-0000-0000-00000000000c", observedAtMillis = 40L)
 
             assertTrue(store.nativeEvents[1].message.contains("reason=cancelled"))
             assertTrue(store.nativeEvents[3].message.contains("reason=service_stopped"))
             assertFalse(store.nativeEvents.any { it.message.contains("interrupted_before_next_run") })
-            assertEquals("run-c", store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value)
+            assertEquals(
+                "00000000-0000-0000-0000-00000000000c",
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
         }
 
     @Test
@@ -87,19 +102,22 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val store = RecordingDurableStateStore()
             val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
 
-            writer.beginRun("run-a", observedAtMillis = 10L)
-            writer.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
+            writer.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
             writer.record(
-                "run-a",
+                "00000000-0000-0000-0000-00000000000a",
+                backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted),
+            )
+            writer.record(
+                "00000000-0000-0000-0000-00000000000a",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Passed,
                 ),
             )
-            writer.beginRun("run-b", observedAtMillis = 30L)
+            writer.beginRun("00000000-0000-0000-0000-00000000000b", observedAtMillis = 30L)
 
             val interrupted = store.nativeEvents.last()
-            assertEquals("run-a", interrupted.runtimeId)
+            assertEquals("00000000-0000-0000-0000-00000000000a", interrupted.runtimeId)
             assertEquals(30L, interrupted.createdAt)
             assertTrue(interrupted.message.contains("phase=run_interrupted"))
             assertTrue(interrupted.message.contains("reason=interrupted_before_next_run"))
@@ -110,17 +128,23 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
         runTest {
             val store = RecordingDurableStateStore()
             val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
-            firstWriter.beginRun("run-a", observedAtMillis = 10L)
-            firstWriter.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
+            firstWriter.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
+            firstWriter.record(
+                "00000000-0000-0000-0000-00000000000a",
+                backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted),
+            )
 
             val recreatedWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
-            recreatedWriter.beginRun("run-b", observedAtMillis = 30L)
+            recreatedWriter.beginRun("00000000-0000-0000-0000-00000000000b", observedAtMillis = 30L)
 
             val interrupted = store.nativeEvents.last()
-            assertEquals("run-a", interrupted.runtimeId)
+            assertEquals("00000000-0000-0000-0000-00000000000a", interrupted.runtimeId)
             assertTrue(interrupted.message.contains("phase=run_interrupted"))
             assertTrue(interrupted.message.contains("reason=interrupted_before_next_run"))
-            assertEquals("run-b", store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value)
+            assertEquals(
+                "00000000-0000-0000-0000-00000000000b",
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
         }
 
     @Test
@@ -128,7 +152,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
         runTest {
             val store = RecordingDurableStateStore()
             val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
-            firstWriter.beginRun("run-a", observedAtMillis = 10L)
+            firstWriter.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
 
             val recreatedWriter =
                 DefaultRemoteDeviceAcceptanceEvidenceWriter(
@@ -139,10 +163,59 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
 
             assertFalse(store.durableStates.containsKey(RemoteAcceptancePendingGenerationKey))
             val interrupted = store.nativeEvents.single()
-            assertEquals("run-a", interrupted.runtimeId)
+            assertEquals("00000000-0000-0000-0000-00000000000a", interrupted.runtimeId)
             assertEquals(30L, interrupted.createdAt)
             assertTrue(interrupted.message.contains("phase=run_interrupted"))
             assertTrue(interrupted.message.contains("reason=interrupted_before_startup"))
+        }
+
+    @Test
+    fun `startup reconciliation clears malformed generation without emitting it`() =
+        runTest {
+            val canary = "secret-generation-canary-" + "x".repeat(100_000)
+            val store =
+                RecordingDurableStateStore().apply {
+                    upsertDurableState(
+                        DiagnosticsDurableStateEntity(
+                            key = RemoteAcceptancePendingGenerationKey,
+                            value = canary,
+                            updatedAt = 10L,
+                        ),
+                    )
+                }
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+
+            writer.reconcilePendingRun()
+
+            assertFalse(store.durableStates.containsKey(RemoteAcceptancePendingGenerationKey))
+            assertTrue(store.nativeEvents.isEmpty())
+            assertFalse(store.nativeEvents.any { event -> event.message.contains(canary) })
+        }
+
+    @Test
+    fun `new run replaces malformed pending generation without terminal evidence`() =
+        runTest {
+            val canary = "secret-generation-canary"
+            val store =
+                RecordingDurableStateStore().apply {
+                    upsertDurableState(
+                        DiagnosticsDurableStateEntity(
+                            key = RemoteAcceptancePendingGenerationKey,
+                            value = canary,
+                            updatedAt = 10L,
+                        ),
+                    )
+                }
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+
+            writer.beginRun("00000000-0000-0000-0000-00000000000b", observedAtMillis = 30L)
+
+            assertEquals(
+                "00000000-0000-0000-0000-00000000000b",
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
+            assertTrue(store.nativeEvents.isEmpty())
+            assertFalse(store.nativeEvents.any { event -> event.message.contains(canary) })
         }
 
     @Test
@@ -152,13 +225,13 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(firstStore)
             val event = backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted)
 
-            firstWriter.beginRun("run-a", observedAtMillis = 10L)
-            firstWriter.record("run-a", event)
-            firstWriter.record("run-a", event)
+            firstWriter.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
+            firstWriter.record("00000000-0000-0000-0000-00000000000a", event)
+            firstWriter.record("00000000-0000-0000-0000-00000000000a", event)
 
             val ids = firstStore.nativeEvents.map(NativeSessionEventEntity::id)
             assertEquals(1, ids.size)
-            assertNotEquals(ids[0], "run-a")
+            assertNotEquals(ids[0], "00000000-0000-0000-0000-00000000000a")
         }
 
     @Test
@@ -167,9 +240,9 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val store = RecordingDurableStateStore()
             val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
 
-            firstWriter.beginRun("run-a", observedAtMillis = 10L)
+            firstWriter.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
             firstWriter.record(
-                "run-a",
+                "00000000-0000-0000-0000-00000000000a",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
@@ -179,13 +252,13 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             store.upsertDurableState(
                 DiagnosticsDurableStateEntity(
                     key = RemoteAcceptancePendingGenerationKey,
-                    value = "run-a",
+                    value = "00000000-0000-0000-0000-00000000000a",
                     updatedAt = 25L,
                 ),
             )
 
             val recreatedWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
-            recreatedWriter.beginRun("run-b", observedAtMillis = 30L)
+            recreatedWriter.beginRun("00000000-0000-0000-0000-00000000000b", observedAtMillis = 30L)
 
             assertEquals(1, store.nativeEvents.size)
             assertTrue(
@@ -196,7 +269,10 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
                     .contains("phase=after_wake"),
             )
             assertFalse(store.nativeEvents.any { it.message.contains("phase=run_interrupted") })
-            assertEquals("run-b", store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value)
+            assertEquals(
+                "00000000-0000-0000-0000-00000000000b",
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
         }
 
     @Test
@@ -205,9 +281,9 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val store = RecordingDurableStateStore()
             val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
 
-            writer.beginRun("run-a", observedAtMillis = 10L)
+            writer.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
             writer.record(
-                "run-a",
+                "00000000-0000-0000-0000-00000000000a",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
@@ -215,7 +291,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
                 ),
             )
             writer.record(
-                "run-a",
+                "00000000-0000-0000-0000-00000000000a",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Failed,
@@ -239,16 +315,16 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             val store = RecordingDurableStateStore()
             val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
 
-            writer.beginRun("run-a", observedAtMillis = 10L)
+            writer.beginRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 10L)
             writer.record(
-                "run-a",
+                "00000000-0000-0000-0000-00000000000a",
                 backgroundEvent(
                     phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                     outcome = DeviceRuntimeBackgroundSurvivalOutcome.Failed,
                     reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
                 ),
             )
-            writer.cancelRun("run-a", observedAtMillis = 30L)
+            writer.cancelRun("00000000-0000-0000-0000-00000000000a", observedAtMillis = 30L)
 
             assertEquals(1, store.nativeEvents.size)
             assertTrue(
