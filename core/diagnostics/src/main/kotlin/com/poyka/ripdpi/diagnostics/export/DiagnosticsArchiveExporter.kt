@@ -220,17 +220,16 @@ internal class DefaultDiagnosticsArchiveExporter
                         .firstOrNull { stage ->
                             stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED && stage.sessionId != null
                         }?.sessionId
-            if (primarySessionId == null) {
-                require(!outcome.actionable) {
-                    "Actionable home diagnostics run has no recommended session: ${outcome.runId}"
+            require(primarySessionId != null || !outcome.actionable) {
+                "Actionable home diagnostics run has no recommended session: ${outcome.runId}"
+            }
+            return primarySessionId?.let { sessionId ->
+                require(sessionId in outcome.bundleSessionIds) {
+                    "Primary session is outside the completed home diagnostics run: $sessionId"
                 }
-                return null
-            }
-            require(primarySessionId in outcome.bundleSessionIds) {
-                "Primary session is outside the completed home diagnostics run: $primarySessionId"
-            }
-            return requireNotNull(compositeSessions.firstOrNull { it.id == primarySessionId }) {
-                "Primary home diagnostics session is unavailable: $primarySessionId"
+                requireNotNull(compositeSessions.firstOrNull { it.id == sessionId }) {
+                    "Primary home diagnostics session is unavailable: $sessionId"
+                }
             }
         }
 
