@@ -250,6 +250,8 @@ app:asset_provider_custom_url_helper
 app:asset_provider_custom_url_label
 app:asset_provider_entry_body
 app:asset_provider_entry_title
+app:asset_provider_exit_pending_body
+app:asset_provider_exit_pending_title
 app:asset_provider_failed_title
 app:asset_provider_failure_invalid_payload
 app:asset_provider_failure_missing_configuration
@@ -1258,6 +1260,11 @@ app:diagnostics_connection_concurrency_summary
 app:diagnostics_context_section
 app:diagnostics_current_match
 app:diagnostics_dashboard_section
+app:diagnostics_device_gate_body
+app:diagnostics_device_gate_rerun
+app:diagnostics_device_gate_run
+app:diagnostics_device_gate_share
+app:diagnostics_device_gate_title
 app:diagnostics_diagnosis_summary_title
 app:diagnostics_dns_availability_complete
 app:diagnostics_dns_availability_failed
@@ -2402,6 +2409,7 @@ app:logs_auto_scroll_title
 app:logs_buffer_title
 app:logs_buffer_value
 app:logs_clear
+app:logs_copy_entry
 app:logs_empty_body
 app:logs_empty_title
 app:logs_entries_count
@@ -3457,6 +3465,11 @@ app:stale_tier_expired
 app:stale_tier_fresh
 app:stale_tier_recent
 app:stale_tier_stale
+app:startup_recovery_failed_body
+app:startup_recovery_failed_title
+app:startup_recovery_preparing_body
+app:startup_recovery_preparing_title
+app:startup_recovery_retry
 app:status_indicator_description
 app:strategy_ab_action_switch
 app:strategy_ab_badge_candidate
