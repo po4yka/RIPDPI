@@ -53,16 +53,6 @@ internal data class BridgeSessionHandle(
     val registerActiveBridge: Boolean,
 )
 
-internal data class ActiveScanCancellation(
-    val sessionId: String,
-    val partialReportJson: String?,
-    val failure: Throwable? = null,
-)
-
-internal class DiagnosticsBridgeStartException(
-    cause: Throwable,
-) : IllegalStateException("Diagnostics scan failed to start", cause)
-
 @Singleton
 class ScanAdmissionService
     @Inject
@@ -100,7 +90,7 @@ class ScanAdmissionService
             if (rejectionReason != null) {
                 throw DiagnosticsScanStartRejectedException(rejectionReason)
             }
-            return if (activeScanRegistry.hasHiddenActiveScan()) {
+            return if (activeScanRegistry.hasHiddenActiveScan) {
                 ManualStartAdmission.HiddenAutomaticProbeConflict(settings = settings, profile = profile)
             } else {
                 ManualStartAdmission.Admitted(settings = settings, profile = profile)
@@ -229,18 +219,6 @@ internal class OwnerExecutionRegistry {
     }
 }
 
-internal sealed interface HiddenProbeCancellationResult {
-    data object NoActiveProbe : HiddenProbeCancellationResult
-
-    data class Cancelled(
-        val sessionId: String,
-    ) : HiddenProbeCancellationResult
-
-    data class Failed(
-        val sessionId: String,
-    ) : HiddenProbeCancellationResult
-}
-
 @Singleton
 class ActiveScanRegistry
     internal constructor(
@@ -300,7 +278,8 @@ class ActiveScanRegistry
         fun hasVisibleActiveScan(): Boolean =
             timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
 
-        fun hasHiddenActiveScan(): Boolean = hiddenAutomaticProbeActiveState.value
+        val hasHiddenActiveScan: Boolean
+            get() = hiddenAutomaticProbeActiveState.value
 
         internal suspend fun hasRegisteredExecution(sessionId: String): Boolean =
             bridgeMutex.withLock {
@@ -564,7 +543,7 @@ class ActiveScanRegistry
         }
     }
 
-internal fun ActiveScanRegistry.hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan()
+internal fun ActiveScanRegistry.hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan
 
 private fun visibleProgressForActiveExecution(
     executions: Map<String, VisibleScanExecution>,

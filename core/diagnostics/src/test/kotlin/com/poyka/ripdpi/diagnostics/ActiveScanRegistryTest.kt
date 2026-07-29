@@ -135,9 +135,9 @@ class ActiveScanRegistryTest {
 
             registry.clearBridge(staleBridge, "hidden-session", registerActiveBridge = false)
 
-            assertTrue(registry.hasHiddenActiveScan())
+            assertTrue(registry.hasHiddenActiveScan)
             registry.clearBridge(replacementBridge, "hidden-session", registerActiveBridge = false)
-            assertFalse(registry.hasHiddenActiveScan())
+            assertFalse(registry.hasHiddenActiveScan)
         }
 
     @Test

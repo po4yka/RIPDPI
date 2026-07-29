@@ -174,7 +174,7 @@ internal class DefaultDiagnosticsScanController
 
                 when (action) {
                     HiddenProbeConflictAction.WAIT -> {
-                        if (activeScanRegistry.hasHiddenActiveScan()) {
+                        if (activeScanRegistry.hasHiddenActiveScan) {
                             return@withLock DiagnosticsManualScanResolution.Failed(
                                 DiagnosticsManualScanResolutionFailureReason.HIDDEN_PROBE_STILL_ACTIVE,
                             )
@@ -182,7 +182,7 @@ internal class DefaultDiagnosticsScanController
                     }
 
                     HiddenProbeConflictAction.CANCEL_AND_RUN -> {
-                        if (activeScanRegistry.hasHiddenActiveScan()) {
+                        if (activeScanRegistry.hasHiddenActiveScan) {
                             val cancellation =
                                 activeScanRegistry.cancelHiddenAutomaticProbe(
                                     cancellationSummary =
