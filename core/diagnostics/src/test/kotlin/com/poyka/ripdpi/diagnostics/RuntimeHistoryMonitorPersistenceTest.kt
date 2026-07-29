@@ -168,6 +168,19 @@ class RuntimeHistoryMonitorPersistenceTest {
         }
 
     @Test
+    fun `runtime event dedupe scopes identical events by connection session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(telemetryWithEvent("shared-event", createdAt = 1L), "conn-a")
+            persister.persistRuntimeEvents(telemetryWithEvent("shared-event", createdAt = 1L), "conn-b")
+
+            val events = stores.nativeEventsState.value.filter { event -> event.message == "shared-event" }
+            assertEquals(listOf("conn-a", "conn-b"), events.mapNotNull { event -> event.connectionSessionId }.sorted())
+        }
+
+    @Test
     fun `status before telemetry persists final data plane event on active session`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -486,7 +499,7 @@ class RuntimeHistoryMonitorPersistenceTest {
         }
 
     @Test
-    fun `dns runtime health source switch does not synthesize recovery`() =
+    fun `dns runtime health source switch replaces active failure before sealed assessment`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val persister = createArtifactPersister(stores)
@@ -531,13 +544,86 @@ class RuntimeHistoryMonitorPersistenceTest {
                 ),
                 "conn-a",
             )
+            stores.nativeEventsState.value +=
+                terminalDataPlaneEvent("conn-a", createdAt = 4L).copy(
+                    message = "state=evidence_unavailable mode=vpn generation=1 final=true event_kind=data_plane_final",
+                )
+            persister.persistTerminalRootCauseAssessment(
+                connectionSessionId = "conn-a",
+                createdAt = 5L,
+                terminalEvidenceSealed = true,
+            )
 
             val typedEvent = typedRuntimeEvents(stores, "dns").single()
-            assertEquals("warn", typedEvent.level)
+            val assessment = decodeRootCauseAssessment(rootCauseAssessments(stores).single())
+            assertEquals("info", typedEvent.level)
             assertEquals(
-                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=failure_threshold",
+                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=recovered",
                 typedEvent.message,
             )
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        }
+
+    @Test
+    fun `dns runtime health runtime switch replaces active failure before sealed assessment`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    queries = 1,
+                    failures = 0,
+                    updatedAt = 1L,
+                    serviceStartedAt = 100L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    queries = 2,
+                    failures = 1,
+                    updatedAt = 2L,
+                    serviceStartedAt = 100L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    queries = 3,
+                    failures = 2,
+                    updatedAt = 3L,
+                    serviceStartedAt = 100L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    queries = 4,
+                    failures = 2,
+                    updatedAt = 4L,
+                    serviceStartedAt = 200L,
+                ),
+                "conn-a",
+            )
+            stores.nativeEventsState.value +=
+                terminalDataPlaneEvent("conn-a", createdAt = 4L).copy(
+                    message = "state=evidence_unavailable mode=vpn generation=1 final=true event_kind=data_plane_final",
+                )
+            persister.persistTerminalRootCauseAssessment(
+                connectionSessionId = "conn-a",
+                createdAt = 5L,
+                terminalEvidenceSealed = true,
+            )
+
+            val typedEvent = typedRuntimeEvents(stores, "dns").single()
+            val assessment = decodeRootCauseAssessment(rootCauseAssessments(stores).single())
+            assertEquals("info", typedEvent.level)
+            assertEquals(
+                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=recovered",
+                typedEvent.message,
+            )
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         }
 
     @Test
@@ -1074,6 +1160,12 @@ class RuntimeHistoryMonitorPersistenceTest {
 
     private fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
         stores.nativeEventsState.value.filter { event -> event.source == RuntimeRootCauseAssessmentSource }
+
+    private fun decodeRootCauseAssessment(event: NativeSessionEventEntity): RuntimeRootCauseAssessment =
+        RuntimeHistoryJson.decodeFromString(
+            RuntimeRootCauseAssessment.serializer(),
+            event.message.substringAfter("runtime_root_cause_assessment "),
+        )
 
     private fun typedRuntimeEvents(
         stores: FakeDiagnosticsHistoryStores,

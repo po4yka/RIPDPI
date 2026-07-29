@@ -302,7 +302,7 @@ class RuntimeArtifactPersister
         }
 
         private suspend fun persistRuntimeEvent(event: NativeSessionEventEntity) {
-            val key = "${event.source}|${event.level}|${event.message}|${event.createdAt}"
+            val key = runtimeEventDedupeKey(event)
             while (true) {
                 val inFlight =
                     eventKeysMutex.withLock {
@@ -341,6 +341,21 @@ class RuntimeArtifactPersister
                 }
             }
         }
+
+        private fun runtimeEventDedupeKey(event: NativeSessionEventEntity): String =
+            listOf(
+                event.connectionSessionId.orEmpty(),
+                event.sessionId.orEmpty(),
+                event.source,
+                event.level,
+                event.subsystem.orEmpty(),
+                event.runtimeId.orEmpty(),
+                event.mode.orEmpty(),
+                event.policySignature.orEmpty(),
+                event.fingerprintHash.orEmpty(),
+                event.message,
+                event.createdAt.toString(),
+            ).joinToString(separator = "|")
 
         private suspend fun recordRuntimeEvidenceEvent(event: NativeSessionEventEntity) {
             val connectionSessionId = event.connectionSessionId ?: return
@@ -468,11 +483,17 @@ private class TypedRuntimeHealthState {
         createdAt: Long,
     ): NativeSessionEventEntity? {
         val baseline = dnsBaseline
-        if (baseline == null || counters.hasDifferentProducerThan(baseline)) {
+        if (baseline == null) {
             dnsBaseline = counters
             dnsFailureStreak = 0
             dnsFailureActive = false
             return null
+        }
+        if (counters.hasDifferentProducerThan(baseline)) {
+            val wasFailureActive = dnsFailureActive
+            dnsBaseline = counters
+            dnsFailureStreak = 0
+            return recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
         }
         if (counters.hasRollbackFrom(baseline)) {
             val wasFailureActive = dnsFailureActive
