@@ -63,16 +63,24 @@ internal class RuntimeTerminalOutbox(
         }
     }
 
-    suspend fun recover(): List<PendingTerminalSession> =
-        buildList {
-            outboxStore.getPendingTerminalOutboxes().forEach { marker ->
+    suspend fun recoverAll(onRecovered: suspend (PendingTerminalSession) -> Unit) {
+        repeat(MaxTerminalOutboxRecoveryBatches) {
+            val markers = outboxStore.getPendingTerminalOutboxes(TerminalOutboxRecoveryBatchSize)
+            if (markers.isEmpty()) return
+            markers.forEach { marker ->
                 try {
-                    add(recover(marker))
+                    onRecovered(recover(marker))
                 } catch (_: TerminalOutboxRecoveryException) {
                     outboxStore.completeTerminalOutbox(marker)
                 }
             }
+            val madeProgress =
+                markers.any { marker ->
+                    outboxStore.getTerminalOutbox(marker.key)?.value != marker.value
+                }
+            if (!madeProgress) return
         }
+    }
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
         val outbox = decodeTerminalOutboxMarker(marker.value)
@@ -368,6 +376,8 @@ internal enum class PendingTerminalPhase {
 }
 
 private const val TerminalOutboxSchemaVersion = 2
+private const val TerminalOutboxRecoveryBatchSize = 64
+private const val MaxTerminalOutboxRecoveryBatches = 256
 
 private fun decodeTerminalOutboxMarker(value: String): TerminalOutboxMarker {
     val schemaVersion =

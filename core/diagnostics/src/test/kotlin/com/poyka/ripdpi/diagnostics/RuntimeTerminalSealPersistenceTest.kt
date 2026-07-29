@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -41,6 +42,80 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class RuntimeTerminalSealPersistenceTest : RuntimeTerminalPersistenceTestSupport() {
+    @Test
+    fun `startup recovery drains more than one bounded terminal outbox page`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val sessions =
+                (0 until 65).map { index ->
+                    finishedUsageSession(
+                        id = "recovery-$index",
+                        finishedAt = 1_000L + index,
+                    )
+                }
+            stores.usageSessionsState.value = sessions
+            stores.terminalOutboxState.value =
+                sessions.map { session ->
+                    PendingTerminalSession(
+                        activeSession = session,
+                        finishedSession = session,
+                        telemetry = null,
+                        createdAt = requireNotNull(session.finishedAt),
+                        terminalEvidenceSealed = false,
+                        policyOutcome = null,
+                        artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+                    ).toMarker(PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT)
+                }
+            val restoredScope = monitorScope()
+            val restoredCoordinator =
+                createSessionCoordinator(stores, DefaultServiceStateStore(), restoredScope)
+
+            restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertEquals(65, rootCauseAssessments(stores).size)
+            restoredScope.cancel()
+        }
+
+    @Test
+    fun `startup recovery stops when a terminal outbox batch makes no progress`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session = finishedUsageSession(id = "stuck-recovery", finishedAt = 1_000L)
+            stores.usageSessionsState.value = listOf(session)
+            stores.terminalOutboxState.value =
+                listOf(
+                    PendingTerminalSession(
+                        activeSession = session,
+                        finishedSession = session,
+                        telemetry = null,
+                        createdAt = requireNotNull(session.finishedAt),
+                        terminalEvidenceSealed = false,
+                        policyOutcome = null,
+                        artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+                    ).toMarker(PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT),
+                )
+            val outbox =
+                RuntimeTerminalOutbox(
+                    usageHistoryStore = stores,
+                    outboxStore = stores,
+                    policyRecordStore = stores,
+                    artifactPersister = createArtifactPersister(stores),
+                    rememberedPolicySessionTracker =
+                        RememberedPolicySessionTracker(
+                            rememberedNetworkPolicyStore =
+                                DefaultRememberedNetworkPolicyStore(stores, TestDiagnosticsHistoryClock()),
+                            policyHandoverEventStore = FakePolicyHandoverEventStore(),
+                        ),
+                )
+            var recoveryAttempts = 0
+
+            outbox.recoverAll { recoveryAttempts += 1 }
+
+            assertEquals(1, recoveryAttempts)
+            assertEquals(1, stores.getPendingTerminalOutboxes().size)
+        }
+
     @Test
     fun `corrupt terminal outbox is discarded without blocking valid recovery or exposing payload`() =
         runTest {
@@ -862,6 +937,31 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
 
     protected fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
         stores.nativeEventsState.value.filter { event -> event.source == RuntimeRootCauseAssessmentSource }
+
+    protected fun finishedUsageSession(
+        id: String,
+        finishedAt: Long,
+    ): BypassUsageSessionEntity =
+        BypassUsageSessionEntity(
+            id = id,
+            startedAt = finishedAt - 100L,
+            finishedAt = finishedAt,
+            updatedAt = finishedAt,
+            serviceMode = Mode.VPN.name,
+            connectionState = AppStatus.Halted.name,
+            approachProfileId = null,
+            approachProfileName = null,
+            strategyId = "strategy",
+            strategyLabel = "Strategy",
+            strategyJson = "{}",
+            networkType = "unknown",
+            txBytes = 0L,
+            rxBytes = 0L,
+            totalErrors = 0L,
+            routeChanges = 0L,
+            restartCount = 0,
+            endedReason = "stopped",
+        )
 
     protected companion object {
         const val ConnectionSessionId = "conn-a"

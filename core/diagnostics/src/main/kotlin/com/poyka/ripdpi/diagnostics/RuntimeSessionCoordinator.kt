@@ -426,7 +426,7 @@ class RuntimeSessionCoordinator
                 terminalOutbox.persist(pending)
                 if (pendingTerminalSession === pending) pendingTerminalSession = null
             }
-            terminalOutbox.recover().forEach { recovered ->
+            terminalOutbox.recoverAll { recovered ->
                 pendingTerminalSession = recovered
                 terminalOutbox.persist(recovered)
                 if (pendingTerminalSession === recovered) pendingTerminalSession = null
