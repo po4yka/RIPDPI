@@ -116,6 +116,11 @@ class ProcessDeathReconstructionTest {
                     runGeneration = interruptedRun,
                     observedAtMillis = 10L,
                 )
+            assertNotEquals(
+                "Remote acceptance debug receiver must run outside the instrumentation process",
+                Process.myPid(),
+                firstBegin.processPid,
+            )
             runBlocking {
                 assertEquals(
                     interruptedRun,
@@ -132,6 +137,11 @@ class ProcessDeathReconstructionTest {
                     runGeneration = nextRun,
                     observedAtMillis = 20L,
                 )
+            assertNotEquals(
+                "Remote acceptance debug receiver must still run outside the instrumentation process",
+                Process.myPid(),
+                secondBegin.processPid,
+            )
             assertNotEquals(
                 "Remote acceptance beginRun must execute in a relaunched app process",
                 firstBegin.processPid,
@@ -178,7 +188,8 @@ class ProcessDeathReconstructionTest {
         // Some instrumentation runners execute this test inside the target
         // app process, which cannot be killed without aborting the test. In
         // that environment, treat the current instrumentation PID as the
-        // surviving runner process and require every other app PID to exit.
+        // surviving runner process. For remote acceptance reconstruction,
+        // require the exact debug receiver process PID to exit.
         val killedByDeadline = SystemClock.elapsedRealtime() + KILL_SETTLE_TIMEOUT_MS
         val instrumentationPid = Process.myPid().toString()
         var appProcessGone = false
@@ -193,7 +204,11 @@ class ProcessDeathReconstructionTest {
                     }.trim()
             val livePids = psOutput.split(Regex("\\s+")).filter { it.isNotBlank() }
             val requiredPidGone = requiredDeadPid == null || requiredDeadPid.toString() !in livePids
-            if ((livePids.isEmpty() || livePids.all { it == instrumentationPid }) && requiredPidGone) {
+            val instrumentationSurvives = Process.myPid().toString() == instrumentationPid
+            if ((livePids.isEmpty() || livePids.all { it == instrumentationPid }) &&
+                requiredPidGone &&
+                instrumentationSurvives
+            ) {
                 appProcessGone = true
                 break
             }
