@@ -5,7 +5,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkPathObservation
-import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.CancellationException
@@ -69,6 +69,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     underlay = underlay,
                     directEgressObserved = snapshot.relayFailed,
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
+                    probePlan = before.probePlan,
+                    awgRuntimeHealthy = before.awgRuntimeHealthy,
                 ),
         )
     }
@@ -80,6 +82,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             mode = mode,
             relayProtocolKind = sanitizeTransportKind(snapshot.relayTelemetry.protocolKind),
             relayListenerAddress = snapshot.relayTelemetry.listenerAddress?.trim(),
+            awgRuntimePublished = snapshot.awgTelemetryStatus.state == RuntimeTelemetryState.Snapshot,
+            awgRuntimeHealth = snapshot.awgTelemetry.health,
             serviceStartedAt = snapshot.serviceStartedAt,
             underlayObservation = underlayObservationProvider.capture(),
         )
@@ -87,7 +91,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
 
     private suspend fun captureRelayEvidence(context: AcceptanceCaptureContext): AcceptanceRelayEvidence {
         val endpoint = context.endpoint
-        if (!context.serviceRunning || context.relayProtocolKind != RelayKindVlessReality || endpoint == null) {
+        if (!context.serviceRunning || !context.probePlan.requiresRelayListener || endpoint == null) {
             return AcceptanceRelayEvidence()
         }
         val families = context.underlayObservation.mandatoryRelayUdpPayloadFamilies()
@@ -97,19 +101,40 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     probeOrNull(
                         endpoint,
                         RemoteAcceptanceConnectivityProbeUrl,
-                        EgressRequirements(tcpConnect = true, udpAssociate = true),
+                        EgressRequirements(
+                            tcpConnect = context.probePlan.relayTcp == AcceptanceProbeApplicability.Required,
+                            udpAssociate = context.probePlan.relayUdp == AcceptanceProbeApplicability.Required,
+                        ),
                     )
                 }
-            val ipv4 = async { probeOrNull(endpoint, RemoteAcceptanceIpv4ProbeUrl, TcpOnlyRequirements) }
-            val ipv6 = async { probeOrNull(endpoint, RemoteAcceptanceIpv6ProbeUrl, TcpOnlyRequirements) }
+            val ipv4 =
+                async {
+                    if (context.probePlan.relayTcp == AcceptanceProbeApplicability.Required) {
+                        probeOrNull(endpoint, RemoteAcceptanceIpv4ProbeUrl, TcpOnlyRequirements)
+                    } else {
+                        null
+                    }
+                }
+            val ipv6 =
+                async {
+                    if (context.probePlan.relayTcp == AcceptanceProbeApplicability.Required) {
+                        probeOrNull(endpoint, RemoteAcceptanceIpv6ProbeUrl, TcpOnlyRequirements)
+                    } else {
+                        null
+                    }
+                }
             val payloadHealth =
                 async {
-                    payloadHealthOrNull(
-                        endpoint = endpoint,
-                        families = families,
-                        underlayGeneration = context.underlayObservation.generation,
-                        serviceStartedAt = context.serviceStartedAt,
-                    )
+                    if (context.probePlan.relayUdpPayload == AcceptanceProbeApplicability.Required) {
+                        payloadHealthOrNull(
+                            endpoint = endpoint,
+                            families = families,
+                            underlayGeneration = context.underlayObservation.generation,
+                            serviceStartedAt = context.serviceStartedAt,
+                        )
+                    } else {
+                        null
+                    }
                 }
             AcceptanceRelayEvidence(connectivity.await(), ipv4.await(), ipv6.await(), payloadHealth.await())
         }
@@ -174,6 +199,8 @@ private data class AcceptanceCaptureContext(
     val mode: Mode?,
     val relayProtocolKind: String,
     val relayListenerAddress: String?,
+    val awgRuntimePublished: Boolean,
+    val awgRuntimeHealth: String,
     val serviceStartedAt: Long?,
     val underlayObservation: NetworkPathObservation,
 ) {
@@ -181,7 +208,13 @@ private data class AcceptanceCaptureContext(
         get() = status == AppStatus.Running && mode == Mode.VPN
 
     val transportKind: String
-        get() = relayProtocolKind
+        get() = probePlan.transportKind
+
+    val probePlan: AcceptanceTransportProbePlan
+        get() = acceptanceTransportProbePlan(relayProtocolKind, awgRuntimePublished)
+
+    val awgRuntimeHealthy: Boolean?
+        get() = awgRuntimeHealth.takeIf { awgRuntimePublished }?.let { it == HealthyRuntimeState }
 
     val endpoint: RelayProbeEndpoint?
         get() = parseLocalRelayEndpoint(relayListenerAddress)
@@ -192,6 +225,8 @@ private data class AcceptanceCaptureContext(
                 mode != after.mode ||
                 relayProtocolKind != after.relayProtocolKind ||
                 relayListenerAddress != after.relayListenerAddress ||
+                awgRuntimePublished != after.awgRuntimePublished ||
+                awgRuntimeHealth != after.awgRuntimeHealth ||
                 serviceStartedAt != after.serviceStartedAt ||
                 underlayObservation.generation != after.underlayObservation.generation
         }
@@ -358,3 +393,4 @@ private val TcpOnlyRequirements = EgressRequirements(tcpConnect = true, udpAssoc
 private const val MaxNetworkPort = 65_535
 private const val MaxPayloadHealthCacheEntries = 16
 private const val PayloadHealthCacheCooldownMs = 60_000L
+private const val HealthyRuntimeState = "healthy"

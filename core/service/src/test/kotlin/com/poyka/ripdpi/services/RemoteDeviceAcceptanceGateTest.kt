@@ -574,17 +574,21 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
-    fun `wrong transport fails closed without probe details`() {
+    fun `unknown transport is inconclusive without probe details`() {
         val report =
             buildRemoteDeviceAcceptanceBaseline(
                 Device,
-                successfulEvidence().copy(transportKind = "hysteria2", probe = null),
+                successfulEvidence().copy(
+                    transportKind = "unknown",
+                    probe = null,
+                    probePlan = acceptanceTransportProbePlan("unknown"),
+                ),
             )
 
-        assertEquals(RemoteDeviceAcceptanceStatus.Fail, report.status)
-        assertEquals("transport_mismatch", report.step("reality_tcp").errorClass)
-        assertEquals("transport_mismatch", report.step("socks_udp_associate").errorClass)
-        assertEquals("transport_mismatch", report.step("dns_udp").errorClass)
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
+        assertEquals(ErrorRuntimeContextUnavailable, report.step("reality_tcp").errorClass)
+        assertEquals(ErrorRuntimeContextUnavailable, report.step("socks_udp_associate").errorClass)
+        assertEquals(ErrorRuntimeContextUnavailable, report.step("dns_udp").errorClass)
     }
 
     @Test
