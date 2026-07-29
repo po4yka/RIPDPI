@@ -9,10 +9,6 @@ import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -806,85 +802,3 @@ class RoomDiagnosticsHistoryResetStore
             }
         }
     }
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class DiagnosticsHistoryStoresModule {
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsProfileCatalog(store: RoomDiagnosticsProfileCatalog): DiagnosticsProfileCatalog
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsScanRecordStore(store: RoomDiagnosticsScanRecordStore): DiagnosticsScanRecordStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsArtifactReadStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactReadStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsArtifactQueryStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactQueryStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsArtifactWriteStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactWriteStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsFailureArtifactWriteStore(
-        store: RoomDiagnosticsFailureArtifactStore,
-    ): DiagnosticsFailureArtifactWriteStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsDurableStateStore(store: RoomDiagnosticsArtifactStore): DiagnosticsDurableStateStore
-
-    @Binds
-    @Singleton
-    abstract fun bindBypassUsageHistoryStore(store: RoomBypassUsageHistoryStore): BypassUsageHistoryStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsTerminalOutboxStore(
-        store: RoomDiagnosticsTerminalOutboxStore,
-    ): DiagnosticsTerminalOutboxStore
-
-    @Binds
-    @Singleton
-    abstract fun bindRememberedNetworkPolicyRecordStore(
-        store: RoomRememberedNetworkPolicyRecordStore,
-    ): RememberedNetworkPolicyRecordStore
-
-    @Binds
-    @Singleton
-    abstract fun bindNetworkDnsPathPreferenceRecordStore(
-        store: RoomNetworkDnsPathPreferenceRecordStore,
-    ): NetworkDnsPathPreferenceRecordStore
-
-    @Binds
-    @Singleton
-    abstract fun bindNetworkEdgePreferenceRecordStore(
-        store: RoomNetworkEdgePreferenceRecordStore,
-    ): NetworkEdgePreferenceRecordStore
-
-    @Binds
-    @Singleton
-    abstract fun bindNetworkDnsBlockedPathStore(store: RoomNetworkDnsBlockedPathStore): NetworkDnsBlockedPathStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsHistoryRetentionStore(
-        store: RoomDiagnosticsHistoryRetentionStore,
-    ): DiagnosticsHistoryRetentionStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsHistoryResetStore(
-        store: RoomDiagnosticsHistoryResetStore,
-    ): DiagnosticsHistoryResetStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDiagnosticsHistoryClock(clock: SystemDiagnosticsHistoryClock): DiagnosticsHistoryClock
-}

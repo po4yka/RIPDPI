@@ -512,6 +512,17 @@ class AppStartupInitializerTest {
             assertEquals(0, diagnosticsBootstrapper.calls)
             assertEquals(0, detectionObservationStarter.startCalls)
         }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class AppStartupInitializerFailureTest {
+    private lateinit var application: Application
+
+    @Before
+    fun setUp() {
+        application = RuntimeEnvironment.getApplication()
+    }
 
     @Test
     fun `startup recovery warnings never include throwable details`() {
@@ -761,53 +772,54 @@ class AppStartupInitializerTest {
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, proxyGroupRepository.listCalls)
         }
-
-    private fun createInitializer(
-        compatibilityResetter: AppCompatibilityResetter,
-        strategyPackService: StrategyPackService,
-        diagnosticsBootstrapper: DiagnosticsBootstrapper,
-        detectionObservationStarter: RecordingDetectionObservationStarter = RecordingDetectionObservationStarter(),
-        dnsPathPreferenceInvalidator: RecordingDnsPathPreferenceInvalidator =
-            RecordingDnsPathPreferenceInvalidator(application),
-        proxyGroupRepository: ProxyGroupRepository = EmptyProxyGroupRepository,
-        bootSessionRecorder: RecordingBootSessionRecorder = RecordingBootSessionRecorder(),
-        resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
-        lastExitInspector: LastExitInspector = NoOpLastExitInspector,
-        memoryProfilingRegistrar: MemoryProfilingRegistrar = NoOpMemoryProfilingRegistrar,
-        remoteDeviceAcceptanceStartupReconciler: RemoteDeviceAcceptanceStartupReconciler =
-            NoOpRemoteDeviceAcceptanceStartupReconciler,
-        profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
-        scope: CoroutineScope,
-    ): AppStartupInitializer =
-        AppStartupInitializer(
-            context = application,
-            startupDataRecovery = StartupDataRecovery(compatibilityResetter, profileMutations),
-            diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
-            detectionObservationStarter = detectionObservationStarter,
-            strategyPackService = strategyPackService,
-            dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
-            cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
-            proxyGroupRepository = proxyGroupRepository,
-            bootSessionRecorder = bootSessionRecorder,
-            resetEventRecorder = resetEventRecorder,
-            startupDiagnosticsProbes =
-                StartupDiagnosticsProbes(
-                    lastExitInspector = lastExitInspector,
-                    memoryProfilingRegistrar = memoryProfilingRegistrar,
-                    remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
-                ),
-            simpleFlavorStartupHooks = SimpleFlavorStartupHooks(Optional.empty(), Optional.empty()),
-            appShortcutsPublisher =
-                AppShortcutsPublisher(
-                    context = application,
-                    proxyGroupRepository = proxyGroupRepository,
-                    selectorSelectionStore = NoOpSelectorSelectionStore,
-                    selectorShortcutCapability = SelectorShortcutCapability(application),
-                    applicationScope = scope,
-                ),
-            applicationScope = scope,
-        )
 }
+
+private fun createInitializer(
+    compatibilityResetter: AppCompatibilityResetter,
+    strategyPackService: StrategyPackService,
+    diagnosticsBootstrapper: DiagnosticsBootstrapper,
+    detectionObservationStarter: RecordingDetectionObservationStarter = RecordingDetectionObservationStarter(),
+    application: Application = RuntimeEnvironment.getApplication(),
+    dnsPathPreferenceInvalidator: RecordingDnsPathPreferenceInvalidator =
+        RecordingDnsPathPreferenceInvalidator(application),
+    proxyGroupRepository: ProxyGroupRepository = EmptyProxyGroupRepository,
+    bootSessionRecorder: RecordingBootSessionRecorder = RecordingBootSessionRecorder(),
+    resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
+    lastExitInspector: LastExitInspector = NoOpLastExitInspector,
+    memoryProfilingRegistrar: MemoryProfilingRegistrar = NoOpMemoryProfilingRegistrar,
+    remoteDeviceAcceptanceStartupReconciler: RemoteDeviceAcceptanceStartupReconciler =
+        NoOpRemoteDeviceAcceptanceStartupReconciler,
+    profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
+    scope: CoroutineScope,
+): AppStartupInitializer =
+    AppStartupInitializer(
+        context = application,
+        startupDataRecovery = StartupDataRecovery(compatibilityResetter, profileMutations),
+        diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
+        detectionObservationStarter = detectionObservationStarter,
+        strategyPackService = strategyPackService,
+        dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
+        cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
+        proxyGroupRepository = proxyGroupRepository,
+        bootSessionRecorder = bootSessionRecorder,
+        resetEventRecorder = resetEventRecorder,
+        startupDiagnosticsProbes =
+            StartupDiagnosticsProbes(
+                lastExitInspector = lastExitInspector,
+                memoryProfilingRegistrar = memoryProfilingRegistrar,
+                remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
+            ),
+        simpleFlavorStartupHooks = SimpleFlavorStartupHooks(Optional.empty(), Optional.empty()),
+        appShortcutsPublisher =
+            AppShortcutsPublisher(
+                context = application,
+                proxyGroupRepository = proxyGroupRepository,
+                selectorSelectionStore = NoOpSelectorSelectionStore,
+                selectorShortcutCapability = SelectorShortcutCapability(application),
+                applicationScope = scope,
+            ),
+        applicationScope = scope,
+    )
 
 private object NoOpLastExitInspector : LastExitInspector {
     override suspend fun recordRecentProcessExits() = Unit
