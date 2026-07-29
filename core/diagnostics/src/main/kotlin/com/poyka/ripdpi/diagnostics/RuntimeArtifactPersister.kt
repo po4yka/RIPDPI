@@ -535,7 +535,10 @@ private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
 private fun NativeRuntimeEvent.terminalDataPlaneEventId(connectionSessionId: String?): String? =
     connectionSessionId
         ?.takeIf { kind == "data_plane_final" }
-        ?.let(::terminalDataPlaneEventId)
+        ?.let(::terminalDataPlaneEventIdForSession)
+
+private fun terminalDataPlaneEventIdForSession(connectionSessionId: String): String =
+    "runtime_terminal_event:$connectionSessionId:data_plane_final"
 
 private fun NativeRuntimeEvent.toSessionEvent(
     id: String,
