@@ -83,7 +83,7 @@ internal class RemoteScreenOffDwellTracker(
                 status = RemoteDeviceAcceptanceStatus.Incomplete,
                 outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                 reason = DeviceRuntimeBackgroundSurvivalReason.TooShort,
-                errorClass = null,
+                errorClass = ErrorScreenOffDwellTooShort,
             ).asCompletedObservation()
         } else if (screenOffProbePassed != true) {
             complete(
@@ -95,7 +95,7 @@ internal class RemoteScreenOffDwellTracker(
                 status = RemoteDeviceAcceptanceStatus.Incomplete,
                 outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                 reason = DeviceRuntimeBackgroundSurvivalReason.ScreenOffProbeMissing,
-                errorClass = null,
+                errorClass = ErrorScreenOffProbeMissing,
             ).asCompletedObservation()
         } else {
             RemoteScreenOffDwellObservation.ReadyForAfterWakeProbe(durationMs.coerceAtLeast(0L))
@@ -202,7 +202,7 @@ internal class RemoteScreenOffDwellTracker(
                         status = RemoteDeviceAcceptanceStatus.Incomplete,
                         outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                         reason = DeviceRuntimeBackgroundSurvivalReason.TelemetryStale,
-                        errorClass = null,
+                        errorClass = ErrorScreenOffTelemetryStale,
                     )
                 }
 
@@ -211,7 +211,7 @@ internal class RemoteScreenOffDwellTracker(
                         status = RemoteDeviceAcceptanceStatus.Incomplete,
                         outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                         reason = DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta,
-                        errorClass = null,
+                        errorClass = ErrorScreenOffNoDataPlaneDelta,
                     )
                 }
 
@@ -286,7 +286,7 @@ internal class RemoteScreenOffDwellTracker(
                         status = RemoteDeviceAcceptanceStatus.Incomplete,
                         outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                         reason = DeviceRuntimeBackgroundSurvivalReason.ScreenOffProbeMissing,
-                        errorClass = null,
+                        errorClass = ErrorScreenOffProbeMissing,
                     )
                 }
 
@@ -313,7 +313,7 @@ internal class RemoteScreenOffDwellTracker(
                         status = RemoteDeviceAcceptanceStatus.Incomplete,
                         outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                         reason = DeviceRuntimeBackgroundSurvivalReason.TelemetryStale,
-                        errorClass = null,
+                        errorClass = ErrorScreenOffTelemetryStale,
                     )
                 }
 
@@ -331,7 +331,7 @@ internal class RemoteScreenOffDwellTracker(
                         status = RemoteDeviceAcceptanceStatus.Incomplete,
                         outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
                         reason = DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta,
-                        errorClass = null,
+                        errorClass = ErrorScreenOffNoDataPlaneDelta,
                     )
                 }
             }

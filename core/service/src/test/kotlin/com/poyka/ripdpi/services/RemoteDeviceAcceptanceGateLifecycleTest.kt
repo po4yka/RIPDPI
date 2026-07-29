@@ -83,6 +83,33 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         }
 
     @Test
+    fun `short screen-off dwell is retained as terminal incomplete evidence`() =
+        runTest {
+            val writer = RecordingRemoteDeviceAcceptanceEvidenceWriter()
+            val serviceState = runningServiceState(updatedAt = 1L)
+            val screen = MutableRemoteAcceptanceScreenStateObserver(interactive = false)
+            val gate =
+                gate(
+                    serviceState = serviceState,
+                    screen = screen,
+                    writer = writer,
+                    screenOffDwellMs = 300_000L,
+                )
+
+            gate.start(backgroundScope)
+            runCurrent()
+            screen.setInteractive(true)
+            runCurrent()
+
+            val step =
+                gate.report.value.steps
+                    .single { it.id == StepScreenOff }
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, step.status)
+            assertEquals("background_dwell_too_short", step.errorClass)
+            assertTrue(requireNotNull(step.durationMs) >= 0L)
+        }
+
+    @Test
     fun `post-await service restart records failure instead of pass`() =
         runTest {
             val writer = RecordingRemoteDeviceAcceptanceEvidenceWriter()
@@ -207,6 +234,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         baselinePasses: Boolean = true,
         mutateWhen: () -> Boolean = { false },
         onTcpProbe: () -> Unit = {},
+        screenOffDwellMs: Long = 0L,
     ): DefaultRemoteDeviceAcceptanceGate =
         DefaultRemoteDeviceAcceptanceGate(
             serviceStateStore = serviceState,
@@ -217,7 +245,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
                     override fun capture() = null
                 },
             evidenceWriter = writer,
-            screenOffDwellMs = 0L,
+            screenOffDwellMs = screenOffDwellMs,
             telemetryFreshTimeoutMs = 10L,
         )
 

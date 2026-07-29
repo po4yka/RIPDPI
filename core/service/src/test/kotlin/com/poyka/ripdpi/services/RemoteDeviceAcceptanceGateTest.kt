@@ -125,7 +125,7 @@ class RemoteDeviceAcceptanceGateTest {
                 ) as RemoteScreenOffDwellObservation.Completed
 
             assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, result.result.status)
-            assertNull(result.result.errorClass)
+            assertEquals(ErrorScreenOffNoDataPlaneDelta, result.result.errorClass)
             val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
             assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, completed.phase)
             assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)

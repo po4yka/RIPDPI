@@ -395,7 +395,6 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         result: RemoteScreenOffDwellResult,
     ) {
         if (!isCurrent(run) || stepStatus(StepScreenOff).isTerminalScreenOffStatus()) return
-        if (result.status == RemoteDeviceAcceptanceStatus.Incomplete) return
         updateStep(
             stepId = StepScreenOff,
             status = result.status,
@@ -627,7 +626,7 @@ private data class GuidedRunState(
                     countersBefore = countersBefore,
                     reason = DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged,
                     status = RemoteDeviceAcceptanceStatus.Incomplete,
-                    errorClass = null,
+                    errorClass = ErrorScreenOffScreenStateChanged,
                 )
         return observation.completedResultOrNull()
     }
@@ -665,7 +664,7 @@ private data class GuidedRunState(
             countersBefore = countersBefore,
             reason = DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged,
             status = RemoteDeviceAcceptanceStatus.Incomplete,
-            errorClass = null,
+            errorClass = ErrorScreenOffScreenStateChanged,
         )
 
     suspend fun cancelScreenOff(telemetry: ServiceTelemetrySnapshot): Boolean =
@@ -735,6 +734,10 @@ private const val UnderlayCellular = "cellular"
 internal const val RemoteAcceptanceScreenOffDwellMs = 300_000L
 internal const val RemoteAcceptanceTelemetryFreshTimeoutMs = 6_000L
 internal const val StepNoDirectEgress = "no_direct_fallback"
+internal const val ErrorScreenOffDwellTooShort = "background_dwell_too_short"
 internal const val ErrorScreenOffNoDataPlaneDelta = "background_no_data_plane_delta"
+internal const val ErrorScreenOffProbeMissing = "background_screen_off_probe_missing"
+internal const val ErrorScreenOffScreenStateChanged = "background_screen_state_changed"
 internal const val ErrorScreenOffServiceStopped = "background_service_stopped"
 internal const val ErrorScreenOffServiceRestarted = "background_service_restarted"
+internal const val ErrorScreenOffTelemetryStale = "background_telemetry_stale"
