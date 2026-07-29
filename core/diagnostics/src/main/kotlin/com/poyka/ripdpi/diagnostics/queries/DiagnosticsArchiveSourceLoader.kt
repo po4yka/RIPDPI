@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -58,7 +59,13 @@ internal class DiagnosticsArchiveSourceLoader
             val earliestSessionStart = sessions.minOfOrNull { it.startedAt }
             val logcatCapture =
                 runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
-                    .onFailure { error -> Logger.w(error) { "Failed to capture diagnostics logcat snapshot" } }
+                    .onFailure { error ->
+                        when (error) {
+                            is CancellationException -> throw error
+                            is Error -> throw error
+                            else -> Logger.w(error) { "Failed to capture diagnostics logcat snapshot" }
+                        }
+                    }
             val logcatSnapshot = logcatCapture.getOrNull()
             val fileLogCapture =
                 fileLogWriter

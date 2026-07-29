@@ -1,11 +1,25 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Severity
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.nio.file.Files
 
 class FileLogWriterTest {
+    @Test
+    fun `snapshot result does not swallow VM errors`() {
+        val failure = AssertionError("fatal VM failure")
+
+        try {
+            resultCatchingExceptions<Unit> { throw failure }
+            fail("Expected VM error to propagate")
+        } catch (error: AssertionError) {
+            assertSame(failure, error)
+        }
+    }
+
     @Test
     fun `writer and archive snapshot remain within utf8 byte budget`() {
         val filesDir = Files.createTempDirectory("bounded-file-log").toFile()

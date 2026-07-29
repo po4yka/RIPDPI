@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -9,6 +11,45 @@ import java.nio.file.Files
 import java.util.zip.ZipFile
 
 internal class DiagnosticsArchiveAppLogFailureTest : DiagnosticsArchiveExporterTestBase() {
+    @Test
+    fun `createArchive propagates logcat capture cancellation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-logcat-cancellation",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Logcat cancellation",
+                )
+            seedSingleSessionStore(stores, session)
+            val cancellation = CancellationException("archive caller cancelled")
+            val exporter =
+                createArchiveExporterForTest(
+                    stores = stores,
+                    context = TestContext(),
+                    rootModeEnabled = false,
+                    compositeRunService = compositeRunService,
+                    json = json,
+                    logcatSnapshotCollector = FakeLogcatSnapshotCollector(failure = cancellation),
+                )
+
+            var thrown: CancellationException? = null
+            try {
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 105L,
+                    ),
+                )
+            } catch (error: CancellationException) {
+                thrown = error
+            }
+
+            assertSame(cancellation, thrown)
+        }
+
     @Test
     fun `createArchive records categorical app log read failure`() =
         runTest {

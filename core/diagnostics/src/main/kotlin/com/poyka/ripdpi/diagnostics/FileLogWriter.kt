@@ -77,7 +77,7 @@ class FileLogWriter(
 
     fun readLogSnapshotResult(): Result<FileLogSnapshot?> =
         synchronized(lock) {
-            runCatching {
+            resultCatchingExceptions {
                 val totalBytes = listOf(prevLogFile, logFile).filter(File::exists).sumOf(File::length)
                 var remaining = maxFileSize.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 val currentBytes = readUtf8Tail(logFile, remaining)
@@ -148,6 +148,11 @@ data class FileLogSnapshot(
     val byteCount: Int,
     val truncated: Boolean,
 )
+
+internal fun <T> resultCatchingExceptions(block: () -> T): Result<T> =
+    runCatching(block).onFailure { error ->
+        if (error !is Exception) throw error
+    }
 
 internal fun truncateUtf8Bytes(
     value: String,
