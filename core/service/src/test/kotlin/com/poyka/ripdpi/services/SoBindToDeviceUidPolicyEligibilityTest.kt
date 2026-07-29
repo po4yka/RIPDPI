@@ -46,6 +46,24 @@ class SoBindToDeviceUidPolicyEligibilityTest {
     }
 
     @Test
+    fun `permission denied is authoritative on android 12 with a modern kernel`() {
+        val eligibility =
+            eligibility(Build.VERSION_CODES.S, "6.1.99-android14", BindToDeviceProbeOutcome.PermissionDenied)
+
+        assertFalse(eligibility.isEligible())
+        assertEquals("6.1", eligibility.qualification().kernelMajorMinorBand)
+        assertEquals("permission_denied", eligibility.qualification().unprivilegedBindToDevice)
+    }
+
+    @Test
+    fun `JNI bridge failure is fail closed on android 12 with a modern kernel`() {
+        val eligibility = eligibility(Build.VERSION_CODES.S, "6.1.99-android14", BindToDeviceProbeOutcome.BridgeFailure)
+
+        assertFalse(eligibility.isEligible())
+        assertEquals("bridge_failure", eligibility.qualification().unprivilegedBindToDevice)
+    }
+
+    @Test
     fun `android 10 accepts kernel 5_7 when the probe is unavailable`() {
         val eligibility = eligibility(Build.VERSION_CODES.Q, "5.7.0-android", BindToDeviceProbeOutcome.Unavailable)
 
@@ -130,18 +148,18 @@ class SoBindToDeviceUidPolicyEligibilityTest {
                 unprivilegedBindToDevice = "errno=13 interface=wlan0",
                 uidResolvedCount = -1,
                 uidUnresolvedCount = -2,
-                uidPolicyDeniedTcpCount = -3,
-                uidPolicyDeniedUdpCount = -4,
-                uidPolicyDeniedOtherCount = -5,
+                policyDecisionDeniedTcpCount = -3,
+                policyDecisionDeniedUdpCount = -4,
+                policyDecisionDeniedOtherCount = -5,
             ).privacySafe()
 
         assertEquals("unknown", safe.kernelMajorMinorBand)
         assertEquals("unavailable", safe.unprivilegedBindToDevice)
         assertEquals(0, safe.uidResolvedCount)
         assertEquals(0, safe.uidUnresolvedCount)
-        assertEquals(0, safe.uidPolicyDeniedTcpCount)
-        assertEquals(0, safe.uidPolicyDeniedUdpCount)
-        assertEquals(0, safe.uidPolicyDeniedOtherCount)
+        assertEquals(0, safe.policyDecisionDeniedTcpCount)
+        assertEquals(0, safe.policyDecisionDeniedUdpCount)
+        assertEquals(0, safe.policyDecisionDeniedOtherCount)
     }
 
     private fun eligibility(

@@ -575,8 +575,8 @@ class RemoteDeviceAcceptanceGateTest {
                         uidPolicyArmed = true,
                         uidResolvedCount = 4,
                         uidUnresolvedCount = 1,
-                        uidPolicyDeniedTcpCount = 1,
-                        uidPolicyDeniedUdpCount = 2,
+                        policyDecisionDeniedTcpCount = 1,
+                        policyDecisionDeniedUdpCount = 2,
                     ),
             )
 
@@ -597,7 +597,8 @@ class RemoteDeviceAcceptanceGateTest {
         assertTrue(rendered.contains("kernelMajorMinorBand"))
         assertTrue(rendered.contains("6.1"))
         assertTrue(rendered.contains("unprivilegedBindToDevice"))
-        assertTrue(rendered.contains("uidPolicyDeniedUdpCount"))
+        assertTrue(rendered.contains("policyDecisionDeniedUdpCount"))
+        assertFalse(rendered.contains("uidPolicyDenied"))
         assertFalse(rendered.contains("profile", ignoreCase = true))
         assertFalse(rendered.contains("credential", ignoreCase = true))
         assertFalse(rendered.contains("endpoint", ignoreCase = true))

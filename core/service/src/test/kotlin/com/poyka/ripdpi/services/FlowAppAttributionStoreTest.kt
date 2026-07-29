@@ -168,9 +168,9 @@ class FlowAppAttributionStoreTest {
 
         assertEquals(3L, epoch.uidResolvedCount.get())
         assertEquals(1L, epoch.uidUnresolvedCount.get())
-        assertEquals(1L, epoch.uidPolicyDeniedTcpCount.get())
-        assertEquals(1L, epoch.uidPolicyDeniedUdpCount.get())
-        assertEquals(1L, epoch.uidPolicyDeniedOtherCount.get())
+        assertEquals(1L, epoch.policyDecisionDeniedTcpCount.get())
+        assertEquals(1L, epoch.policyDecisionDeniedUdpCount.get())
+        assertEquals(1L, epoch.policyDecisionDeniedOtherCount.get())
     }
 
     @Test
@@ -180,7 +180,7 @@ class FlowAppAttributionStoreTest {
         epoch.record(protocol = 6, uid = 10123, requestKind = 0)
 
         assertEquals(1L, epoch.uidResolvedCount.get())
-        assertEquals(0L, epoch.uidPolicyDeniedTcpCount.get())
+        assertEquals(0L, epoch.policyDecisionDeniedTcpCount.get())
     }
 
     @Test
@@ -201,13 +201,13 @@ class FlowAppAttributionStoreTest {
 
         assertTrue(bridge.snapshot().uidPolicyArmed)
         assertEquals(1L, bridge.snapshot().uidResolvedCount)
-        assertEquals(1L, bridge.snapshot().uidPolicyDeniedTcpCount)
+        assertEquals(1L, bridge.snapshot().policyDecisionDeniedTcpCount)
 
         bridge.deactivateUidPolicy()
 
         assertFalse(bridge.snapshot().uidPolicyArmed)
         assertEquals(0L, bridge.snapshot().uidResolvedCount)
-        assertEquals(0L, bridge.snapshot().uidPolicyDeniedTcpCount)
+        assertEquals(0L, bridge.snapshot().policyDecisionDeniedTcpCount)
     }
 }
 

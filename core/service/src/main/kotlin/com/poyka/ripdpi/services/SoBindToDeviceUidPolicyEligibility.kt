@@ -10,6 +10,7 @@ private const val KernelMinorWithUnprivilegedBindToDevice = 7
 private const val NativeProbeUnavailable = 0
 private const val NativeProbeSupported = 1
 private const val NativeProbePermissionDenied = 2
+private const val NativeProbeBridgeFailure = -1
 
 internal enum class BindToDeviceProbeOutcome(
     val wireValue: String,
@@ -17,6 +18,7 @@ internal enum class BindToDeviceProbeOutcome(
     NotSupported("not_supported"),
     Supported("supported"),
     PermissionDenied("permission_denied"),
+    BridgeFailure("bridge_failure"),
     Unavailable("unavailable"),
 }
 
@@ -27,9 +29,9 @@ data class RemoteDeviceUidPolicyQualification(
     val uidPolicyArmed: Boolean = false,
     val uidResolvedCount: Long = 0,
     val uidUnresolvedCount: Long = 0,
-    val uidPolicyDeniedTcpCount: Long = 0,
-    val uidPolicyDeniedUdpCount: Long = 0,
-    val uidPolicyDeniedOtherCount: Long = 0,
+    val policyDecisionDeniedTcpCount: Long = 0,
+    val policyDecisionDeniedUdpCount: Long = 0,
+    val policyDecisionDeniedOtherCount: Long = 0,
 )
 
 internal fun RemoteDeviceUidPolicyQualification.privacySafe(): RemoteDeviceUidPolicyQualification =
@@ -42,9 +44,9 @@ internal fun RemoteDeviceUidPolicyQualification.privacySafe(): RemoteDeviceUidPo
                 ?: BindToDeviceProbeOutcome.Unavailable.wireValue,
         uidResolvedCount = uidResolvedCount.coerceAtLeast(0),
         uidUnresolvedCount = uidUnresolvedCount.coerceAtLeast(0),
-        uidPolicyDeniedTcpCount = uidPolicyDeniedTcpCount.coerceAtLeast(0),
-        uidPolicyDeniedUdpCount = uidPolicyDeniedUdpCount.coerceAtLeast(0),
-        uidPolicyDeniedOtherCount = uidPolicyDeniedOtherCount.coerceAtLeast(0),
+        policyDecisionDeniedTcpCount = policyDecisionDeniedTcpCount.coerceAtLeast(0),
+        policyDecisionDeniedUdpCount = policyDecisionDeniedUdpCount.coerceAtLeast(0),
+        policyDecisionDeniedOtherCount = policyDecisionDeniedOtherCount.coerceAtLeast(0),
     )
 
 /** Process-cached capability evidence and gate for native per-UID TUN admission. */
@@ -80,12 +82,25 @@ class SoBindToDeviceUidPolicyEligibility private constructor(
             kernelMajorMinorBand = kernel?.majorMinorBand ?: "unknown",
             unprivilegedBindToDevice = probeOutcome.wireValue,
             uidPolicyEligible =
-                sdk >= Build.VERSION_CODES.Q &&
-                    (
-                        probeOutcome == BindToDeviceProbeOutcome.Supported ||
-                            kernel?.supportsUnprivilegedBindToDevice() == true ||
+                when {
+                    sdk < Build.VERSION_CODES.Q -> {
+                        false
+                    }
+
+                    probeOutcome == BindToDeviceProbeOutcome.PermissionDenied ||
+                        probeOutcome == BindToDeviceProbeOutcome.BridgeFailure -> {
+                        false
+                    }
+
+                    probeOutcome == BindToDeviceProbeOutcome.Supported -> {
+                        true
+                    }
+
+                    else -> {
+                        kernel?.supportsUnprivilegedBindToDevice() == true ||
                             (kernel == null && sdk >= Build.VERSION_CODES.S)
-                    ),
+                    }
+                },
         )
     }
 
@@ -130,6 +145,7 @@ private fun Int.toProbeOutcome(): BindToDeviceProbeOutcome =
         NativeProbeSupported -> BindToDeviceProbeOutcome.Supported
         NativeProbePermissionDenied -> BindToDeviceProbeOutcome.PermissionDenied
         NativeProbeUnavailable -> BindToDeviceProbeOutcome.Unavailable
+        NativeProbeBridgeFailure -> BindToDeviceProbeOutcome.BridgeFailure
         else -> BindToDeviceProbeOutcome.Unavailable
     }
 

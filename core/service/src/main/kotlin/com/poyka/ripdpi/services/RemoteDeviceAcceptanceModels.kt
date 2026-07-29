@@ -235,9 +235,9 @@ private data class RedactedUidPolicyQualification(
     val uidPolicyArmed: Boolean,
     val uidResolvedCount: Long,
     val uidUnresolvedCount: Long,
-    val uidPolicyDeniedTcpCount: Long,
-    val uidPolicyDeniedUdpCount: Long,
-    val uidPolicyDeniedOtherCount: Long,
+    val policyDecisionDeniedTcpCount: Long,
+    val policyDecisionDeniedUdpCount: Long,
+    val policyDecisionDeniedOtherCount: Long,
 )
 
 @Serializable
@@ -318,9 +318,9 @@ private fun RemoteDeviceUidPolicyQualification.toRedacted(): RedactedUidPolicyQu
             uidPolicyArmed = safe.uidPolicyArmed,
             uidResolvedCount = safe.uidResolvedCount,
             uidUnresolvedCount = safe.uidUnresolvedCount,
-            uidPolicyDeniedTcpCount = safe.uidPolicyDeniedTcpCount,
-            uidPolicyDeniedUdpCount = safe.uidPolicyDeniedUdpCount,
-            uidPolicyDeniedOtherCount = safe.uidPolicyDeniedOtherCount,
+            policyDecisionDeniedTcpCount = safe.policyDecisionDeniedTcpCount,
+            policyDecisionDeniedUdpCount = safe.policyDecisionDeniedUdpCount,
+            policyDecisionDeniedOtherCount = safe.policyDecisionDeniedOtherCount,
         )
     }
 

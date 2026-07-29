@@ -135,9 +135,9 @@ class FlowAttributionBridge
                     uidPolicyArmed = epoch.policy.mode != NativeUidPolicy.Disarmed.mode,
                     uidResolvedCount = epoch.uidResolvedCount.get(),
                     uidUnresolvedCount = epoch.uidUnresolvedCount.get(),
-                    uidPolicyDeniedTcpCount = epoch.uidPolicyDeniedTcpCount.get(),
-                    uidPolicyDeniedUdpCount = epoch.uidPolicyDeniedUdpCount.get(),
-                    uidPolicyDeniedOtherCount = epoch.uidPolicyDeniedOtherCount.get(),
+                    policyDecisionDeniedTcpCount = epoch.policyDecisionDeniedTcpCount.get(),
+                    policyDecisionDeniedUdpCount = epoch.policyDecisionDeniedUdpCount.get(),
+                    policyDecisionDeniedOtherCount = epoch.policyDecisionDeniedOtherCount.get(),
                 ).privacySafe()
         }
     }
@@ -147,9 +147,9 @@ internal class UidPolicyQualificationEpoch(
 ) {
     val uidResolvedCount = AtomicLong()
     val uidUnresolvedCount = AtomicLong()
-    val uidPolicyDeniedTcpCount = AtomicLong()
-    val uidPolicyDeniedUdpCount = AtomicLong()
-    val uidPolicyDeniedOtherCount = AtomicLong()
+    val policyDecisionDeniedTcpCount = AtomicLong()
+    val policyDecisionDeniedUdpCount = AtomicLong()
+    val policyDecisionDeniedOtherCount = AtomicLong()
 
     fun record(
         protocol: Int,
@@ -163,9 +163,9 @@ internal class UidPolicyQualificationEpoch(
         }
         if (requestKind != AdmissionOnlyFlowRequest || !policy.denies(uid)) return
         when (protocol) {
-            TcpProtocolNumber -> uidPolicyDeniedTcpCount.incrementAndGet()
-            UdpProtocolNumber -> uidPolicyDeniedUdpCount.incrementAndGet()
-            else -> uidPolicyDeniedOtherCount.incrementAndGet()
+            TcpProtocolNumber -> policyDecisionDeniedTcpCount.incrementAndGet()
+            UdpProtocolNumber -> policyDecisionDeniedUdpCount.incrementAndGet()
+            else -> policyDecisionDeniedOtherCount.incrementAndGet()
         }
     }
 }

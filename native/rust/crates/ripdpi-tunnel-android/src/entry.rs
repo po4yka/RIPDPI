@@ -48,12 +48,18 @@ use crate::session::{
     tunnel_telemetry_entry,
 };
 
+const BIND_TO_DEVICE_PROBE_PANIC_SENTINEL: jint = -1;
+
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBindings_jniProbeUnprivilegedBindToDevice(
     env: EnvUnowned<'_>,
     _thiz: JObject,
 ) -> jint {
-    ffi_boundary(0, move || bind_to_device_probe_entry(env))
+    bind_to_device_probe_ffi_boundary(move || bind_to_device_probe_entry(env))
+}
+
+fn bind_to_device_probe_ffi_boundary(probe: impl FnOnce() -> jint + std::panic::UnwindSafe) -> jint {
+    ffi_boundary(BIND_TO_DEVICE_PROBE_PANIC_SENTINEL, probe)
 }
 
 #[unsafe(no_mangle)]
@@ -213,4 +219,16 @@ pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapRedactToFile(
     dest_fd: jint,
 ) -> jlong {
     ffi_boundary(0, move || tunnel_pcap_redact_entry(env, source_path, dest_fd))
+}
+
+#[cfg(test)]
+mod bind_to_device_probe_ffi_tests {
+    use super::*;
+
+    #[test]
+    fn outer_probe_panic_returns_distinct_negative_sentinel() {
+        let result = bind_to_device_probe_ffi_boundary(|| panic!("simulated outer JNI panic"));
+
+        assert_eq!(result, BIND_TO_DEVICE_PROBE_PANIC_SENTINEL);
+    }
 }
