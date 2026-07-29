@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">فایل منشأ اثرانگشت‌های محلی SHA-256 مصنوعات نصب‌شدهٔ برنامه را برای مقایسه در بر می‌گیرد. این اثرانگشت‌ها مدرک مستقلی برای اصالت نیستند.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">بایگانی‌های تشخیص شامل اثرانگشت‌های محلی SHA-256 از مصنوعات نصب‌شدهٔ برنامه هستند. این اثرانگشت‌ها برای مقایسه مفیدند، اما مدرک مستقلی برای اصالت نیستند.</string>
+</resources>

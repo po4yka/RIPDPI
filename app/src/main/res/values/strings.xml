@@ -391,6 +391,8 @@
     <string name="diagnostics_share_summary_body">Build a concise incident brief from the latest or selected diagnostics session and send it through the Android share sheet.</string>
     <string name="diagnostics_share_summary_action">Share summary</string>
     <string name="diagnostics_share_archive_title">Share diagnostics archive</string>
+    <string name="diagnostics_archive_artifact_disclosure">The provenance file includes local SHA-256 fingerprints of installed app artifacts for comparison. These fingerprints are not independent proof of authenticity.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">Diagnostics archives include local SHA-256 fingerprints of installed app artifacts. They support comparison but are not independent proof of authenticity.</string>
     <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, recent telemetry, runtime configuration, archive provenance, completeness notes, integrity hashes, app-scoped logcat snapshot, and recent PCAP files only when advanced packet capture was enabled. Summary and manifest files stay redacted; sharing happens through the Android share sheet after you choose a target.</string>
     <string name="diagnostics_share_archive_action">Share archive</string>
     <string name="diagnostics_share_archive_chooser">Share diagnostics archive</string>

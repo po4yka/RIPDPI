@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">来源文件包含用于比对的已安装应用构件本地 SHA-256 指纹。这些指纹不能独立证明真实性。</string>
+    <string name="data_transparency_installed_artifact_fingerprints">诊断归档包含已安装应用构件的本地 SHA-256 指纹。这些指纹可用于比对，但不能独立证明真实性。</string>
+</resources>

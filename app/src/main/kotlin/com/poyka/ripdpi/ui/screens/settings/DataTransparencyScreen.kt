@@ -92,6 +92,7 @@ internal fun DataTransparencyScreen(
             TransparencySection(
                 title = stringResource(R.string.data_transparency_export_privacy_section),
             ) {
+                BulletItem(stringResource(R.string.data_transparency_installed_artifact_fingerprints))
                 BulletItem(stringResource(R.string.data_transparency_export_redaction))
                 BulletItem(stringResource(R.string.data_transparency_export_control))
             }

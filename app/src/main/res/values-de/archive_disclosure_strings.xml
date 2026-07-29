@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">Die Herkunftsdatei enthält lokale SHA-256-Fingerabdrücke der installierten App-Artefakte zum Vergleich. Diese Fingerabdrücke sind kein unabhängiger Echtheitsnachweis.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">Diagnosearchive enthalten lokale SHA-256-Fingerabdrücke der installierten App-Artefakte. Sie dienen dem Vergleich, sind aber kein unabhängiger Echtheitsnachweis.</string>
+</resources>

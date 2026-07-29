@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">प्रोवेनेंस फ़ाइल में तुलना के लिए इंस्टॉल किए गए ऐप आर्टिफ़ैक्ट के स्थानीय SHA-256 फ़िंगरप्रिंट शामिल होते हैं। ये फ़िंगरप्रिंट प्रामाणिकता का स्वतंत्र प्रमाण नहीं हैं।</string>
+    <string name="data_transparency_installed_artifact_fingerprints">डायग्नोस्टिक आर्काइव में इंस्टॉल किए गए ऐप आर्टिफ़ैक्ट के स्थानीय SHA-256 फ़िंगरप्रिंट शामिल होते हैं। वे तुलना में मदद करते हैं, लेकिन प्रामाणिकता का स्वतंत्र प्रमाण नहीं हैं।</string>
+</resources>

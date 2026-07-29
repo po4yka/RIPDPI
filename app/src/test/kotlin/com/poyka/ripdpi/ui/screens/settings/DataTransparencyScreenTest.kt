@@ -144,6 +144,15 @@ class DataTransparencyScreenTest {
     }
 
     @Test
+    fun exportPrivacyInstalledArtifactDisclosureIsDisplayed() {
+        setScreen()
+        val copy = string(R.string.data_transparency_installed_artifact_fingerprints)
+
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
+    }
+
+    @Test
     fun exportPrivacyExportRedactionBulletIsDisplayed() {
         setScreen()
         val copy = string(R.string.data_transparency_export_redaction)

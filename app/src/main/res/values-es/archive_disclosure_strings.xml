@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">El archivo de procedencia incluye huellas SHA-256 locales de los artefactos instalados de la aplicación para compararlos. Estas huellas no demuestran su autenticidad de forma independiente.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">Los archivos de diagnóstico incluyen huellas SHA-256 locales de los artefactos instalados de la aplicación. Sirven para compararlos, pero no demuestran su autenticidad de forma independiente.</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">يتضمن ملف المصدر بصمات SHA-256 محلية لعناصر التطبيق المثبّتة للمقارنة. هذه البصمات ليست دليلاً مستقلاً على الأصالة.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">تتضمن أرشيفات التشخيص بصمات SHA-256 محلية لعناصر التطبيق المثبّتة. تساعد على المقارنة، لكنها ليست دليلاً مستقلاً على الأصالة.</string>
+</resources>

@@ -252,7 +252,7 @@ private fun LazyListScope.shareItems(
     item {
         ShareActionCard(
             title = stringResource(R.string.diagnostics_share_archive_title),
-            body = stringResource(R.string.diagnostics_share_archive_body),
+            body = diagnosticsArchiveBody(R.string.diagnostics_share_archive_body),
             buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
             onClick = { onShareArchive(share.targetSessionId) },
             iconTint = RipDpiThemeTokens.colors.foreground,
@@ -265,7 +265,7 @@ private fun LazyListScope.shareItems(
         ShareActionCard(
             title = stringResource(R.string.diagnostics_save_archive_title),
             body =
-                stringResource(
+                diagnosticsArchiveBody(
                     R.string.diagnostics_save_archive_body,
                     share.latestArchiveFileName ?: "latest archive",
                 ),

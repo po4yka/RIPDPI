@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">Le fichier de provenance inclut des empreintes SHA-256 locales des artefacts installés de l’application à des fins de comparaison. Elles ne constituent pas une preuve indépendante d’authenticité.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">Les archives de diagnostic incluent des empreintes SHA-256 locales des artefacts installés de l’application. Elles facilitent la comparaison, mais ne constituent pas une preuve indépendante d’authenticité.</string>
+</resources>
