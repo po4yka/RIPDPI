@@ -229,7 +229,7 @@ private class RecordingArchiveExporter : DiagnosticsArchiveExporter {
     var cleanupCalls: Int = 0
         private set
 
-    override fun cleanupCache() {
+    override suspend fun cleanupCache() {
         cleanupCalls += 1
     }
 

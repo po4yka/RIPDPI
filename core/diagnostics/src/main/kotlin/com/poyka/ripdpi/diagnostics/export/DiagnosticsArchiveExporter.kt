@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsContext
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
@@ -8,6 +8,8 @@ import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsSource
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,7 +18,7 @@ fun interface DiagnosticsArchiveIdGenerator {
 }
 
 interface DiagnosticsArchiveExporter {
-    fun cleanupCache()
+    suspend fun cleanupCache()
 
     suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive
 }
@@ -25,7 +27,7 @@ interface DiagnosticsArchiveExporter {
 internal class DefaultDiagnosticsArchiveExporter
     @Inject
     constructor(
-        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
+        private val exportRecordStore: DiagnosticsExportRecordStore,
         private val sourceLoader: DiagnosticsArchiveSourceLoader,
         private val sessionSelector: DiagnosticsArchiveSessionSelector,
         private val renderer: DiagnosticsArchiveRenderer,
@@ -34,35 +36,51 @@ internal class DefaultDiagnosticsArchiveExporter
         private val idGenerator: DiagnosticsArchiveIdGenerator,
         private val developerAnalyticsSource: DeveloperAnalyticsSource,
     ) : DiagnosticsArchiveExporter {
-        override fun cleanupCache() {
+        private val archiveMutex = Mutex()
+
+        override suspend fun cleanupCache() = archiveMutex.withLock { reconcileCache() }
+
+        override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive =
+            archiveMutex.withLock {
+                reconcileCache()
+                val selection = buildArchiveSelection(request)
+                val target = fileStore.createTarget()
+                val developerAnalytics = collectDeveloperAnalytics(selection, target)
+                try {
+                    zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
+                    exportRecordStore.insertExportRecord(
+                        ExportRecordEntity(
+                            id = idGenerator.nextId(),
+                            sessionId = selection.primarySession?.id,
+                            uri = target.file.absolutePath,
+                            fileName = target.fileName,
+                            createdAt = target.createdAt,
+                        ),
+                    )
+                    DiagnosticsArchive(
+                        fileName = target.fileName,
+                        absolutePath = target.file.absolutePath,
+                        sessionId = selection.primarySession?.id,
+                        createdAt = target.createdAt,
+                        scope = DiagnosticsArchiveFormat.scope,
+                        schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                        privacyMode = DiagnosticsArchiveFormat.privacyMode,
+                    )
+                } catch (error: Throwable) {
+                    target.file.delete()
+                    throw error
+                }
+            }
+
+        private suspend fun reconcileCache() {
             fileStore.cleanup()
             fileStore.cleanupPcapFiles()
-        }
-
-        override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
-            fileStore.cleanup()
-            val selection = buildArchiveSelection(request)
-            val target = fileStore.createTarget()
-            val developerAnalytics = collectDeveloperAnalytics(selection, target)
-            zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
-            artifactWriteStore.insertExportRecord(
-                ExportRecordEntity(
-                    id = idGenerator.nextId(),
-                    sessionId = selection.primarySession?.id,
-                    uri = target.file.absolutePath,
-                    fileName = target.fileName,
-                    createdAt = target.createdAt,
-                ),
+            val records = exportRecordStore.getExportRecords()
+            val existingPaths = fileStore.managedArchivePaths()
+            exportRecordStore.deleteExportRecords(
+                records.filterNot { it.uri in existingPaths }.map { it.id },
             )
-            return DiagnosticsArchive(
-                fileName = target.fileName,
-                absolutePath = target.file.absolutePath,
-                sessionId = selection.primarySession?.id,
-                createdAt = target.createdAt,
-                scope = DiagnosticsArchiveFormat.scope,
-                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                privacyMode = DiagnosticsArchiveFormat.privacyMode,
-            )
+            fileStore.reconcileFiles(records.mapTo(mutableSetOf()) { it.uri })
         }
 
         private suspend fun buildArchiveSelection(request: DiagnosticsArchiveRequest): DiagnosticsArchiveSelection {

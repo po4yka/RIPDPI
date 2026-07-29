@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
@@ -82,6 +83,86 @@ class DiagnosticsArchiveExporterTest {
             ZipFile(archive.absolutePath).use { zip ->
                 assertSingleSessionArchiveContents(zip, session.id)
             }
+        }
+
+    @Test
+    fun `createArchive removes completed file when export record persistence fails`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-failed-export",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Failed export",
+                )
+            seedSingleSessionStore(stores, session)
+            stores.beforeInsertExportRecord = { error("record write failed") }
+            val context = TestContext()
+            val exporter = createArchiveExporter(stores, context, rootModeEnabled = false)
+
+            runCatching {
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 24L,
+                    ),
+                )
+            }.onSuccess { fail("Expected export record failure") }
+
+            val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName)
+            assertTrue(archiveDir.listFiles().orEmpty().isEmpty())
+            assertTrue(stores.exportsState.value.isEmpty())
+        }
+
+    @Test
+    fun `cleanupCache reconciles orphan files temporary files and missing records`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-reconcile",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Reconcile export",
+                )
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            val exporter = createArchiveExporter(stores, context, rootModeEnabled = false)
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 24L,
+                    ),
+                )
+            val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName)
+            val orphan =
+                archiveDir.resolve("${DiagnosticsArchiveFormat.fileNamePrefix}orphan.zip").apply {
+                    writeText("orphan")
+                }
+            val temporary =
+                archiveDir.resolve("${DiagnosticsArchiveFormat.fileNamePrefix}.interrupted.tmp").apply {
+                    writeText("partial")
+                }
+            stores.exportsState.value =
+                stores.exportsState.value +
+                ExportRecordEntity(
+                    id = "missing-export",
+                    sessionId = session.id,
+                    uri = archiveDir.resolve("missing.zip").absolutePath,
+                    fileName = "missing.zip",
+                    createdAt = 23L,
+                )
+
+            exporter.cleanupCache()
+
+            assertTrue(java.io.File(archive.absolutePath).exists())
+            assertFalse(orphan.exists())
+            assertFalse(temporary.exists())
+            assertEquals(listOf("export-1"), stores.exportsState.value.map { it.id })
         }
 
     @Test

@@ -14,6 +14,12 @@ interface DiagnosticsExportDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExportRecord(record: ExportRecordEntity)
 
+    @Query("SELECT * FROM export_records ORDER BY createdAt DESC")
+    suspend fun getExportRecords(): List<ExportRecordEntity>
+
+    @Query("DELETE FROM export_records WHERE id IN (:recordIds)")
+    suspend fun deleteExportRecords(recordIds: List<String>)
+
     @Query("DELETE FROM export_records")
     suspend fun deleteAllExportRecords()
 }

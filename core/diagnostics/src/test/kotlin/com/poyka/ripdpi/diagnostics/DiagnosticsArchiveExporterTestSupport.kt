@@ -120,7 +120,7 @@ internal fun createArchiveExporterForTest(
             .setRootModeEnabled(rootModeEnabled)
             .build()
     return DefaultDiagnosticsArchiveExporter(
-        artifactWriteStore = stores,
+        exportRecordStore = stores,
         sourceLoader =
             DiagnosticsArchiveSourceLoader(
                 appSettingsRepository = FakeAppSettingsRepository(appSettings),

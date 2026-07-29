@@ -113,7 +113,7 @@ internal fun createDiagnosticsServices(
         },
     archiveExporter: DiagnosticsArchiveExporter =
         DefaultDiagnosticsArchiveExporter(
-            artifactWriteStore = stores,
+            exportRecordStore = stores,
             sourceLoader =
                 DiagnosticsArchiveSourceLoader(
                     appSettingsRepository = appSettingsRepository,

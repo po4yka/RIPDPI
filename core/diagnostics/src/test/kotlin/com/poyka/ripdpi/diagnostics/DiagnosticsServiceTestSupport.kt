@@ -37,6 +37,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsFailureArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
@@ -139,6 +140,7 @@ internal class FakeDiagnosticsHistoryStores :
     DiagnosticsArtifactQueryStore,
     DiagnosticsArtifactWriteStore,
     DiagnosticsFailureArtifactWriteStore,
+    DiagnosticsExportRecordStore,
     BypassUsageHistoryStore,
     DiagnosticsTerminalOutboxStore,
     RememberedNetworkPolicyRecordStore,
@@ -161,6 +163,7 @@ internal class FakeDiagnosticsHistoryStores :
     val failureArtifactBatchCount = AtomicInteger(0)
     val observedTelemetryConnectionSessionIds = CopyOnWriteArrayList<String>()
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
+    var beforeInsertExportRecord: suspend (ExportRecordEntity) -> Unit = {}
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
@@ -426,7 +429,14 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun insertExportRecord(record: ExportRecordEntity) {
+        beforeInsertExportRecord(record)
         exportsState.value = exportsState.value + record
+    }
+
+    override suspend fun getExportRecords(): List<ExportRecordEntity> = exportsState.value
+
+    override suspend fun deleteExportRecords(recordIds: List<String>) {
+        exportsState.value = exportsState.value.filterNot { it.id in recordIds }
     }
 
     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {

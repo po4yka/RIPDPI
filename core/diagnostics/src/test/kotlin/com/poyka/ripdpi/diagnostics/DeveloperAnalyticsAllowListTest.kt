@@ -268,7 +268,7 @@ class DeveloperAnalyticsAllowListTest {
         val context = TestContext()
         val appSettings = defaultDiagnosticsAppSettings()
         return DefaultDiagnosticsArchiveExporter(
-            artifactWriteStore = stores,
+            exportRecordStore = stores,
             sourceLoader =
                 DiagnosticsArchiveSourceLoader(
                     appSettingsRepository = FakeAppSettingsRepository(appSettings),

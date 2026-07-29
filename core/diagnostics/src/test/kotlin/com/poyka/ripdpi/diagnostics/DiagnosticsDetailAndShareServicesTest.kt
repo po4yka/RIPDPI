@@ -568,7 +568,7 @@ private class RecordingDiagnosticsArchiveExporter(
 ) : DiagnosticsArchiveExporter {
     var requestedRequest: DiagnosticsArchiveRequest? = null
 
-    override fun cleanupCache() = Unit
+    override suspend fun cleanupCache() = Unit
 
     override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
         requestedRequest = request

@@ -35,6 +35,28 @@ class DiagnosticsArchiveFileStore(
             .forEach { it.delete() }
     }
 
+    internal fun reconcileFiles(referencedPaths: Set<String>) {
+        val archiveDirectory = ensureArchiveDirectory()
+        archiveDirectory
+            .listFiles()
+            .orEmpty()
+            .filter(::isTemporaryArchive)
+            .forEach { it.delete() }
+        archiveDirectory
+            .listFiles()
+            .orEmpty()
+            .filter(::isManagedArchive)
+            .filterNot { it.absolutePath in referencedPaths }
+            .forEach { it.delete() }
+    }
+
+    internal fun managedArchivePaths(): Set<String> =
+        ensureArchiveDirectory()
+            .listFiles()
+            .orEmpty()
+            .filter(::isManagedArchive)
+            .mapTo(mutableSetOf()) { it.absolutePath }
+
     internal fun getRecentPcapFiles(maxFiles: Int = 3): List<File> {
         val pcapDir = File(cacheDir, "diagnostics")
         if (!pcapDir.exists()) return emptyList()
@@ -78,4 +100,9 @@ class DiagnosticsArchiveFileStore(
         file.isFile &&
             file.name.startsWith(DiagnosticsArchiveFormat.fileNamePrefix) &&
             file.extension == "zip"
+
+    private fun isTemporaryArchive(file: File): Boolean =
+        file.isFile &&
+            file.name.startsWith("${DiagnosticsArchiveFormat.fileNamePrefix}.") &&
+            file.name.endsWith(".tmp")
 }
