@@ -56,7 +56,7 @@ data class RemoteDeviceAcceptanceUnderlay(
     val nat64Advertised: Boolean? = null,
     val nat64Reachability: String = "unknown",
     val appliedTunnelMtuBytes: Int? = null,
-    val configuredEncapsulationBudgetBytes: Int? = null,
+    val appliedEncapsulationBudgetBytes: Int? = null,
     val appliedTunnelMetered: Boolean? = null,
     val appliedTunnelEgress: String = "unavailable",
 )
@@ -247,7 +247,7 @@ private data class RedactedAcceptanceUnderlay(
     val nat64Advertised: Boolean? = null,
     val nat64Reachability: String,
     val appliedTunnelMtuBytes: Int? = null,
-    val configuredEncapsulationBudgetBytes: Int? = null,
+    val appliedEncapsulationBudgetBytes: Int? = null,
     val appliedTunnelMetered: Boolean? = null,
     val appliedTunnelEgress: String,
 )
@@ -455,7 +455,7 @@ private fun RemoteDeviceAcceptanceUnderlay.toRedacted(): RedactedAcceptanceUnder
         nat64Advertised = nat64Advertised,
         nat64Reachability = nat64Reachability,
         appliedTunnelMtuBytes = appliedTunnelMtuBytes,
-        configuredEncapsulationBudgetBytes = configuredEncapsulationBudgetBytes,
+        appliedEncapsulationBudgetBytes = appliedEncapsulationBudgetBytes,
         appliedTunnelMetered = appliedTunnelMetered,
         appliedTunnelEgress = appliedTunnelEgress,
     )

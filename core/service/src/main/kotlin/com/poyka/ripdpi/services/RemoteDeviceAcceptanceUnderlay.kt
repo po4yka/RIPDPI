@@ -15,7 +15,7 @@ internal fun NetworkPathObservation.toRemoteDeviceAcceptanceUnderlay(
         hasIpv6Dns = "ipv6" in dnsServerFamilies,
         nat64Advertised = nat64Present,
         appliedTunnelMtuBytes = appliedNetworkReceipt?.appliedTunnelMtu,
-        configuredEncapsulationBudgetBytes = appliedNetworkReceipt?.appliedEncapsulationBudgetBytes,
+        appliedEncapsulationBudgetBytes = appliedNetworkReceipt?.appliedEncapsulationBudgetBytes,
         appliedTunnelMetered = appliedNetworkReceipt?.metered,
         appliedTunnelEgress = appliedNetworkReceipt?.effectiveEgress ?: "unavailable",
     )

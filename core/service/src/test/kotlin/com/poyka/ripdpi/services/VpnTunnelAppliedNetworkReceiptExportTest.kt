@@ -61,12 +61,12 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
             val published = probe.capture(snapshot)
 
             assertEquals(1_320, published.underlay.appliedTunnelMtuBytes)
-            assertEquals(80, published.underlay.configuredEncapsulationBudgetBytes)
+            assertEquals(80, published.underlay.appliedEncapsulationBudgetBytes)
             assertEquals(true, published.underlay.appliedTunnelMetered)
             assertEquals("tun2socks", published.underlay.appliedTunnelEgress)
             val rendered = renderRemoteDeviceAcceptanceReport(published)
             assertTrue(rendered.contains("\"appliedTunnelMtuBytes\": 1320"))
-            assertTrue(rendered.contains("\"configuredEncapsulationBudgetBytes\": 80"))
+            assertTrue(rendered.contains("\"appliedEncapsulationBudgetBytes\": 80"))
 
             receiptStore.invalidate()
             val invalidated = probe.capture(snapshot)
@@ -113,7 +113,7 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
 
         assertEquals(
             20,
-            observation.toRemoteDeviceAcceptanceUnderlay(clampedReceipt).configuredEncapsulationBudgetBytes,
+            observation.toRemoteDeviceAcceptanceUnderlay(clampedReceipt).appliedEncapsulationBudgetBytes,
         )
 
         val unknownReceipt =
@@ -123,7 +123,7 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
             )
 
         assertNull(
-            observation.toRemoteDeviceAcceptanceUnderlay(unknownReceipt).configuredEncapsulationBudgetBytes,
+            observation.toRemoteDeviceAcceptanceUnderlay(unknownReceipt).appliedEncapsulationBudgetBytes,
         )
     }
 
