@@ -531,6 +531,12 @@ class DiagnosticsArchiveExporterTest {
                     "Expected at least one pcap entry with root mode and explicit includePcap",
                     pcapEntries.isNotEmpty(),
                 )
+                val manifest =
+                    json.decodeFromString(
+                        DiagnosticsArchiveManifest.serializer(),
+                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+                    )
+                assertTrue(manifest.includedFiles.containsAll(pcapEntries.map { it.name }))
             }
         }
 

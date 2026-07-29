@@ -117,15 +117,25 @@ internal class DefaultDiagnosticsArchiveExporter
                         compositeSessions = compositeSessions,
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
                         loadNativeEvents = { sessionId -> sourceLoader.getNativeEvents(sessionId) },
-                    ).copy(
-                        pcapFiles =
-                            if (request.includePcap && sourceData.appSettings.rootModeEnabled) {
-                                fileStore.getRecentPcapFiles()
-                            } else {
-                                emptyList()
-                            },
                     )
-            return selection
+            val pcapFiles =
+                if (request.includePcap && sourceData.appSettings.rootModeEnabled) {
+                    fileStore.getRecentPcapFiles()
+                } else {
+                    emptyList()
+                }
+            return selection.copy(
+                pcapFiles = pcapFiles,
+                includedFiles =
+                    DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = selection.logcatSnapshot != null,
+                        fileLogIncluded = selection.fileLogSnapshot != null,
+                        composite = selection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                        compositeStageKeys = selection.compositeStages.map { it.stageSummary.stageKey },
+                        replayIncluded = selection.replayResults.isNotEmpty(),
+                        pcapFileNames = pcapFiles.map { it.name },
+                    ),
+            )
         }
 
         private fun <T> mergeArchiveArtifacts(

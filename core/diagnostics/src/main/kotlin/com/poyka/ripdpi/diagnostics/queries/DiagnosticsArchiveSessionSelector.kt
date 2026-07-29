@@ -284,20 +284,9 @@ class DiagnosticsArchiveSessionSelector
                 logcatIncluded = logcatIncluded,
                 fileLogIncluded = fileLogIncluded,
                 composite = true,
+                compositeStageKeys = compositeStages.map { it.stageSummary.stageKey },
                 replayIncluded = replayIncluded,
-            ) +
-                compositeStages.flatMap { stage ->
-                    val prefix = "stages/${stage.stageSummary.stageKey}"
-                    listOf(
-                        "$prefix/report.json",
-                        "$prefix/probe-results.csv",
-                        "$prefix/strategy-matrix.json",
-                        "$prefix/network-snapshots.json",
-                        "$prefix/diagnostic-context.json",
-                        "$prefix/native-events.csv",
-                        "$prefix/telemetry.csv",
-                    )
-                }
+            )
         }
 
         private data class PrimarySessionData(

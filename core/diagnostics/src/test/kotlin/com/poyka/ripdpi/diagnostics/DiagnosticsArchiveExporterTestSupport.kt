@@ -96,6 +96,14 @@ internal fun assertSingleSessionArchiveContentsForTest(
         provenance.sessionSelectionStatus,
     )
     assertEquals(DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false), manifest.includedFiles)
+    assertEquals(
+        manifest.includedFiles,
+        zip
+            .entries()
+            .asSequence()
+            .map { it.name }
+            .toList(),
+    )
     assertNull(zip.getEntry("logcat.txt"))
 }
 

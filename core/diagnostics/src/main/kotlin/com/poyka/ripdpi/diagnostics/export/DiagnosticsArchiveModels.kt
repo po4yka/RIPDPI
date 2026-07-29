@@ -71,33 +71,47 @@ internal object DiagnosticsArchiveFormat {
         logcatIncluded: Boolean,
         fileLogIncluded: Boolean = false,
         composite: Boolean = false,
+        compositeStageKeys: List<String> = emptyList(),
         replayIncluded: Boolean = false,
+        pcapFileNames: List<String> = emptyList(),
     ): List<String> =
         buildList {
             add("summary.txt")
             add("manifest.json")
             add("report.json")
             add("strategy-matrix.json")
-            add("probe-results.csv")
             if (composite) {
                 add("home-analysis.json")
                 add("stage-index.json")
                 add("stage-summaries.json")
+                compositeStageKeys.forEach { stageKey ->
+                    val prefix = "stages/$stageKey"
+                    add("$prefix/report.json")
+                    add("$prefix/probe-results.csv")
+                    add("$prefix/strategy-matrix.json")
+                    add("$prefix/network-snapshots.json")
+                    add("$prefix/diagnostic-context.json")
+                    add("$prefix/native-events.csv")
+                    add("$prefix/telemetry.csv")
+                }
             }
             add("archive-provenance.json")
             add("runtime-config.json")
             add("analysis.json")
             add("completeness.json")
-            add("native-events.csv")
-            add("telemetry.csv")
             add("network-snapshots.json")
             add("diagnostic-context.json")
+            add("developer-analytics.json")
+            add("probe-results.csv")
+            add("native-events.csv")
+            add("telemetry.csv")
             if (logcatIncluded) {
                 add("logcat.txt")
             }
             if (fileLogIncluded) {
                 add("app-log.txt")
             }
+            addAll(pcapFileNames)
             if (replayIncluded) {
                 add("replay-results.json")
             }
