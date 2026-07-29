@@ -82,11 +82,12 @@ jobs:
         env:
           RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS: ${{ vars.RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS }}
         run: |
-          results_path="${RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS:-}"
-          test -n "$results_path" || {
-            echo "RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS must name a real exact-SHA ordinary-results artifact" >&2
+          results_name="${RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS:-}"
+          test "$results_name" = ordinary-results.json || {
+            echo "RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS must name ordinary-results.json from the exact-SHA evidence artifact" >&2
             exit 1
           }
+          results_path="$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/$results_name"
           test -f "$results_path" || {
             echo "ordinary DNS/IPv6/kill-switch results artifact not found: $results_path" >&2
             exit 1

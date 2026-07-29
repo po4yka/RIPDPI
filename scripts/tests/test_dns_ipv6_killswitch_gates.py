@@ -905,10 +905,12 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertIn("com.poyka.ripdpi.test", evidence)
         self.assertIn("TEST_ARTIFACT_SHA256", evidence)
         self.assertIn('--expected-source-sha "$GITHUB_SHA"', evidence)
-        self.assertNotIn("--results", evidence)
+        self.assertIn('--results "$results"', evidence)
         self.assertIn("network_evidence_manifest.py validate", evidence)
         self.assertIn("--require-pass", evidence)
-        self.assertNotIn("check_dns_ipv6_killswitch_gates.py", evidence)
+        self.assertIn("check_dns_ipv6_killswitch_gates.py", evidence)
+        self.assertIn("RIPDPI_ANDROID_ORDINARY_RESULTS_BASE64", evidence)
+        self.assertIn("base64 --decode", evidence)
         self.assertIn("actions/upload-artifact@", evidence)
         self.assertIn("dns-ipv6-killswitch-release-evidence", evidence)
         self.assertIn(
@@ -916,8 +918,8 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "${{ github.run_id }}-${{ github.run_attempt }}",
             evidence,
         )
-        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME"), 5)
-        self.assertEqual(evidence.count('"$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME'), 3)
+        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME"), 6)
+        self.assertEqual(evidence.count('"$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME'), 4)
         self.assertIn(
             "path: ${{ runner.temp }}/${{ env.EVIDENCE_OUTPUT_NAME }}", evidence
         )

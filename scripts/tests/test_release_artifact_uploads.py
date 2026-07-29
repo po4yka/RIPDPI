@@ -94,6 +94,37 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             android_block,
         )
 
+    def test_release_evidence_handoff_is_private_and_fail_closed(self) -> None:
+        evidence_source = (
+            ROOT / ".github/workflows/dns-ipv6-killswitch-evidence.yml"
+        ).read_text(encoding="utf-8")
+        release_source = (ROOT / ".github/workflows/release.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(
+            "ORDINARY_RESULTS_BASE64: "
+            "${{ secrets.RIPDPI_ANDROID_ORDINARY_RESULTS_BASE64 }}",
+            evidence_source,
+        )
+        self.assertIn(
+            "printf '%s' \"$ORDINARY_RESULTS_BASE64\" | base64 --decode",
+            evidence_source,
+        )
+        self.assertIn(
+            "--expected-evidence-run-id \"$GITHUB_RUN_ID\"",
+            evidence_source,
+        )
+        self.assertIn(
+            'test "$results_name" = ordinary-results.json', release_source
+        )
+        self.assertIn(
+            'results_path="$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/'
+            '$results_name"',
+            release_source,
+        )
+        self.assertNotIn("eval ", release_source)
+
 
 if __name__ == "__main__":
     unittest.main()

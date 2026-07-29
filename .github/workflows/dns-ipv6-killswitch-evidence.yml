@@ -58,6 +58,7 @@ jobs:
     env:
       EVIDENCE_CONFIG: /etc/ripdpi/network-evidence-runner.json
       EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+      ORDINARY_RESULTS_BASE64: ${{ secrets.RIPDPI_ANDROID_ORDINARY_RESULTS_BASE64 }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -141,6 +142,21 @@ jobs:
             --expected-execution-id "$GITHUB_RUN_ID" \
             --expected-execution-attempt "$GITHUB_RUN_ATTEMPT" \
             --require-pass
+
+      - name: Attach and validate source-owned ordinary results
+        run: |
+          test -n "$ORDINARY_RESULTS_BASE64"
+          evidence_dir="$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME"
+          results="$evidence_dir/ordinary-results.json"
+          umask 077
+          printf '%s' "$ORDINARY_RESULTS_BASE64" | base64 --decode > "$results"
+          python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+            --results "$results" \
+            --evidence-manifest "$evidence_dir/manifest.json" \
+            --applies-to android-client-release \
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-evidence-run-id "$GITHUB_RUN_ID" \
+            --expected-evidence-run-attempt "$GITHUB_RUN_ATTEMPT"
 
       - name: Publish validated redacted release evidence
         if: success()
