@@ -17,6 +17,13 @@ interface DiagnosticsTerminalOutboxStore {
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean
 
+    suspend fun checkpointTerminalArtifacts(
+        events: List<NativeSessionEventEntity>,
+        telemetrySample: TelemetrySampleEntity?,
+        expectedMarker: DiagnosticsDurableStateEntity,
+        replacementMarker: DiagnosticsDurableStateEntity,
+    ): Boolean
+
     suspend fun checkpointTerminalPolicy(
         policy: RememberedNetworkPolicyEntity?,
         expectedMarker: DiagnosticsDurableStateEntity,
@@ -61,6 +68,19 @@ class RoomDiagnosticsTerminalOutboxStore
             expectedMarker: DiagnosticsDurableStateEntity,
             replacementMarker: DiagnosticsDurableStateEntity,
         ): Boolean = replaceMarkerIfCurrent(expectedMarker, replacementMarker)
+
+        override suspend fun checkpointTerminalArtifacts(
+            events: List<NativeSessionEventEntity>,
+            telemetrySample: TelemetrySampleEntity?,
+            expectedMarker: DiagnosticsDurableStateEntity,
+            replacementMarker: DiagnosticsDurableStateEntity,
+        ): Boolean =
+            db.withTransaction {
+                if (!isCurrent(expectedMarker)) return@withTransaction false
+                events.forEach { event -> dao.insertNativeSessionEvent(event) }
+                telemetrySample?.let { sample -> dao.insertTelemetrySample(sample) }
+                replaceMarkerIfCurrent(expectedMarker, replacementMarker)
+            }
 
         override suspend fun checkpointTerminalPolicy(
             policy: RememberedNetworkPolicyEntity?,

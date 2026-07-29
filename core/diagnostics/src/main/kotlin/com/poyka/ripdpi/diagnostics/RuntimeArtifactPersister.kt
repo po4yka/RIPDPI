@@ -134,6 +134,44 @@ class RuntimeArtifactPersister
                 }
         }
 
+        internal suspend fun prepareTerminalArtifactBatch(
+            connectionSessionId: String,
+            telemetry: ServiceTelemetrySnapshot,
+            createdAt: Long,
+            networkTypeFallback: String,
+            includeTelemetrySample: Boolean,
+        ): RuntimeTerminalArtifactBatch {
+            val typedEvents =
+                typedRuntimeHealthMutex.withLock {
+                    val currentState =
+                        typedRuntimeHealthByConnectionSessionId[connectionSessionId] ?: TypedRuntimeHealthState()
+                    val transition = currentState.reduce(telemetry, connectionSessionId)
+                    typedRuntimeHealthByConnectionSessionId[connectionSessionId] = transition.nextState
+                    trimTypedRuntimeHealthSessions()
+                    transition.events
+                }
+            val telemetrySample =
+                if (includeTelemetrySample) {
+                    buildTelemetrySampleEntity(
+                        id = "$TerminalTelemetrySampleIdPrefix:$connectionSessionId",
+                        connectionSessionId = connectionSessionId,
+                        networkType = networkTypeFallback,
+                        publicIp = null,
+                        telemetry = telemetry,
+                        createdAt = createdAt,
+                        connectionStateOverride = "Stopped",
+                    )
+                } else {
+                    null
+                }
+            return buildPrivacySafeTerminalArtifactBatch(
+                connectionSessionId = connectionSessionId,
+                typedEvents = typedEvents,
+                nativeEvents = telemetry.proxyTelemetry.nativeEvents + telemetry.tunnelTelemetry.nativeEvents,
+                telemetrySample = telemetrySample,
+            )
+        }
+
         internal suspend fun persistNetworkTransition(
             event: NetworkTransitionEvent,
             connectionSessionId: String,

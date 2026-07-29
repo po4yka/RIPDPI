@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
@@ -38,6 +39,31 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RuntimeTerminalSealPersistenceTest {
+    @Test
+    fun `corrupt terminal outbox fails closed without exposing payload`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val coordinatorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            val canary = "sensitive-canary-material"
+            stores.terminalOutboxState.value =
+                listOf(
+                    DiagnosticsDurableStateEntity(
+                        key = "runtime_terminal_outbox:corrupt",
+                        value = "{not-json-$canary",
+                        updatedAt = 1L,
+                    ),
+                )
+
+            val error = runCatching { coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.exceptionOrNull()
+
+            assertEquals("Invalid terminal outbox state", error?.message)
+            assertFalse(error?.message.orEmpty().contains(canary))
+            assertEquals(1, stores.getPendingTerminalOutboxes().size)
+            coordinatorScope.cancel()
+        }
+
     @Test
     fun `terminal assessment waits for admitted telemetry persistence`() =
         runTest {
@@ -331,7 +357,7 @@ class RuntimeTerminalSealPersistenceTest {
 
             val assessment = decodeAssessment(stores)
             assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
-            assertFalse(assessment.terminalEvidenceSealed)
+            assertTrue(assessment.terminalEvidenceSealed)
             restoredScope.cancel()
         }
 
@@ -383,7 +409,7 @@ class RuntimeTerminalSealPersistenceTest {
         assertEquals(null, restarted.finishedAt)
         assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
         assertEquals(1, rootCauseAssessments(stores).size)
-        assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
+        assertTrue(decodeAssessment(stores).terminalEvidenceSealed)
         if (phase == TerminalFailurePhase.POLICY_FINALIZATION) {
             val persistedPolicy = stores.getRememberedNetworkPolicy("terminal-policy", Mode.VPN.preferenceValue)
             assertEquals(1, persistedPolicy?.failureCount)

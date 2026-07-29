@@ -304,6 +304,21 @@ class DiagnosticsHistoryStoresRoomTest {
 
             assertEquals(finished, dao.getBypassUsageSession(finished.id))
             assertEquals(listOf(marker), store.getPendingTerminalOutboxes())
+            assertTrue(dao.getGlobalNativeEvents().isEmpty())
+
+            val terminalEvent = nativeEvent(id = "terminal-event", sessionId = null, createdAt = 30L)
+            val terminalSample = telemetry(id = "terminal-sample", sessionId = null, createdAt = 30L)
+            val artifactMarker = marker.copy(value = "terminal-sample")
+            assertTrue(
+                store.checkpointTerminalArtifacts(
+                    events = listOf(terminalEvent),
+                    telemetrySample = terminalSample,
+                    expectedMarker = marker,
+                    replacementMarker = artifactMarker,
+                ),
+            )
+            assertEquals(terminalEvent, dao.getNativeEventById(terminalEvent.id))
+            assertEquals(terminalSample, dao.observeTelemetry().first().single())
 
             val terminalPolicy =
                 rememberedPolicy(
@@ -313,7 +328,7 @@ class DiagnosticsHistoryStoresRoomTest {
                     updatedAt = 20L,
                 ).copy(id = 7L, failureCount = 1)
             val policyMarker = marker.copy(value = "session-upsert")
-            assertTrue(store.checkpointTerminalPolicy(terminalPolicy, marker, policyMarker))
+            assertTrue(store.checkpointTerminalPolicy(terminalPolicy, artifactMarker, policyMarker))
 
             assertEquals(terminalPolicy, dao.getRememberedNetworkPolicy("terminal-policy", "vpn"))
 

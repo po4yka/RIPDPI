@@ -5,8 +5,10 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTerminalOutboxStore
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.TerminalOutboxDurableStatePrefix
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -22,6 +24,15 @@ internal class RuntimeTerminalOutbox(
     suspend fun begin(start: TerminalOutboxStart): PendingTerminalSession {
         val policyOutcome =
             rememberedPolicySessionTracker.prepareTerminalOutcome(start.finishedSession, start.createdAt)
+        val artifactBatch =
+            start.artifactBatch ?: artifactPersister
+                .prepareTerminalArtifactBatch(
+                    connectionSessionId = start.activeSession.id,
+                    telemetry = start.telemetry,
+                    createdAt = start.createdAt,
+                    networkTypeFallback = start.activeSession.networkType,
+                    includeTelemetrySample = start.activeSession.failureMessage.isNullOrBlank(),
+                ).also { prepared -> start.artifactBatch = prepared }
         val pending =
             PendingTerminalSession(
                 activeSession = start.activeSession,
@@ -30,6 +41,7 @@ internal class RuntimeTerminalOutbox(
                 createdAt = start.createdAt,
                 terminalEvidenceSealed = start.terminalEvidenceSealed,
                 policyOutcome = policyOutcome,
+                artifactBatch = artifactBatch,
             )
         val marker =
             outboxStore.beginTerminalOutbox(
@@ -47,10 +59,7 @@ internal class RuntimeTerminalOutbox(
         outboxStore.getPendingTerminalOutboxes().map { marker -> recover(marker) }
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
-        val outbox = RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(marker.value)
-        require(outbox.schemaVersion == TerminalOutboxSchemaVersion) {
-            "Unsupported terminal outbox schema ${outbox.schemaVersion}"
-        }
+        val outbox = decodeTerminalOutboxMarker(marker.value)
         val finishedSession =
             requireNotNull(usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)) {
                 "Terminal outbox ${marker.key} has no durable usage session"
@@ -61,8 +70,9 @@ internal class RuntimeTerminalOutbox(
             telemetry = null,
             createdAt = outbox.createdAt,
             terminalEvidenceSealed = outbox.terminalEvidenceSealed,
-            hasTransientState = false,
+            hasTransientState = true,
             policyOutcome = outbox.policyOutcome,
+            artifactBatch = outbox.artifactBatch,
             currentMarker = marker,
             phase = outbox.phase,
         )
@@ -82,29 +92,21 @@ internal class RuntimeTerminalOutbox(
     }
 
     private suspend fun persistRuntimeEvents(pending: PendingTerminalSession) {
-        pending.telemetry?.let { telemetry ->
-            artifactPersister.persistTerminalRuntimeEvents(
-                serviceTelemetry = telemetry,
-                connectionSessionId = pending.activeSession.id,
-            )
-        }
-        checkpoint(pending, PendingTerminalPhase.TERMINAL_SAMPLE)
+        checkpointArtifacts(
+            pending = pending,
+            events = pending.artifactBatch.events,
+            telemetrySample = null,
+            nextPhase = PendingTerminalPhase.TERMINAL_SAMPLE,
+        )
     }
 
     private suspend fun persistTerminalSample(pending: PendingTerminalSession) {
-        if (pending.activeSession.failureMessage.isNullOrBlank()) {
-            pending.telemetry?.let { telemetry ->
-                artifactPersister.persistTerminalTelemetrySample(
-                    connectionSessionId = pending.activeSession.id,
-                    telemetry = telemetry,
-                    createdAt = pending.createdAt,
-                    networkTypeFallback = pending.activeSession.networkType,
-                    publicIpFallback = pending.activeSession.publicIp,
-                    connectionState = "Stopped",
-                )
-            }
-        }
-        checkpoint(pending, PendingTerminalPhase.POLICY_FINALIZATION)
+        checkpointArtifacts(
+            pending = pending,
+            events = emptyList(),
+            telemetrySample = pending.artifactBatch.telemetrySample,
+            nextPhase = PendingTerminalPhase.POLICY_FINALIZATION,
+        )
     }
 
     private suspend fun finalizeRememberedPolicy(pending: PendingTerminalSession) {
@@ -192,6 +194,25 @@ internal class RuntimeTerminalOutbox(
         pending.currentMarker = replacement
         pending.phase = nextPhase
     }
+
+    private suspend fun checkpointArtifacts(
+        pending: PendingTerminalSession,
+        events: List<NativeSessionEventEntity>,
+        telemetrySample: TelemetrySampleEntity?,
+        nextPhase: PendingTerminalPhase,
+    ) {
+        val replacement = pending.toMarker(nextPhase)
+        check(
+            outboxStore.checkpointTerminalArtifacts(
+                events = events,
+                telemetrySample = telemetrySample,
+                expectedMarker = pending.currentMarker,
+                replacementMarker = replacement,
+            ),
+        ) { "Terminal outbox artifact checkpoint lost ownership" }
+        pending.currentMarker = replacement
+        pending.phase = nextPhase
+    }
 }
 
 internal data class TerminalOutboxStart(
@@ -200,7 +221,9 @@ internal data class TerminalOutboxStart(
     val telemetry: ServiceTelemetrySnapshot,
     val createdAt: Long,
     val terminalEvidenceSealed: Boolean,
-)
+) {
+    var artifactBatch: RuntimeTerminalArtifactBatch? = null
+}
 
 internal data class PendingTerminalSession(
     val activeSession: BypassUsageSessionEntity,
@@ -210,6 +233,7 @@ internal data class PendingTerminalSession(
     val terminalEvidenceSealed: Boolean,
     val hasTransientState: Boolean = true,
     val policyOutcome: RememberedPolicyTerminalOutcome?,
+    val artifactBatch: RuntimeTerminalArtifactBatch,
     var currentMarker: DiagnosticsDurableStateEntity = terminalOutboxMarker(activeSession.id, createdAt, ""),
     var phase: PendingTerminalPhase = PendingTerminalPhase.RUNTIME_EVENTS,
 ) {
@@ -224,6 +248,7 @@ internal data class PendingTerminalSession(
                         createdAt = createdAt,
                         terminalEvidenceSealed = terminalEvidenceSealed,
                         policyOutcome = policyOutcome,
+                        artifactBatch = artifactBatch,
                         phase = markerPhase,
                     ),
                 ),
@@ -237,6 +262,7 @@ internal data class TerminalOutboxMarker(
     val createdAt: Long,
     val terminalEvidenceSealed: Boolean,
     val policyOutcome: RememberedPolicyTerminalOutcome? = null,
+    val artifactBatch: RuntimeTerminalArtifactBatch,
     val phase: PendingTerminalPhase,
 )
 
@@ -250,7 +276,17 @@ internal enum class PendingTerminalPhase {
     COMPLETE,
 }
 
-private const val TerminalOutboxSchemaVersion = 1
+private const val TerminalOutboxSchemaVersion = 2
+
+private fun decodeTerminalOutboxMarker(value: String): TerminalOutboxMarker {
+    val marker =
+        runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(value) }
+            .getOrElse { throw IllegalStateException("Invalid terminal outbox state") }
+    if (marker.schemaVersion != TerminalOutboxSchemaVersion) {
+        throw IllegalStateException("Unsupported terminal outbox state")
+    }
+    return marker
+}
 
 private fun terminalOutboxMarker(
     connectionSessionId: String,

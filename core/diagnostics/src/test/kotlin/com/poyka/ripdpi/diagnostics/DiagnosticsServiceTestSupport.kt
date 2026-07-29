@@ -393,6 +393,26 @@ internal class FakeDiagnosticsHistoryStores :
         return replaceTerminalMarker(expectedMarker, replacementMarker)
     }
 
+    override suspend fun checkpointTerminalArtifacts(
+        events: List<NativeSessionEventEntity>,
+        telemetrySample: TelemetrySampleEntity?,
+        expectedMarker: DiagnosticsDurableStateEntity,
+        replacementMarker: DiagnosticsDurableStateEntity,
+    ): Boolean {
+        beforeCheckpointTerminalOutbox(replacementMarker)
+        if (!terminalMarkerIsCurrent(expectedMarker)) return false
+        events.forEach { event ->
+            beforeInsertNativeSessionEvent(event)
+            nativeEventsState.value = nativeEventsState.value.upsertById(event) { it.id }
+            afterInsertNativeSessionEvent(event)
+        }
+        telemetrySample?.let { sample ->
+            beforeInsertTelemetrySample(sample)
+            telemetryState.value = telemetryState.value.upsertById(sample) { it.id }
+        }
+        return replaceTerminalMarker(expectedMarker, replacementMarker)
+    }
+
     override suspend fun checkpointTerminalPolicy(
         policy: RememberedNetworkPolicyEntity?,
         expectedMarker: DiagnosticsDurableStateEntity,
