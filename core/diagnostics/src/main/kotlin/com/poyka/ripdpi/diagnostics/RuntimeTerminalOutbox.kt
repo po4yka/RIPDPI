@@ -76,16 +76,13 @@ internal class RuntimeTerminalOutbox(
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
         val outbox = decodeTerminalOutboxMarker(marker.value)
-        if (
+        requireTerminalOutboxState(
             marker.key != "$TerminalOutboxDurableStatePrefix${outbox.connectionSessionId}" ||
-            marker.updatedAt != outbox.createdAt
-        ) {
-            throw TerminalOutboxRecoveryException()
-        }
+                marker.updatedAt != outbox.createdAt,
+        )
         val finishedSession =
-            usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)
-                ?: throw TerminalOutboxRecoveryException()
-        if (finishedSession.finishedAt != outbox.createdAt) throw TerminalOutboxRecoveryException()
+            requireTerminalOutboxValue(usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId))
+        requireTerminalOutboxState(finishedSession.finishedAt != outbox.createdAt)
         return PendingTerminalSession(
             activeSession = finishedSession,
             finishedSession = finishedSession,
@@ -170,25 +167,27 @@ internal class RuntimeTerminalOutbox(
     private suspend fun reconstructPolicy(
         outcome: RememberedPolicyTerminalOutcome,
         finishedSession: BypassUsageSessionEntity,
-    ): RememberedNetworkPolicyEntity? {
-        val current = policyRecordStore.getRememberedNetworkPolicyById(outcome.policyId) ?: return null
-        if (current.mode != outcome.mode) return null
-        return current.copy(
-            status = outcome.status,
-            strategySignatureJson =
-                if (outcome.updateStrategySignature) {
-                    finishedSession.strategyJson
-                } else {
-                    current.strategySignatureJson
-                },
-            successCount = outcome.successCount,
-            failureCount = outcome.failureCount,
-            consecutiveFailureCount = outcome.consecutiveFailureCount,
-            suppressedUntil = outcome.suppressedUntil,
-            lastValidatedAt = outcome.lastValidatedAt,
-            updatedAt = outcome.updatedAt,
-        )
-    }
+    ): RememberedNetworkPolicyEntity? =
+        policyRecordStore
+            .getRememberedNetworkPolicyById(outcome.policyId)
+            ?.takeIf { policy -> policy.mode == outcome.mode }
+            ?.let { current ->
+                current.copy(
+                    status = outcome.status,
+                    strategySignatureJson =
+                        if (outcome.updateStrategySignature) {
+                            finishedSession.strategyJson
+                        } else {
+                            current.strategySignatureJson
+                        },
+                    successCount = outcome.successCount,
+                    failureCount = outcome.failureCount,
+                    consecutiveFailureCount = outcome.consecutiveFailureCount,
+                    suppressedUntil = outcome.suppressedUntil,
+                    lastValidatedAt = outcome.lastValidatedAt,
+                    updatedAt = outcome.updatedAt,
+                )
+            }
 
     private suspend fun persistFinishedSession(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT
@@ -271,15 +270,7 @@ internal class RuntimeTerminalOutbox(
                     ?: throw TerminalOutboxRecoveryException()
             }
         val outbox = decodeTerminalOutboxMarker(durableMarker.value)
-        if (
-            durableMarker.key != "$TerminalOutboxDurableStatePrefix${pending.activeSession.id}" ||
-            durableMarker.updatedAt != pending.createdAt ||
-            outbox.connectionSessionId != pending.activeSession.id ||
-            outbox.createdAt != pending.createdAt ||
-            outbox.phase.ordinal < previousPhase.ordinal
-        ) {
-            throw TerminalOutboxRecoveryException()
-        }
+        requireTerminalOutboxState(!durableMarker.matchesCheckpoint(pending, outbox, previousPhase))
         pending.currentMarker = durableMarker
         pending.policyEvidenceComplete = outbox.policyEvidenceComplete
         pending.phase = outbox.phase
@@ -380,28 +371,24 @@ private const val TerminalOutboxSchemaVersion = 2
 
 private fun decodeTerminalOutboxMarker(value: String): TerminalOutboxMarker {
     val schemaVersion =
-        runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxEnvelope>(value).schemaVersion }
-            .getOrElse { throw TerminalOutboxRecoveryException() }
+        decodeTerminalOutbox<TerminalOutboxEnvelope>(value).schemaVersion
     return when (schemaVersion) {
         1 -> {
             migrateV1TerminalOutbox(value)
         }
 
         TerminalOutboxSchemaVersion -> {
-            runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(value) }
-                .getOrElse { throw TerminalOutboxRecoveryException() }
+            decodeTerminalOutbox<TerminalOutboxMarker>(value)
         }
 
         else -> {
-            throw TerminalOutboxRecoveryException()
+            invalidTerminalOutbox()
         }
     }
 }
 
 private fun migrateV1TerminalOutbox(value: String): TerminalOutboxMarker {
-    val marker =
-        runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarkerV1>(value) }
-            .getOrElse { throw TerminalOutboxRecoveryException() }
+    val marker = decodeTerminalOutbox<TerminalOutboxMarkerV1>(value)
     return TerminalOutboxMarker(
         connectionSessionId = marker.connectionSessionId,
         createdAt = marker.createdAt,
@@ -414,6 +401,32 @@ private fun migrateV1TerminalOutbox(value: String): TerminalOutboxMarker {
 }
 
 private class TerminalOutboxRecoveryException : IllegalStateException("Invalid terminal outbox state")
+
+private inline fun <reified T> decodeTerminalOutbox(value: String): T =
+    runCatching { RuntimeHistoryJson.decodeFromString<T>(value) }
+        .getOrElse { invalidTerminalOutbox() }
+
+private fun invalidTerminalOutbox(): Nothing = throw TerminalOutboxRecoveryException()
+
+private fun requireTerminalOutboxState(invalid: Boolean) {
+    if (invalid) invalidTerminalOutbox()
+}
+
+private fun <T> requireTerminalOutboxValue(value: T?): T = value ?: invalidTerminalOutbox()
+
+private fun DiagnosticsDurableStateEntity.matchesCheckpoint(
+    pending: PendingTerminalSession,
+    outbox: TerminalOutboxMarker,
+    previousPhase: PendingTerminalPhase,
+): Boolean {
+    val matchesMarker =
+        key == "$TerminalOutboxDurableStatePrefix${pending.activeSession.id}" &&
+            updatedAt == pending.createdAt
+    val matchesOutbox =
+        outbox.connectionSessionId == pending.activeSession.id &&
+            outbox.createdAt == pending.createdAt
+    return matchesMarker && matchesOutbox && outbox.phase.ordinal >= previousPhase.ordinal
+}
 
 private fun terminalOutboxMarker(
     connectionSessionId: String,

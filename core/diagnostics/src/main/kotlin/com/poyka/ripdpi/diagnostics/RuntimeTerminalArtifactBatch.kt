@@ -34,39 +34,22 @@ private fun NativeSessionEventEntity.toPrivacySafeTypedEvent(connectionSessionId
     val tokens = message.toKeyValueTokens()
     val safeMessage =
         when (subsystem) {
-            "dns" -> {
-                val state = tokens["state"]?.takeIf { it in DnsRuntimeStates } ?: return null
-                if (tokens["event"] != "dns_runtime_state" || tokens["evidence"] != "dns_counter_transition_v1") {
-                    return null
-                }
-                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=$state"
-            }
-
-            "relay" -> {
-                val state = tokens["state"]?.takeIf { it in RelayRuntimeStates } ?: return null
-                val health = tokens["health"]?.takeIf { it in RelayRuntimeHealthValues } ?: return null
-                val relayFailed = tokens["relay_failed"]?.takeIf { it == "true" || it == "false" } ?: return null
-                if (tokens["event"] != "relay_runtime_state" || tokens["evidence"] != "relay_health_transition_v1") {
-                    return null
-                }
-                "event=relay_runtime_state evidence=relay_health_transition_v1 " +
-                    "state=$state health=$health relay_failed=$relayFailed"
-            }
-
-            else -> {
-                return null
-            }
+            "dns" -> tokens.toPrivacySafeDnsMessage()
+            "relay" -> tokens.toPrivacySafeRelayMessage()
+            else -> null
         }
-    return copy(
-        sessionId = null,
-        connectionSessionId = connectionSessionId,
-        level = level.lowercase(Locale.US).takeIf { it in TerminalEventLevels } ?: "info",
-        message = safeMessage,
-        runtimeId = null,
-        mode = null,
-        policySignature = null,
-        fingerprintHash = null,
-    )
+    return safeMessage?.let { message ->
+        copy(
+            sessionId = null,
+            connectionSessionId = connectionSessionId,
+            level = level.lowercase(Locale.US).takeIf { it in TerminalEventLevels } ?: "info",
+            message = message,
+            runtimeId = null,
+            mode = null,
+            policySignature = null,
+            fingerprintHash = null,
+        )
+    }
 }
 
 private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
@@ -75,23 +58,62 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
 ): NativeSessionEventEntity? {
     val tokens = message.toKeyValueTokens()
     return when (kind) {
-        "data_plane_final" -> {
-            val state = tokens["state"]?.takeIf { it in DataPlaneCorrelationStates } ?: return null
-            val mode = tokens["mode"]?.takeIf { it in DataPlaneModes } ?: return null
-            val generation = tokens["generation"]?.toLongOrNull()?.takeIf { it >= 0L } ?: return null
-            if (tokens["final"] != "true") return null
-            terminalEvent(
-                connectionSessionId = connectionSessionId,
-                id = terminalDataPlaneEventId(connectionSessionId),
-                level = "info",
-                message = "state=$state mode=$mode generation=$generation final=true event_kind=data_plane_final",
-                createdAt = createdAt,
-                subsystem = "data_plane",
-            )
-        }
+        "data_plane_final" -> toPrivacySafeDataPlaneEvent(connectionSessionId, tokens)
+        "protect_failure" -> toPrivacySafeProtectEvent(connectionSessionId, index, tokens)
+        else -> null
+    }
+}
 
-        "protect_failure" -> {
-            if (tokens["event"] != "protect_failed") return null
+private fun Map<String, String>.toPrivacySafeDnsMessage(): String? {
+    val state = get("state")?.takeIf { it in DnsRuntimeStates }
+    val valid = get("event") == "dns_runtime_state" && get("evidence") == "dns_counter_transition_v1"
+    return state?.takeIf { valid }?.let { "event=dns_runtime_state evidence=dns_counter_transition_v1 state=$it" }
+}
+
+private fun Map<String, String>.toPrivacySafeRelayMessage(): String? {
+    val state = get("state")?.takeIf { it in RelayRuntimeStates }
+    val health = get("health")?.takeIf { it in RelayRuntimeHealthValues }
+    val relayFailed = get("relay_failed")?.takeIf { it == "true" || it == "false" }
+    val valid = get("event") == "relay_runtime_state" && get("evidence") == "relay_health_transition_v1"
+    val complete = listOf(valid, state != null, health != null, relayFailed != null).all { it }
+    return if (complete) {
+        "event=relay_runtime_state evidence=relay_health_transition_v1 " +
+            "state=$state health=$health relay_failed=$relayFailed"
+    } else {
+        null
+    }
+}
+
+private fun NativeRuntimeEvent.toPrivacySafeDataPlaneEvent(
+    connectionSessionId: String,
+    tokens: Map<String, String>,
+): NativeSessionEventEntity? {
+    val state = tokens["state"]?.takeIf { it in DataPlaneCorrelationStates }
+    val mode = tokens["mode"]?.takeIf { it in DataPlaneModes }
+    val generation = tokens["generation"]?.toLongOrNull()?.takeIf { it >= 0L }
+    val complete = listOf(state != null, mode != null, generation != null, tokens["final"] == "true").all { it }
+    return if (complete) {
+        terminalEvent(
+            connectionSessionId = connectionSessionId,
+            id = terminalDataPlaneEventId(connectionSessionId),
+            level = "info",
+            message = "state=$state mode=$mode generation=$generation final=true event_kind=data_plane_final",
+            createdAt = createdAt,
+            subsystem = "data_plane",
+        )
+    } else {
+        null
+    }
+}
+
+private fun NativeRuntimeEvent.toPrivacySafeProtectEvent(
+    connectionSessionId: String,
+    index: Int,
+    tokens: Map<String, String>,
+): NativeSessionEventEntity? =
+    tokens["event"]
+        ?.takeIf { it == "protect_failed" }
+        ?.let {
             terminalEvent(
                 connectionSessionId = connectionSessionId,
                 id = "runtime_terminal_event:$connectionSessionId:$index",
@@ -101,12 +123,6 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
                 subsystem = "protect",
             )
         }
-
-        else -> {
-            null
-        }
-    }
-}
 
 private fun terminalEvent(
     connectionSessionId: String,

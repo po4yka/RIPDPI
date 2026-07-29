@@ -151,7 +151,7 @@ class RuntimeArtifactPersister
                         typedRuntimeHealthByConnectionSessionId[connectionSessionId] ?: TypedRuntimeHealthState()
                     val transition = currentState.reduce(telemetry, connectionSessionId)
                     typedRuntimeHealthByConnectionSessionId[connectionSessionId] = transition.nextState
-                    trimTypedRuntimeHealthSessions()
+                    typedRuntimeHealthByConnectionSessionId.trimTrackedSessions()
                     transition.events
                 }
             val telemetrySample =
@@ -348,7 +348,7 @@ class RuntimeArtifactPersister
             val transition = currentState.reduce(serviceTelemetry, connectionSessionId)
             transition.events.forEach { event -> persistRuntimeEvent(event) }
             typedRuntimeHealthByConnectionSessionId[connectionSessionId] = transition.nextState
-            trimTypedRuntimeHealthSessions()
+            typedRuntimeHealthByConnectionSessionId.trimTrackedSessions()
         }
 
         suspend fun hasTerminalRootCauseAssessment(connectionSessionId: String): Boolean =
@@ -377,42 +377,29 @@ class RuntimeArtifactPersister
                     continue
                 }
 
-                try {
-                    artifactWriteStore.insertNativeSessionEvent(event)
+                val persistenceFailure =
+                    runCatching { artifactWriteStore.insertNativeSessionEvent(event) }
+                        .exceptionOrNull()
+                if (persistenceFailure == null) {
                     withContext(NonCancellable) {
                         eventKeysMutex.withLock {
                             persistedEventKeys.add(key)
-                            trimPersistedEventKeys()
+                            persistedEventKeys.trimOldest(MaxPersistedEventKeys)
                             inFlightEventKeys.remove(key)?.complete(Unit)
                         }
                     }
                     recordRuntimeEvidenceEvent(event)
                     return
-                } catch (error: Throwable) {
+                } else {
                     withContext(NonCancellable) {
                         eventKeysMutex.withLock {
                             inFlightEventKeys.remove(key)?.complete(Unit)
                         }
                     }
-                    throw error
+                    throw persistenceFailure
                 }
             }
         }
-
-        private fun runtimeEventDedupeKey(event: NativeSessionEventEntity): String =
-            listOf(
-                event.connectionSessionId.orEmpty(),
-                event.sessionId.orEmpty(),
-                event.source,
-                event.level,
-                event.subsystem.orEmpty(),
-                event.runtimeId.orEmpty(),
-                event.mode.orEmpty(),
-                event.policySignature.orEmpty(),
-                event.fingerprintHash.orEmpty(),
-                event.message,
-                event.createdAt.toString(),
-            ).joinToString(separator = "|")
 
         private suspend fun recordRuntimeEvidenceEvent(event: NativeSessionEventEntity) {
             val connectionSessionId = event.connectionSessionId ?: return
@@ -498,36 +485,25 @@ class RuntimeArtifactPersister
             )
         }
 
-        private fun trimPersistedEventKeys() {
-            while (persistedEventKeys.size > MaxPersistedEventKeys) {
-                val iterator = persistedEventKeys.iterator()
-                if (iterator.hasNext()) {
-                    iterator.next()
-                    iterator.remove()
-                }
-            }
-        }
-
         private fun trimPersistedRootCauseSessionIds() {
-            while (persistedRootCauseConnectionSessionIds.size > MaxRuntimeRootCauseTrackedSessions) {
-                val iterator = persistedRootCauseConnectionSessionIds.iterator()
-                if (iterator.hasNext()) {
-                    iterator.next()
-                    iterator.remove()
-                }
-            }
-        }
-
-        private fun trimTypedRuntimeHealthSessions() {
-            while (typedRuntimeHealthByConnectionSessionId.size > MaxRuntimeRootCauseTrackedSessions) {
-                val iterator = typedRuntimeHealthByConnectionSessionId.entries.iterator()
-                if (iterator.hasNext()) {
-                    iterator.next()
-                    iterator.remove()
-                }
-            }
+            persistedRootCauseConnectionSessionIds.trimOldest(MaxRuntimeRootCauseTrackedSessions)
         }
     }
+
+private fun runtimeEventDedupeKey(event: NativeSessionEventEntity): String =
+    listOf(
+        event.connectionSessionId.orEmpty(),
+        event.sessionId.orEmpty(),
+        event.source,
+        event.level,
+        event.subsystem.orEmpty(),
+        event.runtimeId.orEmpty(),
+        event.mode.orEmpty(),
+        event.policySignature.orEmpty(),
+        event.fingerprintHash.orEmpty(),
+        event.message,
+        event.createdAt.toString(),
+    ).joinToString(separator = "|")
 
 private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
     "$RuntimeRootCauseAssessmentSource:$connectionSessionId"
@@ -562,6 +538,16 @@ private fun NativeRuntimeEvent.toSessionEvent(
 private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {
     while (size > MaxRuntimeRootCauseTrackedSessions) {
         val iterator = entries.iterator()
+        if (iterator.hasNext()) {
+            iterator.next()
+            iterator.remove()
+        }
+    }
+}
+
+private fun <T> LinkedHashSet<T>.trimOldest(maxSize: Int) {
+    while (size > maxSize) {
+        val iterator = iterator()
         if (iterator.hasNext()) {
             iterator.next()
             iterator.remove()
