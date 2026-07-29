@@ -287,6 +287,18 @@ private fun LinkProperties.toDirectDnsLinkSnapshot(): DirectDnsLinkSnapshot {
     val addressSize = linkAddresses.size
     val routeSize = routes.size
     val dnsSize = dnsServers.size
+    val nat64Present =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            nat64Prefix != null
+        } else {
+            false
+        }
+    val observedMtu =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mtu
+        } else {
+            null
+        }
     return DirectDnsLinkSnapshot(
         addressFamilies = linkAddresses.map { it.address }.pathFamilies(),
         defaultRouteFamilies = routes.filter { it.isDefaultRoute }.map { it.destination.address }.pathFamilies(),
@@ -298,9 +310,9 @@ private fun LinkProperties.toDirectDnsLinkSnapshot(): DirectDnsLinkSnapshot {
             networkPathCountWasTruncated(addressSize) ||
                 networkPathCountWasTruncated(routeSize) ||
                 networkPathCountWasTruncated(dnsSize),
-        nat64Present = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && nat64Prefix != null,
+        nat64Present = nat64Present,
         privateDnsCategory = privateDnsCategory(),
-        mtuBand = networkPathMtuBand(mtu),
+        mtuBand = networkPathMtuBand(observedMtu),
     )
 }
 

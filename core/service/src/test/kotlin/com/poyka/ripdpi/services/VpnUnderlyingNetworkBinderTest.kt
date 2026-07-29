@@ -4,6 +4,7 @@ import android.net.IpPrefix
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Build
 import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
 import com.poyka.ripdpi.data.NetworkPathAssociationUnknown
 import kotlinx.coroutines.CoroutineStart
@@ -26,6 +27,22 @@ import java.net.InetAddress
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class VpnUnderlyingNetworkBinderTest {
+    @Test
+    @Config(sdk = [27])
+    fun `pre Q underlay projection does not access newer link properties`() {
+        val authority = DirectDnsUnderlayAuthority()
+        val network = testNetwork(100)
+        val epoch = authority.beginCallbackEpoch()
+
+        authority.onAvailable(epoch, network)
+        authority.onCapabilitiesChanged(epoch, network, eligibleCapabilities())
+        authority.onLinkPropertiesChanged(epoch, network, linkProperties("1.1.1.1"))
+
+        val observation = authority.capture()
+        assertFalse(requireNotNull(observation.nat64Present))
+        assertEquals("unknown", observation.mtuBand)
+    }
+
     @Test
     fun `diagnostic underlay observation is authoritative bounded and identifier free`() {
         val authority = DirectDnsUnderlayAuthority()
@@ -258,13 +275,17 @@ class VpnUnderlyingNetworkBinderTest {
 
     private fun eligibleCapabilities(): NetworkCapabilities =
         NetworkCapabilities().also { capabilities ->
-            listOf(
-                NetworkCapabilities.NET_CAPABILITY_INTERNET,
-                NetworkCapabilities.NET_CAPABILITY_VALIDATED,
-                NetworkCapabilities.NET_CAPABILITY_NOT_VPN,
-                NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED,
-                NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED,
-            ).forEach { capability ->
+            val supportedCapabilities =
+                buildList {
+                    add(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    add(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    add(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    add(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        add(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)
+                    }
+                }
+            supportedCapabilities.forEach { capability ->
                 NetworkCapabilities::class
                     .java
                     .getDeclaredMethod("addCapability", Int::class.javaPrimitiveType)
