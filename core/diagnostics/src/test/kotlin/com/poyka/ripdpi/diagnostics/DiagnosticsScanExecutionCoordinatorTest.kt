@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -397,6 +398,46 @@ class DiagnosticsScanExecutionCoordinatorTest {
             collectionJob.cancel()
 
             assertTrue(progressHistory.all { it == null })
+        }
+
+    @Test
+    fun `external cancellation destroys bridge before it is rethrown`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-owner-cancelled",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            var thrown: CancellationException? = null
+
+            try {
+                fixtures.coordinator.execute(
+                    prepared = prepared,
+                    handle = handle,
+                    rawPathRunner = { throw CancellationException("owner stopped") },
+                )
+            } catch (error: CancellationException) {
+                thrown = error
+            }
+
+            assertEquals("owner stopped", thrown?.message)
+            assertEquals(1, bridge.destroyCount)
+            assertTrue(!fixtures.activeScanRegistry.hasVisibleActiveScan())
+            assertEquals("running", stores.getScanSession(prepared.sessionId)?.status)
         }
 
     @Test
