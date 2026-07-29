@@ -110,10 +110,46 @@ internal class RuntimeTerminalSealPersistenceTest : RuntimeTerminalPersistenceTe
                 )
             var recoveryAttempts = 0
 
-            outbox.recoverAll { recoveryAttempts += 1 }
+            val complete = outbox.recoverAll { recoveryAttempts += 1 }
 
+            assertFalse(complete)
             assertEquals(1, recoveryAttempts)
             assertEquals(1, stores.getPendingTerminalOutboxes().size)
+        }
+
+    @Test
+    fun `startup recovery reports incomplete when bounded batch cap leaves markers`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val sessions =
+                (0 until 65).map { index ->
+                    finishedUsageSession(
+                        id = "bounded-recovery-$index",
+                        finishedAt = 1_000L + index,
+                    )
+                }
+            stores.usageSessionsState.value = sessions
+            stores.terminalOutboxState.value =
+                sessions.map { session ->
+                    PendingTerminalSession(
+                        activeSession = session,
+                        finishedSession = session,
+                        telemetry = null,
+                        createdAt = requireNotNull(session.finishedAt),
+                        terminalEvidenceSealed = false,
+                        policyOutcome = null,
+                        artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+                    ).toMarker(PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT)
+                }
+            val outbox = createTerminalOutbox(stores)
+
+            val firstPassComplete =
+                outbox.recoverAll(maxBatches = 1) { recovered -> outbox.persist(recovered) }
+
+            assertFalse(firstPassComplete)
+            assertEquals(1, stores.getPendingTerminalOutboxes().size)
+            assertTrue(outbox.recoverAll { recovered -> outbox.persist(recovered) })
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
         }
 
     @Test
@@ -474,6 +510,47 @@ internal class RuntimeTerminalSealPersistenceTest : RuntimeTerminalPersistenceTe
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersistenceTestSupport() {
     @Test
+    fun `retained outbox marker blocks fresh admission until retry drains it`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val finishedSession = finishedUsageSession(id = "retained-recovery", finishedAt = 1_000L)
+            val retainedMarker =
+                PendingTerminalSession(
+                    activeSession = finishedSession,
+                    finishedSession = finishedSession,
+                    telemetry = null,
+                    createdAt = requireNotNull(finishedSession.finishedAt),
+                    terminalEvidenceSealed = false,
+                    policyOutcome = null,
+                    artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+                ).toMarker(PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT)
+            stores.usageSessionsState.value = listOf(finishedSession)
+            stores.terminalOutboxState.value = listOf(retainedMarker)
+            stores.afterCompleteTerminalOutbox = {
+                stores.terminalOutboxState.value = listOf(retainedMarker)
+            }
+            val serviceStateStore = DefaultServiceStateStore()
+            val coordinatorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+
+            assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Running, Mode.VPN) }.isFailure)
+            var blockedAdmission: NetworkTransitionAdmission? = null
+            coordinator.withNetworkTransitionAdmission { admission -> blockedAdmission = admission }
+            assertNull(blockedAdmission)
+            assertEquals(listOf(retainedMarker), stores.getPendingTerminalOutboxes())
+
+            stores.afterCompleteTerminalOutbox = {}
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            var retriedAdmission: NetworkTransitionAdmission? = null
+            coordinator.withNetworkTransitionAdmission { admission -> retriedAdmission = admission }
+            assertTrue(retriedAdmission != null)
+            coordinatorScope.cancel()
+        }
+
+    @Test
     fun `failure or cancellation at every terminal phase cannot reopen the detached session`() =
         runTest {
             val failures =
@@ -773,6 +850,20 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
             serviceStateStore = serviceStateStore,
             nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
+        )
+
+    protected fun createTerminalOutbox(stores: FakeDiagnosticsHistoryStores): RuntimeTerminalOutbox =
+        RuntimeTerminalOutbox(
+            usageHistoryStore = stores,
+            outboxStore = stores,
+            policyRecordStore = stores,
+            artifactPersister = createArtifactPersister(stores),
+            rememberedPolicySessionTracker =
+                RememberedPolicySessionTracker(
+                    rememberedNetworkPolicyStore =
+                        DefaultRememberedNetworkPolicyStore(stores, TestDiagnosticsHistoryClock()),
+                    policyHandoverEventStore = FakePolicyHandoverEventStore(),
+                ),
         )
 
     protected fun createSessionCoordinator(

@@ -426,11 +426,13 @@ class RuntimeSessionCoordinator
                 terminalOutbox.persist(pending)
                 if (pendingTerminalSession === pending) pendingTerminalSession = null
             }
-            terminalOutbox.recoverAll { recovered ->
-                pendingTerminalSession = recovered
-                terminalOutbox.persist(recovered)
-                if (pendingTerminalSession === recovered) pendingTerminalSession = null
-            }
+            check(
+                terminalOutbox.recoverAll { recovered ->
+                    pendingTerminalSession = recovered
+                    terminalOutbox.persist(recovered)
+                    if (pendingTerminalSession === recovered) pendingTerminalSession = null
+                },
+            ) { "Terminal outbox recovery remains incomplete" }
             if (terminalAssessmentReconciliationComplete) return
             val finishedSessions =
                 bypassUsageHistoryStore

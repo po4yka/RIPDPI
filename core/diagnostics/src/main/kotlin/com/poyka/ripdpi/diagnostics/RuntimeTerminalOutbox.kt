@@ -63,10 +63,14 @@ internal class RuntimeTerminalOutbox(
         }
     }
 
-    suspend fun recoverAll(onRecovered: suspend (PendingTerminalSession) -> Unit) {
-        repeat(MaxTerminalOutboxRecoveryBatches) {
+    suspend fun recoverAll(
+        maxBatches: Int = MaxTerminalOutboxRecoveryBatches,
+        onRecovered: suspend (PendingTerminalSession) -> Unit,
+    ): Boolean {
+        require(maxBatches > 0)
+        repeat(maxBatches) {
             val markers = outboxStore.getPendingTerminalOutboxes(TerminalOutboxRecoveryBatchSize)
-            if (markers.isEmpty()) return
+            if (markers.isEmpty()) return true
             markers.forEach { marker ->
                 try {
                     onRecovered(recover(marker))
@@ -78,8 +82,9 @@ internal class RuntimeTerminalOutbox(
                 markers.any { marker ->
                     outboxStore.getTerminalOutbox(marker.key)?.value != marker.value
                 }
-            if (!madeProgress) return
+            if (!madeProgress) return false
         }
+        return outboxStore.getPendingTerminalOutboxes(limit = 1).isEmpty()
     }
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
