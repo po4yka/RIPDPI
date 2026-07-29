@@ -46,13 +46,13 @@ internal class DiagnosticsArchiveSourceLoader
                         limit = DiagnosticsArchiveFormat.telemetryLimit,
                     ).first()
             val snapshots =
-                artifactReadStore.observeSnapshots(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
+                artifactReadStore.observeSnapshots(limit = DiagnosticsArchiveFormat.snapshotLimit + 1).first()
             val telemetry =
-                artifactReadStore.observeTelemetry(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
+                artifactReadStore.observeTelemetry(limit = DiagnosticsArchiveFormat.telemetryLimit + 1).first()
             val events =
-                artifactQueryStore.getGlobalNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit)
+                artifactQueryStore.getGlobalNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit + 1)
             val contexts =
-                artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
+                artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit + 1).first()
             val earliestSessionStart = sessions.minOfOrNull { it.startedAt }
             val logcatCapture = runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
             val logcatSnapshot = logcatCapture.getOrNull()
@@ -68,16 +68,16 @@ internal class DiagnosticsArchiveSourceLoader
                     logcatCapture.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }?.let { message ->
                         add("logcat_capture_failed:$message")
                     }
-                    if (telemetry.size >= DiagnosticsArchiveFormat.telemetryLimit) {
+                    if (telemetry.size > DiagnosticsArchiveFormat.telemetryLimit) {
                         add("telemetry_samples_truncated_at_${DiagnosticsArchiveFormat.telemetryLimit}")
                     }
-                    if (events.size >= DiagnosticsArchiveFormat.globalEventLimit) {
+                    if (events.size > DiagnosticsArchiveFormat.globalEventLimit) {
                         add("native_events_truncated_at_${DiagnosticsArchiveFormat.globalEventLimit}")
                     }
-                    if (snapshots.size >= DiagnosticsArchiveFormat.snapshotLimit) {
+                    if (snapshots.size > DiagnosticsArchiveFormat.snapshotLimit) {
                         add("network_snapshots_truncated_at_${DiagnosticsArchiveFormat.snapshotLimit}")
                     }
-                    if (contexts.size >= DiagnosticsArchiveFormat.snapshotLimit) {
+                    if (contexts.size > DiagnosticsArchiveFormat.snapshotLimit) {
                         add("diagnostic_contexts_truncated_at_${DiagnosticsArchiveFormat.snapshotLimit}")
                     }
                 }
@@ -110,19 +110,19 @@ internal class DiagnosticsArchiveSourceLoader
         internal suspend fun getNativeEvents(sessionId: String): List<NativeSessionEventEntity> =
             artifactQueryStore.getNativeEventsForSession(
                 sessionId = sessionId,
-                limit = DiagnosticsArchiveFormat.sessionEventLimit,
+                limit = DiagnosticsArchiveFormat.sessionEventLimit + 1,
             )
 
         internal suspend fun getSnapshots(sessionId: String): List<NetworkSnapshotEntity> =
             artifactQueryStore.getSnapshotsForSession(
                 sessionId = sessionId,
-                limit = DiagnosticsArchiveFormat.snapshotLimit,
+                limit = DiagnosticsArchiveFormat.snapshotLimit + 1,
             )
 
         internal suspend fun getContexts(sessionId: String): List<DiagnosticContextEntity> =
             artifactQueryStore.getContextsForSession(
                 sessionId = sessionId,
-                limit = DiagnosticsArchiveFormat.snapshotLimit,
+                limit = DiagnosticsArchiveFormat.snapshotLimit + 1,
             )
 
         internal suspend fun getCompletedHomeRun(runId: String): DiagnosticsHomeCompositeOutcome? =

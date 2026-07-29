@@ -195,12 +195,12 @@ internal fun buildSectionStatuses(
 ): Map<String, DiagnosticsArchiveSectionStatus> {
     val truncationFlags =
         SectionTruncationFlags(
-            telemetry = selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit,
+            telemetry = selection.sourceCounts.telemetrySamples > DiagnosticsArchiveFormat.telemetryLimit,
             nativeEvents =
-                selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit ||
-                    selection.sourceCounts.sessionEvents >= DiagnosticsArchiveFormat.sessionEventLimit,
-            snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
-            contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
+                selection.sourceCounts.nativeEvents > DiagnosticsArchiveFormat.globalEventLimit ||
+                    selection.sourceCounts.sessionEvents > DiagnosticsArchiveFormat.sessionEventLimit,
+            snapshots = selection.sourceCounts.snapshots > DiagnosticsArchiveFormat.snapshotLimit,
+            contexts = selection.sourceCounts.contexts > DiagnosticsArchiveFormat.snapshotLimit,
             logcat = selection.logcatSnapshot?.truncated == true,
             appLog = selection.fileLogSnapshot?.truncated == true,
         )
@@ -213,7 +213,7 @@ internal fun buildSectionStatuses(
             put(
                 fileName,
                 if (compositeStage != null) {
-                    if (compositeStage.events.size >= DiagnosticsArchiveFormat.sessionEventLimit) {
+                    if (compositeStage.sourceEventCount > DiagnosticsArchiveFormat.sessionEventLimit) {
                         DiagnosticsArchiveSectionStatus.TRUNCATED
                     } else {
                         DiagnosticsArchiveSectionStatus.INCLUDED
@@ -294,12 +294,12 @@ internal fun buildCompleteness(
         truncation =
             DiagnosticsArchiveTruncation(
                 telemetrySamples =
-                    selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit,
+                    selection.sourceCounts.telemetrySamples > DiagnosticsArchiveFormat.telemetryLimit,
                 nativeEvents =
-                    selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit ||
-                        selection.sourceCounts.sessionEvents >= DiagnosticsArchiveFormat.sessionEventLimit,
-                snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
-                contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
+                    selection.sourceCounts.nativeEvents > DiagnosticsArchiveFormat.globalEventLimit ||
+                        selection.sourceCounts.sessionEvents > DiagnosticsArchiveFormat.sessionEventLimit,
+                snapshots = selection.sourceCounts.snapshots > DiagnosticsArchiveFormat.snapshotLimit,
+                contexts = selection.sourceCounts.contexts > DiagnosticsArchiveFormat.snapshotLimit,
                 logcat = selection.logcatSnapshot?.truncated == true,
                 appLog = selection.fileLogSnapshot?.truncated == true,
             ),

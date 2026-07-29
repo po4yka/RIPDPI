@@ -203,6 +203,7 @@ internal data class DiagnosticsArchiveCompositeStageSelection(
     val snapshots: List<NetworkSnapshotEntity>,
     val contexts: List<DiagnosticContextEntity>,
     val events: List<NativeSessionEventEntity>,
+    val sourceEventCount: Int = events.size,
 )
 
 @Serializable

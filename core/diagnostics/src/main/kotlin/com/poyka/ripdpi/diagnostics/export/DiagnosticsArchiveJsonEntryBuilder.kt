@@ -440,7 +440,11 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             add(
                 textEntry(
                     name = "$prefix/native-events.csv",
-                    content = buildNativeEventsCsv(stage.events, emptyList()),
+                    content =
+                        buildNativeEventsCsv(
+                            stage.events.take(DiagnosticsArchiveFormat.sessionEventLimit),
+                            emptyList(),
+                        ),
                 ),
             )
             add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
@@ -476,7 +480,10 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             results = stage.results.map(redactor::redact),
             sessionSnapshots = stage.snapshots.map(redactor::redact),
             sessionContexts = stage.contexts.map(redactor::redact),
-            sessionEvents = stage.events.map(redactor::redact),
+            sessionEvents =
+                stage.events
+                    .take(DiagnosticsArchiveFormat.sessionEventLimit)
+                    .map(redactor::redact),
             latestPassiveSnapshot = null,
             latestPassiveContext = null,
             telemetry =

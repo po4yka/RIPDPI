@@ -348,19 +348,26 @@ class DiagnosticsArchiveRendererTest {
             base.copy(
                 runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
                 sourceCounts =
-                    base.sourceCounts.copy(nativeEvents = DiagnosticsArchiveFormat.globalEventLimit),
+                    base.sourceCounts.copy(nativeEvents = DiagnosticsArchiveFormat.globalEventLimit + 1),
                 includedFiles =
                     listOf(
                         "native-events.csv",
                         "stages/empty/native-events.csv",
+                        "stages/exact/native-events.csv",
                         "stages/full/native-events.csv",
                     ),
                 compositeStages =
                     listOf(
                         rendererCompositeStage("empty", emptyList()),
                         rendererCompositeStage(
-                            "full",
+                            "exact",
                             List(DiagnosticsArchiveFormat.sessionEventLimit) { index ->
+                                rendererNativeEvent(id = "exact-event-$index", sessionId = "exact-session")
+                            },
+                        ),
+                        rendererCompositeStage(
+                            "full",
+                            List(DiagnosticsArchiveFormat.sessionEventLimit + 1) { index ->
                                 rendererNativeEvent(id = "event-$index", sessionId = "full-session")
                             },
                         ),
@@ -371,7 +378,37 @@ class DiagnosticsArchiveRendererTest {
 
         assertEquals(DiagnosticsArchiveSectionStatus.TRUNCATED, statuses["native-events.csv"])
         assertEquals(DiagnosticsArchiveSectionStatus.INCLUDED, statuses["stages/empty/native-events.csv"])
+        assertEquals(DiagnosticsArchiveSectionStatus.INCLUDED, statuses["stages/exact/native-events.csv"])
         assertEquals(DiagnosticsArchiveSectionStatus.TRUNCATED, statuses["stages/full/native-events.csv"])
+    }
+
+    @Test
+    fun `exact collection limits are complete rather than truncated`() {
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                sourceCounts =
+                    base.sourceCounts.copy(
+                        telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit,
+                        nativeEvents = DiagnosticsArchiveFormat.globalEventLimit,
+                        snapshots = DiagnosticsArchiveFormat.snapshotLimit,
+                        contexts = DiagnosticsArchiveFormat.snapshotLimit,
+                        sessionEvents = DiagnosticsArchiveFormat.sessionEventLimit,
+                    ),
+                includedFiles =
+                    listOf(
+                        "telemetry.csv",
+                        "native-events.csv",
+                        "network-snapshots.json",
+                        "diagnostic-context.json",
+                    ),
+            )
+
+        val statuses = buildSectionStatuses(selection)
+
+        statuses.values.forEach { status ->
+            assertFalse(status == DiagnosticsArchiveSectionStatus.TRUNCATED)
+        }
     }
 
     @Test
@@ -773,10 +810,10 @@ class DiagnosticsArchiveRendererTest {
             appSettings = rendererAppSettings(),
             sourceCounts =
                 DiagnosticsArchiveSourceCounts(
-                    telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit,
-                    nativeEvents = DiagnosticsArchiveFormat.globalEventLimit,
-                    snapshots = DiagnosticsArchiveFormat.snapshotLimit,
-                    contexts = DiagnosticsArchiveFormat.snapshotLimit,
+                    telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit + 1,
+                    nativeEvents = DiagnosticsArchiveFormat.globalEventLimit + 1,
+                    snapshots = DiagnosticsArchiveFormat.snapshotLimit + 1,
+                    contexts = DiagnosticsArchiveFormat.snapshotLimit + 1,
                     sessionResults = 1,
                     sessionSnapshots = 1,
                     sessionContexts = 1,

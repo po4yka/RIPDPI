@@ -65,7 +65,7 @@ class DiagnosticsArchiveSessionSelector
 
             val primaryEvents = primarySession?.id?.let { sessionId -> loadSessionEvents(sessionId) }.orEmpty()
             val primary = buildPrimarySessionData(primarySession, primaryResults, primaryEvents, sourceData)
-            val isComposite = compositeOutcome != null && request.homeRunId != null && request.sessionIds.isNotEmpty()
+            val isComposite = compositeOutcome != null && request.homeRunId != null
             val compositeStages =
                 buildCompositeStages(
                     isComposite,
@@ -117,7 +117,7 @@ class DiagnosticsArchiveSessionSelector
                         sessionResults = primaryResults.size,
                         sessionSnapshots = primary.snapshots.size,
                         sessionContexts = primary.contexts.size,
-                        sessionEvents = primary.events.size,
+                        sessionEvents = primaryEvents.size,
                     ),
                 collectionWarnings = sourceData.collectionWarnings,
                 includedFiles = includedFiles,
@@ -162,13 +162,19 @@ class DiagnosticsArchiveSessionSelector
             val snapshots =
                 primarySession
                     ?.id
-                    ?.let { sessionId -> sourceData.snapshots.filter { it.sessionId == sessionId } }
-                    .orEmpty()
+                    ?.let { sessionId ->
+                        sourceData.snapshots
+                            .filter { it.sessionId == sessionId }
+                            .take(DiagnosticsArchiveFormat.snapshotLimit)
+                    }.orEmpty()
             val contexts =
                 primarySession
                     ?.id
-                    ?.let { sessionId -> sourceData.contexts.filter { it.sessionId == sessionId } }
-                    .orEmpty()
+                    ?.let { sessionId ->
+                        sourceData.contexts
+                            .filter { it.sessionId == sessionId }
+                            .take(DiagnosticsArchiveFormat.snapshotLimit)
+                    }.orEmpty()
             val latestPassiveSnapshot = sourceData.snapshots.firstOrNull { it.sessionId == null }
             val latestPassiveContext = sourceData.contexts.firstOrNull { it.sessionId == null }
             val globalEvents =
@@ -213,7 +219,7 @@ class DiagnosticsArchiveSessionSelector
                 report = report,
                 snapshots = snapshots,
                 contexts = contexts,
-                events = primaryEvents,
+                events = primaryEvents.take(DiagnosticsArchiveFormat.sessionEventLimit),
                 latestPassiveSnapshot = latestPassiveSnapshot,
                 latestPassiveContext = latestPassiveContext,
                 globalEvents = globalEvents,
@@ -253,14 +259,22 @@ class DiagnosticsArchiveSessionSelector
                         .reportJson
                         ?.takeIf(String::isNotBlank)
                         ?.let(json::decodeEngineScanReportWire)
+                val events = loadNativeEvents(session.id)
                 DiagnosticsArchiveCompositeStageSelection(
                     stageSummary = stageSummary,
                     session = session,
                     report = report,
                     results = loadProbeResults(session.id),
-                    snapshots = sourceData.snapshots.filter { it.sessionId == session.id },
-                    contexts = sourceData.contexts.filter { it.sessionId == session.id },
-                    events = loadNativeEvents(session.id),
+                    snapshots =
+                        sourceData.snapshots
+                            .filter { it.sessionId == session.id }
+                            .take(DiagnosticsArchiveFormat.snapshotLimit),
+                    contexts =
+                        sourceData.contexts
+                            .filter { it.sessionId == session.id }
+                            .take(DiagnosticsArchiveFormat.snapshotLimit),
+                    events = events.take(DiagnosticsArchiveFormat.sessionEventLimit),
+                    sourceEventCount = events.size,
                 )
             }
         }
