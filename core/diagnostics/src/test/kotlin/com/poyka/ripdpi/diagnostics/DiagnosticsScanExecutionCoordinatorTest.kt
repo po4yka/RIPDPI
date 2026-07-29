@@ -35,7 +35,7 @@ import org.junit.Test
 import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DiagnosticsScanExecutionCoordinatorTest {
+class DiagnosticsScanPolicyFinalizationTest {
     private val json = diagnosticsTestJson()
 
     @Test
@@ -161,6 +161,11 @@ class DiagnosticsScanExecutionCoordinatorTest {
             assertEquals("cloudflare", resolverOverrideStore.override.value?.resolverId)
             assertTrue(requireNotNull(persisted.resolverRecommendation).appliedTemporarily)
         }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsScanDnsCorrectedReprobeTest {
+    private val json = diagnosticsTestJson()
 
     @Test
     fun `dns corrected reprobe waits for vpn auto resume before starting`() =
@@ -280,68 +285,77 @@ class DiagnosticsScanExecutionCoordinatorTest {
             assertEquals("failed", reprobeSession.status)
             assertTrue(reprobeSession.summary.contains("Timed out waiting for VPN service to resume"))
         }
+}
 
-    private fun buildResolverRecommendationBridge(sessionId: String): FakeNetworkDiagnosticsBridge =
-        FakeNetworkDiagnosticsBridge(json).apply {
-            autoCompleteOnStart = false
-            enqueuePassiveEvents(
-                json.encodeToString(
-                    ListSerializer(NativeSessionEvent.serializer()),
-                    listOf(
-                        NativeSessionEvent(
-                            source = "native",
-                            level = "warn",
-                            message = "probe warn",
-                            createdAt = 15L,
-                        ),
+private fun buildResolverRecommendationBridge(sessionId: String): FakeNetworkDiagnosticsBridge {
+    val json = diagnosticsTestJson()
+    return FakeNetworkDiagnosticsBridge(json).apply {
+        autoCompleteOnStart = false
+        enqueuePassiveEvents(
+            json.encodeToString(
+                ListSerializer(NativeSessionEvent.serializer()),
+                listOf(
+                    NativeSessionEvent(
+                        source = "native",
+                        level = "warn",
+                        message = "probe warn",
+                        createdAt = 15L,
                     ),
                 ),
-            )
-            enqueueProgress(
-                ScanProgress(
-                    sessionId = sessionId,
-                    phase = "running",
-                    completedSteps = 1,
-                    totalSteps = 2,
-                    message = "running",
-                ),
-            )
-            enqueueProgress(
-                ScanProgress(
-                    sessionId = sessionId,
-                    phase = "complete",
-                    completedSteps = 2,
-                    totalSteps = 2,
-                    message = "complete",
-                    isFinished = true,
-                ),
-            )
-            enqueueReport(scanReportWithResolverRecommendation(sessionId))
-        }
+            ),
+        )
+        enqueueProgress(
+            ScanProgress(
+                sessionId = sessionId,
+                phase = "running",
+                completedSteps = 1,
+                totalSteps = 2,
+                message = "running",
+            ),
+        )
+        enqueueProgress(
+            ScanProgress(
+                sessionId = sessionId,
+                phase = "complete",
+                completedSteps = 2,
+                totalSteps = 2,
+                message = "complete",
+                isFinished = true,
+            ),
+        )
+        enqueueReport(scanReportWithResolverRecommendation(sessionId))
+    }
+}
 
-    private fun buildDnsFallbackBridge(
-        sessionId: String,
-        settings: com.poyka.ripdpi.proto.AppSettings,
-    ): FakeNetworkDiagnosticsBridge =
-        FakeNetworkDiagnosticsBridge(json).apply {
-            autoCompleteOnStart = false
-            enqueueProgress(
-                ScanProgress(
-                    sessionId = sessionId,
-                    phase = "complete",
-                    completedSteps = 1,
-                    totalSteps = 1,
-                    message = "complete",
-                    isFinished = true,
-                ),
-            )
-            enqueueReport(
-                scanReportWithDnsFallbackResolverRecommendation(
-                    sessionId = sessionId,
-                    settings = settings,
-                ),
-            )
-        }
+private fun buildDnsFallbackBridge(
+    sessionId: String,
+    settings: com.poyka.ripdpi.proto.AppSettings,
+): FakeNetworkDiagnosticsBridge {
+    val json = diagnosticsTestJson()
+    return FakeNetworkDiagnosticsBridge(json).apply {
+        autoCompleteOnStart = false
+        enqueueProgress(
+            ScanProgress(
+                sessionId = sessionId,
+                phase = "complete",
+                completedSteps = 1,
+                totalSteps = 1,
+                message = "complete",
+                isFinished = true,
+            ),
+        )
+        enqueueReport(
+            scanReportWithDnsFallbackResolverRecommendation(
+                sessionId = sessionId,
+                settings = settings,
+            ),
+        )
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsScanExecutionLifecycleTest {
+    private val json = diagnosticsTestJson()
 
     @Test
     fun `hidden execution never surfaces active progress`() =
@@ -621,6 +635,11 @@ class DiagnosticsScanExecutionCoordinatorTest {
             assertEquals(0, stores.storedProbeResults(prepared.sessionId).size)
             assertNull(timelineSource.activeScanProgress.value)
         }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsScanRememberedPolicyTest {
+    private val json = diagnosticsTestJson()
 
     @Test
     fun `background automatic probing skips remembered policy when prepared fingerprint is missing`() =
@@ -680,12 +699,12 @@ class DiagnosticsScanExecutionCoordinatorTest {
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
-
-    private fun timelineSource(
-        stores: FakeDiagnosticsHistoryStores,
-        scope: CoroutineScope,
-    ): DefaultDiagnosticsTimelineSource = coordinatorTimelineSource(stores, scope)
 }
+
+private fun timelineSource(
+    stores: FakeDiagnosticsHistoryStores,
+    scope: CoroutineScope,
+): DefaultDiagnosticsTimelineSource = coordinatorTimelineSource(stores, scope)
 
 internal fun coordinatorTimelineSource(
     stores: FakeDiagnosticsHistoryStores,
