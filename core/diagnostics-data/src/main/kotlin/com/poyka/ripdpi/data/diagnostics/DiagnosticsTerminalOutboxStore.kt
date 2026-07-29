@@ -143,3 +143,4 @@ class RoomDiagnosticsTerminalOutboxStore
     }
 
 const val TerminalOutboxDurableStatePrefix = "runtime_terminal_outbox:"
+const val PolicyHandoverDeliveryDurableStatePrefix = "policy_handover_delivery:"

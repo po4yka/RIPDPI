@@ -724,6 +724,7 @@ class RoomDiagnosticsHistoryResetStore
                 dao.clearBlockedPaths()
                 dao.clearNetworkEdgePreferences()
                 dao.clearDiagnosticsDurableStateByPrefix(TerminalOutboxDurableStatePrefix)
+                dao.clearDiagnosticsDurableStateByPrefix(PolicyHandoverDeliveryDurableStatePrefix)
             }
         }
     }

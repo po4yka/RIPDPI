@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
+import com.poyka.ripdpi.data.diagnostics.PolicyHandoverDeliveryDurableStatePrefix
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -23,9 +24,11 @@ class DefaultPolicyHandoverEventStore
         private val durableStateStore: DiagnosticsDurableStateStore,
     ) : PolicyHandoverEventStore {
         override val events: Flow<PolicyHandoverEvent> =
-            durableStateStore.observeDurableStateByPrefix(PolicyHandoverDeliveryPrefix).transform { states ->
-                states.forEach { state -> decodeEvent(state.value)?.let { event -> emit(event) } }
-            }
+            durableStateStore
+                .observeDurableStateByPrefix(PolicyHandoverDeliveryDurableStatePrefix)
+                .transform { states ->
+                    states.forEach { state -> decodeEvent(state.value)?.let { event -> emit(event) } }
+                }
 
         override suspend fun publish(event: PolicyHandoverEvent) {
             require(event.deliveryId.isNotBlank()) { "Policy handover delivery id is required" }
@@ -56,7 +59,6 @@ abstract class PolicyHandoverEventStoreModule {
     abstract fun bindPolicyHandoverEventStore(store: DefaultPolicyHandoverEventStore): PolicyHandoverEventStore
 }
 
-private fun deliveryKey(deliveryId: String): String = "$PolicyHandoverDeliveryPrefix$deliveryId"
+private fun deliveryKey(deliveryId: String): String = "$PolicyHandoverDeliveryDurableStatePrefix$deliveryId"
 
-private const val PolicyHandoverDeliveryPrefix = "policy_handover_delivery:"
 private val PolicyHandoverJson = Json { ignoreUnknownKeys = false }

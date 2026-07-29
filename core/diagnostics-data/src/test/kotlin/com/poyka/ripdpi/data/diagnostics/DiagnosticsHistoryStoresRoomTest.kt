@@ -826,6 +826,13 @@ class DiagnosticsHistoryStoresRoomTest {
                     updatedAt = 25L,
                 ),
             )
+            artifactStore.upsertDurableState(
+                DiagnosticsDurableStateEntity(
+                    key = "policy_handover_delivery:handover-reset",
+                    value = "handover-reset",
+                    updatedAt = 25L,
+                ),
+            )
             artifactStore.insertExportRecord(exportRecord(id = "exp-reset", sessionId = session.id, createdAt = 26L))
             bypassStore.upsertBypassUsageSession(
                 bypassUsageSession(id = "usage-reset", startedAt = 27L, finishedAt = 28L),
@@ -879,6 +886,7 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(1, rowCount("diagnostics_durable_state"))
             assertNotNull(artifactStore.getDurableState("pending-reset"))
             assertNull(artifactStore.getDurableState("runtime_terminal_outbox:usage-reset"))
+            assertNull(artifactStore.getDurableState("policy_handover_delivery:handover-reset"))
         }
 
     @Test
