@@ -387,6 +387,13 @@ class DiagnosticsScanControllerHiddenProbeTest {
             persistControllerPartialReport(partialReport, stores, serviceStateStore)
         }
 
+        assertManualConflictPreserved(stores, hiddenSessionId)
+    }
+
+    private suspend fun assertManualConflictPreserved(
+        stores: FakeDiagnosticsHistoryStores,
+        hiddenSessionId: String,
+    ) {
         val entity = requireNotNull(stores.getScanSession(hiddenSessionId))
         val boundarySession = DiagnosticsBoundaryMapper(json).toDiagnosticScanSession(entity)
         val archive =

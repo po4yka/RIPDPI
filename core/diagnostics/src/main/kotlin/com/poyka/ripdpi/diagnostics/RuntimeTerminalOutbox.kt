@@ -68,23 +68,35 @@ internal class RuntimeTerminalOutbox(
         onRecovered: suspend (PendingTerminalSession) -> Unit,
     ): Boolean {
         require(maxBatches > 0)
-        repeat(maxBatches) {
+        var complete = false
+        var exhausted = false
+        var recoveredBatches = 0
+        while (!complete && !exhausted && recoveredBatches < maxBatches) {
+            recoveredBatches += 1
             val markers = outboxStore.getPendingTerminalOutboxes(TerminalOutboxRecoveryBatchSize)
-            if (markers.isEmpty()) return true
-            markers.forEach { marker ->
-                try {
-                    onRecovered(recover(marker))
-                } catch (_: TerminalOutboxRecoveryException) {
-                    outboxStore.completeTerminalOutbox(marker)
-                }
+            if (markers.isEmpty()) {
+                complete = true
+            } else {
+                exhausted = !recoverBatch(markers, onRecovered)
             }
-            val madeProgress =
-                markers.any { marker ->
-                    outboxStore.getTerminalOutbox(marker.key)?.value != marker.value
-                }
-            if (!madeProgress) return false
         }
-        return outboxStore.getPendingTerminalOutboxes(limit = 1).isEmpty()
+        return complete || (!exhausted && outboxStore.getPendingTerminalOutboxes(limit = 1).isEmpty())
+    }
+
+    private suspend fun recoverBatch(
+        markers: List<DiagnosticsDurableStateEntity>,
+        onRecovered: suspend (PendingTerminalSession) -> Unit,
+    ): Boolean {
+        markers.forEach { marker ->
+            try {
+                onRecovered(recover(marker))
+            } catch (_: TerminalOutboxRecoveryException) {
+                outboxStore.completeTerminalOutbox(marker)
+            }
+        }
+        return markers.any { marker ->
+            outboxStore.getTerminalOutbox(marker.key)?.value != marker.value
+        }
     }
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
