@@ -7,8 +7,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -141,42 +146,104 @@ class DiagnosticsTimelineSourceTest {
                         usageSession(id = "connection-new", startedAt = 60L, updatedAt = 90L, finishedAt = null),
                     )
 
-                assertEquals("connection-new", timelineSource.activeConnectionSession.value?.id)
+                assertEquals(
+                    "connection-new",
+                    timelineSource.activeConnectionSession
+                        .filterNotNull()
+                        .first()
+                        .id,
+                )
             } finally {
                 timelineScope.cancel()
             }
         }
 
     @Test
-    fun `active connection session keeps usage history retained without external subscribers`() =
+    fun `active connection session collects only while subscribed and retains its latest value`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = timelineSource(stores, backgroundScope)
 
             runCurrent()
-
-            assertEquals(1, stores.usageSessionsCollectorCount.get())
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
+            assertNull(timelineSource.activeConnectionSession.value)
 
             stores.usageSessionsState.value =
                 listOf(
                     usageSession(id = "connection-active", startedAt = 10L, updatedAt = 20L, finishedAt = null),
                 )
             runCurrent()
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
+            assertNull(timelineSource.activeConnectionSession.value)
 
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    timelineSource.activeConnectionSession.collect()
+                }
+            runCurrent()
+
+            assertEquals(1, stores.usageSessionsCollectorCount.get())
             assertEquals("connection-active", timelineSource.activeConnectionSession.value?.id)
+
+            collector.cancelAndJoin()
+            runCurrent()
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
+
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "connection-next", startedAt = 30L, updatedAt = 40L, finishedAt = null),
+                )
+            runCurrent()
+            assertEquals("connection-active", timelineSource.activeConnectionSession.value?.id)
+
+            val returningCollector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    timelineSource.activeConnectionSession.collect()
+                }
+            runCurrent()
+
+            assertEquals(1, stores.usageSessionsCollectorCount.get())
+            assertEquals("connection-next", timelineSource.activeConnectionSession.value?.id)
+            returningCollector.cancelAndJoin()
+            runCurrent()
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
         }
 
     @Test
-    fun `active connection session releases usage history when owning scope is cancelled`() =
+    fun `active connection session releases usage history when subscriber is cancelled`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-            timelineSource(stores, timelineScope)
+            val timelineSource = timelineSource(stores, timelineScope)
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    timelineSource.activeConnectionSession.collect()
+                }
             runCurrent()
 
             assertEquals(1, stores.usageSessionsCollectorCount.get())
 
+            collector.cancelAndJoin()
+            runCurrent()
+
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
             timelineScope.cancel()
+        }
+
+    @Test
+    fun `derived live flow owns active connection subscription`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    timelineSource.liveTelemetry.collect()
+                }
+            runCurrent()
+
+            assertEquals(1, stores.usageSessionsCollectorCount.get())
+
+            collector.cancelAndJoin()
             runCurrent()
 
             assertEquals(0, stores.usageSessionsCollectorCount.get())
@@ -208,7 +275,11 @@ class DiagnosticsTimelineSourceTest {
                         usageSession(id = "connection-b", startedAt = 30L, updatedAt = 60L, finishedAt = null),
                     )
 
-                assertEquals(listOf("telemetry-b"), timelineSource.liveTelemetry.first().map { it.id })
+                val refreshedTelemetry =
+                    timelineSource.liveTelemetry.first { telemetry ->
+                        telemetry.map { it.id } == listOf("telemetry-b")
+                    }
+                assertEquals(listOf("telemetry-b"), refreshedTelemetry.map { it.id })
             } finally {
                 timelineScope.cancel()
             }

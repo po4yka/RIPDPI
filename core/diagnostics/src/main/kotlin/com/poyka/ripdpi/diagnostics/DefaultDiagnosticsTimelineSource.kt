@@ -52,10 +52,12 @@ class DefaultDiagnosticsTimelineSource
                 }.distinctUntilChanged()
                 .stateIn(
                     scope = scope,
-                    // Eagerly is intentional: this singleton is scoped to ApplicationIoScope and
-                    // must track the active session continuously so that diagnostics consumers
-                    // always receive the current value without an initial cold start delay.
-                    started = SharingStarted.Eagerly,
+                    // The Room flow is owned by diagnostics subscribers, not by the process. This
+                    // avoids keeping a DAO invalidation observer alive after a UI/test database is
+                    // closed. StateFlow retains the latest value, so returning subscribers receive
+                    // the cached session immediately and then refresh it from Room. The tradeoff is
+                    // one database read when the first diagnostics consumer starts collecting.
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
                     initialValue = null,
                 )
         private val activeConnectionSessionId: Flow<String?> =
