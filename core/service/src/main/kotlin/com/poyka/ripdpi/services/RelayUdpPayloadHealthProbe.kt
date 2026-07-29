@@ -13,7 +13,9 @@ import java.net.InetSocketAddress
 import java.net.ProtocolException
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.security.SecureRandom
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 data class RelayUdpPayloadHealthEvidence(
     val measurementKind: String = RelayUdpPayloadMeasurementKind,
@@ -158,8 +160,17 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
     private val targets: Map<RelayUdpPayloadFamily, InetSocketAddress>,
     private val timeoutMillis: Int,
     private val payloadSizesBytes: List<Int>,
-    private val queryFactory: (Int) -> ByteArray = ::sizedDnsQuery,
+    initialTransactionId: Int = SecureRandom().nextInt(DnsTransactionIdUpperBound),
+    private val queryFactory: (Int, Int) -> ByteArray = ::sizedDnsQuery,
 ) : RelayUdpPayloadHealthProbe {
+    private val transactionIds = AtomicInteger(initialTransactionId)
+
+    init {
+        require(initialTransactionId in 0 until DnsTransactionIdUpperBound) {
+            "DNS transaction ID must fit in 16 bits"
+        }
+    }
+
     constructor() : this(
         targets =
             mapOf(
@@ -300,13 +311,20 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
             udp = udp,
             udpRelay = udpRelay,
             target = target,
-            query = queryFactory(payloadSizeBytes),
+            query = queryFactory(payloadSizeBytes, nextTransactionId()),
             timeoutMillis = timeoutMillis,
         )
+
+    private fun nextTransactionId(): Int =
+        transactionIds.getAndUpdate { current ->
+            if (current == DnsTransactionIdMaximum) 0 else current + 1
+        }
 }
 
-private fun sizedDnsQuery(payloadSizeBytes: Int): ByteArray {
-    val queryId = java.security.SecureRandom().nextInt(1 shl DnsTransactionIdBitWidth)
+private fun sizedDnsQuery(
+    payloadSizeBytes: Int,
+    queryId: Int,
+): ByteArray {
     val question = "example.com".dnsQuestion()
     val baseQueryBytes = DnsHeaderBytes + question.size
     val includePadding = payloadSizeBytes >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
@@ -411,6 +429,8 @@ private const val RepeatedPayloadFailureThreshold = 2
 private const val DnsHeaderBytes = 12
 private const val ByteBitWidth = 8
 private const val DnsTransactionIdBitWidth = 16
+private const val DnsTransactionIdUpperBound = 1 shl DnsTransactionIdBitWidth
+private const val DnsTransactionIdMaximum = DnsTransactionIdUpperBound - 1
 private const val DnsTransactionIdHighByteIndex = 0
 private const val DnsTransactionIdLowByteIndex = 1
 private const val DnsFlagsHighByteIndex = 2

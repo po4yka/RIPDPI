@@ -257,6 +257,27 @@ class RelayCapabilityProbeTest {
             assertEquals(listOf(64), fixture.payloadSizes())
         }
     }
+
+    @Test
+    fun `socks payload ladder uses unique transaction ids across wraparound`() {
+        SocksUdpFixture(Behavior.PayloadLadder).use { fixture ->
+            runBlocking {
+                fixture
+                    .payloadProbeWithInitialTransactionId(InitialWraparoundTransactionId)
+                    .probe(
+                        endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
+                        families = setOf(RelayUdpPayloadFamily.Ipv4),
+                    )
+            }
+
+            val transactionIds = fixture.transactionIds()
+            assertEquals(transactionIds.size, transactionIds.distinct().size)
+            assertEquals(
+                listOf(InitialWraparoundTransactionId, MaximumTransactionId, 0, 1),
+                transactionIds.take(4),
+            )
+        }
+    }
 }
 
 class RelayUdpPayloadFailureBoundaryTest {
@@ -285,7 +306,7 @@ class RelayUdpPayloadFailureBoundaryTest {
             val result =
                 runBlocking {
                     fixture
-                        .payloadProbeWithQueryFactory { throw failure }
+                        .payloadProbeWithQueryFactory { _, _ -> throw failure }
                         .probe(
                             endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                             families = setOf(RelayUdpPayloadFamily.Ipv4),
@@ -304,7 +325,7 @@ class RelayUdpPayloadFailureBoundaryTest {
                 try {
                     runBlocking {
                         fixture
-                            .payloadProbeWithQueryFactory { throw failure }
+                            .payloadProbeWithQueryFactory { _, _ -> throw failure }
                             .probe(
                                 endpoint = RelayProbeEndpoint("127.0.0.1", fixture.port),
                                 families = setOf(RelayUdpPayloadFamily.Ipv4),
@@ -414,7 +435,12 @@ private class SocksUdpFixture(
                         val frame = request.data.copyOf(request.length)
                         val dnsOffset = socksPayloadOffset(frame, request.length)
                         val payloadSize = request.length - dnsOffset
-                        requests += UdpFixtureRequest(addressType = frame[3].toInt(), payloadSize = payloadSize)
+                        requests +=
+                            UdpFixtureRequest(
+                                addressType = frame[3].toInt(),
+                                payloadSize = payloadSize,
+                                transactionId = frame.readUnsignedShort(dnsOffset),
+                            )
                         if (shouldRespond(requestIndex, payloadSize)) {
                             if (behavior != Behavior.MalformedDns) {
                                 frame[dnsOffset + 2] = (frame[dnsOffset + 2].toInt() or 0x80).toByte()
@@ -438,12 +464,22 @@ private class SocksUdpFixture(
 
     fun addressTypes(): List<Int> = requests.map(UdpFixtureRequest::addressType)
 
-    fun payloadProbeWithQueryFactory(queryFactory: (Int) -> ByteArray): RelayUdpPayloadHealthProbe =
+    fun transactionIds(): List<Int> = requests.map(UdpFixtureRequest::transactionId)
+
+    fun payloadProbeWithQueryFactory(queryFactory: (Int, Int) -> ByteArray): RelayUdpPayloadHealthProbe =
         Socks5DnsUdpPayloadHealthProbe(
             targets = payloadTargets(),
             timeoutMillis = 500,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
             queryFactory = queryFactory,
+        )
+
+    fun payloadProbeWithInitialTransactionId(initialTransactionId: Int): RelayUdpPayloadHealthProbe =
+        Socks5DnsUdpPayloadHealthProbe(
+            targets = payloadTargets(),
+            timeoutMillis = 500,
+            payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
+            initialTransactionId = initialTransactionId,
         )
 
     private fun shouldRespond(
@@ -468,7 +504,11 @@ private fun payloadTargets(): Map<RelayUdpPayloadFamily, InetSocketAddress> =
 private data class UdpFixtureRequest(
     val addressType: Int,
     val payloadSize: Int,
+    val transactionId: Int,
 )
+
+private fun ByteArray.readUnsignedShort(offset: Int): Int =
+    (this[offset].toUByte().toInt() shl ByteBits) or this[offset + 1].toUByte().toInt()
 
 private fun skipAddress(input: DataInputStream) {
     when (input.readUnsignedByte()) {
@@ -505,3 +545,7 @@ private fun socksPayloadOffset(
         }
     return 4 + addressLength + 2
 }
+
+private const val ByteBits = 8
+private const val InitialWraparoundTransactionId = 65_534
+private const val MaximumTransactionId = 65_535
