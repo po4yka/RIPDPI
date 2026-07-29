@@ -55,9 +55,10 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBi
     env: EnvUnowned<'_>,
     _thiz: JObject,
 ) -> jint {
-    bind_to_device_probe_ffi_boundary(move || bind_to_device_probe_entry(env))
+    ffi_boundary(BIND_TO_DEVICE_PROBE_PANIC_SENTINEL, move || bind_to_device_probe_entry(env))
 }
 
+#[cfg(test)]
 fn bind_to_device_probe_ffi_boundary(probe: impl FnOnce() -> jint + std::panic::UnwindSafe) -> jint {
     ffi_boundary(BIND_TO_DEVICE_PROBE_PANIC_SENTINEL, probe)
 }
