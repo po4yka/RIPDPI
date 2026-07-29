@@ -2,8 +2,11 @@ package com.poyka.ripdpi.services
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -82,6 +85,59 @@ class RelayUdpProbeMatchingTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `payload probe preserves interrupted IO from send and receive`() {
+        val relay = InetSocketAddress(InetAddress.getLoopbackAddress(), DnsPort)
+        val target = InetSocketAddress("203.0.113.53", DnsPort)
+        listOf(
+            ThrowingDatagramSocket(sendFailure = InterruptedIOException("send interrupted")),
+            ThrowingDatagramSocket(receiveFailure = InterruptedIOException("receive interrupted")),
+        ).forEach { socket ->
+            socket.use {
+                val failure =
+                    assertThrows(InterruptedIOException::class.java) {
+                        sendDnsProbePayload(
+                            socket,
+                            relay,
+                            target,
+                            dnsQuery(FirstTransactionId),
+                            TestTimeoutMillis,
+                        )
+                    }
+                assertTrue(failure.message?.endsWith("interrupted") == true)
+            }
+        }
+    }
+
+    @Test
+    fun `payload probe converts ordinary datagram IO to no acknowledgement`() {
+        ThrowingDatagramSocket(sendFailure = IOException("expected send failure")).use { socket ->
+            assertFalse(
+                sendDnsProbePayload(
+                    socket,
+                    InetSocketAddress(InetAddress.getLoopbackAddress(), DnsPort),
+                    InetSocketAddress("203.0.113.53", DnsPort),
+                    dnsQuery(FirstTransactionId),
+                    TestTimeoutMillis,
+                ),
+            )
+        }
+    }
+}
+
+private class ThrowingDatagramSocket(
+    private val sendFailure: IOException? = null,
+    private val receiveFailure: IOException? = null,
+) : DatagramSocket() {
+    override fun send(packet: DatagramPacket) {
+        sendFailure?.let { throw it }
+    }
+
+    override fun receive(packet: DatagramPacket) {
+        receiveFailure?.let { throw it }
+        error("Receive failure was not configured")
     }
 }
 
