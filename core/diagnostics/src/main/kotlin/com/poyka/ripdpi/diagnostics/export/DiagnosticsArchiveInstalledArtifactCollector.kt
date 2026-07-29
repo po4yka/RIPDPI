@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.pm.PackageInfoCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -30,37 +32,39 @@ private val PackagedNativeLibraryAllowList =
 @Singleton
 internal class DiagnosticsArchiveInstalledArtifactCollector
     internal constructor(
+        private val cancellationCheck: suspend () -> Unit = { currentCoroutineContext().ensureActive() },
         private val snapshotSource: () -> InstalledArtifactSnapshotResult,
     ) {
         @Inject
-        constructor(snapshotSource: AndroidInstalledArtifactSnapshotSource) : this(snapshotSource::snapshotOrFailure)
+        constructor(snapshotSource: AndroidInstalledArtifactSnapshotSource) : this(
+            snapshotSource = snapshotSource::snapshotOrFailure,
+        )
 
-        internal fun collect(): DiagnosticsArchiveInstalledArtifact {
+        internal suspend fun collect(): DiagnosticsArchiveInstalledArtifact {
             var resolved: DiagnosticsArchiveInstalledArtifact? = null
-            repeat(CollectionAttemptCount) {
+            repeat(CollectionAttemptCount) { attempt ->
                 if (resolved == null) {
-                    val before = snapshotSource()
-                    if (before is InstalledArtifactSnapshotResult.Failure) {
-                        resolved = before.toUnavailableArtifact()
-                    } else {
-                        val snapshot = (before as InstalledArtifactSnapshotResult.Success).snapshot
-                        val collected = collect(snapshot)
-                        val after = snapshotSource()
-                        resolved =
-                            when {
-                                after is InstalledArtifactSnapshotResult.Failure -> {
-                                    after.toUnavailableArtifact()
+                    cancellationCheck()
+                    when (val before = snapshotSource()) {
+                        is InstalledArtifactSnapshotResult.Failure -> {
+                            if (attempt == CollectionAttemptCount - 1) resolved = before.toUnavailableArtifact()
+                        }
+
+                        is InstalledArtifactSnapshotResult.Success -> {
+                            val collected = collect(before.snapshot)
+                            cancellationCheck()
+                            when (val after = snapshotSource()) {
+                                is InstalledArtifactSnapshotResult.Failure -> {
+                                    if (attempt == CollectionAttemptCount - 1) {
+                                        resolved = after.toUnavailableArtifact()
+                                    }
                                 }
 
-                                after is InstalledArtifactSnapshotResult.Success &&
-                                    snapshot.identity == after.snapshot.identity -> {
-                                    collected
-                                }
-
-                                else -> {
-                                    null
+                                is InstalledArtifactSnapshotResult.Success -> {
+                                    if (before.snapshot.identity == after.snapshot.identity) resolved = collected
                                 }
                             }
+                        }
                     }
                 }
             }
@@ -71,7 +75,7 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
                 )
         }
 
-        private fun collect(snapshot: InstalledArtifactSnapshot): DiagnosticsArchiveInstalledArtifact {
+        private suspend fun collect(snapshot: InstalledArtifactSnapshot): DiagnosticsArchiveInstalledArtifact {
             val failures = linkedSetOf<DiagnosticsArchiveInstalledArtifactFailure>()
             val baseApkSha256 = hashFile(snapshot.baseApk) ?: failures.recordBaseApkReadFailure()
             val splitApkSha256 =
@@ -81,8 +85,10 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
                     }.sorted()
             val currentSignerCertificateSha256 =
                 snapshot.currentSignerCertificates
-                    .map(::sha256Hex)
-                    .distinct()
+                    .map { certificate ->
+                        cancellationCheck()
+                        sha256Hex(certificate)
+                    }.distinct()
                     .sorted()
                     .also { hashes ->
                         if (hashes.isEmpty()) failures += DiagnosticsArchiveInstalledArtifactFailure.SIGNERS_UNAVAILABLE
@@ -95,6 +101,7 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
                     }
 
                     baseApkSha256 == null &&
+                        splitApkSha256.isEmpty() &&
                         currentSignerCertificateSha256.isEmpty() &&
                         packagedNativeLibraries.isEmpty() -> {
                         DiagnosticsArchiveInstalledArtifactCollectionStatus.UNAVAILABLE
@@ -120,12 +127,13 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
             )
         }
 
-        private fun collectPackagedNativeLibraries(
+        private suspend fun collectPackagedNativeLibraries(
             apkFiles: List<File>,
             failures: MutableSet<DiagnosticsArchiveInstalledArtifactFailure>,
         ): List<DiagnosticsArchiveInstalledNativeLibrary> {
             val hashesByKey = linkedMapOf<NativeLibraryKey, MutableSet<String>>()
             apkFiles.forEach { apkFile ->
+                cancellationCheck()
                 if (!scanPackagedNativeLibraries(apkFile, hashesByKey)) {
                     failures += DiagnosticsArchiveInstalledArtifactFailure.NATIVE_LIBRARY_SCAN_FAILED
                 }
@@ -151,16 +159,15 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
                 }.sortedWith(compareBy({ it.abi.ordinal }, { it.name }, { it.sha256 }))
         }
 
-        private fun scanPackagedNativeLibraries(
+        private suspend fun scanPackagedNativeLibraries(
             apkFile: File,
             hashesByKey: MutableMap<NativeLibraryKey, MutableSet<String>>,
         ): Boolean =
             try {
                 ZipFile(apkFile).use { zip ->
-                    zip.entries().asSequence().filterNot { it.isDirectory }.forEach entryLoop@{ entry ->
-                        val key = nativeLibraryKey(entry.name) ?: return@entryLoop
-                        val hash = zip.getInputStream(entry).use(::sha256Hex)
-                        hashesByKey.getOrPut(key, ::linkedSetOf).add(hash)
+                    zip.entries().asSequence().forEach { entry ->
+                        cancellationCheck()
+                        collectPackagedNativeLibraryEntry(zip, entry, hashesByKey)
                     }
                 }
                 true
@@ -169,6 +176,39 @@ internal class DiagnosticsArchiveInstalledArtifactCollector
             } catch (_: SecurityException) {
                 false
             }
+
+        private suspend fun collectPackagedNativeLibraryEntry(
+            zip: ZipFile,
+            entry: java.util.zip.ZipEntry,
+            hashesByKey: MutableMap<NativeLibraryKey, MutableSet<String>>,
+        ) {
+            val key = nativeLibraryKey(entry.name)
+            if (!entry.isDirectory && key != null) {
+                val hash = zip.getInputStream(entry).use { input -> sha256Hex(input) }
+                hashesByKey.getOrPut(key, ::linkedSetOf).add(hash)
+            }
+        }
+
+        private suspend fun hashFile(file: File): String? =
+            try {
+                file.inputStream().buffered().use { input -> sha256Hex(input) }
+            } catch (_: IOException) {
+                null
+            } catch (_: SecurityException) {
+                null
+            }
+
+        private suspend fun sha256Hex(input: InputStream): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(Sha256BufferSize)
+            while (true) {
+                cancellationCheck()
+                val count = input.read(buffer)
+                if (count < 0) break
+                if (count > 0) digest.update(buffer, 0, count)
+            }
+            return digest.digest().toHex()
+        }
     }
 
 @Singleton
@@ -356,26 +396,6 @@ private fun MutableSet<DiagnosticsArchiveInstalledArtifactFailure>.recordBaseApk
 private fun MutableSet<DiagnosticsArchiveInstalledArtifactFailure>.recordSplitApkReadFailure(): String? {
     add(DiagnosticsArchiveInstalledArtifactFailure.SPLIT_APK_READ_FAILED)
     return null
-}
-
-private fun hashFile(file: File): String? =
-    try {
-        file.inputStream().buffered().use(::sha256Hex)
-    } catch (_: IOException) {
-        null
-    } catch (_: SecurityException) {
-        null
-    }
-
-private fun sha256Hex(input: InputStream): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val buffer = ByteArray(Sha256BufferSize)
-    while (true) {
-        val count = input.read(buffer)
-        if (count < 0) break
-        if (count > 0) digest.update(buffer, 0, count)
-    }
-    return digest.digest().toHex()
 }
 
 private fun ByteArray.toHex(): String = joinToString(separator = "") { byte -> "%02x".format(byte) }

@@ -15,7 +15,7 @@ import javax.inject.Singleton
 internal interface DiagnosticsArchiveBuildInfoProvider {
     fun buildProvenance(): DiagnosticsArchiveBuildProvenance
 
-    fun installedArtifact(): DiagnosticsArchiveInstalledArtifact? = null
+    suspend fun installedArtifact(): DiagnosticsArchiveInstalledArtifact? = null
 }
 
 @Singleton
@@ -54,7 +54,8 @@ internal class AndroidDiagnosticsArchiveBuildInfoProvider
             )
         }
 
-        override fun installedArtifact(): DiagnosticsArchiveInstalledArtifact = installedArtifactCollector.collect()
+        override suspend fun installedArtifact(): DiagnosticsArchiveInstalledArtifact =
+            installedArtifactCollector.collect()
     }
 
 @Module
