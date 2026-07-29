@@ -279,6 +279,24 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         assertTrue(RemoteAcceptanceTelemetryFreshTimeoutMs >= 6_000L)
     }
 
+    @Test
+    fun `redacted render refreshes the latest recovery receipt`() {
+        var receipt = RemoteDeviceRecoveryReceipt(generation = PresentReceiptValue, startOrigin = "boot")
+        val gate =
+            gate(
+                serviceState = runningServiceState(updatedAt = 1L),
+                screen = MutableRemoteAcceptanceScreenStateObserver(interactive = true),
+                writer = RecordingRemoteDeviceAcceptanceEvidenceWriter(),
+                recoveryReceiptSource = RemoteDeviceRecoveryReceiptSource { receipt },
+            )
+
+        receipt = receipt.copy(userUnlocked = "enabled", timeToTun = "under_1s")
+        val rendered = gate.renderRedactedReport()
+
+        assertTrue(rendered.contains("\"userUnlocked\": \"enabled\""))
+        assertTrue(rendered.contains("\"timeToTun\": \"under_1s\""))
+    }
+
     private fun gate(
         serviceState: TestServiceStateStore,
         screen: MutableRemoteAcceptanceScreenStateObserver,
@@ -288,6 +306,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         onTcpProbe: () -> Unit = {},
         screenOffDwellMs: Long = 0L,
         cancellationPersistenceTimeoutMs: Long = RemoteAcceptanceCancellationPersistenceTimeoutMs,
+        recoveryReceiptSource: RemoteDeviceRecoveryReceiptSource = EmptyRemoteDeviceRecoveryReceiptSource,
     ): DefaultRemoteDeviceAcceptanceGate =
         DefaultRemoteDeviceAcceptanceGate(
             serviceStateStore = serviceState,
@@ -301,6 +320,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
             screenOffDwellMs = screenOffDwellMs,
             telemetryFreshTimeoutMs = 10L,
             cancellationPersistenceTimeoutMs = cancellationPersistenceTimeoutMs,
+            recoveryReceiptSource = recoveryReceiptSource,
         )
 
     private fun baselineProbe(

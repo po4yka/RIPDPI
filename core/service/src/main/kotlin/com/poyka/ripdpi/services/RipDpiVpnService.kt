@@ -88,6 +88,7 @@ class RipDpiVpnService :
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
+    private lateinit var recoveryUserUnlockReceiver: RecoveryUserUnlockReceiverLifecycle
     internal val recoveryServiceInstanceId: String = UUID.randomUUID().toString()
 
     @Volatile
@@ -101,6 +102,12 @@ class RipDpiVpnService :
         super.onCreate()
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created)
         notificationController = VpnForegroundNotificationController(serviceStateStore)
+        recoveryUserUnlockReceiver =
+            RecoveryUserUnlockReceiverLifecycle(
+                context = this,
+                generationProvider = { activeRecoveryGeneration },
+                onUnlocked = recoveryReceiptCollector::recordUserUnlocked,
+            )
         notificationController.registerChannel(this)
         underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
         underlyingNetworkBinder.start()
@@ -123,6 +130,7 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        recoveryUserUnlockReceiver.close()
         recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
         activeRecoveryGeneration = null
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
@@ -160,14 +168,16 @@ class RipDpiVpnService :
         }
         val policy = refreshHardKillSwitchState()
         if (recoveryGeneration != null) {
+            val userUnlocked =
+                runCatching {
+                    getSystemService(android.os.UserManager::class.java)?.isUserUnlocked
+                }.getOrNull()
             recoveryReceiptCollector.recordForegroundService(
                 generation = recoveryGeneration,
-                userUnlocked =
-                    runCatching {
-                        getSystemService(android.os.UserManager::class.java)?.isUserUnlocked
-                    }.getOrNull(),
+                userUnlocked = userUnlocked,
                 policy = policy,
             )
+            recoveryUserUnlockReceiver.observeIfLocked(userUnlocked)
         }
         // A null action is Android re-delivering a START_STICKY intent after the
         // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from

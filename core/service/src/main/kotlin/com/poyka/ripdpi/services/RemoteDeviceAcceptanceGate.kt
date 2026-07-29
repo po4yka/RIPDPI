@@ -120,7 +120,10 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
 
     override fun renderRedactedReport(): String =
         renderRemoteDeviceAcceptanceReport(
-            _report.value.copy(uidPolicyQualification = uidPolicyQualificationSource.snapshot()),
+            _report.value.copy(
+                recoveryReceipt = recoveryReceiptSource.snapshot(),
+                uidPolicyQualification = uidPolicyQualificationSource.snapshot(),
+            ),
         )
 
     /** Cancel-safe: an in-flight screen-off check records a terminal cancellation event. */

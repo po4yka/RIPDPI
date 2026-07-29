@@ -163,7 +163,7 @@ class RemoteDeviceRecoveryReceiptTest {
             NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 1L)),
         )
 
-        assertEquals(current, collector.snapshot().generation)
+        assertEquals(PresentReceiptValue, collector.snapshot().generation)
         assertEquals("not_observed", collector.snapshot().timeToTun)
         assertEquals("pending", collector.snapshot().postStartDataPlaneOutcome)
     }
@@ -210,12 +210,69 @@ class RemoteDeviceRecoveryReceiptTest {
         }
     }
 
+    @Test
+    fun `milestones survive collector recreation without persisting raw identifiers`() {
+        val persistence = InMemoryRecoveryReceiptPersistence()
+        val rawGeneration = "00000000-0000-0000-0000-00000000000a"
+        val rawServiceInstance = "service-instance-sensitive"
+        val first = collector(generation = { rawGeneration }, persistence = persistence)
+        val generation = first.beginStart(bootRecoveryStartAction, rawServiceInstance)
+        first.recordForegroundService(
+            generation = generation,
+            userUnlocked = false,
+            policy = AndroidHardKillSwitchStateReader.fromPlatformFlags(alwaysOn = true, lockdown = true),
+        )
+        first.recordTunReady(generation)
+
+        val restored = collector(persistence = persistence)
+
+        assertEquals(first.snapshot(), restored.snapshot())
+        assertEquals(PresentReceiptValue, restored.snapshot().generation)
+        assertFalse(persistence.serializedState().contains(rawGeneration))
+        assertFalse(persistence.serializedState().contains(rawServiceInstance))
+    }
+
+    @Test
+    fun `user unlock advances the current generation and survives recreation`() {
+        val persistence = InMemoryRecoveryReceiptPersistence()
+        val first = collector(persistence = persistence)
+        val generation = first.beginStart(bootRecoveryStartAction, "instance-a")
+        first.recordForegroundService(
+            generation = generation,
+            userUnlocked = false,
+            policy = AndroidHardKillSwitchStateReader.fromPlatformFlags(alwaysOn = true, lockdown = true),
+        )
+
+        first.recordUserUnlocked(generation)
+
+        assertEquals("enabled", collector(persistence = persistence).snapshot().userUnlocked)
+    }
+
     private fun collector(
         elapsed: () -> Long = { 1_000L },
         generation: () -> String = { "generation" },
+        persistence: RemoteDeviceRecoveryReceiptPersistence = InMemoryRecoveryReceiptPersistence(),
     ): RemoteDeviceRecoveryReceiptCollector =
         RemoteDeviceRecoveryReceiptCollector(
             elapsedRealtime = elapsed,
             generationFactory = generation,
+            persistence = persistence,
         )
+}
+
+private class InMemoryRecoveryReceiptPersistence : RemoteDeviceRecoveryReceiptPersistence {
+    private var state: PersistedRemoteDeviceRecoveryReceipt? = null
+
+    override fun load(): PersistedRemoteDeviceRecoveryReceipt? = state
+
+    override fun compareAndSet(
+        expectedGenerationHash: String?,
+        state: PersistedRemoteDeviceRecoveryReceipt,
+    ): Boolean {
+        if (this.state?.generationHash != expectedGenerationHash) return false
+        this.state = state.copy(receipt = state.receipt.copy())
+        return true
+    }
+
+    fun serializedState(): String = state.toString()
 }

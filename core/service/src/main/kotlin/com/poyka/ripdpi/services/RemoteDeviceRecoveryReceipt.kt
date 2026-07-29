@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.net.VpnService
 import android.os.SystemClock
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,14 +34,19 @@ internal object EmptyRemoteDeviceRecoveryReceiptSource : RemoteDeviceRecoveryRec
 internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
     private val elapsedRealtime: () -> Long,
     private val generationFactory: () -> String,
+    private val persistence: RemoteDeviceRecoveryReceiptPersistence,
 ) : RemoteDeviceRecoveryReceiptSource {
     @Inject
-    constructor() : this(SystemClock::elapsedRealtime, { UUID.randomUUID().toString() })
+    constructor(
+        persistence: SharedPreferencesRemoteDeviceRecoveryReceiptPersistence,
+    ) : this(SystemClock::elapsedRealtime, { UUID.randomUUID().toString() }, persistence)
 
     private val lock = Any()
-    private var lastServiceInstanceId: String? = null
+    private val restored = persistence.load()
+    private var persistedGenerationHash: String? = restored?.generationHash
+    private var lastServiceInstanceHash: String? = restored?.serviceInstanceHash
     private var active: ActiveRecoveryReceipt? = null
-    private var latest = RemoteDeviceRecoveryReceipt()
+    private var latest = restored?.receipt ?: RemoteDeviceRecoveryReceipt()
 
     fun beginStart(
         action: String?,
@@ -51,25 +57,42 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
                 ?.takeIf { state -> state.serviceInstanceId == serviceInstanceId }
                 ?.let { state -> return@synchronized state.generation }
             val generation = generationFactory()
-            val previousServiceInstance = lastServiceInstanceId
-            lastServiceInstanceId = serviceInstanceId
-            active =
+            val generationHash = generation.sha256Hex()
+            val serviceInstanceHash = serviceInstanceId.sha256Hex()
+            val previousServiceInstanceHash = lastServiceInstanceHash
+            val nextActive =
                 ActiveRecoveryReceipt(
                     generation = generation,
+                    generationHash = generationHash,
                     serviceInstanceId = serviceInstanceId,
+                    serviceInstanceHash = serviceInstanceHash,
                     startedAtElapsedMs = elapsedRealtime(),
                 )
-            latest =
+            val nextReceipt =
                 RemoteDeviceRecoveryReceipt(
-                    generation = generation,
+                    generation = PresentReceiptValue,
                     startOrigin = classifyRecoveryStartOrigin(action),
                     serviceInstanceChanged =
                         when {
-                            previousServiceInstance == null -> UnknownReceiptValue
-                            previousServiceInstance == serviceInstanceId -> DisabledReceiptValue
+                            previousServiceInstanceHash == null -> UnknownReceiptValue
+                            previousServiceInstanceHash == serviceInstanceHash -> DisabledReceiptValue
                             else -> EnabledReceiptValue
                         },
                 )
+            if (
+                !persist(
+                    expectedGenerationHash = persistedGenerationHash,
+                    activeState = nextActive,
+                    receipt = nextReceipt,
+                )
+            ) {
+                restoreLatestAndDeactivate()
+                return@synchronized generation
+            }
+            active = nextActive
+            latest = nextReceipt
+            persistedGenerationHash = generationHash
+            lastServiceInstanceHash = serviceInstanceHash
             generation
         }
 
@@ -95,6 +118,12 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
             } else {
                 receipt.copy(timeToTun = elapsedBucket(state.startedAtElapsedMs, elapsedRealtime()))
             }
+        }
+    }
+
+    fun recordUserUnlocked(generation: String) {
+        updateIfCurrent(generation) { _, receipt ->
+            receipt.copy(userUnlocked = EnabledReceiptValue)
         }
     }
 
@@ -139,7 +168,12 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
                 active = null
                 return
             }
-            latest = latest.copy(postStartDataPlaneOutcome = "cancelled")
+            val nextReceipt = latest.copy(postStartDataPlaneOutcome = "cancelled")
+            if (persist(state.generationHash, state, nextReceipt)) {
+                latest = nextReceipt
+            } else {
+                restoreLatestAndDeactivate()
+            }
             active = null
         }
     }
@@ -153,14 +187,44 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
         synchronized(lock) {
             val state = active ?: return
             if (state.generation != generation) return
-            latest = update(state, latest)
+            val nextReceipt = update(state, latest)
+            if (persist(state.generationHash, state, nextReceipt)) {
+                latest = nextReceipt
+            } else {
+                restoreLatestAndDeactivate()
+            }
         }
+    }
+
+    private fun persist(
+        expectedGenerationHash: String?,
+        activeState: ActiveRecoveryReceipt,
+        receipt: RemoteDeviceRecoveryReceipt,
+    ): Boolean =
+        persistence.compareAndSet(
+            expectedGenerationHash = expectedGenerationHash,
+            state =
+                PersistedRemoteDeviceRecoveryReceipt(
+                    generationHash = activeState.generationHash,
+                    serviceInstanceHash = activeState.serviceInstanceHash,
+                    receipt = receipt,
+                ),
+        )
+
+    private fun restoreLatestAndDeactivate() {
+        val restored = persistence.load()
+        persistedGenerationHash = restored?.generationHash
+        lastServiceInstanceHash = restored?.serviceInstanceHash
+        latest = restored?.receipt ?: RemoteDeviceRecoveryReceipt()
+        active = null
     }
 }
 
 private data class ActiveRecoveryReceipt(
     val generation: String,
+    val generationHash: String,
     val serviceInstanceId: String,
+    val serviceInstanceHash: String,
     val startedAtElapsedMs: Long,
     var baselineTunnelStats: com.poyka.ripdpi.data.TunnelStats? = null,
 )
@@ -189,7 +253,7 @@ internal fun isRecoveryReceiptStartAction(action: String?): Boolean =
 
 internal fun RemoteDeviceRecoveryReceipt.privacySafe(): RemoteDeviceRecoveryReceipt =
     copy(
-        generation = generation.canonicalUuidOrUnknown(),
+        generation = generation.onlyAllowed(setOf(PresentReceiptValue, UnknownReceiptValue)),
         startOrigin = startOrigin.onlyAllowed(StartOriginValues),
         userUnlocked = userUnlocked.onlyAllowed(DeviceStateValues),
         alwaysOn = alwaysOn.onlyAllowed(DeviceStateValues),
@@ -203,11 +267,11 @@ internal fun RemoteDeviceRecoveryReceipt.privacySafe(): RemoteDeviceRecoveryRece
 
 private fun String.onlyAllowed(allowed: Set<String>): String = takeIf(allowed::contains) ?: UnknownReceiptValue
 
-private fun String.canonicalUuidOrUnknown(): String =
-    runCatching { UUID.fromString(this).toString() }
-        .getOrNull()
-        ?.takeIf { canonical -> canonical == this }
-        ?: UnknownReceiptValue
+private fun String.sha256Hex(): String =
+    MessageDigest
+        .getInstance("SHA-256")
+        .digest(toByteArray(Charsets.UTF_8))
+        .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
 private fun elapsedBucket(
     startedAtElapsedMs: Long,
@@ -250,5 +314,6 @@ private val DataPlaneOutcomeValues =
 internal const val UnknownReceiptValue = "unknown"
 internal const val NotObservedReceiptValue = "not_observed"
 internal const val PendingReceiptValue = "pending"
+internal const val PresentReceiptValue = "present"
 private const val EnabledReceiptValue = "enabled"
 private const val DisabledReceiptValue = "disabled"
