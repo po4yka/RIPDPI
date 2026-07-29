@@ -57,8 +57,13 @@ interface DiagnosticsRememberedPolicyDao {
         """
         DELETE FROM remembered_network_policies
         WHERE id NOT IN (
-            SELECT id FROM remembered_network_policies
-            ORDER BY updatedAt DESC
+            SELECT policy.id FROM remembered_network_policies AS policy
+            ORDER BY CASE WHEN EXISTS (
+                SELECT 1 FROM diagnostics_durable_state AS dependency
+                WHERE dependency.`key` LIKE 'runtime_terminal_policy:%'
+                    AND dependency.value = CAST(policy.id AS TEXT)
+            ) THEN 1 ELSE 0 END DESC,
+            policy.updatedAt DESC
             LIMIT :retainCount
         )
         """,

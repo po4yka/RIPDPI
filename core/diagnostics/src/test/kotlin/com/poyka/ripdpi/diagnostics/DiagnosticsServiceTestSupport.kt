@@ -379,6 +379,7 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun beginTerminalOutbox(
         finishedSession: BypassUsageSessionEntity,
         marker: DiagnosticsDurableStateEntity,
+        policyDependency: DiagnosticsDurableStateEntity?,
     ): DiagnosticsDurableStateEntity {
         beforeUpsertBypassUsageSession(finishedSession)
         usageSessionsState.value = usageSessionsState.value.upsertById(finishedSession) { it.id }

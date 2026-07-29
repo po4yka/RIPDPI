@@ -8,6 +8,7 @@ interface DiagnosticsTerminalOutboxStore {
     suspend fun beginTerminalOutbox(
         finishedSession: BypassUsageSessionEntity,
         marker: DiagnosticsDurableStateEntity,
+        policyDependency: DiagnosticsDurableStateEntity?,
     ): DiagnosticsDurableStateEntity
 
     suspend fun getPendingTerminalOutboxes(limit: Int = 64): List<DiagnosticsDurableStateEntity>
@@ -54,9 +55,11 @@ class RoomDiagnosticsTerminalOutboxStore
         override suspend fun beginTerminalOutbox(
             finishedSession: BypassUsageSessionEntity,
             marker: DiagnosticsDurableStateEntity,
+            policyDependency: DiagnosticsDurableStateEntity?,
         ): DiagnosticsDurableStateEntity =
             db.withTransaction {
                 dao.upsertBypassUsageSession(finishedSession)
+                policyDependency?.let { dependency -> dao.upsertDiagnosticsDurableState(dependency) }
                 val current = dao.getDiagnosticsDurableState(marker.key)
                 if (current == null) {
                     dao.upsertDiagnosticsDurableState(marker)
@@ -116,6 +119,7 @@ class RoomDiagnosticsTerminalOutboxStore
             db.withTransaction {
                 if (!isCurrent(marker)) return@withTransaction false
                 dao.clearDiagnosticsDurableState(marker.key, marker.value)
+                dao.clearDiagnosticsDurableState(terminalPolicyDependencyKey(marker.key))
                 true
             }
 
@@ -127,6 +131,7 @@ class RoomDiagnosticsTerminalOutboxStore
                 if (!isCurrent(marker)) return@withTransaction false
                 dao.insertNativeSessionEvent(assessment)
                 dao.clearDiagnosticsDurableState(marker.key, marker.value)
+                dao.clearDiagnosticsDurableState(terminalPolicyDependencyKey(marker.key))
                 true
             }
 
@@ -162,4 +167,8 @@ class RoomDiagnosticsTerminalOutboxStore
     }
 
 const val TerminalOutboxDurableStatePrefix = "runtime_terminal_outbox:"
+const val TerminalPolicyDependencyDurableStatePrefix = "runtime_terminal_policy:"
 const val PolicyHandoverDeliveryDurableStatePrefix = "policy_handover_delivery:"
+
+private fun terminalPolicyDependencyKey(markerKey: String): String =
+    "$TerminalPolicyDependencyDurableStatePrefix${markerKey.removePrefix(TerminalOutboxDurableStatePrefix)}"

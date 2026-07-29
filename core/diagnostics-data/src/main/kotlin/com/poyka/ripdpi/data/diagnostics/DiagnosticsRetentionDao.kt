@@ -53,7 +53,17 @@ interface DiagnosticsRetentionDao {
     )
     suspend fun deleteBypassUsageSessionsOlderThan(threshold: Long)
 
-    @Query("DELETE FROM remembered_network_policies WHERE updatedAt < :threshold")
+    @Query(
+        """
+        DELETE FROM remembered_network_policies
+        WHERE updatedAt < :threshold
+            AND NOT EXISTS (
+                SELECT 1 FROM diagnostics_durable_state AS dependency
+                WHERE dependency.`key` LIKE 'runtime_terminal_policy:%'
+                    AND dependency.value = CAST(remembered_network_policies.id AS TEXT)
+            )
+        """,
+    )
     suspend fun deleteRememberedNetworkPoliciesOlderThan(threshold: Long)
 
     @Query("DELETE FROM network_dns_path_preferences WHERE updatedAt < :threshold")

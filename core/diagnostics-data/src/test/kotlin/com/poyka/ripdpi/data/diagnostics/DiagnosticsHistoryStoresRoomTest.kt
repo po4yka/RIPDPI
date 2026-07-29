@@ -332,7 +332,7 @@ class DiagnosticsHistoryStoresRoomTest {
                     updatedAt = 30L,
                 )
 
-            store.beginTerminalOutbox(finished, marker)
+            store.beginTerminalOutbox(finished, marker, policyDependency = null)
 
             assertEquals(finished, dao.getBypassUsageSession(finished.id))
             assertEquals(listOf(marker), store.getPendingTerminalOutboxes())
@@ -461,20 +461,23 @@ class DiagnosticsHistoryStoresRoomTest {
         runTest {
             val store = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
+            var protectedPolicyId = 0L
             repeat(RememberedNetworkPolicyRetentionLimit + 2) { index ->
-                store.upsertRememberedNetworkPolicy(
-                    rememberedPolicy(
-                        fingerprintHash = "fp-pending-$index",
-                        mode = "vpn",
-                        status = RememberedNetworkPolicyStatusObserved,
-                        updatedAt = clock.now() - index,
-                    ),
-                )
+                val policyId =
+                    store.upsertRememberedNetworkPolicy(
+                        rememberedPolicy(
+                            fingerprintHash = "fp-pending-$index",
+                            mode = "vpn",
+                            status = RememberedNetworkPolicyStatusObserved,
+                            updatedAt = clock.now() - index,
+                        ),
+                    )
+                if (index == RememberedNetworkPolicyRetentionLimit + 1) protectedPolicyId = policyId
             }
             artifactStore.upsertDurableState(
                 DiagnosticsDurableStateEntity(
-                    key = "runtime_terminal_outbox:usage-pending",
-                    value = "POLICY_FINALIZATION",
+                    key = "runtime_terminal_policy:usage-pending",
+                    value = protectedPolicyId.toString(),
                     updatedAt = clock.now(),
                 ),
             )
@@ -482,6 +485,12 @@ class DiagnosticsHistoryStoresRoomTest {
             store.pruneRememberedNetworkPolicies()
 
             assertEquals(RememberedNetworkPolicyRetentionLimit, rowCount("remembered_network_policies"))
+            assertNotNull(
+                dao.getRememberedNetworkPolicy(
+                    "fp-pending-${RememberedNetworkPolicyRetentionLimit + 1}",
+                    "vpn",
+                ),
+            )
         }
 
     @Test
@@ -734,7 +743,6 @@ class DiagnosticsHistoryStoresRoomTest {
                     updatedAt = threshold - 10L,
                 )
             bypassStore.upsertBypassUsageSession(pendingSession)
-            artifactStore.upsertDurableState(pendingMarker)
             artifactStore.insertTelemetrySample(
                 telemetry(
                     id = "tel-pending",
@@ -758,7 +766,17 @@ class DiagnosticsHistoryStoresRoomTest {
                     status = RememberedNetworkPolicyStatusObserved,
                     updatedAt = threshold - 10L,
                 )
-            rememberedStore.upsertRememberedNetworkPolicy(pendingPolicy)
+            val pendingPolicyId = rememberedStore.upsertRememberedNetworkPolicy(pendingPolicy)
+            RoomDiagnosticsTerminalOutboxStore(db, dao).beginTerminalOutbox(
+                finishedSession = pendingSession,
+                marker = pendingMarker,
+                policyDependency =
+                    DiagnosticsDurableStateEntity(
+                        key = "runtime_terminal_policy:${pendingSession.id}",
+                        value = pendingPolicyId.toString(),
+                        updatedAt = pendingMarker.updatedAt,
+                    ),
+            )
             bypassStore.upsertBypassUsageSession(
                 bypassUsageSession(
                     id = "usage-new",
@@ -799,7 +817,7 @@ class DiagnosticsHistoryStoresRoomTest {
                         .first()
                         .any { sample -> sample.id == "tel-pending" },
                 )
-                assertNull(
+                assertNotNull(
                     rememberedStore.getRememberedNetworkPolicy(
                         pendingPolicy.fingerprintHash,
                         pendingPolicy.mode,
@@ -825,6 +843,7 @@ class DiagnosticsHistoryStoresRoomTest {
 
             val finalMarker = requireNotNull(artifactStore.getDurableState(pendingMarker.key))
             assertTrue(RoomDiagnosticsTerminalOutboxStore(db, dao).completeTerminalOutbox(finalMarker))
+            assertNull(artifactStore.getDurableState("runtime_terminal_policy:${pendingSession.id}"))
             retentionStore.trimOldData(retentionDays = 14)
 
             assertNull(bypassStore.getBypassUsageSession(pendingSession.id))

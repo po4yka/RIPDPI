@@ -105,6 +105,7 @@ class RememberedPolicySessionTracker
                         rememberedPolicySession.entity.status == RememberedNetworkPolicyStatusValidated &&
                             nextConsecutiveFailures >= 2
                     RememberedPolicyTerminalOutcome(
+                        policyId = rememberedPolicySession.entity.id,
                         fingerprintHash = rememberedPolicySession.entity.fingerprintHash,
                         mode = rememberedPolicySession.entity.mode,
                         status =
@@ -131,6 +132,7 @@ class RememberedPolicySessionTracker
 
                 proved -> {
                     RememberedPolicyTerminalOutcome(
+                        policyId = rememberedPolicySession.entity.id,
                         fingerprintHash = rememberedPolicySession.entity.fingerprintHash,
                         mode = rememberedPolicySession.entity.mode,
                         status = RememberedNetworkPolicyStatusValidated,
@@ -200,6 +202,7 @@ class RememberedPolicySessionTracker
 
 @Serializable
 internal data class RememberedPolicyTerminalOutcome(
+    val policyId: Long = 0L,
     val fingerprintHash: String,
     val mode: String,
     val status: String,

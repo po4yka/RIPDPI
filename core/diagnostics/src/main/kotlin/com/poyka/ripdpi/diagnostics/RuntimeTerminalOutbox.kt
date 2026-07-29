@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.TerminalOutboxDurableStatePrefix
+import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -48,6 +49,7 @@ internal class RuntimeTerminalOutbox(
             outboxStore.beginTerminalOutbox(
                 finishedSession = start.finishedSession,
                 marker = pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS),
+                policyDependency = pending.toPolicyDependency(),
             )
         return if (marker.value == pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS).value) {
             pending.apply { currentMarker = marker }
@@ -295,6 +297,15 @@ internal data class PendingTerminalSession(
                     ),
                 ),
         )
+
+    fun toPolicyDependency(): DiagnosticsDurableStateEntity? =
+        policyOutcome?.policyId?.takeIf { it > 0L }?.let { policyId ->
+            DiagnosticsDurableStateEntity(
+                key = "$TerminalPolicyDependencyDurableStatePrefix${activeSession.id}",
+                value = policyId.toString(),
+                updatedAt = createdAt,
+            )
+        }
 }
 
 @Serializable
