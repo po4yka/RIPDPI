@@ -7,7 +7,11 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface DiagnosticsNativeEventDao {
+interface DiagnosticsNativeEventDao :
+    DiagnosticsNativeEventReadDao,
+    DiagnosticsNativeEventWriteDao
+
+interface DiagnosticsNativeEventReadDao {
     @Query("SELECT * FROM native_session_events ORDER BY createdAt DESC LIMIT :limit")
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
 
@@ -82,7 +86,9 @@ interface DiagnosticsNativeEventDao {
         """,
     )
     suspend fun countPendingTerminalOutboxes(): Int
+}
 
+interface DiagnosticsNativeEventWriteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
 

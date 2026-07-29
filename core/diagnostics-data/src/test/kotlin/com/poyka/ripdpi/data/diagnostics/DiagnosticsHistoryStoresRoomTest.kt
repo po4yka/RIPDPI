@@ -31,12 +31,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
-class DiagnosticsHistoryStoresRoomTest {
-    private lateinit var db: DiagnosticsDatabase
-    private lateinit var dao: DiagnosticsDao
-    private lateinit var clock: MutableDiagnosticsHistoryClock
+abstract class DiagnosticsRoomStoreTestBase {
+    protected lateinit var db: DiagnosticsDatabase
+    protected lateinit var dao: DiagnosticsDao
+    protected lateinit var clock: DiagnosticsHistoryClock
 
     @Before
     fun setUp() {
@@ -55,6 +53,16 @@ class DiagnosticsHistoryStoresRoomTest {
         db.close()
     }
 
+    protected fun rowCount(table: String): Int =
+        db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM $table").use { cursor ->
+            cursor.moveToFirst()
+            cursor.getInt(0)
+        }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
     @Test
     fun `profile catalog observes stored profiles and pack versions`() =
         runTest {
@@ -467,7 +475,11 @@ class DiagnosticsHistoryStoresRoomTest {
             )
             assertNull(dao.getNativeEventById(legacyMarker.id))
         }
+}
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
     @Test
     fun `remembered policy record store returns validated match and prunes old records`() =
         runTest {
@@ -707,7 +719,11 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(1, rowCount("native_session_events"))
             assertEquals(1, rowCount("bypass_usage_sessions"))
         }
+}
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class DiagnosticsHistoryRetentionRoomTest : DiagnosticsRoomStoreTestBase() {
     @Test
     @Suppress("LongMethod")
     fun `history retention store trims old rows across diagnostics tables`() =
@@ -1141,12 +1157,6 @@ class DiagnosticsHistoryStoresRoomTest {
             context.deleteDatabase(databaseName)
         }
     }
-
-    private fun rowCount(table: String): Int =
-        db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM $table").use { cursor ->
-            cursor.moveToFirst()
-            cursor.getInt(0)
-        }
 }
 
 private fun tableExists(

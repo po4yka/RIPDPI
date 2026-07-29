@@ -7,7 +7,11 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface DiagnosticsDurableStateDao {
+interface DiagnosticsDurableStateDao :
+    DiagnosticsDurableStateReadDao,
+    DiagnosticsDurableStateWriteDao
+
+interface DiagnosticsDurableStateReadDao {
     @Query("SELECT * FROM diagnostics_durable_state WHERE `key` = :key LIMIT 1")
     suspend fun getDiagnosticsDurableState(key: String): DiagnosticsDurableStateEntity?
 
@@ -32,7 +36,9 @@ interface DiagnosticsDurableStateDao {
         """,
     )
     fun observeDiagnosticsDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>>
+}
 
+interface DiagnosticsDurableStateWriteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDiagnosticsDurableState(state: DiagnosticsDurableStateEntity)
 

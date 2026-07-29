@@ -62,7 +62,12 @@ interface DiagnosticsScanRecordStore {
     )
 }
 
-interface DiagnosticsArtifactReadStore {
+interface DiagnosticsArtifactReadStore :
+    DiagnosticsArtifactObservationStore,
+    DiagnosticsNativeArtifactReadStore,
+    DiagnosticsExportArtifactReadStore
+
+interface DiagnosticsArtifactObservationStore {
     fun observeSnapshots(limit: Int = 100): Flow<List<NetworkSnapshotEntity>>
 
     fun observeConnectionSnapshots(
@@ -83,7 +88,9 @@ interface DiagnosticsArtifactReadStore {
         connectionSessionId: String,
         limit: Int = 200,
     ): Flow<List<TelemetrySampleEntity>>
+}
 
+interface DiagnosticsNativeArtifactReadStore {
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
 
     fun observeConnectionNativeEvents(
@@ -94,7 +101,9 @@ interface DiagnosticsArtifactReadStore {
     fun observeConnectionNetworkTransitionEvents(connectionSessionId: String): Flow<List<NativeSessionEventEntity>>
 
     suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity?
+}
 
+interface DiagnosticsExportArtifactReadStore {
     fun observeExportRecords(limit: Int = 50): Flow<List<ExportRecordEntity>>
 }
 
@@ -333,221 +342,148 @@ class RoomDiagnosticsScanRecordStore
 
 @Singleton
 class RoomDiagnosticsArtifactStore
-    @Inject
-    constructor(
-        private val db: DiagnosticsDatabase,
-        private val dao: DiagnosticsDao,
-    ) : DiagnosticsArtifactReadStore,
-        DiagnosticsArtifactQueryStore,
-        DiagnosticsArtifactWriteStore,
-        DiagnosticsDurableStateStore {
-        override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = dao.observeSnapshots(limit)
+    private constructor(
+        readStore: ArtifactReadStore,
+        writeStore: ArtifactWriteStore,
+    ) : DiagnosticsArtifactReadStore by readStore,
+        DiagnosticsArtifactQueryStore by readStore,
+        DiagnosticsArtifactWriteStore by writeStore,
+        DiagnosticsDurableStateStore by writeStore {
+        @Inject
+        constructor(
+            db: DiagnosticsDatabase,
+            dao: DiagnosticsDao,
+        ) : this(
+            readStore = ArtifactReadStore(dao),
+            writeStore = ArtifactWriteStore(db, dao),
+        )
 
-        override suspend fun getSnapshotsForSession(
-            sessionId: String,
-            limit: Int,
-        ): List<NetworkSnapshotEntity> = dao.getSnapshotsForSession(sessionId = sessionId, limit = limit)
+        private class ArtifactWriteStore(
+            private val db: DiagnosticsDatabase,
+            private val dao: DiagnosticsDao,
+        ) : DiagnosticsArtifactWriteStore,
+            DiagnosticsDurableStateStore {
+            override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
+                dao.upsertNetworkSnapshot(snapshot)
+            }
 
-        override fun observeConnectionSnapshots(
-            connectionSessionId: String,
-            limit: Int,
-        ): Flow<List<NetworkSnapshotEntity>> =
-            dao.observeSnapshotsForConnectionSession(
-                connectionSessionId = connectionSessionId,
-                limit = limit,
-            )
+            override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
+                dao.upsertContextSnapshot(snapshot)
+            }
 
-        override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
-            dao.observeContextSnapshots(limit)
+            override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
+                dao.insertTelemetrySample(sample)
+            }
 
-        override suspend fun getContextsForSession(
-            sessionId: String,
-            limit: Int,
-        ): List<DiagnosticContextEntity> = dao.getContextsForSession(sessionId = sessionId, limit = limit)
+            override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
+                dao.insertNativeSessionEvent(event)
+            }
 
-        override fun observeConnectionContexts(
-            connectionSessionId: String,
-            limit: Int,
-        ): Flow<List<DiagnosticContextEntity>> =
-            dao.observeContextSnapshotsForConnectionSession(
-                connectionSessionId = connectionSessionId,
-                limit = limit,
-            )
+            override suspend fun insertExportRecord(record: ExportRecordEntity) {
+                dao.insertExportRecord(record)
+            }
 
-        override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = dao.observeTelemetry(limit)
+            override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? =
+                dao.getDiagnosticsDurableState(key)
 
-        override suspend fun getLatestTelemetrySampleForFingerprint(
-            activeMode: String,
-            fingerprintHash: String,
-            createdAfter: Long,
-        ): TelemetrySampleEntity? =
-            dao.getLatestTelemetrySampleForFingerprint(
-                activeMode = activeMode,
-                fingerprintHash = fingerprintHash,
-                createdAfter = createdAfter,
-            )
+            override fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>> =
+                dao.observeDiagnosticsDurableStateByPrefix(keyPrefix)
 
-        override fun observeConnectionTelemetry(
-            connectionSessionId: String,
-            limit: Int,
-        ): Flow<List<TelemetrySampleEntity>> =
-            dao.observeTelemetryForConnectionSession(
-                connectionSessionId = connectionSessionId,
-                limit = limit,
-            )
-
-        override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
-            dao.observeNativeEvents(limit)
-
-        override suspend fun getNativeEventsForSession(
-            sessionId: String,
-            limit: Int,
-        ): List<NativeSessionEventEntity> = dao.getNativeEventsForSession(sessionId = sessionId, limit = limit)
-
-        override suspend fun getNativeEventById(id: String): NativeSessionEventEntity? = dao.getNativeEventById(id)
-
-        override suspend fun getGlobalNativeEvents(limit: Int): List<NativeSessionEventEntity> =
-            dao.getGlobalNativeEvents(limit)
-
-        override fun observeConnectionNativeEvents(
-            connectionSessionId: String,
-            limit: Int,
-        ): Flow<List<NativeSessionEventEntity>> =
-            dao.observeNativeEventsForConnectionSession(
-                connectionSessionId = connectionSessionId,
-                limit = limit,
-            )
-
-        override fun observeConnectionNetworkTransitionEvents(
-            connectionSessionId: String,
-        ): Flow<List<NativeSessionEventEntity>> =
-            dao.observeNetworkTransitionEventsForConnectionSession(connectionSessionId)
-
-        override suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity? =
-            dao.getNativeSessionEvent(eventId)
-
-        override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = dao.observeExportRecords(limit)
-
-        override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
-            dao.upsertNetworkSnapshot(snapshot)
-        }
-
-        override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
-            dao.upsertContextSnapshot(snapshot)
-        }
-
-        override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
-            dao.insertTelemetrySample(sample)
-        }
-
-        override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
-            dao.insertNativeSessionEvent(event)
-        }
-
-        override suspend fun insertExportRecord(record: ExportRecordEntity) {
-            dao.insertExportRecord(record)
-        }
-
-        override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? =
-            dao.getDiagnosticsDurableState(key)
-
-        override fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>> =
-            dao.observeDiagnosticsDurableStateByPrefix(keyPrefix)
-
-        override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
-            dao.upsertDiagnosticsDurableState(state)
-        }
-
-        override suspend fun upsertBoundedDurableState(
-            state: DiagnosticsDurableStateEntity,
-            keyPrefix: String,
-            minimumUpdatedAt: Long,
-            retainCount: Int,
-        ) {
-            db.withTransaction {
+            override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
                 dao.upsertDiagnosticsDurableState(state)
-                dao.clearDiagnosticsDurableStateByPrefixOlderThan(keyPrefix, minimumUpdatedAt)
-                dao.trimDiagnosticsDurableStateByPrefixToCount(keyPrefix, retainCount)
-            }
-        }
-
-        override suspend fun clearDurableStateIfCurrent(
-            key: String,
-            expectedValue: String,
-        ): Boolean =
-            db.withTransaction {
-                if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
-                dao.clearDiagnosticsDurableState(key, expectedValue)
-                true
             }
 
-        override suspend fun clearDurableStateAndDependencyIfCurrent(
-            key: String,
-            expectedValue: String,
-            dependencyKey: String,
-            expectedDependencyValue: String,
-        ): Boolean =
-            db.withTransaction {
-                if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
-                if (dao.getDiagnosticsDurableState(dependencyKey)?.value != expectedDependencyValue) {
-                    return@withTransaction false
+            override suspend fun upsertBoundedDurableState(
+                state: DiagnosticsDurableStateEntity,
+                keyPrefix: String,
+                minimumUpdatedAt: Long,
+                retainCount: Int,
+            ) {
+                db.withTransaction {
+                    dao.upsertDiagnosticsDurableState(state)
+                    dao.clearDiagnosticsDurableStateByPrefixOlderThan(keyPrefix, minimumUpdatedAt)
+                    dao.trimDiagnosticsDurableStateByPrefixToCount(keyPrefix, retainCount)
                 }
-                dao.clearDiagnosticsDurableState(key, expectedValue)
-                dao.clearDiagnosticsDurableState(dependencyKey, expectedDependencyValue)
-                true
             }
 
-        override suspend fun insertNativeSessionEventAndUpsertDurableState(
-            event: NativeSessionEventEntity,
-            state: DiagnosticsDurableStateEntity,
-        ) {
-            db.withTransaction {
-                dao.insertNativeSessionEvent(event)
-                dao.upsertDiagnosticsDurableState(state)
-            }
-        }
+            override suspend fun clearDurableStateIfCurrent(
+                key: String,
+                expectedValue: String,
+            ): Boolean =
+                db.withTransaction {
+                    if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
+                    dao.clearDiagnosticsDurableState(key, expectedValue)
+                    true
+                }
 
-        override suspend fun insertNativeSessionEventAndClearDurableState(
-            event: NativeSessionEventEntity,
-            key: String,
-            expectedValue: String,
-        ) {
-            db.withTransaction {
-                dao.insertNativeSessionEvent(event)
-                dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
-            }
-        }
+            override suspend fun clearDurableStateAndDependencyIfCurrent(
+                key: String,
+                expectedValue: String,
+                dependencyKey: String,
+                expectedDependencyValue: String,
+            ): Boolean =
+                db.withTransaction {
+                    if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
+                    if (dao.getDiagnosticsDurableState(dependencyKey)?.value != expectedDependencyValue) {
+                        return@withTransaction false
+                    }
+                    dao.clearDiagnosticsDurableState(key, expectedValue)
+                    dao.clearDiagnosticsDurableState(dependencyKey, expectedDependencyValue)
+                    true
+                }
 
-        override suspend fun insertNativeSessionEventAndClearDurableStateIfCurrent(
-            event: NativeSessionEventEntity,
-            key: String,
-            expectedValue: String,
-        ): Boolean =
-            db.withTransaction {
-                if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
+            override suspend fun insertNativeSessionEventAndUpsertDurableState(
+                event: NativeSessionEventEntity,
+                state: DiagnosticsDurableStateEntity,
+            ) {
+                db.withTransaction {
+                    dao.insertNativeSessionEvent(event)
+                    dao.upsertDiagnosticsDurableState(state)
+                }
+            }
+
+            override suspend fun insertNativeSessionEventAndClearDurableState(
+                event: NativeSessionEventEntity,
+                key: String,
+                expectedValue: String,
+            ) {
+                db.withTransaction {
                     dao.insertNativeSessionEvent(event)
                     dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
-                    true
-                } else {
-                    false
                 }
             }
 
-        override suspend fun reconcileDurableStateWithTerminalEvent(
-            key: String,
-            expectedValue: String,
-            replacementState: DiagnosticsDurableStateEntity,
-            terminalEventId: String,
-            missingTerminalEvent: NativeSessionEventEntity,
-        ) {
-            db.withTransaction {
-                if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
-                    if (dao.getNativeEventById(terminalEventId) == null) {
-                        dao.insertNativeSessionEvent(missingTerminalEvent)
+            override suspend fun insertNativeSessionEventAndClearDurableStateIfCurrent(
+                event: NativeSessionEventEntity,
+                key: String,
+                expectedValue: String,
+            ): Boolean =
+                db.withTransaction {
+                    if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
+                        dao.insertNativeSessionEvent(event)
+                        dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
+                        true
+                    } else {
+                        false
                     }
-                    dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
                 }
-                dao.upsertDiagnosticsDurableState(replacementState)
+
+            override suspend fun reconcileDurableStateWithTerminalEvent(
+                key: String,
+                expectedValue: String,
+                replacementState: DiagnosticsDurableStateEntity,
+                terminalEventId: String,
+                missingTerminalEvent: NativeSessionEventEntity,
+            ) {
+                db.withTransaction {
+                    if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
+                        if (dao.getNativeEventById(terminalEventId) == null) {
+                            dao.insertNativeSessionEvent(missingTerminalEvent)
+                        }
+                        dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
+                    }
+                    dao.upsertDiagnosticsDurableState(replacementState)
+                }
             }
         }
     }
