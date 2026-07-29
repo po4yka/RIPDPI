@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -213,15 +214,23 @@ internal class DefaultDiagnosticsArchiveExporter
                     sessions = sourceData.sessions,
                 )
             }
-            val recommendedId =
-                requireNotNull(outcome.recommendedSessionId) {
-                    "Completed home diagnostics run has no recommended session: ${outcome.runId}"
+            val primarySessionId =
+                outcome.recommendedSessionId
+                    ?: outcome.stageSummaries
+                        .firstOrNull { stage ->
+                            stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED && stage.sessionId != null
+                        }?.sessionId
+            if (primarySessionId == null) {
+                require(!outcome.actionable) {
+                    "Actionable home diagnostics run has no recommended session: ${outcome.runId}"
                 }
-            require(recommendedId in outcome.bundleSessionIds) {
-                "Recommended session is outside the completed home diagnostics run: $recommendedId"
+                return null
             }
-            return requireNotNull(compositeSessions.firstOrNull { it.id == recommendedId }) {
-                "Recommended home diagnostics session is unavailable: $recommendedId"
+            require(primarySessionId in outcome.bundleSessionIds) {
+                "Primary session is outside the completed home diagnostics run: $primarySessionId"
+            }
+            return requireNotNull(compositeSessions.firstOrNull { it.id == primarySessionId }) {
+                "Primary home diagnostics session is unavailable: $primarySessionId"
             }
         }
 

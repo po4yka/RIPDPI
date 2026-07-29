@@ -579,17 +579,43 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         }
 
     @Test
-    fun `createArchive rejects home analysis without an available bundled recommendation`() =
+    fun `createArchive uses first completed stage for non actionable home analysis`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            val outcome =
+                buildSampleCompositeOutcome().copy(
+                    runId = "home-no-recommendation",
+                    actionable = false,
+                    recommendedSessionId = null,
+                    stageSummaries =
+                        buildSampleCompositeOutcome().stageSummaries.map {
+                            it.copy(recommendationContributor = false)
+                        },
+                )
+            compositeRunService.putCompletedRun(outcome)
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 29L,
+                    ),
+                )
+
+            assertEquals("audit-session", archive.sessionId)
+        }
+
+    @Test
+    fun `createArchive rejects home analysis with an invalid bundled recommendation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             seedCompositeSessionStores(stores)
             val exporter = createArchiveExporter(stores)
 
             listOf(
-                buildSampleCompositeOutcome().copy(
-                    runId = "home-no-recommendation",
-                    recommendedSessionId = null,
-                ),
                 buildSampleCompositeOutcome().copy(
                     runId = "home-external-recommendation",
                     recommendedSessionId = "external-session",
