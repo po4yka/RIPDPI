@@ -59,7 +59,6 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         stop()
     }
 
-    @Suppress("TooGenericExceptionCaught")
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
@@ -101,23 +100,23 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
 
     private suspend fun captureFinalTelemetryWithRetry() {
         repeat(TerminalTelemetryCaptureAttempts) { attempt ->
-            try {
-                val completed =
-                    withTimeoutOrNull(TerminalTelemetryAttemptTimeoutMillis) {
-                        callbacks.captureFinalTelemetry()
-                        true
-                    } == true
-                if (completed) return
-                Logger.e {
-                    "Timed out capturing final ${dependencies.serviceLabel()} telemetry " +
-                        "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
+            when (val outcome = captureFinalTelemetryAttempt()) {
+                TerminalTelemetryCaptureOutcome.Completed -> {
+                    return
                 }
-            } catch (failure: CancellationException) {
-                throw failure
-            } catch (failure: Exception) {
-                Logger.e(failure) {
-                    "Failed to capture final ${dependencies.serviceLabel()} telemetry " +
-                        "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
+
+                TerminalTelemetryCaptureOutcome.TimedOut -> {
+                    Logger.e {
+                        "Timed out capturing final ${dependencies.serviceLabel()} telemetry " +
+                            "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
+                    }
+                }
+
+                is TerminalTelemetryCaptureOutcome.Failed -> {
+                    Logger.e(outcome.failure) {
+                        "Failed to capture final ${dependencies.serviceLabel()} telemetry " +
+                            "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
+                    }
                 }
             }
             if (attempt + 1 < TerminalTelemetryCaptureAttempts) {
@@ -125,6 +124,34 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
             }
         }
     }
+
+    private suspend fun captureFinalTelemetryAttempt(): TerminalTelemetryCaptureOutcome {
+        val result =
+            runCatching {
+                withTimeoutOrNull(TerminalTelemetryAttemptTimeoutMillis) {
+                    callbacks.captureFinalTelemetry()
+                    true
+                } == true
+            }
+        val failure = result.exceptionOrNull()
+        return when {
+            failure is CancellationException -> throw failure
+            failure is Exception -> TerminalTelemetryCaptureOutcome.Failed(failure)
+            failure != null -> throw failure
+            result.getOrThrow() -> TerminalTelemetryCaptureOutcome.Completed
+            else -> TerminalTelemetryCaptureOutcome.TimedOut
+        }
+    }
+}
+
+private sealed interface TerminalTelemetryCaptureOutcome {
+    data object Completed : TerminalTelemetryCaptureOutcome
+
+    data object TimedOut : TerminalTelemetryCaptureOutcome
+
+    data class Failed(
+        val failure: Exception,
+    ) : TerminalTelemetryCaptureOutcome
 }
 
 internal const val TerminalTelemetryCaptureAttempts = 2
