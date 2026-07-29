@@ -259,22 +259,21 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
             RelayUdpProbeResult.failure(RelayProbeFailure.UdpIo)
         }
 
-    private fun probeBlocking(endpoint: RelayProbeEndpoint): RelayUdpProbeResult {
+    private fun probeBlocking(endpoint: RelayProbeEndpoint): RelayUdpProbeResult =
         Socket().use { control ->
             var associationOpened = false
             try {
                 val udpRelay = openUdpRelayControlChannel(control, endpoint)
                 associationOpened = true
-                return probeDnsThroughRelay(udpRelay)
+                probeDnsThroughRelay(udpRelay)
             } catch (_: ProtocolException) {
-                return associationFailure(associationOpened)
+                associationFailure(associationOpened)
             } catch (_: SocketTimeoutException) {
-                return associationFailure(associationOpened)
+                associationFailure(associationOpened)
             } catch (_: IOException) {
-                return associationFailure(associationOpened)
+                associationFailure(associationOpened)
             }
         }
-    }
 
     private fun openUdpRelayControlChannel(
         control: Socket,

@@ -227,19 +227,32 @@ internal class RemoteScreenOffDwellTracker(
         nowMs: Long,
         running: Boolean,
         interactive: Boolean,
-    ): Boolean {
-        if (!interactive) {
-            if (!running) {
-                interrupted = interrupted || screenOffStartedAt != null
-            } else if (screenOffStartedAt == null) {
-                screenOffStartedAt = nowMs
-                interrupted = false
-            }
-            return false
+    ): Boolean =
+        if (interactive) {
+            finishObservation(nowMs, running)
+        } else {
+            recordScreenOff(nowMs, running)
+            false
         }
 
-        val startedAt = screenOffStartedAt ?: return false
-        val survived = running && !interrupted && nowMs - startedAt >= minimumDwellMs
+    private fun recordScreenOff(
+        nowMs: Long,
+        running: Boolean,
+    ) {
+        if (!running) {
+            interrupted = interrupted || screenOffStartedAt != null
+        } else if (screenOffStartedAt == null) {
+            screenOffStartedAt = nowMs
+            interrupted = false
+        }
+    }
+
+    private fun finishObservation(
+        nowMs: Long,
+        running: Boolean,
+    ): Boolean {
+        val startedAt = screenOffStartedAt
+        val survived = startedAt != null && running && !interrupted && nowMs - startedAt >= minimumDwellMs
         screenOffStartedAt = null
         interrupted = false
         return survived
