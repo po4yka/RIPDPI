@@ -588,6 +588,61 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(report.contains("payload_decode_failed"))
     }
 
+    @Test
+    fun `renderer redacts policy handover trigger fingerprints from report payloads`() {
+        val previousFingerprint = "private-previous-fingerprint"
+        val currentFingerprint = "private-current-fingerprint"
+        val session =
+            rendererScanSession(id = "session-1").copy(
+                triggerPreviousFingerprintHash = previousFingerprint,
+                triggerCurrentFingerprintHash = currentFingerprint,
+            )
+        val stageSession =
+            rendererScanSession(id = "stage-session").copy(
+                triggerPreviousFingerprintHash = previousFingerprint,
+                triggerCurrentFingerprintHash = currentFingerprint,
+            )
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                payload = base.payload.copy(session = session),
+                primarySession = session,
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "redaction-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                    ),
+                compositeStages =
+                    listOf(
+                        rendererCompositeStage(
+                            stageKey = "automatic_audit",
+                            events = emptyList(),
+                            session = stageSession,
+                        ),
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-redacted-policy-trigger", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-redacted-policy-trigger.zip",
+                createdAt = 48L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val report = entries.getValue("report.json").bytes.decodeToString()
+        val stageReport = entries.getValue("stages/automatic_audit/report.json").bytes.decodeToString()
+
+        listOf(report, stageReport).forEach { content ->
+            assertFalse(content.contains(previousFingerprint))
+            assertFalse(content.contains(currentFingerprint))
+            assertFalse(content.contains("triggerPreviousFingerprintHash"))
+            assertFalse(content.contains("triggerCurrentFingerprintHash"))
+        }
+    }
+
     private fun buildFullRendererSelection(): DiagnosticsArchiveSelection =
         DiagnosticsArchiveSelection(
             runType = DiagnosticsArchiveRunType.SINGLE_SESSION,
@@ -650,6 +705,7 @@ class DiagnosticsArchiveRendererTest {
     private fun rendererCompositeStage(
         stageKey: String,
         events: List<NativeSessionEventEntity>,
+        session: ScanSessionEntity? = null,
     ) = DiagnosticsArchiveCompositeStageSelection(
         stageSummary =
             DiagnosticsHomeCompositeStageSummary(
@@ -662,7 +718,7 @@ class DiagnosticsArchiveRendererTest {
                 headline = "Complete",
                 summary = "Complete",
             ),
-        session = null,
+        session = session,
         report = null,
         results = emptyList(),
         snapshots = emptyList(),
