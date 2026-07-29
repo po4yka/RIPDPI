@@ -614,19 +614,31 @@ class BridgeExecutionService
         }
 
         internal suspend fun retireAfterStartupFailure(handle: BridgeSessionHandle) {
-            val detachment =
-                withContext(NonCancellable) {
-                    activeScanRegistry.detachBridge(
-                        bridge = handle.bridge,
-                        sessionId = handle.sessionId,
-                        registerActiveBridge = handle.registerActiveBridge,
-                    )
+            val reservation =
+                checkNotNull(retirementQueue.tryReserve(handle.bridge)) {
+                    "Diagnostics bridge retirement queue is closed"
                 }
-            check(detachment.confirmed) { "Diagnostics bridge detachment was not confirmed" }
+            val detachmentResult =
+                runCatching {
+                    withContext(NonCancellable) {
+                        activeScanRegistry.detachBridge(
+                            bridge = handle.bridge,
+                            sessionId = handle.sessionId,
+                            registerActiveBridge = handle.registerActiveBridge,
+                        )
+                    }
+                }
+            detachmentResult.exceptionOrNull()?.let { failure ->
+                retirementQueue.abort(reservation)
+                throw failure
+            }
+            val detachment = detachmentResult.getOrThrow()
+            if (!detachment.confirmed) {
+                retirementQueue.abort(reservation)
+                error("Diagnostics bridge detachment was not confirmed")
+            }
+            retirementQueue.commit(reservation)
             detachment.publish()
-            // The queue owns a process-lifetime supervisor independently from application
-            // work scopes and retains the wrapper until native teardown completes.
-            retirementQueue.schedule(handle.bridge)
         }
 
         internal suspend fun destroy(handle: BridgeSessionHandle) {
