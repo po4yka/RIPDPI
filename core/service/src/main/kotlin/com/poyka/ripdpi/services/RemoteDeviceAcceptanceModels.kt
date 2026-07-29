@@ -101,10 +101,10 @@ private fun RemoteDeviceAcceptanceReport.toRedactedPayload(): RedactedAcceptance
     RedactedAcceptanceReport(
         device =
             RedactedAcceptanceDevice(
-                model = device.model,
-                csc = device.csc,
+                modelFamily = device.model.redactedModelFamily(),
+                cscStatus = device.csc.redactedAvailability(),
                 api = device.api,
-                abi = device.abi,
+                abiFamily = device.abi.redactedAbiFamily(),
             ),
         transportKind = transportKind,
         result = status.wireValue,
@@ -168,11 +168,35 @@ private data class RedactedUidPolicyQualification(
 
 @Serializable
 private data class RedactedAcceptanceDevice(
-    val model: String,
-    val csc: String,
+    val modelFamily: String,
+    val cscStatus: String,
     val api: Int,
-    val abi: String,
+    val abiFamily: String,
 )
+
+private fun String.redactedModelFamily(): String =
+    when {
+        isBlank() || equals("unknown", ignoreCase = true) -> "unknown"
+        startsWith("SM-S928", ignoreCase = true) -> "samsung_s24_ultra_family"
+        startsWith("SM-", ignoreCase = true) -> "samsung_galaxy_family"
+        else -> "other_android_family"
+    }
+
+private fun String.redactedAvailability(): String =
+    if (isBlank() || equals("unavailable", ignoreCase = true)) {
+        "unavailable"
+    } else {
+        "available"
+    }
+
+private fun String.redactedAbiFamily(): String =
+    when {
+        contains("arm64", ignoreCase = true) -> "arm64"
+        contains("armeabi", ignoreCase = true) -> "arm32"
+        contains("x86_64", ignoreCase = true) -> "x86_64"
+        contains("x86", ignoreCase = true) -> "x86"
+        else -> "unknown"
+    }
 
 @Serializable
 private data class RedactedAcceptanceStep(
