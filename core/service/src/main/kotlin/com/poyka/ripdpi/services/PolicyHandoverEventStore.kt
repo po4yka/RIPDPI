@@ -5,6 +5,9 @@ import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
 import com.poyka.ripdpi.data.diagnostics.PolicyHandoverDeliveryDurableStatePrefix
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
+import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -23,6 +26,7 @@ class DefaultPolicyHandoverEventStore
     @Inject
     constructor(
         private val durableStateStore: DiagnosticsDurableStateStore,
+        private val rememberedPolicyRecordStore: RememberedNetworkPolicyRecordStore,
     ) : PolicyHandoverEventStore {
         override val events: Flow<PolicyHandoverEvent> =
             durableStateStore
@@ -39,9 +43,14 @@ class DefaultPolicyHandoverEventStore
                             ).take(PolicyHandoverRetentionLimit)
                             .mapTo(mutableSetOf()) { it.key }
                     states.forEach { state ->
-                        val event = state.takeIf { it.key in retainedKeys }?.let(::decodeEvent)
+                        val event =
+                            if (state.key in retainedKeys) {
+                                decodeEvent(state)
+                            } else {
+                                null
+                            }
                         if (event == null) {
-                            durableStateStore.clearDurableStateIfCurrent(state.key, state.value)
+                            clearDelivery(state)
                         } else {
                             emit(event)
                         }
@@ -51,14 +60,12 @@ class DefaultPolicyHandoverEventStore
         override suspend fun publish(event: PolicyHandoverEvent) {
             require(event.deliveryId.isNotBlank()) { "Policy handover delivery id is required" }
             require(event.currentFingerprintHash.isNotBlank()) { "Policy handover fingerprint is required" }
+            val envelope = createEnvelope(event)
             val now = System.currentTimeMillis()
             durableStateStore.upsertBoundedDurableState(
                 DiagnosticsDurableStateEntity(
                     key = deliveryKey(event.deliveryId),
-                    value =
-                        PolicyHandoverJson.encodeToString(
-                            PolicyHandoverDeliveryEnvelope(event = event),
-                        ),
+                    value = PolicyHandoverJson.encodeToString(envelope),
                     updatedAt = now,
                 ),
                 keyPrefix = PolicyHandoverDeliveryDurableStatePrefix,
@@ -70,23 +77,118 @@ class DefaultPolicyHandoverEventStore
         override suspend fun acknowledge(deliveryId: String) {
             val key = deliveryKey(deliveryId)
             val current = durableStateStore.getDurableState(key) ?: return
-            durableStateStore.clearDurableStateIfCurrent(key, current.value)
+            val envelope = decodeCurrentEnvelope(current.value)
+            val dependencyKey = envelope?.rememberedPolicyDependencyKey
+            val dependency = dependencyKey?.let { durableStateStore.getDurableState(it) }
+            if (dependencyKey != null && dependency != null) {
+                durableStateStore.clearDurableStateAndDependencyIfCurrent(
+                    key = key,
+                    expectedValue = current.value,
+                    dependencyKey = dependencyKey,
+                    expectedDependencyValue = dependency.value,
+                )
+            } else {
+                durableStateStore.clearDurableStateIfCurrent(key, current.value)
+            }
         }
 
-        private fun decodeEvent(state: DiagnosticsDurableStateEntity): PolicyHandoverEvent? {
-            val envelope =
-                runCatching { PolicyHandoverJson.decodeFromString<PolicyHandoverDeliveryEnvelope>(state.value) }
-                    .getOrNull()
+        private suspend fun createEnvelope(event: PolicyHandoverEvent): PolicyHandoverDeliveryEnvelope {
+            val dependencyKey = event.rememberedPolicyDependencyKey
+            if (dependencyKey != null) {
+                val policy =
+                    resolvePolicyDependency(
+                        dependencyKey,
+                        event.mode,
+                    ) ?: error("Missing handover policy dependency")
+                require(policy.fingerprintHash == event.currentFingerprintHash) {
+                    "Handover policy dependency fingerprint mismatch"
+                }
+            }
+            return PolicyHandoverDeliveryEnvelope(
+                deliveryId = event.deliveryId,
+                mode = event.mode,
+                previousFingerprintHash = event.previousFingerprintHash.takeIf { dependencyKey == null },
+                currentFingerprintHash = event.currentFingerprintHash.takeIf { dependencyKey == null },
+                classification = event.classification,
+                currentNetworkValidated = event.currentNetworkValidated,
+                currentCaptivePortalDetected = event.currentCaptivePortalDetected,
+                usedRememberedPolicy = event.usedRememberedPolicy,
+                occurredAt = event.occurredAt,
+                rememberedPolicyDependencyKey = dependencyKey,
+            )
+        }
+
+        private suspend fun decodeEvent(state: DiagnosticsDurableStateEntity): PolicyHandoverEvent? {
+            val currentEnvelope = decodeCurrentEnvelope(state.value)
             val event =
-                if (envelope == null) {
-                    runCatching { PolicyHandoverJson.decodeFromString<PolicyHandoverEvent>(state.value) }.getOrNull()
+                if (currentEnvelope != null) {
+                    currentEnvelope.toEvent()
                 } else {
-                    envelope.event.takeIf { envelope.schemaVersion == PolicyHandoverDeliverySchemaVersion }
+                    decodeLegacyEvent(state.value)
                 }
             return event?.takeIf { candidate ->
                 candidate.deliveryId.isNotBlank() &&
                     candidate.currentFingerprintHash.isNotBlank() &&
                     state.key == deliveryKey(candidate.deliveryId)
+            }
+        }
+
+        private suspend fun PolicyHandoverDeliveryEnvelope.toEvent(): PolicyHandoverEvent? {
+            if (schemaVersion != PolicyHandoverDeliverySchemaVersion) return null
+            val dependencyFingerprint =
+                rememberedPolicyDependencyKey
+                    ?.let { key -> resolvePolicyDependency(key, mode)?.fingerprintHash }
+            val fingerprint = dependencyFingerprint ?: currentFingerprintHash ?: return null
+            return PolicyHandoverEvent(
+                deliveryId = deliveryId,
+                mode = mode,
+                previousFingerprintHash = previousFingerprintHash,
+                currentFingerprintHash = fingerprint,
+                classification = classification,
+                currentNetworkValidated = currentNetworkValidated,
+                currentCaptivePortalDetected = currentCaptivePortalDetected,
+                usedRememberedPolicy = usedRememberedPolicy,
+                occurredAt = occurredAt,
+                rememberedPolicyDependencyKey = rememberedPolicyDependencyKey,
+            )
+        }
+
+        private suspend fun resolvePolicyDependency(
+            dependencyKey: String,
+            mode: com.poyka.ripdpi.data.Mode,
+        ): RememberedNetworkPolicyEntity? {
+            if (!dependencyKey.startsWith(TerminalPolicyDependencyDurableStatePrefix)) return null
+            val policyId = durableStateStore.getDurableState(dependencyKey)?.value?.toLongOrNull() ?: return null
+            return rememberedPolicyRecordStore
+                .getRememberedNetworkPolicyById(policyId)
+                ?.takeIf { policy -> policy.mode == mode.preferenceValue }
+        }
+
+        private suspend fun clearDelivery(state: DiagnosticsDurableStateEntity) {
+            val dependencyKey = decodeCurrentEnvelope(state.value)?.rememberedPolicyDependencyKey
+            val dependency = dependencyKey?.let { durableStateStore.getDurableState(it) }
+            if (dependencyKey != null && dependency != null) {
+                durableStateStore.clearDurableStateAndDependencyIfCurrent(
+                    key = state.key,
+                    expectedValue = state.value,
+                    dependencyKey = dependencyKey,
+                    expectedDependencyValue = dependency.value,
+                )
+            } else {
+                durableStateStore.clearDurableStateIfCurrent(state.key, state.value)
+            }
+        }
+
+        private fun decodeCurrentEnvelope(value: String): PolicyHandoverDeliveryEnvelope? =
+            runCatching { PolicyHandoverJson.decodeFromString<PolicyHandoverDeliveryEnvelope>(value) }.getOrNull()
+
+        private fun decodeLegacyEvent(value: String): PolicyHandoverEvent? {
+            val envelope =
+                runCatching { PolicyHandoverJson.decodeFromString<PolicyHandoverDeliveryEnvelopeV2>(value) }.getOrNull()
+            return if (envelope != null) {
+                envelope.event.takeIf { envelope.schemaVersion == 2 }
+            } else {
+                runCatching { PolicyHandoverJson.decodeFromString<PolicyHandoverEvent>(value) }.getOrNull()
             }
         }
     }
@@ -104,10 +206,25 @@ private fun deliveryKey(deliveryId: String): String = "$PolicyHandoverDeliveryDu
 @Serializable
 private data class PolicyHandoverDeliveryEnvelope(
     val schemaVersion: Int = PolicyHandoverDeliverySchemaVersion,
+    val deliveryId: String,
+    val mode: com.poyka.ripdpi.data.Mode,
+    val previousFingerprintHash: String? = null,
+    val currentFingerprintHash: String? = null,
+    val classification: String,
+    val currentNetworkValidated: Boolean,
+    val currentCaptivePortalDetected: Boolean,
+    val usedRememberedPolicy: Boolean,
+    val occurredAt: Long,
+    val rememberedPolicyDependencyKey: String? = null,
+)
+
+@Serializable
+private data class PolicyHandoverDeliveryEnvelopeV2(
+    val schemaVersion: Int = 2,
     val event: PolicyHandoverEvent,
 )
 
-private const val PolicyHandoverDeliverySchemaVersion = 2
+private const val PolicyHandoverDeliverySchemaVersion = 3
 private const val PolicyHandoverRetentionLimit = 64
 private const val PolicyHandoverRetentionMaxAgeMs = 7L * 24L * 60L * 60L * 1_000L
 private val PolicyHandoverJson =
