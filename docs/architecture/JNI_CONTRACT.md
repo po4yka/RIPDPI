@@ -71,6 +71,7 @@ class holds the raw `external fun`s; a sibling wrapper class
 | `NativeQuicInitialPacketBindings` (`:core:diagnostics`) | `Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_*` | `ripdpi-android` · `src/ffi/quic_initial_bridge.rs` | `libripdpi.so` |
 | `JniNativeSignsBridge` (`:core:detection`) | `Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_*` | `ripdpi-android` · `src/ffi/native_signs_bridge.rs` | `libripdpi.so` |
 | `Tun2SocksNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs` (+ `src/session/`) | `libripdpi-tunnel.so` |
+| `TunDeviceQualificationNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs`, `src/session/bind_to_device_probe.rs` | `libripdpi-tunnel.so` |
 | `RipDpiRelayNativeBindings` (`.../core/RipDpiRelay.kt`) | `Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_*` | `ripdpi-relay-android` · `src/lib.rs` (+ `lifecycle.rs`, `registry.rs`, `runtime.rs`, `telemetry.rs`) | `libripdpi-relay.so` |
 | `RipDpiWarpNativeBindings` (`.../core/RipDpiWarp.kt`) | `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*` | `ripdpi-warp-android` · `src/lib.rs` (+ `lifecycle.rs`, `provisioning.rs`, `endpoint_probe.rs`, `telemetry.rs`, `vpn_protect.rs`) | `libripdpi-warp.so` |
 
@@ -178,6 +179,13 @@ panics.
   | `jlongArray` | `core::ptr::null_mut()` | null stats array |
   | `jint` | a caller-chosen **failure** code (e.g. `-1`) | never `0` — `0` means success |
   | `()` | `()` | no-op |
+
+- `TunDeviceQualificationNativeBindings.jniProbeUnprivilegedBindToDevice()` is
+  an instance JNI export in `ripdpi-tunnel-android/src/entry.rs`. Its inner
+  probe returns only categorical codes: `0` unavailable, `1` supported, and
+  `2` permission denied. The outer `ffi_boundary` reserves `-1` for a panic;
+  Kotlin maps that distinct sentinel to `bridge_failure` and treats both
+  `bridge_failure` and `permission_denied` as ineligible.
 
 - CI scanners `scripts/ci/check_ffi_panic_boundary.py` and
   `scripts/ci/check_ffi_headers.py` enforce the boundary; do not bypass them.
