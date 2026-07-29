@@ -51,9 +51,10 @@ class AutomaticProbeScheduler
                 scope.launch(start = CoroutineStart.LAZY) {
                     try {
                         delay(activeProbeSafetyPolicy.automaticHandoverProbeDelayMs)
-                        if (launchIfEligible(event)) {
-                            policyHandoverEventStore.acknowledge(event.deliveryId)
+                        while (!launchIfEligible(event)) {
+                            delay(automaticProbeRetryDelayMs())
                         }
+                        policyHandoverEventStore.acknowledge(event.deliveryId)
                     } finally {
                         pendingProbeJobs.remove(event.deliveryId)
                     }
@@ -120,6 +121,9 @@ class AutomaticProbeScheduler
                 )
             return AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
         }
+
+        private fun automaticProbeRetryDelayMs(): Long =
+            activeProbeSafetyPolicy.automaticHandoverProbeDelayMs.coerceAtLeast(1L)
 
         private companion object {
             val TransientRejectionReasons =
