@@ -219,13 +219,13 @@ internal class RuntimeTerminalOutbox(
             if (assessment == null) {
                 outboxStore.completeTerminalOutbox(
                     pending.currentMarker,
-                    retainPolicyDependency = pending.policyOutcome?.failureHandover != null,
+                    retainPolicyDependency = pending.shouldRetainPolicyDependency(),
                 )
             } else {
                 outboxStore.completeTerminalOutboxWithAssessment(
                     assessment,
                     pending.currentMarker,
-                    retainPolicyDependency = pending.policyOutcome?.failureHandover != null,
+                    retainPolicyDependency = pending.shouldRetainPolicyDependency(),
                 )
             }
         if (!completed && outboxStore.getTerminalOutbox(pending.currentMarker.key) != null) {
@@ -285,6 +285,9 @@ internal class RuntimeTerminalOutbox(
         pending.phase = outbox.phase
     }
 }
+
+private fun PendingTerminalSession.shouldRetainPolicyDependency(): Boolean =
+    policyEvidenceComplete && policyOutcome?.failureHandover != null
 
 internal data class TerminalOutboxStart(
     val activeSession: BypassUsageSessionEntity,
