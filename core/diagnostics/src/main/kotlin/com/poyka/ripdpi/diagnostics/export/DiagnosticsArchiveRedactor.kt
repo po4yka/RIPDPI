@@ -532,14 +532,15 @@ private val DnsNameRegex =
             "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?[.\\u3002\\uFF0E\\uFF61])+" +
             "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
     )
-private val StructuredPathFieldPrefixRegex =
+private val QuotedStructuredPathRegex =
     Regex(
-        "(?i)(?:\"(?:file|path|filePath)\"\\s*:\\s*|\\b(?:file|path|filePath)\\s*=\\s*)" +
-            "(?=[\"']?(?:/|[A-Z]:\\\\))",
+        "((?:\"(?:file|path|filePath)\"\\s*:\\s*|\\b(?:file|path|filePath)\\s*=\\s*))" +
+            "([\"'])(?=(?:/|[A-Z]:\\\\))(?:\\\\.|(?!\\2)[^\\r\\n])*\\2",
+        RegexOption.IGNORE_CASE,
     )
-private val FieldAfterPathDelimiterRegex = Regex("\\s*(?:\"?[A-Za-z_][A-Za-z0-9_-]*\"?\\s*[:=])")
-private val BareUnixPathRegex = Regex("(?<![\\p{L}\\p{N}])/(?:[^\\s;\"'<>\\r\\n])+")
-private val BareWindowsPathRegex = Regex("(?i)\\b[A-Z]:\\\\(?:[^\\s;\"'<>\\r\\n])+")
+private val AbsolutePathStartRegex = Regex("(?i)(?<![\\p{L}\\p{N}])(?:/|[A-Z]:\\\\)")
+private val LogicalLineContentRegex = Regex("[^\\r\\n]+")
+private val CanonicalLogcatPrefixRegex = Regex("^$AndroidLogcatLinePrefixPattern", RegexOption.IGNORE_CASE)
 private val EndpointFieldRegex =
     Regex(
         "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +
@@ -563,61 +564,16 @@ private const val JsonEndpointFieldValuePattern =
     "(?!redacted|<redacted>|unavailable|unknown|none|null)(?:[^\"\\\\]|\\\\.)*\""
 
 private fun redactDiagnosticsPaths(value: String): String =
-    redactStructuredPathFields(value)
-        .replace(BareWindowsPathRegex, "<path-redacted>")
-        .replace(BareUnixPathRegex, "<path-redacted>")
+    LogicalLineContentRegex.replace(value) { match -> redactDiagnosticsPathLine(match.value) }
 
-private fun redactStructuredPathFields(value: String): String {
-    val redacted = StringBuilder(value.length)
-    var copiedUntil = 0
-    var searchFrom = 0
-    while (true) {
-        val match = StructuredPathFieldPrefixRegex.find(value, searchFrom) ?: break
-        val valueStart = match.range.last + 1
-        val quote = value.getOrNull(valueStart)?.takeIf { it == '\"' || it == '\'' }
-        val contentStart = valueStart + if (quote == null) 0 else 1
-        val contentEnd = findStructuredPathEnd(value, contentStart, quote)
-
-        redacted.append(value, copiedUntil, valueStart)
-        quote?.let(redacted::append)
-        redacted.append("<path-redacted>")
-        copiedUntil = contentEnd
-        if (quote != null && value.getOrNull(contentEnd) == quote) {
-            redacted.append(quote)
-            copiedUntil += 1
+// Unquoted and bare absolute paths have no reliable boundary once spaces or punctuation are allowed.
+// Fail closed per logical line, retaining only a canonical Android logcat prefix when present.
+private fun redactDiagnosticsPathLine(line: String): String {
+    val preciselyRedacted =
+        QuotedStructuredPathRegex.replace(line) { match ->
+            match.groupValues[1] + match.groupValues[2] + "<path-redacted>" + match.groupValues[2]
         }
-        searchFrom = copiedUntil
-    }
-    return redacted.append(value, copiedUntil, value.length).toString()
+    if (!AbsolutePathStartRegex.containsMatchIn(preciselyRedacted)) return preciselyRedacted
+    val logcatPrefix = CanonicalLogcatPrefixRegex.find(preciselyRedacted)?.value.orEmpty()
+    return logcatPrefix + "<path-redacted>"
 }
-
-private fun findStructuredPathEnd(
-    value: String,
-    start: Int,
-    quote: Char?,
-): Int {
-    var escaped = false
-    var index = start
-    var boundary: Int? = null
-    while (index < value.length && boundary == null) {
-        val character = value[index]
-        if (quote != null) {
-            when {
-                escaped -> escaped = false
-                character == '\\' -> escaped = true
-                character == quote || character == '\r' || character == '\n' -> boundary = index
-            }
-        } else {
-            when {
-                character == '\r' || character == '\n' || character == ';' -> boundary = index
-                character == ',' && value.hasFieldAfter(index + 1) -> boundary = index
-                character.isWhitespace() && value.hasFieldAfter(index) -> boundary = index
-            }
-        }
-        index += 1
-    }
-    return boundary ?: value.length
-}
-
-private fun String.hasFieldAfter(index: Int): Boolean =
-    FieldAfterPathDelimiterRegex.find(this, index)?.range?.first == index

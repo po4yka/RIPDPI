@@ -666,10 +666,11 @@ class DiagnosticsArchiveRendererTest {
             val events = zip.getInputStream(zip.getEntry("native-events.csv")).bufferedReader().readText()
             assertFalse(logcat.contains(logFixture.partialLogcatLine))
             assertTrue(logcat.contains(logFixture.newestLogcatLine))
+            assertTrue(logcat.contains("I/RIPDPI( 123): <path-redacted>"))
             assertFalse(appLog.contains(logFixture.partialAppLogLine))
             assertTrue(appLog.contains(logFixture.newestAppLogLine))
-            assertTrue(events.contains("successfully before retry"))
-            assertTrue(events.contains("status=failed"))
+            assertFalse(events.contains("successfully before retry"))
+            assertFalse(events.contains("status=failed"))
             assertTrue(events.contains("ready"))
         }
         assertZipExcludes(target, hostileArchiveValues())
@@ -846,6 +847,7 @@ class DiagnosticsArchiveRendererTest {
                             "I/RIPDPI( 123): -----END PRIVATE KEY-----\n" +
                             "I/RIPDPI( 123): YQ==\n" +
                             "I/RIPDPI( 123): -----END CERTIFICATE-----\n" +
+                            "I/RIPDPI( 123): file=/storage/emulated/0/John, Doe/private.pem suffix\n" +
                             "03-12 10:00:00.012 I/RIPDPI: resolver。xn--p1ai\n",
                     captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
                     byteCount = 192,
@@ -895,7 +897,7 @@ class DiagnosticsArchiveRendererTest {
                     "file=C:\\Users\\John,Doe\\key:backup.pem; " +
                     "path=C:\\Users\\John\"Doe\\private.pem; status=failed; " +
                     "opened /data/private/key.pem successfully before retry; " +
-                    "path=/data/foo;status=failed; " +
+                    "path=/data/foo;status=failed\n" +
                     "json={\"path\":\"/data/private/compact,key.pem\",\"status\":\"ready\"}\n" +
                     "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM\n$privateKeyEnd\n" +
                     "YQ==\n$privateKeyEnd\n" +

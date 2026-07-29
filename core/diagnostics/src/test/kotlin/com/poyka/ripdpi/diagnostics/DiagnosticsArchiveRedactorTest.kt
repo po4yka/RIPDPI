@@ -316,10 +316,10 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
-    fun `archive redactor removes unicode punycode and spaced filesystem tokens`() {
+    fun `archive redactor removes unicode hosts and fails closed on ambiguous path line`() {
         val raw =
             "unicode=пример.рф ideographic=пример。рф fullwidth=пример．рф halfwidth=пример｡рф " +
-                "punycode=resolver.xn--p1ai idnaPunycode=resolver。xn--p1ai " +
+                "punycode=resolver.xn--p1ai idnaPunycode=resolver。xn--p1ai\n" +
                 "file=/data/user/0/My Files/private trace.log; " +
                 "file=/storage/emulated/0/John, Doe/private.pem; " +
                 "path=/data/private/key: backup.pem; " +
@@ -353,21 +353,27 @@ class DiagnosticsArchiveRedactorTest {
             "C:\\Users\\John\"Doe\\private.pem",
             "John\"Doe\\private.pem",
         ).forEach { sensitive -> assertFalse(redacted.contains(sensitive)) }
-        assertTrue(redacted.contains("status=failed"))
+        assertFalse(redacted.contains("status=failed"))
+        assertTrue(redacted.endsWith("<path-redacted>"))
     }
 
     @Test
-    fun `archive path redaction preserves delimiters prose and compact json`() {
+    fun `archive path redaction fails closed per ambiguous line and preserves quoted fields`() {
         val raw =
             "opened /data/private/key.pem successfully before retry\n" +
                 "path=/data/foo;status=failed\n" +
-                "{\"path\":\"/data/private/compact,key.pem\",\"status\":\"ready\"}"
+                "{\"path\":\"/data/private/compact,key.pem\",\"status\":\"ready\"}\n" +
+                "file='/data/private/My Files/key.pem';status=quoted"
 
         val redacted = redactDiagnosticsArchiveText(raw)
 
-        assertTrue(redacted.contains("opened <path-redacted> successfully before retry"))
-        assertTrue(redacted.contains("path=<path-redacted>;status=failed"))
-        assertTrue(redacted.contains("{\"path\":\"<path-redacted>\",\"status\":\"ready\"}"))
+        assertEquals(
+            "<path-redacted>\n" +
+                "<path-redacted>\n" +
+                "{\"path\":\"<path-redacted>\",\"status\":\"ready\"}\n" +
+                "file='<path-redacted>';status=quoted",
+            redacted,
+        )
     }
 
     @Test
