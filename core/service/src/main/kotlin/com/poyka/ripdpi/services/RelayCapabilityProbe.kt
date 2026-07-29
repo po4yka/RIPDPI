@@ -21,6 +21,7 @@ import java.net.InetSocketAddress
 import java.net.ProtocolException
 import java.net.Proxy
 import java.net.Socket
+import java.net.SocketAddress
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
@@ -327,17 +328,83 @@ internal fun sendDnsProbePayload(
     udpRelay: InetSocketAddress,
     target: InetSocketAddress,
     query: ByteArray,
+    timeoutMillis: Int,
 ): Boolean {
+    require(timeoutMillis > 0) { "UDP probe timeout must be positive" }
     val frame = encodeSocksUdpFrame(target, query)
-    return try {
+    val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis.toLong())
+    return sendSocksUdpFrame(udp, udpRelay, frame) &&
+        awaitMatchingDnsResponse(udp, udpRelay, target, query, deadlineNanos)
+}
+
+private fun sendSocksUdpFrame(
+    udp: DatagramSocket,
+    udpRelay: InetSocketAddress,
+    frame: ByteArray,
+): Boolean =
+    try {
         udp.send(DatagramPacket(frame, frame.size, udpRelay))
-        val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
-        udp.receive(response)
-        val payload = decodeSocksUdpPayload(response.data, response.length)
-        payload != null && isMatchingDnsResponse(query, payload)
+        true
     } catch (_: IOException) {
         false
     }
+
+private fun awaitMatchingDnsResponse(
+    udp: DatagramSocket,
+    udpRelay: InetSocketAddress,
+    target: InetSocketAddress,
+    query: ByteArray,
+    deadlineNanos: Long,
+): Boolean {
+    var acknowledged = false
+    var waiting = true
+    while (waiting) {
+        val response = receiveBeforeDeadline(udp, deadlineNanos)
+        if (response == null) {
+            waiting = false
+        } else if (isMatchingSocksDnsResponse(response, udpRelay, target, query)) {
+            acknowledged = true
+            waiting = false
+        }
+    }
+    return acknowledged
+}
+
+private fun receiveBeforeDeadline(
+    udp: DatagramSocket,
+    deadlineNanos: Long,
+): DatagramPacket? {
+    val remainingNanos = deadlineNanos - System.nanoTime()
+    val remainingMillis =
+        TimeUnit.NANOSECONDS
+            .toMillis(remainingNanos)
+            .coerceAtLeast(1L)
+            .toInt()
+    return if (remainingNanos <= 0L) {
+        null
+    } else {
+        try {
+            DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes).also { response ->
+                udp.soTimeout = remainingMillis
+                udp.receive(response)
+            }
+        } catch (_: IOException) {
+            null
+        }
+    }
+}
+
+private fun isMatchingSocksDnsResponse(
+    response: DatagramPacket,
+    udpRelay: InetSocketAddress,
+    target: InetSocketAddress,
+    query: ByteArray,
+): Boolean {
+    val datagram = decodeSocksUdpDatagram(response.data, response.length)
+    return matchesSocksEndpoint(response.socketAddress, udpRelay) &&
+        datagram != null &&
+        matchesSocksEndpoint(datagram.target, target) &&
+        isMatchingDnsResponse(query, datagram.payload)
 }
 
 internal fun negotiateNoAuthentication(
@@ -418,15 +485,92 @@ private fun encodeSocksUdpFrame(
 private fun decodeSocksUdpPayload(
     frame: ByteArray,
     length: Int,
-): ByteArray? =
+): ByteArray? = decodeSocksUdpDatagram(frame, length)?.payload
+
+private data class DecodedSocksUdpDatagram(
+    val target: InetSocketAddress,
+    val payload: ByteArray,
+)
+
+private fun decodeSocksUdpDatagram(
+    frame: ByteArray,
+    length: Int,
+): DecodedSocksUdpDatagram? =
     if (hasValidSocksUdpHeader(frame, length)) {
-        socksAddressLength(frame)?.let { addressLength ->
-            val payloadOffset = SocksUdpAddressOffset + addressLength + SocksPortBytes
-            frame.copyPayloadOrNull(payloadOffset, length)
+        decodeSocksUdpTargetAndPort(frame, length)?.let { (target, payloadOffset) ->
+            frame.copyPayloadOrNull(payloadOffset, length)?.let { payload ->
+                DecodedSocksUdpDatagram(target = target, payload = payload)
+            }
         }
     } else {
         null
     }
+
+private fun decodeSocksUdpTargetAndPort(
+    frame: ByteArray,
+    length: Int,
+): Pair<InetSocketAddress, Int>? =
+    socksAddressLength(frame)?.let { addressLength ->
+        val portOffset = SocksUdpAddressOffset + addressLength
+        val payloadOffset = portOffset + SocksPortBytes
+        if (payloadOffset < length) {
+            decodeSocksUdpTarget(frame, portOffset)?.let { target -> target to payloadOffset }
+        } else {
+            null
+        }
+    }
+
+private fun decodeSocksUdpTarget(
+    frame: ByteArray,
+    portOffset: Int,
+): InetSocketAddress? =
+    when (frame[SocksUdpAddressTypeOffset]) {
+        AddressIpv4,
+        AddressIpv6,
+        -> {
+            InetSocketAddress(
+                InetAddress.getByAddress(frame.copyOfRange(SocksUdpAddressOffset, portOffset)),
+                frame.readUnsignedShort(portOffset),
+            )
+        }
+
+        AddressDomain -> {
+            val domainLength = frame[SocksUdpAddressOffset].toUByte().toInt()
+            if (domainLength > 0) {
+                val domain =
+                    String(
+                        frame,
+                        SocksUdpAddressOffset + SocksDomainLengthPrefixBytes,
+                        domainLength,
+                        StandardCharsets.US_ASCII,
+                    )
+                InetSocketAddress.createUnresolved(domain, frame.readUnsignedShort(portOffset))
+            } else {
+                null
+            }
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun matchesSocksEndpoint(
+    actual: SocketAddress?,
+    expected: InetSocketAddress,
+): Boolean {
+    val actualEndpoint = actual as? InetSocketAddress
+    return actualEndpoint?.let { endpoint ->
+        val actualAddress = endpoint.address
+        val expectedAddress = expected.address
+        endpoint.port == expected.port &&
+            if (actualAddress != null && expectedAddress != null) {
+                actualAddress.address.contentEquals(expectedAddress.address)
+            } else {
+                endpoint.hostString.equals(expected.hostString, ignoreCase = true)
+            }
+    } ?: false
+}
 
 private fun hasValidSocksUdpHeader(
     frame: ByteArray,

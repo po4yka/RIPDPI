@@ -277,7 +277,14 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
         udpRelay: InetSocketAddress,
         target: InetSocketAddress,
         payloadSizeBytes: Int,
-    ): Boolean = sendDnsProbePayload(udp, udpRelay, target, sizedDnsQuery(payloadSizeBytes))
+    ): Boolean =
+        sendDnsProbePayload(
+            udp = udp,
+            udpRelay = udpRelay,
+            target = target,
+            query = sizedDnsQuery(payloadSizeBytes),
+            timeoutMillis = timeoutMillis,
+        )
 }
 
 private fun sizedDnsQuery(payloadSizeBytes: Int): ByteArray {
