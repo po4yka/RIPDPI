@@ -14,7 +14,6 @@ import okhttp3.Response
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
-import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -281,7 +280,7 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                 associationOpened = true
                 DatagramSocket().use { udp ->
                     udp.soTimeout = timeoutMillis
-                    probeSingleDnsDatagram(udp, udpRelay, dnsTarget)
+                    probeSingleDnsDatagram(udp, udpRelay, dnsTarget, timeoutMillis)
                 }
             }
         } catch (_: ProtocolException) {
@@ -298,27 +297,30 @@ private fun probeSingleDnsDatagram(
     udp: DatagramSocket,
     udpRelay: InetSocketAddress,
     dnsTarget: InetSocketAddress,
+    timeoutMillis: Int,
 ): RelayUdpProbeResult {
     val query = dnsQuery()
-    val frame = encodeSocksUdpFrame(dnsTarget, query)
-    try {
-        udp.send(DatagramPacket(frame, frame.size, udpRelay))
-    } catch (_: IOException) {
-        return RelayUdpProbeResult.failure(RelayProbeFailure.UdpWrite, associationOpened = true)
-    }
-    val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
-    return try {
-        udp.receive(response)
-        val payload = decodeSocksUdpPayload(response.data, response.length)
-        when {
-            payload == null -> RelayUdpProbeResult.failure(RelayProbeFailure.DnsResponse, associationOpened = true)
-            isMatchingDnsResponse(query, payload) -> RelayUdpProbeResult.success()
-            else -> RelayUdpProbeResult.failure(RelayProbeFailure.DnsResponse, associationOpened = true)
+    val outcome = sendDnsProbePayloadOutcome(udp, udpRelay, dnsTarget, query, timeoutMillis)
+    return when (outcome) {
+        DnsProbePayloadOutcome.Acknowledged -> {
+            RelayUdpProbeResult.success()
         }
-    } catch (_: SocketTimeoutException) {
-        RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout, associationOpened = true)
-    } catch (_: IOException) {
-        RelayUdpProbeResult.failure(RelayProbeFailure.UdpIo, associationOpened = true)
+
+        DnsProbePayloadOutcome.WriteFailed -> {
+            RelayUdpProbeResult.failure(RelayProbeFailure.UdpWrite, associationOpened = true)
+        }
+
+        DnsProbePayloadOutcome.ReadTimeout -> {
+            RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout, associationOpened = true)
+        }
+
+        DnsProbePayloadOutcome.ResponseMismatch -> {
+            RelayUdpProbeResult.failure(RelayProbeFailure.DnsResponse, associationOpened = true)
+        }
+
+        DnsProbePayloadOutcome.IoFailure -> {
+            RelayUdpProbeResult.failure(RelayProbeFailure.UdpIo, associationOpened = true)
+        }
     }
 }
 
@@ -381,13 +383,15 @@ private fun readSocksAddress(input: DataInputStream): InetAddress =
         else -> throw ProtocolException("SOCKS address type is unsupported")
     }
 
-private fun dnsQuery(payloadSizeBytes: Int = BaseDnsQueryBytes): ByteArray {
-    val queryId = SecureRandom().nextInt(DnsTransactionIdUpperBound)
-    val baseQueryBytes = DnsHeaderBytes + DnsQuestion.size
-    val includePadding = payloadSizeBytes >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
+private fun dnsQuery(payloadSizeBytes: Int? = null): ByteArray {
+    val queryId = DnsSecureRandom.nextInt(DnsTransactionIdUpperBound)
+    val question = dnsQuestion()
+    val baseQueryBytes = DnsHeaderBytes + question.size
+    val requestedSize = payloadSizeBytes ?: baseQueryBytes
+    val includePadding = requestedSize >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
     val querySize =
         if (includePadding) {
-            payloadSizeBytes
+            requestedSize
         } else {
             baseQueryBytes
         }
@@ -395,14 +399,30 @@ private fun dnsQuery(payloadSizeBytes: Int = BaseDnsQueryBytes): ByteArray {
         query.writeUnsignedShort(DnsTransactionIdOffset, queryId)
         query.writeUnsignedShort(DnsFlagsOffset, DnsRecursionDesiredFlag)
         query.writeUnsignedShort(DnsQuestionCountOffset, DnsSingleRecordCount)
-        DnsQuestion.copyInto(query, destinationOffset = DnsHeaderBytes)
+        question.copyInto(query, destinationOffset = DnsHeaderBytes)
         if (includePadding) {
             query.writeUnsignedShort(DnsAdditionalCountOffset, DnsSingleRecordCount)
             val optOffset = baseQueryBytes
-            val paddingLength = payloadSizeBytes - baseQueryBytes - EdnsPaddingMinimumOverheadBytes
+            val paddingLength = requestedSize - baseQueryBytes - EdnsPaddingMinimumOverheadBytes
             writeEdnsPadding(query, optOffset, paddingLength)
         }
     }
+}
+
+private fun dnsQuestion(): ByteArray {
+    val nonceLabel =
+        ByteArray(DnsNonceLabelBytes) {
+            DnsNonceAlphabet[DnsSecureRandom.nextInt(DnsNonceAlphabet.size)]
+        }
+    return byteArrayOf(nonceLabel.size.toByte()) +
+        nonceLabel +
+        byteArrayOf(DnsExampleLabel.size.toByte()) +
+        DnsExampleLabel +
+        byteArrayOf(DnsComLabel.size.toByte()) +
+        DnsComLabel +
+        byteArrayOf(DnsNameTerminator) +
+        unsignedShortBytes(DnsRecordTypeA) +
+        unsignedShortBytes(DnsClassInternet)
 }
 
 private fun writeEdnsPadding(
@@ -435,11 +455,9 @@ private fun elapsedMillis(startedAt: Long): Long = TimeUnit.NANOSECONDS.toMillis
 
 private const val TcpProbeTimeoutSeconds = 10L
 private const val UdpProbeTimeoutMillis = 5_000
-private const val MaxUdpProbeResponseBytes = 4_096
 private const val Ipv4AddressBytes = 4
 private const val Ipv6AddressBytes = 16
 private const val DnsHeaderBytes = 12
-private const val BaseDnsQueryBytes = 29
 private const val DnsTransactionIdUpperBound = 1 shl 16
 private const val DnsTransactionIdOffset = 0
 private const val DnsFlagsOffset = 2
@@ -465,6 +483,7 @@ private const val EdnsOptionCodeOffset = 11
 private const val EdnsOptionLengthOffset = 13
 private const val ByteBits = 8
 private const val LowByteOffset = 1
+private const val DnsNonceLabelBytes = 12
 private const val SocksVersion: Byte = 5
 private const val NoAuthentication: Byte = 0
 private const val SocksNoAuthMethodCount: Byte = 1
@@ -477,14 +496,8 @@ private const val AddressIpv6: Byte = 4
 private val SuccessfulStatusRange = 200..299
 private val DnsExampleLabel = "example".toByteArray(StandardCharsets.US_ASCII)
 private val DnsComLabel = "com".toByteArray(StandardCharsets.US_ASCII)
-private val DnsQuestion =
-    byteArrayOf(DnsExampleLabel.size.toByte()) +
-        DnsExampleLabel +
-        byteArrayOf(DnsComLabel.size.toByte()) +
-        DnsComLabel +
-        byteArrayOf(DnsNameTerminator) +
-        unsignedShortBytes(DnsRecordTypeA) +
-        unsignedShortBytes(DnsClassInternet)
+private val DnsNonceAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789".toByteArray(StandardCharsets.US_ASCII)
+private val DnsSecureRandom = SecureRandom()
 private val SocksUdpAssociateRequest =
     byteArrayOf(
         SocksVersion,

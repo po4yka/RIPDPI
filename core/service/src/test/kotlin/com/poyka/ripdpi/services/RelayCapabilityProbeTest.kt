@@ -22,6 +22,7 @@ import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class RelayCapabilityProbeTest {
@@ -104,6 +105,71 @@ class RelayCapabilityProbeTest {
 
             assertTrue(result.succeeded)
             assertNull(result.failure)
+        }
+    }
+
+    @Test
+    fun `socks udp probe adds question entropy beyond transaction id`() {
+        SocksUdpFixture(Behavior.Respond).use { fixture ->
+            repeat(2) {
+                val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+                assertTrue(result.succeeded)
+            }
+
+            val questions = fixture.dnsQuestions()
+            assertEquals(2, questions.size)
+            assertFalse(questions.first().contentEquals(questions.last()))
+        }
+    }
+
+    @Test
+    fun `socks udp probe ignores contaminants until delayed matching response`() {
+        SocksUdpFixture(
+            behavior = Behavior.ContaminantsThenRespond,
+            probeTimeoutMillis = 400,
+        ).use { fixture ->
+            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+
+            assertTrue(fixture.legitimateResponseSent())
+            assertTrue(result.succeeded)
+            assertNull(result.failure)
+        }
+    }
+
+    @Test
+    fun `socks udp probe rejects matching payload from wrong relay`() {
+        SocksUdpFixture(Behavior.WrongRelayOnly).use { fixture ->
+            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+
+            assertFalse(result.succeeded)
+            assertEquals(RelayProbeFailure.DnsResponse, result.failure)
+        }
+    }
+
+    @Test
+    fun `socks udp probe rejects same transaction id with wrong question`() {
+        SocksUdpFixture(Behavior.SameIdWrongQuestionOnly).use { fixture ->
+            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+
+            assertFalse(result.succeeded)
+            assertEquals(RelayProbeFailure.DnsResponse, result.failure)
+        }
+    }
+
+    @Test
+    fun `continuous contaminants do not extend socks udp probe deadline`() {
+        SocksUdpFixture(
+            behavior = Behavior.ContinuousContaminants,
+            probeTimeoutMillis = 100,
+        ).use { fixture ->
+            val startedAt = System.nanoTime()
+
+            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+            val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+
+            assertFalse(result.succeeded)
+            assertEquals(RelayProbeFailure.DnsResponse, result.failure)
+            assertTrue(elapsedMillis < MaximumBasicProbeDeadlineMillis)
         }
     }
 
@@ -353,24 +419,30 @@ private enum class Behavior {
     MalformedDns,
     RejectAssociation,
     PayloadLadder,
+    ContaminantsThenRespond,
+    WrongRelayOnly,
+    SameIdWrongQuestionOnly,
+    ContinuousContaminants,
 }
 
 private class SocksUdpFixture(
     private val behavior: Behavior,
     private val payloadAckMaxBytes: Int = Int.MAX_VALUE,
     private val failPreControl: Boolean = false,
+    probeTimeoutMillis: Int = 100,
 ) : AutoCloseable {
     private val tcp = ServerSocket(0, 8, InetAddress.getLoopbackAddress())
     private val ready = CountDownLatch(1)
     private val requests = Collections.synchronizedList(mutableListOf<UdpFixtureRequest>())
     private val handlers = CopyOnWriteArrayList<Thread>()
+    private val sentLegitimateResponse = AtomicBoolean(false)
     private val worker = thread(name = "socks-udp-probe-fixture") { serve() }
 
     val port: Int = tcp.localPort
     val probe =
         Socks5DnsUdpAssociateProbe(
             dnsTarget = InetSocketAddress("203.0.113.53", 53),
-            timeoutMillis = 100,
+            timeoutMillis = probeTimeoutMillis,
         )
     val payloadProbe =
         Socks5DnsUdpPayloadHealthProbe(
@@ -440,13 +512,9 @@ private class SocksUdpFixture(
                                 addressType = frame[3].toInt(),
                                 payloadSize = payloadSize,
                                 transactionId = frame.readUnsignedShort(dnsOffset),
+                                dnsQuestion = frame.dnsQuestion(dnsOffset),
                             )
-                        if (shouldRespond(requestIndex, payloadSize)) {
-                            if (behavior != Behavior.MalformedDns) {
-                                frame[dnsOffset + 2] = (frame[dnsOffset + 2].toInt() or 0x80).toByte()
-                            }
-                            udp.send(DatagramPacket(frame, frame.size, request.socketAddress))
-                        }
+                        respondToRequest(udp, request, frame, dnsOffset, requestIndex, payloadSize)
                         requestIndex += 1
                     }
                 }
@@ -465,6 +533,10 @@ private class SocksUdpFixture(
     fun addressTypes(): List<Int> = requests.map(UdpFixtureRequest::addressType)
 
     fun transactionIds(): List<Int> = requests.map(UdpFixtureRequest::transactionId)
+
+    fun dnsQuestions(): List<ByteArray> = requests.map(UdpFixtureRequest::dnsQuestion)
+
+    fun legitimateResponseSent(): Boolean = sentLegitimateResponse.get()
 
     fun payloadProbeWithQueryFactory(queryFactory: (Int, Int) -> ByteArray): RelayUdpPayloadHealthProbe =
         Socks5DnsUdpPayloadHealthProbe(
@@ -486,14 +558,116 @@ private class SocksUdpFixture(
         requestIndex: Int,
         payloadSize: Int,
     ): Boolean =
-        when (behavior) {
-            Behavior.Respond -> true
-            Behavior.Blackhole -> false
-            Behavior.MalformedDns -> true
-            Behavior.RejectAssociation -> false
-            Behavior.PayloadLadder -> !(failPreControl && requestIndex == 0) && payloadSize <= payloadAckMaxBytes
+        if (behavior == Behavior.PayloadLadder) {
+            !(failPreControl && requestIndex == 0) && payloadSize <= payloadAckMaxBytes
+        } else {
+            behavior == Behavior.Respond || behavior == Behavior.MalformedDns
         }
+
+    private fun respondToRequest(
+        udp: DatagramSocket,
+        request: DatagramPacket,
+        frame: ByteArray,
+        dnsOffset: Int,
+        requestIndex: Int,
+        payloadSize: Int,
+    ) {
+        when (behavior) {
+            Behavior.ContaminantsThenRespond -> {
+                sendContaminantsThenResponse(udp, request, frame, dnsOffset)
+            }
+
+            Behavior.WrongRelayOnly -> {
+                DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { wrongRelay ->
+                    wrongRelay.sendResponse(frame.asDnsResponse(dnsOffset), request)
+                }
+            }
+
+            Behavior.SameIdWrongQuestionOnly -> {
+                udp.sendResponse(frame.asDnsResponse(dnsOffset).withWrongDnsQuestion(dnsOffset), request)
+            }
+
+            Behavior.ContinuousContaminants -> {
+                sendContinuousContaminants(udp, request, frame, dnsOffset)
+            }
+
+            else -> {
+                if (shouldRespond(requestIndex, payloadSize)) {
+                    val response =
+                        if (behavior == Behavior.MalformedDns) {
+                            frame
+                        } else {
+                            frame.asDnsResponse(dnsOffset)
+                        }
+                    udp.sendResponse(response, request)
+                }
+            }
+        }
+    }
+
+    private fun sendContaminantsThenResponse(
+        udp: DatagramSocket,
+        request: DatagramPacket,
+        frame: ByteArray,
+        dnsOffset: Int,
+    ) {
+        val response = frame.asDnsResponse(dnsOffset)
+        DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { wrongRelay ->
+            wrongRelay.sendResponse(response, request)
+        }
+        udp.sendResponse(response.withWrongEmbeddedTarget(), request)
+        udp.sendResponse(response.withWrongTransactionId(dnsOffset), request)
+        udp.sendResponse(response.withWrongDnsQuestion(dnsOffset), request)
+        Thread.sleep(DelayedLegitimateResponseMillis)
+        sentLegitimateResponse.set(true)
+        udp.sendResponse(response, request)
+    }
+
+    private fun sendContinuousContaminants(
+        udp: DatagramSocket,
+        request: DatagramPacket,
+        frame: ByteArray,
+        dnsOffset: Int,
+    ) {
+        val response = frame.asDnsResponse(dnsOffset).withWrongEmbeddedTarget()
+        val stopAt = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(ContinuousContaminantMillis)
+        while (System.nanoTime() < stopAt) {
+            udp.sendResponse(response, request)
+            Thread.sleep(1)
+        }
+    }
 }
+
+private fun DatagramSocket.sendResponse(
+    frame: ByteArray,
+    request: DatagramPacket,
+) {
+    send(DatagramPacket(frame, frame.size, request.socketAddress))
+}
+
+private fun ByteArray.asDnsResponse(dnsOffset: Int): ByteArray =
+    copyOf().also { response ->
+        response[dnsOffset + DnsFlagsHighByteOffset] =
+            (response[dnsOffset + DnsFlagsHighByteOffset].toInt() or DnsResponseFlagHighByte).toByte()
+    }
+
+private fun ByteArray.withWrongEmbeddedTarget(): ByteArray =
+    copyOf().also { response ->
+        check(response[SocksAddressTypeOffset] == SocksIpv4AddressType)
+        response[SocksAddressOffset] = (response[SocksAddressOffset].toInt() xor 1).toByte()
+    }
+
+private fun ByteArray.withWrongTransactionId(dnsOffset: Int): ByteArray =
+    copyOf().also { response ->
+        response[dnsOffset + DnsTransactionHighByteOffset] =
+            (response[dnsOffset + DnsTransactionHighByteOffset].toInt() xor 1).toByte()
+    }
+
+private fun ByteArray.withWrongDnsQuestion(dnsOffset: Int): ByteArray =
+    copyOf().also { response ->
+        response[dnsOffset + DnsHeaderBytes + DnsLabelLengthBytes] =
+            (response[dnsOffset + DnsHeaderBytes + DnsLabelLengthBytes].toInt() xor 1).toByte()
+    }
 
 private fun payloadTargets(): Map<RelayUdpPayloadFamily, InetSocketAddress> =
     mapOf(
@@ -505,10 +679,20 @@ private data class UdpFixtureRequest(
     val addressType: Int,
     val payloadSize: Int,
     val transactionId: Int,
+    val dnsQuestion: ByteArray,
 )
 
 private fun ByteArray.readUnsignedShort(offset: Int): Int =
     (this[offset].toUByte().toInt() shl ByteBits) or this[offset + 1].toUByte().toInt()
+
+private fun ByteArray.dnsQuestion(dnsOffset: Int): ByteArray {
+    var offset = dnsOffset + DnsHeaderBytes
+    while (this[offset].toUByte().toInt() > 0) {
+        offset += DnsLabelLengthBytes + this[offset].toUByte().toInt()
+    }
+    val questionEnd = offset + DnsRootLabelBytes + DnsQuestionTailBytes
+    return copyOfRange(dnsOffset + DnsHeaderBytes, questionEnd)
+}
 
 private fun skipAddress(input: DataInputStream) {
     when (input.readUnsignedByte()) {
@@ -549,3 +733,16 @@ private fun socksPayloadOffset(
 private const val ByteBits = 8
 private const val InitialWraparoundTransactionId = 65_534
 private const val MaximumTransactionId = 65_535
+private const val DnsFlagsHighByteOffset = 2
+private const val DnsResponseFlagHighByte = 0x80
+private const val DnsTransactionHighByteOffset = 0
+private const val DnsHeaderBytes = 12
+private const val DnsLabelLengthBytes = 1
+private const val DnsRootLabelBytes = 1
+private const val DnsQuestionTailBytes = 4
+private const val SocksAddressTypeOffset = 3
+private const val SocksAddressOffset = 4
+private const val SocksIpv4AddressType: Byte = 1
+private const val DelayedLegitimateResponseMillis = 50L
+private const val ContinuousContaminantMillis = 400L
+private const val MaximumBasicProbeDeadlineMillis = 500L
