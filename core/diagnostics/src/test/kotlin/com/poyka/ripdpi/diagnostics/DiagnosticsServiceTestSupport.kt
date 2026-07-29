@@ -165,6 +165,7 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var beforeInsertExportRecord: suspend (ExportRecordEntity) -> Unit = {}
     var afterInsertExportRecord: suspend (ExportRecordEntity) -> Unit = {}
+    var beforeGetExportRecords: suspend () -> Unit = {}
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
@@ -452,7 +453,10 @@ internal class FakeDiagnosticsHistoryStores :
         afterInsertExportRecord(record)
     }
 
-    override suspend fun getExportRecords(): List<ExportRecordEntity> = exportsState.value
+    override suspend fun getExportRecords(): List<ExportRecordEntity> {
+        beforeGetExportRecords()
+        return exportsState.value
+    }
 
     override suspend fun deleteExportRecords(recordIds: List<String>) {
         exportsState.value = exportsState.value.filterNot { it.id in recordIds }

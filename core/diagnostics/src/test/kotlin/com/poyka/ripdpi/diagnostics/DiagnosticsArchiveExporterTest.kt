@@ -2,9 +2,11 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.jsonObject
@@ -252,6 +254,41 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
             assertFalse(orphan.exists())
             assertFalse(temporary.exists())
             assertEquals(listOf("export-1"), stores.exportsState.value.map { it.id })
+        }
+
+    @Test
+    fun `cleanupCache removes dangling record when cancelled after file cleanup`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val context = TestContext()
+            val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName).apply { mkdirs() }
+            val expiredArchive =
+                archiveDir.resolve("${DiagnosticsArchiveFormat.fileNamePrefix}expired.zip").apply {
+                    writeText("expired")
+                    assertTrue(setLastModified(0L))
+                }
+            stores.exportsState.value =
+                listOf(
+                    ExportRecordEntity(
+                        id = "expired-record",
+                        sessionId = null,
+                        uri = expiredArchive.absolutePath,
+                        fileName = expiredArchive.name,
+                        createdAt = 0L,
+                    ),
+                )
+            val exporter = createArchiveExporter(stores, context, rootModeEnabled = false)
+            lateinit var cleanupJob: Job
+            stores.beforeGetExportRecords = {
+                cleanupJob.cancel()
+                yield()
+            }
+
+            cleanupJob = backgroundScope.launch { exporter.cleanupCache() }
+            cleanupJob.join()
+
+            assertFalse(expiredArchive.exists())
+            assertTrue(stores.exportsState.value.isEmpty())
         }
 
     @Test

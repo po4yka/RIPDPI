@@ -112,32 +112,34 @@ internal class DefaultDiagnosticsArchiveExporter
                 throw error
             }
 
-        private suspend fun reconcileCache(reservedSlots: Int) {
-            var cleanupFailure: Throwable? = null
-            runCatching { fileStore.cleanup(reservedSlots) }
-                .exceptionOrNull()
-                ?.let { cleanupFailure = it }
-            runCatching { fileStore.cleanupPcapFiles() }
-                .exceptionOrNull()
-                ?.let { failure ->
-                    cleanupFailure?.addSuppressed(failure) ?: run { cleanupFailure = failure }
-                }
-            val records = exportRecordStore.getExportRecords()
-            val existingPaths = fileStore.managedArchivePaths()
-            exportRecordStore.deleteExportRecords(
-                records.filterNot { it.uri in existingPaths }.map { it.id },
-            )
-            runCatching { fileStore.reconcileFiles(records.mapTo(mutableSetOf()) { it.uri }) }
-                .exceptionOrNull()
-                ?.let { failure ->
-                    cleanupFailure?.addSuppressed(failure) ?: run { cleanupFailure = failure }
-                }
-            val reconciledPaths = fileStore.managedArchivePaths()
-            exportRecordStore.deleteExportRecords(
-                records.filterNot { it.uri in reconciledPaths }.map { it.id },
-            )
-            cleanupFailure?.let { throw it }
-        }
+        private suspend fun reconcileCache(reservedSlots: Int) =
+            withContext(NonCancellable) {
+                var cleanupFailure: Throwable? = null
+                runCatching { fileStore.cleanup(reservedSlots) }
+                    .exceptionOrNull()
+                    ?.let { cleanupFailure = it }
+                runCatching { fileStore.cleanupPcapFiles() }
+                    .exceptionOrNull()
+                    ?.let { failure ->
+                        cleanupFailure?.addSuppressed(failure) ?: run { cleanupFailure = failure }
+                    }
+                val records = exportRecordStore.getExportRecords()
+                val existingPaths = fileStore.managedArchivePaths()
+                exportRecordStore.deleteExportRecords(
+                    records.filterNot { it.uri in existingPaths }.map { it.id },
+                )
+                runCatching { fileStore.reconcileFiles(records.mapTo(mutableSetOf()) { it.uri }) }
+                    .exceptionOrNull()
+                    ?.let { failure ->
+                        cleanupFailure?.addSuppressed(failure) ?: run { cleanupFailure = failure }
+                    }
+                val reconciledPaths = fileStore.managedArchivePaths()
+                exportRecordStore.deleteExportRecords(
+                    records.filterNot { it.uri in reconciledPaths }.map { it.id },
+                )
+                cleanupFailure?.let { throw it }
+                Unit
+            }
 
         private suspend fun buildArchiveSelection(request: DiagnosticsArchiveRequest): DiagnosticsArchiveSelection {
             val sourceData = sourceLoader.load()
