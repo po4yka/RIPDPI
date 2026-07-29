@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -84,6 +85,7 @@ class VpnTunnelRuntimeRecoveryTest {
                     events = events,
                     session = originalSession,
                 )
+            val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
             val runtime =
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
@@ -91,6 +93,7 @@ class VpnTunnelRuntimeRecoveryTest {
                     proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
+                    appliedNetworkReceiptStore = receiptStore,
                 )
             runtime.start(
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
@@ -98,6 +101,7 @@ class VpnTunnelRuntimeRecoveryTest {
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
             )
+            val originalReceipt = receiptStore.snapshot()
             sessionProvider.establishFailure = IllegalStateException("replacement establish failed")
 
             val failure =
@@ -115,6 +119,7 @@ class VpnTunnelRuntimeRecoveryTest {
             assertTrue(runtime.isRunning)
             assertTrue(runtime.isForwarding)
             assertEquals(0, bridge.stopCount)
+            assertSame(originalReceipt, receiptStore.snapshot())
         }
 
     @Test

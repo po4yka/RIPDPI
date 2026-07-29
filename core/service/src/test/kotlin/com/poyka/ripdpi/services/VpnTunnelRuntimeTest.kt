@@ -104,6 +104,7 @@ class VpnTunnelRuntimeTest {
             val sessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession(tunFd = 7))
             val bridge = TestTun2SocksBridge()
             val nativePlans = mutableListOf<VpnAppRoutingPlan>()
+            val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
             val runtime =
                 VpnTunnelRuntime(
                     vpnHost = host,
@@ -111,6 +112,7 @@ class VpnTunnelRuntimeTest {
                     proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
+                    appliedNetworkReceiptStore = receiptStore,
                     nativeUidPolicyProvider = { plan ->
                         nativePlans += plan
                         when (plan) {
@@ -125,6 +127,7 @@ class VpnTunnelRuntimeTest {
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
             )
+            val initialReceiptGeneration = checkNotNull(receiptStore.snapshot()).generation
             host.appRoutingPlan = replacementPlan
             sessionProvider.session = TestVpnTunnelSession(tunFd = 8)
 
@@ -139,6 +142,7 @@ class VpnTunnelRuntimeTest {
             assertSame(replacementPlan, sessionProvider.lastAppRoutingPlan)
             assertEquals("denylist", bridge.startedConfig?.uidPolicyMode)
             assertEquals(listOf(10_322), bridge.startedConfig?.uidPolicyUids)
+            assertEquals(initialReceiptGeneration + 1, receiptStore.snapshot()?.generation)
         }
 
     @Test

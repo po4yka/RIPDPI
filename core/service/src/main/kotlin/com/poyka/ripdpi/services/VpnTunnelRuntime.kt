@@ -153,7 +153,6 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
         val previousSession = checkNotNull(tunSession) { "VPN tunnel is not running" }
-        appliedNetworkReceiptStore.invalidate()
         check(tun2SocksBridge == null || retiringBridge == null || tun2SocksBridge === retiringBridge) {
             "VPN tunnel has multiple bridges pending retirement"
         }
