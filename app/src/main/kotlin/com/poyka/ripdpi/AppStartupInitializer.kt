@@ -110,9 +110,16 @@ class AppStartupInitializer
                         Logger.e(error) { "Pre-readiness recovery failed; startup remains gated" }
                         return@launch
                     }
+                val report =
+                    try {
+                        initializeSubsystemsAfterRecovery(startupRecovery)
+                    } catch (cancellation: CancellationException) {
+                        startupRunning.set(false)
+                        throw cancellation
+                    }
                 readinessState.value = AppStartupReadinessState.Ready
                 try {
-                    initializeAfterReadiness(startupRecovery)
+                    initializeAfterReadiness(report)
                 } finally {
                     startupRunning.set(false)
                 }
@@ -127,14 +134,13 @@ class AppStartupInitializer
                 )
             }
 
-        private suspend fun initializeAfterReadiness(startupRecovery: AppStartupRecovery) {
+        private suspend fun initializeAfterReadiness(report: AppStartupReport) {
             runCatching { DiagnosticsRetentionWorker.enqueuePeriodic(context) }
                 .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
             runCatching { simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope) }
                 .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
-            val report = initializeSubsystemsAfterRecovery(startupRecovery)
             Logger.i { report.toLogMessage() }
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
             // API 37). A captured heap dump is delivered to our result callback.

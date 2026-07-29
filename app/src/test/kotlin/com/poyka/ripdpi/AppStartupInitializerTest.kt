@@ -342,32 +342,56 @@ class AppStartupInitializerTest {
         }
 
     @Test
-    fun `process exit reconciliation completes before diagnostics runtime bootstrap`() =
+    fun `ready observer cannot race diagnostics bootstrap ahead of exit reconciliation`() =
         runTest {
+            val reconciliationStarted = CompletableDeferred<Unit>()
+            val releaseReconciliation = CompletableDeferred<Unit>()
             val startupOrder = mutableListOf<String>()
+            val diagnosticsBootstrapper =
+                RecordingDiagnosticsBootstrapper(
+                    onInitialize = { startupOrder += "runtime_history_bootstrap" },
+                )
             val initializer =
                 createInitializer(
                     compatibilityResetter = RecordingAppCompatibilityResetter(),
                     strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper =
-                        RecordingDiagnosticsBootstrapper(
-                            onInitialize = { startupOrder += "runtime_history_bootstrap" },
-                        ),
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
                     lastExitInspector =
                         RecordingLastExitInspector(
                             onRecord = { startupOrder += "process_exit_reconciliation" },
+                            started = reconciliationStarted,
+                            release = releaseReconciliation,
                         ),
                     scope = backgroundScope,
                 )
+            backgroundScope.launch {
+                initializer.readiness.first { it == AppStartupReadinessState.Ready }
+                startupOrder += "ready_observed"
+                diagnosticsBootstrapper.initialize()
+            }
 
             initializer.initialize()
+            reconciliationStarted.await()
+            runCurrent()
+
+            assertEquals(AppStartupReadinessState.Pending, initializer.readiness.value)
+            assertEquals(listOf("process_exit_reconciliation"), startupOrder)
+            assertEquals(0, diagnosticsBootstrapper.calls)
+
+            releaseReconciliation.complete(Unit)
             initializer.readiness.first { it == AppStartupReadinessState.Ready }
             runCurrent()
 
             assertEquals(
-                listOf("process_exit_reconciliation", "runtime_history_bootstrap"),
+                listOf(
+                    "process_exit_reconciliation",
+                    "runtime_history_bootstrap",
+                    "ready_observed",
+                    "runtime_history_bootstrap",
+                ),
                 startupOrder,
             )
+            assertEquals(2, diagnosticsBootstrapper.calls)
         }
 
     @Test
@@ -461,26 +485,31 @@ class AppStartupInitializerTest {
     @Test
     fun `process exit scan cancellation stops later startup probes`() =
         runTest {
+            val reconciliationStarted = CompletableDeferred<Unit>()
             val lastExitInspector =
                 RecordingLastExitInspector(
                     failure = CancellationException("secret-process-exit-canary"),
+                    started = reconciliationStarted,
                 )
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
             val detectionObservationStarter = RecordingDetectionObservationStarter()
             val initializer =
                 createInitializer(
                     compatibilityResetter = RecordingAppCompatibilityResetter(),
                     strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
                     detectionObservationStarter = detectionObservationStarter,
                     lastExitInspector = lastExitInspector,
                     scope = backgroundScope,
                 )
 
             initializer.initialize()
-            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            reconciliationStarted.await()
             runCurrent()
 
+            assertEquals(AppStartupReadinessState.Pending, initializer.readiness.value)
             assertEquals(1, lastExitInspector.calls)
+            assertEquals(0, diagnosticsBootstrapper.calls)
             assertEquals(0, detectionObservationStarter.startCalls)
         }
 
@@ -787,6 +816,8 @@ private object NoOpLastExitInspector : LastExitInspector {
 private class RecordingLastExitInspector(
     private val failure: Throwable? = null,
     private val onRecord: (() -> Unit)? = null,
+    private val started: CompletableDeferred<Unit>? = null,
+    private val release: CompletableDeferred<Unit>? = null,
 ) : LastExitInspector {
     var calls: Int = 0
         private set
@@ -794,6 +825,8 @@ private class RecordingLastExitInspector(
     override suspend fun recordRecentProcessExits() {
         calls += 1
         onRecord?.invoke()
+        started?.complete(Unit)
+        release?.await()
         failure?.let { throw it }
     }
 }
