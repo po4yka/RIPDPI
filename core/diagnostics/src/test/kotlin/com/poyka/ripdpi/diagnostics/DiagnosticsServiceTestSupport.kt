@@ -37,6 +37,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsFailureArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
@@ -137,6 +138,7 @@ internal class FakeDiagnosticsHistoryStores :
     DiagnosticsArtifactReadStore,
     DiagnosticsArtifactQueryStore,
     DiagnosticsArtifactWriteStore,
+    DiagnosticsFailureArtifactWriteStore,
     BypassUsageHistoryStore,
     DiagnosticsTerminalOutboxStore,
     RememberedNetworkPolicyRecordStore,
@@ -156,6 +158,7 @@ internal class FakeDiagnosticsHistoryStores :
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     val usageSessionsCollectorCount = AtomicInteger(0)
+    val failureArtifactBatchCount = AtomicInteger(0)
     val observedTelemetryConnectionSessionIds = CopyOnWriteArrayList<String>()
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
@@ -396,6 +399,29 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
         beforeInsertNativeSessionEvent(event)
         nativeEventsState.value = nativeEventsState.value.upsertById(event) { it.id }
+        afterInsertNativeSessionEvent(event)
+    }
+
+    override suspend fun persistFailureArtifacts(
+        usageSession: BypassUsageSessionEntity,
+        snapshot: NetworkSnapshotEntity?,
+        context: DiagnosticContextEntity?,
+        telemetry: TelemetrySampleEntity,
+        event: NativeSessionEventEntity,
+    ) {
+        failureArtifactBatchCount.incrementAndGet()
+        beforeUpsertBypassUsageSession(usageSession)
+        beforeInsertTelemetrySample(telemetry)
+        beforeInsertNativeSessionEvent(event)
+
+        usageSessionsState.value = usageSessionsState.value.upsertById(usageSession) { it.id }
+        snapshot?.let { snapshotsState.value = snapshotsState.value.upsertById(it) { value -> value.id } }
+        context?.let { contextsState.value = contextsState.value.upsertById(it) { value -> value.id } }
+        telemetryState.value = telemetryState.value.upsertById(telemetry) { it.id }
+        nativeEventsState.value = nativeEventsState.value.upsertById(event) { it.id }
+
+        snapshot?.let { afterUpsertSnapshot(it) }
+        context?.let { afterUpsertContextSnapshot(it) }
         afterInsertNativeSessionEvent(event)
     }
 

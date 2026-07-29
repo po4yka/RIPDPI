@@ -159,6 +159,7 @@ class RuntimeSessionCoordinator
             sender: Sender,
             reason: FailureReason,
         ) {
+            stopSampling()
             val timestamp = System.currentTimeMillis()
             val failureMessage = reason.displayMessage
             val telemetry = serviceStateStore.telemetry.value
@@ -167,53 +168,50 @@ class RuntimeSessionCoordinator
                 persistPendingTerminalSession()
                 val current = activeUsageSession
                 val standaloneTerminalFailure = current == null
-                val connectionSessionId =
+                val failedSession =
                     if (standaloneTerminalFailure) {
-                        createFailedUsageSession(
+                        buildFailedUsageSession(
                             sender = sender,
                             failureMessage = failureMessage,
                             timestamp = timestamp,
                             telemetry = telemetry,
                             snapshot = snapshot,
-                        ).also { connectionSessionId ->
-                            deviceStateEventRecorder.recordStandaloneFailure(
-                                connectionSessionId,
-                                serviceStateStore.status.value.second,
-                            )
-                        }
+                        )
                     } else {
-                        val updated =
-                            RuntimeUsageSessionBuilder.updateFailedSession(
-                                current = requireNotNull(current),
-                                sender = sender,
-                                failureMessage = failureMessage,
-                                timestamp = timestamp,
-                                telemetry = telemetry,
-                                networkType = snapshot?.transport ?: current.networkType,
-                                publicIp = snapshot?.publicIp ?: current.publicIp,
-                            )
-                        activeUsageSession = updated
-                        bypassUsageHistoryStore.upsertBypassUsageSession(updated)
-                        deviceStateEventRecorder.recordFailure()
-                        updated.id
+                        RuntimeUsageSessionBuilder.updateFailedSession(
+                            current = requireNotNull(current),
+                            sender = sender,
+                            failureMessage = failureMessage,
+                            timestamp = timestamp,
+                            telemetry = telemetry,
+                            networkType = snapshot?.transport ?: current.networkType,
+                            publicIp = snapshot?.publicIp ?: current.publicIp,
+                        )
                     }
 
                 artifactPersister.persistFailureArtifacts(
-                    connectionSessionId = connectionSessionId,
+                    usageSession = failedSession,
                     sender = sender,
                     failureMessage = failureMessage,
                     snapshot = snapshot,
                     telemetry = telemetry,
                     createdAt = timestamp,
-                    networkTypeFallback = activeUsageSession?.networkType ?: "unknown",
-                    publicIpFallback = activeUsageSession?.publicIp,
+                    networkTypeFallback = failedSession.networkType,
+                    publicIpFallback = failedSession.publicIp,
                 )
+                activeUsageSession = failedSession
                 if (standaloneTerminalFailure) {
+                    deviceStateEventRecorder.recordStandaloneFailure(
+                        failedSession.id,
+                        serviceStateStore.status.value.second,
+                    )
                     artifactPersister.persistTerminalRootCauseAssessment(
-                        connectionSessionId = connectionSessionId,
+                        connectionSessionId = failedSession.id,
                         createdAt = timestamp,
                         terminalEvidenceSealed = false,
                     )
+                } else {
+                    deviceStateEventRecorder.recordFailure()
                 }
             }
         }
@@ -325,13 +323,13 @@ class RuntimeSessionCoordinator
             return connectionSessionId
         }
 
-        private suspend fun createFailedUsageSession(
+        private suspend fun buildFailedUsageSession(
             sender: Sender,
             failureMessage: String,
             timestamp: Long,
             telemetry: ServiceTelemetrySnapshot,
             snapshot: NetworkSnapshotModel?,
-        ): String {
+        ): BypassUsageSessionEntity {
             val seed = captureSessionSeed()
             val session =
                 RuntimeUsageSessionBuilder.createFailedSession(
@@ -345,8 +343,7 @@ class RuntimeSessionCoordinator
                     telemetry = telemetry,
                     seed = seed,
                 )
-            bypassUsageHistoryStore.upsertBypassUsageSession(session)
-            return session.id
+            return session
         }
 
         private suspend fun updateActiveUsageSession(

@@ -151,6 +151,16 @@ interface DiagnosticsArtifactWriteStore {
     suspend fun insertExportRecord(record: ExportRecordEntity)
 }
 
+interface DiagnosticsFailureArtifactWriteStore {
+    suspend fun persistFailureArtifacts(
+        usageSession: BypassUsageSessionEntity,
+        snapshot: NetworkSnapshotEntity?,
+        context: DiagnosticContextEntity?,
+        telemetry: TelemetrySampleEntity,
+        event: NativeSessionEventEntity,
+    )
+}
+
 interface DiagnosticsDurableStateStore {
     suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity?
 
@@ -534,6 +544,29 @@ class RoomDiagnosticsArtifactStore
     }
 
 @Singleton
+class RoomDiagnosticsFailureArtifactStore
+    @Inject
+    constructor(
+        private val dao: DiagnosticsDao,
+    ) : DiagnosticsFailureArtifactWriteStore {
+        override suspend fun persistFailureArtifacts(
+            usageSession: BypassUsageSessionEntity,
+            snapshot: NetworkSnapshotEntity?,
+            context: DiagnosticContextEntity?,
+            telemetry: TelemetrySampleEntity,
+            event: NativeSessionEventEntity,
+        ) {
+            dao.persistFailureArtifacts(
+                usageSession = usageSession,
+                snapshot = snapshot,
+                context = context,
+                telemetry = telemetry,
+                event = event,
+            )
+        }
+    }
+
+@Singleton
 class RoomBypassUsageHistoryStore
     @Inject
     constructor(
@@ -788,6 +821,12 @@ abstract class DiagnosticsHistoryStoresModule {
     @Binds
     @Singleton
     abstract fun bindDiagnosticsArtifactWriteStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactWriteStore
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsFailureArtifactWriteStore(
+        store: RoomDiagnosticsFailureArtifactStore,
+    ): DiagnosticsFailureArtifactWriteStore
 
     @Binds
     @Singleton

@@ -191,6 +191,7 @@ private fun createArtifactPersister(stores: FakeDiagnosticsHistoryStores): Runti
     RuntimeArtifactPersister(
         artifactReadStore = stores,
         artifactWriteStore = stores,
+        failureArtifactWriteStore = stores,
         historyRetentionStore = stores,
         networkMetadataProvider = FakeNetworkMetadataProvider(),
         diagnosticsContextProvider = FakeDiagnosticsContextProvider(),

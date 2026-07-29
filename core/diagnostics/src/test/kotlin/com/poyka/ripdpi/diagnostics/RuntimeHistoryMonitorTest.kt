@@ -82,12 +82,16 @@ class RuntimeHistoryMonitorTest {
             waitUntil {
                 stores.usageSessionsState.value.isNotEmpty() &&
                     stores.nativeEventsState.value.isNotEmpty() &&
-                    stores.telemetryState.value.isNotEmpty()
+                    stores.telemetryState.value.isNotEmpty() &&
+                    stores.snapshotsState.value.isNotEmpty() &&
+                    stores.contextsState.value.isNotEmpty()
             }
 
             val session = stores.usageSessionsState.value.single()
             val event = stores.nativeEventsState.value.single { it.source == "proxy" }
             val telemetrySample = stores.telemetryState.value.single()
+            val snapshot = stores.snapshotsState.value.single()
+            val context = stores.contextsState.value.single()
 
             assertEquals("Failed", session.connectionState)
             assertEquals("boom", session.failureMessage)
@@ -98,6 +102,43 @@ class RuntimeHistoryMonitorTest {
             assertEquals("error", event.level)
             assertEquals("Failed", telemetrySample.connectionState)
             assertEquals("native_io", telemetrySample.failureClass)
+            assertEquals(1, stores.failureArtifactBatchCount.get())
+            assertEquals("failure", snapshot.snapshotKind)
+            assertEquals("failure", context.contextKind)
+            assertEquals(session.id, snapshot.connectionSessionId)
+            assertEquals(session.id, context.connectionSessionId)
+            assertEquals(session.id, telemetrySample.connectionSessionId)
+            assertEquals(session.finishedAt, snapshot.capturedAt)
+            assertEquals(snapshot.capturedAt, context.capturedAt)
+            assertEquals(snapshot.capturedAt, telemetrySample.createdAt)
+            assertEquals(snapshot.capturedAt, event.createdAt)
+        }
+
+    @Test
+    fun `failed batch leaves no partial session or evidence`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = serviceStateStore,
+                )
+            stores.beforeInsertNativeSessionEvent = { error("forced monitor batch failure") }
+
+            monitor.start()
+            Thread.sleep(100)
+            serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("boom"))
+            waitUntil { stores.failureArtifactBatchCount.get() == 1 }
+
+            assertTrue(stores.usageSessionsState.value.isEmpty())
+            assertTrue(stores.snapshotsState.value.isEmpty())
+            assertTrue(stores.contextsState.value.isEmpty())
+            assertTrue(stores.telemetryState.value.isEmpty())
+            assertTrue(stores.nativeEventsState.value.isEmpty())
         }
 
     @Test

@@ -845,6 +845,7 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
         RuntimeArtifactPersister(
             artifactReadStore = stores,
             artifactWriteStore = stores,
+            failureArtifactWriteStore = stores,
             historyRetentionStore = stores,
             networkMetadataProvider = FakeNetworkMetadataProvider(),
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),

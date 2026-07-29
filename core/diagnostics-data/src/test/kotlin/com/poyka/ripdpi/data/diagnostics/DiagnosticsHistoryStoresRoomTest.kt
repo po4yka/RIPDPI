@@ -105,6 +105,68 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
         }
 
     @Test
+    fun `failure artifact batch rolls back every row when event insertion aborts`() =
+        runTest {
+            val store = RoomDiagnosticsFailureArtifactStore(dao)
+            db.openHelper.writableDatabase.execSQL(
+                """
+                CREATE TRIGGER abort_failure_event
+                BEFORE INSERT ON native_session_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced failure event abort');
+                END
+                """.trimIndent(),
+            )
+
+            val result =
+                runCatching {
+                    store.persistFailureArtifacts(
+                        usageSession =
+                            bypassUsageSession(
+                                id = "failure-connection",
+                                startedAt = 100L,
+                                finishedAt = 100L,
+                            ).copy(connectionState = "Failed", failureMessage = "boom"),
+                        snapshot =
+                            snapshot(
+                                id = "failure-snapshot",
+                                sessionId = null,
+                                connectionSessionId = "failure-connection",
+                                capturedAt = 100L,
+                            ).copy(snapshotKind = "failure"),
+                        context =
+                            context(
+                                id = "failure-context",
+                                sessionId = null,
+                                connectionSessionId = "failure-connection",
+                                capturedAt = 100L,
+                            ).copy(contextKind = "failure"),
+                        telemetry =
+                            telemetry(
+                                id = "failure-telemetry",
+                                sessionId = null,
+                                connectionSessionId = "failure-connection",
+                                createdAt = 100L,
+                            ).copy(connectionState = "Failed"),
+                        event =
+                            nativeEvent(
+                                id = "failure-event",
+                                sessionId = null,
+                                connectionSessionId = "failure-connection",
+                                createdAt = 100L,
+                            ),
+                    )
+                }
+
+            assertTrue(result.isFailure)
+            assertEquals(0, rowCount("network_snapshots"))
+            assertEquals(0, rowCount("diagnostic_context_snapshots"))
+            assertEquals(0, rowCount("telemetry_samples"))
+            assertEquals(0, rowCount("native_session_events"))
+            assertEquals(0, rowCount("bypass_usage_sessions"))
+        }
+
+    @Test
     fun `artifact store exposes global and connection scoped reads after writes`() =
         runTest {
             val store = RoomDiagnosticsArtifactStore(db, dao)

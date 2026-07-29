@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.diagnostics
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 
 @Dao
 interface DiagnosticsDao :
@@ -16,7 +17,22 @@ interface DiagnosticsDao :
     DiagnosticsRememberedPolicyDao,
     DiagnosticsNetworkPreferenceDao,
     DiagnosticsDurableStateDao,
-    DiagnosticsRetentionDao
+    DiagnosticsRetentionDao {
+    @Transaction
+    suspend fun persistFailureArtifacts(
+        usageSession: BypassUsageSessionEntity,
+        snapshot: NetworkSnapshotEntity?,
+        context: DiagnosticContextEntity?,
+        telemetry: TelemetrySampleEntity,
+        event: NativeSessionEventEntity,
+    ) {
+        upsertBypassUsageSession(usageSession)
+        snapshot?.let { upsertNetworkSnapshot(it) }
+        context?.let { upsertContextSnapshot(it) }
+        insertTelemetrySample(telemetry)
+        insertNativeSessionEvent(event)
+    }
+}
 
 @Database(
     entities = [

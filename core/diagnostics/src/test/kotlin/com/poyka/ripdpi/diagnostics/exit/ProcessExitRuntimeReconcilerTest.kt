@@ -436,6 +436,7 @@ class ProcessExitRuntimeReconcilerTest {
         RuntimeArtifactPersister(
             artifactReadStore = stores,
             artifactWriteStore = stores,
+            failureArtifactWriteStore = stores,
             historyRetentionStore = stores,
             networkMetadataProvider = FakeNetworkMetadataProvider(),
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),

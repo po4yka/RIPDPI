@@ -1114,6 +1114,7 @@ internal abstract class RuntimeHistoryMonitorPersistenceTestSupport {
         RuntimeArtifactPersister(
             artifactReadStore = stores,
             artifactWriteStore = stores,
+            failureArtifactWriteStore = stores,
             historyRetentionStore = stores,
             networkMetadataProvider = FakeNetworkMetadataProvider(),
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),

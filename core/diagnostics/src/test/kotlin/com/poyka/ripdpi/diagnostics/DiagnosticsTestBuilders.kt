@@ -376,6 +376,7 @@ internal fun createRuntimeHistoryMonitor(
         RuntimeArtifactPersister(
             artifactReadStore = stores,
             artifactWriteStore = stores,
+            failureArtifactWriteStore = stores,
             historyRetentionStore = stores,
             networkMetadataProvider = networkMetadataProvider,
             diagnosticsContextProvider = diagnosticsContextProvider,

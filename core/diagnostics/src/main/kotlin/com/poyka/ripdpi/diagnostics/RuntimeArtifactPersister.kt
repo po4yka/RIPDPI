@@ -5,9 +5,11 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsFailureArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -32,6 +34,7 @@ class RuntimeArtifactPersister
     constructor(
         private val artifactReadStore: DiagnosticsArtifactReadStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
+        private val failureArtifactWriteStore: DiagnosticsFailureArtifactWriteStore,
         private val historyRetentionStore: DiagnosticsHistoryRetentionStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
@@ -53,7 +56,10 @@ class RuntimeArtifactPersister
         suspend fun captureSnapshotOrNull(): NetworkSnapshotModel? =
             runCatching {
                 networkMetadataProvider.captureSnapshot()
-            }.onFailure { Logger.w(it) { "Failed to capture network snapshot" } }.getOrNull()
+            }.onFailure { failure ->
+                if (failure is kotlinx.coroutines.CancellationException) throw failure
+                Logger.w(failure) { "Failed to capture network snapshot" }
+            }.getOrNull()
 
         suspend fun persistConnectionSample(
             connectionSessionId: String,
@@ -197,7 +203,7 @@ class RuntimeArtifactPersister
         }
 
         suspend fun persistFailureArtifacts(
-            connectionSessionId: String,
+            usageSession: BypassUsageSessionEntity,
             sender: Sender,
             failureMessage: String,
             snapshot: NetworkSnapshotModel?,
@@ -206,18 +212,14 @@ class RuntimeArtifactPersister
             networkTypeFallback: String,
             publicIpFallback: String?,
         ) {
-            artifactWriteStore.insertTelemetrySample(
-                buildTelemetrySampleEntity(
-                    connectionSessionId = connectionSessionId,
-                    networkType = snapshot?.transport ?: networkTypeFallback,
-                    publicIp = snapshot?.publicIp ?: publicIpFallback,
-                    telemetry = telemetry,
-                    createdAt = createdAt,
-                    connectionStateOverride = "Failed",
-                ),
-            )
-
-            persistRuntimeEvent(
+            val connectionSessionId = usageSession.id
+            val context =
+                runCatching { diagnosticsContextProvider.captureContext() }
+                    .onFailure { failure ->
+                        if (failure is kotlinx.coroutines.CancellationException) throw failure
+                        Logger.w(failure) { "Failed to capture diagnostic context" }
+                    }.getOrNull()
+            val event =
                 NativeSessionEventEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = null,
@@ -228,7 +230,42 @@ class RuntimeArtifactPersister
                     createdAt = createdAt,
                     mode = telemetry.mode?.name?.lowercase(Locale.US),
                     subsystem = "service",
-                ),
+                )
+
+            failureArtifactWriteStore.persistFailureArtifacts(
+                usageSession = usageSession,
+                snapshot =
+                    snapshot?.let {
+                        NetworkSnapshotEntity(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = null,
+                            connectionSessionId = connectionSessionId,
+                            snapshotKind = "failure",
+                            payloadJson = RuntimeHistoryJson.encodeToString(NetworkSnapshotModel.serializer(), it),
+                            capturedAt = createdAt,
+                        )
+                    },
+                context =
+                    context?.let {
+                        DiagnosticContextEntity(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = null,
+                            connectionSessionId = connectionSessionId,
+                            contextKind = "failure",
+                            payloadJson = RuntimeHistoryJson.encodeToString(DiagnosticContextModel.serializer(), it),
+                            capturedAt = createdAt,
+                        )
+                    },
+                telemetry =
+                    buildTelemetrySampleEntity(
+                        connectionSessionId = connectionSessionId,
+                        networkType = snapshot?.transport ?: networkTypeFallback,
+                        publicIp = snapshot?.publicIp ?: publicIpFallback,
+                        telemetry = telemetry,
+                        createdAt = createdAt,
+                        connectionStateOverride = "Failed",
+                    ),
+                event = event,
             )
         }
 
