@@ -22,6 +22,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -418,6 +419,10 @@ internal class DefaultDiagnosticsScanController
                     ),
                 )
             }
+            if (!scope.isActive) {
+                cleanupStartupCancellation(prepared, bridgeSession.handle)
+                throw CancellationException("Diagnostics scan cancelled during startup")
+            }
 
             val executionJob =
                 scope.launch(start = CoroutineStart.LAZY) {
@@ -436,12 +441,30 @@ internal class DefaultDiagnosticsScanController
                 )
             if (!executionRegistered || !executionJob.start()) {
                 executionJob.cancel()
-                withContext(NonCancellable) {
-                    runCatching { bridgeExecutionService.destroy(bridgeSession.handle) }
-                    activeScanRegistry.removePreparedScan(prepared.sessionId)
-                    clearPreparedProgress(prepared)
-                }
+                cleanupStartupCancellation(prepared, bridgeSession.handle)
                 throw CancellationException("Diagnostics scan cancelled during startup")
+            }
+        }
+
+        private suspend fun cleanupStartupCancellation(
+            prepared: PreparedDiagnosticsScan,
+            handle: BridgeSessionHandle,
+        ) {
+            withContext(NonCancellable) {
+                val runningSession =
+                    scanRecordStore.getScanSession(prepared.sessionId)?.takeIf { session ->
+                        session.status == "running"
+                    }
+                if (runningSession != null) {
+                    DiagnosticsReportPersister.persistScanFailure(
+                        prepared.sessionId,
+                        "Diagnostics scan canceled during startup",
+                        scanRecordStore,
+                    )
+                }
+                runCatching { bridgeExecutionService.destroy(handle) }
+                activeScanRegistry.removePreparedScan(prepared.sessionId)
+                clearPreparedProgress(prepared)
             }
         }
 

@@ -543,18 +543,13 @@ class DiagnosticsScanControllerTest {
     @Test
     fun `cancelled controller scope destroys bridge before execution starts`() =
         runTest {
-            val settings =
-                defaultDiagnosticsAppSettings()
-                    .toBuilder()
-                    .setNetworkStrategyMemoryEnabled(true)
-                    .build()
-            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
             val cancelledJob = Job().apply { cancel() }
             val services =
                 createDiagnosticsServices(
                     context = TestContext(),
-                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    appSettingsRepository = FakeAppSettingsRepository(),
                     stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
@@ -567,11 +562,15 @@ class DiagnosticsScanControllerTest {
                 )
 
             assertSuspendFailsWith<CancellationException> {
-                services.scanController.launchAutomaticProbe(settings, transportSwitchHandoverEvent())
+                services.scanController.startScan(ScanPathMode.RAW_PATH)
             }
 
             assertEquals(1, bridgeFactory.bridge.destroyCount)
             assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+            assertNull(services.timelineSource.activeScanProgress.value)
+            val failedSession = stores.sessionsState.value.single()
+            assertEquals("failed", failedSession.status)
+            assertEquals("Diagnostics scan canceled during startup", failedSession.summary)
         }
 
     @Test
