@@ -13,7 +13,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -28,6 +31,8 @@ class DefaultPolicyHandoverEventStore
         private val durableStateStore: DiagnosticsDurableStateStore,
         private val rememberedPolicyRecordStore: RememberedNetworkPolicyRecordStore,
     ) : PolicyHandoverEventStore {
+        private val publicationMutex = Mutex()
+
         override val events: Flow<PolicyHandoverEvent> =
             durableStateStore
                 .observeDurableStateByPrefix(PolicyHandoverDeliveryDurableStatePrefix)
@@ -57,22 +62,21 @@ class DefaultPolicyHandoverEventStore
                     }
                 }
 
-        override suspend fun publish(event: PolicyHandoverEvent) {
-            require(event.deliveryId.isNotBlank()) { "Policy handover delivery id is required" }
-            require(event.currentFingerprintHash.isNotBlank()) { "Policy handover fingerprint is required" }
-            val envelope = createEnvelope(event)
-            val now = System.currentTimeMillis()
-            durableStateStore.upsertBoundedDurableState(
-                DiagnosticsDurableStateEntity(
-                    key = deliveryKey(event.deliveryId),
-                    value = PolicyHandoverJson.encodeToString(envelope),
-                    updatedAt = now,
-                ),
-                keyPrefix = PolicyHandoverDeliveryDurableStatePrefix,
-                minimumUpdatedAt = now - PolicyHandoverRetentionMaxAgeMs,
-                retainCount = PolicyHandoverRetentionLimit,
-            )
-        }
+        override suspend fun publish(event: PolicyHandoverEvent) =
+            publicationMutex.withLock {
+                require(event.deliveryId.isNotBlank()) { "Policy handover delivery id is required" }
+                require(event.currentFingerprintHash.isNotBlank()) { "Policy handover fingerprint is required" }
+                val envelope = createEnvelope(event)
+                val now = System.currentTimeMillis()
+                durableStateStore.upsertDurableState(
+                    DiagnosticsDurableStateEntity(
+                        key = deliveryKey(event.deliveryId),
+                        value = PolicyHandoverJson.encodeToString(envelope),
+                        updatedAt = now,
+                    ),
+                )
+                pruneDeliveries(now)
+            }
 
         override suspend fun acknowledge(deliveryId: String) {
             val key = deliveryKey(deliveryId)
@@ -200,6 +204,25 @@ class DefaultPolicyHandoverEventStore
             } else {
                 durableStateStore.clearDurableStateIfCurrent(state.key, state.value)
             }
+        }
+
+        private suspend fun pruneDeliveries(now: Long) {
+            val states =
+                durableStateStore
+                    .observeDurableStateByPrefix(PolicyHandoverDeliveryDurableStatePrefix)
+                    .first()
+            val retainedKeys =
+                states
+                    .asSequence()
+                    .filter { state -> state.updatedAt >= now - PolicyHandoverRetentionMaxAgeMs }
+                    .sortedWith(
+                        compareByDescending<DiagnosticsDurableStateEntity> { state -> state.updatedAt }
+                            .thenByDescending { state -> state.key },
+                    ).take(PolicyHandoverRetentionLimit)
+                    .mapTo(mutableSetOf()) { state -> state.key }
+            states
+                .filterNot { state -> state.key in retainedKeys }
+                .forEach { state -> clearDelivery(state) }
         }
 
         private fun decodeCurrentEnvelope(value: String): PolicyHandoverDeliveryEnvelope? =
