@@ -718,6 +718,7 @@ class DiagnosticsScanControllerTest {
                     bridge.autoCompleteOnStart = false
                 }
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val networkFingerprintProvider = FakeNetworkFingerprintProvider()
             val rememberedNetworkPolicyStore =
                 DefaultRememberedNetworkPolicyStore(stores, TestDiagnosticsHistoryClock())
             val services =
@@ -731,7 +732,7 @@ class DiagnosticsScanControllerTest {
                     runtimeCoordinator = runtimeCoordinator,
                     serviceStateStore = FakeServiceStateStore(),
                     rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    networkFingerprintProvider = networkFingerprintProvider,
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
@@ -744,7 +745,7 @@ class DiagnosticsScanControllerTest {
                         PolicyHandoverEvent(
                             deliveryId = "delivery-network-changed",
                             mode = com.poyka.ripdpi.data.Mode.VPN,
-                            currentFingerprintHash = "network-a",
+                            currentFingerprintHash = networkFingerprintProvider.capture().scopeKey(),
                             classification = "network_changed",
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
@@ -778,7 +779,45 @@ class DiagnosticsScanControllerTest {
             assertEquals("network_changed", launchedSession.triggerClassification)
             assertEquals(10L, launchedSession.triggerOccurredAt)
             assertNull(launchedSession.triggerPreviousFingerprintHash)
-            assertEquals("network-a", launchedSession.triggerCurrentFingerprintHash)
+            assertEquals(networkFingerprintProvider.capture().scopeKey(), launchedSession.triggerCurrentFingerprintHash)
+        }
+
+    @Test
+    fun `automatic handover replay acknowledges a stale network without launching`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val networkFingerprintProvider = FakeNetworkFingerprintProvider()
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val acknowledged =
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event = transportSwitchHandoverEvent().copy(currentFingerprintHash = "stale-network"),
+                )
+
+            assertTrue(acknowledged)
+            assertTrue(stores.sessionsState.value.isEmpty())
+            assertNull(bridgeFactory.bridge.startedRequestJson)
         }
 }
 
