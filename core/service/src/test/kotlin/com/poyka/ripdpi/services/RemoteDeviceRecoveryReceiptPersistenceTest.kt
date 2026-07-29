@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.SharedPreferences
 import android.os.Build
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -69,6 +72,44 @@ class RemoteDeviceRecoveryReceiptPersistenceTest {
         assertTrue(persistence.compareAndSet(null, first))
         assertFalse(persistence.compareAndSet("wrong-hash", stale))
         assertEquals(first, persistence.load())
+    }
+
+    @Test
+    fun `locked direct boot storage failure never falls back to credential storage`() {
+        val context = FailingDeviceProtectedStorageContext(RuntimeEnvironment.getApplication())
+        val persistence = SharedPreferencesRemoteDeviceRecoveryReceiptPersistence(context)
+        val state =
+            PersistedRemoteDeviceRecoveryReceipt(
+                generationHash = "generation-hash",
+                serviceInstanceHash = "service-hash",
+                receipt = RemoteDeviceRecoveryReceipt(generation = PresentReceiptValue),
+            )
+
+        assertEquals(
+            RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable,
+            persistence.availability,
+        )
+        assertNull(persistence.load())
+        assertFalse(persistence.compareAndSet(expectedGenerationHash = null, state = state))
+        assertFalse(context.credentialProtectedPreferencesRequested)
+    }
+}
+
+private class FailingDeviceProtectedStorageContext(
+    base: Context,
+) : ContextWrapper(base) {
+    var credentialProtectedPreferencesRequested = false
+        private set
+
+    override fun createDeviceProtectedStorageContext(): Context =
+        error("device-protected storage is unavailable while user storage is locked")
+
+    override fun getSharedPreferences(
+        name: String?,
+        mode: Int,
+    ): SharedPreferences {
+        credentialProtectedPreferencesRequested = true
+        return super.getSharedPreferences(name, mode)
     }
 }
 

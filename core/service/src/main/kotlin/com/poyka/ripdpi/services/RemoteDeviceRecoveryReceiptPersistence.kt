@@ -20,6 +20,11 @@ internal interface RemoteDeviceRecoveryReceiptPersistence {
     ): Boolean
 }
 
+internal enum class RemoteDeviceRecoveryReceiptPersistenceAvailability {
+    Available,
+    DeviceProtectedStorageUnavailable,
+}
+
 @Singleton
 internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
     @Inject
@@ -27,12 +32,22 @@ internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
         @ApplicationContext context: Context,
     ) : RemoteDeviceRecoveryReceiptPersistence {
         private val preferences =
-            context
-                .deviceProtectedStorageContextOrSelf()
-                .getSharedPreferences(RemoteDeviceRecoveryReceiptPreferencesName, Context.MODE_PRIVATE)
+            runCatching {
+                context
+                    .createDeviceProtectedStorageContext()
+                    .getSharedPreferences(RemoteDeviceRecoveryReceiptPreferencesName, Context.MODE_PRIVATE)
+            }.getOrNull()
 
-        override fun load(): PersistedRemoteDeviceRecoveryReceipt? =
-            synchronized(preferences) {
+        internal val availability =
+            if (preferences == null) {
+                RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable
+            } else {
+                RemoteDeviceRecoveryReceiptPersistenceAvailability.Available
+            }
+
+        override fun load(): PersistedRemoteDeviceRecoveryReceipt? {
+            val preferences = preferences ?: return null
+            return synchronized(preferences) {
                 val generationHash = preferences.getString(KeyGenerationHash, null) ?: return@synchronized null
                 val serviceInstanceHash =
                     preferences.getString(KeyServiceInstanceHash, null) ?: return@synchronized null
@@ -58,12 +73,14 @@ internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
                         ).privacySafe(),
                 )
             }
+        }
 
         override fun compareAndSet(
             expectedGenerationHash: String?,
             state: PersistedRemoteDeviceRecoveryReceipt,
-        ): Boolean =
-            synchronized(preferences) {
+        ): Boolean {
+            val preferences = preferences ?: return false
+            return synchronized(preferences) {
                 if (preferences.getString(KeyGenerationHash, null) != expectedGenerationHash) {
                     return@synchronized false
                 }
@@ -84,12 +101,8 @@ internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
                     .putString(KeyPostStartDataPlaneOutcome, receipt.postStartDataPlaneOutcome)
                     .commit()
             }
+        }
     }
-
-private fun Context.deviceProtectedStorageContextOrSelf(): Context =
-    runCatching { createDeviceProtectedStorageContext() }
-        .getOrNull()
-        ?: this
 
 internal const val RemoteDeviceRecoveryReceiptPreferencesName = "remote_device_recovery_receipt"
 private const val KeyGenerationHash = "generation_hash"
