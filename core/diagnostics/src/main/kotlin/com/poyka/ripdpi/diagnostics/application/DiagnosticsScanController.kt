@@ -478,9 +478,10 @@ internal class DefaultDiagnosticsScanController
                         }
                 }
                 startup.handle?.let { handle ->
-                    runCleanupStep(primaryFailure) {
-                        bridgeExecutionService.retireAfterStartupFailure(handle)
-                    }
+                    runCatching { bridgeExecutionService.retireAfterStartupFailure(handle) }
+                        .exceptionOrNull()
+                        ?.takeIf { it !== primaryFailure }
+                        ?.let(primaryFailure::addSuppressed)
                 }
                 activeScanRegistry.removePreparedScan(prepared.sessionId)
                 runCleanupStep(primaryFailure) { clearPreparedProgress(prepared) }

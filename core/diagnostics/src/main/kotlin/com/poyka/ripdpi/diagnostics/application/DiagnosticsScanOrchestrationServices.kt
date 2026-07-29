@@ -3,11 +3,9 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
-import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -245,10 +243,13 @@ internal sealed interface HiddenProbeCancellationResult {
 
 @Singleton
 class ActiveScanRegistry
-    @Inject
-    constructor(
+    internal constructor(
         private val timelineSource: DefaultDiagnosticsTimelineSource,
+        private val bridgeMutex: Mutex,
     ) {
+        @Inject
+        constructor(timelineSource: DefaultDiagnosticsTimelineSource) : this(timelineSource, Mutex())
+
         private companion object {
             /** How long to wait for the native engine to finalize after cancellation. */
             const val CANCEL_GRACE_PERIOD_MS = 3_000L
@@ -257,7 +258,6 @@ class ActiveScanRegistry
             const val CANCEL_POLL_INTERVAL_MS = 200L
         }
 
-        private val bridgeMutex = Mutex()
         private val visibleScanExecutions = LinkedHashMap<String, VisibleScanExecution>()
         private val visibleScanProgress = LinkedHashMap<String, ScanProgress>()
         private val hiddenScanExecutions = LinkedHashMap<String, HiddenScanExecution>()
@@ -301,8 +301,6 @@ class ActiveScanRegistry
             timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
 
         fun hasHiddenActiveScan(): Boolean = hiddenAutomaticProbeActiveState.value
-
-        fun hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan()
 
         internal suspend fun hasRegisteredExecution(sessionId: String): Boolean =
             bridgeMutex.withLock {
@@ -476,30 +474,45 @@ class ActiveScanRegistry
                 null
             }
 
-        suspend fun clearBridge(
+        internal suspend fun detachBridge(
             bridge: NetworkDiagnosticsBridge,
             sessionId: String,
             registerActiveBridge: Boolean,
-        ) {
+        ): BridgeDetachment =
             if (registerActiveBridge) {
-                val nextProgress =
-                    bridgeMutex.withLock {
-                        if (visibleScanExecutions[sessionId]?.bridge === bridge) {
-                            visibleScanExecutions.remove(sessionId)
-                            visibleScanProgress.remove(sessionId)
-                        }
-                        hasRegisteredActiveBridge = visibleScanExecutions.isNotEmpty()
-                        visibleProgressForActiveExecution(visibleScanExecutions, visibleScanProgress)
+                bridgeMutex.withLock {
+                    if (visibleScanExecutions[sessionId]?.bridge === bridge) {
+                        visibleScanExecutions.remove(sessionId)
+                        visibleScanProgress.remove(sessionId)
                     }
-                timelineSource.updateActiveScanProgress(nextProgress)
+                    hasRegisteredActiveBridge = visibleScanExecutions.isNotEmpty()
+                    val nextProgress = visibleProgressForActiveExecution(visibleScanExecutions, visibleScanProgress)
+                    BridgeDetachment(
+                        confirmed = visibleScanExecutions[sessionId]?.bridge !== bridge,
+                        publication = { timelineSource.updateActiveScanProgress(nextProgress) },
+                    )
+                }
             } else {
                 bridgeMutex.withLock {
                     if (hiddenScanExecutions[sessionId]?.bridge === bridge) {
                         hiddenScanExecutions.remove(sessionId)
                     }
                     hiddenAutomaticProbeActiveState.value = hiddenScanExecutions.isNotEmpty()
+                    BridgeDetachment(
+                        confirmed = hiddenScanExecutions[sessionId]?.bridge !== bridge,
+                        publication = {},
+                    )
                 }
             }
+
+        suspend fun clearBridge(
+            bridge: NetworkDiagnosticsBridge,
+            sessionId: String,
+            registerActiveBridge: Boolean,
+        ) {
+            val detachment = detachBridge(bridge, sessionId, registerActiveBridge)
+            check(detachment.confirmed) { "Diagnostics bridge detachment was not confirmed" }
+            detachment.publish()
         }
 
         suspend fun updateProgress(
@@ -527,6 +540,8 @@ class ActiveScanRegistry
         }
     }
 
+internal fun ActiveScanRegistry.hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan()
+
 private fun visibleProgressForActiveExecution(
     executions: Map<String, VisibleScanExecution>,
     progress: Map<String, ScanProgress>,
@@ -547,8 +562,7 @@ class BridgeExecutionService
     constructor(
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val activeScanRegistry: ActiveScanRegistry,
-        @param:ApplicationIoScope
-        private val retirementScope: CoroutineScope,
+        private val retirementQueue: BridgeRetirementQueue,
     ) {
         internal suspend fun createHandle(
             sessionId: String,
@@ -600,24 +614,19 @@ class BridgeExecutionService
         }
 
         internal suspend fun retireAfterStartupFailure(handle: BridgeSessionHandle) {
-            try {
-                // Startup bookkeeping must not wait for native teardown. Once detached,
-                // the registry cannot admit new calls through this bridge; reservations
-                // already held by the wrapper remain protected by its lifetime contract.
-                // ApplicationIoScope keeps the wrapper strongly reachable until native
-                // retirement finishes; scheduling is not a teardown timeout.
-                activeScanRegistry.clearBridge(
-                    bridge = handle.bridge,
-                    sessionId = handle.sessionId,
-                    registerActiveBridge = handle.registerActiveBridge,
-                )
-            } finally {
-                retirementScope.launch {
-                    if (runCatching { handle.bridge.destroy() }.isFailure) {
-                        Logger.w { "Asynchronous diagnostics bridge retirement failed" }
-                    }
+            val detachment =
+                withContext(NonCancellable) {
+                    activeScanRegistry.detachBridge(
+                        bridge = handle.bridge,
+                        sessionId = handle.sessionId,
+                        registerActiveBridge = handle.registerActiveBridge,
+                    )
                 }
-            }
+            check(detachment.confirmed) { "Diagnostics bridge detachment was not confirmed" }
+            detachment.publish()
+            // The queue owns a process-lifetime supervisor independently from application
+            // work scopes and retains the wrapper until native teardown completes.
+            retirementQueue.schedule(handle.bridge)
         }
 
         internal suspend fun destroy(handle: BridgeSessionHandle) {

@@ -751,7 +751,7 @@ internal fun executionCoordinatorFixtures(
         BridgeExecutionService(
             networkDiagnosticsBridgeFactory = bridgeFactory,
             activeScanRegistry = activeScanRegistry,
-            retirementScope = controllerScope,
+            retirementQueue = testBridgeRetirementQueue(controllerScope),
         )
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
     val networkMetadataProvider = FakeNetworkMetadataProvider()

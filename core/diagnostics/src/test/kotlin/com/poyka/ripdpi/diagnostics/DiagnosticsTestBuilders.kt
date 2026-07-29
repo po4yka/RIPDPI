@@ -22,13 +22,16 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.json.Json
 import javax.inject.Provider
+import kotlin.coroutines.ContinuationInterceptor
 
 private const val TestAutomaticHandoverProbeDelayMs = 15_000L
 private const val TestAutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
@@ -185,6 +188,8 @@ internal fun createDiagnosticsServices(
     serverCapabilityStore: FakeServerCapabilityStore = FakeServerCapabilityStore(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     controllerScope: CoroutineScope = scope,
+    bridgeMutex: Mutex = Mutex(),
+    retirementQueue: BridgeRetirementQueue = testBridgeRetirementQueue(scope),
 ): DiagnosticsServicesBundle {
     lateinit var scanController: DefaultDiagnosticsScanController
     val mapper = DiagnosticsBoundaryMapper(json)
@@ -219,13 +224,13 @@ internal fun createDiagnosticsServices(
             activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
             json = json,
         )
-    val activeScanRegistry = ActiveScanRegistry(timelineSource)
+    val activeScanRegistry = ActiveScanRegistry(timelineSource, bridgeMutex)
     val scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json)
     val bridgeExecutionService =
         BridgeExecutionService(
             networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
             activeScanRegistry = activeScanRegistry,
-            retirementScope = scope,
+            retirementQueue = retirementQueue,
         )
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
     val executionCoordinator =
@@ -339,6 +344,11 @@ internal fun createDiagnosticsServices(
             ),
     )
 }
+
+internal fun testBridgeRetirementQueue(scope: CoroutineScope): BridgeRetirementQueue =
+    BridgeRetirementQueue(
+        requireNotNull(scope.coroutineContext[ContinuationInterceptor]) as CoroutineDispatcher,
+    )
 
 internal fun createRuntimeHistoryMonitor(
     appSettingsRepository: AppSettingsRepository,
