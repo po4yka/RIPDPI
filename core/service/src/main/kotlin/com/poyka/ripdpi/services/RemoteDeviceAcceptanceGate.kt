@@ -41,6 +41,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
     private val evidenceWriter: RemoteDeviceAcceptanceEvidenceWriter,
     private val screenOffDwellMs: Long,
     private val telemetryFreshTimeoutMs: Long,
+    private val cancellationPersistenceTimeoutMs: Long,
 ) : RemoteDeviceAcceptanceGate {
     @Inject
     constructor(
@@ -57,6 +58,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         evidenceWriter = evidenceWriter,
         screenOffDwellMs = RemoteAcceptanceScreenOffDwellMs,
         telemetryFreshTimeoutMs = RemoteAcceptanceTelemetryFreshTimeoutMs,
+        cancellationPersistenceTimeoutMs = RemoteAcceptanceCancellationPersistenceTimeoutMs,
     )
 
     private val _report = MutableStateFlow(RemoteDeviceAcceptanceReport())
@@ -74,7 +76,14 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
             )
         runJob =
             scope.launch {
-                previousRun?.cancelAndJoin()
+                val previousRunStopped =
+                    withTimeoutOrNull(cancellationPersistenceTimeoutMs) {
+                        previousRun?.cancelAndJoin()
+                        true
+                    } ?: false
+                if (!previousRunStopped) {
+                    logRecoveryWarning(RemoteAcceptanceRecoveryWarning.PreviousRunTimeout)
+                }
                 if (!isCurrent(run)) return@launch
                 try {
                     evidenceWriter.beginRun(run.generation, System.currentTimeMillis())
@@ -82,13 +91,15 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                     runAcceptance(run)
                 } catch (cancelled: CancellationException) {
                     try {
-                        persistCancellation(run)
-                    } catch (cleanupCancellation: CancellationException) {
-                        Logger.w(cleanupCancellation) { "Remote acceptance cancellation evidence was cancelled" }
-                    } catch (databaseFailure: SQLException) {
-                        Logger.w(databaseFailure) { "Remote acceptance cancellation evidence database write failed" }
-                    } catch (stateFailure: IllegalStateException) {
-                        Logger.w(stateFailure) { "Remote acceptance cancellation evidence state write failed" }
+                        if (!persistCancellation(run)) {
+                            logRecoveryWarning(RemoteAcceptanceRecoveryWarning.CancellationPersistenceTimeout)
+                        }
+                    } catch (_: CancellationException) {
+                        logRecoveryWarning(RemoteAcceptanceRecoveryWarning.CancellationPersistenceCancelled)
+                    } catch (_: SQLException) {
+                        logRecoveryWarning(RemoteAcceptanceRecoveryWarning.CancellationPersistenceDatabase)
+                    } catch (_: IllegalStateException) {
+                        logRecoveryWarning(RemoteAcceptanceRecoveryWarning.CancellationPersistenceState)
                     }
                     throw cancelled
                 }
@@ -451,15 +462,17 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         )
     }
 
-    private suspend fun persistCancellation(run: RemoteAcceptanceRun) {
+    private suspend fun persistCancellation(run: RemoteAcceptanceRun): Boolean =
         withContext(NonCancellable) {
-            val wroteScreenOffCancellation =
-                run.guidedState?.cancelScreenOff(serviceStateStore.telemetry.value) == true
-            if (!wroteScreenOffCancellation) {
-                evidenceWriter.cancelRun(run.generation, System.currentTimeMillis())
-            }
+            withTimeoutOrNull(cancellationPersistenceTimeoutMs) {
+                val wroteScreenOffCancellation =
+                    run.guidedState?.cancelScreenOff(serviceStateStore.telemetry.value) == true
+                if (!wroteScreenOffCancellation) {
+                    evidenceWriter.cancelRun(run.generation, System.currentTimeMillis())
+                }
+                true
+            } ?: false
         }
-    }
 
     private fun isCurrent(run: RemoteAcceptanceRun): Boolean = activeRunOrdinal == run.ordinal
 }

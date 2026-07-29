@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalOutcome
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalPhase
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
@@ -379,3 +380,39 @@ private const val RemoteAcceptanceCancelledReason = "cancelled"
 private const val RemoteAcceptanceInterruptedPhase = "run_interrupted"
 private const val RemoteAcceptanceCancelledPhase = "run_cancelled"
 private const val RemoteAcceptanceTerminalEventIdPart = "run_terminal"
+internal const val RemoteAcceptanceCancellationPersistenceTimeoutMs = 2_000L
+
+internal enum class RemoteAcceptanceRecoveryWarning {
+    PreviousRunTimeout,
+    CancellationPersistenceTimeout,
+    CancellationPersistenceCancelled,
+    CancellationPersistenceDatabase,
+    CancellationPersistenceState,
+}
+
+internal fun remoteAcceptanceRecoveryWarning(warning: RemoteAcceptanceRecoveryWarning): String =
+    when (warning) {
+        RemoteAcceptanceRecoveryWarning.PreviousRunTimeout -> {
+            "Remote acceptance previous run cleanup timed out"
+        }
+
+        RemoteAcceptanceRecoveryWarning.CancellationPersistenceTimeout -> {
+            "Remote acceptance cancellation evidence timed out"
+        }
+
+        RemoteAcceptanceRecoveryWarning.CancellationPersistenceCancelled -> {
+            "Remote acceptance cancellation evidence was cancelled"
+        }
+
+        RemoteAcceptanceRecoveryWarning.CancellationPersistenceDatabase -> {
+            "Remote acceptance cancellation evidence failed: database"
+        }
+
+        RemoteAcceptanceRecoveryWarning.CancellationPersistenceState -> {
+            "Remote acceptance cancellation evidence failed: state"
+        }
+    }
+
+internal fun logRecoveryWarning(warning: RemoteAcceptanceRecoveryWarning) {
+    Logger.w { remoteAcceptanceRecoveryWarning(warning) }
+}

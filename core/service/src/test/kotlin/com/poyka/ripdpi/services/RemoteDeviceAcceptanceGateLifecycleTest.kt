@@ -13,10 +13,12 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -81,6 +83,56 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
             assertEquals(1, writer.begunRuns.size)
             assertEquals(writer.begunRuns, writer.cancelledRuns)
         }
+
+    @Test
+    fun `blocked cancellation write times out and leaves run for startup recovery`() =
+        runTest {
+            val cancellationStarted = CompletableDeferred<Unit>()
+            val releaseCancellation = CompletableDeferred<Unit>()
+            val writer =
+                RecordingRemoteDeviceAcceptanceEvidenceWriter(
+                    cancellationStarted = cancellationStarted,
+                    releaseCancellation = releaseCancellation,
+                )
+            val serviceState = runningServiceState(updatedAt = 1L)
+            val screen = MutableRemoteAcceptanceScreenStateObserver(interactive = true)
+            val gate =
+                gate(
+                    serviceState = serviceState,
+                    screen = screen,
+                    writer = writer,
+                    cancellationPersistenceTimeoutMs = 100L,
+                )
+
+            gate.start(backgroundScope)
+            runCurrent()
+            gate.start(backgroundScope)
+            runCurrent()
+            cancellationStarted.await()
+
+            advanceTimeBy(99L)
+            runCurrent()
+            assertEquals(1, writer.begunRuns.size)
+
+            advanceTimeBy(1L)
+            runCurrent()
+
+            assertEquals(2, writer.begunRuns.size)
+            assertTrue(writer.cancelledRuns.isEmpty())
+            assertFalse(releaseCancellation.isCompleted)
+        }
+
+    @Test
+    fun `remote acceptance recovery warnings are fixed categories`() {
+        val canary = "secret-cancellation-canary"
+
+        RemoteAcceptanceRecoveryWarning.entries.forEach { warning ->
+            val message = remoteAcceptanceRecoveryWarning(warning)
+            assertFalse(message.contains(canary))
+            assertFalse(message.contains("Throwable"))
+            assertFalse(message.contains("Exception"))
+        }
+    }
 
     @Test
     fun `short screen-off dwell is retained as terminal incomplete evidence`() =
@@ -235,6 +287,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         mutateWhen: () -> Boolean = { false },
         onTcpProbe: () -> Unit = {},
         screenOffDwellMs: Long = 0L,
+        cancellationPersistenceTimeoutMs: Long = RemoteAcceptanceCancellationPersistenceTimeoutMs,
     ): DefaultRemoteDeviceAcceptanceGate =
         DefaultRemoteDeviceAcceptanceGate(
             serviceStateStore = serviceState,
@@ -247,6 +300,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
             evidenceWriter = writer,
             screenOffDwellMs = screenOffDwellMs,
             telemetryFreshTimeoutMs = 10L,
+            cancellationPersistenceTimeoutMs = cancellationPersistenceTimeoutMs,
         )
 
     private fun baselineProbe(
@@ -363,6 +417,8 @@ private fun successfulPayloadHealth(families: Set<RelayUdpPayloadFamily>): Relay
 
 private class RecordingRemoteDeviceAcceptanceEvidenceWriter(
     private val cancelAfterBegin: Boolean = false,
+    private val cancellationStarted: CompletableDeferred<Unit>? = null,
+    private val releaseCancellation: CompletableDeferred<Unit>? = null,
 ) : RemoteDeviceAcceptanceEvidenceWriter {
     val begunRuns = mutableListOf<String>()
     val events = mutableListOf<DeviceRuntimeEvidence.BackgroundSurvival>()
@@ -389,6 +445,8 @@ private class RecordingRemoteDeviceAcceptanceEvidenceWriter(
         runGeneration: String,
         observedAtMillis: Long,
     ) {
+        cancellationStarted?.complete(Unit)
+        releaseCancellation?.await()
         cancelledRuns += runGeneration
     }
 }
