@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Severity
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -8,6 +9,18 @@ import org.junit.Test
 import java.nio.file.Files
 
 class FileLogWriterTest {
+    @Test
+    fun `snapshot result preserves cancellation identity`() {
+        val cancellation = CancellationException("archive caller cancelled")
+
+        try {
+            resultCatchingExceptions<Unit> { throw cancellation }
+            fail("Expected cancellation to propagate")
+        } catch (error: CancellationException) {
+            assertSame(cancellation, error)
+        }
+    }
+
     @Test
     fun `snapshot result does not swallow VM errors`() {
         val failure = AssertionError("fatal VM failure")

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
@@ -151,7 +152,7 @@ data class FileLogSnapshot(
 
 internal fun <T> resultCatchingExceptions(block: () -> T): Result<T> =
     runCatching(block).onFailure { error ->
-        if (error !is Exception) throw error
+        if (error is CancellationException || error !is Exception) throw error
     }
 
 internal fun truncateUtf8Bytes(
