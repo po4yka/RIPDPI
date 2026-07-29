@@ -109,7 +109,8 @@ class DiagnosticsArchiveRenderer
             copy(
                 logcatSnapshot =
                     logcatSnapshot?.let { snapshot ->
-                        val redacted = redactDiagnosticsLogcat(snapshot.content)
+                        val completeContent = snapshot.content.dropLeadingPartialLineIf(snapshot.truncated)
+                        val redacted = redactDiagnosticsLogcat(completeContent)
                         val redactedBytes = redacted.toByteArray(Charsets.UTF_8)
                         val bounded = tailUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
                         snapshot.copy(
@@ -120,7 +121,8 @@ class DiagnosticsArchiveRenderer
                     },
                 fileLogSnapshot =
                     fileLogSnapshot?.let { snapshot ->
-                        val redacted = redactDiagnosticsArchiveText(snapshot.content)
+                        val completeContent = snapshot.content.dropLeadingPartialLineIf(snapshot.truncated)
+                        val redacted = redactDiagnosticsArchiveText(completeContent)
                         val redactedBytes = redacted.toByteArray(Charsets.UTF_8)
                         val bounded = tailUtf8Bytes(redacted, FileLogWriter.MAX_LOG_FILE_BYTES.toInt())
                         snapshot.copy(
@@ -130,4 +132,7 @@ class DiagnosticsArchiveRenderer
                         )
                     },
             )
+
+        private fun String.dropLeadingPartialLineIf(truncated: Boolean): String =
+            if (truncated) substringAfter('\n', missingDelimiterValue = "") else this
     }

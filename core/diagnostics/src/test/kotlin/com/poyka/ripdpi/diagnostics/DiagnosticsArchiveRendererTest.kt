@@ -605,7 +605,8 @@ class DiagnosticsArchiveRendererTest {
 
     @Test
     fun `whole home composite zip redacts every hostile stage entry`() {
-        val base = buildSensitiveRendererSelection()
+        val logFixture = truncatedLogTailFixture(buildSensitiveRendererSelection())
+        val base = logFixture.selection
         val stage =
             rendererCompositeStage(
                 stageKey = "automatic_audit",
@@ -640,6 +641,7 @@ class DiagnosticsArchiveRendererTest {
                 includedFiles =
                     com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
                         logcatIncluded = true,
+                        fileLogIncluded = true,
                         composite = true,
                         compositeStageKeys = listOf("automatic_audit"),
                         replayIncluded = true,
@@ -659,8 +661,53 @@ class DiagnosticsArchiveRendererTest {
             assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
             assertNotNull(zip.getEntry("stages/automatic_audit/native-events.csv"))
             assertNotNull(zip.getEntry("stages/automatic_audit/probe-results.csv"))
+            val logcat = zip.getInputStream(zip.getEntry("logcat.txt")).bufferedReader().readText()
+            val appLog = zip.getInputStream(zip.getEntry("app-log.txt")).bufferedReader().readText()
+            assertFalse(logcat.contains(logFixture.partialLogcatLine))
+            assertTrue(logcat.contains(logFixture.newestLogcatLine))
+            assertFalse(appLog.contains(logFixture.partialAppLogLine))
+            assertTrue(appLog.contains(logFixture.newestAppLogLine))
         }
         assertZipExcludes(target, hostileArchiveValues())
+    }
+
+    private data class TruncatedLogTailFixture(
+        val selection: DiagnosticsArchiveSelection,
+        val partialLogcatLine: String,
+        val newestLogcatLine: String,
+        val partialAppLogLine: String,
+        val newestAppLogLine: String,
+    )
+
+    private fun truncatedLogTailFixture(selection: DiagnosticsArchiveSelection): TruncatedLogTailFixture {
+        val partialLogcatLine = "IPDPI( 123): ABC"
+        val newestLogcatLine = "I/RIPDPI( 123): newest-complete-logcat-line"
+        val partialAppLogLine = "OSTICS] partial-app-log-line"
+        val newestAppLogLine = "[WARN] [Diagnostics] newest-complete-app-log-line"
+        val baseLogcatSnapshot = requireNotNull(selection.logcatSnapshot)
+        val logcatContent = "$partialLogcatLine\n${baseLogcatSnapshot.content}$newestLogcatLine\n"
+        val appLogContent = "$partialAppLogLine\n$newestAppLogLine\n"
+        return TruncatedLogTailFixture(
+            selection =
+                selection.copy(
+                    logcatSnapshot =
+                        baseLogcatSnapshot.copy(
+                            content = logcatContent,
+                            byteCount = logcatContent.toByteArray(Charsets.UTF_8).size,
+                            truncated = true,
+                        ),
+                    fileLogSnapshot =
+                        FileLogSnapshot(
+                            content = appLogContent,
+                            byteCount = appLogContent.toByteArray(Charsets.UTF_8).size,
+                            truncated = true,
+                        ),
+                ),
+            partialLogcatLine = partialLogcatLine,
+            newestLogcatLine = newestLogcatLine,
+            partialAppLogLine = partialAppLogLine,
+            newestAppLogLine = newestAppLogLine,
+        )
     }
 
     private fun hostileArchiveValues(): List<String> =
