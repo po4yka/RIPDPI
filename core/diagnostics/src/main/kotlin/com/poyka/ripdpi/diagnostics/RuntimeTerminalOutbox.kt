@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.TerminalOutboxDurableStatePrefix
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -275,7 +276,7 @@ internal data class PendingTerminalSession(
             connectionSessionId = activeSession.id,
             updatedAt = createdAt,
             value =
-                RuntimeHistoryJson.encodeToString(
+                RipDpiContractJson.encodeToString(
                     TerminalOutboxMarker(
                         connectionSessionId = activeSession.id,
                         createdAt = createdAt,
@@ -302,6 +303,20 @@ internal data class TerminalOutboxMarker(
 )
 
 @Serializable
+private data class TerminalOutboxMarkerV1(
+    val connectionSessionId: String,
+    val createdAt: Long,
+    val terminalEvidenceSealed: Boolean,
+    val policyOutcome: RememberedPolicyTerminalOutcome? = null,
+    val phase: PendingTerminalPhase,
+)
+
+@Serializable
+private data class TerminalOutboxEnvelope(
+    val schemaVersion: Int = 1,
+)
+
+@Serializable
 internal enum class PendingTerminalPhase {
     RUNTIME_EVENTS,
     TERMINAL_SAMPLE,
@@ -314,13 +329,38 @@ internal enum class PendingTerminalPhase {
 private const val TerminalOutboxSchemaVersion = 2
 
 private fun decodeTerminalOutboxMarker(value: String): TerminalOutboxMarker {
-    val marker =
-        runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(value) }
+    val schemaVersion =
+        runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxEnvelope>(value).schemaVersion }
             .getOrElse { throw TerminalOutboxRecoveryException() }
-    if (marker.schemaVersion != TerminalOutboxSchemaVersion) {
-        throw TerminalOutboxRecoveryException()
+    return when (schemaVersion) {
+        1 -> {
+            migrateV1TerminalOutbox(value)
+        }
+
+        TerminalOutboxSchemaVersion -> {
+            runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(value) }
+                .getOrElse { throw TerminalOutboxRecoveryException() }
+        }
+
+        else -> {
+            throw TerminalOutboxRecoveryException()
+        }
     }
-    return marker
+}
+
+private fun migrateV1TerminalOutbox(value: String): TerminalOutboxMarker {
+    val marker =
+        runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarkerV1>(value) }
+            .getOrElse { throw TerminalOutboxRecoveryException() }
+    return TerminalOutboxMarker(
+        connectionSessionId = marker.connectionSessionId,
+        createdAt = marker.createdAt,
+        terminalEvidenceSealed = false,
+        policyOutcome = marker.policyOutcome,
+        policyEvidenceComplete = false,
+        artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+        phase = marker.phase,
+    )
 }
 
 private class TerminalOutboxRecoveryException : IllegalStateException("Invalid terminal outbox state")
