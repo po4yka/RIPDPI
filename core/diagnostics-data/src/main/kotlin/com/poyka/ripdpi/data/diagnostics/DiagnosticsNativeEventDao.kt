@@ -58,6 +58,20 @@ interface DiagnosticsNativeEventReadDao {
         """
         SELECT * FROM native_session_events
         WHERE connectionSessionId = :connectionSessionId
+          AND (subsystem IS NULL OR subsystem != 'network_transition')
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeRootCauseEventsForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 250,
+    ): Flow<List<NativeSessionEventEntity>>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE connectionSessionId = :connectionSessionId
           AND subsystem = 'network_transition'
         ORDER BY createdAt DESC
         """,

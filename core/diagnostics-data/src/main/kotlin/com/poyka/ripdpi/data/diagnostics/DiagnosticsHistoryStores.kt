@@ -98,6 +98,11 @@ interface DiagnosticsNativeArtifactReadStore {
         limit: Int = 250,
     ): Flow<List<NativeSessionEventEntity>>
 
+    fun observeConnectionRootCauseEvents(
+        connectionSessionId: String,
+        limit: Int = 250,
+    ): Flow<List<NativeSessionEventEntity>>
+
     fun observeConnectionNetworkTransitionEvents(connectionSessionId: String): Flow<List<NativeSessionEventEntity>>
 
     suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity?

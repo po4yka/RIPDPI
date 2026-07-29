@@ -250,6 +250,18 @@ internal class FakeDiagnosticsHistoryStores :
                 .take(limit)
         }
 
+    override fun observeConnectionRootCauseEvents(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NativeSessionEventEntity>> =
+        nativeEventsState.map { events ->
+            events
+                .filter { it.connectionSessionId == connectionSessionId }
+                .filterNot { it.subsystem == "network_transition" }
+                .sortedByDescending(NativeSessionEventEntity::createdAt)
+                .take(limit)
+        }
+
     override fun observeConnectionNetworkTransitionEvents(
         connectionSessionId: String,
     ): Flow<List<NativeSessionEventEntity>> =

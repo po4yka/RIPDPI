@@ -279,7 +279,7 @@ class RuntimeArtifactPersister
 
                 val persistedEvents =
                     artifactReadStore
-                        .observeConnectionNativeEvents(
+                        .observeConnectionRootCauseEvents(
                             connectionSessionId = connectionSessionId,
                             limit = MaxRuntimeRootCauseEventsPerSession,
                         ).first()
@@ -405,6 +405,19 @@ class RuntimeArtifactPersister
             val connectionSessionId = event.connectionSessionId ?: return
             if (event.subsystem == RuntimeRootCauseAssessmentSubsystem) return
             runtimeEvidenceMutex.withLock {
+                if (event.subsystem == "network_transition") {
+                    val transitionEvents =
+                        networkTransitionEventsByConnectionSessionId.getOrPut(connectionSessionId) {
+                            ArrayDeque(MaxRuntimeRootCauseEventsPerSession)
+                        }
+                    if (transitionEvents.size >= MaxRuntimeRootCauseEventsPerSession) {
+                        transitionEvents.removeFirst()
+                    }
+                    transitionEvents.removeAll { existing -> existing.id == event.id }
+                    transitionEvents.addLast(event)
+                    networkTransitionEventsByConnectionSessionId.trimTrackedSessions()
+                    return@withLock
+                }
                 val events =
                     runtimeEventsByConnectionSessionId.getOrPut(connectionSessionId) {
                         ArrayDeque(MaxRuntimeRootCauseEventsPerSession)
@@ -414,18 +427,7 @@ class RuntimeArtifactPersister
                 }
                 events.removeAll { existing -> existing.id == event.id }
                 events.addLast(event)
-                if (event.subsystem == "network_transition") {
-                    val transitionEvents =
-                        networkTransitionEventsByConnectionSessionId.getOrPut(connectionSessionId) {
-                            ArrayDeque(MaxRuntimeRootCauseEventsPerSession)
-                        }
-                    if (transitionEvents.size >= MaxRuntimeRootCauseEventsPerSession) {
-                        transitionEvents.removeFirst()
-                    }
-                    transitionEvents.addLast(event)
-                }
                 runtimeEventsByConnectionSessionId.trimTrackedSessions()
-                networkTransitionEventsByConnectionSessionId.trimTrackedSessions()
             }
         }
 

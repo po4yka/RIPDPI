@@ -178,6 +178,62 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
         }
 
     @Test
+    fun `connection evidence limit excludes separately loaded network transitions`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            val connectionSessionId = "conn-root-cause"
+            val evidence =
+                listOf(
+                    nativeEvent(
+                        id = "dns-evidence",
+                        sessionId = null,
+                        connectionSessionId = connectionSessionId,
+                        createdAt = 10L,
+                    ).copy(subsystem = "dns"),
+                    nativeEvent(
+                        id = "protect-evidence",
+                        sessionId = null,
+                        connectionSessionId = connectionSessionId,
+                        createdAt = 11L,
+                    ).copy(subsystem = "protect"),
+                    nativeEvent(
+                        id = "data-plane-evidence",
+                        sessionId = null,
+                        connectionSessionId = connectionSessionId,
+                        createdAt = 12L,
+                    ).copy(subsystem = "data_plane"),
+                )
+            evidence.forEach { event -> store.insertNativeSessionEvent(event) }
+            repeat(65) { index ->
+                store.insertNativeSessionEvent(
+                    NativeSessionEventEntity(
+                        id = "transition-$index",
+                        sessionId = null,
+                        connectionSessionId = connectionSessionId,
+                        source = "android_network_callback",
+                        level = "info",
+                        message = "kind=available generation=$index sequence=${index + 1}",
+                        createdAt = 100L + index,
+                        subsystem = "network_transition",
+                    ),
+                )
+            }
+
+            assertEquals(
+                listOf("data-plane-evidence", "protect-evidence", "dns-evidence"),
+                store.observeConnectionRootCauseEvents(connectionSessionId, 64).first().map { it.id },
+            )
+            assertEquals(
+                64,
+                store.observeConnectionNativeEvents(connectionSessionId, 64).first().size,
+            )
+            assertEquals(
+                65,
+                store.observeConnectionNetworkTransitionEvents(connectionSessionId).first().size,
+            )
+        }
+
+    @Test
     fun `artifact store returns latest telemetry sample by fingerprint and mode`() =
         runTest {
             val store = RoomDiagnosticsArtifactStore(db, dao)

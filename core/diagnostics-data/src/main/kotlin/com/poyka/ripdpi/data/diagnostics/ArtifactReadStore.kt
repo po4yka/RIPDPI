@@ -81,6 +81,15 @@ internal class ArtifactReadStore(
             limit = limit,
         )
 
+    override fun observeConnectionRootCauseEvents(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NativeSessionEventEntity>> =
+        dao.observeRootCauseEventsForConnectionSession(
+            connectionSessionId = connectionSessionId,
+            limit = limit,
+        )
+
     override fun observeConnectionNetworkTransitionEvents(
         connectionSessionId: String,
     ): Flow<List<NativeSessionEventEntity>> =
