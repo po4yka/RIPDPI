@@ -7,9 +7,11 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -157,7 +159,7 @@ class DiagnosticsScanControllerTest {
         }
 
     @Test
-    fun `cancelled controller scope destroys bridge before execution starts`() =
+    fun `cancelled application scope rejects startup before durable resources`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
@@ -181,12 +183,10 @@ class DiagnosticsScanControllerTest {
                 services.scanController.startScan(ScanPathMode.RAW_PATH)
             }
 
-            assertEquals(1, bridgeFactory.bridge.destroyCount)
+            assertEquals(0, bridgeFactory.bridge.destroyCount)
             assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
             assertNull(services.timelineSource.activeScanProgress.value)
-            val failedSession = stores.sessionsState.value.single()
-            assertEquals("failed", failedSession.status)
-            assertEquals("Diagnostics scan canceled during startup", failedSession.summary)
+            assertTrue(stores.sessionsState.value.isEmpty())
         }
 
     @Test
@@ -230,6 +230,138 @@ class DiagnosticsScanControllerTest {
             val failedSession = stores.sessionsState.value.single()
             assertEquals("failed", failedSession.status)
             assertEquals("Diagnostics scan canceled during startup", failedSession.summary)
+        }
+
+    @Test
+    fun `caller cancellation at every persistence boundary terminalizes startup`() =
+        runTest {
+            StartupPersistenceBoundary.entries.forEach { boundary ->
+                val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+                val boundaryEntered = CompletableDeferred<Unit>()
+                stores.suspendStartupAt(boundary, boundaryEntered)
+                val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+                val services =
+                    createDiagnosticsServices(
+                        context = TestContext(),
+                        appSettingsRepository = FakeAppSettingsRepository(),
+                        stores = stores,
+                        networkMetadataProvider = FakeNetworkMetadataProvider(),
+                        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                        networkDiagnosticsBridgeFactory = bridgeFactory,
+                        runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                        serviceStateStore = FakeServiceStateStore(),
+                        scope = backgroundScope,
+                        controllerScope = backgroundScope,
+                        json = json,
+                    )
+
+                val start = async { services.scanController.startScan(ScanPathMode.IN_PATH) }
+                boundaryEntered.await()
+                val cancellation = CancellationException("caller canceled at ${boundary.name}")
+                start.cancel(cancellation)
+
+                val thrown = assertControllerSuspendFailsWith<CancellationException> { start.await() }
+                assertEquals(cancellation.message, thrown.message)
+                assertEquals(
+                    "failed",
+                    stores.sessionsState.value
+                        .single()
+                        .status,
+                )
+                assertEquals(
+                    "Diagnostics scan canceled during startup",
+                    stores.sessionsState.value
+                        .single()
+                        .summary,
+                )
+                assertFalse(services.scanController.hasActiveScan())
+                assertNull(services.timelineSource.activeScanProgress.value)
+                assertEquals(0, bridgeFactory.bridge.destroyCount)
+            }
+        }
+
+    @Test
+    fun `caller cancellation after bridge start cleans registered bridge before launch`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val cancellation = CancellationException("caller canceled after bridge start")
+            lateinit var start: kotlinx.coroutines.Deferred<DiagnosticsManualScanStartResult>
+            bridgeFactory.bridge.afterStartScan = { start.cancel(cancellation) }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = backgroundScope,
+                    json = json,
+                )
+
+            start = async(start = CoroutineStart.LAZY) { services.scanController.startScan(ScanPathMode.IN_PATH) }
+            start.start()
+
+            val thrown = assertControllerSuspendFailsWith<CancellationException> { start.await() }
+            assertEquals(cancellation.message, thrown.message)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+            assertEquals(
+                "failed",
+                stores.sessionsState.value
+                    .single()
+                    .status,
+            )
+            assertFalse(services.scanController.hasActiveScan())
+            assertNull(services.timelineSource.activeScanProgress.value)
+        }
+
+    @Test
+    fun `caller cancellation during bridge registration does not leak created bridge`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            val cancellation = CancellationException("caller canceled during bridge registration")
+            lateinit var start: kotlinx.coroutines.Deferred<DiagnosticsManualScanStartResult>
+            val bridgeFactory =
+                object : com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory {
+                    override fun create(): com.poyka.ripdpi.core.NetworkDiagnosticsBridge {
+                        start.cancel(cancellation)
+                        return bridge
+                    }
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = backgroundScope,
+                    json = json,
+                )
+
+            start = async(start = CoroutineStart.LAZY) { services.scanController.startScan(ScanPathMode.IN_PATH) }
+            start.start()
+
+            val thrown = assertControllerSuspendFailsWith<CancellationException> { start.await() }
+            assertEquals(cancellation.message, thrown.message)
+            assertEquals(1, bridge.destroyCount)
+            assertEquals(
+                "failed",
+                stores.sessionsState.value
+                    .single()
+                    .status,
+            )
+            assertFalse(services.scanController.hasActiveScan())
+            assertNull(services.timelineSource.activeScanProgress.value)
         }
 
     @Test
@@ -407,4 +539,40 @@ class DiagnosticsScanControllerTest {
 
             assertEquals("automatic-probing", stores.getScanSession(sessionId)?.profileId)
         }
+}
+
+private enum class StartupPersistenceBoundary {
+    SESSION,
+    SNAPSHOT,
+    CONTEXT,
+}
+
+private fun FakeDiagnosticsHistoryStores.suspendStartupAt(
+    boundary: StartupPersistenceBoundary,
+    entered: CompletableDeferred<Unit>,
+) {
+    when (boundary) {
+        StartupPersistenceBoundary.SESSION -> {
+            afterUpsertScanSession = { session ->
+                if (session.status == "running") {
+                    entered.complete(Unit)
+                    awaitCancellation()
+                }
+            }
+        }
+
+        StartupPersistenceBoundary.SNAPSHOT -> {
+            afterUpsertSnapshot = {
+                entered.complete(Unit)
+                awaitCancellation()
+            }
+        }
+
+        StartupPersistenceBoundary.CONTEXT -> {
+            afterUpsertContextSnapshot = {
+                entered.complete(Unit)
+                awaitCancellation()
+            }
+        }
+    }
 }

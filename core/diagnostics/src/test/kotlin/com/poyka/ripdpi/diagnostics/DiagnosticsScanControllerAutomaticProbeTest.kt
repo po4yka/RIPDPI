@@ -71,7 +71,7 @@ class DiagnosticsScanControllerAutomaticProbeTest {
         }
 
     @Test
-    fun `automatic handover replay restarts orphaned running session at every startup boundary`() =
+    fun `automatic handover startup failure terminalizes its durable session at every boundary`() =
         runTest {
             val settings =
                 defaultDiagnosticsAppSettings()
@@ -79,11 +79,11 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
             AutomaticStartupFailurePoint.entries.forEach { failurePoint ->
-                assertAutomaticReplayRestartsOrphanedSession(settings, failurePoint)
+                assertAutomaticStartupFailureIsTerminal(settings, failurePoint)
             }
         }
 
-    private suspend fun TestScope.assertAutomaticReplayRestartsOrphanedSession(
+    private suspend fun TestScope.assertAutomaticStartupFailureIsTerminal(
         settings: com.poyka.ripdpi.proto.AppSettings,
         failurePoint: AutomaticStartupFailurePoint,
     ) {
@@ -100,11 +100,13 @@ class DiagnosticsScanControllerAutomaticProbeTest {
             firstServices.scanController.launchAutomaticProbe(settings, event)
         }
         assertEquals(
-            "running",
+            "failed",
             stores.sessionsState.value
                 .single()
                 .status,
         )
+        assertFalse(firstServices.scanController.hasActiveScan())
+        assertFalse(firstServices.scanController.hiddenAutomaticProbeActive.value)
 
         stores.clearStartupFailures()
         val replayBridgeFactory =
@@ -113,9 +115,9 @@ class DiagnosticsScanControllerAutomaticProbeTest {
             }
         val replayServices = automaticProbeServices(settings, stores, replayBridgeFactory)
 
-        assertFalse(replayServices.scanController.launchAutomaticProbe(settings, event))
+        assertTrue(replayServices.scanController.launchAutomaticProbe(settings, event))
         assertEquals(1, stores.sessionsState.value.size)
-        assertTrue(replayServices.scanController.hiddenAutomaticProbeActive.value)
+        assertFalse(replayServices.scanController.hiddenAutomaticProbeActive.value)
     }
 
     private fun startupFailureBridgeFactory(
@@ -132,7 +134,9 @@ class DiagnosticsScanControllerAutomaticProbeTest {
     private fun FakeDiagnosticsHistoryStores.injectStartupFailure(failurePoint: AutomaticStartupFailurePoint) {
         when (failurePoint) {
             AutomaticStartupFailurePoint.AFTER_SESSION -> {
-                afterUpsertScanSession = { error("injected startup failure") }
+                afterUpsertScanSession = { session ->
+                    if (session.status == "running") error("injected startup failure")
+                }
             }
 
             AutomaticStartupFailurePoint.AFTER_SNAPSHOT -> {

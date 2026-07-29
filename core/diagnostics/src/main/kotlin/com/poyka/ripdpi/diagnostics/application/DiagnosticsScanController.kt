@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
@@ -53,6 +55,8 @@ internal class DefaultDiagnosticsScanController
         AutomaticProbeLauncher {
         private companion object {
             const val HiddenProbeCancellationTimeoutMs = 10_000L
+            const val StartupCanceledSummary = "Diagnostics scan canceled during startup"
+            const val StartupFailedSummary = "Diagnostics scan failed to start"
         }
 
         private val startMutex = Mutex()
@@ -346,9 +350,21 @@ internal class DefaultDiagnosticsScanController
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
             ownerId: String? = null,
         ): String {
-            persistPreparedScan(prepared, ownerId)
-            val bridgeSession = createStartedBridge(prepared)
-            launchPreparedScan(prepared, bridgeSession, rawPathRunner)
+            val startup = StartupTransactionResources()
+            val startupFailure =
+                runCatching {
+                    persistPreparedScan(prepared, ownerId)
+                    ensureStartupActive(scope)
+                    val bridgeSession = createStartedBridge(prepared, startup)
+                    ensureStartupActive(scope)
+                    launchPreparedScan(prepared, bridgeSession, rawPathRunner, startup)
+                }.exceptionOrNull()
+            if (startupFailure != null) {
+                val summary =
+                    if (startupFailure is CancellationException) StartupCanceledSummary else StartupFailedSummary
+                cleanupStartupFailure(prepared, startup, summary, startupFailure)
+                throw startupFailure
+            }
             return prepared.sessionId
         }
 
@@ -357,9 +373,13 @@ internal class DefaultDiagnosticsScanController
             ownerId: String?,
         ) {
             activeScanRegistry.rememberPreparedScan(prepared, ownerId)
+            ensureStartupActive(scope)
             scanRecordStore.upsertScanSession(prepared.initialSession)
+            ensureStartupActive(scope)
             artifactWriteStore.upsertSnapshot(prepared.preScanSnapshot)
+            ensureStartupActive(scope)
             artifactWriteStore.upsertContextSnapshot(prepared.preScanContext)
+            ensureStartupActive(scope)
 
             val failureSummary = prepared.inPathPreflightFailureSummary() ?: return
             activeScanRegistry.removePreparedScan(prepared.sessionId)
@@ -372,40 +392,25 @@ internal class DefaultDiagnosticsScanController
             throw IllegalStateException(failureSummary)
         }
 
-        private suspend fun createStartedBridge(prepared: PreparedDiagnosticsScan): PreparedBridgeSession {
+        private suspend fun createStartedBridge(
+            prepared: PreparedDiagnosticsScan,
+            startup: StartupTransactionResources,
+        ): PreparedBridgeSession {
             val handle =
                 bridgeExecutionService.createHandle(
                     sessionId = prepared.sessionId,
                     registerActiveBridge = prepared.registerActiveBridge,
                 )
+            startup.handle = handle
+            ensureStartupActive(scope)
             val startBridgeBeforeAwait = prepared.pathMode == ScanPathMode.RAW_PATH
             if (startBridgeBeforeAwait) return PreparedBridgeSession(handle, true)
 
-            val startFailure =
-                runCatching {
-                    bridgeExecutionService.start(
-                        handle = handle,
-                        requestJson = prepared.requestJson,
-                    )
-                }.exceptionOrNull()
-            if (startFailure is CancellationException) {
-                cleanupStartupFailure(
-                    prepared = prepared,
-                    handle = handle,
-                    summary = "Diagnostics scan canceled during startup",
-                    primaryFailure = startFailure,
-                )
-                throw startFailure
-            }
-            if (startFailure != null) {
-                cleanupStartupFailure(
-                    prepared = prepared,
-                    handle = handle,
-                    summary = startFailure.message ?: "Diagnostics scan failed to start",
-                    primaryFailure = startFailure,
-                )
-                throw startFailure
-            }
+            bridgeExecutionService.start(
+                handle = handle,
+                requestJson = prepared.requestJson,
+            )
+            ensureStartupActive(scope)
             return PreparedBridgeSession(handle, false)
         }
 
@@ -413,6 +418,7 @@ internal class DefaultDiagnosticsScanController
             prepared: PreparedDiagnosticsScan,
             bridgeSession: PreparedBridgeSession,
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+            startup: StartupTransactionResources,
         ) {
             if (prepared.exposeProgress) {
                 activeScanRegistry.updateProgress(
@@ -425,17 +431,9 @@ internal class DefaultDiagnosticsScanController
                         message = "Preparing diagnostics session",
                     ),
                 )
+                ensureStartupActive(scope)
             }
-            if (!scope.isActive) {
-                val cancellation = CancellationException("Diagnostics scan cancelled during startup")
-                cleanupStartupFailure(
-                    prepared = prepared,
-                    handle = bridgeSession.handle,
-                    summary = "Diagnostics scan canceled during startup",
-                    primaryFailure = cancellation,
-                )
-                throw cancellation
-            }
+            ensureStartupActive(scope)
 
             val executionJob =
                 scope.launch(start = CoroutineStart.LAZY) {
@@ -446,51 +444,51 @@ internal class DefaultDiagnosticsScanController
                         startBridgeBeforeAwait = bridgeSession.startBeforeAwait,
                     )
                 }
+            startup.executionJob = executionJob
+            ensureStartupActive(scope)
             val executionRegistered =
                 activeScanRegistry.registerExecution(
                     sessionId = prepared.sessionId,
                     job = executionJob,
                     registerActiveBridge = prepared.registerActiveBridge,
                 )
+            ensureStartupActive(scope)
             if (!executionRegistered || !executionJob.start()) {
-                executionJob.cancel()
-                val cancellation = CancellationException("Diagnostics scan cancelled during startup")
-                cleanupStartupFailure(
-                    prepared = prepared,
-                    handle = bridgeSession.handle,
-                    summary = "Diagnostics scan canceled during startup",
-                    primaryFailure = cancellation,
-                )
-                throw cancellation
+                throw CancellationException(StartupCanceledSummary)
             }
         }
 
         private suspend fun cleanupStartupFailure(
             prepared: PreparedDiagnosticsScan,
-            handle: BridgeSessionHandle,
+            startup: StartupTransactionResources,
             summary: String,
             primaryFailure: Throwable,
         ) {
             withContext(NonCancellable) {
-                runCatching {
+                startup.executionJob?.cancel()
+                runCleanupStep(primaryFailure) {
+                    startup.executionJob?.cancelAndJoin()
+                }
+                runCleanupStep(primaryFailure) {
                     scanRecordStore
                         .getScanSession(prepared.sessionId)
                         ?.takeIf { session -> session.status == "running" }
                         ?.let {
                             DiagnosticsReportPersister.persistScanFailure(prepared.sessionId, summary, scanRecordStore)
                         }
-                }.exceptionOrNull()
-                    ?.takeIf { it !== primaryFailure }
-                    ?.let(primaryFailure::addSuppressed)
-                runCatching { bridgeExecutionService.destroy(handle) }
-                    .exceptionOrNull()
-                    ?.takeIf { it !== primaryFailure }
-                    ?.let(primaryFailure::addSuppressed)
+                }
+                startup.handle?.let { handle ->
+                    runCleanupStep(primaryFailure) { bridgeExecutionService.destroy(handle) }
+                    runCleanupStep(primaryFailure) {
+                        activeScanRegistry.clearBridge(
+                            bridge = handle.bridge,
+                            sessionId = handle.sessionId,
+                            registerActiveBridge = handle.registerActiveBridge,
+                        )
+                    }
+                }
                 activeScanRegistry.removePreparedScan(prepared.sessionId)
-                runCatching { clearPreparedProgress(prepared) }
-                    .exceptionOrNull()
-                    ?.takeIf { it !== primaryFailure }
-                    ?.let(primaryFailure::addSuppressed)
+                runCleanupStep(primaryFailure) { clearPreparedProgress(prepared) }
             }
         }
 
@@ -505,6 +503,30 @@ private data class PreparedBridgeSession(
     val handle: BridgeSessionHandle,
     val startBeforeAwait: Boolean,
 )
+
+private data class StartupTransactionResources(
+    var handle: BridgeSessionHandle? = null,
+    var executionJob: Job? = null,
+)
+
+private const val StartupCleanupStepTimeoutMs = 2_000L
+
+private suspend fun ensureStartupActive(scope: CoroutineScope) {
+    if (!currentCoroutineContext().isActive || !scope.isActive) {
+        throw CancellationException("Diagnostics scan canceled during startup")
+    }
+}
+
+private suspend fun runCleanupStep(
+    primaryFailure: Throwable,
+    block: suspend () -> Unit,
+) {
+    runCatching {
+        withTimeout(StartupCleanupStepTimeoutMs) { block() }
+    }.exceptionOrNull()
+        ?.takeIf { it !== primaryFailure }
+        ?.let(primaryFailure::addSuppressed)
+}
 
 internal class HiddenProbeConflictRequestFactory
     @Inject

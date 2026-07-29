@@ -819,6 +819,7 @@ internal class FakeNetworkDiagnosticsBridge(
     var autoCompleteOnStart: Boolean = true
     var startScanEntered: CompletableDeferred<Unit>? = null
     var releaseStartScan: CompletableDeferred<Unit>? = null
+    var afterStartScan: suspend () -> Unit = {}
     var requireActiveContextOnDestroy: Boolean = false
     var cancelCount: Int = 0
     var destroyCount: Int = 0
@@ -838,6 +839,7 @@ internal class FakeNetworkDiagnosticsBridge(
         releaseStartScan?.await()
         faults.next(DiagnosticsBridgeFaultTarget.START_SCAN)?.throwOrIgnore()
         startedRequestJson = requestJson
+        afterStartScan()
         if (autoCompleteOnStart) {
             progressJson =
                 json.encodeToString(

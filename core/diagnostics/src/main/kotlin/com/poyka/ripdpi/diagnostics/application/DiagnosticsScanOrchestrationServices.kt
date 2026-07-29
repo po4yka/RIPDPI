@@ -539,17 +539,43 @@ class BridgeExecutionService
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val activeScanRegistry: ActiveScanRegistry,
     ) {
+        private companion object {
+            const val RegistrationCleanupTimeoutMs = 2_000L
+        }
+
         internal suspend fun createHandle(
             sessionId: String,
             registerActiveBridge: Boolean,
         ): BridgeSessionHandle {
             val bridge = networkDiagnosticsBridgeFactory.create()
-            activeScanRegistry.registerBridge(bridge, sessionId, registerActiveBridge)
-            return BridgeSessionHandle(
-                bridge = bridge,
-                sessionId = sessionId,
-                registerActiveBridge = registerActiveBridge,
-            )
+            val handle =
+                BridgeSessionHandle(
+                    bridge = bridge,
+                    sessionId = sessionId,
+                    registerActiveBridge = registerActiveBridge,
+                )
+            val registrationFailure =
+                runCatching {
+                    activeScanRegistry.registerBridge(bridge, sessionId, registerActiveBridge)
+                }.exceptionOrNull()
+            if (registrationFailure != null) {
+                withContext(NonCancellable) {
+                    runCatching {
+                        withTimeout(RegistrationCleanupTimeoutMs) { bridge.destroy() }
+                    }.exceptionOrNull()
+                        ?.takeIf { it !== registrationFailure }
+                        ?.let(registrationFailure::addSuppressed)
+                    runCatching {
+                        withTimeout(RegistrationCleanupTimeoutMs) {
+                            activeScanRegistry.clearBridge(bridge, sessionId, registerActiveBridge)
+                        }
+                    }.exceptionOrNull()
+                        ?.takeIf { it !== registrationFailure }
+                        ?.let(registrationFailure::addSuppressed)
+                }
+                throw registrationFailure
+            }
+            return handle
         }
 
         internal suspend fun start(
