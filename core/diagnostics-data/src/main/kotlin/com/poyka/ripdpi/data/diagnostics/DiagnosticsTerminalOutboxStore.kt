@@ -13,6 +13,8 @@ interface DiagnosticsTerminalOutboxStore {
 
     suspend fun getPendingTerminalOutboxes(limit: Int = 64): List<DiagnosticsDurableStateEntity>
 
+    suspend fun getTerminalOutbox(key: String): DiagnosticsDurableStateEntity?
+
     suspend fun checkpointTerminalOutbox(
         expectedMarker: DiagnosticsDurableStateEntity,
         replacementMarker: DiagnosticsDurableStateEntity,
@@ -74,6 +76,9 @@ class RoomDiagnosticsTerminalOutboxStore
                 migrateLegacyTerminalOutboxes(limit)
                 dao.getDiagnosticsDurableStateByPrefix(TerminalOutboxDurableStatePrefix, limit)
             }
+
+        override suspend fun getTerminalOutbox(key: String): DiagnosticsDurableStateEntity? =
+            dao.getDiagnosticsDurableState(key)
 
         override suspend fun checkpointTerminalOutbox(
             expectedMarker: DiagnosticsDurableStateEntity,

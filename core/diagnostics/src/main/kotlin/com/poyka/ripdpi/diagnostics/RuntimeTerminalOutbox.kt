@@ -139,25 +139,32 @@ internal class RuntimeTerminalOutbox(
             pending.policyEvidenceComplete = false
         }
         val policyCheckpoint = pending.toMarker(PendingTerminalPhase.POLICY_FINALIZATION)
-        check(
-            outboxStore.checkpointTerminalPolicy(
-                policy = policy,
-                expectedMarker = pending.currentMarker,
-                replacementMarker = policyCheckpoint,
-            ),
-        ) { "Terminal outbox policy checkpoint lost ownership" }
-        pending.currentMarker = policyCheckpoint
+        reconcileCheckpoint(
+            pending = pending,
+            intendedMarker = policyCheckpoint,
+            checkpointSucceeded =
+                outboxStore.checkpointTerminalPolicy(
+                    policy = policy,
+                    expectedMarker = pending.currentMarker,
+                    replacementMarker = policyCheckpoint,
+                ),
+        )
+        if (pending.phase != PendingTerminalPhase.POLICY_FINALIZATION) {
+            rememberedPolicySessionTracker.clear()
+            return
+        }
         rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome)
         val replacement = pending.toMarker(nextPhase)
-        check(
-            outboxStore.checkpointTerminalOutbox(
-                expectedMarker = pending.currentMarker,
-                replacementMarker = replacement,
-            ),
-        ) { "Terminal outbox policy handover checkpoint lost ownership" }
+        reconcileCheckpoint(
+            pending = pending,
+            intendedMarker = replacement,
+            checkpointSucceeded =
+                outboxStore.checkpointTerminalOutbox(
+                    expectedMarker = pending.currentMarker,
+                    replacementMarker = replacement,
+                ),
+        )
         rememberedPolicySessionTracker.clear()
-        pending.currentMarker = replacement
-        pending.phase = nextPhase
     }
 
     private suspend fun reconstructPolicy(
@@ -189,15 +196,16 @@ internal class RuntimeTerminalOutbox(
     private suspend fun persistFinishedSession(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT
         val replacement = pending.toMarker(nextPhase)
-        check(
-            outboxStore.checkpointTerminalSession(
-                finishedSession = pending.finishedSession,
-                expectedMarker = pending.currentMarker,
-                replacementMarker = replacement,
-            ),
-        ) { "Terminal outbox session checkpoint lost ownership" }
-        pending.currentMarker = replacement
-        pending.phase = nextPhase
+        reconcileCheckpoint(
+            pending = pending,
+            intendedMarker = replacement,
+            checkpointSucceeded =
+                outboxStore.checkpointTerminalSession(
+                    finishedSession = pending.finishedSession,
+                    expectedMarker = pending.currentMarker,
+                    replacementMarker = replacement,
+                ),
+        )
     }
 
     private suspend fun persistRootCauseAssessment(pending: PendingTerminalSession) {
@@ -216,25 +224,13 @@ internal class RuntimeTerminalOutbox(
             } else {
                 outboxStore.completeTerminalOutboxWithAssessment(assessment, pending.currentMarker)
             }
-        check(completed) {
-            "Terminal outbox completion lost ownership"
+        if (!completed && outboxStore.getTerminalOutbox(pending.currentMarker.key) != null) {
+            throw TerminalOutboxRecoveryException()
         }
         if (assessment != null) {
             artifactPersister.markTerminalRootCauseAssessmentPersisted(pending.activeSession.id)
         }
         pending.phase = PendingTerminalPhase.COMPLETE
-    }
-
-    private suspend fun checkpoint(
-        pending: PendingTerminalSession,
-        nextPhase: PendingTerminalPhase,
-    ) {
-        val replacement = pending.toMarker(nextPhase)
-        check(outboxStore.checkpointTerminalOutbox(pending.currentMarker, replacement)) {
-            "Terminal outbox checkpoint lost ownership"
-        }
-        pending.currentMarker = replacement
-        pending.phase = nextPhase
     }
 
     private suspend fun checkpointArtifacts(
@@ -244,16 +240,45 @@ internal class RuntimeTerminalOutbox(
         nextPhase: PendingTerminalPhase,
     ) {
         val replacement = pending.toMarker(nextPhase)
-        check(
-            outboxStore.checkpointTerminalArtifacts(
-                events = events,
-                telemetrySample = telemetrySample,
-                expectedMarker = pending.currentMarker,
-                replacementMarker = replacement,
-            ),
-        ) { "Terminal outbox artifact checkpoint lost ownership" }
-        pending.currentMarker = replacement
-        pending.phase = nextPhase
+        reconcileCheckpoint(
+            pending = pending,
+            intendedMarker = replacement,
+            checkpointSucceeded =
+                outboxStore.checkpointTerminalArtifacts(
+                    events = events,
+                    telemetrySample = telemetrySample,
+                    expectedMarker = pending.currentMarker,
+                    replacementMarker = replacement,
+                ),
+        )
+    }
+
+    private suspend fun reconcileCheckpoint(
+        pending: PendingTerminalSession,
+        intendedMarker: DiagnosticsDurableStateEntity,
+        checkpointSucceeded: Boolean,
+    ) {
+        val previousPhase = pending.phase
+        val durableMarker =
+            if (checkpointSucceeded) {
+                intendedMarker
+            } else {
+                outboxStore.getTerminalOutbox(pending.currentMarker.key)
+                    ?: throw TerminalOutboxRecoveryException()
+            }
+        val outbox = decodeTerminalOutboxMarker(durableMarker.value)
+        if (
+            durableMarker.key != "$TerminalOutboxDurableStatePrefix${pending.activeSession.id}" ||
+            durableMarker.updatedAt != pending.createdAt ||
+            outbox.connectionSessionId != pending.activeSession.id ||
+            outbox.createdAt != pending.createdAt ||
+            outbox.phase.ordinal < previousPhase.ordinal
+        ) {
+            throw TerminalOutboxRecoveryException()
+        }
+        pending.currentMarker = durableMarker
+        pending.policyEvidenceComplete = outbox.policyEvidenceComplete
+        pending.phase = outbox.phase
     }
 }
 

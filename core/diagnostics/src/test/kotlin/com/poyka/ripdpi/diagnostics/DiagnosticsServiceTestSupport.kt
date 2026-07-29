@@ -153,6 +153,8 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
     var beforeCheckpointTerminalOutbox: suspend (DiagnosticsDurableStateEntity) -> Unit = {}
+    var afterCheckpointTerminalOutbox: suspend (DiagnosticsDurableStateEntity) -> Unit = {}
+    var afterCompleteTerminalOutbox: suspend () -> Unit = {}
     var beforeCheckpointTerminalPolicy: suspend (RememberedNetworkPolicyEntity?) -> Unit = {}
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
@@ -262,6 +264,9 @@ internal class FakeDiagnosticsHistoryStores :
         terminalOutboxState.value
             .sortedBy(DiagnosticsDurableStateEntity::updatedAt)
             .take(limit)
+
+    override suspend fun getTerminalOutbox(key: String): DiagnosticsDurableStateEntity? =
+        terminalOutboxState.value.firstOrNull { state -> state.key == key }
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
 
@@ -445,6 +450,7 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean {
         if (!terminalMarkerIsCurrent(marker)) return false
         terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+        afterCompleteTerminalOutbox()
         return true
     }
 
@@ -457,15 +463,17 @@ internal class FakeDiagnosticsHistoryStores :
         nativeEventsState.value = nativeEventsState.value.upsertById(assessment) { it.id }
         afterInsertNativeSessionEvent(assessment)
         terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+        afterCompleteTerminalOutbox()
         return true
     }
 
-    private fun replaceTerminalMarker(
+    private suspend fun replaceTerminalMarker(
         expectedMarker: DiagnosticsDurableStateEntity,
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean {
         if (!terminalMarkerIsCurrent(expectedMarker)) return false
         terminalOutboxState.value = terminalOutboxState.value.upsertById(replacementMarker) { it.key }
+        afterCheckpointTerminalOutbox(replacementMarker)
         return true
     }
 

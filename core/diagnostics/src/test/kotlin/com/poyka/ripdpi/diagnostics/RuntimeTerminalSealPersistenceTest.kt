@@ -184,6 +184,70 @@ class RuntimeTerminalSealPersistenceTest {
         }
 
     @Test
+    fun `same coordinator reconciles every marker advanced before cancellation`() =
+        runTest {
+            for (cancelAfterCheckpoint in 1..5) {
+                val stores = FakeDiagnosticsHistoryStores()
+                val serviceStateStore = DefaultServiceStateStore()
+                val monitorScope = monitorScope()
+                val coordinator = createSessionCoordinator(stores, serviceStateStore, monitorScope)
+                var checkpointCount = 0
+                stores.afterCheckpointTerminalOutbox = {
+                    checkpointCount += 1
+                    if (checkpointCount == cancelAfterCheckpoint) {
+                        throw CancellationException("injected after durable checkpoint")
+                    }
+                }
+
+                serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+                coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+                serviceStateStore.updateTelemetry(finalDataPlaneTelemetry())
+                serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+
+                assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.isFailure)
+                assertEquals(1, stores.getPendingTerminalOutboxes().size)
+
+                stores.afterCheckpointTerminalOutbox = {}
+                coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+                assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+                assertEquals(1, rootCauseAssessments(stores).size)
+                monitorScope.cancel()
+            }
+        }
+
+    @Test
+    fun `same coordinator reconciles outbox removed before cancellation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, monitorScope)
+            var injectCancellation = true
+            stores.afterCompleteTerminalOutbox = {
+                if (injectCancellation) {
+                    injectCancellation = false
+                    throw CancellationException("injected after durable completion")
+                }
+            }
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.isFailure)
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+
+            stores.afterCompleteTerminalOutbox = {}
+            coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertEquals(1, rootCauseAssessments(stores).size)
+            monitorScope.cancel()
+        }
+
+    @Test
     fun `terminal assessment waits for admitted failure persistence`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
