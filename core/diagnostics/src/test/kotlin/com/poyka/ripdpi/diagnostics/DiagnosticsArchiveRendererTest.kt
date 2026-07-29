@@ -559,23 +559,21 @@ class DiagnosticsArchiveRendererTest {
         val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
         val allBytes = entries.values.joinToString("") { it.bytes.decodeToString() }
 
-        assertFalse("public IP 203.0.113.99 must not appear verbatim", allBytes.contains("203.0.113.99"))
-        assertFalse(
-            "SSID SensitiveNetwork must not appear verbatim in network-snapshots.json",
-            entries
-                .getValue("network-snapshots.json")
-                .bytes
-                .decodeToString()
-                .contains("SensitiveNetwork"),
-        )
-        assertFalse(
-            "BSSID AA:BB:CC:DD:EE:FF must not appear verbatim in network-snapshots.json",
-            entries
-                .getValue("network-snapshots.json")
-                .bytes
-                .decodeToString()
-                .contains("AA:BB:CC:DD:EE:FF"),
-        )
+        listOf(
+            "203.0.113.99",
+            "AS64501",
+            "203.0.113.53",
+            "192.0.2.42",
+            "SensitiveNetwork",
+            "AA:BB:CC:DD:EE:FF",
+            "192.0.2.1",
+            "fp-render",
+        ).forEach { hostileValue ->
+            assertFalse(
+                "$hostileValue must not appear in any archive entry",
+                allBytes.contains(hostileValue),
+            )
+        }
     }
 
     @Test
