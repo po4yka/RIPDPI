@@ -65,6 +65,8 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -817,6 +819,7 @@ internal class FakeNetworkDiagnosticsBridge(
     var autoCompleteOnStart: Boolean = true
     var startScanEntered: CompletableDeferred<Unit>? = null
     var releaseStartScan: CompletableDeferred<Unit>? = null
+    var requireActiveContextOnDestroy: Boolean = false
     var cancelCount: Int = 0
     var destroyCount: Int = 0
     val faults = FaultQueue<DiagnosticsBridgeFaultTarget>()
@@ -925,6 +928,7 @@ internal class FakeNetworkDiagnosticsBridge(
     }
 
     override suspend fun destroy() {
+        if (requireActiveContextOnDestroy) currentCoroutineContext().ensureActive()
         faults.next(DiagnosticsBridgeFaultTarget.DESTROY)?.throwOrIgnore()
         destroyCount += 1
     }

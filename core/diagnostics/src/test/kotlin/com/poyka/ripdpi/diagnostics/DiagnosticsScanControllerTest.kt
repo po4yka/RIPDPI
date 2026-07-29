@@ -199,6 +199,7 @@ class DiagnosticsScanControllerTest {
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
                     bridge.startScanEntered = startScanEntered
                     bridge.releaseStartScan = releaseStartScan
+                    bridge.requireActiveContextOnDestroy = true
                 }
             val services =
                 createDiagnosticsServices(
