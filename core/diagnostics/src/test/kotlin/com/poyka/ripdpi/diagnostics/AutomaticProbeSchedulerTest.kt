@@ -115,6 +115,7 @@ class AutomaticProbeSchedulerTest {
             runCurrent()
 
             assertEquals(1, env.launcher.events.size)
+            assertEquals(listOf("delivery-transport_switch"), env.handoverStore.acknowledged)
         }
 
     @Test
@@ -174,7 +175,39 @@ class AutomaticProbeSchedulerTest {
             runCurrent()
 
             assertTrue(env.launcher.events.isEmpty())
-            assertEquals(listOf("delivery-transport_switch"), env.handoverStore.acknowledged)
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+        }
+
+    @Test
+    fun `scheduler retains delivery across active scan until terminal replay can acknowledge`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    hasActiveScan = true,
+                    telemetrySamples =
+                        listOf(
+                            telemetrySample(
+                                createdAt = now - 500L,
+                                failureClass = "dns_tampering",
+                            ),
+                        ),
+                    now = now,
+                )
+            val event = handoverEvent()
+
+            env.scheduler.schedule(event)
+            advanceTimeBy(100L)
+            runCurrent()
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+
+            env.launcher.hasActiveScan = false
+            env.scheduler.schedule(event)
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(listOf(event), env.launcher.events)
+            assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
         }
 
     @Test
@@ -307,6 +340,21 @@ class AutomaticProbeSchedulerTest {
             runCurrent()
 
             assertTrue(env.launcher.events.isEmpty())
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+        }
+
+    @Test
+    fun `scheduler acknowledges permanently ineligible delivery`() =
+        runTest {
+            val env = newEnv(settings = defaultDiagnosticsAppSettings())
+            val event = handoverEvent()
+
+            env.scheduler.schedule(event)
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertTrue(env.launcher.events.isEmpty())
+            assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
         }
 
     @Test
@@ -463,10 +511,11 @@ private data class SchedulerEnv(
 )
 
 private class RecordingAutomaticProbeLauncher(
-    private val hasActiveScan: Boolean = false,
+    hasActiveScan: Boolean = false,
     private val launchResult: Boolean = true,
 ) : AutomaticProbeLauncher {
     val events = mutableListOf<PolicyHandoverEvent>()
+    var hasActiveScan = hasActiveScan
 
     override fun hasActiveScan(): Boolean = hasActiveScan
 

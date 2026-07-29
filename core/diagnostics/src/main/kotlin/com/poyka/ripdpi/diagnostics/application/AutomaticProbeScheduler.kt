@@ -71,7 +71,15 @@ class AutomaticProbeScheduler
             val settings = appSettingsRepository.snapshot()
             val launcher = launcherProvider.get()
             val now = System.currentTimeMillis()
-            if (!isEligible(event, settings, launcher, isStrategyFailure, now)) return true
+            when (val eligibility = evaluateEligibility(event, settings, launcher, isStrategyFailure, now)) {
+                AutomaticProbeCoordinator.Eligibility.Eligible -> {
+                    Unit
+                }
+
+                is AutomaticProbeCoordinator.Eligibility.Rejected -> {
+                    return eligibility.reason !in TransientRejectionReasons
+                }
+            }
             val launched = launcher.launchAutomaticProbe(settings, event)
             if (launched) {
                 recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
@@ -79,13 +87,13 @@ class AutomaticProbeScheduler
             return launched
         }
 
-        private suspend fun isEligible(
+        private suspend fun evaluateEligibility(
             event: PolicyHandoverEvent,
             settings: com.poyka.ripdpi.proto.AppSettings,
             launcher: AutomaticProbeLauncher,
             isStrategyFailure: Boolean,
             now: Long,
-        ): Boolean {
+        ): AutomaticProbeCoordinator.Eligibility {
             val baseEligibility =
                 AutomaticProbeCoordinator.evaluateBaseEligibility(
                     settings = settings,
@@ -94,30 +102,36 @@ class AutomaticProbeScheduler
                     recentRuns = recentProbeRuns,
                     cooldownMs = activeProbeSafetyPolicy.cooldownMsForHandoverClassification(event.classification),
                 )
-            val baseAccepted = baseEligibility !is AutomaticProbeCoordinator.Eligibility.Rejected
-            val rememberedPolicyBlocks =
-                baseAccepted &&
-                    !isStrategyFailure &&
-                    run {
-                        val hasValidatedRememberedMatch =
-                            rememberedNetworkPolicyStore.findValidatedMatch(
-                                fingerprintHash = event.currentFingerprintHash,
-                                mode = event.mode,
-                            ) != null
-                        AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
-                            hasValidatedRememberedMatch = hasValidatedRememberedMatch,
-                        ) is AutomaticProbeCoordinator.Eligibility.Rejected
-                    }
+            if (baseEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) return baseEligibility
+            if (!isStrategyFailure) {
+                val hasValidatedRememberedMatch =
+                    rememberedNetworkPolicyStore.findValidatedMatch(
+                        fingerprintHash = event.currentFingerprintHash,
+                        mode = event.mode,
+                    ) != null
+                val rememberedPolicyEligibility =
+                    AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
+                        hasValidatedRememberedMatch = hasValidatedRememberedMatch,
+                    )
+                if (rememberedPolicyEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
+                    return rememberedPolicyEligibility
+                }
+            }
             val latestTelemetrySample =
                 diagnosticsArtifactReadStore.getLatestTelemetrySampleForFingerprint(
                     activeMode = event.mode.name,
                     fingerprintHash = event.currentFingerprintHash,
                     createdAfter = now - AutomaticProbeCoordinator.recentFailureLookbackMs(),
                 )
-            val recentFailureEligibility =
-                AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
-            return baseAccepted &&
-                !rememberedPolicyBlocks &&
-                recentFailureEligibility !is AutomaticProbeCoordinator.Eligibility.Rejected
+            return AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
+        }
+
+        private companion object {
+            val TransientRejectionReasons =
+                setOf(
+                    AutomaticProbeCoordinator.RejectionReason.ACTIVE_SCAN_RUNNING,
+                    AutomaticProbeCoordinator.RejectionReason.COOLDOWN_ACTIVE,
+                    AutomaticProbeCoordinator.RejectionReason.MISSING_RECENT_FAILURE_SIGNAL,
+                )
         }
     }
