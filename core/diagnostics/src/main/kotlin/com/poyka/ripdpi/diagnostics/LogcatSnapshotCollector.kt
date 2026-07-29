@@ -13,6 +13,7 @@ data class LogcatSnapshot(
     val content: String,
     val captureScope: String,
     val byteCount: Int,
+    val truncated: Boolean = false,
 )
 
 open class LogcatSnapshotCollector
@@ -49,12 +50,15 @@ open class LogcatSnapshotCollector
                 if (output.isNullOrBlank()) {
                     null
                 } else {
+                    val outputBytes = output.toByteArray(Charsets.UTF_8)
+                    val boundedBytes = truncateUtf8Bytes(output, MAX_LOGCAT_BYTES.toLong())
                     val scope =
                         if (sinceTimestampMs != null) TimeBoundSnapshotScope else AppVisibleSnapshotScope
                     LogcatSnapshot(
-                        content = output,
+                        content = boundedBytes.toString(Charsets.UTF_8),
                         captureScope = scope,
-                        byteCount = output.toByteArray(Charsets.UTF_8).size,
+                        byteCount = boundedBytes.size,
+                        truncated = outputBytes.size > boundedBytes.size,
                     )
                 }
             }
@@ -102,8 +106,9 @@ open class LogcatSnapshotCollector
             var totalBytes = 0
             var charsRead = reader.read(charBuf)
             while (charsRead != -1 && totalBytes <= MAX_LOGCAT_BYTES) {
-                totalBytes += charsRead * 2 // conservative UTF-16 estimate
-                buffer.append(charBuf, 0, charsRead)
+                val chunk = String(charBuf, 0, charsRead)
+                totalBytes += chunk.toByteArray(Charsets.UTF_8).size
+                buffer.append(chunk)
                 charsRead = reader.read(charBuf)
             }
             return buffer.toString()

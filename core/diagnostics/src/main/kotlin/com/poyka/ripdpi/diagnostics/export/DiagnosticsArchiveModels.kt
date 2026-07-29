@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
+import com.poyka.ripdpi.diagnostics.FileLogSnapshot
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.LogcatSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -142,7 +143,7 @@ internal data class DiagnosticsArchiveSourceData(
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val collectionWarnings: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
-    val fileLogSnapshot: String?,
+    val fileLogSnapshot: FileLogSnapshot?,
     val replayResults: List<ReplayProbeResult> = emptyList(),
 )
 
@@ -177,7 +178,7 @@ internal data class DiagnosticsArchiveSelection(
     val collectionWarnings: List<String>,
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
-    val fileLogSnapshot: String?,
+    val fileLogSnapshot: FileLogSnapshot?,
 )
 
 internal enum class DiagnosticsArchiveSnapshotSource {
@@ -553,6 +554,7 @@ internal data class DiagnosticsArchiveAppliedLimits(
     val nativeEvents: Int,
     val snapshots: Int,
     val logcatBytes: Int,
+    val appLogBytes: Long = com.poyka.ripdpi.diagnostics.FileLogWriter.MAX_LOG_FILE_BYTES,
 )
 
 @Serializable
@@ -574,6 +576,7 @@ internal data class DiagnosticsArchiveTruncation(
     val snapshots: Boolean = false,
     val contexts: Boolean = false,
     val logcat: Boolean = false,
+    val appLog: Boolean = false,
 )
 
 @Serializable

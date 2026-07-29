@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LogcatSnapshotCollectorTest {
@@ -59,5 +60,21 @@ class LogcatSnapshotCollectorTest {
                 }
 
             assertNull(collector.capture())
+        }
+
+    @Test
+    fun `capture enforces utf8 byte budget and reports truncation`() =
+        runTest {
+            val collector =
+                object : LogcatSnapshotCollector() {
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String =
+                        "ж".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+                }
+
+            val snapshot = requireNotNull(collector.capture())
+
+            assertTrue(snapshot.truncated)
+            assertTrue(snapshot.byteCount <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+            assertEquals(snapshot.byteCount, snapshot.content.toByteArray(Charsets.UTF_8).size)
         }
 }

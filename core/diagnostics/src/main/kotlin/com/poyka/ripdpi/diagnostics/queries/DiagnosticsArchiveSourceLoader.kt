@@ -56,7 +56,7 @@ internal class DiagnosticsArchiveSourceLoader
             val earliestSessionStart = sessions.minOfOrNull { it.startedAt }
             val logcatCapture = runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
             val logcatSnapshot = logcatCapture.getOrNull()
-            val fileLogSnapshot = runCatching { fileLogWriter.readLogContent() }.getOrNull()
+            val fileLogSnapshot = runCatching { fileLogWriter.readLogSnapshot() }.getOrNull()
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
                     scanSessions = sessions,

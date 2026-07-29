@@ -187,6 +187,7 @@ private data class SectionTruncationFlags(
     val snapshots: Boolean,
     val contexts: Boolean,
     val logcat: Boolean,
+    val appLog: Boolean,
 )
 
 internal fun buildSectionStatuses(
@@ -200,7 +201,8 @@ internal fun buildSectionStatuses(
                     selection.sourceCounts.sessionEvents >= DiagnosticsArchiveFormat.sessionEventLimit,
             snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
             contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
-            logcat = (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+            logcat = selection.logcatSnapshot?.truncated == true,
+            appLog = selection.fileLogSnapshot?.truncated == true,
         )
     return buildMap {
         selection.includedFiles.forEach { fileName ->
@@ -217,7 +219,11 @@ internal fun buildSectionStatuses(
                         DiagnosticsArchiveSectionStatus.INCLUDED
                     }
                 } else {
-                    sectionStatusForFileName(fileName, truncationFlags)
+                    if (fileName == "app-log.txt" && truncationFlags.appLog) {
+                        DiagnosticsArchiveSectionStatus.TRUNCATED
+                    } else {
+                        sectionStatusForFileName(fileName, truncationFlags)
+                    }
                 },
             )
         }
@@ -266,6 +272,7 @@ internal fun buildCompleteness(
                 nativeEvents = DiagnosticsArchiveFormat.globalEventLimit,
                 snapshots = DiagnosticsArchiveFormat.snapshotLimit,
                 logcatBytes = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                appLogBytes = com.poyka.ripdpi.diagnostics.FileLogWriter.MAX_LOG_FILE_BYTES,
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts =
@@ -293,7 +300,8 @@ internal fun buildCompleteness(
                         selection.sourceCounts.sessionEvents >= DiagnosticsArchiveFormat.sessionEventLimit,
                 snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
                 contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
-                logcat = (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                logcat = selection.logcatSnapshot?.truncated == true,
+                appLog = selection.fileLogSnapshot?.truncated == true,
             ),
     )
 }

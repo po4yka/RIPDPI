@@ -29,11 +29,11 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                     ),
                 )
             }
-            selection.fileLogSnapshot?.let { content ->
+            selection.fileLogSnapshot?.let { snapshot ->
                 add(
                     DiagnosticsArchiveEntry(
                         name = "app-log.txt",
-                        bytes = redactDiagnosticsArchiveText(content).toByteArray(),
+                        bytes = redactDiagnosticsArchiveText(snapshot.content).toByteArray(),
                     ),
                 )
             }

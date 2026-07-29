@@ -789,6 +789,7 @@ class DiagnosticsArchiveRendererTest {
                     content = "x".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES),
                     captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
                     byteCount = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                    truncated = true,
                 ),
             fileLogSnapshot = null,
         )
