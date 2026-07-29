@@ -6,116 +6,157 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import java.util.Locale
 
-internal class TypedRuntimeHealthState {
-    private var dnsBaseline: DnsCounterSnapshot? = null
-    private var dnsFailureStreak = 0
-    private var dnsFailureActive = false
-    private var relayFailureActive = false
+internal data class TypedRuntimeHealthState(
+    private val dnsBaseline: DnsCounterSnapshot? = null,
+    private val dnsFailureStreak: Int = 0,
+    private val dnsFailureActive: Boolean = false,
+    private val relayFailureActive: Boolean = false,
+) {
+    fun reduce(
+        serviceTelemetry: ServiceTelemetrySnapshot,
+        connectionSessionId: String,
+    ): TypedRuntimeHealthTransition {
+        val dnsTransition =
+            reduceDnsCounters(
+                counters = selectDnsCounterSource(serviceTelemetry),
+                connectionSessionId = connectionSessionId,
+                createdAt = serviceTelemetry.updatedAt,
+            )
+        val relayTransition =
+            dnsTransition.nextState.reduceRelayHealth(
+                serviceTelemetry = serviceTelemetry,
+                connectionSessionId = connectionSessionId,
+                createdAt = serviceTelemetry.updatedAt,
+            )
+        return TypedRuntimeHealthTransition(
+            nextState = relayTransition.nextState,
+            events = listOfNotNull(dnsTransition.event, relayTransition.event),
+        )
+    }
 
-    fun acceptDnsCounters(
+    private fun reduceDnsCounters(
         counters: DnsCounterSnapshot,
         connectionSessionId: String,
         createdAt: Long,
-    ): NativeSessionEventEntity? {
+    ): TypedRuntimeHealthStep {
         val baseline = dnsBaseline
         if (baseline == null) {
-            dnsBaseline = counters
-            dnsFailureStreak = 0
-            dnsFailureActive = false
-            return null
+            return TypedRuntimeHealthStep(
+                nextState = copy(dnsBaseline = counters, dnsFailureStreak = 0, dnsFailureActive = false),
+            )
         }
-        if (counters.hasDifferentProducerThan(baseline)) {
-            val wasFailureActive = dnsFailureActive
-            dnsBaseline = counters
-            dnsFailureStreak = 0
-            return recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
-        }
-        if (counters.hasRollbackFrom(baseline)) {
-            val wasFailureActive = dnsFailureActive
-            dnsBaseline = counters
-            dnsFailureStreak = 0
-            return recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
-        }
-
-        val failureDelta = (counters.failuresTotal - baseline.failuresTotal).coerceAtLeast(0)
-        val successDelta = (counters.queriesTotal - baseline.queriesTotal - failureDelta).coerceAtLeast(0)
-        dnsBaseline = counters
-        return when {
-            successDelta > 0 -> {
-                val wasFailureActive = dnsFailureActive
-                dnsFailureStreak = 0
-                recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
-            }
-
-            failureDelta > 0 -> {
-                dnsFailureStreak += 1
-                if (dnsFailureStreak >= DnsRuntimeFailureThreshold) {
-                    dnsFailureActive = true
-                    dnsRuntimeStateEvent(
-                        connectionSessionId = connectionSessionId,
-                        createdAt = createdAt,
-                        state = "failure_threshold",
-                        level = "warn",
+        return if (counters.hasDifferentProducerThan(baseline) || counters.hasRollbackFrom(baseline)) {
+            resetDnsBaseline(counters, connectionSessionId, createdAt)
+        } else {
+            val failureDelta = (counters.failuresTotal - baseline.failuresTotal).coerceAtLeast(0)
+            val successDelta = (counters.queriesTotal - baseline.queriesTotal - failureDelta).coerceAtLeast(0)
+            when {
+                successDelta > 0 -> {
+                    TypedRuntimeHealthStep(
+                        nextState = copy(dnsBaseline = counters, dnsFailureStreak = 0, dnsFailureActive = false),
+                        event = recoverDns(connectionSessionId, createdAt).takeIf { dnsFailureActive },
                     )
-                } else {
-                    null
                 }
-            }
 
-            else -> {
-                null
+                failureDelta > 0 -> {
+                    val nextFailureStreak = dnsFailureStreak + 1
+                    val thresholdReached = nextFailureStreak >= DnsRuntimeFailureThreshold
+                    TypedRuntimeHealthStep(
+                        nextState =
+                            copy(
+                                dnsBaseline = counters,
+                                dnsFailureStreak = nextFailureStreak,
+                                dnsFailureActive = dnsFailureActive || thresholdReached,
+                            ),
+                        event =
+                            dnsRuntimeStateEvent(
+                                connectionSessionId = connectionSessionId,
+                                createdAt = createdAt,
+                                state = "failure_threshold",
+                                level = "warn",
+                            ).takeIf { thresholdReached },
+                    )
+                }
+
+                else -> {
+                    TypedRuntimeHealthStep(nextState = copy(dnsBaseline = counters))
+                }
             }
         }
     }
 
-    fun acceptRelayHealth(
+    private fun reduceRelayHealth(
         serviceTelemetry: ServiceTelemetrySnapshot,
         connectionSessionId: String,
         createdAt: Long,
-    ): NativeSessionEventEntity? {
+    ): TypedRuntimeHealthStep {
         val relayFailed = serviceTelemetry.hasRelayRuntimeFailure()
         return when {
             relayFailed -> {
-                relayFailureActive = true
-                relayRuntimeStateEvent(
-                    connectionSessionId = connectionSessionId,
-                    createdAt = createdAt,
-                    relaySnapshot = serviceTelemetry.relayTelemetry,
-                    relayFailed = true,
-                    level = "warn",
+                TypedRuntimeHealthStep(
+                    nextState = copy(relayFailureActive = true),
+                    event =
+                        relayRuntimeStateEvent(
+                            connectionSessionId = connectionSessionId,
+                            createdAt = createdAt,
+                            relaySnapshot = serviceTelemetry.relayTelemetry,
+                            relayFailed = true,
+                            level = "warn",
+                        ),
                 )
             }
 
             relayFailureActive -> {
-                relayFailureActive = false
-                relayRuntimeStateEvent(
-                    connectionSessionId = connectionSessionId,
-                    createdAt = createdAt,
-                    relaySnapshot = serviceTelemetry.relayTelemetry,
-                    relayFailed = false,
-                    level = "info",
+                TypedRuntimeHealthStep(
+                    nextState = copy(relayFailureActive = false),
+                    event =
+                        relayRuntimeStateEvent(
+                            connectionSessionId = connectionSessionId,
+                            createdAt = createdAt,
+                            relaySnapshot = serviceTelemetry.relayTelemetry,
+                            relayFailed = false,
+                            level = "info",
+                        ),
                 )
             }
 
             else -> {
-                null
+                TypedRuntimeHealthStep(nextState = this)
             }
         }
     }
 
+    private fun resetDnsBaseline(
+        counters: DnsCounterSnapshot,
+        connectionSessionId: String,
+        createdAt: Long,
+    ): TypedRuntimeHealthStep =
+        TypedRuntimeHealthStep(
+            nextState = copy(dnsBaseline = counters, dnsFailureStreak = 0, dnsFailureActive = false),
+            event = recoverDns(connectionSessionId, createdAt).takeIf { dnsFailureActive },
+        )
+
     private fun recoverDns(
         connectionSessionId: String,
         createdAt: Long,
-    ): NativeSessionEventEntity {
-        dnsFailureActive = false
-        return dnsRuntimeStateEvent(
+    ): NativeSessionEventEntity =
+        dnsRuntimeStateEvent(
             connectionSessionId = connectionSessionId,
             createdAt = createdAt,
             state = "recovered",
             level = "info",
         )
-    }
 }
+
+internal data class TypedRuntimeHealthTransition(
+    val nextState: TypedRuntimeHealthState,
+    val events: List<NativeSessionEventEntity>,
+)
+
+private data class TypedRuntimeHealthStep(
+    val nextState: TypedRuntimeHealthState,
+    val event: NativeSessionEventEntity? = null,
+)
 
 internal data class DnsCounterSnapshot(
     val producer: DnsCounterProducer,

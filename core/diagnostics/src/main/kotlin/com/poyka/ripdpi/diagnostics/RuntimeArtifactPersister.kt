@@ -119,6 +119,10 @@ class RuntimeArtifactPersister
             serviceTelemetry: ServiceTelemetrySnapshot,
             connectionSessionId: String,
         ) {
+            persistTypedRuntimeHealthEvents(
+                serviceTelemetry = serviceTelemetry,
+                connectionSessionId = connectionSessionId,
+            )
             (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
                 .forEachIndexed { index, event ->
                     persistRuntimeEvent(
@@ -276,29 +280,13 @@ class RuntimeArtifactPersister
         private suspend fun persistTypedRuntimeHealthEvents(
             serviceTelemetry: ServiceTelemetrySnapshot,
             connectionSessionId: String,
-        ) {
-            val events =
-                typedRuntimeHealthMutex.withLock {
-                    val state =
-                        typedRuntimeHealthByConnectionSessionId.getOrPut(connectionSessionId) {
-                            TypedRuntimeHealthState()
-                        }
-                    buildList {
-                        val dnsEvent =
-                            state.acceptDnsCounters(
-                                counters = selectDnsCounterSource(serviceTelemetry),
-                                connectionSessionId = connectionSessionId,
-                                createdAt = serviceTelemetry.updatedAt,
-                            )
-                        if (dnsEvent != null) add(dnsEvent)
-                        val relayEvent =
-                            state.acceptRelayHealth(serviceTelemetry, connectionSessionId, serviceTelemetry.updatedAt)
-                        if (relayEvent != null) add(relayEvent)
-                    }.also {
-                        trimTypedRuntimeHealthSessions()
-                    }
-                }
-            events.forEach { event -> persistRuntimeEvent(event) }
+        ) = typedRuntimeHealthMutex.withLock {
+            val currentState =
+                typedRuntimeHealthByConnectionSessionId[connectionSessionId] ?: TypedRuntimeHealthState()
+            val transition = currentState.reduce(serviceTelemetry, connectionSessionId)
+            transition.events.forEach { event -> persistRuntimeEvent(event) }
+            typedRuntimeHealthByConnectionSessionId[connectionSessionId] = transition.nextState
+            trimTypedRuntimeHealthSessions()
         }
 
         suspend fun hasTerminalRootCauseAssessment(connectionSessionId: String): Boolean =
