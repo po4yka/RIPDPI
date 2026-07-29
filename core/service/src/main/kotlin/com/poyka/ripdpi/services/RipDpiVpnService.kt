@@ -89,6 +89,9 @@ class RipDpiVpnService :
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
     internal val recoveryServiceInstanceId: String = UUID.randomUUID().toString()
+
+    @Volatile
+    internal var activeRecoveryGeneration: String? = null
     internal lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private val connectivityManager: ConnectivityManager
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -121,6 +124,7 @@ class RipDpiVpnService :
 
     override fun onDestroy() {
         recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
+        activeRecoveryGeneration = null
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
         selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
@@ -145,6 +149,7 @@ class RipDpiVpnService :
             } else {
                 null
             }
+        activeRecoveryGeneration = recoveryGeneration ?: activeRecoveryGeneration
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.StartCommand)
         runtimeEvidenceReporter.runForegroundCall(
             Mode.VPN,

@@ -25,6 +25,7 @@ class BootResumeCoordinatorTest {
             coordinator.resume(Intent.ACTION_BOOT_COMPLETED)
 
             assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+            assertEquals(listOf(Intent.ACTION_BOOT_COMPLETED), serviceController.bootActions)
             assertEquals(AppStatus.Reconnecting to Mode.VPN, serviceStateStore.status.value)
         }
 
@@ -63,6 +64,7 @@ class BootResumeCoordinatorTest {
 
             assertEquals(listOf(false), bootStore.runningFlagWrites)
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+            assertEquals(listOf(Intent.ACTION_MY_PACKAGE_REPLACED), serviceController.bootActions)
         }
 
     private fun coordinator(
@@ -114,10 +116,19 @@ private class FakeBootSessionStateStore(
 
 private class RecordingServiceController : ServiceController {
     val startedModes = mutableListOf<Mode>()
+    val bootActions = mutableListOf<String>()
 
     override fun start(mode: Mode): ServiceStartResult {
         startedModes += mode
         return ServiceStartResult.Accepted(mode)
+    }
+
+    override fun startForBootRecovery(
+        mode: Mode,
+        broadcastAction: String,
+    ): ServiceStartResult {
+        bootActions += broadcastAction
+        return start(mode)
     }
 
     override fun stop() = Unit

@@ -16,9 +16,16 @@ internal const val diagnosticsStopAction = "diagnostics_stop"
 internal const val diagnosticsStartAction = "diagnostics_start"
 internal const val diagnosticsCompensatingStopAction = "diagnostics_compensating_stop"
 internal const val transportFailoverRestartAction = "transport_failover_restart"
+internal const val bootRecoveryStartAction = "boot_recovery_start"
+internal const val packageReplacedRecoveryStartAction = "package_replaced_recovery_start"
+internal const val processDeathRecoveryStartAction = "process_death_recovery_start"
 
 internal fun isServiceRecoveryStartAction(action: String?): Boolean =
-    action == null || action == VpnService.SERVICE_INTERFACE
+    action == null ||
+        action == VpnService.SERVICE_INTERFACE ||
+        action == bootRecoveryStartAction ||
+        action == packageReplacedRecoveryStartAction ||
+        action == processDeathRecoveryStartAction
 
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
@@ -51,7 +58,12 @@ internal class ServiceShellDelegate(
         when (action) {
             // null is a sticky restart after process death. Android's Always-on
             // controller starts VpnService with SERVICE_INTERFACE after boot.
-            null, VpnService.SERVICE_INTERFACE -> {
+            null,
+            VpnService.SERVICE_INTERFACE,
+            bootRecoveryStartAction,
+            packageReplacedRecoveryStartAction,
+            processDeathRecoveryStartAction,
+            -> {
                 enqueue(onRecoveryStart)
                 android.app.Service.START_STICKY
             }

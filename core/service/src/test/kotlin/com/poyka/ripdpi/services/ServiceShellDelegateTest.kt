@@ -354,6 +354,32 @@ class ServiceShellDelegateTest {
         }
 
     @Test
+    fun `dedicated recovery actions use recovery barrier`() =
+        runTest {
+            val recoveredActions = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { error("recovery must not use the user-start path") },
+                    onRecoveryStart = { recoveredActions += "recovered" },
+                    onStop = {},
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            listOf(
+                bootRecoveryStartAction,
+                packageReplacedRecoveryStartAction,
+                processDeathRecoveryStartAction,
+            ).forEachIndexed { index, action ->
+                assertEquals(android.app.Service.START_STICKY, delegate.onStartCommand(action, index + 10))
+                runCurrent()
+            }
+
+            assertEquals(listOf("recovered", "recovered", "recovered"), recoveredActions)
+        }
+
+    @Test
     fun `unknown action is ignored without stopping service`() =
         runTest {
             val stopIds = mutableListOf<Int?>()

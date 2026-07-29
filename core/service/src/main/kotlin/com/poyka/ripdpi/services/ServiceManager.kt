@@ -26,8 +26,14 @@ import kotlin.concurrent.withLock
 interface ServiceController {
     fun start(mode: Mode): ServiceStartResult
 
-    /** Process-death recovery start; unlike [start], this is not a newer explicit user intent. */
-    fun startForRecovery(mode: Mode): ServiceStartResult = start(mode)
+    /** Boot/package-replacement recovery start; unlike [start], this is not a newer explicit user intent. */
+    fun startForBootRecovery(
+        mode: Mode,
+        broadcastAction: String,
+    ): ServiceStartResult = start(mode)
+
+    /** UI-visible fallback after process death; distinct from a user start. */
+    fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult = start(mode)
 
     fun stop()
 
@@ -182,7 +188,21 @@ class DefaultServiceController
                 isAccepted = { it is ServiceStartResult.Accepted },
             )
 
-        override fun startForRecovery(mode: Mode): ServiceStartResult = startInternal(mode, startAction)
+        override fun startForBootRecovery(
+            mode: Mode,
+            broadcastAction: String,
+        ): ServiceStartResult =
+            startInternal(
+                mode,
+                if (broadcastAction == Intent.ACTION_BOOT_COMPLETED) {
+                    bootRecoveryStartAction
+                } else {
+                    packageReplacedRecoveryStartAction
+                },
+            )
+
+        override fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult =
+            startInternal(mode, processDeathRecoveryStartAction)
 
         override fun startForDiagnostics(mode: Mode): ServiceStartResult = startInternal(mode, diagnosticsStartAction)
 

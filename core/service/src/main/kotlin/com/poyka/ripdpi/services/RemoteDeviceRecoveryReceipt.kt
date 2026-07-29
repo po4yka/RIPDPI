@@ -47,6 +47,9 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
         serviceInstanceId: String,
     ): String =
         synchronized(lock) {
+            active
+                ?.takeIf { state -> state.serviceInstanceId == serviceInstanceId }
+                ?.let { state -> return@synchronized state.generation }
             val generation = generationFactory()
             val previousServiceInstance = lastServiceInstanceId
             lastServiceInstanceId = serviceInstanceId
@@ -85,8 +88,8 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
         }
     }
 
-    fun recordTunReady(serviceInstanceId: String) {
-        updateIfServiceCurrent(serviceInstanceId) { state, receipt ->
+    fun recordTunReady(generation: String) {
+        updateIfCurrent(generation) { state, receipt ->
             if (receipt.timeToTun != NotObservedReceiptValue) {
                 receipt
             } else {
@@ -96,13 +99,18 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
     }
 
     fun recordTunnelTelemetry(
-        serviceInstanceId: String,
+        generation: String,
         telemetry: NativeRuntimeSnapshot,
     ) {
         val stats = telemetry.tunnelStats
-        val outbound = stats.txPackets > 0L || stats.txBytes > 0L
-        val inbound = stats.rxPackets > 0L || stats.rxBytes > 0L
-        updateIfServiceCurrent(serviceInstanceId) { state, receipt ->
+        updateIfCurrent(generation) { state, receipt ->
+            val baseline = state.baselineTunnelStats
+            if (baseline == null) {
+                state.baselineTunnelStats = stats
+                return@updateIfCurrent receipt.copy(postStartDataPlaneOutcome = "no_flow_observed")
+            }
+            val outbound = stats.txPackets > baseline.txPackets || stats.txBytes > baseline.txBytes
+            val inbound = stats.rxPackets > baseline.rxPackets || stats.rxBytes > baseline.rxBytes
             val firstFlow =
                 if ((outbound || inbound) && receipt.timeToFirstFlow == NotObservedReceiptValue) {
                     elapsedBucket(state.startedAtElapsedMs, elapsedRealtime())
@@ -148,29 +156,21 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
             latest = update(state, latest)
         }
     }
-
-    private fun updateIfServiceCurrent(
-        serviceInstanceId: String,
-        update: (ActiveRecoveryReceipt, RemoteDeviceRecoveryReceipt) -> RemoteDeviceRecoveryReceipt,
-    ) {
-        synchronized(lock) {
-            val state = active ?: return
-            if (state.serviceInstanceId != serviceInstanceId) return
-            latest = update(state, latest)
-        }
-    }
 }
 
 private data class ActiveRecoveryReceipt(
     val generation: String,
     val serviceInstanceId: String,
     val startedAtElapsedMs: Long,
+    var baselineTunnelStats: com.poyka.ripdpi.data.TunnelStats? = null,
 )
 
 internal fun classifyRecoveryStartOrigin(action: String?): String =
     when (action) {
-        null -> "sticky_redelivery"
-        VpnService.SERVICE_INTERFACE -> "always_on_or_boot"
+        null, processDeathRecoveryStartAction -> "process_death"
+        VpnService.SERVICE_INTERFACE -> "always_on"
+        bootRecoveryStartAction -> "boot"
+        packageReplacedRecoveryStartAction -> "package_replaced"
         com.poyka.ripdpi.data.startAction -> "explicit_user"
         diagnosticsStartAction -> "diagnostics_resume"
         transportFailoverRestartAction -> "transport_failover"
@@ -180,6 +180,9 @@ internal fun classifyRecoveryStartOrigin(action: String?): String =
 internal fun isRecoveryReceiptStartAction(action: String?): Boolean =
     action == null ||
         action == VpnService.SERVICE_INTERFACE ||
+        action == bootRecoveryStartAction ||
+        action == packageReplacedRecoveryStartAction ||
+        action == processDeathRecoveryStartAction ||
         action == com.poyka.ripdpi.data.startAction ||
         action == diagnosticsStartAction ||
         action == transportFailoverRestartAction
@@ -230,7 +233,15 @@ private fun Boolean?.toReceiptValue(): String =
 
 private val ObservedDataPlaneOutcomes = setOf("bidirectional_observed", "outbound_only", "inbound_only")
 private val StartOriginValues =
-    setOf("sticky_redelivery", "always_on_or_boot", "explicit_user", "diagnostics_resume", "transport_failover")
+    setOf(
+        "process_death",
+        "always_on",
+        "boot",
+        "package_replaced",
+        "explicit_user",
+        "diagnostics_resume",
+        "transport_failover",
+    )
 private val DeviceStateValues = setOf("enabled", "disabled", UnknownReceiptValue)
 private val ElapsedBucketValues =
     setOf("under_1s", "1_to_5s", "5_to_10s", "10_to_30s", "30s_or_more", NotObservedReceiptValue)

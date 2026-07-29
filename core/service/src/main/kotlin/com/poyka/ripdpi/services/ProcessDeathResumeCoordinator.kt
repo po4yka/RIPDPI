@@ -81,7 +81,7 @@ class ProcessDeathResumeCoordinator
         }
 
         private fun start(pointer: BootSessionPointer) {
-            val result = serviceController.startForRecovery(pointer.mode)
+            val result = serviceController.startForProcessDeathRecovery(pointer.mode)
             if (result is ServiceStartResult.Accepted) {
                 completed = true
             }

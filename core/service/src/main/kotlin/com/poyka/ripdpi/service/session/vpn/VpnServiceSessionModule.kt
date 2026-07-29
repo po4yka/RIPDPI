@@ -106,6 +106,10 @@ internal object VpnServiceSessionModule {
             recoveryServiceInstanceId =
                 (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
                     ?.recoveryServiceInstanceId,
+            recoveryGenerationProvider = {
+                (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
+                    ?.activeRecoveryGeneration
+            },
             geositeDbPath = resolveGeoDatabasePaths(vpnService).geositeDbPath,
         )
 
@@ -117,6 +121,7 @@ internal object VpnServiceSessionModule {
         flowAttributionBridge: FlowAttributionBridge,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector? = null,
         recoveryServiceInstanceId: String? = null,
+        recoveryGenerationProvider: () -> String? = { null },
         geositeDbPath: String? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
@@ -136,12 +141,16 @@ internal object VpnServiceSessionModule {
             geositeDbPath = geositeDbPath,
             onTunnelReady = {
                 if (recoveryServiceInstanceId != null) {
-                    recoveryReceiptCollector?.recordTunReady(recoveryServiceInstanceId)
+                    recoveryGenerationProvider()?.let { generation ->
+                        recoveryReceiptCollector?.recordTunReady(generation)
+                    }
                 }
             },
             onTunnelTelemetry = { telemetry ->
                 if (recoveryServiceInstanceId != null) {
-                    recoveryReceiptCollector?.recordTunnelTelemetry(recoveryServiceInstanceId, telemetry)
+                    recoveryGenerationProvider()?.let { generation ->
+                        recoveryReceiptCollector?.recordTunnelTelemetry(generation, telemetry)
+                    }
                 }
             },
         )

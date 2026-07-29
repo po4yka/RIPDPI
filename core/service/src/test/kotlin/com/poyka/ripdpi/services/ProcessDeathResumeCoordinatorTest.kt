@@ -31,6 +31,7 @@ class ProcessDeathResumeCoordinatorTest {
             coordinator.resumeIfNeeded()
 
             assertEquals(listOf(Mode.VPN), controller.startedModes)
+            assertEquals(1, controller.processDeathStarts)
             assertEquals(AppStatus.Reconnecting to Mode.VPN, state.status.value)
         }
 
@@ -309,10 +310,17 @@ private class RecordingProcessDeathServiceController(
     var result: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN),
 ) : ServiceController {
     val startedModes = mutableListOf<Mode>()
+    var processDeathStarts = 0
+        private set
 
     override fun start(mode: Mode): ServiceStartResult {
         startedModes += mode
         return result
+    }
+
+    override fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult {
+        processDeathStarts += 1
+        return start(mode)
     }
 
     override fun stop() = Unit

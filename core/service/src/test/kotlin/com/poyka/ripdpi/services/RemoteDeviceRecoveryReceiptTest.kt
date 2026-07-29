@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.TunnelStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.UUID
 
@@ -23,17 +24,24 @@ class RemoteDeviceRecoveryReceiptTest {
             policy = AndroidHardKillSwitchStateReader.fromPlatformFlags(alwaysOn = true, lockdown = true),
         )
         elapsed = 2_500L
-        collector.recordTunReady("instance-a")
+        collector.recordTunReady(generation)
         elapsed = 7_500L
         collector.recordTunnelTelemetry(
-            "instance-a",
+            generation,
             NativeRuntimeSnapshot.idle(source = "tunnel").copy(
-                tunnelStats = TunnelStats(txPackets = 1L, rxPackets = 1L),
+                tunnelStats = TunnelStats(txPackets = 10L, rxPackets = 10L),
+            ),
+        )
+        elapsed = 8_500L
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
+                tunnelStats = TunnelStats(txPackets = 11L, rxPackets = 11L),
             ),
         )
 
         val receipt = collector.snapshot()
-        assertEquals("sticky_redelivery", receipt.startOrigin)
+        assertEquals("process_death", receipt.startOrigin)
         assertEquals("enabled", receipt.userUnlocked)
         assertEquals("enabled", receipt.alwaysOn)
         assertEquals("enabled", receipt.lockdown)
@@ -53,7 +61,7 @@ class RemoteDeviceRecoveryReceiptTest {
 
         assertNotEquals(firstGeneration, secondGeneration)
         assertEquals("unknown", secondProcess.snapshot().serviceInstanceChanged)
-        assertEquals("sticky_redelivery", secondProcess.snapshot().startOrigin)
+        assertEquals("process_death", secondProcess.snapshot().startOrigin)
     }
 
     @Test
@@ -69,7 +77,7 @@ class RemoteDeviceRecoveryReceiptTest {
         assertEquals("generation-a", first)
         assertEquals("generation-b", second)
         assertEquals("enabled", receipt.serviceInstanceChanged)
-        assertEquals("always_on_or_boot", receipt.startOrigin)
+        assertEquals("always_on", receipt.startOrigin)
         assertEquals("pending", receipt.postStartDataPlaneOutcome)
         assertFalse(isRecoveryReceiptStartAction(com.poyka.ripdpi.data.stopAction))
         assertFalse(isRecoveryReceiptStartAction(notificationStopAction))
@@ -82,13 +90,102 @@ class RemoteDeviceRecoveryReceiptTest {
         collector.cancelServiceInstance("instance-a")
         assertEquals("cancelled", collector.snapshot().postStartDataPlaneOutcome)
 
-        collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-b")
+        val generation = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-b")
         collector.recordTunnelTelemetry(
-            "instance-b",
-            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 1L)),
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 10L)),
+        )
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 11L)),
         )
         collector.cancelServiceInstance("instance-b")
         assertEquals("outbound_only", collector.snapshot().postStartDataPlaneOutcome)
+    }
+
+    @Test
+    fun `cumulative tunnel counters cannot fabricate first flow for a new generation`() {
+        val collector = collector()
+        val generation = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
+
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
+                tunnelStats = TunnelStats(txPackets = 10_000L, rxPackets = 20_000L),
+            ),
+        )
+
+        assertEquals("not_observed", collector.snapshot().timeToFirstFlow)
+        assertEquals("no_flow_observed", collector.snapshot().postStartDataPlaneOutcome)
+
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
+                tunnelStats = TunnelStats(txPackets = 10_001L, rxPackets = 20_002L),
+            ),
+        )
+
+        assertEquals("under_1s", collector.snapshot().timeToFirstFlow)
+        assertEquals("bidirectional_observed", collector.snapshot().postStartDataPlaneOutcome)
+    }
+
+    @Test
+    fun `duplicate starts for one service instance retain the active generation and milestones`() {
+        var generationCalls = 0
+        val collector =
+            collector(
+                generation = {
+                    generationCalls += 1
+                    "generation-$generationCalls"
+                },
+            )
+        val first = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
+        collector.recordTunReady(first)
+
+        val duplicate = collector.beginStart(processDeathRecoveryStartAction, "instance-a")
+
+        assertEquals(first, duplicate)
+        assertEquals(1, generationCalls)
+        assertEquals("under_1s", collector.snapshot().timeToTun)
+        assertEquals("explicit_user", collector.snapshot().startOrigin)
+    }
+
+    @Test
+    fun `stale generation cannot update a superseding service instance`() {
+        val generations = ArrayDeque(listOf("generation-a", "generation-b"))
+        val collector = collector(generation = { generations.removeFirst() })
+        val stale = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
+        val current = collector.beginStart(processDeathRecoveryStartAction, "instance-b")
+
+        collector.recordTunReady(stale)
+        collector.recordTunnelTelemetry(
+            stale,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 1L)),
+        )
+
+        assertEquals(current, collector.snapshot().generation)
+        assertEquals("not_observed", collector.snapshot().timeToTun)
+        assertEquals("pending", collector.snapshot().postStartDataPlaneOutcome)
+    }
+
+    @Test
+    fun `every recovery entry point has a distinct stable origin`() {
+        val cases =
+            listOf(
+                null to "process_death",
+                processDeathRecoveryStartAction to "process_death",
+                VpnService.SERVICE_INTERFACE to "always_on",
+                bootRecoveryStartAction to "boot",
+                packageReplacedRecoveryStartAction to "package_replaced",
+                com.poyka.ripdpi.data.startAction to "explicit_user",
+                diagnosticsStartAction to "diagnostics_resume",
+                transportFailoverRestartAction to "transport_failover",
+            )
+
+        cases.forEach { (action, expected) ->
+            assertEquals(expected, classifyRecoveryStartOrigin(action))
+            assertTrue(isRecoveryReceiptStartAction(action))
+        }
     }
 
     @Test

@@ -39,7 +39,7 @@ class BootResumeCoordinator
 
             when (val decision = decideBootResume(action, pointer, resumable, wasRunningAtUpdate)) {
                 is BootResumeDecision.Resume -> {
-                    val result = serviceController.start(decision.mode)
+                    val result = serviceController.startForBootRecovery(decision.mode, action)
                     reconnectingResumeMode(result, serviceStateStore.status.value.first)
                         ?.let { mode -> serviceStateStore.setStatus(AppStatus.Reconnecting, mode) }
                     log.i { "boot resume ($action): starting ${decision.mode} -> $result" }

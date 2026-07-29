@@ -175,6 +175,35 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
+    fun bootAndProcessDeathRecoveryUseDistinctInternalActions() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+
+        assertEquals(
+            ServiceStartResult.Accepted(Mode.VPN),
+            controller.startForBootRecovery(Mode.VPN, Intent.ACTION_BOOT_COMPLETED),
+        )
+        assertEquals(bootRecoveryStartAction, starter.lastIntent?.action)
+
+        assertEquals(
+            ServiceStartResult.Accepted(Mode.VPN),
+            controller.startForBootRecovery(Mode.VPN, Intent.ACTION_MY_PACKAGE_REPLACED),
+        )
+        assertEquals(packageReplacedRecoveryStartAction, starter.lastIntent?.action)
+
+        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.startForProcessDeathRecovery(Mode.VPN))
+        assertEquals(processDeathRecoveryStartAction, starter.lastIntent?.action)
+    }
+
+    @Test
     fun explicitStopRequestPreservesRunningMarkerUntilServiceAcceptsIt() {
         val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
         val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
