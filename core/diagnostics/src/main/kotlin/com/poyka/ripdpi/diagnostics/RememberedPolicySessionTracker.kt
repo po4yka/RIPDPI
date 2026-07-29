@@ -6,11 +6,16 @@ import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
+import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
+import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.decodedSource
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -78,11 +83,11 @@ class RememberedPolicySessionTracker
             return rememberedPolicyAudit?.let(session::withRememberedPolicyAudit) ?: session
         }
 
-        suspend fun finalize(
+        internal fun prepareTerminalOutcome(
             session: BypassUsageSessionEntity,
             finalizedAt: Long,
-        ) {
-            val rememberedPolicySession = activeRememberedPolicySession ?: return
+        ): RememberedPolicyTerminalOutcome? {
+            val rememberedPolicySession = activeRememberedPolicySession ?: return null
             val transferBytes = session.txBytes + session.rxBytes
             val durationMs = finalizedAt - rememberedPolicySession.startedAt
             val proved =
@@ -93,52 +98,70 @@ class RememberedPolicySessionTracker
                 !session.failureMessage.isNullOrBlank() ||
                     session.endedReason?.startsWith("failed:") == true
 
-            when {
+            return when {
                 rememberedPolicySession.usedRememberedPolicy && failed && !proved -> {
-                    rememberedNetworkPolicyStore.recordFailure(
-                        policy = rememberedPolicySession.entity,
-                        failedAt = finalizedAt,
-                        allowSuppression = true,
+                    val nextConsecutiveFailures = rememberedPolicySession.entity.consecutiveFailureCount + 1
+                    val shouldSuppress =
+                        rememberedPolicySession.entity.status == RememberedNetworkPolicyStatusValidated &&
+                            nextConsecutiveFailures >= 2
+                    RememberedPolicyTerminalOutcome(
+                        fingerprintHash = rememberedPolicySession.entity.fingerprintHash,
+                        mode = rememberedPolicySession.entity.mode,
+                        status =
+                            if (shouldSuppress) {
+                                RememberedNetworkPolicyStatusSuppressed
+                            } else {
+                                rememberedPolicySession.entity.status
+                            },
+                        successCount = rememberedPolicySession.entity.successCount,
+                        failureCount = rememberedPolicySession.entity.failureCount + 1,
+                        consecutiveFailureCount = nextConsecutiveFailures,
+                        suppressedUntil =
+                            if (shouldSuppress) {
+                                finalizedAt + RememberedNetworkPolicySuppressionDurationMs
+                            } else {
+                                rememberedPolicySession.entity.suppressedUntil
+                            },
+                        lastValidatedAt = rememberedPolicySession.entity.lastValidatedAt,
+                        updateStrategySignature = false,
+                        updatedAt = finalizedAt,
+                        failureHandover = rememberedPolicySession.toFailureHandover(finalizedAt),
                     )
-                    publishStrategyFailureEvent(rememberedPolicySession, finalizedAt)
                 }
 
-                rememberedPolicySession.usedRememberedPolicy && proved -> {
-                    rememberedNetworkPolicyStore.recordSuccess(
-                        policy = rememberedPolicySession.entity,
-                        validated = true,
-                        strategySignatureJson = session.strategyJson,
-                        completedAt = finalizedAt,
+                proved -> {
+                    RememberedPolicyTerminalOutcome(
+                        fingerprintHash = rememberedPolicySession.entity.fingerprintHash,
+                        mode = rememberedPolicySession.entity.mode,
+                        status = RememberedNetworkPolicyStatusValidated,
+                        successCount = rememberedPolicySession.entity.successCount + 1,
+                        failureCount = rememberedPolicySession.entity.failureCount,
+                        consecutiveFailureCount = 0,
+                        suppressedUntil = null,
+                        lastValidatedAt = finalizedAt,
+                        updateStrategySignature = true,
+                        updatedAt = finalizedAt,
                     )
                 }
 
-                !rememberedPolicySession.usedRememberedPolicy && proved -> {
-                    rememberedNetworkPolicyStore.recordSuccess(
-                        policy = rememberedPolicySession.entity,
-                        validated = true,
-                        strategySignatureJson = session.strategyJson,
-                        completedAt = finalizedAt,
-                    )
+                else -> {
+                    null
                 }
             }
-            clear()
         }
 
-        private fun publishStrategyFailureEvent(
-            session: ActiveRememberedPolicySession,
-            failedAt: Long,
-        ) {
-            val fingerprintHash = session.fingerprintHash ?: return
+        internal fun publishTerminalOutcome(outcome: RememberedPolicyTerminalOutcome?) {
+            val failureHandover = outcome?.failureHandover ?: return
             policyHandoverEventStore.publish(
                 PolicyHandoverEvent(
-                    mode = session.mode,
-                    currentFingerprintHash = fingerprintHash,
+                    mode = failureHandover.mode,
+                    currentFingerprintHash = failureHandover.fingerprintHash,
                     classification = AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE,
                     currentNetworkValidated = true,
                     currentCaptivePortalDetected = false,
                     usedRememberedPolicy = true,
-                    policySignature = session.policySignature,
-                    occurredAt = failedAt,
+                    policySignature = failureHandover.policySignature,
+                    occurredAt = failureHandover.occurredAt,
                 ),
             )
         }
@@ -159,8 +182,42 @@ class RememberedPolicySessionTracker
                 usedRememberedPolicy == policy.usedRememberedPolicy &&
                     fingerprintHash == policy.fingerprintHash &&
                     policySignature == policy.policySignature
+
+            fun toFailureHandover(failedAt: Long): RememberedPolicyFailureHandover? =
+                fingerprintHash?.let { fingerprintHash ->
+                    RememberedPolicyFailureHandover(
+                        mode = mode,
+                        fingerprintHash = fingerprintHash,
+                        policySignature = policySignature,
+                        occurredAt = failedAt,
+                    )
+                }
         }
     }
+
+@Serializable
+internal data class RememberedPolicyTerminalOutcome(
+    val fingerprintHash: String,
+    val mode: String,
+    val status: String,
+    val successCount: Int,
+    val failureCount: Int,
+    val consecutiveFailureCount: Int,
+    val suppressedUntil: Long?,
+    val lastValidatedAt: Long?,
+    val updateStrategySignature: Boolean,
+    val updatedAt: Long,
+    @Transient
+    val failureHandover: RememberedPolicyFailureHandover? = null,
+)
+
+@Serializable
+internal data class RememberedPolicyFailureHandover(
+    val mode: Mode,
+    val fingerprintHash: String,
+    val policySignature: String,
+    val occurredAt: Long,
+)
 
 private fun BypassUsageSessionEntity.withRememberedPolicyAudit(
     audit: RememberedPolicySessionAudit,

@@ -65,8 +65,21 @@ interface DiagnosticsNativeEventDao {
     @Query("SELECT * FROM native_session_events WHERE id = :eventId LIMIT 1")
     suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity?
 
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE subsystem = 'runtime_terminal_outbox'
+        ORDER BY createdAt ASC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getPendingTerminalOutboxes(limit: Int): List<NativeSessionEventEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
+
+    @Query("DELETE FROM native_session_events WHERE id = :eventId")
+    suspend fun deleteNativeSessionEvent(eventId: String)
 
     @Query("DELETE FROM native_session_events")
     suspend fun deleteAllNativeEvents()

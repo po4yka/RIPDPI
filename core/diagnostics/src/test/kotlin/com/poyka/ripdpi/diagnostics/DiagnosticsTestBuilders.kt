@@ -378,6 +378,8 @@ internal fun createRuntimeHistoryMonitor(
             appSettingsRepository = appSettingsRepository,
             profileCatalog = stores,
             bypassUsageHistoryStore = stores,
+            terminalOutboxStore = stores,
+            rememberedNetworkPolicyRecordStore = stores,
             diagnosticsContextProvider = diagnosticsContextProvider,
             serviceStateStore = serviceStateStore,
             activeConnectionPolicyStore = activeConnectionPolicyStore,

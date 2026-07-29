@@ -148,6 +148,76 @@ class RuntimeTerminalSealPersistenceTest {
         }
 
     @Test
+    fun `terminal event retry is not suppressed after a failed durable write`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            val telemetry = finalDataPlaneTelemetry()
+            var armed = true
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (armed && event.id.startsWith("runtime_terminal_event:")) {
+                    armed = false
+                    error("injected terminal event write failure")
+                }
+            }
+
+            assertTrue(
+                runCatching {
+                    persister.persistTerminalRuntimeEvents(telemetry, ConnectionSessionId)
+                }.isFailure,
+            )
+            persister.persistTerminalRuntimeEvents(telemetry, ConnectionSessionId)
+
+            assertEquals(
+                1,
+                stores.nativeEventsState.value.count { event ->
+                    event.id.startsWith("runtime_terminal_event:$ConnectionSessionId:")
+                },
+            )
+        }
+
+    @Test
+    fun `fresh coordinator preserves assessment committed before outbox completion`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val firstStateStore = DefaultServiceStateStore()
+            val firstScope = monitorScope()
+            val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope)
+            firstCoordinator.registerNetworkTransitionFlush { true }
+            var armed = true
+            stores.afterInsertNativeSessionEvent = { event ->
+                if (armed && event.source == RuntimeRootCauseAssessmentSource) {
+                    armed = false
+                    error("injected post-assessment process death")
+                }
+            }
+
+            firstStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            firstStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            firstStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(
+                runCatching {
+                    firstCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+                }.isFailure,
+            )
+            assertTrue(decodeAssessment(stores).terminalEvidenceSealed)
+            assertEquals(1, stores.getPendingTerminalOutboxes().size)
+            firstScope.cancel()
+            stores.afterInsertNativeSessionEvent = {}
+
+            val restoredScope = monitorScope()
+            val restoredCoordinator =
+                createSessionCoordinator(stores, DefaultServiceStateStore(), restoredScope)
+            restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            assertEquals(1, rootCauseAssessments(stores).size)
+            assertTrue(decodeAssessment(stores).terminalEvidenceSealed)
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            restoredScope.cancel()
+        }
+
+    @Test
     fun `failure or cancellation at every terminal phase cannot reopen the detached session`() =
         runTest {
             val failures =
@@ -235,16 +305,29 @@ class RuntimeTerminalSealPersistenceTest {
                 coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
             }.exceptionOrNull()
         assertTrue("$phase did not fail with ${createFailure().javaClass.simpleName}", terminalFailure != null)
+        assertEquals(1, stores.getPendingTerminalOutboxes().size)
+        coordinatorScope.cancel()
 
-        serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
-        coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+        val restoredStateStore = DefaultServiceStateStore()
+        val restoredScope = monitorScope()
+        val restoredCoordinator = createSessionCoordinator(stores, restoredStateStore, restoredScope)
+        restoredStateStore.setStatus(AppStatus.Running, Mode.VPN)
+        restoredCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
 
         val sessions = stores.usageSessionsState.value
         val restarted = sessions.single { session -> session.id != finishedSessionId }
         assertEquals(2, sessions.size)
         assertTrue(sessions.single { session -> session.id == finishedSessionId }.finishedAt != null)
         assertEquals(null, restarted.finishedAt)
-        coordinatorScope.cancel()
+        assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+        assertEquals(1, rootCauseAssessments(stores).size)
+        assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
+        if (phase == TerminalFailurePhase.POLICY_FINALIZATION) {
+            val persistedPolicy = stores.getRememberedNetworkPolicy("terminal-policy", Mode.VPN.preferenceValue)
+            assertEquals(1, persistedPolicy?.failureCount)
+            assertEquals(1, persistedPolicy?.consecutiveFailureCount)
+        }
+        restoredScope.cancel()
     }
 
     private fun armTerminalFailure(
@@ -272,13 +355,11 @@ class RuntimeTerminalSealPersistenceTest {
             }
 
             TerminalFailurePhase.POLICY_FINALIZATION -> {
-                stores.beforeUpsertRememberedNetworkPolicy = { failOnce() }
+                stores.beforeCheckpointTerminalPolicy = { failOnce() }
             }
 
             TerminalFailurePhase.SESSION_UPSERT -> {
-                stores.beforeUpsertBypassUsageSession = { session ->
-                    if (session.finishedAt != null) failOnce()
-                }
+                stores.beforeCheckpointTerminalSession = { failOnce() }
             }
 
             TerminalFailurePhase.ROOT_CAUSE_ASSESSMENT -> {
@@ -335,6 +416,8 @@ class RuntimeTerminalSealPersistenceTest {
             appSettingsRepository = FakeAppSettingsRepository(),
             profileCatalog = stores,
             bypassUsageHistoryStore = stores,
+            terminalOutboxStore = stores,
+            rememberedNetworkPolicyRecordStore = stores,
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
             serviceStateStore = serviceStateStore,
             activeConnectionPolicyStore = activeConnectionPolicyStore,

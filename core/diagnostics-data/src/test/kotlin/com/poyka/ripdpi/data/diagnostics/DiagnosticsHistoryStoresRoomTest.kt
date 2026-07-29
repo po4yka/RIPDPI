@@ -289,6 +289,46 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `terminal outbox atomically checkpoints session and marker`() =
+        runTest {
+            val store = RoomDiagnosticsTerminalOutboxStore(db, dao)
+            val finished = bypassUsageSession(id = "usage-terminal", startedAt = 20L, finishedAt = 30L)
+            val marker =
+                nativeEvent(id = "runtime_terminal_outbox:usage-terminal", sessionId = null, createdAt = 30L).copy(
+                    source = "runtime_terminal_outbox",
+                    message = "runtime-events",
+                    subsystem = "runtime_terminal_outbox",
+                )
+
+            store.beginTerminalOutbox(finished, marker)
+
+            assertEquals(finished, dao.getBypassUsageSession(finished.id))
+            assertEquals(listOf(marker), store.getPendingTerminalOutboxes())
+
+            val terminalPolicy =
+                rememberedPolicy(
+                    fingerprintHash = "terminal-policy",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusValidated,
+                    updatedAt = 20L,
+                ).copy(id = 7L, failureCount = 1)
+            store.checkpointTerminalPolicy(terminalPolicy, marker.copy(message = "session-upsert"))
+
+            assertEquals(terminalPolicy, dao.getRememberedNetworkPolicy("terminal-policy", "vpn"))
+
+            val sessionCheckpoint = finished.copy(connectionState = "Stopped")
+            val sessionMarker = marker.copy(message = "root-cause-assessment")
+            store.checkpointTerminalSession(sessionCheckpoint, sessionMarker)
+
+            assertEquals(sessionCheckpoint, dao.getBypassUsageSession(finished.id))
+            assertEquals(listOf(sessionMarker), store.getPendingTerminalOutboxes())
+
+            store.completeTerminalOutbox(marker.id)
+
+            assertTrue(store.getPendingTerminalOutboxes().isEmpty())
+        }
+
+    @Test
     fun `remembered policy record store returns validated match and prunes old records`() =
         runTest {
             val store = RoomRememberedNetworkPolicyRecordStore(dao, clock)
@@ -565,6 +605,20 @@ class DiagnosticsHistoryStoresRoomTest {
                         threshold - 10L,
                 ),
             )
+            val pendingSession =
+                bypassUsageSession(
+                    id = "usage-pending",
+                    startedAt = 1L,
+                    finishedAt = threshold - 10L,
+                )
+            val pendingMarker =
+                nativeEvent(
+                    id = "runtime_terminal_outbox:${pendingSession.id}",
+                    sessionId = null,
+                    createdAt = threshold - 10L,
+                ).copy(subsystem = "runtime_terminal_outbox")
+            bypassStore.upsertBypassUsageSession(pendingSession)
+            artifactStore.insertNativeSessionEvent(pendingMarker)
             bypassStore.upsertBypassUsageSession(
                 bypassUsageSession(
                     id = "usage-new",
@@ -595,12 +649,14 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(1, rowCount("network_snapshots"))
             assertEquals(1, rowCount("diagnostic_context_snapshots"))
             assertEquals(1, rowCount("telemetry_samples"))
-            assertEquals(1, rowCount("native_session_events"))
+            assertEquals(2, rowCount("native_session_events"))
             assertEquals(1, rowCount("export_records"))
-            assertEquals(1, rowCount("bypass_usage_sessions"))
+            assertEquals(2, rowCount("bypass_usage_sessions"))
             assertEquals(1, rowCount("network_dns_path_preferences"))
             assertEquals("scan-new", scanStore.getScanSession("scan-new")?.id)
             assertNull(scanStore.getScanSession("scan-old"))
+            assertEquals(pendingMarker, artifactStore.getNativeSessionEvent(pendingMarker.id))
+            assertEquals(pendingSession, bypassStore.getBypassUsageSession(pendingSession.id))
             assertNotNull(dnsStore.getNetworkDnsPathPreference("dns-new"))
             assertNull(dnsStore.getNetworkDnsPathPreference("dns-old"))
         }

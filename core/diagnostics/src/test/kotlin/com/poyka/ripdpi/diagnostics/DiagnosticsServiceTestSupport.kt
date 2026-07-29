@@ -40,6 +40,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTerminalOutboxStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
@@ -128,6 +129,7 @@ internal class FakeDiagnosticsHistoryStores :
     DiagnosticsArtifactQueryStore,
     DiagnosticsArtifactWriteStore,
     BypassUsageHistoryStore,
+    DiagnosticsTerminalOutboxStore,
     RememberedNetworkPolicyRecordStore,
     NetworkDnsPathPreferenceRecordStore,
     NetworkEdgePreferenceRecordStore,
@@ -148,6 +150,10 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
+    var beforeCheckpointTerminalOutbox: suspend (NativeSessionEventEntity) -> Unit = {}
+    var beforeCheckpointTerminalPolicy: suspend (RememberedNetworkPolicyEntity?) -> Unit = {}
+    var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
+    var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
@@ -248,6 +254,12 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity? =
         nativeEventsState.value.find { event -> event.id == eventId }
 
+    override suspend fun getPendingTerminalOutboxes(limit: Int): List<NativeSessionEventEntity> =
+        nativeEventsState.value
+            .filter { event -> event.subsystem == "runtime_terminal_outbox" }
+            .sortedBy(NativeSessionEventEntity::createdAt)
+            .take(limit)
+
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
 
     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
@@ -347,6 +359,7 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
         beforeInsertNativeSessionEvent(event)
         nativeEventsState.value = nativeEventsState.value.upsertById(event) { it.id }
+        afterInsertNativeSessionEvent(event)
     }
 
     override suspend fun insertExportRecord(record: ExportRecordEntity) {
@@ -356,6 +369,45 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
         beforeUpsertBypassUsageSession(session)
         usageSessionsState.value = usageSessionsState.value.upsertById(session) { it.id }
+    }
+
+    override suspend fun beginTerminalOutbox(
+        finishedSession: BypassUsageSessionEntity,
+        marker: NativeSessionEventEntity,
+    ) {
+        beforeUpsertBypassUsageSession(finishedSession)
+        beforeInsertNativeSessionEvent(marker)
+        usageSessionsState.value = usageSessionsState.value.upsertById(finishedSession) { it.id }
+        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+    }
+
+    override suspend fun checkpointTerminalOutbox(marker: NativeSessionEventEntity) {
+        beforeCheckpointTerminalOutbox(marker)
+        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+    }
+
+    override suspend fun checkpointTerminalPolicy(
+        policy: RememberedNetworkPolicyEntity?,
+        marker: NativeSessionEventEntity,
+    ) {
+        beforeCheckpointTerminalPolicy(policy)
+        policy?.let { value ->
+            rememberedPoliciesState.value = rememberedPoliciesState.value.upsertById(value) { it.id }
+        }
+        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+    }
+
+    override suspend fun checkpointTerminalSession(
+        finishedSession: BypassUsageSessionEntity,
+        marker: NativeSessionEventEntity,
+    ) {
+        beforeCheckpointTerminalSession(finishedSession)
+        usageSessionsState.value = usageSessionsState.value.upsertById(finishedSession) { it.id }
+        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+    }
+
+    override suspend fun completeTerminalOutbox(markerId: String) {
+        nativeEventsState.value = nativeEventsState.value.filterNot { event -> event.id == markerId }
     }
 
     override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long {

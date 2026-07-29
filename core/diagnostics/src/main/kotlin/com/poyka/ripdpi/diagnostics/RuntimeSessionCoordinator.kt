@@ -14,15 +14,19 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTerminalOutboxStore
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.displayMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,6 +38,8 @@ class RuntimeSessionCoordinator
         private val appSettingsRepository: AppSettingsRepository,
         private val profileCatalog: DiagnosticsProfileCatalog,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
+        private val terminalOutboxStore: DiagnosticsTerminalOutboxStore,
+        private val rememberedNetworkPolicyRecordStore: RememberedNetworkPolicyRecordStore,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
@@ -45,6 +51,14 @@ class RuntimeSessionCoordinator
     ) {
         private val stateMutex = Mutex()
         private val networkTransitionSessionGate = NetworkTransitionSessionGate()
+        private val terminalOutbox =
+            RuntimeTerminalOutbox(
+                usageHistoryStore = bypassUsageHistoryStore,
+                outboxStore = terminalOutboxStore,
+                policyRecordStore = rememberedNetworkPolicyRecordStore,
+                artifactPersister = artifactPersister,
+                rememberedPolicySessionTracker = rememberedPolicySessionTracker,
+            )
 
         private var activeUsageSession: BypassUsageSessionEntity? = null
         private var pendingTerminalSession: PendingTerminalSession? = null
@@ -378,16 +392,19 @@ class RuntimeSessionCoordinator
                         telemetry = telemetry,
                         finalizedAt = finalizedAt,
                     )
-                pendingTerminalSession =
-                    PendingTerminalSession(
-                        activeSession = current,
-                        finishedSession = finishedSession,
-                        telemetry = telemetry,
-                        createdAt = finalizedAt,
-                        terminalEvidenceSealed = terminalEvidenceSealed,
-                    )
-                activeUsageSession = null
-                lastRecordedNetworkHandoverState = null
+                withContext(NonCancellable) {
+                    val pending =
+                        terminalOutbox.begin(
+                            activeSession = current,
+                            finishedSession = finishedSession,
+                            telemetry = telemetry,
+                            createdAt = finalizedAt,
+                            terminalEvidenceSealed = terminalEvidenceSealed,
+                        )
+                    pendingTerminalSession = pending
+                    activeUsageSession = null
+                    lastRecordedNetworkHandoverState = null
+                }
                 transitionFlushCancellation?.let { throw it }
                 persistPendingTerminalSession()
             } finally {
@@ -398,58 +415,14 @@ class RuntimeSessionCoordinator
         }
 
         private suspend fun persistPendingTerminalSession() {
-            val pending = pendingTerminalSession
-            while (pending != null && pending.phase != PendingTerminalPhase.COMPLETE) {
-                when (pending.phase) {
-                    PendingTerminalPhase.RUNTIME_EVENTS -> {
-                        artifactPersister.persistRuntimeEvents(
-                            serviceTelemetry = pending.telemetry,
-                            connectionSessionId = pending.activeSession.id,
-                        )
-                        pending.phase = PendingTerminalPhase.TERMINAL_SAMPLE
-                    }
-
-                    PendingTerminalPhase.TERMINAL_SAMPLE -> {
-                        if (pending.activeSession.failureMessage.isNullOrBlank()) {
-                            artifactPersister.persistTerminalTelemetrySample(
-                                connectionSessionId = pending.activeSession.id,
-                                telemetry = pending.telemetry,
-                                createdAt = pending.createdAt,
-                                networkTypeFallback = pending.activeSession.networkType,
-                                publicIpFallback = pending.activeSession.publicIp,
-                                connectionState = "Stopped",
-                            )
-                        }
-                        pending.phase = PendingTerminalPhase.POLICY_FINALIZATION
-                    }
-
-                    PendingTerminalPhase.POLICY_FINALIZATION -> {
-                        rememberedPolicySessionTracker.finalize(pending.finishedSession, pending.createdAt)
-                        rememberedPolicySessionTracker.clear()
-                        pending.phase = PendingTerminalPhase.SESSION_UPSERT
-                    }
-
-                    PendingTerminalPhase.SESSION_UPSERT -> {
-                        bypassUsageHistoryStore.upsertBypassUsageSession(pending.finishedSession)
-                        pending.phase = PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT
-                    }
-
-                    PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT -> {
-                        artifactPersister.persistTerminalRootCauseAssessment(
-                            connectionSessionId = pending.activeSession.id,
-                            createdAt = pending.createdAt,
-                            terminalEvidenceSealed = pending.terminalEvidenceSealed,
-                        )
-                        pending.phase = PendingTerminalPhase.COMPLETE
-                    }
-
-                    PendingTerminalPhase.COMPLETE -> {
-                        continue
-                    }
-                }
+            pendingTerminalSession?.let { pending ->
+                terminalOutbox.persist(pending)
+                if (pendingTerminalSession === pending) pendingTerminalSession = null
             }
-            if (pending != null && pendingTerminalSession === pending) {
-                pendingTerminalSession = null
+            terminalOutbox.recover().forEach { recovered ->
+                pendingTerminalSession = recovered
+                terminalOutbox.persist(recovered)
+                if (pendingTerminalSession === recovered) pendingTerminalSession = null
             }
             if (terminalAssessmentReconciliationComplete) return
             val finishedSessions =
@@ -467,24 +440,6 @@ class RuntimeSessionCoordinator
                 }
             }
             terminalAssessmentReconciliationComplete = true
-        }
-
-        private data class PendingTerminalSession(
-            val activeSession: BypassUsageSessionEntity,
-            val finishedSession: BypassUsageSessionEntity,
-            val telemetry: ServiceTelemetrySnapshot,
-            val createdAt: Long,
-            val terminalEvidenceSealed: Boolean,
-            var phase: PendingTerminalPhase = PendingTerminalPhase.RUNTIME_EVENTS,
-        )
-
-        private enum class PendingTerminalPhase {
-            RUNTIME_EVENTS,
-            TERMINAL_SAMPLE,
-            POLICY_FINALIZATION,
-            SESSION_UPSERT,
-            ROOT_CAUSE_ASSESSMENT,
-            COMPLETE,
         }
 
         private suspend fun sealNetworkTransitions(admission: NetworkTransitionAdmission): Boolean {

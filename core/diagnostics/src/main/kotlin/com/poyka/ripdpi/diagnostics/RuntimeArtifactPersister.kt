@@ -2,8 +2,6 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.NativeRuntimeEvent
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -109,19 +107,24 @@ class RuntimeArtifactPersister
             (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
                 .forEach { event ->
                     persistRuntimeEvent(
-                        NativeSessionEventEntity(
+                        event.toSessionEvent(
                             id = UUID.randomUUID().toString(),
-                            sessionId = null,
                             connectionSessionId = connectionSessionId,
-                            source = event.source,
-                            level = event.level,
-                            message = event.message.withPersistedEventKind(event),
-                            createdAt = event.createdAt,
-                            runtimeId = event.runtimeId,
-                            mode = event.mode,
-                            policySignature = event.policySignature,
-                            fingerprintHash = event.fingerprintHash,
-                            subsystem = event.subsystem,
+                        ),
+                    )
+                }
+        }
+
+        suspend fun persistTerminalRuntimeEvents(
+            serviceTelemetry: ServiceTelemetrySnapshot,
+            connectionSessionId: String,
+        ) {
+            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+                .forEachIndexed { index, event ->
+                    persistRuntimeEvent(
+                        event.toSessionEvent(
+                            id = "$TerminalRuntimeEventIdPrefix:$connectionSessionId:$index",
+                            connectionSessionId = connectionSessionId,
                         ),
                     )
                 }
@@ -191,6 +194,7 @@ class RuntimeArtifactPersister
         ) {
             artifactWriteStore.insertTelemetrySample(
                 buildTelemetrySampleEntity(
+                    id = "$TerminalTelemetrySampleIdPrefix:$connectionSessionId",
                     connectionSessionId = connectionSessionId,
                     networkType = networkTypeFallback,
                     publicIp = publicIpFallback,
@@ -389,6 +393,7 @@ class RuntimeArtifactPersister
         }
 
         private fun buildTelemetrySampleEntity(
+            id: String = UUID.randomUUID().toString(),
             connectionSessionId: String,
             networkType: String,
             publicIp: String?,
@@ -398,7 +403,7 @@ class RuntimeArtifactPersister
         ): TelemetrySampleEntity {
             val memory = nativeMemoryProbe.sample()
             return TelemetrySampleEntity(
-                id = UUID.randomUUID().toString(),
+                id = id,
                 sessionId = null,
                 connectionSessionId = connectionSessionId,
                 activeMode = telemetry.mode?.name ?: serviceStateStore.status.value.second.name,
@@ -474,216 +479,27 @@ class RuntimeArtifactPersister
         }
     }
 
-private class TypedRuntimeHealthState {
-    private var dnsBaseline: DnsCounterSnapshot? = null
-    private var dnsFailureStreak = 0
-    private var dnsFailureActive = false
-    private var relayFailureActive = false
+private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
+    "$RuntimeRootCauseAssessmentSource:$connectionSessionId"
 
-    fun acceptDnsCounters(
-        counters: DnsCounterSnapshot,
-        connectionSessionId: String,
-        createdAt: Long,
-    ): NativeSessionEventEntity? {
-        val baseline = dnsBaseline
-        if (baseline == null) {
-            dnsBaseline = counters
-            dnsFailureStreak = 0
-            dnsFailureActive = false
-            return null
-        }
-        if (counters.hasDifferentProducerThan(baseline)) {
-            val wasFailureActive = dnsFailureActive
-            dnsBaseline = counters
-            dnsFailureStreak = 0
-            return recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
-        }
-        if (counters.hasRollbackFrom(baseline)) {
-            val wasFailureActive = dnsFailureActive
-            dnsBaseline = counters
-            dnsFailureStreak = 0
-            return recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
-        }
-
-        val failureDelta = (counters.failuresTotal - baseline.failuresTotal).coerceAtLeast(0)
-        val successDelta = (counters.queriesTotal - baseline.queriesTotal - failureDelta).coerceAtLeast(0)
-        dnsBaseline = counters
-        return when {
-            successDelta > 0 -> {
-                val wasFailureActive = dnsFailureActive
-                dnsFailureStreak = 0
-                recoverDns(connectionSessionId, createdAt).takeIf { wasFailureActive }
-            }
-
-            failureDelta > 0 -> {
-                dnsFailureStreak += 1
-                if (dnsFailureStreak >= DnsRuntimeFailureThreshold) {
-                    dnsFailureActive = true
-                    dnsRuntimeStateEvent(
-                        connectionSessionId = connectionSessionId,
-                        createdAt = createdAt,
-                        state = "failure_threshold",
-                        level = "warn",
-                    )
-                } else {
-                    null
-                }
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    fun acceptRelayHealth(
-        serviceTelemetry: ServiceTelemetrySnapshot,
-        connectionSessionId: String,
-        createdAt: Long,
-    ): NativeSessionEventEntity? {
-        val relayFailed = serviceTelemetry.hasRelayRuntimeFailure()
-        return when {
-            relayFailed -> {
-                relayFailureActive = true
-                relayRuntimeStateEvent(
-                    connectionSessionId = connectionSessionId,
-                    createdAt = createdAt,
-                    relaySnapshot = serviceTelemetry.relayTelemetry,
-                    relayFailed = true,
-                    level = "warn",
-                )
-            }
-
-            relayFailureActive -> {
-                relayFailureActive = false
-                relayRuntimeStateEvent(
-                    connectionSessionId = connectionSessionId,
-                    createdAt = createdAt,
-                    relaySnapshot = serviceTelemetry.relayTelemetry,
-                    relayFailed = false,
-                    level = "info",
-                )
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    private fun recoverDns(
-        connectionSessionId: String,
-        createdAt: Long,
-    ): NativeSessionEventEntity {
-        dnsFailureActive = false
-        return dnsRuntimeStateEvent(
-            connectionSessionId = connectionSessionId,
-            createdAt = createdAt,
-            state = "recovered",
-            level = "info",
-        )
-    }
-}
-
-private data class DnsCounterSnapshot(
-    val producer: DnsCounterProducer,
-    val queriesTotal: Long,
-    val failuresTotal: Long,
-) {
-    fun hasDifferentProducerThan(previous: DnsCounterSnapshot): Boolean = producer != previous.producer
-
-    fun hasRollbackFrom(previous: DnsCounterSnapshot): Boolean =
-        queriesTotal < previous.queriesTotal || failuresTotal < previous.failuresTotal
-}
-
-private data class DnsCounterProducer(
-    val source: String,
-    val serviceStartedAt: Long?,
-    val restartCount: Int,
-)
-
-private fun selectDnsCounterSource(telemetry: ServiceTelemetrySnapshot): DnsCounterSnapshot {
-    val proxy = telemetry.proxyTelemetry
-    val tunnel = telemetry.tunnelTelemetry
-    val source = if (tunnel.dnsQueriesTotal >= proxy.dnsQueriesTotal) tunnel else proxy
-    return DnsCounterSnapshot(
-        producer =
-            DnsCounterProducer(
-                source = source.source,
-                serviceStartedAt = telemetry.serviceStartedAt,
-                restartCount = telemetry.restartCount,
-            ),
-        queriesTotal = source.dnsQueriesTotal.coerceAtLeast(0),
-        failuresTotal = source.dnsFailuresTotal.coerceAtLeast(0),
-    )
-}
-
-private fun dnsRuntimeStateEvent(
-    connectionSessionId: String,
-    createdAt: Long,
-    state: String,
-    level: String,
-): NativeSessionEventEntity =
-    typedRuntimeStateEvent(
-        id = "typed_runtime_state:dns:$connectionSessionId",
-        connectionSessionId = connectionSessionId,
-        level = level,
-        message = "event=dns_runtime_state evidence=dns_counter_transition_v1 state=$state",
-        createdAt = createdAt,
-        subsystem = "dns",
-    )
-
-private fun relayRuntimeStateEvent(
-    connectionSessionId: String,
-    createdAt: Long,
-    relaySnapshot: NativeRuntimeSnapshot,
-    relayFailed: Boolean,
-    level: String,
-): NativeSessionEventEntity =
-    typedRuntimeStateEvent(
-        id = "typed_runtime_state:relay:$connectionSessionId",
-        connectionSessionId = connectionSessionId,
-        level = level,
-        message =
-            "event=relay_runtime_state evidence=relay_health_transition_v1 " +
-                "state=${relaySnapshot.state.toRelayRuntimeCategory(RelayRuntimeStates)} " +
-                "health=${relaySnapshot.health.toRelayRuntimeCategory(RelayRuntimeHealthValues)} " +
-                "relay_failed=$relayFailed",
-        createdAt = createdAt,
-        subsystem = "relay",
-    )
-
-private fun typedRuntimeStateEvent(
+private fun NativeRuntimeEvent.toSessionEvent(
     id: String,
-    connectionSessionId: String,
-    level: String,
-    message: String,
-    createdAt: Long,
-    subsystem: String,
+    connectionSessionId: String?,
 ): NativeSessionEventEntity =
     NativeSessionEventEntity(
         id = id,
         sessionId = null,
         connectionSessionId = connectionSessionId,
-        source = "service_telemetry_state",
+        source = source,
         level = level,
-        message = message,
+        message = message.withPersistedEventKind(this),
         createdAt = createdAt,
+        runtimeId = runtimeId,
+        mode = mode,
+        policySignature = policySignature,
+        fingerprintHash = fingerprintHash,
         subsystem = subsystem,
     )
-
-private fun ServiceTelemetrySnapshot.hasRelayRuntimeFailure(): Boolean =
-    relayTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
-        relayTelemetry.state.lowercase(Locale.US) in RelayRuntimeFailureStates ||
-        relayTelemetry.health.lowercase(Locale.US) in RelayRuntimeFailureHealthValues
-
-private fun String.toRelayRuntimeCategory(allowedValues: Set<String>): String {
-    val normalized = lowercase(Locale.US).replace('-', '_')
-    return normalized.takeIf(allowedValues::contains) ?: "unknown"
-}
-
-private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
-    "$RuntimeRootCauseAssessmentSource:$connectionSessionId"
 
 private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {
     while (size > MaxRuntimeRootCauseTrackedSessions) {
@@ -704,7 +520,8 @@ private fun String.withPersistedEventKind(event: NativeRuntimeEvent): String {
 private const val MaxPersistedEventKeys = 512
 private const val MaxRuntimeRootCauseEventsPerSession = 64
 private const val MaxRuntimeRootCauseTrackedSessions = 64
-private const val DnsRuntimeFailureThreshold = 2
+private const val TerminalRuntimeEventIdPrefix = "runtime_terminal_event"
+private const val TerminalTelemetrySampleIdPrefix = "runtime_terminal_sample"
 private val ReservedEventKindToken = Regex("(?i)(^|[ ;])event_kind=[^ ;]*")
 private val PersistedRuntimeEventKinds =
     setOf(
@@ -713,9 +530,3 @@ private val PersistedRuntimeEventKinds =
         "data_plane_final",
         "protect_failure",
     )
-private val RelayRuntimeStates =
-    setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")
-private val RelayRuntimeHealthValues =
-    setOf("idle", "ok", "healthy", "degraded", "failed", "error", "unknown")
-private val RelayRuntimeFailureStates = setOf("failed", "error")
-private val RelayRuntimeFailureHealthValues = setOf("failed", "error")

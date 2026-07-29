@@ -16,13 +16,30 @@ interface DiagnosticsRetentionDao {
     @Query("DELETE FROM telemetry_samples WHERE createdAt < :threshold")
     suspend fun deleteTelemetryOlderThan(threshold: Long)
 
-    @Query("DELETE FROM native_session_events WHERE createdAt < :threshold")
+    @Query(
+        """
+        DELETE FROM native_session_events
+        WHERE createdAt < :threshold
+            AND (subsystem IS NULL OR subsystem != 'runtime_terminal_outbox')
+        """,
+    )
     suspend fun deleteNativeEventsOlderThan(threshold: Long)
 
     @Query("DELETE FROM export_records WHERE createdAt < :threshold")
     suspend fun deleteExportRecordsOlderThan(threshold: Long)
 
-    @Query("DELETE FROM bypass_usage_sessions WHERE finishedAt IS NOT NULL AND finishedAt < :threshold")
+    @Query(
+        """
+        DELETE FROM bypass_usage_sessions
+        WHERE finishedAt IS NOT NULL
+            AND finishedAt < :threshold
+            AND NOT EXISTS (
+                SELECT 1 FROM native_session_events AS outbox
+                WHERE outbox.subsystem = 'runtime_terminal_outbox'
+                    AND outbox.id = 'runtime_terminal_outbox:' || bypass_usage_sessions.id
+            )
+        """,
+    )
     suspend fun deleteBypassUsageSessionsOlderThan(threshold: Long)
 
     @Query("DELETE FROM remembered_network_policies WHERE updatedAt < :threshold")
