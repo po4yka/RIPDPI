@@ -4,6 +4,7 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
+import androidx.annotation.RequiresApi
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
 import com.poyka.ripdpi.data.NetworkPathObservation
@@ -287,18 +288,6 @@ private fun LinkProperties.toDirectDnsLinkSnapshot(): DirectDnsLinkSnapshot {
     val addressSize = linkAddresses.size
     val routeSize = routes.size
     val dnsSize = dnsServers.size
-    val nat64Present =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            nat64Prefix != null
-        } else {
-            false
-        }
-    val observedMtu =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            mtu
-        } else {
-            null
-        }
     return DirectDnsLinkSnapshot(
         addressFamilies = linkAddresses.map { it.address }.pathFamilies(),
         defaultRouteFamilies = routes.filter { it.isDefaultRoute }.map { it.destination.address }.pathFamilies(),
@@ -310,11 +299,22 @@ private fun LinkProperties.toDirectDnsLinkSnapshot(): DirectDnsLinkSnapshot {
             networkPathCountWasTruncated(addressSize) ||
                 networkPathCountWasTruncated(routeSize) ||
                 networkPathCountWasTruncated(dnsSize),
-        nat64Present = nat64Present,
+        nat64Present = nat64PresentCompat(),
         privateDnsCategory = privateDnsCategory(),
-        mtuBand = networkPathMtuBand(observedMtu),
+        mtuBand = networkPathMtuBand(mtuCompat()),
     )
 }
+
+private fun LinkProperties.nat64PresentCompat(): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && nat64PresentOnR()
+
+@RequiresApi(Build.VERSION_CODES.R)
+private fun LinkProperties.nat64PresentOnR(): Boolean = nat64Prefix != null
+
+private fun LinkProperties.mtuCompat(): Int? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) mtuOnQ() else null
+
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun LinkProperties.mtuOnQ(): Int = mtu
 
 private fun List<InetAddress>.pathFamilies(): List<String> =
     mapNotNull { address ->
