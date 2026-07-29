@@ -56,6 +56,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
+import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
@@ -235,6 +237,10 @@ class StubInstrumentedLastExitInspector : LastExitInspector {
 
 class StubInstrumentedMemoryProfilingRegistrar : MemoryProfilingRegistrar {
     override fun register() = Unit
+}
+
+class StubInstrumentedNativeMemoryProbe : NativeMemoryProbe {
+    override fun sample() = NativeMemorySample(nativeHeapBytes = 0L, processRssBytes = 0L)
 }
 
 class StubInstrumentedDiagnosticsTimelineSource : DiagnosticsTimelineSource {
