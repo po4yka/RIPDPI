@@ -109,6 +109,18 @@ private fun projectPathObservation(
     val addresses = linkProperties?.linkAddresses.orEmpty()
     val routes = linkProperties?.routes.orEmpty()
     val dnsServers = linkProperties?.dnsServers.orEmpty()
+    val nat64Present =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            linkProperties?.nat64Prefix != null
+        } else {
+            false
+        }
+    val mtu =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            linkProperties?.mtu
+        } else {
+            null
+        }
     return NetworkPathObservation(
         association = association,
         generation = generation,
@@ -141,9 +153,9 @@ private fun projectPathObservation(
             networkPathCountWasTruncated(addresses.size) ||
                 networkPathCountWasTruncated(routes.size) ||
                 networkPathCountWasTruncated(dnsServers.size),
-        nat64Present = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && linkProperties?.nat64Prefix != null,
+        nat64Present = nat64Present,
         privateDnsCategory = linkProperties.networkPathPrivateDnsCategory(),
-        mtuBand = networkPathMtuBand(linkProperties?.mtu),
+        mtuBand = networkPathMtuBand(mtu),
         upstreamBandwidthBand = networkPathBandwidthBand(capabilities.linkUpstreamBandwidthKbps),
         downstreamBandwidthBand = networkPathBandwidthBand(capabilities.linkDownstreamBandwidthKbps),
     )

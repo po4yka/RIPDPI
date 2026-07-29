@@ -65,7 +65,7 @@ internal class AndroidProcessExitHistorySource
             get() = Build.VERSION.SDK_INT
 
         override fun recentProcessExits(limit: Int): List<ProcessExitHistoryItem> {
-            if (sdkInt < Build.VERSION_CODES.R) return emptyList()
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
             val activityManager = context.getSystemService(ActivityManager::class.java)
             return activityManager
                 ?.let { manager ->

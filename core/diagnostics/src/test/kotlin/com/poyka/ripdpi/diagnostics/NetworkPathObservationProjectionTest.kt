@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import android.net.IpPrefix
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
+import android.os.Build
 import com.poyka.ripdpi.data.NetworkPathAssociationActiveDefault
 import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
 import com.poyka.ripdpi.data.NetworkPathAssociationUnknown
@@ -22,6 +23,20 @@ import java.net.InetAddress
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class NetworkPathObservationProjectionTest {
+    @Test
+    @Config(sdk = [27])
+    fun `pre Q projection does not access newer link properties`() {
+        val observation =
+            projectActiveVpnObservation(
+                capabilities(NetworkCapabilities.TRANSPORT_VPN),
+                LinkProperties(),
+                generation = 1L,
+            )
+
+        assertFalse(requireNotNull(observation.nat64Present))
+        assertEquals("unknown", observation.mtuBand)
+    }
+
     @Test
     fun `only actual active vpn capabilities produce active default observation`() {
         val nonVpn = projectActiveVpnObservation(capabilities(transport = null), LinkProperties(), generation = 1L)
@@ -79,14 +94,18 @@ class NetworkPathObservationProjectionTest {
 
     private fun capabilities(transport: Int?): NetworkCapabilities =
         NetworkCapabilities().also { capabilities ->
-            listOf(
-                NetworkCapabilities.NET_CAPABILITY_INTERNET,
-                NetworkCapabilities.NET_CAPABILITY_VALIDATED,
-                NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING,
-                NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED,
-                NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED,
-                NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED,
-            ).forEach { capability ->
+            val supportedCapabilities =
+                buildList {
+                    add(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    add(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    add(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        add(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
+                        add(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
+                        add(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)
+                    }
+                }
+            supportedCapabilities.forEach { capability ->
                 invokeIntMethod(capabilities, "addCapability", capability)
             }
             transport?.let { invokeIntMethod(capabilities, "addTransportType", it) }
