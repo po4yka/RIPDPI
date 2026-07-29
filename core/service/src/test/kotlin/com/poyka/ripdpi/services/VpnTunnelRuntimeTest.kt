@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.Build
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -159,6 +160,7 @@ class VpnTunnelRuntimeTest {
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
                     appliedNetworkReceiptStore = receiptStore,
+                    sdkInt = Build.VERSION_CODES.Q,
                 )
 
             runtime.start(
@@ -174,6 +176,36 @@ class VpnTunnelRuntimeTest {
             assertEquals(80, receiptStore.snapshot()?.configuredEncapsulationBudgetBytes)
             assertEquals(true, receiptStore.snapshot()?.metered)
             assertEquals("tun2socks", receiptStore.snapshot()?.effectiveEgress)
+        }
+
+    @Test
+    fun `pre API 29 runtime receipt omits unapplied metered state`() =
+        runTest {
+            val parameters = VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true)
+            val host =
+                TestVpnServiceHost(backgroundScope).apply {
+                    tunnelNetworkParameters = parameters
+                }
+            val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge()),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                    appliedNetworkReceiptStore = receiptStore,
+                    sdkInt = Build.VERSION_CODES.P,
+                )
+
+            runtime.start(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertNull(receiptStore.snapshot()?.metered)
         }
 
     @Test

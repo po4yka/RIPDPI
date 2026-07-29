@@ -18,7 +18,7 @@ data class VpnTunnelAppliedNetworkReceipt(
     val generation: Long,
     val appliedTunnelMtu: Int,
     val configuredEncapsulationBudgetBytes: Int,
-    val metered: Boolean,
+    val metered: Boolean?,
     val effectiveEgress: String,
 )
 
@@ -29,12 +29,15 @@ class VpnTunnelAppliedNetworkReceiptStore
         private val nextGeneration = AtomicLong()
         private val receipt = AtomicReference<VpnTunnelAppliedNetworkReceipt?>()
 
-        fun publish(parameters: VpnTunnelNetworkParameters): VpnTunnelAppliedNetworkReceipt =
+        fun publish(
+            parameters: VpnTunnelNetworkParameters,
+            apiLevel: Int,
+        ): VpnTunnelAppliedNetworkReceipt =
             VpnTunnelAppliedNetworkReceipt(
                 generation = nextGeneration.incrementAndGet(),
                 appliedTunnelMtu = parameters.tunnelMtu,
                 configuredEncapsulationBudgetBytes = VpnTunnelNetworkPolicy.TunnelEncapsulationBudgetBytes,
-                metered = parameters.metered,
+                metered = parameters.metered.takeIf { apiLevel >= Build.VERSION_CODES.Q },
                 effectiveEgress = AppliedTun2SocksEgress,
             ).also(
                 receipt::set,

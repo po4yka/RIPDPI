@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.Build
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -55,6 +56,7 @@ internal class VpnTunnelRuntime(
     private val geositeDbPath: String? = null,
     private val callbacks: VpnTunnelRuntimeCallbacks = VpnTunnelRuntimeCallbacks(),
     private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
+    private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
     @Volatile
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -330,7 +332,7 @@ internal class VpnTunnelRuntime(
         }
         currentDnsSignature = pendingTunnel.dnsSignature
         currentInterfacePolicySignature = pendingTunnel.interfacePolicySignature
-        appliedNetworkReceiptStore.publish(pendingTunnel.networkParameters)
+        appliedNetworkReceiptStore.publish(pendingTunnel.networkParameters, sdkInt)
         if (tunnelStartCount > 0) {
             tunnelRecoveryRetryCount += 1
         }

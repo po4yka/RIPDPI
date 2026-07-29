@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.Build
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.Mode
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetSocketAddress
@@ -37,7 +39,10 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
             val serviceStateStore = TestServiceStateStore(AppStatus.Running to Mode.VPN)
             val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
             serviceStateStore.updateTelemetry(snapshot)
-            receiptStore.publish(VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true))
+            receiptStore.publish(
+                VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true),
+                apiLevel = Build.VERSION_CODES.Q,
+            )
             val probe =
                 RemoteDeviceAcceptanceBaselineProbe(
                     serviceStateStore = serviceStateStore,
@@ -66,6 +71,28 @@ class VpnTunnelAppliedNetworkReceiptExportTest {
             assertEquals("unavailable", invalidated.underlay.appliedTunnelEgress)
             assertFalse(renderRemoteDeviceAcceptanceReport(invalidated).contains("\"appliedTunnelMtuBytes\": 1320"))
         }
+
+    @Test
+    fun `API 28 receipt omits metered state that builder cannot apply`() {
+        val receipt =
+            VpnTunnelAppliedNetworkReceiptStore().publish(
+                VpnTunnelNetworkParameters(metered = true),
+                apiLevel = Build.VERSION_CODES.P,
+            )
+
+        assertNull(receipt.metered)
+    }
+
+    @Test
+    fun `API 29 receipt records applied metered state`() {
+        val receipt =
+            VpnTunnelAppliedNetworkReceiptStore().publish(
+                VpnTunnelNetworkParameters(metered = true),
+                apiLevel = Build.VERSION_CODES.Q,
+            )
+
+        assertEquals(true, receipt.metered)
+    }
 
     private fun successfulCapabilityProbe(): RelayCapabilityProbe =
         RelayCapabilityProbe(
