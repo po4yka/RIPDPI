@@ -38,25 +38,29 @@ internal class DefaultDiagnosticsArchiveExporter
     ) : DiagnosticsArchiveExporter {
         private val archiveMutex = Mutex()
 
-        override suspend fun cleanupCache() = archiveMutex.withLock { reconcileCache() }
+        override suspend fun cleanupCache() = archiveMutex.withLock { reconcileCache(reservedSlots = 0) }
 
         override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive =
             archiveMutex.withLock {
-                reconcileCache()
+                reconcileCache(reservedSlots = 1)
                 val selection = buildArchiveSelection(request)
                 val target = fileStore.createTarget()
                 val developerAnalytics = collectDeveloperAnalytics(selection, target)
+                var exportRecordId: String? = null
                 try {
                     zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
+                    val recordId = idGenerator.nextId()
+                    exportRecordId = recordId
                     exportRecordStore.insertExportRecord(
                         ExportRecordEntity(
-                            id = idGenerator.nextId(),
+                            id = recordId,
                             sessionId = selection.primarySession?.id,
                             uri = target.file.absolutePath,
                             fileName = target.fileName,
                             createdAt = target.createdAt,
                         ),
                     )
+                    reconcileCache(reservedSlots = 0)
                     DiagnosticsArchive(
                         fileName = target.fileName,
                         absolutePath = target.file.absolutePath,
@@ -67,20 +71,43 @@ internal class DefaultDiagnosticsArchiveExporter
                         privacyMode = DiagnosticsArchiveFormat.privacyMode,
                     )
                 } catch (error: Throwable) {
-                    target.file.delete()
+                    runCatching { fileStore.deleteArchive(target.file) }
+                        .exceptionOrNull()
+                        ?.let(error::addSuppressed)
+                    exportRecordId?.let { recordId ->
+                        runCatching { exportRecordStore.deleteExportRecords(listOf(recordId)) }
+                            .exceptionOrNull()
+                            ?.let(error::addSuppressed)
+                    }
                     throw error
                 }
             }
 
-        private suspend fun reconcileCache() {
-            fileStore.cleanup()
-            fileStore.cleanupPcapFiles()
+        private suspend fun reconcileCache(reservedSlots: Int) {
+            var cleanupFailure: Throwable? = null
+            runCatching { fileStore.cleanup(reservedSlots) }
+                .exceptionOrNull()
+                ?.let { cleanupFailure = it }
+            runCatching { fileStore.cleanupPcapFiles() }
+                .exceptionOrNull()
+                ?.let { failure ->
+                    cleanupFailure?.addSuppressed(failure) ?: run { cleanupFailure = failure }
+                }
             val records = exportRecordStore.getExportRecords()
             val existingPaths = fileStore.managedArchivePaths()
             exportRecordStore.deleteExportRecords(
                 records.filterNot { it.uri in existingPaths }.map { it.id },
             )
-            fileStore.reconcileFiles(records.mapTo(mutableSetOf()) { it.uri })
+            runCatching { fileStore.reconcileFiles(records.mapTo(mutableSetOf()) { it.uri }) }
+                .exceptionOrNull()
+                ?.let { failure ->
+                    cleanupFailure?.addSuppressed(failure) ?: run { cleanupFailure = failure }
+                }
+            val reconciledPaths = fileStore.managedArchivePaths()
+            exportRecordStore.deleteExportRecords(
+                records.filterNot { it.uri in reconciledPaths }.map { it.id },
+            )
+            cleanupFailure?.let { throw it }
         }
 
         private suspend fun buildArchiveSelection(request: DiagnosticsArchiveRequest): DiagnosticsArchiveSelection {
@@ -91,6 +118,15 @@ internal class DefaultDiagnosticsArchiveExporter
                         "Requested completed home diagnostics run is unavailable: $runId"
                     }
                 }
+            compositeOutcome?.stageSummaries?.let { stages ->
+                val stageKeys = stages.map { it.stageKey }
+                require(stageKeys.distinct().size == stageKeys.size) {
+                    "Completed home diagnostics run contains duplicate stage keys"
+                }
+                require(stageKeys.all { it.matches(ArchiveStageKeyRegex) }) {
+                    "Completed home diagnostics run contains an unsafe stage key"
+                }
+            }
             val compositeSessionIds =
                 if (compositeOutcome != null) {
                     require(request.requestedSessionId == null) {
@@ -217,3 +253,5 @@ internal class DefaultDiagnosticsArchiveExporter
                 )
         }
     }
+
+private val ArchiveStageKeyRegex = Regex("[a-z0-9][a-z0-9_]{0,63}")

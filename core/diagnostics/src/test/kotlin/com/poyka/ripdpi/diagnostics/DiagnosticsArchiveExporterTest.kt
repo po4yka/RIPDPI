@@ -166,6 +166,58 @@ class DiagnosticsArchiveExporterTest {
         }
 
     @Test
+    fun `createArchive reserves retention slot and preserves file record parity`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-retention",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Retention export",
+                )
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName).apply { mkdirs() }
+            stores.exportsState.value =
+                List(DiagnosticsArchiveFormat.maxArchiveFiles) { index ->
+                    val file =
+                        archiveDir.resolve("${DiagnosticsArchiveFormat.fileNamePrefix}old-$index.zip").apply {
+                            writeText("old-$index")
+                            setLastModified(1_700_000_000_000L - index)
+                        }
+                    ExportRecordEntity(
+                        id = "old-$index",
+                        sessionId = session.id,
+                        uri = file.absolutePath,
+                        fileName = file.name,
+                        createdAt = 1_700_000_000_000L - index,
+                    )
+                }
+            val exporter = createArchiveExporter(stores, context, rootModeEnabled = false)
+
+            exporter.createArchive(
+                DiagnosticsArchiveRequest(
+                    requestedSessionId = session.id,
+                    reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                    requestedAt = 25L,
+                ),
+            )
+
+            val files =
+                archiveDir
+                    .listFiles()
+                    .orEmpty()
+                    .filter { it.extension == "zip" }
+            assertEquals(DiagnosticsArchiveFormat.maxArchiveFiles, files.size)
+            assertEquals(DiagnosticsArchiveFormat.maxArchiveFiles, stores.exportsState.value.size)
+            assertEquals(
+                files.mapTo(mutableSetOf()) { it.absolutePath },
+                stores.exportsState.value.mapTo(mutableSetOf()) { it.uri },
+            )
+        }
+
+    @Test
     fun `requested session artifacts survive the global recent window`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -388,6 +440,46 @@ class DiagnosticsArchiveExporterTest {
 
             assertNotNull(failure)
             assertTrue(failure?.message.orEmpty().contains("caller-session"))
+            assertTrue(stores.exportsState.value.isEmpty())
+        }
+
+    @Test
+    fun `createArchive rejects unsafe or duplicate home stage keys`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            val exporter = createArchiveExporter(stores)
+            val base = buildSampleCompositeOutcome()
+            val outcomes =
+                listOf(
+                    base.copy(
+                        runId = "unsafe-stage-run",
+                        stageSummaries =
+                            base.stageSummaries.mapIndexed { index, stage ->
+                                if (index == 0) stage.copy(stageKey = "../escape") else stage
+                            },
+                    ),
+                    base.copy(
+                        runId = "duplicate-stage-run",
+                        stageSummaries = base.stageSummaries.map { it.copy(stageKey = "duplicate") },
+                    ),
+                )
+
+            outcomes.forEach { outcome ->
+                compositeRunService.putCompletedRun(outcome)
+                val failure =
+                    runCatching {
+                        exporter.createArchive(
+                            DiagnosticsArchiveRequest(
+                                sessionIds = outcome.bundleSessionIds,
+                                homeRunId = outcome.runId,
+                                reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                                requestedAt = 28L,
+                            ),
+                        )
+                    }.exceptionOrNull()
+                assertNotNull(outcome.runId, failure)
+            }
             assertTrue(stores.exportsState.value.isEmpty())
         }
 

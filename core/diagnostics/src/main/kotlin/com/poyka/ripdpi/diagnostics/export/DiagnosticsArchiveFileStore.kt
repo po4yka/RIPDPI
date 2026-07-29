@@ -12,7 +12,8 @@ class DiagnosticsArchiveFileStore(
     private val cacheDir: File,
     private val clock: DiagnosticsArchiveClock,
 ) {
-    fun cleanup() {
+    fun cleanup(reservedSlots: Int = 0) {
+        require(reservedSlots in 0..DiagnosticsArchiveFormat.maxArchiveFiles)
         val archiveDirectory = ensureArchiveDirectory()
         val now = clock.now()
         val archiveFiles =
@@ -24,15 +25,15 @@ class DiagnosticsArchiveFileStore(
 
         archiveFiles
             .filter { now - it.lastModified() > DiagnosticsArchiveFormat.maxArchiveAgeMs }
-            .forEach { it.delete() }
+            .forEach(::deleteVerified)
 
         archiveDirectory
             .listFiles()
             .orEmpty()
             .filter(::isManagedArchive)
             .sortedByDescending { it.lastModified() }
-            .drop(DiagnosticsArchiveFormat.maxArchiveFiles)
-            .forEach { it.delete() }
+            .drop(DiagnosticsArchiveFormat.maxArchiveFiles - reservedSlots)
+            .forEach(::deleteVerified)
     }
 
     internal fun reconcileFiles(referencedPaths: Set<String>) {
@@ -41,13 +42,13 @@ class DiagnosticsArchiveFileStore(
             .listFiles()
             .orEmpty()
             .filter(::isTemporaryArchive)
-            .forEach { it.delete() }
+            .forEach(::deleteVerified)
         archiveDirectory
             .listFiles()
             .orEmpty()
             .filter(::isManagedArchive)
             .filterNot { it.absolutePath in referencedPaths }
-            .forEach { it.delete() }
+            .forEach(::deleteVerified)
     }
 
     internal fun managedArchivePaths(): Set<String> =
@@ -56,6 +57,8 @@ class DiagnosticsArchiveFileStore(
             .orEmpty()
             .filter(::isManagedArchive)
             .mapTo(mutableSetOf()) { it.absolutePath }
+
+    internal fun deleteArchive(file: File) = deleteVerified(file)
 
     internal fun getRecentPcapFiles(maxFiles: Int = 3): List<File> {
         val pcapDir = File(cacheDir, "diagnostics")
@@ -77,7 +80,7 @@ class DiagnosticsArchiveFileStore(
             .orEmpty()
             .filter { it.isFile && it.extension == "pcap" }
             .filter { now - it.lastModified() > PcapRetentionWindowMs }
-            .forEach { it.delete() }
+            .forEach(::deleteVerified)
     }
 
     internal fun createTarget(): DiagnosticsArchiveTarget {
@@ -91,10 +94,16 @@ class DiagnosticsArchiveFileStore(
         )
     }
 
-    private fun ensureArchiveDirectory(): File =
-        File(cacheDir, DiagnosticsArchiveFormat.directoryName).apply {
-            mkdirs()
-        }
+    private fun ensureArchiveDirectory(): File {
+        val directory = File(cacheDir, DiagnosticsArchiveFormat.directoryName)
+        check(directory.isDirectory || directory.mkdirs()) { "Unable to create diagnostics archive directory" }
+        restrictToOwner(directory, directory = true)
+        return directory
+    }
+
+    private fun deleteVerified(file: File) {
+        check(!file.exists() || file.delete()) { "Unable to delete diagnostics archive artifact: ${file.name}" }
+    }
 
     private fun isManagedArchive(file: File): Boolean =
         file.isFile &&
@@ -105,4 +114,20 @@ class DiagnosticsArchiveFileStore(
         file.isFile &&
             file.name.startsWith("${DiagnosticsArchiveFormat.fileNamePrefix}.") &&
             file.name.endsWith(".tmp")
+}
+
+internal fun restrictToOwner(
+    file: File,
+    directory: Boolean = false,
+) {
+    check(file.setReadable(false, false) && file.setReadable(true, true)) {
+        "Unable to restrict diagnostics artifact read permissions"
+    }
+    check(file.setWritable(false, false) && file.setWritable(true, true)) {
+        "Unable to restrict diagnostics artifact write permissions"
+    }
+    check(file.setExecutable(false, false)) { "Unable to clear diagnostics artifact execute permissions" }
+    if (directory) {
+        check(file.setExecutable(true, true)) { "Unable to restrict diagnostics directory execute permissions" }
+    }
 }

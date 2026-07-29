@@ -19,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermission
 
 class DiagnosticsArchiveComponentsTest {
     private val json =
@@ -71,6 +72,39 @@ class DiagnosticsArchiveComponentsTest {
         assertEquals(5, managedFiles.size)
         assertFalse(managedFiles.contains("${DiagnosticsArchiveFormat.fileNamePrefix}expired.zip"))
         assertTrue(archiveDir.resolve("notes.txt").exists())
+    }
+
+    @Test
+    fun `zip writer rejects unsafe and duplicate entry names and uses owner only permissions`() {
+        val cacheDir = Files.createTempDirectory("archive-zip-security").toFile()
+        val target = cacheDir.resolve("safe.zip")
+        val writer = DiagnosticsArchiveZipWriter()
+
+        listOf("../escape.txt", "/absolute.txt", "stages\\escape.txt").forEach { unsafeName ->
+            val failure =
+                runCatching {
+                    writer.write(target, listOf(DiagnosticsArchiveEntry(unsafeName, byteArrayOf(1))))
+                }.exceptionOrNull()
+            assertNotNull(unsafeName, failure)
+        }
+        val duplicateFailure =
+            runCatching {
+                writer.write(
+                    target,
+                    listOf(
+                        DiagnosticsArchiveEntry("safe.txt", byteArrayOf(1)),
+                        DiagnosticsArchiveEntry("safe.txt", byteArrayOf(2)),
+                    ),
+                )
+            }.exceptionOrNull()
+        assertNotNull(duplicateFailure)
+
+        writer.write(target, listOf(DiagnosticsArchiveEntry("stages/safe/report.json", byteArrayOf(1))))
+        val permissions = Files.getPosixFilePermissions(target.toPath())
+        assertTrue(PosixFilePermission.OWNER_READ in permissions)
+        assertTrue(PosixFilePermission.OWNER_WRITE in permissions)
+        assertFalse(PosixFilePermission.GROUP_READ in permissions)
+        assertFalse(PosixFilePermission.OTHERS_READ in permissions)
     }
 
     @Test

@@ -15,12 +15,14 @@ class DiagnosticsArchiveZipWriter
             target: File,
             entries: List<DiagnosticsArchiveEntry>,
         ) {
+            validateArchiveEntries(entries)
             val temporary =
                 File.createTempFile(
                     "${DiagnosticsArchiveFormat.fileNamePrefix}.",
                     ".tmp",
                     target.parentFile,
                 )
+            restrictToOwner(temporary)
             try {
                 ZipOutputStream(temporary.outputStream().buffered()).use { zip ->
                     entries.forEach { entry ->
@@ -30,8 +32,11 @@ class DiagnosticsArchiveZipWriter
                     }
                 }
                 moveAtomically(temporary, target)
+                restrictToOwner(target)
             } finally {
-                temporary.delete()
+                check(!temporary.exists() || temporary.delete()) {
+                    "Unable to delete temporary diagnostics archive"
+                }
             }
         }
 
@@ -45,4 +50,24 @@ class DiagnosticsArchiveZipWriter
                 Files.move(source.toPath(), target.toPath())
             }
         }
+
+        private fun validateArchiveEntries(entries: List<DiagnosticsArchiveEntry>) {
+            val names = mutableSetOf<String>()
+            entries.forEach { entry ->
+                require(entry.name.isNotBlank() && entry.name == entry.name.trim()) {
+                    "Diagnostics archive entry name must be non-blank and canonical"
+                }
+                require('\\' !in entry.name && !entry.name.startsWith('/')) {
+                    "Diagnostics archive entry must be a relative POSIX path: ${entry.name}"
+                }
+                require(
+                    entry.name
+                        .split('/')
+                        .all { segment -> segment.matches(ArchiveEntrySegmentRegex) },
+                ) { "Diagnostics archive entry contains an unsafe path segment: ${entry.name}" }
+                require(names.add(entry.name)) { "Duplicate diagnostics archive entry: ${entry.name}" }
+            }
+        }
     }
+
+private val ArchiveEntrySegmentRegex = Regex("[A-Za-z0-9][A-Za-z0-9._-]*")
