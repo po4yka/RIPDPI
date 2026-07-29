@@ -51,19 +51,31 @@ internal class RuntimeTerminalOutbox(
         return if (marker.value == pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS).value) {
             pending.apply { currentMarker = marker }
         } else {
-            recover(marker)
+            try {
+                recover(marker)
+            } catch (_: TerminalOutboxRecoveryException) {
+                outboxStore.completeTerminalOutbox(marker)
+                begin(start)
+            }
         }
     }
 
     suspend fun recover(): List<PendingTerminalSession> =
-        outboxStore.getPendingTerminalOutboxes().map { marker -> recover(marker) }
+        buildList {
+            outboxStore.getPendingTerminalOutboxes().forEach { marker ->
+                try {
+                    add(recover(marker))
+                } catch (_: TerminalOutboxRecoveryException) {
+                    outboxStore.completeTerminalOutbox(marker)
+                }
+            }
+        }
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
         val outbox = decodeTerminalOutboxMarker(marker.value)
         val finishedSession =
-            requireNotNull(usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)) {
-                "Terminal outbox ${marker.key} has no durable usage session"
-            }
+            usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)
+                ?: throw TerminalOutboxRecoveryException()
         return PendingTerminalSession(
             activeSession = finishedSession,
             finishedSession = finishedSession,
@@ -304,12 +316,14 @@ private const val TerminalOutboxSchemaVersion = 2
 private fun decodeTerminalOutboxMarker(value: String): TerminalOutboxMarker {
     val marker =
         runCatching { RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(value) }
-            .getOrElse { throw IllegalStateException("Invalid terminal outbox state") }
+            .getOrElse { throw TerminalOutboxRecoveryException() }
     if (marker.schemaVersion != TerminalOutboxSchemaVersion) {
-        throw IllegalStateException("Unsupported terminal outbox state")
+        throw TerminalOutboxRecoveryException()
     }
     return marker
 }
+
+private class TerminalOutboxRecoveryException : IllegalStateException("Invalid terminal outbox state")
 
 private fun terminalOutboxMarker(
     connectionSessionId: String,

@@ -40,28 +40,42 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class RuntimeTerminalSealPersistenceTest {
     @Test
-    fun `corrupt terminal outbox fails closed without exposing payload`() =
+    fun `corrupt terminal outbox is discarded without blocking valid recovery or exposing payload`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
-            val serviceStateStore = DefaultServiceStateStore()
-            val coordinatorScope = monitorScope()
-            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            val firstStateStore = DefaultServiceStateStore()
+            val firstScope = monitorScope()
+            val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope)
+            stores.beforeCheckpointTerminalOutbox = { error("injected process death") }
+
+            firstStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            firstStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            firstStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(runCatching { firstCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.isFailure)
+            firstScope.cancel()
+            stores.beforeCheckpointTerminalOutbox = {}
+
             val canary = "sensitive-canary-material"
             stores.terminalOutboxState.value =
-                listOf(
-                    DiagnosticsDurableStateEntity(
-                        key = "runtime_terminal_outbox:corrupt",
-                        value = "{not-json-$canary",
-                        updatedAt = 1L,
-                    ),
+                stores.terminalOutboxState.value +
+                DiagnosticsDurableStateEntity(
+                    key = "runtime_terminal_outbox:corrupt",
+                    value = "{not-json-$canary",
+                    updatedAt = 1L,
                 )
 
-            val error = runCatching { coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.exceptionOrNull()
+            val restoredScope = monitorScope()
+            val restoredCoordinator =
+                createSessionCoordinator(stores, DefaultServiceStateStore(), restoredScope)
+            val error =
+                runCatching { restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.exceptionOrNull()
 
-            assertEquals("Invalid terminal outbox state", error?.message)
+            assertEquals(null, error)
             assertFalse(error?.message.orEmpty().contains(canary))
-            assertEquals(1, stores.getPendingTerminalOutboxes().size)
-            coordinatorScope.cancel()
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertEquals(1, rootCauseAssessments(stores).size)
+            restoredScope.cancel()
         }
 
     @Test

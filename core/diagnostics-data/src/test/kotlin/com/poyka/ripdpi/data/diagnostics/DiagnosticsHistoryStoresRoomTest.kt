@@ -772,7 +772,7 @@ class DiagnosticsHistoryStoresRoomTest {
             assertNull(dnsStore.getNetworkDnsPathPreference("dns-old"))
 
             val finalMarker = requireNotNull(artifactStore.getDurableState(pendingMarker.key))
-            artifactStore.clearDurableStateIfCurrent(finalMarker.key, finalMarker.value)
+            assertTrue(RoomDiagnosticsTerminalOutboxStore(db, dao).completeTerminalOutbox(finalMarker))
             retentionStore.trimOldData(retentionDays = 14)
 
             assertNull(bypassStore.getBypassUsageSession(pendingSession.id))
