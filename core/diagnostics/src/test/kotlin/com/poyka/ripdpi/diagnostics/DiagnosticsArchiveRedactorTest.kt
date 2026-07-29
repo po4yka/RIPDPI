@@ -314,4 +314,39 @@ class DiagnosticsArchiveRedactorTest {
         assertFalse(redacted.contains("truncated-private-material"))
         assertFalse(redacted.contains("without-end-marker"))
     }
+
+    @Test
+    fun `archive redactor removes unicode punycode and spaced filesystem tokens`() {
+        val raw =
+            "unicode=пример.рф punycode=resolver.xn--p1ai " +
+                "unix=/data/user/0/My Files/private trace.log; " +
+                "windows=C:\\Users\\Private User\\trace file.log; status=failed"
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        listOf(
+            "пример.рф",
+            "resolver.xn--p1ai",
+            "xn--p1ai",
+            "/data/user/0/My Files/private trace.log",
+            "My Files/private trace.log",
+            "C:\\Users\\Private User\\trace file.log",
+            "Private User\\trace file.log",
+        ).forEach { sensitive -> assertFalse(redacted.contains(sensitive)) }
+        assertTrue(redacted.contains("status=failed"))
+    }
+
+    @Test
+    fun `archive redactor removes pem tail when begin marker was truncated`() {
+        val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
+        val base64Tail = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo="
+        val raw = "before\n$base64Tail\n$privateKeyEnd\nafter"
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertFalse(redacted.contains(base64Tail))
+        assertFalse(redacted.contains(privateKeyEnd))
+        assertTrue(redacted.contains("before"))
+        assertTrue(redacted.contains("after"))
+    }
 }

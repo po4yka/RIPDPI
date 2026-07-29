@@ -412,6 +412,7 @@ private const val UndecodableArchivePayloadMarker = "{\"redactionStatus\":\"payl
 internal fun redactDiagnosticsFreeText(value: String): String =
     value
         .replaceWhenContainsAny(PemBlockRegex, "<pem-redacted>", "-----BEGIN")
+        .replaceWhenContainsAny(PemTailRegex, "$1<pem-redacted>", "-----END")
         .replaceWhenContainsAny(AuthorizationHeaderRegex, "$1 redacted", "authorization:")
         .replaceWhenContainsAny(CredentialUrlRegex, "$1//redacted@", "://")
         .replaceWhenContainsAny(SensitiveQueryRegex, "$1=redacted", "=")
@@ -487,6 +488,11 @@ private val PemBlockRegex =
         "-----BEGIN [^-\\r\\n]+-----.*?(?:-----END [^-\\r\\n]+-----|\\z)",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
+private val PemTailRegex =
+    Regex(
+        "(?m)(^|\\r?\\n)(?:[A-Za-z0-9+/=]{8,}[ \\t]*\\r?\\n)+-----END [^-\\r\\n]+-----",
+        RegexOption.IGNORE_CASE,
+    )
 private val CredentialUrlRegex = Regex("([a-z][a-z0-9+.-]*:)//[^\\s/@:]+:[^\\s/@]+@", RegexOption.IGNORE_CASE)
 private val SensitiveQueryRegex = Regex("(?i)\\b(token|auth|password|secret|key)=([^\\s&]+)")
 private val BssidRegex = Regex("\\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\\b")
@@ -504,9 +510,13 @@ private val Ipv6Regex =
             ")(?![0-9a-f:])",
     )
 private val DnsNameRegex =
-    Regex("(?i)\\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}\\b")
-private val UnixPathRegex = Regex("(?<![A-Za-z0-9])/(?:[^\\s,;:\"'<>]+/)*[^\\s,;:\"'<>]+")
-private val WindowsPathRegex = Regex("(?i)\\b[A-Z]:\\\\(?:[^\\s,;:\"'<>]+\\\\)*[^\\s,;:\"'<>]+")
+    Regex(
+        "(?iu)(?<![\\p{L}\\p{N}_-])" +
+            "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?\\.)+" +
+            "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
+    )
+private val UnixPathRegex = Regex("(?<![\\p{L}\\p{N}])/(?:[^,;:\"'<>\\r\\n])+")
+private val WindowsPathRegex = Regex("(?i)\\b[A-Z]:\\\\(?:[^,;:\"'<>\\r\\n])+")
 private val EndpointFieldRegex =
     Regex(
         "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +

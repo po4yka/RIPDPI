@@ -600,50 +600,123 @@ class DiagnosticsArchiveRendererTest {
             )
 
         DiagnosticsArchiveZipWriter().write(target.file, renderer.render(target, selection))
-        val hostileValues =
-            listOf(
-                "203.0.113.99",
-                "AS64501",
-                "203.0.113.53",
-                "192.0.2.42",
-                "SensitiveNetwork",
-                "AA:BB:CC:DD:EE:FF",
-                "192.0.2.1",
-                "fp-render",
-                "blocked.example",
-                "telegram.org",
-                "signal.org",
-                "discord.com",
-                "probe.private.example",
-                "detail.private.example",
-                "2001:db8::44",
-                "/data/private/trace",
-                "Sensitive Carrier",
-                "198.51.100.77",
-                "host-policy.private.example",
-                "opaque-resolver-endpoint",
-                "opaque-bootstrap-ip",
-                "opaque-resolver-host",
-                "opaque-tls-server-name",
-                "opaque-doh-url",
-                "opaque-dnscrypt-public-key",
-                "replay-user:replay-password",
-                "replay.private.example",
-                "replay-secret-token",
-                "private-certificate-material",
-                "native-certificate-material",
-                "private-truncated-key-material",
-                "native-secret-token",
-                "approach-private-value",
-                "Private Approach Name",
-                "private-validation-result",
-                "private-runtime-end-reason",
-                "private-failure-outcome",
-                "::1",
-                "fe80::1",
-                "2001:db8::53",
+        assertZipExcludes(target, hostileArchiveValues())
+    }
+
+    @Test
+    fun `whole home composite zip redacts every hostile stage entry`() {
+        val base = buildSensitiveRendererSelection()
+        val stage =
+            rendererCompositeStage(
+                stageKey = "automatic_audit",
+                events = base.primaryEvents,
+                session = base.primarySession,
+            ).copy(
+                results = base.primaryResults,
+                snapshots = base.primarySnapshots,
+                contexts = base.primaryContexts,
+            )
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                request =
+                    DiagnosticsArchiveRequest(
+                        sessionIds = listOfNotNull(base.primarySession?.id),
+                        homeRunId = "hostile-home-run",
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 46L,
+                    ),
+                homeRunId = "hostile-home-run",
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "hostile-home-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                        stageSummaries = listOf(stage.stageSummary),
+                        bundleSessionIds = listOfNotNull(base.primarySession?.id),
+                    ),
+                compositeStages = listOf(stage),
+                includedFiles =
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = true,
+                        composite = true,
+                        compositeStageKeys = listOf("automatic_audit"),
+                        replayIncluded = true,
+                    ),
+            )
+        val archiveDirectory = Files.createTempDirectory("archive-redact-home")
+        val target =
+            DiagnosticsArchiveTarget(
+                file = archiveDirectory.resolve("ripdpi-diagnostics-redact-home.zip").toFile(),
+                fileName = "ripdpi-diagnostics-redact-home.zip",
+                createdAt = 46L,
             )
 
+        DiagnosticsArchiveZipWriter().write(target.file, renderer.render(target, selection))
+
+        ZipFile(target.file).use { zip ->
+            assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
+            assertNotNull(zip.getEntry("stages/automatic_audit/native-events.csv"))
+            assertNotNull(zip.getEntry("stages/automatic_audit/probe-results.csv"))
+        }
+        assertZipExcludes(target, hostileArchiveValues())
+    }
+
+    private fun hostileArchiveValues(): List<String> =
+        listOf(
+            "203.0.113.99",
+            "AS64501",
+            "203.0.113.53",
+            "192.0.2.42",
+            "SensitiveNetwork",
+            "AA:BB:CC:DD:EE:FF",
+            "192.0.2.1",
+            "fp-render",
+            "blocked.example",
+            "telegram.org",
+            "signal.org",
+            "discord.com",
+            "probe.private.example",
+            "detail.private.example",
+            "2001:db8::44",
+            "/data/private/trace",
+            "Sensitive Carrier",
+            "198.51.100.77",
+            "host-policy.private.example",
+            "opaque-resolver-endpoint",
+            "opaque-bootstrap-ip",
+            "opaque-resolver-host",
+            "opaque-tls-server-name",
+            "opaque-doh-url",
+            "opaque-dnscrypt-public-key",
+            "replay-user:replay-password",
+            "replay.private.example",
+            "replay-secret-token",
+            "private-certificate-material",
+            "native-certificate-material",
+            "private-truncated-key-material",
+            "native-secret-token",
+            "approach-private-value",
+            "Private Approach Name",
+            "private-validation-result",
+            "private-runtime-end-reason",
+            "private-failure-outcome",
+            "::1",
+            "fe80::1",
+            "2001:db8::53",
+            "пример.рф",
+            "resolver.xn--p1ai",
+            "xn--p1ai",
+            "/data/private/My Files/native trace.log",
+            "My Files/native trace.log",
+            "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM",
+        )
+
+    private fun assertZipExcludes(
+        target: DiagnosticsArchiveTarget,
+        hostileValues: List<String>,
+    ) {
         ZipFile(target.file).use { zip ->
             zip.entries().asSequence().filterNot { it.isDirectory }.forEach { entry ->
                 val content = zip.getInputStream(entry).readBytes().decodeToString()
@@ -721,12 +794,16 @@ class DiagnosticsArchiveRendererTest {
     private fun hostileNativeEvent(): NativeSessionEventEntity {
         val certificateStart = listOf("-----BEGIN", "CERTIFICATE-----").joinToString(" ")
         val certificateEnd = listOf("-----END", "CERTIFICATE-----").joinToString(" ")
+        val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
         return rendererNativeEvent(id = "hostile-event", sessionId = "session-1").copy(
             message =
                 "Authorization: Bearer native-secret-token; carrier=Sensitive Carrier; " +
                     "resolver=198.51.100.77; loopback=::1; linkLocal=fe80::1; resolverV6=2001:db8::53; " +
                     "$certificateStart\nnative-certificate-material\n$certificateEnd\n" +
-                    "url=https://native.private.example/secret/path; file=/data/private/native.trace",
+                    "unicode=пример.рф; punycode=resolver.xn--p1ai; " +
+                    "url=https://native.private.example/secret/path; " +
+                    "file=/data/private/My Files/native trace.log;\n" +
+                    "TkFUSVZFX1BFTV9UQUlMX01BVEVSSUFM\n$privateKeyEnd",
             policySignature = "host-policy.private.example",
         )
     }
