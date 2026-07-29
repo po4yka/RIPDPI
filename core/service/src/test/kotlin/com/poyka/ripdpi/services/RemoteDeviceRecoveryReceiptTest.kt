@@ -29,13 +29,6 @@ class RemoteDeviceRecoveryReceiptTest {
         collector.recordTunnelTelemetry(
             generation,
             NativeRuntimeSnapshot.idle(source = "tunnel").copy(
-                tunnelStats = TunnelStats(txPackets = 10L, rxPackets = 10L),
-            ),
-        )
-        elapsed = 8_500L
-        collector.recordTunnelTelemetry(
-            generation,
-            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
                 tunnelStats = TunnelStats(txPackets = 11L, rxPackets = 11L),
             ),
         )
@@ -104,9 +97,10 @@ class RemoteDeviceRecoveryReceiptTest {
     }
 
     @Test
-    fun `cumulative tunnel counters cannot fabricate first flow for a new generation`() {
+    fun `non-zero first telemetry sample preserves flow after TUN ready`() {
         val collector = collector()
         val generation = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
+        collector.recordTunReady(generation)
 
         collector.recordTunnelTelemetry(
             generation,
@@ -115,18 +109,28 @@ class RemoteDeviceRecoveryReceiptTest {
             ),
         )
 
-        assertEquals("not_observed", collector.snapshot().timeToFirstFlow)
-        assertEquals("no_flow_observed", collector.snapshot().postStartDataPlaneOutcome)
-
-        collector.recordTunnelTelemetry(
-            generation,
-            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
-                tunnelStats = TunnelStats(txPackets = 10_001L, rxPackets = 20_002L),
-            ),
-        )
-
         assertEquals("under_1s", collector.snapshot().timeToFirstFlow)
         assertEquals("bidirectional_observed", collector.snapshot().postStartDataPlaneOutcome)
+    }
+
+    @Test
+    fun `TUN ready resets the counter baseline for a replacement bridge`() {
+        val collector = collector()
+        val generation = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
+        collector.recordTunReady(generation)
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 100L)),
+        )
+        assertEquals("outbound_only", collector.snapshot().postStartDataPlaneOutcome)
+
+        collector.recordTunReady(generation)
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(rxBytes = 1L)),
+        )
+
+        assertEquals("inbound_only", collector.snapshot().postStartDataPlaneOutcome)
     }
 
     @Test

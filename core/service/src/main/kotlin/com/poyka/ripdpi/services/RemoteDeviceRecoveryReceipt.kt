@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.net.VpnService
 import android.os.SystemClock
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
@@ -113,6 +114,7 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
 
     fun recordTunReady(generation: String) {
         updateIfCurrent(generation) { state, receipt ->
+            state.baselineTunnelStats = TunnelStats()
             if (receipt.timeToTun != NotObservedReceiptValue) {
                 receipt
             } else {
@@ -134,10 +136,6 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
         val stats = telemetry.tunnelStats
         updateIfCurrent(generation) { state, receipt ->
             val baseline = state.baselineTunnelStats
-            if (baseline == null) {
-                state.baselineTunnelStats = stats
-                return@updateIfCurrent receipt.copy(postStartDataPlaneOutcome = "no_flow_observed")
-            }
             val outbound = stats.txPackets > baseline.txPackets || stats.txBytes > baseline.txBytes
             val inbound = stats.rxPackets > baseline.rxPackets || stats.rxBytes > baseline.rxBytes
             val firstFlow =
@@ -226,7 +224,7 @@ private data class ActiveRecoveryReceipt(
     val serviceInstanceId: String,
     val serviceInstanceHash: String,
     val startedAtElapsedMs: Long,
-    var baselineTunnelStats: com.poyka.ripdpi.data.TunnelStats? = null,
+    var baselineTunnelStats: TunnelStats = TunnelStats(),
 )
 
 internal fun classifyRecoveryStartOrigin(action: String?): String =
