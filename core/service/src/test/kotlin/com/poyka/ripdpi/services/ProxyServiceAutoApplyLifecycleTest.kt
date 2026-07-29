@@ -369,6 +369,9 @@ private class InMemoryRememberedNetworkPolicyRecordStore(
     ): RememberedNetworkPolicyEntity? =
         state.value.firstOrNull { it.fingerprintHash == fingerprintHash && it.mode == mode }
 
+    override suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity? =
+        state.value.firstOrNull { it.id == id }
+
     override suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
         mode: String,

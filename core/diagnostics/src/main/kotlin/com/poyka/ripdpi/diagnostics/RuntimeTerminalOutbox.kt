@@ -153,7 +153,7 @@ internal class RuntimeTerminalOutbox(
             rememberedPolicySessionTracker.clear()
             return
         }
-        rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome)
+        rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome, policy)
         val replacement = pending.toMarker(nextPhase)
         reconcileCheckpoint(
             pending = pending,
@@ -171,11 +171,8 @@ internal class RuntimeTerminalOutbox(
         outcome: RememberedPolicyTerminalOutcome,
         finishedSession: BypassUsageSessionEntity,
     ): RememberedNetworkPolicyEntity? {
-        val current =
-            policyRecordStore.getRememberedNetworkPolicy(
-                fingerprintHash = outcome.fingerprintHash,
-                mode = outcome.mode,
-            ) ?: return null
+        val current = policyRecordStore.getRememberedNetworkPolicyById(outcome.policyId) ?: return null
+        if (current.mode != outcome.mode) return null
         return current.copy(
             status = outcome.status,
             strategySignatureJson =

@@ -299,6 +299,9 @@ internal class FakeDiagnosticsHistoryStores :
     ): RememberedNetworkPolicyEntity? =
         rememberedPoliciesState.value.find { it.fingerprintHash == fingerprintHash && it.mode == mode }
 
+    override suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity? =
+        rememberedPoliciesState.value.find { it.id == id }
+
     override suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity? =
         networkDnsPathPreferencesState.value.find { it.fingerprintHash == fingerprintHash }
 

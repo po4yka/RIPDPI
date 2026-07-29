@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
 import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.data.policyHandoverDeliveryId
 import kotlinx.serialization.Serializable
@@ -106,7 +107,6 @@ class RememberedPolicySessionTracker
                             nextConsecutiveFailures >= 2
                     RememberedPolicyTerminalOutcome(
                         policyId = rememberedPolicySession.entity.id,
-                        fingerprintHash = rememberedPolicySession.entity.fingerprintHash,
                         mode = rememberedPolicySession.entity.mode,
                         status =
                             if (shouldSuppress) {
@@ -133,7 +133,6 @@ class RememberedPolicySessionTracker
                 proved -> {
                     RememberedPolicyTerminalOutcome(
                         policyId = rememberedPolicySession.entity.id,
-                        fingerprintHash = rememberedPolicySession.entity.fingerprintHash,
                         mode = rememberedPolicySession.entity.mode,
                         status = RememberedNetworkPolicyStatusValidated,
                         successCount = rememberedPolicySession.entity.successCount + 1,
@@ -152,18 +151,23 @@ class RememberedPolicySessionTracker
             }
         }
 
-        internal suspend fun publishTerminalOutcome(outcome: RememberedPolicyTerminalOutcome?) {
+        internal suspend fun publishTerminalOutcome(
+            outcome: RememberedPolicyTerminalOutcome?,
+            policy: RememberedNetworkPolicyEntity?,
+        ) {
             val failureHandover = outcome?.failureHandover ?: return
+            val resolvedPolicy = policy?.takeIf { it.id == outcome.policyId && it.mode == outcome.mode } ?: return
             policyHandoverEventStore.publish(
                 PolicyHandoverEvent(
                     deliveryId = failureHandover.deliveryId,
                     mode = failureHandover.mode,
-                    currentFingerprintHash = failureHandover.fingerprintHash,
+                    currentFingerprintHash = resolvedPolicy.fingerprintHash,
                     classification = AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE,
                     currentNetworkValidated = true,
                     currentCaptivePortalDetected = false,
                     usedRememberedPolicy = true,
                     occurredAt = failureHandover.occurredAt,
+                    rememberedPolicyDependencyKey = failureHandover.policyDependencyKey,
                 ),
             )
         }
@@ -189,13 +193,16 @@ class RememberedPolicySessionTracker
                 connectionSessionId: String,
                 failedAt: Long,
             ): RememberedPolicyFailureHandover? =
-                fingerprintHash?.let { fingerprintHash ->
+                if (fingerprintHash != null) {
                     RememberedPolicyFailureHandover(
                         deliveryId = policyHandoverDeliveryId("runtime-terminal:$connectionSessionId"),
                         mode = mode,
-                        fingerprintHash = fingerprintHash,
+                        policyDependencyKey =
+                            "$TerminalPolicyDependencyDurableStatePrefix$connectionSessionId",
                         occurredAt = failedAt,
                     )
+                } else {
+                    null
                 }
         }
     }
@@ -203,7 +210,6 @@ class RememberedPolicySessionTracker
 @Serializable
 internal data class RememberedPolicyTerminalOutcome(
     val policyId: Long = 0L,
-    val fingerprintHash: String,
     val mode: String,
     val status: String,
     val successCount: Int,
@@ -220,7 +226,7 @@ internal data class RememberedPolicyTerminalOutcome(
 internal data class RememberedPolicyFailureHandover(
     val deliveryId: String,
     val mode: Mode,
-    val fingerprintHash: String,
+    val policyDependencyKey: String,
     val occurredAt: Long,
 )
 

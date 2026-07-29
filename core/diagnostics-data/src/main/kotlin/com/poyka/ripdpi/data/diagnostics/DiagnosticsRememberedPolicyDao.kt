@@ -23,6 +23,9 @@ interface DiagnosticsRememberedPolicyDao {
         mode: String,
     ): RememberedNetworkPolicyEntity?
 
+    @Query("SELECT * FROM remembered_network_policies WHERE id = :id LIMIT 1")
+    suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity?
+
     @Query(
         """
         SELECT * FROM remembered_network_policies

@@ -198,6 +198,8 @@ interface RememberedNetworkPolicyRecordStore {
         mode: String,
     ): RememberedNetworkPolicyEntity?
 
+    suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity?
+
     suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
         mode: String,
@@ -559,6 +561,9 @@ class RoomRememberedNetworkPolicyRecordStore
                 fingerprintHash = fingerprintHash,
                 mode = mode,
             )
+
+        override suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity? =
+            dao.getRememberedNetworkPolicyById(id)
 
         override suspend fun findValidatedRememberedNetworkPolicy(
             fingerprintHash: String,

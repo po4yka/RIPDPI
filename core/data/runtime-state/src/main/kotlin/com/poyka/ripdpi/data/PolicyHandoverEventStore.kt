@@ -16,6 +16,7 @@ data class PolicyHandoverEvent(
     val currentCaptivePortalDetected: Boolean,
     val usedRememberedPolicy: Boolean,
     val occurredAt: Long,
+    val rememberedPolicyDependencyKey: String? = null,
 )
 
 interface PolicyHandoverEventStore {

@@ -535,6 +535,13 @@ class RuntimeTerminalSealPersistenceTest {
                 }.isFailure,
             )
             assertEquals(1, stores.getPendingTerminalOutboxes().size)
+            assertFalse(
+                stores
+                    .getPendingTerminalOutboxes()
+                    .single()
+                    .value
+                    .contains("terminal-policy"),
+            )
             stores.rememberedPoliciesState.value = emptyList()
             firstScope.cancel()
 
