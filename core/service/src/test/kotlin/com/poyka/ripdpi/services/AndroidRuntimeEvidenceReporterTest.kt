@@ -5,11 +5,15 @@ import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceState
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.DeviceRuntimeMemoryPressure
 import com.poyka.ripdpi.data.DeviceRuntimeValue
 import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,9 +27,17 @@ class AndroidRuntimeEvidenceReporterTest {
         val reporter = reporter(store)
 
         reporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created)
-        reporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Initial) {}
+        reporter.runForegroundCall(
+            Mode.VPN,
+            DeviceRuntimeForegroundCallKind.Initial,
+            DeviceRuntimeForegroundServiceType.SpecialUse,
+        ) {}
         reporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.StartCommand)
-        reporter.runForegroundCall(Mode.Proxy, DeviceRuntimeForegroundCallKind.Initial) {}
+        reporter.runForegroundCall(
+            Mode.Proxy,
+            DeviceRuntimeForegroundCallKind.Initial,
+            DeviceRuntimeForegroundServiceType.SpecialUse,
+        ) {}
 
         assertEquals(
             listOf(Mode.VPN, Mode.Proxy),
@@ -45,7 +57,11 @@ class AndroidRuntimeEvidenceReporterTest {
 
         val caught =
             runCatching {
-                reporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Initial) { throw failure }
+                reporter.runForegroundCall(
+                    Mode.VPN,
+                    DeviceRuntimeForegroundCallKind.Initial,
+                    DeviceRuntimeForegroundServiceType.SpecialUse,
+                ) { throw failure }
             }.exceptionOrNull()
 
         assertSame(failure, caught)
@@ -89,6 +105,8 @@ class AndroidRuntimeEvidenceReporterTest {
 private class RecordingEvidenceStore : DeviceRuntimeEvidenceStore {
     val eventsList = mutableListOf<DeviceRuntimeEvidence>()
     override val events: Flow<DeviceRuntimeEvidence> = emptyFlow()
+    override val foregroundServiceState: StateFlow<DeviceRuntimeForegroundServiceState> =
+        MutableStateFlow(DeviceRuntimeForegroundServiceState())
 
     override fun record(event: DeviceRuntimeEvidence) {
         eventsList += event

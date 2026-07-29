@@ -7,6 +7,9 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -126,6 +129,7 @@ sealed interface DeviceRuntimeEvidence {
         val kind: DeviceRuntimeForegroundCallKind,
         val outcome: DeviceRuntimeForegroundOutcome,
         override val observedAtMillis: Long,
+        val serviceType: DeviceRuntimeForegroundServiceType = DeviceRuntimeForegroundServiceType.Unknown,
     ) : DeviceRuntimeEvidence
 
     data class VpnPolicy(
@@ -161,9 +165,21 @@ private fun positiveDelta(
 /** Process-local, bounded hand-off from Android callbacks to diagnostics. Exactly one collector is supported. */
 interface DeviceRuntimeEvidenceStore {
     val events: Flow<DeviceRuntimeEvidence>
+    val foregroundServiceState: StateFlow<DeviceRuntimeForegroundServiceState>
 
     fun record(event: DeviceRuntimeEvidence)
 }
+
+enum class DeviceRuntimeForegroundServiceType {
+    SpecialUse,
+    Unknown,
+}
+
+data class DeviceRuntimeForegroundServiceState(
+    val active: Boolean = false,
+    val mode: Mode? = null,
+    val serviceType: DeviceRuntimeForegroundServiceType = DeviceRuntimeForegroundServiceType.Unknown,
+)
 
 @Singleton
 class DefaultDeviceRuntimeEvidenceStore
@@ -174,11 +190,49 @@ class DefaultDeviceRuntimeEvidenceStore
                 capacity = DeviceRuntimeEvidenceCapacity,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
+        private val _foregroundServiceState = MutableStateFlow(DeviceRuntimeForegroundServiceState())
 
         override val events: Flow<DeviceRuntimeEvidence> = channel.receiveAsFlow()
+        override val foregroundServiceState: StateFlow<DeviceRuntimeForegroundServiceState> =
+            _foregroundServiceState.asStateFlow()
 
         override fun record(event: DeviceRuntimeEvidence) {
+            updateForegroundServiceState(event)
             channel.trySend(event)
+        }
+
+        private fun updateForegroundServiceState(event: DeviceRuntimeEvidence) {
+            when (event) {
+                is DeviceRuntimeEvidence.ForegroundCall -> {
+                    when {
+                        event.outcome == DeviceRuntimeForegroundOutcome.Returned -> {
+                            _foregroundServiceState.value =
+                                DeviceRuntimeForegroundServiceState(
+                                    active = true,
+                                    mode = event.mode,
+                                    serviceType = event.serviceType,
+                                )
+                        }
+
+                        event.kind == DeviceRuntimeForegroundCallKind.Initial &&
+                            _foregroundServiceState.value.mode == event.mode -> {
+                            _foregroundServiceState.value = DeviceRuntimeForegroundServiceState()
+                        }
+                    }
+                }
+
+                is DeviceRuntimeEvidence.ServiceLifecycle -> {
+                    if (event.phase == DeviceRuntimeLifecyclePhase.Destroyed &&
+                        _foregroundServiceState.value.mode == event.mode
+                    ) {
+                        _foregroundServiceState.value = DeviceRuntimeForegroundServiceState()
+                    }
+                }
+
+                else -> {
+                    Unit
+                }
+            }
         }
     }
 

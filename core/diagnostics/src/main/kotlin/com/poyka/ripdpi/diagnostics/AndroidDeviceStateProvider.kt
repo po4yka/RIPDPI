@@ -10,7 +10,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.os.BatteryManager
 import android.os.Build
@@ -18,6 +17,8 @@ import android.os.PowerManager
 import android.os.UserManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -29,6 +30,7 @@ internal class AndroidDeviceStateProvider
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val runtimeEvidenceStore: DeviceRuntimeEvidenceStore,
     ) : DeviceStateProvider {
         private val powerManager = context.getSystemService(PowerManager::class.java)
         private val activityManager = context.getSystemService(ActivityManager::class.java)
@@ -48,6 +50,7 @@ internal class AndroidDeviceStateProvider
                     processInfo.lastTrimLevel
                 }.getOrNull()
             val foregroundNotificationActive = foregroundNotificationActive()
+            val foregroundServiceState = runtimeEvidenceStore.foregroundServiceState.value
             return buildDeviceStateSnapshot(
                 apiLevel = Build.VERSION.SDK_INT,
                 screenInteractive = runCatching { powerManager?.isInteractive }.getOrNull(),
@@ -103,7 +106,8 @@ internal class AndroidDeviceStateProvider
                     },
                 foregroundNotificationActive = foregroundNotificationActive,
                 foregroundNotificationChannelState = foregroundNotificationChannelState(),
-                foregroundServiceType = foregroundServiceType(foregroundNotificationActive),
+                foregroundServiceType =
+                    foregroundServiceState.serviceType.takeIf { foregroundServiceState.active },
                 userUnlocked = runCatching { userManager?.isUserUnlocked }.getOrNull(),
                 processImportance = processInfo.importance,
                 lastTrimLevel = lastTrimLevel,
@@ -188,29 +192,6 @@ internal class AndroidDeviceStateProvider
                 }.getOrNull()
             }
 
-        @Suppress("DEPRECATION")
-        private fun foregroundServiceType(foregroundNotificationActive: Boolean?): Int? =
-            when {
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> {
-                    null
-                }
-
-                foregroundNotificationActive != true -> {
-                    ForegroundServiceTypeNone
-                }
-
-                else -> {
-                    runCatching {
-                        context.packageManager
-                            .getPackageInfo(context.packageName, PackageManager.GET_SERVICES)
-                            .services
-                            ?.map { service -> service.foregroundServiceType }
-                            ?.distinct()
-                            ?.singleOrNull()
-                    }.getOrNull()
-                }
-            }
-
         private fun foregroundNotificationChannelState(): NotificationChannelState =
             when {
                 Build.VERSION.SDK_INT < Build.VERSION_CODES.O -> NotificationChannelState.NotSupported
@@ -253,7 +234,7 @@ internal fun buildDeviceStateSnapshot(
     notificationsPaused: Boolean?,
     foregroundNotificationActive: Boolean?,
     foregroundNotificationChannelState: NotificationChannelState,
-    foregroundServiceType: Int?,
+    foregroundServiceType: DeviceRuntimeForegroundServiceType?,
     userUnlocked: Boolean?,
     processImportance: Int?,
     lastTrimLevel: Int?,
@@ -297,13 +278,12 @@ internal fun buildDeviceStateSnapshot(
         manufacturerFamily = manufacturer.toManufacturerFamily(),
     )
 
-private fun Int?.toForegroundServiceTypeBand(apiLevel: Int): ForegroundServiceTypeBand =
+private fun DeviceRuntimeForegroundServiceType?.toForegroundServiceTypeBand(apiLevel: Int): ForegroundServiceTypeBand =
     when {
         apiLevel < Build.VERSION_CODES.Q -> ForegroundServiceTypeBand.NotSupported
-        this == null -> ForegroundServiceTypeBand.Unknown
-        this == ForegroundServiceTypeNone -> ForegroundServiceTypeBand.None
-        this == ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE -> ForegroundServiceTypeBand.SpecialUse
-        else -> ForegroundServiceTypeBand.Other
+        this == null -> ForegroundServiceTypeBand.None
+        this == DeviceRuntimeForegroundServiceType.SpecialUse -> ForegroundServiceTypeBand.SpecialUse
+        else -> ForegroundServiceTypeBand.Unknown
     }
 
 private fun Int?.toProcessImportanceBand(): ProcessImportanceBand =
@@ -438,7 +418,6 @@ private fun String?.toManufacturerFamily(): DeviceManufacturerFamily =
 
 private const val VpnNotificationChannelId = "RIPDPIVpn"
 private const val ProxyNotificationChannelId = "RIPDPI Proxy"
-private const val ForegroundServiceTypeNone = 0
 private const val PercentScale = 100
 private const val MinBatteryPercent = 0
 private const val CriticalBatteryPercent = 10

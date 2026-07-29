@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeKillSwitchStatus
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.DeviceRuntimeMemoryPressure
@@ -49,13 +50,14 @@ class AndroidRuntimeEvidenceReporter
         fun runForegroundCall(
             mode: Mode,
             kind: DeviceRuntimeForegroundCallKind,
+            serviceType: DeviceRuntimeForegroundServiceType,
             call: () -> Unit,
         ) {
             try {
                 call()
-                recordForegroundCall(mode, kind, DeviceRuntimeForegroundOutcome.Returned)
+                recordForegroundCall(mode, kind, DeviceRuntimeForegroundOutcome.Returned, serviceType)
             } catch (error: RuntimeException) {
-                recordForegroundCall(mode, kind, classifyForegroundFailure(error))
+                recordForegroundCall(mode, kind, classifyForegroundFailure(error), serviceType)
                 throw error
             }
         }
@@ -89,8 +91,17 @@ class AndroidRuntimeEvidenceReporter
             mode: Mode,
             kind: DeviceRuntimeForegroundCallKind,
             outcome: DeviceRuntimeForegroundOutcome,
+            serviceType: DeviceRuntimeForegroundServiceType,
         ) {
-            store.record(DeviceRuntimeEvidence.ForegroundCall(mode, kind, outcome, clock.now()))
+            store.record(
+                DeviceRuntimeEvidence.ForegroundCall(
+                    mode = mode,
+                    kind = kind,
+                    outcome = outcome,
+                    observedAtMillis = clock.now(),
+                    serviceType = serviceType,
+                ),
+            )
         }
     }
 

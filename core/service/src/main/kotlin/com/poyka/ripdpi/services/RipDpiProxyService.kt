@@ -14,6 +14,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -118,7 +119,11 @@ class RipDpiProxyService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.StartCommand)
-        runtimeEvidenceReporter.runForegroundCall(Mode.Proxy, DeviceRuntimeForegroundCallKind.Initial) {
+        runtimeEvidenceReporter.runForegroundCall(
+            Mode.Proxy,
+            DeviceRuntimeForegroundCallKind.Initial,
+            DeviceRuntimeForegroundServiceType.SpecialUse,
+        ) {
             startForegroundService()
         }
         if (stickyRestartDecision(

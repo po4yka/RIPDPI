@@ -4,9 +4,34 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DeviceRuntimeEvidenceStoreTest {
+    @Test
+    fun `tracks the concrete foreground service type returned by startForeground`() {
+        val store = DefaultDeviceRuntimeEvidenceStore()
+
+        store.record(
+            DeviceRuntimeEvidence.ForegroundCall(
+                mode = Mode.VPN,
+                kind = DeviceRuntimeForegroundCallKind.Initial,
+                outcome = DeviceRuntimeForegroundOutcome.Returned,
+                observedAtMillis = 1L,
+                serviceType = DeviceRuntimeForegroundServiceType.SpecialUse,
+            ),
+        )
+
+        assertTrue(store.foregroundServiceState.value.active)
+        assertEquals(Mode.VPN, store.foregroundServiceState.value.mode)
+        assertEquals(DeviceRuntimeForegroundServiceType.SpecialUse, store.foregroundServiceState.value.serviceType)
+
+        store.record(DeviceRuntimeEvidence.ServiceLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed, 2L))
+
+        assertFalse(store.foregroundServiceState.value.active)
+    }
+
     @Test
     fun `buffers evidence before collector and drops oldest at capacity`() =
         runTest {

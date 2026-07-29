@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneDelta
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeKillSwitchStatus
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.DeviceRuntimeMemoryPressure
@@ -283,7 +284,7 @@ class DeviceStateEventRecorderTest {
                 notificationsPaused = true,
                 foregroundNotificationActive = true,
                 foregroundNotificationChannelState = NotificationChannelState.Enabled,
-                foregroundServiceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                foregroundServiceType = DeviceRuntimeForegroundServiceType.SpecialUse,
                 userUnlocked = true,
                 processImportance = ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
                 lastTrimLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
@@ -333,7 +334,7 @@ class DeviceStateEventRecorderTest {
                         notificationsPaused = null,
                         foregroundNotificationActive = null,
                         foregroundNotificationChannelState = NotificationChannelState.Unknown,
-                        foregroundServiceType = Int.MAX_VALUE,
+                        foregroundServiceType = DeviceRuntimeForegroundServiceType.Unknown,
                         userUnlocked = null,
                         processImportance = Int.MAX_VALUE,
                         lastTrimLevel = Int.MAX_VALUE,
@@ -349,7 +350,7 @@ class DeviceStateEventRecorderTest {
             assertTrue(messages.all { it.contains("manufacturer_family=other") })
             assertTrue(messages.all { it.contains("notifications_paused=unknown") })
             assertTrue(messages.all { it.contains("foreground_notification_active=unknown") })
-            assertTrue(messages.all { it.contains("foreground_service_type=other") })
+            assertTrue(messages.all { it.contains("foreground_service_type=unknown") })
             assertTrue(messages.all { it.contains("user_unlocked=unknown") })
             assertTrue(messages.all { it.contains("process_importance=cached") })
             listOf("secret", "ssid", "192.0.2.1", "bad.example", "serial").forEach { forbidden ->

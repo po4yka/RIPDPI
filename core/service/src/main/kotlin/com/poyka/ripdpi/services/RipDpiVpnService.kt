@@ -13,6 +13,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -145,7 +146,11 @@ class RipDpiVpnService :
                 null
             }
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.StartCommand)
-        runtimeEvidenceReporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Initial) {
+        runtimeEvidenceReporter.runForegroundCall(
+            Mode.VPN,
+            DeviceRuntimeForegroundCallKind.Initial,
+            DeviceRuntimeForegroundServiceType.SpecialUse,
+        ) {
             notificationController.startForeground(this)
         }
         val policy = refreshHardKillSwitchState()
@@ -185,7 +190,11 @@ class RipDpiVpnService :
     ) = notificationController.update(this, tunnelStats, proxyTelemetry)
 
     internal fun refreshForegroundNotification() {
-        runtimeEvidenceReporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Refresh) {
+        runtimeEvidenceReporter.runForegroundCall(
+            Mode.VPN,
+            DeviceRuntimeForegroundCallKind.Refresh,
+            DeviceRuntimeForegroundServiceType.SpecialUse,
+        ) {
             notificationController.startForeground(this)
         }
     }
