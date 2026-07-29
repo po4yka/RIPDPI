@@ -9,6 +9,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -873,6 +875,13 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
         assertEquals(outcome.runId, manifest.homeRunId)
         assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
+        assertEquals(java.io.File(zip.name).name, manifest.fileName)
+        assertTrue(
+            Regex(
+                "ripdpi-diagnostics-1700000000000-" +
+                    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.zip",
+            ).matches(manifest.fileName),
+        )
         assertNotNull(zip.getEntry("home-analysis.json"))
         assertNotNull(zip.getEntry("stage-index.json"))
         assertNotNull(zip.getEntry("stage-summaries.json"))
@@ -882,6 +891,12 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         GoldenContractSupport.assertJsonGolden(
             "archive/manifest_home_composite_v4.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+            scrub = { manifest ->
+                JsonObject(
+                    manifest.jsonObject +
+                        ("fileName" to JsonPrimitive("ripdpi-diagnostics-1700000000000.zip")),
+                )
+            },
         )
         GoldenContractSupport.assertJsonGolden(
             "archive/home_analysis_composite_v4.json",

@@ -47,11 +47,8 @@ class RawPacketDisclosureContentTest {
             }
         }
 
-        // Disclosure body must mention raw IP packet bytes, retention, and the
-        // explicit-share-only export guarantee. The third assertion was originally
-        // written against an earlier draft string ("not attached"); the canonical
-        // R.string.diagnostics_pcap_disclosure_body now uses the clearer
-        // "included only in archives you explicitly share or save" phrasing.
+        // Disclosure body must mention raw IP packet bytes, retention, and that
+        // redacted diagnostics archives keep packet captures separate.
         composeRule
             .onNodeWithText("raw IP packet bytes", substring = true)
             .assertIsDisplayed()
@@ -59,7 +56,7 @@ class RawPacketDisclosureContentTest {
             .onNodeWithText("24 h or 3 most-recent files", substring = true)
             .assertIsDisplayed()
         composeRule
-            .onNodeWithText("PCAP files are included only", substring = true)
+            .onNodeWithText("redacted diagnostics archives do not embed them", substring = true)
             .assertIsDisplayed()
     }
 }

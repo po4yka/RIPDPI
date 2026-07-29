@@ -2003,44 +2003,48 @@ class DiagnosticsScreenTest {
     }
 
     @Test
-    fun shareArchiveCopyDisclosesLogcatPcapAndExplicitSharing() {
+    fun shareArchiveCopyDisclosesLogcatSeparatePcapAndFingerprintLimits() {
         setToolsScreen()
 
         swipeToolsUntilTextVisible("app-scoped logcat snapshot")
-        swipeToolsUntilTextVisible("Android share sheet after you choose a target")
+        swipeToolsUntilTextVisible("Packet captures stay as separate local raw artifacts")
+        swipeToolsUntilTextVisible("not independent proof of authenticity")
     }
 
     @Test
-    fun packetCaptureCopyDisclosesRetentionPayloadAndExplicitExports() {
+    fun packetCaptureCopyDisclosesRetentionPayloadAndSeparateExports() {
         setToolsScreen(rootModeEnabled = true, pcapRecording = true)
 
         swipeToolsUntilTextVisible("packet payloads")
-        swipeToolsUntilTextVisible("explicitly share or save after recording")
+        swipeToolsUntilTextVisible("redacted diagnostics archives do not embed them")
     }
 
     @Test
     fun remoteDeviceAcceptanceCardShowsOnlyRedactedEvidence() {
-        setToolsScreen(
-            tools =
-                DiagnosticsToolsUiModel(
-                    remoteDeviceAcceptance =
-                        RemoteDeviceAcceptanceReport(
-                            status = RemoteDeviceAcceptanceStatus.Incomplete,
-                            device = RemoteDeviceAcceptanceDevice("SM-S928B", "XSG", 35, "arm64-v8a"),
-                            transportKind = "vless_reality",
-                            steps =
-                                listOf(
-                                    RemoteDeviceAcceptanceStep(
-                                        id = "reality_tcp",
-                                        status = RemoteDeviceAcceptanceStatus.Pass,
-                                        durationMs = 42L,
-                                    ),
-                                ),
+        val report =
+            RemoteDeviceAcceptanceReport(
+                status = RemoteDeviceAcceptanceStatus.Incomplete,
+                device = RemoteDeviceAcceptanceDevice("SM-S928B", "XSG", 35, "arm64-v8a"),
+                transportKind = "vless_reality",
+                steps =
+                    listOf(
+                        RemoteDeviceAcceptanceStep(
+                            id = "reality_tcp",
+                            status = RemoteDeviceAcceptanceStatus.Pass,
+                            durationMs = 42L,
                         ),
-                ),
-        )
+                    ),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                RemoteDeviceAcceptanceCard(
+                    report = report,
+                    onRun = {},
+                    onShare = {},
+                )
+            }
+        }
 
-        swipeToolsUntilTextVisible("SM-S928B")
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsDeviceAcceptanceCard).assertIsDisplayed()
         composeRule.onNodeWithText("SM-S928B", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("reality_tcp: pass", substring = true).assertIsDisplayed()

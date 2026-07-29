@@ -1,5 +1,6 @@
 {
     "appliedLimits": {
+        "appLogBytes": 524288,
         "logcatBytes": 524288,
         "nativeEvents": 200,
         "snapshots": 250,
@@ -24,6 +25,7 @@
         "analysis.json": "included",
         "archive-provenance.json": "included",
         "completeness.json": "included",
+        "developer-analytics.json": "included",
         "diagnostic-context.json": "redacted",
         "integrity.json": "included",
         "logcat.txt": "included",
@@ -48,6 +50,7 @@
         "telemetrySamples": 1
     },
     "truncation": {
+        "appLog": false,
         "contexts": false,
         "logcat": false,
         "nativeEvents": false,

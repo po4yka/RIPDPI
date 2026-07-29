@@ -51,7 +51,7 @@
             "rootedProductionCandidates": 1,
             "skippedCandidates": 1
         },
-        "networkIdentityBucket": "wifi:steady:fp-render",
+        "networkIdentityBucket": "wifi:steady:redacted",
         "recommendedQuicEmitterTier": "NON_ROOT_PRODUCTION",
         "recommendedTcpEmitterTier": "NON_ROOT_PRODUCTION",
         "rolloutGateAssessment": {
@@ -98,13 +98,14 @@
         "coveragePercent": 82,
         "evidence": [
             "best path",
+            "resolver:fallback",
             "Renderer fixture confidence",
             "targetCohort=Manual sensitive",
             "tcpWinner=TLS split",
             "quicWinner=QUIC split"
         ],
         "quicLayoutFamily": "split_initial",
-        "selectedApproach": "Fast Strategy",
+        "selectedApproach": "redacted",
         "selectedResolver": "AdGuard",
         "selectedStrategy": "TLS split + QUIC split",
         "targetCohort": "Manual sensitive",

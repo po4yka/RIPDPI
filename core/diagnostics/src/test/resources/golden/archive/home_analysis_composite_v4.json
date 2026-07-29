@@ -15,8 +15,7 @@
     "confidenceSummary": "Confidence high",
     "connectivityAssessment": {
         "affectedTargets": [
-            "www.youtube.com",
-            "telegram.org"
+            "redacted(2)"
         ],
         "assessmentCode": "raw_network_selective_blocking",
         "assessmentSummary": "Controls passed while blocked targets failed on raw path.",
@@ -35,14 +34,12 @@
             "affectedTargetFailureCount": 2,
             "affectedTargetSuccessCount": 0,
             "affectedTargets": [
-                "www.youtube.com",
-                "telegram.org"
+                "redacted(2)"
             ],
             "controlFailureCount": 0,
             "controlSuccessCount": 2,
             "controls": [
-                "cloudflare.com",
-                "www.google.com"
+                "redacted(2)"
             ],
             "sessionIds": [
                 "default-session",
@@ -66,7 +63,7 @@
     },
     "coverageSummary": "Coverage 92%",
     "failedStageCount": 1,
-    "fingerprintHash": "fp-home",
+    "fingerprintHash": "redacted",
     "headline": "Analysis complete and settings applied",
     "recommendationSummary": "TCP split + QUIC fake",
     "recommendedSessionId": "audit-session",
