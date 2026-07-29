@@ -143,18 +143,22 @@ class VpnTunnelRuntimeTest {
     @Test
     fun startPassesAdaptiveTunnelMtuToNativeConfig() =
         runTest {
+            val parameters = VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true)
             val host =
                 TestVpnServiceHost(backgroundScope).apply {
-                    tunnelNetworkParameters = VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true)
+                    tunnelNetworkParameters = parameters
                 }
             val bridge = TestTun2SocksBridge()
+            val sessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession())
+            val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
             val runtime =
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
                     proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
-                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                    vpnTunnelSessionProvider = sessionProvider,
+                    appliedNetworkReceiptStore = receiptStore,
                 )
 
             runtime.start(
@@ -165,6 +169,39 @@ class VpnTunnelRuntimeTest {
             )
 
             assertEquals(1_320, bridge.startedConfig?.tunnelMtu)
+            assertEquals(parameters, sessionProvider.lastNetworkParameters)
+            assertEquals(1_320, receiptStore.snapshot()?.appliedTunnelMtu)
+            assertEquals(80, receiptStore.snapshot()?.configuredEncapsulationBudgetBytes)
+            assertEquals(true, receiptStore.snapshot()?.metered)
+            assertEquals("tun2socks", receiptStore.snapshot()?.effectiveEgress)
+        }
+
+    @Test
+    fun `applied MTU receipt exists only while native forwarding is ready`() =
+        runTest {
+            val receiptStore = VpnTunnelAppliedNetworkReceiptStore()
+            val bridge = TestTun2SocksBridge()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                    appliedNetworkReceiptStore = receiptStore,
+                )
+
+            assertNull(receiptStore.snapshot())
+            runtime.start(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            assertTrue(receiptStore.snapshot() != null)
+
+            runtime.retainFailClosedBarrier()
+            assertNull(receiptStore.snapshot())
         }
 
     @Test

@@ -30,6 +30,7 @@ class VpnTunnelSessionProviderTest {
                         appRoutingPlan: VpnAppRoutingPlan,
                         interfaceSettings: AppSettings,
                         httpProxyPort: Int?,
+                        networkParameters: VpnTunnelNetworkParameters,
                     ): VpnTunnelBuilder =
                         object : VpnTunnelBuilder {
                             override fun establish(): VpnTunnelSession = expected
@@ -70,6 +71,7 @@ class VpnTunnelSessionProviderTest {
                         appRoutingPlan: VpnAppRoutingPlan,
                         interfaceSettings: AppSettings,
                         httpProxyPort: Int?,
+                        networkParameters: VpnTunnelNetworkParameters,
                     ): VpnTunnelBuilder =
                         object : VpnTunnelBuilder {
                             override fun establish(): VpnTunnelSession? = null

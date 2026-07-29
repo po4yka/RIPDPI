@@ -244,9 +244,18 @@ class RipDpiVpnService :
         appRoutingPlan: VpnAppRoutingPlan,
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
+        networkParameters: VpnTunnelNetworkParameters,
     ): VpnTunnelBuilder =
         AndroidVpnTunnelBuilder(
-            builder = createBuilder(dns, ipv6, appRoutingPlan, interfaceSettings, httpProxyPort),
+            builder =
+                createBuilder(
+                    dns,
+                    ipv6,
+                    appRoutingPlan,
+                    interfaceSettings,
+                    httpProxyPort,
+                    networkParameters,
+                ),
         )
 
     private var preparedDirectDnsUnderlayToken: Long = 0L
@@ -292,13 +301,13 @@ class RipDpiVpnService :
         appRoutingPlan: VpnAppRoutingPlan,
         interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
+        networkParameters: VpnTunnelNetworkParameters = currentTunnelNetworkParameters(),
     ): Builder {
         Logger.v { "DNS configured" }
-        val tunnelNetworkParameters = currentTunnelNetworkParameters()
         val builder = Builder()
         underlyingNetworkBinder.applyToBuilder(builder, preparedDirectDnsUnderlayToken)
         builder.setSession("RIPDPI")
-        builder.setMtu(tunnelNetworkParameters.tunnelMtu)
+        builder.setMtu(networkParameters.tunnelMtu)
         builder.setConfigureIntent(
             PendingIntent.getActivity(
                 this,
@@ -314,7 +323,7 @@ class RipDpiVpnService :
             builder.addDnsServer(dns)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.setMetered(tunnelNetworkParameters.metered)
+            builder.setMetered(networkParameters.metered)
             if (httpProxyPort != null) {
                 builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))
             }

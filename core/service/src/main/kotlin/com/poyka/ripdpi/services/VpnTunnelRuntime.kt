@@ -25,6 +25,12 @@ private const val DefaultSocksListenerPort = 1080
 private const val DefaultMixedInboundListenerPort = 2080
 private const val NativeTunnelStartTimeoutMillis = 6_000L
 
+internal data class VpnTunnelRuntimeCallbacks(
+    val afterForwardingLeaseAcquired: suspend () -> Unit = {},
+    val onTunnelReady: () -> Unit = {},
+    val onTunnelTelemetry: (com.poyka.ripdpi.data.NativeRuntimeSnapshot) -> Unit = {},
+)
+
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
     private val appSettingsRepository: AppSettingsRepository,
@@ -47,9 +53,8 @@ internal class VpnTunnelRuntime(
     private val flowAttributionBridge: FlowAttributionBridge? = null,
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
     private val geositeDbPath: String? = null,
-    private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
-    private val onTunnelReady: () -> Unit = {},
-    private val onTunnelTelemetry: (com.poyka.ripdpi.data.NativeRuntimeSnapshot) -> Unit = {},
+    private val callbacks: VpnTunnelRuntimeCallbacks = VpnTunnelRuntimeCallbacks(),
+    private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
 ) {
     @Volatile
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -108,6 +113,7 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
         check(tunSession == null) { "VPN field not null" }
+        appliedNetworkReceiptStore.invalidate()
 
         val pendingTunnel =
             prepareTunnel(
@@ -145,6 +151,7 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
         val previousSession = checkNotNull(tunSession) { "VPN tunnel is not running" }
+        appliedNetworkReceiptStore.invalidate()
         check(tun2SocksBridge == null || retiringBridge == null || tun2SocksBridge === retiringBridge) {
             "VPN tunnel has multiple bridges pending retirement"
         }
@@ -167,6 +174,7 @@ internal class VpnTunnelRuntime(
         // a live interface that captures traffic instead of falling back to direct.
         tunSession = pendingTunnel.session
         forwardingLease.set(null)
+        appliedNetworkReceiptStore.invalidate()
         tun2SocksBridge = null
         retiringBridge = null
         try {
@@ -242,6 +250,7 @@ internal class VpnTunnelRuntime(
                     appRoutingPlan = appRoutingPlan,
                     httpProxyPort = interfacePolicy.httpProxyPort,
                     interfaceSettings = settings,
+                    networkParameters = tunnelNetworkParameters,
                 )
             return PendingTunnel(
                 session = tunnelSession,
@@ -255,6 +264,7 @@ internal class VpnTunnelRuntime(
                         splitStrictDnsPolicy?.underlayLeaseGeneration,
                     ),
                 interfacePolicySignature = interfacePolicy.signature,
+                networkParameters = tunnelNetworkParameters,
             )
         } catch (error: Exception) {
             vpnHost.finishDirectDnsUnderlay(directDnsPrepareToken, DirectDnsUnderlayAction.Abort)
@@ -320,15 +330,17 @@ internal class VpnTunnelRuntime(
         }
         currentDnsSignature = pendingTunnel.dnsSignature
         currentInterfacePolicySignature = pendingTunnel.interfacePolicySignature
+        appliedNetworkReceiptStore.publish(pendingTunnel.networkParameters)
         if (tunnelStartCount > 0) {
             tunnelRecoveryRetryCount += 1
         }
         tunnelStartCount += 1
-        onTunnelReady()
+        callbacks.onTunnelReady()
     }
 
     suspend fun stop() {
         val session = tunSession ?: pendingSession ?: return
+        appliedNetworkReceiptStore.invalidate()
         val activeBridge = tun2SocksBridge
         val inactiveBridge = retiringBridge
 
@@ -354,7 +366,7 @@ internal class VpnTunnelRuntime(
         return runCatching { bridge.telemetry() }
             .fold(
                 onSuccess = {
-                    onTunnelTelemetry(it)
+                    callbacks.onTunnelTelemetry(it)
                     RuntimeTelemetryOutcome.Snapshot(it)
                 },
                 onFailure = { error ->
@@ -373,13 +385,13 @@ internal class VpnTunnelRuntime(
                     RuntimeTelemetryOutcome.NoData,
                     RuntimeForwardingEvidence.Unavailable,
                 )
-        afterForwardingLeaseAcquired()
+        callbacks.afterForwardingLeaseAcquired()
         val bridge = lease.bridge
         val telemetry =
             runCatching { bridge.telemetry() }
                 .fold(
                     onSuccess = { snapshot ->
-                        onTunnelTelemetry(snapshot)
+                        callbacks.onTunnelTelemetry(snapshot)
                         RuntimeTelemetryOutcome.Snapshot(snapshot)
                     },
                     onFailure = { error ->
@@ -418,6 +430,7 @@ internal class VpnTunnelRuntime(
                 if (inactiveBridge !== activeBridge) inactiveBridge?.let(::add)
             }
         forwardingLease.set(null)
+        appliedNetworkReceiptStore.invalidate()
         tun2SocksBridge = null
         retiringBridge = null
 
@@ -452,6 +465,7 @@ internal class VpnTunnelRuntime(
     }
 
     fun resetRuntimeState() {
+        appliedNetworkReceiptStore.invalidate()
         currentDnsSignature = null
         currentInterfacePolicySignature = null
         tunnelStartCount = 0
@@ -464,6 +478,7 @@ internal class VpnTunnelRuntime(
         val directDnsPrepareToken: Long,
         val dnsSignature: String,
         val interfacePolicySignature: String,
+        val networkParameters: VpnTunnelNetworkParameters,
     )
 
     private data class InterfacePolicyInput(

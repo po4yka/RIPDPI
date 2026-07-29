@@ -22,7 +22,7 @@ class VpnTunnelRuntimeRecoveryTest {
                     proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge()),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
-                    onTunnelReady = { tunnelReadyCount += 1 },
+                    callbacks = VpnTunnelRuntimeCallbacks(onTunnelReady = { tunnelReadyCount += 1 }),
                 )
 
             runtime.start(

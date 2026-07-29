@@ -38,7 +38,9 @@ import com.poyka.ripdpi.services.VpnProtectFailureMonitor
 import com.poyka.ripdpi.services.VpnProtectSocketServer
 import com.poyka.ripdpi.services.VpnServiceSessionComponent
 import com.poyka.ripdpi.services.VpnServiceXrayProtectController
+import com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore
 import com.poyka.ripdpi.services.VpnTunnelRuntime
+import com.poyka.ripdpi.services.VpnTunnelRuntimeCallbacks
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.XrayManagedTunnel
@@ -95,6 +97,7 @@ internal object VpnServiceSessionModule {
         rootHelperManager: RootHelperManager,
         flowAttributionBridge: FlowAttributionBridge,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
+        appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore,
     ): VpnTunnelRuntime =
         createVpnTunnelRuntime(
             host = host,
@@ -103,6 +106,7 @@ internal object VpnServiceSessionModule {
             rootHelperManager = rootHelperManager,
             flowAttributionBridge = flowAttributionBridge,
             recoveryReceiptCollector = recoveryReceiptCollector,
+            appliedNetworkReceiptStore = appliedNetworkReceiptStore,
             recoveryServiceInstanceId =
                 (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
                     ?.recoveryServiceInstanceId,
@@ -123,6 +127,7 @@ internal object VpnServiceSessionModule {
         recoveryServiceInstanceId: String? = null,
         recoveryGenerationProvider: () -> String? = { null },
         geositeDbPath: String? = null,
+        appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -139,20 +144,24 @@ internal object VpnServiceSessionModule {
             rootHelperSocketPathProvider = { rootHelperManager.socketPath },
             flowAttributionBridge = flowAttributionBridge,
             geositeDbPath = geositeDbPath,
-            onTunnelReady = {
-                if (recoveryServiceInstanceId != null) {
-                    recoveryGenerationProvider()?.let { generation ->
-                        recoveryReceiptCollector?.recordTunReady(generation)
-                    }
-                }
-            },
-            onTunnelTelemetry = { telemetry ->
-                if (recoveryServiceInstanceId != null) {
-                    recoveryGenerationProvider()?.let { generation ->
-                        recoveryReceiptCollector?.recordTunnelTelemetry(generation, telemetry)
-                    }
-                }
-            },
+            appliedNetworkReceiptStore = appliedNetworkReceiptStore,
+            callbacks =
+                VpnTunnelRuntimeCallbacks(
+                    onTunnelReady = {
+                        if (recoveryServiceInstanceId != null) {
+                            recoveryGenerationProvider()?.let { generation ->
+                                recoveryReceiptCollector?.recordTunReady(generation)
+                            }
+                        }
+                    },
+                    onTunnelTelemetry = { telemetry ->
+                        if (recoveryServiceInstanceId != null) {
+                            recoveryGenerationProvider()?.let { generation ->
+                                recoveryReceiptCollector?.recordTunnelTelemetry(generation, telemetry)
+                            }
+                        }
+                    },
+                ),
         )
 
     @Provides

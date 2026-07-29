@@ -36,6 +36,7 @@ interface VpnTunnelBuilderHost {
         appRoutingPlan: VpnAppRoutingPlan,
         interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
+        networkParameters: VpnTunnelNetworkParameters = currentTunnelNetworkParameters(),
     ): VpnTunnelBuilder
 
     fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()

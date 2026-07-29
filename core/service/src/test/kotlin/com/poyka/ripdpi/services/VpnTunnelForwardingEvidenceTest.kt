@@ -136,7 +136,10 @@ class VpnTunnelForwardingEvidenceTest {
             proxyGroupRepository = TestProxyGroupRepository(),
             tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
             vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
-            afterForwardingLeaseAcquired = afterForwardingLeaseAcquired,
+            callbacks =
+                VpnTunnelRuntimeCallbacks(
+                    afterForwardingLeaseAcquired = afterForwardingLeaseAcquired,
+                ),
         ).also { runtime ->
             runtime.start(
                 activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
