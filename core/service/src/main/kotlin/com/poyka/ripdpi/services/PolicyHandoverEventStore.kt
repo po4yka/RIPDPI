@@ -134,33 +134,56 @@ class DefaultPolicyHandoverEventStore
         }
 
         private suspend fun PolicyHandoverDeliveryEnvelope.toEvent(): PolicyHandoverEvent? {
-            if (schemaVersion != PolicyHandoverDeliverySchemaVersion) return null
-            val dependencyFingerprint =
-                rememberedPolicyDependencyKey
-                    ?.let { key -> resolvePolicyDependency(key, mode)?.fingerprintHash }
-            val fingerprint = dependencyFingerprint ?: currentFingerprintHash ?: return null
-            return PolicyHandoverEvent(
-                deliveryId = deliveryId,
-                mode = mode,
-                previousFingerprintHash = previousFingerprintHash,
-                currentFingerprintHash = fingerprint,
-                classification = classification,
-                currentNetworkValidated = currentNetworkValidated,
-                currentCaptivePortalDetected = currentCaptivePortalDetected,
-                usedRememberedPolicy = usedRememberedPolicy,
-                occurredAt = occurredAt,
-                rememberedPolicyDependencyKey = rememberedPolicyDependencyKey,
-            )
+            val fingerprint =
+                when {
+                    schemaVersion != PolicyHandoverDeliverySchemaVersion -> {
+                        null
+                    }
+
+                    rememberedPolicyDependencyKey != null &&
+                        (previousFingerprintHash != null || currentFingerprintHash != null) -> {
+                        null
+                    }
+
+                    rememberedPolicyDependencyKey != null -> {
+                        resolvePolicyDependency(rememberedPolicyDependencyKey, mode)?.fingerprintHash
+                    }
+
+                    else -> {
+                        currentFingerprintHash
+                    }
+                }
+            return fingerprint?.let { resolvedFingerprint ->
+                PolicyHandoverEvent(
+                    deliveryId = deliveryId,
+                    mode = mode,
+                    previousFingerprintHash = previousFingerprintHash,
+                    currentFingerprintHash = resolvedFingerprint,
+                    classification = classification,
+                    currentNetworkValidated = currentNetworkValidated,
+                    currentCaptivePortalDetected = currentCaptivePortalDetected,
+                    usedRememberedPolicy = usedRememberedPolicy,
+                    occurredAt = occurredAt,
+                    rememberedPolicyDependencyKey = rememberedPolicyDependencyKey,
+                )
+            }
         }
 
         private suspend fun resolvePolicyDependency(
             dependencyKey: String,
             mode: com.poyka.ripdpi.data.Mode,
         ): RememberedNetworkPolicyEntity? {
-            if (!dependencyKey.startsWith(TerminalPolicyDependencyDurableStatePrefix)) return null
-            val policyId = durableStateStore.getDurableState(dependencyKey)?.value?.toLongOrNull() ?: return null
-            return rememberedPolicyRecordStore
-                .getRememberedNetworkPolicyById(policyId)
+            val policyId =
+                dependencyKey
+                    .takeIf { key -> key.startsWith(TerminalPolicyDependencyDurableStatePrefix) }
+                    ?.let { key -> durableStateStore.getDurableState(key)?.value?.toLongOrNull() }
+            val policy =
+                if (policyId != null) {
+                    rememberedPolicyRecordStore.getRememberedNetworkPolicyById(policyId)
+                } else {
+                    null
+                }
+            return policy
                 ?.takeIf { policy -> policy.mode == mode.preferenceValue }
         }
 
