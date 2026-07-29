@@ -178,7 +178,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
         }
 
     @Test
-    fun `durable writer uses one run-terminal id for terminal outcomes`() =
+    fun `durable writer preserves the first run-terminal outcome`() =
         runTest {
             val store = RecordingDurableStateStore()
             val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
@@ -207,8 +207,43 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
                     .nativeEvents
                     .single()
                     .message
+                    .contains("reason=cancelled"),
+            )
+        }
+
+    @Test
+    fun `cancellation after committed terminal does not overwrite the result`() =
+        runTest {
+            val store = RecordingDurableStateStore()
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+
+            writer.beginRun("run-a", observedAtMillis = 10L)
+            writer.record(
+                "run-a",
+                backgroundEvent(
+                    phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                    outcome = DeviceRuntimeBackgroundSurvivalOutcome.Failed,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
+                ),
+            )
+            writer.cancelRun("run-a", observedAtMillis = 30L)
+
+            assertEquals(1, store.nativeEvents.size)
+            assertTrue(
+                store
+                    .nativeEvents
+                    .single()
+                    .message
                     .contains("reason=service_stopped"),
             )
+            assertFalse(
+                store
+                    .nativeEvents
+                    .single()
+                    .message
+                    .contains("reason=cancelled"),
+            )
+            assertFalse(store.durableStates.containsKey(RemoteAcceptancePendingGenerationKey))
         }
 
     private fun backgroundEvent(

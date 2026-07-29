@@ -75,7 +75,7 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter
                 val durableEvent = event.toDurableEvent(runGeneration)
                 val nativeEvent = durableEvent.toNativeSessionEvent(event.observedAtMillis)
                 if (event.isTerminalBackgroundEvent()) {
-                    durableStateStore.insertNativeSessionEventAndClearDurableState(
+                    durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
                         event = nativeEvent,
                         key = RemoteAcceptancePendingGenerationKey,
                         expectedValue = runGeneration,
