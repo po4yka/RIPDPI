@@ -67,6 +67,7 @@ internal class DiagnosticsScanExecutionCoordinator
             ownerId: String?,
         ) {
             var finalizationResult: ScanFinalizationResult? = null
+            var externalCancellation: CancellationException? = null
             val failure =
                 try {
                     val scanBlock: suspend () -> Unit = {
@@ -102,37 +103,41 @@ internal class DiagnosticsScanExecutionCoordinator
                     if (activeScanRegistry.isCancellationRequested(prepared.sessionId)) {
                         error
                     } else {
-                        throw error
+                        externalCancellation = error
+                        null
                     }
                 } catch (
                     @Suppress("TooGenericExceptionCaught") error: Exception,
                 ) {
                     error
                 }
-            try {
-                if (failure != null) {
-                    val partialReportJson = activeScanRegistry.consumeCancelledSessionReport(prepared.sessionId)
-                    val runningSession =
-                        scanRecordStore.getScanSession(prepared.sessionId)?.takeIf {
-                            it.status == "running"
+            withContext(NonCancellable) {
+                try {
+                    if (failure != null) {
+                        val partialReportJson = activeScanRegistry.consumeCancelledSessionReport(prepared.sessionId)
+                        val runningSession =
+                            scanRecordStore.getScanSession(prepared.sessionId)?.takeIf {
+                                it.status == "running"
+                            }
+                        if (partialReportJson != null && runningSession != null) {
+                            persistPartialScanSession(runningSession, partialReportJson, scanRecordStore)
+                        } else {
+                            DiagnosticsReportPersister.persistScanFailure(
+                                prepared.sessionId,
+                                failure.summaryForScan(prepared.sessionId, activeScanRegistry),
+                                scanRecordStore,
+                            )
                         }
-                    if (partialReportJson != null && runningSession != null) {
-                        persistPartialScanSession(runningSession, partialReportJson, scanRecordStore)
-                    } else {
-                        DiagnosticsReportPersister.persistScanFailure(
-                            prepared.sessionId,
-                            failure.summaryForScan(prepared.sessionId, activeScanRegistry),
-                            scanRecordStore,
-                        )
                     }
+                } finally {
+                    activeScanRegistry.removePreparedScan(prepared.sessionId)
+                    if (prepared.exposeProgress) {
+                        activeScanRegistry.updateProgress(prepared.sessionId, null)
+                    }
+                    runCatching { bridgeExecutionService.destroy(handle) }
                 }
-            } finally {
-                activeScanRegistry.removePreparedScan(prepared.sessionId)
-                if (prepared.exposeProgress) {
-                    activeScanRegistry.updateProgress(prepared.sessionId, null)
-                }
-                runCatching { bridgeExecutionService.destroy(handle) }
             }
+            externalCancellation?.let { cancellation -> throw cancellation }
 
             if (failure == null && finalizationResult?.shouldReprobeWithCorrectedDns == true) {
                 runDnsCorrectedReprobe(
