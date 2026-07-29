@@ -234,6 +234,68 @@ class RuntimeTerminalSealPersistenceTest {
         }
 
     @Test
+    fun `failed outbox begin is retried before admitting a fresh running session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val coordinatorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            coordinator.registerNetworkTransitionFlush { true }
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            val finishedSessionId =
+                stores.usageSessionsState.value
+                    .single()
+                    .id
+            var firstAdmission: NetworkTransitionAdmission? = null
+            coordinator.withNetworkTransitionAdmission { admission -> firstAdmission = admission }
+            assertEquals(finishedSessionId, requireNotNull(firstAdmission).connectionSessionId)
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry())
+
+            var failBegin = true
+            stores.beforeUpsertBypassUsageSession = { session ->
+                if (failBegin && session.finishedAt != null) {
+                    failBegin = false
+                    error("injected terminal outbox begin failure")
+                }
+            }
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(
+                runCatching {
+                    coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+                }.isFailure,
+            )
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertEquals(
+                null,
+                stores.usageSessionsState.value
+                    .single()
+                    .finishedAt,
+            )
+            var admissionAfterFailure: NetworkTransitionAdmission? = null
+            coordinator.withNetworkTransitionAdmission { admission -> admissionAfterFailure = admission }
+            assertEquals(null, admissionAfterFailure)
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+
+            val sessions = stores.usageSessionsState.value
+            val restarted = sessions.single { session -> session.id != finishedSessionId }
+            assertEquals(2, sessions.size)
+            assertTrue(sessions.single { session -> session.id == finishedSessionId }.finishedAt != null)
+            assertEquals(null, restarted.finishedAt)
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertTrue(decodeAssessment(stores).terminalEvidenceSealed)
+            var restartedAdmission: NetworkTransitionAdmission? = null
+            coordinator.withNetworkTransitionAdmission { admission -> restartedAdmission = admission }
+            val admitted = requireNotNull(restartedAdmission)
+            assertEquals(restarted.id, admitted.connectionSessionId)
+            assertTrue(admitted.epoch > requireNotNull(firstAdmission).epoch)
+            coordinatorScope.cancel()
+        }
+
+    @Test
     fun `fresh coordinator reconstructs missing assessment from a finished session`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

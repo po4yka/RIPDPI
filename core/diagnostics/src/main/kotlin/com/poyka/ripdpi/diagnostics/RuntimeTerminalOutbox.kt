@@ -18,25 +18,20 @@ internal class RuntimeTerminalOutbox(
     private val artifactPersister: RuntimeArtifactPersister,
     private val rememberedPolicySessionTracker: RememberedPolicySessionTracker,
 ) {
-    suspend fun begin(
-        activeSession: BypassUsageSessionEntity,
-        finishedSession: BypassUsageSessionEntity,
-        telemetry: ServiceTelemetrySnapshot,
-        createdAt: Long,
-        terminalEvidenceSealed: Boolean,
-    ): PendingTerminalSession {
-        val policyOutcome = rememberedPolicySessionTracker.prepareTerminalOutcome(finishedSession, createdAt)
+    suspend fun begin(start: TerminalOutboxStart): PendingTerminalSession {
+        val policyOutcome =
+            rememberedPolicySessionTracker.prepareTerminalOutcome(start.finishedSession, start.createdAt)
         val pending =
             PendingTerminalSession(
-                activeSession = activeSession,
-                finishedSession = finishedSession,
-                telemetry = telemetry,
-                createdAt = createdAt,
-                terminalEvidenceSealed = terminalEvidenceSealed,
+                activeSession = start.activeSession,
+                finishedSession = start.finishedSession,
+                telemetry = start.telemetry,
+                createdAt = start.createdAt,
+                terminalEvidenceSealed = start.terminalEvidenceSealed,
                 policyOutcome = policyOutcome,
             )
         outboxStore.beginTerminalOutbox(
-            finishedSession = finishedSession,
+            finishedSession = start.finishedSession,
             marker = pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS),
         )
         return pending
@@ -174,6 +169,14 @@ internal class RuntimeTerminalOutbox(
         pending.phase = nextPhase
     }
 }
+
+internal data class TerminalOutboxStart(
+    val activeSession: BypassUsageSessionEntity,
+    val finishedSession: BypassUsageSessionEntity,
+    val telemetry: ServiceTelemetrySnapshot,
+    val createdAt: Long,
+    val terminalEvidenceSealed: Boolean,
+)
 
 internal data class PendingTerminalSession(
     val activeSession: BypassUsageSessionEntity,

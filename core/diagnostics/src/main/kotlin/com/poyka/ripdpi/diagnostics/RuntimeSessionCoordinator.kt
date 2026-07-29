@@ -61,6 +61,7 @@ class RuntimeSessionCoordinator
             )
 
         private var activeUsageSession: BypassUsageSessionEntity? = null
+        private var pendingTerminalStart: TerminalOutboxStart? = null
         private var pendingTerminalSession: PendingTerminalSession? = null
         private var terminalAssessmentReconciliationComplete = false
 
@@ -393,17 +394,19 @@ class RuntimeSessionCoordinator
                         finalizedAt = finalizedAt,
                     )
                 withContext(NonCancellable) {
-                    val pending =
-                        terminalOutbox.begin(
+                    val start =
+                        TerminalOutboxStart(
                             activeSession = current,
                             finishedSession = finishedSession,
                             telemetry = telemetry,
                             createdAt = finalizedAt,
                             terminalEvidenceSealed = terminalEvidenceSealed,
                         )
-                    pendingTerminalSession = pending
+                    pendingTerminalStart = start
                     activeUsageSession = null
                     lastRecordedNetworkHandoverState = null
+                    pendingTerminalSession = terminalOutbox.begin(start)
+                    if (pendingTerminalStart === start) pendingTerminalStart = null
                 }
                 transitionFlushCancellation?.let { throw it }
                 persistPendingTerminalSession()
@@ -415,6 +418,10 @@ class RuntimeSessionCoordinator
         }
 
         private suspend fun persistPendingTerminalSession() {
+            pendingTerminalStart?.let { start ->
+                pendingTerminalSession = terminalOutbox.begin(start)
+                if (pendingTerminalStart === start) pendingTerminalStart = null
+            }
             pendingTerminalSession?.let { pending ->
                 terminalOutbox.persist(pending)
                 if (pendingTerminalSession === pending) pendingTerminalSession = null
