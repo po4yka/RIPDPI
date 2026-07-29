@@ -82,11 +82,14 @@ class AutomaticProbeScheduler
         }
 
         private suspend fun processDelivery(event: PolicyHandoverEvent): Boolean {
-            if (!policyHandoverEventStore.isPending(event.deliveryId)) return true
-            if (!launchIfEligible(event)) return false
-            if (!policyHandoverEventStore.isPending(event.deliveryId)) return true
-            policyHandoverEventStore.acknowledge(event.deliveryId)
-            return true
+            var terminal = !policyHandoverEventStore.isPending(event.deliveryId)
+            if (!terminal && launchIfEligible(event)) {
+                if (policyHandoverEventStore.isPending(event.deliveryId)) {
+                    policyHandoverEventStore.acknowledge(event.deliveryId)
+                }
+                terminal = true
+            }
+            return terminal
         }
 
         private suspend fun launchIfEligible(event: PolicyHandoverEvent): Boolean {
