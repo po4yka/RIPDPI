@@ -297,8 +297,10 @@ class ActiveScanRegistry
 
         internal suspend fun hasRegisteredExecution(sessionId: String): Boolean =
             bridgeMutex.withLock {
-                visibleScanExecutions[sessionId]?.executionJob?.isActive == true ||
-                    hiddenScanExecutions[sessionId]?.executionJob?.isActive == true
+                visibleScanExecutions[sessionId]?.let { execution -> execution.executionJob?.isCompleted != true } ==
+                    true ||
+                    hiddenScanExecutions[sessionId]?.let { execution -> execution.executionJob?.isCompleted != true } ==
+                    true
             }
 
         internal suspend fun cancelActiveScan(): ActiveScanCancellation? {
@@ -480,7 +482,9 @@ class ActiveScanRegistry
                 timelineSource.updateActiveScanProgress(nextProgress)
             } else {
                 bridgeMutex.withLock {
-                    hiddenScanExecutions.remove(sessionId)
+                    if (hiddenScanExecutions[sessionId]?.bridge === bridge) {
+                        hiddenScanExecutions.remove(sessionId)
+                    }
                     hiddenAutomaticProbeActiveState.value = hiddenScanExecutions.isNotEmpty()
                 }
             }

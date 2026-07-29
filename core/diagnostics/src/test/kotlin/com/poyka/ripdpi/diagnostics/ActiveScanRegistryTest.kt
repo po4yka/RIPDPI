@@ -2,11 +2,15 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultSpec
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -86,6 +90,54 @@ class ActiveScanRegistryTest {
 
             lateExecution.cancel()
             registry.removePreparedScan("starting-session")
+        }
+
+    @Test
+    fun `cancelling hidden execution remains registered until cleanup completes`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            val releaseCleanup = CompletableDeferred<Unit>()
+            val executionJob =
+                backgroundScope.launch {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        withContext(NonCancellable) { releaseCleanup.await() }
+                    }
+                }
+            registry.registerBridge(bridge, "hidden-session", registerActiveBridge = false)
+            registry.registerExecution("hidden-session", executionJob, registerActiveBridge = false)
+            runCurrent()
+
+            executionJob.cancel()
+            runCurrent()
+
+            assertFalse(executionJob.isCompleted)
+            assertTrue(registry.hasRegisteredExecution("hidden-session"))
+
+            releaseCleanup.complete(Unit)
+            executionJob.join()
+            assertFalse(registry.hasRegisteredExecution("hidden-session"))
+            registry.clearBridge(bridge, "hidden-session", registerActiveBridge = false)
+        }
+
+    @Test
+    fun `stale hidden bridge cleanup preserves replacement execution`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val staleBridge = FakeNetworkDiagnosticsBridge(json)
+            val replacementBridge = FakeNetworkDiagnosticsBridge(json)
+            registry.registerBridge(staleBridge, "hidden-session", registerActiveBridge = false)
+            registry.registerBridge(replacementBridge, "hidden-session", registerActiveBridge = false)
+
+            registry.clearBridge(staleBridge, "hidden-session", registerActiveBridge = false)
+
+            assertTrue(registry.hasHiddenActiveScan())
+            registry.clearBridge(replacementBridge, "hidden-session", registerActiveBridge = false)
+            assertFalse(registry.hasHiddenActiveScan())
         }
 
     @Test
