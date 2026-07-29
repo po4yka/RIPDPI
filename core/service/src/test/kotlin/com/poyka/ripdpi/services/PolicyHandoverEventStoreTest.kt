@@ -87,6 +87,50 @@ class PolicyHandoverEventStoreTest {
         }
 
     @Test
+    fun `count and age eviction clear retained policy dependencies`() =
+        runTest {
+            val durableState = HandoverDurableStateStore()
+            val policies = HandoverRememberedPolicyStore()
+            val store = eventStore(durableState, policies)
+            repeat(65) { index ->
+                val fingerprint = "fingerprint-$index"
+                val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
+                val dependencyKey = "runtime_terminal_policy:bounded-$index"
+                durableState.upsertDurableState(
+                    DiagnosticsDurableStateEntity(dependencyKey, policyId.toString(), index.toLong()),
+                )
+                store.publish(
+                    handoverEvent("delivery-bounded-$index").copy(
+                        currentFingerprintHash = fingerprint,
+                        rememberedPolicyDependencyKey = dependencyKey,
+                    ),
+                )
+            }
+
+            assertEquals(
+                64,
+                durableState.states.keys.count { key -> key.startsWith("policy_handover_delivery:") },
+            )
+            assertEquals(
+                64,
+                durableState.states.keys.count { key -> key.startsWith("runtime_terminal_policy:") },
+            )
+
+            val staleDelivery =
+                durableState.states.values
+                    .first { state -> state.key.startsWith("policy_handover_delivery:") }
+            val staleDependencyKey = "runtime_terminal_policy:bounded-${staleDelivery.key.substringAfterLast('-')}"
+            durableState.upsertDurableState(
+                staleDelivery.copy(updatedAt = System.currentTimeMillis() - 8L * 24L * 60L * 60L * 1_000L),
+            )
+
+            store.publish(handoverEvent("delivery-after-stale"))
+
+            assertNull(durableState.getDurableState(staleDelivery.key))
+            assertNull(durableState.getDurableState(staleDependencyKey))
+        }
+
+    @Test
     fun `legacy direct delivery remains readable`() =
         runTest {
             val durableState = HandoverDurableStateStore()
