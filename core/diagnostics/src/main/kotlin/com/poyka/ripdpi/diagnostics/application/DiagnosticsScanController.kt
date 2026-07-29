@@ -328,8 +328,9 @@ internal class DefaultDiagnosticsScanController
                         registerActiveBridge = false,
                         sessionIdOverride = sessionId,
                     )
-                val preparedFingerprintHash = prepared.networkFingerprint?.scopeKey()
-                if (preparedFingerprintHash != null && preparedFingerprintHash != event.currentFingerprintHash) {
+                val preparedFingerprintHash = prepared.networkFingerprint?.scopeKey() ?: return@withLock false
+                val modeMatches = prepared.context.serviceMode.equals(event.mode.name, ignoreCase = true)
+                if (preparedFingerprintHash != event.currentFingerprintHash || !modeMatches) {
                     return@withLock true
                 }
                 startPreparedScan(

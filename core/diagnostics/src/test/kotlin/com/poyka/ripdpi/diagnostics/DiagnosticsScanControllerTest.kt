@@ -4,6 +4,8 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
@@ -24,6 +26,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsScanControllerTest {
     private val json = diagnosticsTestJson()
+    private val automaticProbeFingerprintProvider = FakeNetworkFingerprintProvider()
 
     @Test
     fun `automatic handover replay reuses its durable scan session`() =
@@ -53,6 +56,7 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
+                    networkFingerprintProvider = automaticProbeFingerprintProvider,
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
@@ -120,6 +124,7 @@ class DiagnosticsScanControllerTest {
                         networkDiagnosticsBridgeFactory = firstBridgeFactory,
                         runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                         serviceStateStore = FakeServiceStateStore(),
+                        networkFingerprintProvider = automaticProbeFingerprintProvider,
                         scope = backgroundScope,
                         controllerScope = backgroundScope,
                         json = json,
@@ -152,6 +157,7 @@ class DiagnosticsScanControllerTest {
                         networkDiagnosticsBridgeFactory = replayBridgeFactory,
                         runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                         serviceStateStore = FakeServiceStateStore(),
+                        networkFingerprintProvider = automaticProbeFingerprintProvider,
                         scope = backgroundScope,
                         controllerScope = backgroundScope,
                         json = json,
@@ -287,6 +293,7 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
+                    networkFingerprintProvider = automaticProbeFingerprintProvider,
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
@@ -299,7 +306,7 @@ class DiagnosticsScanControllerTest {
                         PolicyHandoverEvent(
                             deliveryId = "delivery-hidden-conflict",
                             mode = com.poyka.ripdpi.data.Mode.VPN,
-                            currentFingerprintHash = "network-a",
+                            currentFingerprintHash = automaticProbeFingerprintProvider.capture().scopeKey(),
                             classification = "transport_switch",
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
@@ -384,6 +391,7 @@ class DiagnosticsScanControllerTest {
         networkDiagnosticsBridgeFactory = bridgeFactory,
         runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
         serviceStateStore = FakeServiceStateStore(),
+        networkFingerprintProvider = automaticProbeFingerprintProvider,
         scope = backgroundScope,
         controllerScope = this,
         json = json,
@@ -393,7 +401,7 @@ class DiagnosticsScanControllerTest {
         PolicyHandoverEvent(
             deliveryId = "delivery-transport-switch",
             mode = com.poyka.ripdpi.data.Mode.VPN,
-            currentFingerprintHash = "network-a",
+            currentFingerprintHash = automaticProbeFingerprintProvider.capture().scopeKey(),
             classification = "transport_switch",
             currentNetworkValidated = true,
             currentCaptivePortalDetected = false,
@@ -449,6 +457,7 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
+                    networkFingerprintProvider = automaticProbeFingerprintProvider,
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
@@ -461,7 +470,7 @@ class DiagnosticsScanControllerTest {
                         PolicyHandoverEvent(
                             deliveryId = "delivery-stop-and-start",
                             mode = com.poyka.ripdpi.data.Mode.VPN,
-                            currentFingerprintHash = "network-a",
+                            currentFingerprintHash = automaticProbeFingerprintProvider.capture().scopeKey(),
                             classification = "transport_switch",
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
@@ -851,6 +860,73 @@ class DiagnosticsScanControllerTest {
                     settings = settings,
                     event = transportSwitchHandoverEvent().copy(currentFingerprintHash = "stale-network"),
                 )
+
+            assertTrue(acknowledged)
+            assertTrue(stores.sessionsState.value.isEmpty())
+            assertNull(bridgeFactory.bridge.startedRequestJson)
+        }
+
+    @Test
+    fun `automatic handover replay retains delivery when fingerprint capture is unavailable`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val acknowledged =
+                services.scanController.launchAutomaticProbe(settings, transportSwitchHandoverEvent())
+
+            assertFalse(acknowledged)
+            assertTrue(stores.sessionsState.value.isEmpty())
+            assertNull(bridgeFactory.bridge.startedRequestJson)
+        }
+
+    @Test
+    fun `automatic handover replay acknowledges an event from another service mode`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(activeMode = "Proxy"),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                    networkFingerprintProvider = automaticProbeFingerprintProvider,
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val acknowledged =
+                services.scanController.launchAutomaticProbe(settings, transportSwitchHandoverEvent())
 
             assertTrue(acknowledged)
             assertTrue(stores.sessionsState.value.isEmpty())
