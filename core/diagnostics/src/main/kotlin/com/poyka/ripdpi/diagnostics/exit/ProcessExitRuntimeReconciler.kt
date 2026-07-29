@@ -4,10 +4,12 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister
 import kotlinx.coroutines.flow.first
+import java.security.MessageDigest
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +25,7 @@ internal object NoopProcessExitRuntimeReconciler : ProcessExitRuntimeReconciler 
 @Singleton
 class DefaultProcessExitRuntimeReconciler internal constructor(
     private val bypassUsageHistoryStore: BypassUsageHistoryStore,
+    private val artifactReadStore: DiagnosticsArtifactReadStore,
     private val artifactWriteStore: DiagnosticsArtifactWriteStore,
     private val runtimeArtifactPersister: RuntimeArtifactPersister,
     private val clock: ProcessExitRuntimeClock,
@@ -30,10 +33,12 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
     @Inject
     constructor(
         bypassUsageHistoryStore: BypassUsageHistoryStore,
+        artifactReadStore: DiagnosticsArtifactReadStore,
         artifactWriteStore: DiagnosticsArtifactWriteStore,
         runtimeArtifactPersister: RuntimeArtifactPersister,
     ) : this(
         bypassUsageHistoryStore = bypassUsageHistoryStore,
+        artifactReadStore = artifactReadStore,
         artifactWriteStore = artifactWriteStore,
         runtimeArtifactPersister = runtimeArtifactPersister,
         clock = SystemProcessExitRuntimeClock,
@@ -41,56 +46,77 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
 
     override suspend fun reconcileStartupProcessExits(recordedExitEvents: List<NativeSessionEventEntity>) {
         val startupTime = clock.nowMillis()
-        val session = latestSingleUnfinishedVpnSession()
-        val exitEvent =
-            session?.let { currentSession ->
-                newestQualifyingExitEvent(recordedExitEvents, currentSession, startupTime)
-            }
-        val classification = exitEvent?.toKeyValueTokens()?.processExitClassificationOrNull()
-        if (session == null || exitEvent == null || classification == null) return
-        val correlation = exitEvent.toCorrelationEvent(session.id, classification)
+        val remainingSessions = unfinishedVpnSessions().toMutableList()
+        qualifyingExitEvents(recordedExitEvents, startupTime).forEach { exitEvent ->
+            val classification = exitEvent.toKeyValueTokens().processExitClassificationOrNull() ?: return@forEach
+            val correlationId = exitEvent.processExitCorrelationId()
+            val existingCorrelation = artifactReadStore.getNativeSessionEvent(correlationId)
+            val session =
+                when (val connectionSessionId = existingCorrelation?.connectionSessionId) {
+                    null -> {
+                        if (existingCorrelation == null) {
+                            nearestSessionForExit(remainingSessions, exitEvent)
+                        } else {
+                            null
+                        }
+                    }
 
-        artifactWriteStore.insertNativeSessionEvent(correlation)
-        runtimeArtifactPersister.persistTerminalRootCauseAssessment(
-            connectionSessionId = session.id,
-            createdAt = exitEvent.createdAt,
-        )
-        finalizeStaleSession(session, exitEvent.createdAt, classification)
+                    else -> {
+                        remainingSessions.firstOrNull { candidate -> candidate.id == connectionSessionId }
+                    }
+                }
+            if (session == null) return@forEach
+            val correlation = exitEvent.toCorrelationEvent(session.id, classification)
+
+            artifactWriteStore.insertNativeSessionEvent(correlation)
+            runtimeArtifactPersister.persistTerminalRootCauseAssessment(
+                connectionSessionId = session.id,
+                createdAt = exitEvent.createdAt,
+            )
+            finalizeStaleSession(session, exitEvent.createdAt, classification)
+            remainingSessions.removeAll { candidate -> candidate.id == session.id }
+        }
     }
 
-    private suspend fun latestSingleUnfinishedVpnSession(): BypassUsageSessionEntity? =
+    private suspend fun unfinishedVpnSessions(): List<BypassUsageSessionEntity> =
         bypassUsageHistoryStore
             .observeBypassUsageSessions(limit = MaxRuntimeExitSessions)
             .first()
             .asSequence()
             .take(MaxRuntimeExitSessions)
             .filter(BypassUsageSessionEntity::isUnfinishedVpnRuntimeSession)
-            .maxWithOrNull(
+            .sortedWith(
                 compareBy<BypassUsageSessionEntity> { session ->
                     maxOf(session.startedAt, session.updatedAt)
                 }.thenBy { session ->
                     session.id
-                },
-            )
+                }.reversed(),
+            ).toList()
 
-    private fun newestQualifyingExitEvent(
+    private fun qualifyingExitEvents(
         events: List<NativeSessionEventEntity>,
-        session: BypassUsageSessionEntity,
         startupTime: Long,
-    ): NativeSessionEventEntity? {
-        val lowerBound = maxOf(session.startedAt, session.updatedAt)
-        return events
+    ): List<NativeSessionEventEntity> =
+        events
             .asSequence()
             .take(MaxRuntimeExitEvents)
             .filter { event -> event.isCanonicalGlobalProcessExit() }
-            .filter { event -> event.createdAt in lowerBound..startupTime }
+            .filter { event -> event.createdAt <= startupTime }
             .filter { event -> startupTime - event.createdAt <= MaxRuntimeExitCorrelationWindowMillis }
             .filter { event -> event.toKeyValueTokens().processExitClassificationOrNull() != null }
-            .maxWithOrNull(
+            .sortedWith(
                 compareBy<NativeSessionEventEntity> { event -> event.createdAt }
-                    .thenBy { event -> event.id },
-            )
-    }
+                    .thenBy { event -> event.id }
+                    .reversed(),
+            ).toList()
+
+    private fun nearestSessionForExit(
+        sessions: List<BypassUsageSessionEntity>,
+        exitEvent: NativeSessionEventEntity,
+    ): BypassUsageSessionEntity? =
+        sessions.firstOrNull { session ->
+            maxOf(session.startedAt, session.updatedAt) <= exitEvent.createdAt
+        }
 
     private suspend fun finalizeStaleSession(
         session: BypassUsageSessionEntity,
@@ -137,7 +163,7 @@ private fun NativeSessionEventEntity.toCorrelationEvent(
 ): NativeSessionEventEntity {
     val tokens = message.toKeyValueTokens()
     return NativeSessionEventEntity(
-        id = "$ProcessExitCorrelationSource:$connectionSessionId",
+        id = processExitCorrelationId(),
         sessionId = null,
         connectionSessionId = connectionSessionId,
         source = ProcessExitCorrelationSource,
@@ -150,18 +176,25 @@ private fun NativeSessionEventEntity.toCorrelationEvent(
     )
 }
 
+private fun NativeSessionEventEntity.processExitCorrelationId(): String =
+    "$ProcessExitCorrelationSource:${id.sha256Hex()}"
+
 private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitClassification? {
     val reason = this["reason"]
     val subtype = this["subtype"]
     val importance = this["importance"]
-    if (importance !in ProcessKillImportanceBands) return null
+    if (reason !in CanonicalProcessExitReasons || importance !in ProcessExitImportanceBands) return null
     return when {
         reason in GenericPressureReasons && subtype == DefaultLastExitInspector.NoSubtype -> {
-            ProcessExitClassification.Inconclusive
+            ProcessExitClassification.ResourcePressure
         }
 
         reason == "other" && subtype == DefaultLastExitInspector.AndroidMemoryLimiterSubtype -> {
-            ProcessExitClassification.Inconclusive
+            ProcessExitClassification.ResourcePressure
+        }
+
+        subtype == DefaultLastExitInspector.NoSubtype -> {
+            ProcessExitClassification.Ordinary
         }
 
         else -> {
@@ -170,14 +203,22 @@ private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitCl
     }
 }
 
-private enum class ProcessExitClassification(
+private data class ProcessExitClassification(
     val wireValue: String,
     val failureMessage: String,
 ) {
-    Inconclusive(
-        wireValue = "inconclusive",
-        failureMessage = "Android reported a resource-pressure process exit.",
-    ),
+    companion object {
+        val ResourcePressure: ProcessExitClassification =
+            ProcessExitClassification(
+                wireValue = "inconclusive",
+                failureMessage = "Android reported a resource-pressure process exit.",
+            )
+        val Ordinary: ProcessExitClassification =
+            ProcessExitClassification(
+                wireValue = "inconclusive",
+                failureMessage = "Android reported a process exit.",
+            )
+    }
 }
 
 internal fun String.toProcessExitCorrelationTokens(): Map<String, String> = toKeyValueTokens()
@@ -193,11 +234,57 @@ private fun String.toKeyValueTokens(): Map<String, String> =
             key to value
         }.toMap()
 
+private fun String.sha256Hex(): String {
+    val bytes = MessageDigest.getInstance("SHA-256").digest(toByteArray(Charsets.UTF_8))
+    return buildString(bytes.size * HexCharactersPerByte) {
+        bytes.forEach { byte ->
+            val value = byte.toInt() and UnsignedByteMask
+            append(HexDigits[value ushr HalfByteBits])
+            append(HexDigits[value and HalfByteMask])
+        }
+    }
+}
+
 internal const val ProcessExitCorrelationSource = "application_exit_correlation"
 
 private const val MaxRuntimeExitSessions = 16
 private const val MaxRuntimeExitEvents = 16
 private const val MaxRuntimeExitCorrelationWindowMillis = 10 * 60 * 1000L
+private const val HexCharactersPerByte = 2
+private const val HalfByteBits = 4
+private const val HalfByteMask = 0x0f
+private const val UnsignedByteMask = 0xff
+private const val HexDigits = "0123456789abcdef"
 private val RuntimeConnectionStates = setOf(AppStatus.Running.name, AppStatus.Reconnecting.name)
 private val GenericPressureReasons = setOf("low_memory", "excessive_resource_usage")
-private val ProcessKillImportanceBands = setOf("foreground_service", "service", "perceptible")
+private val CanonicalProcessExitReasons =
+    setOf(
+        "unknown",
+        "exit_self",
+        "signaled",
+        "low_memory",
+        "crash",
+        "crash_native",
+        "anr",
+        "initialization_failure",
+        "permission_change",
+        "excessive_resource_usage",
+        "user_requested",
+        "user_stopped",
+        "dependency_died",
+        "other",
+        "freezer",
+        "package_state_change",
+        "package_updated",
+    )
+private val ProcessExitImportanceBands =
+    setOf(
+        "unknown",
+        "foreground",
+        "foreground_service",
+        "visible",
+        "perceptible",
+        "service",
+        "background",
+        "cached",
+    )

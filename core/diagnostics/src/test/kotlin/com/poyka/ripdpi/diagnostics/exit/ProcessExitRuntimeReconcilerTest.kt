@@ -48,7 +48,8 @@ class ProcessExitRuntimeReconcilerTest {
             val correlation = correlations(stores).single()
             val assessment = rootCauseAssessment(stores)
             val finalized = stores.usageSessionsState.value.single { session -> session.id == "conn-latest" }
-            assertEquals("application_exit_correlation:conn-latest", correlation.id)
+            assertTrue(correlation.id.startsWith("application_exit_correlation:"))
+            assertEquals(64, correlation.id.substringAfter(':').length)
             assertEquals("conn-latest", correlation.connectionSessionId)
             assertEquals("application_exit_correlation", correlation.source)
             assertEquals("process", correlation.subsystem)
@@ -92,7 +93,57 @@ class ProcessExitRuntimeReconcilerTest {
         }
 
     @Test
-    fun `only newest of first sixteen qualifying exits can correlate`() =
+    fun `all canonical Android exit reasons close a session as inconclusive`() =
+        runTest {
+            val reasons =
+                listOf(
+                    "unknown",
+                    "exit_self",
+                    "signaled",
+                    "low_memory",
+                    "crash",
+                    "crash_native",
+                    "anr",
+                    "initialization_failure",
+                    "permission_change",
+                    "excessive_resource_usage",
+                    "user_requested",
+                    "user_stopped",
+                    "dependency_died",
+                    "other",
+                    "freezer",
+                    "package_state_change",
+                    "package_updated",
+                )
+
+            reasons.forEach { reason ->
+                val stores = FakeDiagnosticsHistoryStores()
+                stores.usageSessionsState.value = listOf(usageSession(startedAt = 100L, updatedAt = 100L))
+
+                reconciler(stores, startupAt = 200L).reconcileStartupProcessExits(
+                    listOf(exitEvent(createdAt = 150L, reason = reason)),
+                )
+
+                assertTrue(correlations(stores).single().message.contains("reason=$reason"))
+                assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, rootCauseAssessment(stores).verdict)
+                assertFalse(rootCauseAssessment(stores).terminalEvidenceSealed)
+                assertEquals(
+                    150L,
+                    stores.usageSessionsState.value
+                        .single()
+                        .finishedAt,
+                )
+                assertEquals(
+                    "process_exit:inconclusive",
+                    stores.usageSessionsState.value
+                        .single()
+                        .endedReason,
+                )
+            }
+        }
+
+    @Test
+    fun `newest canonical exit is matched first`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             stores.usageSessionsState.value = listOf(usageSession(startedAt = 100L, updatedAt = 100L))
@@ -107,25 +158,19 @@ class ProcessExitRuntimeReconcilerTest {
             )
 
             val correlation = correlations(stores).single()
-            assertTrue(correlation.message.contains("reason=excessive_resource_usage"))
+            assertTrue(correlation.message.contains("reason=crash"))
         }
 
     @Test
-    fun `events outside bounds or disallowed categories do not correlate`() =
+    fun `events outside bounds or malformed categories do not correlate`() =
         runTest {
             val disallowed =
                 listOf(
                     exitEvent(createdAt = 90L, reason = "low_memory"),
                     exitEvent(createdAt = 210L, reason = "low_memory"),
-                    exitEvent(createdAt = 120L, reason = "crash"),
-                    exitEvent(createdAt = 121L, reason = "anr"),
-                    exitEvent(createdAt = 122L, reason = "signaled"),
-                    exitEvent(createdAt = 123L, reason = "user_requested"),
-                    exitEvent(createdAt = 124L, reason = "user_stopped"),
-                    exitEvent(createdAt = 125L, reason = "freezer"),
-                    exitEvent(createdAt = 126L, reason = "unknown"),
-                    exitEvent(createdAt = 127L, reason = "low_memory", importance = "cached"),
-                    exitEvent(createdAt = 128L, reason = "other", subtype = "none"),
+                    exitEvent(createdAt = 120L, reason = "not_an_android_reason"),
+                    exitEvent(createdAt = 121L, reason = "crash", subtype = "unexpected"),
+                    exitEvent(createdAt = 122L, reason = "crash", importance = "not_an_importance"),
                 )
             val stores = FakeDiagnosticsHistoryStores()
             stores.usageSessionsState.value = listOf(usageSession(startedAt = 100L, updatedAt = 100L))
@@ -173,7 +218,7 @@ class ProcessExitRuntimeReconcilerTest {
             val reconciler = reconciler(stores, startupAt = 400L)
             val firstSixteen =
                 (0 until 16).map { index ->
-                    exitEvent(createdAt = 110L + index.toLong(), reason = "crash")
+                    exitEvent(createdAt = 110L + index.toLong(), reason = "not_an_android_reason")
                 }
 
             reconciler.reconcileStartupProcessExits(
@@ -181,6 +226,61 @@ class ProcessExitRuntimeReconcilerTest {
             )
 
             assertTrue(correlations(stores).isEmpty())
+        }
+
+    @Test
+    fun `distinct exits close their nearest unfinished VPN sessions one to one`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "conn-old", startedAt = 10L, updatedAt = 10L),
+                    usageSession(id = "conn-new", startedAt = 100L, updatedAt = 100L),
+                )
+            val reconciler = reconciler(stores, startupAt = 200L)
+
+            reconciler.reconcileStartupProcessExits(
+                listOf(
+                    exitEvent(id = "application_exit:150:ordinal-0", createdAt = 150L, reason = "crash"),
+                    exitEvent(id = "application_exit:90:ordinal-0", createdAt = 90L, reason = "user_requested"),
+                ),
+            )
+
+            assertEquals(
+                setOf("conn-old", "conn-new"),
+                correlations(stores).mapNotNull { it.connectionSessionId }.toSet(),
+            )
+            assertEquals(2, correlations(stores).map { it.id }.distinct().size)
+            val sessions = stores.usageSessionsState.value.associateBy { it.id }
+            assertEquals(90L, sessions.getValue("conn-old").finishedAt)
+            assertEquals(150L, sessions.getValue("conn-new").finishedAt)
+        }
+
+    @Test
+    fun `replayed exit identity cannot close an older unfinished session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "conn-old", startedAt = 10L, updatedAt = 10L),
+                    usageSession(id = "conn-new", startedAt = 100L, updatedAt = 100L),
+                )
+            val reconciler = reconciler(stores, startupAt = 200L)
+            val exit =
+                exitEvent(
+                    id = "application_exit:150:ordinal-0",
+                    createdAt = 150L,
+                    reason = "user_stopped",
+                )
+
+            reconciler.reconcileStartupProcessExits(listOf(exit))
+            reconciler.reconcileStartupProcessExits(listOf(exit))
+
+            val sessions = stores.usageSessionsState.value.associateBy { it.id }
+            assertEquals(150L, sessions.getValue("conn-new").finishedAt)
+            assertNull(sessions.getValue("conn-old").finishedAt)
+            assertEquals(1, correlations(stores).size)
+            assertEquals("Android reported a process exit.", sessions.getValue("conn-new").failureMessage)
         }
 
     @Test
@@ -238,6 +338,7 @@ class ProcessExitRuntimeReconcilerTest {
     ): DefaultProcessExitRuntimeReconciler =
         DefaultProcessExitRuntimeReconciler(
             bypassUsageHistoryStore = stores,
+            artifactReadStore = stores,
             artifactWriteStore = stores,
             runtimeArtifactPersister = artifactPersister(stores),
             clock = { startupAt },
