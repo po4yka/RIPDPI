@@ -76,7 +76,7 @@ internal class DiagnosticsScanExecutionCoordinator
             cleanupPrimaryScan(
                 prepared = prepared,
                 handle = handle,
-                failure = outcome.failure,
+                failure = outcome.failure ?: outcome.externalCancellation,
             )
             outcome.externalCancellation?.let { cancellation -> throw cancellation }
 

@@ -437,7 +437,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
             assertEquals("owner stopped", thrown?.message)
             assertEquals(1, bridge.destroyCount)
             assertTrue(!fixtures.activeScanRegistry.hasVisibleActiveScan())
-            assertEquals("running", stores.getScanSession(prepared.sessionId)?.status)
+            assertEquals("failed", stores.getScanSession(prepared.sessionId)?.status)
         }
 
     @Test
