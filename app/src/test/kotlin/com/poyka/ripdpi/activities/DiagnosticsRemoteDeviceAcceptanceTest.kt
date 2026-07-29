@@ -26,7 +26,7 @@ class DiagnosticsRemoteDeviceAcceptanceTest {
 
         assertSame(scope, gate.startedScope)
         assertEquals(
-            "{\"format\":\"ripdpi_remote_device_acceptance_v1\"}",
+            "{\"format\":\"ripdpi_remote_device_acceptance_v2\"}",
             (effect as DiagnosticsEffect.ShareSummaryRequested).body,
         )
     }
@@ -44,6 +44,6 @@ class DiagnosticsRemoteDeviceAcceptanceTest {
             startedScope = scope
         }
 
-        override fun renderRedactedReport(): String = "{\"format\":\"ripdpi_remote_device_acceptance_v1\"}"
+        override fun renderRedactedReport(): String = "{\"format\":\"ripdpi_remote_device_acceptance_v2\"}"
     }
 }

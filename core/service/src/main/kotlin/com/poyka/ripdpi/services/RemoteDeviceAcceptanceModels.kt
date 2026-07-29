@@ -127,7 +127,7 @@ private fun RemoteDeviceAcceptanceReport.toRedactedPayload(): RedactedAcceptance
 
 @Serializable
 private data class RedactedAcceptanceReport(
-    val format: String = "ripdpi_remote_device_acceptance_v1",
+    val format: String = "ripdpi_remote_device_acceptance_v2",
     val device: RedactedAcceptanceDevice,
     val transportKind: String,
     val result: String,
