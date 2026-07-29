@@ -279,6 +279,59 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `durable prefix operations do not match sql wildcard lookalikes`() =
+        runTest {
+            val literalPrefix = "policy_handover_delivery:"
+            val matching = DiagnosticsDurableStateEntity("${literalPrefix}real", "real", 1L)
+            val lookalike = DiagnosticsDurableStateEntity("policyXhandoverXdelivery:canary", "canary", 1L)
+            dao.upsertDiagnosticsDurableState(matching)
+            dao.upsertDiagnosticsDurableState(lookalike)
+
+            assertEquals(
+                listOf(matching.key),
+                dao.getDiagnosticsDurableStateByPrefix(literalPrefix, 10).map { state -> state.key },
+            )
+
+            dao.clearDiagnosticsDurableStateByPrefixOlderThan(literalPrefix, minimumUpdatedAt = 2L)
+
+            assertNull(dao.getDiagnosticsDurableState(matching.key))
+            assertEquals(lookalike, dao.getDiagnosticsDurableState(lookalike.key))
+
+            dao.upsertDiagnosticsDurableState(matching)
+            dao.clearDiagnosticsDurableStateByPrefix(literalPrefix)
+
+            assertNull(dao.getDiagnosticsDurableState(matching.key))
+            assertEquals(lookalike, dao.getDiagnosticsDurableState(lookalike.key))
+        }
+
+    @Test
+    fun `lookalike terminal dependency does not protect remembered policy retention`() =
+        runTest {
+            val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
+            val retentionStore = RoomDiagnosticsHistoryRetentionStore(dao, clock)
+            val policy =
+                rememberedPolicy(
+                    fingerprintHash = "lookalike-prefix-policy",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusObserved,
+                    updatedAt = diagnosticsHistoryRetentionThreshold(clock.now(), 14) - 1L,
+                )
+            val policyId = rememberedStore.upsertRememberedNetworkPolicy(policy)
+            dao.upsertDiagnosticsDurableState(
+                DiagnosticsDurableStateEntity(
+                    key = "runtimeXterminalXpolicy:canary",
+                    value = policyId.toString(),
+                    updatedAt = clock.now(),
+                ),
+            )
+
+            retentionStore.trimOldData(retentionDays = 14)
+
+            assertNull(rememberedStore.getRememberedNetworkPolicy(policy.fingerprintHash, policy.mode))
+            assertNotNull(dao.getDiagnosticsDurableState("runtimeXterminalXpolicy:canary"))
+        }
+
+    @Test
     fun `bypass usage history store persists and observes sessions`() =
         runTest {
             val store = RoomBypassUsageHistoryStore(dao)
