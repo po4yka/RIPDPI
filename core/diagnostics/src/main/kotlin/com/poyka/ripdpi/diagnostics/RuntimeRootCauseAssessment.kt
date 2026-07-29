@@ -321,8 +321,28 @@ private fun selectVerdict(
     evidence: RuntimeEvidenceAccumulator,
     terminalEvidenceSealed: Boolean,
 ): RuntimeRootCauseVerdict {
-    if (!terminalEvidenceSealed) return RuntimeRootCauseVerdict.INCONCLUSIVE
+    val terminalPathVerdicts =
+        (
+            selectDirectVerdicts(evidence) +
+                listOfNotNull(
+                    RuntimeRootCauseVerdict.UNDERLAY_LOST.takeIf {
+                        evidence.has(RuntimeEvidenceCategory.UnderlayLost)
+                    },
+                )
+        ).distinct()
     return when {
+        !terminalEvidenceSealed -> {
+            RuntimeRootCauseVerdict.INCONCLUSIVE
+        }
+
+        terminalPathVerdicts.size == 1 -> {
+            terminalPathVerdicts.single()
+        }
+
+        terminalPathVerdicts.isNotEmpty() -> {
+            RuntimeRootCauseVerdict.INCONCLUSIVE
+        }
+
         evidence.has(RuntimeEvidenceCategory.DataPlaneForwardingHealthy) -> {
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
@@ -336,18 +356,7 @@ private fun selectVerdict(
         }
 
         else -> {
-            val candidateVerdicts =
-                (
-                    selectDirectVerdicts(evidence) +
-                        selectDataPlaneVerdict(evidence) +
-                        listOfNotNull(
-                            RuntimeRootCauseVerdict.UNDERLAY_LOST.takeIf {
-                                evidence.has(RuntimeEvidenceCategory.UnderlayLost)
-                            },
-                        )
-                ).filterNot { verdict -> verdict == RuntimeRootCauseVerdict.INCONCLUSIVE }
-                    .distinct()
-            candidateVerdicts.singleOrNull() ?: RuntimeRootCauseVerdict.INCONCLUSIVE
+            selectDataPlaneVerdict(evidence)
         }
     }
 }

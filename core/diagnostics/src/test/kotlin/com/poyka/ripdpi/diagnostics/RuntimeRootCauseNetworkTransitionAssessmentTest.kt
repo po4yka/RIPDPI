@@ -7,7 +7,7 @@ import org.junit.Test
 
 class RuntimeRootCauseNetworkTransitionAssessmentTest {
     @Test
-    fun `cross family underlay and data plane roots are inconclusive`() {
+    fun `terminal underlay loss outranks local data plane loss`() {
         val assessment =
             assess(
                 events =
@@ -29,9 +29,9 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
                 sealed = true,
             )
 
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(RuntimeRootCauseVerdict.UNDERLAY_LOST, assessment.verdict)
         assertEquals(
-            listOf("data_plane_outbound_no_return", "network_transition_underlay_lost"),
+            listOf("data_plane_outbound_no_return"),
             assessment.contradictoryCategories,
         )
     }

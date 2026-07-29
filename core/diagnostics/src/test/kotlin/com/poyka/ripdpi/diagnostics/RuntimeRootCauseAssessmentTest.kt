@@ -502,7 +502,7 @@ class RuntimeRootCausePathEvidenceTest {
     }
 
     @Test
-    fun `internal data plane conflict blocks direct root verdict`() {
+    fun `terminal DNS failure outranks internal data plane conflict`() {
         val assessment =
             assessRootCause(
                 connectionSessionId = "conn-a",
@@ -521,21 +521,44 @@ class RuntimeRootCausePathEvidenceTest {
                             message = "event=protect_failed event_kind=protect_failure",
                             createdAt = 2L,
                         ),
-                        rootCauseEvent(
+                        typedDnsRuntimeEvent(
                             connectionSessionId = "conn-a",
-                            subsystem = "dns",
-                            level = "error",
-                            message = "event=dns_failure",
+                            state = "failure_threshold",
                             createdAt = 3L,
                         ),
                     ),
             )
 
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
         assertEquals(
             listOf("data_plane_tun_ingress_no_upstream", "protect_failure"),
             assessment.contradictoryCategories,
         )
+    }
+
+    @Test
+    fun `cumulative cross layer return does not veto terminal DNS failure`() {
+        val assessment =
+            assessRootCause(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "failure_threshold",
+                            createdAt = 1L,
+                        ),
+                        rootCauseEvent(
+                            connectionSessionId = "conn-a",
+                            subsystem = "data_plane",
+                            message = "state=cross_layer_return_observed mode=vpn generation=1 final=true",
+                            createdAt = 2L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
+        assertTrue(assessment.contradictoryCategories.isEmpty())
     }
 
     @Test
