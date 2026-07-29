@@ -387,10 +387,23 @@ class ActiveScanRegistry
                 bridgeMutex.withLock {
                     hiddenScanExecutions.values.firstOrNull()
                 }
+            val cancellationPrepared =
+                if (hiddenExecution == null) {
+                    false
+                } else {
+                    try {
+                        beforeCancel(hiddenExecution.sessionId)
+                        true
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
             val result =
                 if (hiddenExecution == null) {
                     HiddenProbeCancellationResult.NoActiveProbe
-                } else if (!runCatching { beforeCancel(hiddenExecution.sessionId) }.isSuccess) {
+                } else if (!cancellationPrepared) {
                     HiddenProbeCancellationResult.Failed(hiddenExecution.sessionId)
                 } else {
                     val cancellationRegistered =
@@ -406,13 +419,18 @@ class ActiveScanRegistry
                             isCurrentAndActive
                         }
                     if (cancellationRegistered) {
-                        runCatching { hiddenExecution.bridge.cancelScan() }
+                        try {
+                            hiddenExecution.bridge.cancelScan()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            // The execution job is still cancelled below so registry cleanup can finish.
+                        }
                         val cancelled =
-                            runCatching {
-                                withTimeout(timeoutMs) {
-                                    hiddenExecution.executionJob?.cancelAndJoin()
-                                }
-                            }.isSuccess
+                            withTimeoutOrNull(timeoutMs) {
+                                hiddenExecution.executionJob?.cancelAndJoin()
+                                true
+                            } == true
                         if (cancelled) {
                             HiddenProbeCancellationResult.Cancelled(hiddenExecution.sessionId)
                         } else {

@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -138,6 +139,68 @@ class ActiveScanRegistryTest {
             assertTrue(registry.hasHiddenActiveScan)
             registry.clearBridge(replacementBridge, "hidden-session", registerActiveBridge = false)
             assertFalse(registry.hasHiddenActiveScan)
+        }
+
+    @Test
+    fun `hidden cancellation propagates caller cancellation from preparation`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            val executionJob = backgroundScope.launch { awaitCancellation() }
+            val preparationStarted = CompletableDeferred<Unit>()
+            registry.registerBridge(bridge, "hidden-session", registerActiveBridge = false)
+            registry.registerExecution("hidden-session", executionJob, registerActiveBridge = false)
+
+            val caller =
+                launch {
+                    registry.cancelHiddenAutomaticProbe("cancelled", timeoutMs = 1_000L) {
+                        preparationStarted.complete(Unit)
+                        awaitCancellation()
+                    }
+                }
+            preparationStarted.await()
+            caller.cancelAndJoin()
+
+            assertTrue(caller.isCancelled)
+            assertTrue(executionJob.isActive)
+            executionJob.cancelAndJoin()
+            registry.clearBridge(bridge, "hidden-session", registerActiveBridge = false)
+        }
+
+    @Test
+    fun `hidden cancellation propagates caller cancellation while joining execution`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            val cleanupStarted = CompletableDeferred<Unit>()
+            val releaseCleanup = CompletableDeferred<Unit>()
+            val executionJob =
+                backgroundScope.launch {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        withContext(NonCancellable) {
+                            cleanupStarted.complete(Unit)
+                            releaseCleanup.await()
+                        }
+                    }
+                }
+            registry.registerBridge(bridge, "hidden-session", registerActiveBridge = false)
+            registry.registerExecution("hidden-session", executionJob, registerActiveBridge = false)
+
+            val caller =
+                launch {
+                    registry.cancelHiddenAutomaticProbe("cancelled", timeoutMs = 1_000L)
+                }
+            cleanupStarted.await()
+            caller.cancelAndJoin()
+
+            assertTrue(caller.isCancelled)
+            releaseCleanup.complete(Unit)
+            executionJob.join()
+            registry.clearBridge(bridge, "hidden-session", registerActiveBridge = false)
         }
 
     @Test
