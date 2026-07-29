@@ -311,6 +311,43 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
         }
 
     @Test
+    fun `artifact store atomically writes native event only for current durable generation`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            val current =
+                DiagnosticsDurableStateEntity(
+                    key = "remote-acceptance",
+                    value = "generation-1",
+                    updatedAt = 10L,
+                )
+            val replacement = current.copy(value = "generation-2", updatedAt = 20L)
+            val currentEvent = nativeEvent(id = "evt-current", sessionId = null, createdAt = 20L)
+
+            store.upsertDurableState(current)
+
+            assertTrue(
+                store.insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+                    event = currentEvent,
+                    state = replacement,
+                    expectedValue = current.value,
+                ),
+            )
+            assertEquals(currentEvent, store.getNativeEventById(currentEvent.id))
+            assertEquals(replacement, store.getDurableState(current.key))
+
+            val staleEvent = nativeEvent(id = "evt-stale", sessionId = null, createdAt = 30L)
+            assertFalse(
+                store.insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+                    event = staleEvent,
+                    state = current.copy(value = "stale-replacement", updatedAt = 30L),
+                    expectedValue = current.value,
+                ),
+            )
+            assertNull(store.getNativeEventById(staleEvent.id))
+            assertEquals(replacement, store.getDurableState(current.key))
+        }
+
+    @Test
     fun `artifact store bounds durable state by age and count transactionally`() =
         runTest {
             val store = RoomDiagnosticsArtifactStore(db, dao)
