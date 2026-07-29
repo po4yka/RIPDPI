@@ -33,6 +33,15 @@ P2 review before integrating the diagnostics evidence series into `main`.
    when cancellation occurs during native startup.
 7. **Verifier** owns recombination, rebasing onto latest `origin/main`, privacy,
    cancel-safety, static analysis, contract gates, and final review.
+8. **Post-review scan startup** owns transaction-wide cleanup across every
+   startup suspension boundary and categorical failure summaries.
+9. **Post-review relay capability** owns hardened correlation for the basic
+   SOCKS UDP capability probe, including contaminant and deadline handling.
+10. **Post-review process exit** owns retry-correlation validation, temporal
+    eligibility, and neutral handling of expected user lifecycle exits.
+11. **Post-review acceptance startup** owns pending-generation validation,
+    reconciliation ordering, bounded cancellation persistence, categorical
+    logging, and startup cancellation propagation.
 
 ## Boundaries
 
@@ -46,7 +55,8 @@ P2 review before integrating the diagnostics evidence series into `main`.
 
 ## Acceptance
 
-- All thirteen final-review warnings have regression tests and root-cause fixes.
+- Every actionable initial and post-recombination review finding has a
+  regression test and root-cause fix.
 - Each lane is an atomic Conventional Commit series in an isolated worktree.
 - The recombined tree passes module JVM tests, both app flavor JVM suites,
   AndroidTest Kotlin and Hilt compilation, full static analysis, architecture
