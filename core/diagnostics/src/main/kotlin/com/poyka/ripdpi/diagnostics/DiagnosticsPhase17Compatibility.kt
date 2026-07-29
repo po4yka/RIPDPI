@@ -91,6 +91,16 @@ internal object DiagnosticsReportPersister {
         scanRecordStore = scanRecordStore,
     )
 
+    suspend fun persistScanCancellationCause(
+        sessionId: String,
+        summary: String,
+        scanRecordStore: com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore,
+    ) = com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister.persistScanCancellationCause(
+        sessionId = sessionId,
+        summary = summary,
+        scanRecordStore = scanRecordStore,
+    )
+
     suspend fun persistNativeEvents(
         sessionId: String,
         payload: String?,

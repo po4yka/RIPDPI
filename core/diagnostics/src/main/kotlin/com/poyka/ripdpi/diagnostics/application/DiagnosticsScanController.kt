@@ -188,24 +188,29 @@ internal class DefaultDiagnosticsScanController
                                     cancellationSummary =
                                     BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
                                     timeoutMs = HiddenProbeCancellationTimeoutMs,
+                                    beforeCancel = { sessionId ->
+                                        DiagnosticsReportPersister.persistScanCancellationCause(
+                                            sessionId,
+                                            BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                                            scanRecordStore,
+                                        )
+                                    },
                                 )
                             if (cancellation !is HiddenProbeCancellationResult.Cancelled) {
                                 return@withLock DiagnosticsManualScanResolution.Failed(
                                     DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
                                 )
                             }
-                            val cancelledSession =
-                                scanRecordStore.getScanSession(cancellation.sessionId)
-                                    ?: return@withLock DiagnosticsManualScanResolution.Failed(
-                                        DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
-                                    )
-                            if (cancelledSession.status == "running") {
-                                DiagnosticsReportPersister.persistScanFailure(
-                                    cancellation.sessionId,
-                                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
-                                    scanRecordStore,
+                            if (scanRecordStore.getScanSession(cancellation.sessionId) == null) {
+                                return@withLock DiagnosticsManualScanResolution.Failed(
+                                    DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
                                 )
                             }
+                            DiagnosticsReportPersister.persistScanFailure(
+                                cancellation.sessionId,
+                                BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                                scanRecordStore,
+                            )
                         }
                     }
                 }

@@ -402,11 +402,16 @@ class ActiveScanRegistry
         internal suspend fun cancelHiddenAutomaticProbe(
             cancellationSummary: String,
             timeoutMs: Long,
+            beforeCancel: suspend (sessionId: String) -> Unit = {},
         ): HiddenProbeCancellationResult {
             val hiddenExecution =
                 bridgeMutex.withLock {
                     hiddenScanExecutions.values.firstOrNull()
                 } ?: return HiddenProbeCancellationResult.NoActiveProbe
+            val causePersisted = runCatching { beforeCancel(hiddenExecution.sessionId) }.isSuccess
+            if (!causePersisted) {
+                return HiddenProbeCancellationResult.Failed(hiddenExecution.sessionId)
+            }
             rememberCancellation(hiddenExecution.sessionId, cancellationSummary)
             runCatching { hiddenExecution.bridge.cancelScan() }
             val cancelled =

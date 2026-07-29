@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
+import com.poyka.ripdpi.diagnostics.hasAuthoritativeManualConflictCancellation
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -35,6 +36,7 @@ internal object DiagnosticsReportPersister {
                 results = report.results.map { result -> result.withDerivedProbeRetryCount() },
             )
         val existing = scanRecordStore.getScanSession(report.sessionId)
+        val manualConflictCancellation = existing?.takeIf { it.hasAuthoritativeManualConflictCancellation() }
         val encodedReport = json.encodeToString(EngineScanReportWire.serializer(), normalizedReport)
         val safeReportJson =
             if (encodedReport.length <= MaxInlineReportJsonBytes) {
@@ -69,8 +71,8 @@ internal object DiagnosticsReportPersister {
                 strategyJson = existing?.strategyJson,
                 pathMode = normalizedReport.pathMode.name,
                 serviceMode = serviceStateStore.status.value.second.name,
-                status = "completed",
-                summary = normalizedReport.summary,
+                status = manualConflictCancellation?.status ?: "completed",
+                summary = manualConflictCancellation?.summary ?: normalizedReport.summary,
                 reportJson = safeReportJson,
                 startedAt = normalizedReport.startedAt,
                 finishedAt = normalizedReport.finishedAt,
@@ -98,6 +100,15 @@ internal object DiagnosticsReportPersister {
                 finishedAt = System.currentTimeMillis(),
             ),
         )
+    }
+
+    suspend fun persistScanCancellationCause(
+        sessionId: String,
+        summary: String,
+        scanRecordStore: DiagnosticsScanRecordStore,
+    ) {
+        val existing = scanRecordStore.getScanSession(sessionId) ?: return
+        scanRecordStore.upsertScanSession(existing.copy(summary = summary))
     }
 
     suspend fun persistNativeEvents(

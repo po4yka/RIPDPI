@@ -3,6 +3,9 @@ package com.poyka.ripdpi.diagnostics
 const val BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary =
     "Background automatic probing canceled to start manual diagnostics"
 
+internal fun com.poyka.ripdpi.data.diagnostics.ScanSessionEntity.hasAuthoritativeManualConflictCancellation(): Boolean =
+    status == "failed" && summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
+
 sealed interface DiagnosticsManualScanStartResult {
     data class Started(
         val sessionId: String,

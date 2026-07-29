@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -218,4 +219,126 @@ class DiagnosticsScanControllerHiddenProbeTest {
             )
             assertEquals(1, bridgeFactory.bridge.cancelCount)
         }
+
+    @Test
+    fun `manual conflict remains authoritative when partial report is persisted first`() =
+        runTest {
+            assertManualConflictCancellationSurvives(ManualConflictPersistenceOrder.PARTIAL_FIRST)
+        }
+
+    @Test
+    fun `manual conflict remains authoritative when sentinel is persisted first`() =
+        runTest {
+            assertManualConflictCancellationSurvives(ManualConflictPersistenceOrder.SENTINEL_FIRST)
+        }
+
+    private suspend fun TestScope.assertManualConflictCancellationSurvives(order: ManualConflictPersistenceOrder) {
+        val settings =
+            defaultDiagnosticsAppSettings()
+                .toBuilder()
+                .setDiagnosticsActiveProfileId("automatic-audit")
+                .setNetworkStrategyMemoryEnabled(true)
+                .build()
+        val stores =
+            FakeDiagnosticsHistoryStores().apply {
+                seedStrategyProbeProfile(json)
+                addAutomaticAuditProfile(json)
+            }
+        val serviceStateStore = FakeServiceStateStore()
+        val bridgeFactory =
+            FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+        val services =
+            createDiagnosticsServices(
+                context = TestContext(),
+                appSettingsRepository = FakeAppSettingsRepository(settings),
+                stores = stores,
+                networkMetadataProvider = FakeNetworkMetadataProvider(),
+                diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                networkDiagnosticsBridgeFactory = bridgeFactory,
+                runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                serviceStateStore = serviceStateStore,
+                networkFingerprintProvider = automaticProbeFingerprintProvider,
+                scope = backgroundScope,
+                controllerScope = this,
+                json = json,
+            )
+
+        assertFalse(
+            services.scanController.launchAutomaticProbe(
+                settings = settings,
+                event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
+            ),
+        )
+        val conflict =
+            services.scanController.startScan(ScanPathMode.RAW_PATH)
+                as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+        val hiddenSessionId =
+            stores.sessionsState.value
+                .single()
+                .id
+        val partialReport =
+            controllerStrategyProbeReport(hiddenSessionId, settings).copy(
+                profileId = "automatic-audit",
+                summary = "Native partial completion",
+                completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                terminationReason = ScanTerminationReason.USER_CANCELLED,
+            )
+
+        if (order == ManualConflictPersistenceOrder.PARTIAL_FIRST) {
+            persistControllerPartialReport(partialReport, stores, serviceStateStore)
+        }
+
+        services.scanController
+            .resolveHiddenProbeConflict(conflict.requestId, HiddenProbeConflictAction.CANCEL_AND_RUN)
+            .startedSessionId()
+        advanceUntilIdle()
+
+        if (order == ManualConflictPersistenceOrder.SENTINEL_FIRST) {
+            persistControllerPartialReport(partialReport, stores, serviceStateStore)
+        }
+
+        val entity = requireNotNull(stores.getScanSession(hiddenSessionId))
+        val boundarySession = DiagnosticsBoundaryMapper(json).toDiagnosticScanSession(entity)
+        val archive =
+            DiagnosticsSummaryProjector().project(
+                session = entity,
+                report = boundarySession.report,
+                latestSnapshotModel = null,
+                latestContextModel = null,
+                latestTelemetry = null,
+                selectedResults = emptyList(),
+                warnings = emptyList(),
+            )
+
+        assertEquals("failed", entity.status)
+        assertEquals(BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary, entity.summary)
+        assertEquals(BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary, boundarySession.summary)
+        assertEquals(ScanCompletionKind.PARTIAL_RESULTS, boundarySession.report?.completionKind)
+        assertTrue(
+            archive.header.lines.contains(
+                "summary=$BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary",
+            ),
+        )
+    }
+
+    private suspend fun persistControllerPartialReport(
+        report: ScanReport,
+        stores: FakeDiagnosticsHistoryStores,
+        serviceStateStore: FakeServiceStateStore,
+    ) {
+        DiagnosticsReportPersister.persistScanReport(
+            report = report.toEngineScanReportWire(),
+            scanRecordStore = stores,
+            artifactWriteStore = stores,
+            serviceStateStore = serviceStateStore,
+            json = json,
+        )
+    }
+}
+
+private enum class ManualConflictPersistenceOrder {
+    PARTIAL_FIRST,
+    SENTINEL_FIRST,
 }

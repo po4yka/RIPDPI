@@ -30,10 +30,11 @@ internal fun ScanReport.displaySummary(defaultSummary: String = summary): String
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
 
-internal fun ScanSessionEntity.displaySummary(report: ScanReport?): String = report?.displaySummary(summary) ?: summary
+internal fun ScanSessionEntity.displaySummary(report: ScanReport?): String =
+    if (hasAuthoritativeManualConflictCancellation()) summary else report?.displaySummary(summary) ?: summary
 
 internal fun ScanSessionEntity.displaySummary(report: DiagnosticsSessionProjection?): String =
-    report?.displaySummary(summary) ?: summary
+    if (hasAuthoritativeManualConflictCancellation()) summary else report?.displaySummary(summary) ?: summary
 
 internal fun DiagnosticsSessionProjection.displaySummary(rawSummary: String): String =
     deriveDisplaySummary(
