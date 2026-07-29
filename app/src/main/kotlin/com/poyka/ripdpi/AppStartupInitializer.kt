@@ -136,7 +136,6 @@ class AppStartupInitializer
                 .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
             val report = initializeSubsystemsAfterRecovery(startupRecovery)
             Logger.i { report.toLogMessage() }
-            recordRecentProcessExits()
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
             // API 37). A captured heap dump is delivered to our result callback.
             runCatching {
@@ -209,6 +208,9 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.StrategyPackInitialization) {
                     strategyPackService.initialize()
                 }
+            // Reconcile previous-process exits before runtime history starts collecting. Otherwise
+            // the monitor can seal a root-cause assessment from the pre-reconciliation snapshot.
+            recordRecentProcessExits()
             val diagnosticsBootstrap =
                 runSubsystem(AppStartupSubsystem.DiagnosticsBootstrap) {
                     diagnosticsBootstrapperProvider.get().initialize()

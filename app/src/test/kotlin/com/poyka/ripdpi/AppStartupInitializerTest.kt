@@ -342,6 +342,35 @@ class AppStartupInitializerTest {
         }
 
     @Test
+    fun `process exit reconciliation completes before diagnostics runtime bootstrap`() =
+        runTest {
+            val startupOrder = mutableListOf<String>()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper =
+                        RecordingDiagnosticsBootstrapper(
+                            onInitialize = { startupOrder += "runtime_history_bootstrap" },
+                        ),
+                    lastExitInspector =
+                        RecordingLastExitInspector(
+                            onRecord = { startupOrder += "process_exit_reconciliation" },
+                        ),
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(
+                listOf("process_exit_reconciliation", "runtime_history_bootstrap"),
+                startupOrder,
+            )
+        }
+
+    @Test
     fun `public initialize reconciles pending remote acceptance evidence`() =
         runTest {
             val callOrder = mutableListOf<String>()
@@ -757,12 +786,14 @@ private object NoOpLastExitInspector : LastExitInspector {
 
 private class RecordingLastExitInspector(
     private val failure: Throwable? = null,
+    private val onRecord: (() -> Unit)? = null,
 ) : LastExitInspector {
     var calls: Int = 0
         private set
 
     override suspend fun recordRecentProcessExits() {
         calls += 1
+        onRecord?.invoke()
         failure?.let { throw it }
     }
 }
