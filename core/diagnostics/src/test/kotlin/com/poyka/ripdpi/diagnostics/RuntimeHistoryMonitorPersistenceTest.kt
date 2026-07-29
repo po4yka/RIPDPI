@@ -744,6 +744,43 @@ internal class RuntimeHealthSignalPersistenceTest : RuntimeHistoryMonitorPersist
             assertFalse(typedEvent.message.contains("fd=33"))
             assertFalse(typedEvent.message.contains("java.io.IOException"))
         }
+
+    @Test
+    fun `terminal relay runtime failure reaches the root cause assessment`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(
+                relayTelemetry(
+                    updatedAt = 1L,
+                    state = "failed",
+                    health = "failed",
+                    status = RuntimeTelemetryStatus(state = RuntimeTelemetryState.EngineError),
+                ),
+                "conn-a",
+            )
+            stores.nativeEventsState.value +=
+                terminalDataPlaneEvent("conn-a", createdAt = 2L).copy(
+                    message = "state=evidence_unavailable mode=vpn generation=1 final=true event_kind=data_plane_final",
+                )
+            persister.persistTerminalRootCauseAssessment(
+                connectionSessionId = "conn-a",
+                createdAt = 3L,
+                terminalEvidenceSealed = true,
+            )
+
+            val typedEvent = typedRuntimeEvents(stores, "relay").single()
+            val assessment = decodeRootCauseAssessment(rootCauseAssessments(stores).single())
+            assertEquals(
+                "event=relay_runtime_state evidence=relay_health_transition_v1 " +
+                    "state=failed health=failed relay_failed=true",
+                typedEvent.message,
+            )
+            assertEquals(RuntimeRootCauseVerdict.RELAY_RUNTIME_FAILURE, assessment.verdict)
+            assertEquals(listOf("relay_runtime_failure"), assessment.evidenceRefs.map { it.category })
+            assertTrue(assessment.terminalEvidenceSealed)
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

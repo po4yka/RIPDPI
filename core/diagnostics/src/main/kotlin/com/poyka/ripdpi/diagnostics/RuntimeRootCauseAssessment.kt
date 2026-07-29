@@ -44,8 +44,8 @@ internal enum class RuntimeRootCauseVerdict {
     @SerialName("DNS_FAILURE")
     DNS_FAILURE,
 
-    @SerialName("RELAY_STALL")
-    RELAY_STALL,
+    @SerialName("RELAY_RUNTIME_FAILURE")
+    RELAY_RUNTIME_FAILURE,
 
     @SerialName("INCONCLUSIVE")
     INCONCLUSIVE,
@@ -345,10 +345,6 @@ private fun selectVerdict(
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
 
-        evidence.has(RuntimeEvidenceCategory.RelayRuntimeFailure) -> {
-            RuntimeRootCauseVerdict.INCONCLUSIVE
-        }
-
         else -> {
             selectDataPlaneVerdict(evidence)
         }
@@ -360,8 +356,8 @@ private fun selectDirectVerdicts(evidence: RuntimeEvidenceAccumulator): List<Run
         RuntimeRootCauseVerdict.DNS_FAILURE.takeIf {
             evidence.has(RuntimeEvidenceCategory.DnsFailure)
         },
-        RuntimeRootCauseVerdict.RELAY_STALL.takeIf {
-            evidence.has(RuntimeEvidenceCategory.RelayStall)
+        RuntimeRootCauseVerdict.RELAY_RUNTIME_FAILURE.takeIf {
+            evidence.has(RuntimeEvidenceCategory.RelayRuntimeFailure)
         },
     )
 
@@ -474,7 +470,6 @@ private enum class RuntimeEvidenceCategory(
     DataPlaneOutboundNoReturn("data_plane_outbound_no_return"),
     DataPlaneForwardingHealthy("data_plane_forwarding_healthy"),
     DnsFailure("dns_failure"),
-    RelayStall("relay_stall"),
     RelayRuntimeFailure("relay_runtime_failure"),
     ProtectFailure("protect_failure"),
 }
@@ -500,8 +495,8 @@ private fun RuntimeRootCauseVerdict.evidenceCategories(): Set<RuntimeEvidenceCat
             setOf(RuntimeEvidenceCategory.DnsFailure)
         }
 
-        RuntimeRootCauseVerdict.RELAY_STALL -> {
-            setOf(RuntimeEvidenceCategory.RelayStall)
+        RuntimeRootCauseVerdict.RELAY_RUNTIME_FAILURE -> {
+            setOf(RuntimeEvidenceCategory.RelayRuntimeFailure)
         }
 
         RuntimeRootCauseVerdict.INCONCLUSIVE -> {

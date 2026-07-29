@@ -143,7 +143,7 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
-    fun `relay runtime failure blocks roots but relay stall remains unreachable`() {
+    fun `typed relay runtime failure classifies without claiming a stall`() {
         val relayOnly =
             RuntimeRootCauseClassifier.assess(
                 connectionSessionId = "conn-a",
@@ -155,6 +155,7 @@ class RuntimeRootCauseAssessmentTest {
                             createdAt = 1L,
                         ),
                     ),
+                terminalEvidenceSealed = true,
             )
         val withDns =
             RuntimeRootCauseClassifier.assess(
@@ -172,10 +173,12 @@ class RuntimeRootCauseAssessmentTest {
                             createdAt = 2L,
                         ),
                     ),
+                terminalEvidenceSealed = true,
             )
 
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, relayOnly.verdict)
-        assertEquals(listOf("relay_runtime_failure"), relayOnly.contradictoryCategories)
+        assertEquals(RuntimeRootCauseVerdict.RELAY_RUNTIME_FAILURE, relayOnly.verdict)
+        assertTrue(relayOnly.contradictoryCategories.isEmpty())
+        assertFalse(RuntimeRootCauseVerdict.entries.any { verdict -> verdict.name.contains("STALL") })
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, withDns.verdict)
         assertEquals(listOf("dns_failure", "relay_runtime_failure"), withDns.contradictoryCategories)
     }
