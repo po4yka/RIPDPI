@@ -351,7 +351,8 @@ class DiagnosticsArchiveRedactorTest {
 
         assertFalse(redacted.contains(base64Tail))
         assertFalse(redacted.contains(privateKeyEnd))
-        assertTrue(redacted.contains("before"))
+        assertFalse(redacted.contains("before"))
+        assertTrue(redacted.startsWith("<pem-redacted>"))
         assertTrue(redacted.contains("after"))
     }
 
@@ -411,7 +412,7 @@ class DiagnosticsArchiveRedactorTest {
         val canonicalBriefPrefix = "I/RIPDPI( 123): "
         val fullLine = "QUJDREVGR0hJSktM"
         val raw =
-            "before\n" +
+            "before:\n" +
                 "${briefPrefix}ABC\n$fullLine\n${threadtimePrefix}aaaa\n$threadtimePrefix$privateKeyEnd\n" +
                 "${canonicalBriefPrefix}YQ==\n$canonicalBriefPrefix$privateKeyEnd\n" +
                 "after"
@@ -423,7 +424,7 @@ class DiagnosticsArchiveRedactorTest {
         assertFalse(redacted.contains("aaaa"))
         assertFalse(redacted.contains(fullLine))
         assertFalse(redacted.contains(privateKeyEnd))
-        assertTrue(redacted.contains("before"))
+        assertTrue(redacted.contains("before:"))
         assertTrue(redacted.contains("after"))
     }
 }
