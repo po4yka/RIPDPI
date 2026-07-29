@@ -1,9 +1,8 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import java.io.File
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.inject.Inject
@@ -31,8 +30,7 @@ class DiagnosticsArchiveZipWriter
                         zip.closeEntry()
                     }
                 }
-                moveAtomically(temporary, target)
-                restrictToOwner(target)
+                copyCreateNew(temporary, target)
             } finally {
                 check(!temporary.exists() || temporary.delete()) {
                     "Unable to delete temporary diagnostics archive"
@@ -40,14 +38,31 @@ class DiagnosticsArchiveZipWriter
             }
         }
 
-        private fun moveAtomically(
+        private fun copyCreateNew(
             source: File,
             target: File,
         ) {
-            try {
-                Files.move(source.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(source.toPath(), target.toPath())
+            var targetCreated = false
+            val copyResult =
+                runCatching {
+                    Files
+                        .newOutputStream(
+                            target.toPath(),
+                            StandardOpenOption.CREATE_NEW,
+                            StandardOpenOption.WRITE,
+                        ).use { output ->
+                            targetCreated = true
+                            source.inputStream().buffered().use { input -> input.copyTo(output) }
+                        }
+                    restrictToOwner(target)
+                }
+            copyResult.exceptionOrNull()?.let { error ->
+                if (targetCreated) {
+                    runCatching { Files.deleteIfExists(target.toPath()) }
+                        .exceptionOrNull()
+                        ?.let(error::addSuppressed)
+                }
+                throw error
             }
         }
 

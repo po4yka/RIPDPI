@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 
 internal suspend fun seedSingleSessionStoreForArchiveTest(
@@ -115,6 +116,7 @@ internal fun createArchiveExporterForTest(
     json: Json,
     logcatSnapshotCollector: LogcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
 ): DefaultDiagnosticsArchiveExporter {
+    val exportSequence = AtomicInteger()
     val appSettings =
         defaultDiagnosticsAppSettings()
             .toBuilder()
@@ -159,7 +161,7 @@ internal fun createArchiveExporterForTest(
                 clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
             ),
         zipWriter = DiagnosticsArchiveZipWriter(),
-        idGenerator = DiagnosticsArchiveIdGenerator { "export-1" },
+        idGenerator = DiagnosticsArchiveIdGenerator { "export-${exportSequence.incrementAndGet()}" },
         developerAnalyticsSource = NoopDeveloperAnalyticsSource,
     )
 }

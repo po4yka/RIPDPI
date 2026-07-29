@@ -10,8 +10,10 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -52,15 +54,17 @@ internal class DefaultDiagnosticsArchiveExporter
                 val target = fileStore.createTarget()
                 val developerAnalytics = collectDeveloperAnalytics(selection, target)
                 var exportRecordId: String? = null
+                var archiveWritten = false
                 runCatching {
                     zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
+                    archiveWritten = true
                     val recordId = idGenerator.nextId()
                     exportRecordId = recordId
                     exportRecordStore.insertExportRecord(target.toExportRecord(recordId, selection.primarySession?.id))
                     reconcileCache(reservedSlots = 0)
                     target.toArchive(selection.primarySession?.id)
                 }.getOrElse { error ->
-                    rollbackArchive(target, exportRecordId, error)
+                    rollbackArchive(target, exportRecordId, archiveWritten, error)
                 }
             }
 
@@ -90,18 +94,22 @@ internal class DefaultDiagnosticsArchiveExporter
         private suspend fun rollbackArchive(
             target: DiagnosticsArchiveTarget,
             exportRecordId: String?,
+            archiveWritten: Boolean,
             error: Throwable,
-        ): Nothing {
-            runCatching { fileStore.deleteArchive(target.file) }
-                .exceptionOrNull()
-                ?.let(error::addSuppressed)
-            exportRecordId?.let { recordId ->
-                runCatching { exportRecordStore.deleteExportRecords(listOf(recordId)) }
-                    .exceptionOrNull()
-                    ?.let(error::addSuppressed)
+        ): Nothing =
+            withContext(NonCancellable) {
+                if (archiveWritten) {
+                    runCatching { fileStore.deleteArchive(target.file) }
+                        .exceptionOrNull()
+                        ?.let(error::addSuppressed)
+                }
+                exportRecordId?.let { recordId ->
+                    runCatching { exportRecordStore.deleteExportRecords(listOf(recordId)) }
+                        .exceptionOrNull()
+                        ?.let(error::addSuppressed)
+                }
+                throw error
             }
-            throw error
-        }
 
         private suspend fun reconcileCache(reservedSlots: Int) {
             var cleanupFailure: Throwable? = null

@@ -164,6 +164,7 @@ internal class FakeDiagnosticsHistoryStores :
     val observedTelemetryConnectionSessionIds = CopyOnWriteArrayList<String>()
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var beforeInsertExportRecord: suspend (ExportRecordEntity) -> Unit = {}
+    var afterInsertExportRecord: suspend (ExportRecordEntity) -> Unit = {}
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
@@ -449,6 +450,7 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun insertExportRecord(record: ExportRecordEntity) {
         beforeInsertExportRecord(record)
         exportsState.value = exportsState.value + record
+        afterInsertExportRecord(record)
     }
 
     override suspend fun getExportRecords(): List<ExportRecordEntity> = exportsState.value

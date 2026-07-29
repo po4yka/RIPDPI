@@ -2,7 +2,11 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -142,6 +146,63 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
             val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName)
             assertTrue(archiveDir.listFiles().orEmpty().isEmpty())
             assertTrue(stores.exportsState.value.isEmpty())
+        }
+
+    @Test
+    fun `createArchive creates distinct files when clock timestamps collide`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-same-timestamp",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Same timestamp",
+                )
+            seedSingleSessionStore(stores, session)
+            val exporter = createArchiveExporter(stores)
+
+            val first = exporter.createArchive(archiveRequestFor(session.id, requestedAt = 25L))
+            val second = exporter.createArchive(archiveRequestFor(session.id, requestedAt = 26L))
+
+            assertFalse(first.absolutePath == second.absolutePath)
+            assertTrue(java.io.File(first.absolutePath).exists())
+            assertTrue(java.io.File(second.absolutePath).exists())
+            assertEquals(
+                2,
+                stores.exportsState.value
+                    .map { it.uri }
+                    .distinct()
+                    .size,
+            )
+        }
+
+    @Test
+    fun `createArchive compensates file and record after cancellation post insert`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-cancel-compensation",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Cancellation compensation",
+                )
+            seedSingleSessionStore(stores, session)
+            stores.afterInsertExportRecord = {
+                currentCoroutineContext().cancel()
+                yield()
+            }
+            val context = TestContext()
+            val exporter = createArchiveExporter(stores, context, rootModeEnabled = false)
+
+            val attempt = backgroundScope.async { exporter.createArchive(archiveRequestFor(session.id, 27L)) }
+            val failure = runCatching { attempt.await() }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertTrue(stores.exportsState.value.isEmpty())
+            val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName)
+            assertTrue(archiveDir.listFiles().orEmpty().isEmpty())
         }
 
     @Test
@@ -302,6 +363,15 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         zip: java.util.zip.ZipFile,
         sessionId: String,
     ) = assertSingleSessionArchiveContentsForTest(zip, sessionId, json)
+
+    private fun archiveRequestFor(
+        sessionId: String,
+        requestedAt: Long,
+    ) = DiagnosticsArchiveRequest(
+        requestedSessionId = sessionId,
+        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+        requestedAt = requestedAt,
+    )
 
     @Test
     fun `createArchive records support bundle reason and fallback selection in provenance`() =

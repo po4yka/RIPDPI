@@ -66,10 +66,8 @@ class DiagnosticsArchiveComponentsTest {
                 .filter { it.name.startsWith(DiagnosticsArchiveFormat.fileNamePrefix) && it.extension == "zip" }
                 .map { it.name }
                 .sorted()
-        assertEquals(
-            "${DiagnosticsArchiveFormat.fileNamePrefix}1700000000000.zip",
-            target.fileName,
-        )
+        assertTrue(target.fileName.startsWith("${DiagnosticsArchiveFormat.fileNamePrefix}1700000000000-"))
+        assertTrue(target.fileName.endsWith(".zip"))
         assertEquals(target.fileName, target.file.name)
         assertEquals(5, managedFiles.size)
         assertFalse(managedFiles.contains("${DiagnosticsArchiveFormat.fileNamePrefix}expired.zip"))
@@ -107,6 +105,23 @@ class DiagnosticsArchiveComponentsTest {
         assertTrue(PosixFilePermission.OWNER_WRITE in permissions)
         assertFalse(PosixFilePermission.GROUP_READ in permissions)
         assertFalse(PosixFilePermission.OTHERS_READ in permissions)
+    }
+
+    @Test
+    fun `zip writer never replaces a colliding archive target`() {
+        val cacheDir = Files.createTempDirectory("archive-zip-collision").toFile()
+        val target = cacheDir.resolve("existing.zip").apply { writeText("existing archive") }
+
+        val failure =
+            runCatching {
+                DiagnosticsArchiveZipWriter().write(
+                    target,
+                    listOf(DiagnosticsArchiveEntry("report.json", "replacement".encodeToByteArray())),
+                )
+            }.exceptionOrNull()
+
+        assertNotNull(failure)
+        assertEquals("existing archive", target.readText())
     }
 
     @Test

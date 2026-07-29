@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import java.io.File
+import java.util.UUID
 
 fun interface DiagnosticsArchiveClock {
     fun now(): Long
@@ -85,7 +86,7 @@ class DiagnosticsArchiveFileStore(
 
     internal fun createTarget(): DiagnosticsArchiveTarget {
         val createdAt = clock.now()
-        val fileName = "${DiagnosticsArchiveFormat.fileNamePrefix}$createdAt.zip"
+        val fileName = "${DiagnosticsArchiveFormat.fileNamePrefix}$createdAt-${UUID.randomUUID()}.zip"
         val file = File(ensureArchiveDirectory(), fileName)
         return DiagnosticsArchiveTarget(
             file = file,
