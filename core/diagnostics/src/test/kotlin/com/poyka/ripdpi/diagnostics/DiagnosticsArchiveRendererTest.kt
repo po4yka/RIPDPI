@@ -311,7 +311,7 @@ class DiagnosticsArchiveRendererTest {
 
     @Test
     fun `renderer redacts logs before applying final utf8 byte limits`() {
-        val rawLog = "http://a ".repeat(58_000)
+        val rawLog = "oldest-log-evidence\n" + "http://a ".repeat(58_000) + "\nnewest-log-evidence"
         val rawBytes = rawLog.toByteArray(Charsets.UTF_8).size
         assertTrue(rawBytes < LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
         val selection =
@@ -347,6 +347,34 @@ class DiagnosticsArchiveRendererTest {
 
         assertTrue(entries.getValue("logcat.txt").bytes.size <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
         assertTrue(entries.getValue("app-log.txt").bytes.size <= FileLogWriter.MAX_LOG_FILE_BYTES)
+        assertTrue(
+            entries
+                .getValue("logcat.txt")
+                .bytes
+                .decodeToString()
+                .endsWith("newest-log-evidence"),
+        )
+        assertTrue(
+            entries
+                .getValue("app-log.txt")
+                .bytes
+                .decodeToString()
+                .endsWith("newest-log-evidence"),
+        )
+        assertFalse(
+            entries
+                .getValue("logcat.txt")
+                .bytes
+                .decodeToString()
+                .contains("oldest-log-evidence"),
+        )
+        assertFalse(
+            entries
+                .getValue("app-log.txt")
+                .bytes
+                .decodeToString()
+                .contains("oldest-log-evidence"),
+        )
         assertTrue(completeness.truncation.logcat)
         assertTrue(completeness.truncation.appLog)
     }
