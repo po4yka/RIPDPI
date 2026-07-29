@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
+import com.poyka.ripdpi.data.policyHandoverDeliveryId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -14,11 +15,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.UUID
 
 class PolicyHandoverEventStoreTest {
     @Test
@@ -49,15 +54,13 @@ class PolicyHandoverEventStoreTest {
             val policies = HandoverRememberedPolicyStore()
             val fingerprint = "fingerprint-stale"
             val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
-            val dependencyKey = "runtime_terminal_policy:stale-pending"
+            val sessionId = "ebcb4eec-285d-4b30-a332-bff526c81151"
+            val dependencyKey = "runtime_terminal_policy:$sessionId"
             durableState.upsertDurableState(
                 DiagnosticsDurableStateEntity(dependencyKey, policyId.toString(), 10L),
             )
             val event =
-                handoverEvent("delivery-stale-pending").copy(
-                    currentFingerprintHash = fingerprint,
-                    rememberedPolicyDependencyKey = dependencyKey,
-                )
+                dependentHandoverEvent(sessionId, fingerprint)
             val store = eventStore(durableState, policies)
             store.publish(event)
             val deliveryKey = "policy_handover_delivery:${event.deliveryId}"
@@ -126,15 +129,13 @@ class PolicyHandoverEventStoreTest {
             repeat(65) { index ->
                 val fingerprint = "fingerprint-$index"
                 val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
-                val dependencyKey = "runtime_terminal_policy:bounded-$index"
+                val sessionId = namedSessionId("bounded-$index")
+                val dependencyKey = "runtime_terminal_policy:$sessionId"
                 durableState.upsertDurableState(
                     DiagnosticsDurableStateEntity(dependencyKey, policyId.toString(), index.toLong()),
                 )
                 store.publish(
-                    handoverEvent("delivery-bounded-$index").copy(
-                        currentFingerprintHash = fingerprint,
-                        rememberedPolicyDependencyKey = dependencyKey,
-                    ),
+                    dependentHandoverEvent(sessionId, fingerprint),
                 )
             }
 
@@ -150,7 +151,9 @@ class PolicyHandoverEventStoreTest {
             val staleDelivery =
                 durableState.states.values
                     .first { state -> state.key.startsWith("policy_handover_delivery:") }
-            val staleDependencyKey = "runtime_terminal_policy:bounded-${staleDelivery.key.substringAfterLast('-')}"
+            val staleEnvelope = Json.parseToJsonElement(staleDelivery.value).jsonObject
+            val staleDependencyKey =
+                requireNotNull(staleEnvelope["rememberedPolicyDependencyKey"]?.jsonPrimitive?.content)
             durableState.upsertDurableState(
                 staleDelivery.copy(updatedAt = System.currentTimeMillis() - 8L * 24L * 60L * 60L * 1_000L),
             )
@@ -184,16 +187,13 @@ class PolicyHandoverEventStoreTest {
             val policies = HandoverRememberedPolicyStore()
             val fingerprint = "sensitive-network-hash"
             val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
-            val dependencyKey = "runtime_terminal_policy:session-a"
+            val sessionId = "41373290-a298-48cf-b231-680cf0af6f47"
+            val dependencyKey = "runtime_terminal_policy:$sessionId"
             durableState.upsertDurableState(
                 DiagnosticsDurableStateEntity(dependencyKey, policyId.toString(), 10L),
             )
             val event =
-                handoverEvent("delivery-private").copy(
-                    currentFingerprintHash = fingerprint,
-                    usedRememberedPolicy = true,
-                    rememberedPolicyDependencyKey = dependencyKey,
-                )
+                dependentHandoverEvent(sessionId, fingerprint)
             val store = eventStore(durableState, policies)
 
             store.publish(event)
@@ -216,8 +216,10 @@ class PolicyHandoverEventStoreTest {
             val policies = HandoverRememberedPolicyStore()
             val fingerprint = "sensitive-network-hash"
             val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
-            val missingDependencyKey = "runtime_terminal_policy:missing"
-            val embeddedFingerprintKey = "runtime_terminal_policy:embedded"
+            val missingSessionId = "f793b542-774d-4a32-a951-7e7bf70f32f6"
+            val embeddedSessionId = "90c4bb6e-b867-423b-8564-b6c562dc7e9e"
+            val missingDependencyKey = "runtime_terminal_policy:$missingSessionId"
+            val embeddedFingerprintKey = "runtime_terminal_policy:$embeddedSessionId"
             durableState.upsertDurableState(
                 DiagnosticsDurableStateEntity(missingDependencyKey, policyId.toString(), 10L),
             )
@@ -226,15 +228,9 @@ class PolicyHandoverEventStoreTest {
             )
             val store = eventStore(durableState, policies)
             val missingDependencyEvent =
-                handoverEvent("delivery-missing-dependency").copy(
-                    currentFingerprintHash = fingerprint,
-                    rememberedPolicyDependencyKey = missingDependencyKey,
-                )
+                dependentHandoverEvent(missingSessionId, fingerprint)
             val embeddedFingerprintEvent =
-                handoverEvent("delivery-embedded-fingerprint").copy(
-                    currentFingerprintHash = fingerprint,
-                    rememberedPolicyDependencyKey = embeddedFingerprintKey,
-                )
+                dependentHandoverEvent(embeddedSessionId, fingerprint)
             store.publish(missingDependencyEvent)
             store.publish(embeddedFingerprintEvent)
             durableState.clearDurableStateIfCurrent(missingDependencyKey, policyId.toString())
@@ -252,9 +248,123 @@ class PolicyHandoverEventStoreTest {
 
             assertNull(durableState.getDurableState("policy_handover_delivery:${missingDependencyEvent.deliveryId}"))
             assertNull(durableState.getDurableState(embeddedKey))
-            assertNull(durableState.getDurableState(embeddedFingerprintKey))
+            assertNotNull(durableState.getDurableState(embeddedFingerprintKey))
+        }
+
+    @Test
+    fun `acknowledgement never deletes dependencies from untrusted envelopes`() =
+        runTest {
+            val sessionId = "a0dcc56f-0532-49ea-afef-c168d3509ef6"
+            val validDependencyKey = "runtime_terminal_policy:$sessionId"
+            val otherSessionId = "4674580a-5e63-450a-87d1-959a7a37e2eb"
+            val untrustedCases =
+                listOf(
+                    "terminal outbox key" to "runtime_terminal_outbox:$sessionId",
+                    "percent wildcard" to "runtime_terminal_policy:%",
+                    "underscore wildcard" to "runtime_terminal_policy:_",
+                    "prefix variant" to "runtime_terminal_policy_evil:$sessionId",
+                    "mismatched session" to "runtime_terminal_policy:$otherSessionId",
+                )
+
+            untrustedCases.forEach { (label, dependencyKey) ->
+                val fixture = dependencyFixture(sessionId, validDependencyKey)
+                fixture.durableState.upsertDurableState(
+                    DiagnosticsDurableStateEntity(dependencyKey, fixture.policyId.toString(), 11L),
+                )
+                val tampered =
+                    fixture.persisted.copy(
+                        value = fixture.persisted.value.replace(validDependencyKey, dependencyKey),
+                    )
+                fixture.durableState.upsertDurableState(tampered)
+
+                fixture.store.acknowledge(fixture.event.deliveryId)
+
+                assertNull(label, fixture.durableState.getDurableState(tampered.key))
+                assertNotNull(label, fixture.durableState.getDurableState(dependencyKey))
+            }
+        }
+
+    @Test
+    fun `acknowledgement never deletes dependency for unsupported or mismatched envelope`() =
+        runTest {
+            val sessionId = "c549e43d-2efb-4420-a970-46b3e964ea4d"
+            val dependencyKey = "runtime_terminal_policy:$sessionId"
+            val mutations =
+                listOf<(String) -> String>(
+                    { value -> value.replace("\"schemaVersion\":3", "\"schemaVersion\":99") },
+                    { value ->
+                        value.replace(
+                            policyHandoverDeliveryId("runtime-terminal:$sessionId"),
+                            "other-delivery",
+                        )
+                    },
+                )
+
+            mutations.forEach { mutate ->
+                val fixture = dependencyFixture(sessionId, dependencyKey)
+                val tampered = fixture.persisted.copy(value = mutate(fixture.persisted.value))
+                fixture.durableState.upsertDurableState(tampered)
+
+                fixture.store.acknowledge(fixture.event.deliveryId)
+
+                assertNull(fixture.durableState.getDurableState(tampered.key))
+                assertNotNull(fixture.durableState.getDurableState(dependencyKey))
+            }
+        }
+
+    @Test
+    fun `stale corrupt delivery pruning retains unrelated durable state`() =
+        runTest {
+            val sessionId = "8e2f490f-dd59-4fe7-b737-6963464086d8"
+            val validDependencyKey = "runtime_terminal_policy:$sessionId"
+            val fixture = dependencyFixture(sessionId, validDependencyKey)
+            val terminalOutboxKey = "runtime_terminal_outbox:$sessionId"
+            fixture.durableState.upsertDurableState(
+                DiagnosticsDurableStateEntity(terminalOutboxKey, "terminal-marker", 20L),
+            )
+            fixture.durableState.upsertDurableState(
+                fixture.persisted.copy(
+                    value = fixture.persisted.value.replace(validDependencyKey, terminalOutboxKey),
+                    updatedAt = System.currentTimeMillis() - 8L * 24L * 60L * 60L * 1_000L,
+                ),
+            )
+
+            fixture.store.publish(handoverEvent("delivery-after-corrupt"))
+
+            assertNull(fixture.durableState.getDurableState(fixture.persisted.key))
+            assertNotNull(fixture.durableState.getDurableState(terminalOutboxKey))
+            assertNotNull(fixture.durableState.getDurableState(validDependencyKey))
         }
 }
+
+private suspend fun dependencyFixture(
+    sessionId: String,
+    dependencyKey: String,
+): HandoverDependencyFixture {
+    val durableState = HandoverDurableStateStore()
+    val policies = HandoverRememberedPolicyStore()
+    val fingerprint = "fingerprint-$sessionId"
+    val policyId = policies.upsertRememberedNetworkPolicy(rememberedPolicy(fingerprint))
+    durableState.upsertDurableState(DiagnosticsDurableStateEntity(dependencyKey, policyId.toString(), 10L))
+    val event = dependentHandoverEvent(sessionId, fingerprint)
+    val store = eventStore(durableState, policies)
+    store.publish(event)
+    return HandoverDependencyFixture(
+        durableState = durableState,
+        store = store,
+        event = event,
+        persisted = requireNotNull(durableState.states["policy_handover_delivery:${event.deliveryId}"]),
+        policyId = policyId,
+    )
+}
+
+private data class HandoverDependencyFixture(
+    val durableState: HandoverDurableStateStore,
+    val store: DefaultPolicyHandoverEventStore,
+    val event: PolicyHandoverEvent,
+    val persisted: DiagnosticsDurableStateEntity,
+    val policyId: Long,
+)
 
 private fun eventStore(
     durableState: DiagnosticsDurableStateStore,
@@ -272,6 +382,17 @@ private fun handoverEvent(deliveryId: String) =
         usedRememberedPolicy = false,
         occurredAt = 100L,
     )
+
+private fun dependentHandoverEvent(
+    sessionId: String,
+    fingerprint: String,
+) = handoverEvent(policyHandoverDeliveryId("runtime-terminal:$sessionId")).copy(
+    currentFingerprintHash = fingerprint,
+    usedRememberedPolicy = true,
+    rememberedPolicyDependencyKey = "runtime_terminal_policy:$sessionId",
+)
+
+private fun namedSessionId(seed: String): String = UUID.nameUUIDFromBytes(seed.toByteArray()).toString()
 
 private fun rememberedPolicy(fingerprintHash: String) =
     RememberedNetworkPolicyEntity(

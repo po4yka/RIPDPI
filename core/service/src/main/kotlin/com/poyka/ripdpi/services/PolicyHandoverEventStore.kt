@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.diagnostics.PolicyHandoverDeliveryDurableStatePrefi
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
+import com.poyka.ripdpi.data.policyHandoverDeliveryId
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import dagger.Binds
 import dagger.Module
@@ -21,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -82,14 +84,12 @@ class DefaultPolicyHandoverEventStore
             val key = deliveryKey(deliveryId)
             val current = durableStateStore.getDurableState(key)
             if (current != null) {
-                val envelope = decodeCurrentEnvelope(current.value)
-                val dependencyKey = envelope?.rememberedPolicyDependencyKey
-                val dependency = dependencyKey?.let { durableStateStore.getDurableState(it) }
-                if (dependencyKey != null && dependency != null) {
+                val dependency = validatedDependencyForRemoval(current)
+                if (dependency != null) {
                     durableStateStore.clearDurableStateAndDependencyIfCurrent(
                         key = key,
                         expectedValue = current.value,
-                        dependencyKey = dependencyKey,
+                        dependencyKey = dependency.key,
                         expectedDependencyValue = dependency.value,
                     )
                 } else {
@@ -190,9 +190,8 @@ class DefaultPolicyHandoverEventStore
             mode: com.poyka.ripdpi.data.Mode,
         ): RememberedNetworkPolicyEntity? {
             val policyId =
-                dependencyKey
-                    .takeIf { key -> key.startsWith(TerminalPolicyDependencyDurableStatePrefix) }
-                    ?.let { key -> durableStateStore.getDurableState(key)?.value?.toLongOrNull() }
+                policyDependencySessionId(dependencyKey)
+                    ?.let { durableStateStore.getDurableState(dependencyKey)?.value?.toLongOrNull() }
             val policy =
                 if (policyId != null) {
                     rememberedPolicyRecordStore.getRememberedNetworkPolicyById(policyId)
@@ -204,17 +203,28 @@ class DefaultPolicyHandoverEventStore
         }
 
         private suspend fun clearDelivery(state: DiagnosticsDurableStateEntity) {
-            val dependencyKey = decodeCurrentEnvelope(state.value)?.rememberedPolicyDependencyKey
-            val dependency = dependencyKey?.let { durableStateStore.getDurableState(it) }
-            if (dependencyKey != null && dependency != null) {
+            val dependency = validatedDependencyForRemoval(state)
+            if (dependency != null) {
                 durableStateStore.clearDurableStateAndDependencyIfCurrent(
                     key = state.key,
                     expectedValue = state.value,
-                    dependencyKey = dependencyKey,
+                    dependencyKey = dependency.key,
                     expectedDependencyValue = dependency.value,
                 )
             } else {
                 durableStateStore.clearDurableStateIfCurrent(state.key, state.value)
+            }
+        }
+
+        private suspend fun validatedDependencyForRemoval(
+            state: DiagnosticsDurableStateEntity,
+        ): DiagnosticsDurableStateEntity? {
+            val envelope = decodeCurrentEnvelope(state.value)
+            return envelope?.validatedDependencyKey(state.key)?.let { dependencyKey ->
+                val dependency = durableStateStore.getDurableState(dependencyKey)
+                val policyId = dependency?.value?.toLongOrNull()
+                val policy = policyId?.let { rememberedPolicyRecordStore.getRememberedNetworkPolicyById(it) }
+                dependency?.takeIf { policy?.mode == envelope.mode.preferenceValue }
             }
         }
 
@@ -260,6 +270,28 @@ abstract class PolicyHandoverEventStoreModule {
 }
 
 private fun deliveryKey(deliveryId: String): String = "$PolicyHandoverDeliveryDurableStatePrefix$deliveryId"
+
+private fun PolicyHandoverDeliveryEnvelope.validatedDependencyKey(stateKey: String): String? {
+    val dependencyKey = rememberedPolicyDependencyKey
+    val sessionId = dependencyKey?.let(::policyDependencySessionId)
+    val expectedDeliveryId = sessionId?.let { policyHandoverDeliveryId("runtime-terminal:$it") }
+    val isConsistent =
+        schemaVersion == PolicyHandoverDeliverySchemaVersion &&
+            expectedDeliveryId != null &&
+            this.deliveryId == expectedDeliveryId &&
+            stateKey == deliveryKey(expectedDeliveryId) &&
+            previousFingerprintHash == null &&
+            currentFingerprintHash == null &&
+            usedRememberedPolicy
+    return dependencyKey?.takeIf { isConsistent }
+}
+
+private fun policyDependencySessionId(dependencyKey: String): String? {
+    if (!dependencyKey.startsWith(TerminalPolicyDependencyDurableStatePrefix)) return null
+    val sessionId = dependencyKey.substring(TerminalPolicyDependencyDurableStatePrefix.length)
+    val canonicalSessionId = runCatching { UUID.fromString(sessionId).toString() }.getOrNull()
+    return sessionId.takeIf { it == canonicalSessionId }
+}
 
 @Serializable
 private data class PolicyHandoverDeliveryEnvelope(
