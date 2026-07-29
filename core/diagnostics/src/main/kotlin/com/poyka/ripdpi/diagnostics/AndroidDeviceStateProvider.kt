@@ -43,12 +43,7 @@ internal class AndroidDeviceStateProvider
                 runCatching {
                     context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                 }.getOrNull()
-            val processInfo = ActivityManager.RunningAppProcessInfo()
-            val lastTrimLevel =
-                runCatching {
-                    ActivityManager.getMyMemoryState(processInfo)
-                    processInfo.lastTrimLevel
-                }.getOrNull()
+            val processMemoryState = captureProcessMemoryState()
             val foregroundNotificationActive = foregroundNotificationActive()
             val foregroundServiceState = runtimeEvidenceStore.foregroundServiceState.value
             return buildDeviceStateSnapshot(
@@ -109,8 +104,8 @@ internal class AndroidDeviceStateProvider
                 foregroundServiceType =
                     foregroundServiceState.serviceType.takeIf { foregroundServiceState.active },
                 userUnlocked = runCatching { userManager?.isUserUnlocked }.getOrNull(),
-                processImportance = processInfo.importance,
-                lastTrimLevel = lastTrimLevel,
+                processImportance = processMemoryState.importance,
+                lastTrimLevel = processMemoryState.lastTrimLevel,
                 manufacturer = Build.MANUFACTURER,
             )
         }
@@ -213,6 +208,29 @@ internal class AndroidDeviceStateProvider
             }
         }
     }
+
+internal data class ProcessMemoryState(
+    val importance: Int?,
+    val lastTrimLevel: Int?,
+)
+
+internal fun captureProcessMemoryState(
+    readMemoryState: (ActivityManager.RunningAppProcessInfo) -> Unit = ActivityManager::getMyMemoryState,
+): ProcessMemoryState {
+    val processInfo = ActivityManager.RunningAppProcessInfo()
+    return runCatching {
+        readMemoryState(processInfo)
+        ProcessMemoryState(
+            importance = processInfo.importance,
+            lastTrimLevel = processInfo.lastTrimLevel,
+        )
+    }.getOrElse {
+        ProcessMemoryState(
+            importance = null,
+            lastTrimLevel = null,
+        )
+    }
+}
 
 @Suppress("LongParameterList")
 internal fun buildDeviceStateSnapshot(
