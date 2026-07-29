@@ -12,6 +12,30 @@ class VpnTunnelRuntimeRecoveryTest {
     private val localProxyEndpoint = VpnTunnelRuntimeTest.localProxyEndpoint
 
     @Test
+    fun `successful bridge start records the TUN milestone once`() =
+        runTest {
+            var tunnelReadyCount = 0
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge()),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
+                    onTunnelReady = { tunnelReadyCount += 1 },
+                )
+
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertEquals(1, tunnelReadyCount)
+        }
+
+    @Test
     fun tunnelStartFailureRetainsEstablishedSessionUntilOrchestratedStop() =
         runTest {
             val events = mutableListOf<String>()

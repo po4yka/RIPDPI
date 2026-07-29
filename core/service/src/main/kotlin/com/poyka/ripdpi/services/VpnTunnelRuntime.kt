@@ -48,6 +48,8 @@ internal class VpnTunnelRuntime(
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
     private val geositeDbPath: String? = null,
     private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
+    private val onTunnelReady: () -> Unit = {},
+    private val onTunnelTelemetry: (com.poyka.ripdpi.data.NativeRuntimeSnapshot) -> Unit = {},
 ) {
     @Volatile
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -315,6 +317,7 @@ internal class VpnTunnelRuntime(
             tunnelRecoveryRetryCount += 1
         }
         tunnelStartCount += 1
+        onTunnelReady()
     }
 
     suspend fun stop() {
@@ -342,7 +345,10 @@ internal class VpnTunnelRuntime(
         val bridge = tun2SocksBridge ?: return RuntimeTelemetryOutcome.NoData
         return runCatching { bridge.telemetry() }
             .fold(
-                onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                onSuccess = {
+                    onTunnelTelemetry(it)
+                    RuntimeTelemetryOutcome.Snapshot(it)
+                },
                 onFailure = { error ->
                     RuntimeTelemetryOutcome.EngineError(
                         message = error.message ?: "Tunnel telemetry polling failed",
@@ -363,7 +369,9 @@ internal class VpnTunnelRuntime(
         val bridge = lease.bridge
         val telemetry =
             try {
-                RuntimeTelemetryOutcome.Snapshot(bridge.telemetry())
+                val snapshot = bridge.telemetry()
+                onTunnelTelemetry(snapshot)
+                RuntimeTelemetryOutcome.Snapshot(snapshot)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

@@ -30,6 +30,43 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class RemoteDeviceAcceptanceEvidenceWriterTest {
     @Test
+    fun `recovery receipt is persisted with categorical fields and keeps pending generation`() =
+        runTest {
+            val store = RecordingDurableStateStore()
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+            val runGeneration = "00000000-0000-0000-0000-00000000000a"
+            writer.beginRun(runGeneration, observedAtMillis = 10L)
+
+            writer.recordRecoveryReceipt(
+                runGeneration = runGeneration,
+                receipt =
+                    RemoteDeviceRecoveryReceipt(
+                        generation = "00000000-0000-0000-0000-00000000000b",
+                        startOrigin = "sticky_redelivery",
+                        userUnlocked = "enabled",
+                        alwaysOn = "enabled",
+                        lockdown = "enabled",
+                        serviceInstanceChanged = "unknown",
+                        timeToForegroundService = "under_1s",
+                        timeToTun = "1_to_5s",
+                        timeToFirstFlow = "5_to_10s",
+                        postStartDataPlaneOutcome = "bidirectional_observed",
+                    ),
+                observedAtMillis = 20L,
+            )
+
+            val event = store.nativeEvents.single()
+            assertTrue(event.message.contains("event=remote_acceptance_recovery"))
+            assertTrue(event.message.contains("start_origin=sticky_redelivery"))
+            assertTrue(event.message.contains("time_to_first_flow=5_to_10s"))
+            assertTrue(event.message.contains("post_start_data_plane=bidirectional_observed"))
+            assertEquals(runGeneration, store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value)
+            listOf("uid=", "socket=", "interface=", "kernel=", "ip=").forEach { forbidden ->
+                assertFalse(event.message.contains(forbidden, ignoreCase = true))
+            }
+        }
+
+    @Test
     fun `durable writer persists pending start before returning`() =
         runTest {
             val store = RecordingDurableStateStore()

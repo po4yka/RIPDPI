@@ -42,6 +42,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
     private val screenOffDwellMs: Long,
     private val telemetryFreshTimeoutMs: Long,
     private val cancellationPersistenceTimeoutMs: Long,
+    private val recoveryReceiptSource: RemoteDeviceRecoveryReceiptSource = EmptyRemoteDeviceRecoveryReceiptSource,
 ) : RemoteDeviceAcceptanceGate {
     @Inject
     constructor(
@@ -50,6 +51,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         baselineProbe: RemoteDeviceAcceptanceBaselineProbe,
         networkFingerprintProvider: NetworkFingerprintProvider,
         evidenceWriter: RemoteDeviceAcceptanceEvidenceWriter,
+        recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
     ) : this(
         serviceStateStore = serviceStateStore,
         screenStateObserver = screenStateObserver,
@@ -59,6 +61,7 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         screenOffDwellMs = RemoteAcceptanceScreenOffDwellMs,
         telemetryFreshTimeoutMs = RemoteAcceptanceTelemetryFreshTimeoutMs,
         cancellationPersistenceTimeoutMs = RemoteAcceptanceCancellationPersistenceTimeoutMs,
+        recoveryReceiptSource = recoveryReceiptCollector,
     )
 
     private val _report = MutableStateFlow(RemoteDeviceAcceptanceReport())
@@ -87,6 +90,11 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 if (!isCurrent(run)) return@launch
                 try {
                     evidenceWriter.beginRun(run.generation, System.currentTimeMillis())
+                    evidenceWriter.recordRecoveryReceipt(
+                        runGeneration = run.generation,
+                        receipt = recoveryReceiptSource.snapshot(),
+                        observedAtMillis = System.currentTimeMillis(),
+                    )
                     if (!isCurrent(run)) return@launch
                     runAcceptance(run)
                 } catch (cancelled: CancellationException) {
@@ -127,10 +135,11 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                 status = RemoteDeviceAcceptanceStatus.Running,
                 device = captureRemoteDeviceAcceptanceDevice(),
                 transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
+                recoveryReceipt = recoveryReceiptSource.snapshot(),
             )
         val baseline = baselineProbe.capture(initialSnapshot)
         if (!isCurrent(run)) return
-        _report.value = baseline
+        _report.value = baseline.copy(recoveryReceipt = recoveryReceiptSource.snapshot())
         observeGuidedSteps(run, startedAt, requireNotNull(run.guidedState))
     }
 
@@ -435,7 +444,12 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
                     step
                 }
             }
-        _report.value = current.copy(status = deriveAcceptanceStatus(steps), steps = steps)
+        _report.value =
+            current.copy(
+                status = deriveAcceptanceStatus(steps),
+                steps = steps,
+                recoveryReceipt = recoveryReceiptSource.snapshot(),
+            )
     }
 
     private fun stepStatus(stepId: String): RemoteDeviceAcceptanceStatus =
@@ -496,33 +510,6 @@ internal fun guidedDataPlaneResult(status: RemoteDeviceAcceptanceStatus): Guided
             GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Fail, ErrorPostActionProbe)
         }
     }
-
-private data class RemoteAcceptanceRun(
-    val ordinal: Long,
-    val generation: String,
-) {
-    var guidedState: GuidedRunState? = null
-}
-
-private data class FreshTelemetrySample(
-    val fresh: Boolean,
-)
-
-private data class ServiceInstance(
-    val startedAt: Long?,
-    val restartCount: Int,
-)
-
-private data class GuidedObservation(
-    val status: AppStatus,
-    val mode: Mode,
-    val telemetry: ServiceTelemetrySnapshot,
-    val interactive: Boolean,
-    val underlayTransport: String?,
-) {
-    val isVpnRunning: Boolean
-        get() = status == AppStatus.Running && mode == Mode.VPN
-}
 
 private data class GuidedRunState(
     var baselineUnderlay: String?,
@@ -705,6 +692,13 @@ private data class GuidedRunState(
         )
 }
 
+private data class RemoteAcceptanceRun(
+    val ordinal: Long,
+    val generation: String,
+) {
+    var guidedState: GuidedRunState? = null
+}
+
 private suspend fun RemoteDeviceAcceptanceBaselineProbe.captureDataPlanePassed(
     snapshot: ServiceTelemetrySnapshot,
 ): Boolean = capture(snapshot).acceptanceDataPlanePassed()
@@ -714,14 +708,6 @@ private fun RemoteScreenOffDwellObservation.completedResultOrNull(): RemoteScree
 
 private fun ServiceTelemetrySnapshot.serviceInstance(): ServiceInstance =
     ServiceInstance(serviceStartedAt, restartCount)
-
-private data class GuidedTriggers(
-    val reconnect: Boolean,
-    val handover: Boolean,
-) {
-    val any: Boolean
-        get() = reconnect || handover
-}
 
 private fun isWifiMobileTransition(
     before: String?,

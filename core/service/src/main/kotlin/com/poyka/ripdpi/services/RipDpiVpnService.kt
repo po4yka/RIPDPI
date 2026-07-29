@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -74,6 +75,9 @@ class RipDpiVpnService :
     lateinit var profileMutationCoordinator: ProfileMutationCoordinator
 
     @Inject
+    internal lateinit var recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector
+
+    @Inject
     internal lateinit var directDnsUnderlayAuthority: DirectDnsUnderlayAuthority
 
     @Inject
@@ -83,6 +87,7 @@ class RipDpiVpnService :
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
+    internal val recoveryServiceInstanceId: String = UUID.randomUUID().toString()
     internal lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private val connectivityManager: ConnectivityManager
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -114,6 +119,7 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
         selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
@@ -128,11 +134,31 @@ class RipDpiVpnService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        val startAction = intent?.action
+        val recoveryGeneration =
+            if (isRecoveryReceiptStartAction(startAction)) {
+                recoveryReceiptCollector.beginStart(
+                    action = startAction,
+                    serviceInstanceId = recoveryServiceInstanceId,
+                )
+            } else {
+                null
+            }
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.StartCommand)
         runtimeEvidenceReporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Initial) {
             notificationController.startForeground(this)
         }
-        refreshHardKillSwitchState()
+        val policy = refreshHardKillSwitchState()
+        if (recoveryGeneration != null) {
+            recoveryReceiptCollector.recordForegroundService(
+                generation = recoveryGeneration,
+                userUnlocked =
+                    runCatching {
+                        getSystemService(android.os.UserManager::class.java)?.isUserUnlocked
+                    }.getOrNull(),
+                policy = policy,
+            )
+        }
         // A null action is Android re-delivering a START_STICKY intent after the
         // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from
         // a Halted baseline — i.e. a genuinely fresh process whose store re-init'd to

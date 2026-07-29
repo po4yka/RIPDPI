@@ -26,6 +26,7 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
+import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
@@ -93,6 +94,7 @@ internal object VpnServiceSessionModule {
         protectSocketServer: VpnProtectSocketServer,
         rootHelperManager: RootHelperManager,
         flowAttributionBridge: FlowAttributionBridge,
+        recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
     ): VpnTunnelRuntime =
         createVpnTunnelRuntime(
             host = host,
@@ -100,6 +102,10 @@ internal object VpnServiceSessionModule {
             protectSocketServer = protectSocketServer,
             rootHelperManager = rootHelperManager,
             flowAttributionBridge = flowAttributionBridge,
+            recoveryReceiptCollector = recoveryReceiptCollector,
+            recoveryServiceInstanceId =
+                (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
+                    ?.recoveryServiceInstanceId,
             geositeDbPath = resolveGeoDatabasePaths(vpnService).geositeDbPath,
         )
 
@@ -109,6 +115,8 @@ internal object VpnServiceSessionModule {
         protectSocketServer: VpnProtectSocketServer,
         rootHelperManager: RootHelperManager,
         flowAttributionBridge: FlowAttributionBridge,
+        recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector? = null,
+        recoveryServiceInstanceId: String? = null,
         geositeDbPath: String? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
@@ -126,6 +134,16 @@ internal object VpnServiceSessionModule {
             rootHelperSocketPathProvider = { rootHelperManager.socketPath },
             flowAttributionBridge = flowAttributionBridge,
             geositeDbPath = geositeDbPath,
+            onTunnelReady = {
+                if (recoveryServiceInstanceId != null) {
+                    recoveryReceiptCollector?.recordTunReady(recoveryServiceInstanceId)
+                }
+            },
+            onTunnelTelemetry = { telemetry ->
+                if (recoveryServiceInstanceId != null) {
+                    recoveryReceiptCollector?.recordTunnelTelemetry(recoveryServiceInstanceId, telemetry)
+                }
+            },
         )
 
     @Provides

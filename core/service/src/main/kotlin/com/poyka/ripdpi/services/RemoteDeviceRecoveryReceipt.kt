@@ -1,0 +1,243 @@
+package com.poyka.ripdpi.services
+
+import android.net.VpnService
+import android.os.SystemClock
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** Privacy-safe receipt for an observed VPN service start. It never drives a restart or a probe. */
+data class RemoteDeviceRecoveryReceipt(
+    val generation: String = UnknownReceiptValue,
+    val startOrigin: String = UnknownReceiptValue,
+    val userUnlocked: String = UnknownReceiptValue,
+    val alwaysOn: String = UnknownReceiptValue,
+    val lockdown: String = UnknownReceiptValue,
+    val serviceInstanceChanged: String = UnknownReceiptValue,
+    val timeToForegroundService: String = NotObservedReceiptValue,
+    val timeToTun: String = NotObservedReceiptValue,
+    val timeToFirstFlow: String = NotObservedReceiptValue,
+    val postStartDataPlaneOutcome: String = PendingReceiptValue,
+)
+
+internal fun interface RemoteDeviceRecoveryReceiptSource {
+    fun snapshot(): RemoteDeviceRecoveryReceipt
+}
+
+internal object EmptyRemoteDeviceRecoveryReceiptSource : RemoteDeviceRecoveryReceiptSource {
+    override fun snapshot(): RemoteDeviceRecoveryReceipt = RemoteDeviceRecoveryReceipt()
+}
+
+@Singleton
+internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
+    private val elapsedRealtime: () -> Long,
+    private val generationFactory: () -> String,
+) : RemoteDeviceRecoveryReceiptSource {
+    @Inject
+    constructor() : this(SystemClock::elapsedRealtime, { UUID.randomUUID().toString() })
+
+    private val lock = Any()
+    private var lastServiceInstanceId: String? = null
+    private var active: ActiveRecoveryReceipt? = null
+    private var latest = RemoteDeviceRecoveryReceipt()
+
+    fun beginStart(
+        action: String?,
+        serviceInstanceId: String,
+    ): String =
+        synchronized(lock) {
+            val generation = generationFactory()
+            val previousServiceInstance = lastServiceInstanceId
+            lastServiceInstanceId = serviceInstanceId
+            active =
+                ActiveRecoveryReceipt(
+                    generation = generation,
+                    serviceInstanceId = serviceInstanceId,
+                    startedAtElapsedMs = elapsedRealtime(),
+                )
+            latest =
+                RemoteDeviceRecoveryReceipt(
+                    generation = generation,
+                    startOrigin = classifyRecoveryStartOrigin(action),
+                    serviceInstanceChanged =
+                        when {
+                            previousServiceInstance == null -> UnknownReceiptValue
+                            previousServiceInstance == serviceInstanceId -> DisabledReceiptValue
+                            else -> EnabledReceiptValue
+                        },
+                )
+            generation
+        }
+
+    fun recordForegroundService(
+        generation: String,
+        userUnlocked: Boolean?,
+        policy: AndroidHardKillSwitchSnapshot,
+    ) {
+        updateIfCurrent(generation) { state, receipt ->
+            receipt.copy(
+                userUnlocked = userUnlocked.toReceiptValue(),
+                alwaysOn = policy.alwaysOn.toReceiptValue(),
+                lockdown = policy.lockdown.toReceiptValue(),
+                timeToForegroundService = elapsedBucket(state.startedAtElapsedMs, elapsedRealtime()),
+            )
+        }
+    }
+
+    fun recordTunReady(serviceInstanceId: String) {
+        updateIfServiceCurrent(serviceInstanceId) { state, receipt ->
+            if (receipt.timeToTun != NotObservedReceiptValue) {
+                receipt
+            } else {
+                receipt.copy(timeToTun = elapsedBucket(state.startedAtElapsedMs, elapsedRealtime()))
+            }
+        }
+    }
+
+    fun recordTunnelTelemetry(
+        serviceInstanceId: String,
+        telemetry: NativeRuntimeSnapshot,
+    ) {
+        val stats = telemetry.tunnelStats
+        val outbound = stats.txPackets > 0L || stats.txBytes > 0L
+        val inbound = stats.rxPackets > 0L || stats.rxBytes > 0L
+        updateIfServiceCurrent(serviceInstanceId) { state, receipt ->
+            val firstFlow =
+                if ((outbound || inbound) && receipt.timeToFirstFlow == NotObservedReceiptValue) {
+                    elapsedBucket(state.startedAtElapsedMs, elapsedRealtime())
+                } else {
+                    receipt.timeToFirstFlow
+                }
+            receipt.copy(
+                timeToFirstFlow = firstFlow,
+                postStartDataPlaneOutcome =
+                    when {
+                        outbound && inbound -> "bidirectional_observed"
+                        outbound -> "outbound_only"
+                        inbound -> "inbound_only"
+                        receipt.postStartDataPlaneOutcome == PendingReceiptValue -> "no_flow_observed"
+                        else -> receipt.postStartDataPlaneOutcome
+                    },
+            )
+        }
+    }
+
+    fun cancelServiceInstance(serviceInstanceId: String) {
+        synchronized(lock) {
+            val state = active ?: return
+            if (state.serviceInstanceId != serviceInstanceId) return
+            if (latest.postStartDataPlaneOutcome in ObservedDataPlaneOutcomes) {
+                active = null
+                return
+            }
+            latest = latest.copy(postStartDataPlaneOutcome = "cancelled")
+            active = null
+        }
+    }
+
+    override fun snapshot(): RemoteDeviceRecoveryReceipt = synchronized(lock) { latest }
+
+    private fun updateIfCurrent(
+        generation: String,
+        update: (ActiveRecoveryReceipt, RemoteDeviceRecoveryReceipt) -> RemoteDeviceRecoveryReceipt,
+    ) {
+        synchronized(lock) {
+            val state = active ?: return
+            if (state.generation != generation) return
+            latest = update(state, latest)
+        }
+    }
+
+    private fun updateIfServiceCurrent(
+        serviceInstanceId: String,
+        update: (ActiveRecoveryReceipt, RemoteDeviceRecoveryReceipt) -> RemoteDeviceRecoveryReceipt,
+    ) {
+        synchronized(lock) {
+            val state = active ?: return
+            if (state.serviceInstanceId != serviceInstanceId) return
+            latest = update(state, latest)
+        }
+    }
+}
+
+private data class ActiveRecoveryReceipt(
+    val generation: String,
+    val serviceInstanceId: String,
+    val startedAtElapsedMs: Long,
+)
+
+internal fun classifyRecoveryStartOrigin(action: String?): String =
+    when (action) {
+        null -> "sticky_redelivery"
+        VpnService.SERVICE_INTERFACE -> "always_on_or_boot"
+        com.poyka.ripdpi.data.startAction -> "explicit_user"
+        diagnosticsStartAction -> "diagnostics_resume"
+        transportFailoverRestartAction -> "transport_failover"
+        else -> UnknownReceiptValue
+    }
+
+internal fun isRecoveryReceiptStartAction(action: String?): Boolean =
+    action == null ||
+        action == VpnService.SERVICE_INTERFACE ||
+        action == com.poyka.ripdpi.data.startAction ||
+        action == diagnosticsStartAction ||
+        action == transportFailoverRestartAction
+
+internal fun RemoteDeviceRecoveryReceipt.privacySafe(): RemoteDeviceRecoveryReceipt =
+    copy(
+        generation = generation.canonicalUuidOrUnknown(),
+        startOrigin = startOrigin.onlyAllowed(StartOriginValues),
+        userUnlocked = userUnlocked.onlyAllowed(DeviceStateValues),
+        alwaysOn = alwaysOn.onlyAllowed(DeviceStateValues),
+        lockdown = lockdown.onlyAllowed(DeviceStateValues),
+        serviceInstanceChanged = serviceInstanceChanged.onlyAllowed(DeviceStateValues),
+        timeToForegroundService = timeToForegroundService.onlyAllowed(ElapsedBucketValues),
+        timeToTun = timeToTun.onlyAllowed(ElapsedBucketValues),
+        timeToFirstFlow = timeToFirstFlow.onlyAllowed(ElapsedBucketValues),
+        postStartDataPlaneOutcome = postStartDataPlaneOutcome.onlyAllowed(DataPlaneOutcomeValues),
+    )
+
+private fun String.onlyAllowed(allowed: Set<String>): String = takeIf(allowed::contains) ?: UnknownReceiptValue
+
+private fun String.canonicalUuidOrUnknown(): String =
+    runCatching { UUID.fromString(this).toString() }
+        .getOrNull()
+        ?.takeIf { canonical -> canonical == this }
+        ?: UnknownReceiptValue
+
+private fun elapsedBucket(
+    startedAtElapsedMs: Long,
+    observedAtElapsedMs: Long,
+): String {
+    val elapsed = observedAtElapsedMs - startedAtElapsedMs
+    return when {
+        elapsed < 0L -> UnknownReceiptValue
+        elapsed < 1_000L -> "under_1s"
+        elapsed < 5_000L -> "1_to_5s"
+        elapsed < 10_000L -> "5_to_10s"
+        elapsed < 30_000L -> "10_to_30s"
+        else -> "30s_or_more"
+    }
+}
+
+private fun Boolean?.toReceiptValue(): String =
+    when (this) {
+        true -> EnabledReceiptValue
+        false -> DisabledReceiptValue
+        null -> UnknownReceiptValue
+    }
+
+private val ObservedDataPlaneOutcomes = setOf("bidirectional_observed", "outbound_only", "inbound_only")
+private val StartOriginValues =
+    setOf("sticky_redelivery", "always_on_or_boot", "explicit_user", "diagnostics_resume", "transport_failover")
+private val DeviceStateValues = setOf("enabled", "disabled", UnknownReceiptValue)
+private val ElapsedBucketValues =
+    setOf("under_1s", "1_to_5s", "5_to_10s", "10_to_30s", "30s_or_more", NotObservedReceiptValue)
+private val DataPlaneOutcomeValues =
+    ObservedDataPlaneOutcomes + setOf(PendingReceiptValue, "no_flow_observed", "cancelled")
+internal const val UnknownReceiptValue = "unknown"
+internal const val NotObservedReceiptValue = "not_observed"
+internal const val PendingReceiptValue = "pending"
+private const val EnabledReceiptValue = "enabled"
+private const val DisabledReceiptValue = "disabled"

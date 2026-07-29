@@ -40,6 +40,7 @@ data class RemoteDeviceAcceptanceReport(
     val steps: List<RemoteDeviceAcceptanceStep> = acceptanceStepIds.map(::pendingStep),
     val pathHealth: RelayUdpPayloadHealthEvidence? = null,
     val underlay: RemoteDeviceAcceptanceUnderlay = RemoteDeviceAcceptanceUnderlay(),
+    val recoveryReceipt: RemoteDeviceRecoveryReceipt = RemoteDeviceRecoveryReceipt(),
 )
 
 data class RemoteDeviceAcceptanceUnderlay(
@@ -194,6 +195,7 @@ private fun RemoteDeviceAcceptanceReport.toRedactedPayload(): RedactedAcceptance
             },
         pathHealth = pathHealth?.toRedacted(),
         underlay = underlay.toRedacted(),
+        recoveryReceipt = recoveryReceipt.toRedacted(),
     )
 
 @Serializable
@@ -204,7 +206,22 @@ private data class RedactedAcceptanceReport(
     val result: String,
     val steps: List<RedactedAcceptanceStep>,
     val underlay: RedactedAcceptanceUnderlay,
+    val recoveryReceipt: RedactedRecoveryReceipt,
     val pathHealth: RedactedRelayUdpPayloadHealth? = null,
+)
+
+@Serializable
+private data class RedactedRecoveryReceipt(
+    val generation: String,
+    val startOrigin: String,
+    val userUnlocked: String,
+    val alwaysOn: String,
+    val lockdown: String,
+    val serviceInstanceChanged: String,
+    val timeToForegroundService: String,
+    val timeToTun: String,
+    val timeToFirstFlow: String,
+    val postStartDataPlaneOutcome: String,
 )
 
 @Serializable
@@ -259,6 +276,22 @@ private data class RedactedAcceptanceUnderlay(
     val nat64Advertised: Boolean? = null,
     val nat64Reachability: String,
 )
+
+private fun RemoteDeviceRecoveryReceipt.toRedacted(): RedactedRecoveryReceipt =
+    privacySafe().let { safe ->
+        RedactedRecoveryReceipt(
+            generation = safe.generation,
+            startOrigin = safe.startOrigin,
+            userUnlocked = safe.userUnlocked,
+            alwaysOn = safe.alwaysOn,
+            lockdown = safe.lockdown,
+            serviceInstanceChanged = safe.serviceInstanceChanged,
+            timeToForegroundService = safe.timeToForegroundService,
+            timeToTun = safe.timeToTun,
+            timeToFirstFlow = safe.timeToFirstFlow,
+            postStartDataPlaneOutcome = safe.postStartDataPlaneOutcome,
+        )
+    }
 
 internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlaneStatus(): RemoteDeviceAcceptanceStatus {
     val dataPlaneSteps = steps.filter { it.id in acceptanceDataPlaneStepIds }

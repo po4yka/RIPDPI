@@ -36,6 +36,13 @@ internal interface RemoteDeviceAcceptanceEvidenceWriter {
         runGeneration: String,
         observedAtMillis: Long,
     )
+
+    suspend fun recordRecoveryReceipt(
+        runGeneration: String,
+        receipt: RemoteDeviceRecoveryReceipt,
+        observedAtMillis: Long,
+    ) {
+    }
 }
 
 interface RemoteDeviceAcceptanceStartupReconciler {
@@ -125,6 +132,22 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
                         reason = RemoteAcceptanceCancelledReason,
                     ).toNativeSessionEvent(observedAtMillis),
                 key = RemoteAcceptancePendingGenerationKey,
+                expectedValue = runGeneration,
+            )
+        }
+    }
+
+    override suspend fun recordRecoveryReceipt(
+        runGeneration: String,
+        receipt: RemoteDeviceRecoveryReceipt,
+        observedAtMillis: Long,
+    ) {
+        lock.withLock {
+            val persisted = durableStateStore.getDurableState(RemoteAcceptancePendingGenerationKey) ?: return@withLock
+            if (persisted.value != runGeneration) return@withLock
+            durableStateStore.insertNativeSessionEventAndUpsertDurableStateIfCurrent(
+                event = receipt.privacySafe().toNativeSessionEvent(runGeneration, observedAtMillis),
+                state = persisted.copy(updatedAt = observedAtMillis),
                 expectedValue = runGeneration,
             )
         }
@@ -281,6 +304,42 @@ private fun pendingGenerationState(
         updatedAt = observedAtMillis,
     )
 
+private fun RemoteDeviceRecoveryReceipt.toNativeSessionEvent(
+    runGeneration: String,
+    observedAtMillis: Long,
+): NativeSessionEventEntity {
+    val eventId =
+        listOf(RemoteAcceptanceRecoveryEvent, runGeneration, generation)
+            .joinToString(separator = "|")
+            .sha256Hex()
+            .let { hash -> "${RemoteAcceptanceRecoveryEvent}_${hash.take(RemoteAcceptanceEventIdHashChars)}" }
+    return NativeSessionEventEntity(
+        id = eventId,
+        sessionId = null,
+        source = RemoteAcceptanceEventSource,
+        level = RemoteAcceptanceEventLevelInfo,
+        message =
+            buildString {
+                append("event=").append(RemoteAcceptanceRecoveryEvent)
+                append(" run_generation=").append(runGeneration)
+                append(" recovery_generation=").append(generation)
+                append(" start_origin=").append(startOrigin)
+                append(" user_unlocked=").append(userUnlocked)
+                append(" always_on=").append(alwaysOn)
+                append(" lockdown=").append(lockdown)
+                append(" service_instance_changed=").append(serviceInstanceChanged)
+                append(" time_to_fgs=").append(timeToForegroundService)
+                append(" time_to_tun=").append(timeToTun)
+                append(" time_to_first_flow=").append(timeToFirstFlow)
+                append(" post_start_data_plane=").append(postStartDataPlaneOutcome)
+            },
+        createdAt = observedAtMillis,
+        runtimeId = runGeneration,
+        mode = Mode.VPN.name,
+        subsystem = RemoteAcceptanceSubsystem,
+    )
+}
+
 private fun durableEventId(
     runGeneration: String,
     phase: String,
@@ -370,6 +429,7 @@ private fun String.canonicalRunGenerationOrNull(): String? =
         ?.takeIf { canonical -> canonical == this }
 
 private const val RemoteAcceptanceBackgroundEvent = "remote_acceptance_background"
+private const val RemoteAcceptanceRecoveryEvent = "remote_acceptance_recovery"
 private const val RemoteAcceptanceEventSource = "remote_device_acceptance"
 private const val RemoteAcceptanceEventLevelInfo = "info"
 private const val RemoteAcceptanceSubsystem = "remote_acceptance"
