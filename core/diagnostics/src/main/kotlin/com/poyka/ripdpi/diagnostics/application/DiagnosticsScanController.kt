@@ -311,7 +311,11 @@ internal class DefaultDiagnosticsScanController
         ): Boolean =
             startMutex.withLock {
                 val sessionId = policyHandoverScanSessionId(event.deliveryId)
-                if (scanRecordStore.getScanSession(sessionId) != null) return@withLock true
+                val existingSession = scanRecordStore.getScanSession(sessionId)
+                if (existingSession != null && existingSession.status != "running") return@withLock true
+                if (existingSession?.status == "running" && activeScanRegistry.hasRegisteredExecution(sessionId)) {
+                    return@withLock true
+                }
                 val profile = scanAdmissionService.admitAutomaticProbe(settings) ?: return@withLock false
                 startPreparedScan(
                     prepared =

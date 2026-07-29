@@ -295,6 +295,12 @@ class ActiveScanRegistry
 
         fun hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan()
 
+        internal suspend fun hasRegisteredExecution(sessionId: String): Boolean =
+            bridgeMutex.withLock {
+                visibleScanExecutions[sessionId]?.executionJob?.isActive == true ||
+                    hiddenScanExecutions[sessionId]?.executionJob?.isActive == true
+            }
+
         internal suspend fun cancelActiveScan(): ActiveScanCancellation? {
             val sessionId = bridgeMutex.withLock { visibleScanExecutions.keys.lastOrNull() } ?: return null
             return cancelScan(sessionId)

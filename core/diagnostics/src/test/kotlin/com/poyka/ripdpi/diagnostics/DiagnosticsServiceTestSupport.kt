@@ -157,6 +157,8 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
+    var afterUpsertSnapshot: suspend (NetworkSnapshotEntity) -> Unit = {}
+    var afterUpsertContextSnapshot: suspend (DiagnosticContextEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
@@ -346,10 +348,12 @@ internal class FakeDiagnosticsHistoryStores :
 
     override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
         snapshotsState.value = snapshotsState.value + snapshot
+        afterUpsertSnapshot(snapshot)
     }
 
     override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
         contextsState.value = contextsState.value + snapshot
+        afterUpsertContextSnapshot(snapshot)
     }
 
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {

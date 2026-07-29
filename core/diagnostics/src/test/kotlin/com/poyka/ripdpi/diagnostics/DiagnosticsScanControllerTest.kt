@@ -63,6 +63,94 @@ class DiagnosticsScanControllerTest {
         }
 
     @Test
+    fun `automatic handover replay restarts orphaned running session at every startup boundary`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            AutomaticStartupFailurePoint.entries.forEach { failurePoint ->
+                val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+                val event = transportSwitchHandoverEvent().copy(deliveryId = "delivery-${failurePoint.name}")
+                val firstBridgeFactory =
+                    if (failurePoint == AutomaticStartupFailurePoint.BEFORE_EXECUTION_REGISTRATION) {
+                        object : com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory {
+                            override fun create() = error("injected startup failure")
+                        }
+                    } else {
+                        FakeNetworkDiagnosticsBridgeFactory(json)
+                    }
+                when (failurePoint) {
+                    AutomaticStartupFailurePoint.AFTER_SESSION -> {
+                        stores.afterUpsertScanSession = { error("injected startup failure") }
+                    }
+
+                    AutomaticStartupFailurePoint.AFTER_SNAPSHOT -> {
+                        stores.afterUpsertSnapshot = { error("injected startup failure") }
+                    }
+
+                    AutomaticStartupFailurePoint.AFTER_CONTEXT -> {
+                        stores.afterUpsertContextSnapshot = { error("injected startup failure") }
+                    }
+
+                    AutomaticStartupFailurePoint.BEFORE_EXECUTION_REGISTRATION -> {
+                    }
+                }
+                val firstServices =
+                    createDiagnosticsServices(
+                        context = TestContext(),
+                        appSettingsRepository = FakeAppSettingsRepository(settings),
+                        stores = stores,
+                        networkMetadataProvider = FakeNetworkMetadataProvider(),
+                        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                        networkDiagnosticsBridgeFactory = firstBridgeFactory,
+                        runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                        serviceStateStore = FakeServiceStateStore(),
+                        scope = backgroundScope,
+                        controllerScope = backgroundScope,
+                        json = json,
+                    )
+
+                assertSuspendFailsWith<IllegalStateException> {
+                    firstServices.scanController.launchAutomaticProbe(settings, event)
+                }
+                assertEquals(
+                    "running",
+                    stores.sessionsState.value
+                        .single()
+                        .status,
+                )
+                stores.afterUpsertScanSession = {}
+                stores.afterUpsertSnapshot = {}
+                stores.afterUpsertContextSnapshot = {}
+
+                val replayBridgeFactory =
+                    FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                        bridge.autoCompleteOnStart = false
+                    }
+                val replayServices =
+                    createDiagnosticsServices(
+                        context = TestContext(),
+                        appSettingsRepository = FakeAppSettingsRepository(settings),
+                        stores = stores,
+                        networkMetadataProvider = FakeNetworkMetadataProvider(),
+                        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                        networkDiagnosticsBridgeFactory = replayBridgeFactory,
+                        runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                        serviceStateStore = FakeServiceStateStore(),
+                        scope = backgroundScope,
+                        controllerScope = backgroundScope,
+                        json = json,
+                    )
+
+                assertTrue(replayServices.scanController.launchAutomaticProbe(settings, event))
+                assertEquals(1, stores.sessionsState.value.size)
+                assertTrue(replayServices.scanController.hiddenAutomaticProbeActive.value)
+            }
+        }
+
+    @Test
     fun `in-path scan launch injects proxy settings into request`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
@@ -720,6 +808,13 @@ private fun DiagnosticsManualScanResolution.startedSessionId(): String =
             throw AssertionError("Unreachable")
         }
     }
+
+private enum class AutomaticStartupFailurePoint {
+    AFTER_SESSION,
+    AFTER_SNAPSHOT,
+    AFTER_CONTEXT,
+    BEFORE_EXECUTION_REGISTRATION,
+}
 
 private fun FakeDiagnosticsHistoryStores.addAutomaticAuditProfile(json: kotlinx.serialization.json.Json) {
     profilesState.value =

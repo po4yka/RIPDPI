@@ -379,6 +379,31 @@ class AutomaticProbeSchedulerTest {
             assertEquals(1, env.launcher.events.size)
         }
 
+    @Test
+    fun `scheduler retains delivery when eligible launch is not registered`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    telemetrySamples =
+                        listOf(
+                            telemetrySample(
+                                createdAt = now - 500L,
+                                failureClass = "dns_tampering",
+                            ),
+                        ),
+                    now = now,
+                    launchResult = false,
+                )
+
+            env.scheduler.schedule(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(1, env.launcher.events.size)
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+        }
+
     private fun TestScope.newEnv(
         settings: com.poyka.ripdpi.proto.AppSettings =
             defaultDiagnosticsAppSettings()
@@ -388,6 +413,7 @@ class AutomaticProbeSchedulerTest {
         telemetrySamples: List<TelemetrySampleEntity> = emptyList(),
         rememberedPolicies: List<RememberedNetworkPolicyEntity> = emptyList(),
         hasActiveScan: Boolean = false,
+        launchResult: Boolean = true,
         now: Long = System.currentTimeMillis(),
         activeProbeSafetyPolicy: ActiveProbeSafetyPolicy =
             ActiveProbeSafetyPolicy(
@@ -402,7 +428,11 @@ class AutomaticProbeSchedulerTest {
                 it.rememberedPoliciesState.value = rememberedPolicies
                 it.currentTime = now
             }
-        val launcher = RecordingAutomaticProbeLauncher(hasActiveScan = hasActiveScan)
+        val launcher =
+            RecordingAutomaticProbeLauncher(
+                hasActiveScan = hasActiveScan,
+                launchResult = launchResult,
+            )
         val handoverStore = FakePolicyHandoverEventStore()
         val scheduler =
             AutomaticProbeScheduler(
@@ -434,6 +464,7 @@ private data class SchedulerEnv(
 
 private class RecordingAutomaticProbeLauncher(
     private val hasActiveScan: Boolean = false,
+    private val launchResult: Boolean = true,
 ) : AutomaticProbeLauncher {
     val events = mutableListOf<PolicyHandoverEvent>()
 
@@ -444,7 +475,7 @@ private class RecordingAutomaticProbeLauncher(
         event: PolicyHandoverEvent,
     ): Boolean {
         events += event
-        return true
+        return launchResult
     }
 }
 

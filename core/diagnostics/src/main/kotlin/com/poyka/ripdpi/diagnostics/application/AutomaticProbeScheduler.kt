@@ -50,8 +50,9 @@ class AutomaticProbeScheduler
                 scope.launch(start = CoroutineStart.LAZY) {
                     try {
                         delay(activeProbeSafetyPolicy.automaticHandoverProbeDelayMs)
-                        launchIfEligible(event)
-                        policyHandoverEventStore.acknowledge(event.deliveryId)
+                        if (launchIfEligible(event)) {
+                            policyHandoverEventStore.acknowledge(event.deliveryId)
+                        }
                     } finally {
                         pendingProbeJobs.remove(event.deliveryId)
                     }
@@ -63,16 +64,18 @@ class AutomaticProbeScheduler
             }
         }
 
-        private suspend fun launchIfEligible(event: PolicyHandoverEvent) {
+        private suspend fun launchIfEligible(event: PolicyHandoverEvent): Boolean {
             val isStrategyFailure =
                 event.classification == AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE
             val settings = appSettingsRepository.snapshot()
             val launcher = launcherProvider.get()
             val now = System.currentTimeMillis()
-            if (!isEligible(event, settings, launcher, isStrategyFailure, now)) return
-            if (launcher.launchAutomaticProbe(settings, event)) {
+            if (!isEligible(event, settings, launcher, isStrategyFailure, now)) return true
+            val launched = launcher.launchAutomaticProbe(settings, event)
+            if (launched) {
                 recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
             }
+            return launched
         }
 
         private suspend fun isEligible(
