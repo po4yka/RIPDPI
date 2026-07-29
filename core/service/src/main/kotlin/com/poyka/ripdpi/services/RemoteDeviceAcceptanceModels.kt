@@ -89,73 +89,7 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
             evidence.probe == null && evidence.contextError == null -> ErrorProbe
             else -> null
         }
-    val probe = evidence.probe
-    val udpAssociationSucceeded = probe?.udpAssociationOpened == true
-    val steps =
-        listOf(
-            networkEvidenceStep(
-                StepRealityTcp,
-                preflightError = preflightError,
-                contextError = evidence.contextError,
-                succeeded = probe?.tcpSucceeded == true,
-                failure = probe?.tcpFailure,
-                evidence.durationMs,
-                pathKind = RelayPathKind,
-            ),
-            networkEvidenceStep(
-                StepUdpAssociate,
-                preflightError = preflightError,
-                contextError = evidence.contextError,
-                succeeded = udpAssociationSucceeded,
-                failure = probe?.udpFailure,
-                evidence.durationMs,
-                pathKind = RelayPathKind,
-            ),
-            networkEvidenceStep(
-                StepDnsUdp,
-                preflightError = preflightError,
-                contextError = evidence.contextError,
-                succeeded = probe?.udpSucceeded == true,
-                failure = probe?.udpFailure,
-                evidence.durationMs,
-                pathKind = RelayPathKind,
-            ),
-            payloadHealthStep(
-                StepRelayUdpPayload,
-                preflightError = preflightError,
-                payloadHealth = evidence.payloadHealth,
-                payloadHealthError = evidence.contextError ?: evidence.payloadHealthError,
-                evidence.durationMs,
-                pathKind = RelayPathKind,
-            ),
-            networkEvidenceStep(
-                StepIpv4,
-                preflightError = preflightError,
-                contextError = evidence.contextError,
-                succeeded = evidence.ipv4Probe?.tcpSucceeded == true,
-                failure = evidence.ipv4Probe?.tcpFailure ?: ErrorIpv4Egress,
-                evidence.durationMs,
-                pathKind = RelayPathKind,
-            ),
-            networkEvidenceStep(
-                StepIpv6,
-                preflightError = preflightError,
-                contextError = evidence.contextError,
-                succeeded = evidence.ipv6Probe?.tcpSucceeded == true,
-                failure = evidence.ipv6Probe?.tcpFailure ?: ErrorIpv6Egress,
-                evidence.durationMs,
-                pathKind = RelayPathKind,
-            ),
-            pendingStep(StepReconnect),
-            pendingStep(StepHandover),
-            pendingStep(StepScreenOff),
-            resultStep(
-                StepNoDirectEgress,
-                !evidence.directEgressObserved,
-                ErrorDirectEgress,
-                evidence.durationMs,
-            ),
-        )
+    val steps = evidence.toAcceptanceSteps(preflightError)
     return RemoteDeviceAcceptanceReport(
         status = deriveAcceptanceStatus(steps),
         device = device,
@@ -166,31 +100,100 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
     )
 }
 
-internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
-    RemoteDeviceAcceptanceReportJson.encodeToString(
-        RedactedAcceptanceReport(
-            device =
-                RedactedAcceptanceDevice(
-                    model = report.device.model,
-                    csc = report.device.csc,
-                    api = report.device.api,
-                    abi = report.device.abi,
-                ),
-            transportKind = report.transportKind,
-            result = report.status.wireValue,
-            steps =
-                report.steps.map { step ->
-                    RedactedAcceptanceStep(
-                        id = step.id,
-                        status = step.status.wireValue,
-                        durationMs = step.durationMs,
-                        errorClass = step.errorClass,
-                        pathKind = step.pathKind,
-                    )
-                },
-            pathHealth = report.pathHealth?.toRedacted(),
-            underlay = report.underlay.toRedacted(),
+private fun AcceptanceBaselineEvidence.toAcceptanceSteps(preflightError: String?): List<RemoteDeviceAcceptanceStep> {
+    val probe = probe
+    return listOf(
+        networkEvidenceStep(
+            StepRealityTcp,
+            preflightError = preflightError,
+            contextError = contextError,
+            succeeded = probe?.tcpSucceeded == true,
+            failure = probe?.tcpFailure,
+            durationMs,
+            pathKind = RelayPathKind,
         ),
+        networkEvidenceStep(
+            StepUdpAssociate,
+            preflightError = preflightError,
+            contextError = contextError,
+            succeeded = probe?.udpAssociationOpened == true,
+            failure = probe?.udpFailure,
+            durationMs,
+            pathKind = RelayPathKind,
+        ),
+        networkEvidenceStep(
+            StepDnsUdp,
+            preflightError = preflightError,
+            contextError = contextError,
+            succeeded = probe?.udpSucceeded == true,
+            failure = probe?.udpFailure,
+            durationMs,
+            pathKind = RelayPathKind,
+        ),
+        payloadHealthStep(
+            StepRelayUdpPayload,
+            preflightError = preflightError,
+            payloadHealth = payloadHealth,
+            payloadHealthError = contextError ?: payloadHealthError,
+            durationMs,
+            pathKind = RelayPathKind,
+        ),
+        networkEvidenceStep(
+            StepIpv4,
+            preflightError = preflightError,
+            contextError = contextError,
+            succeeded = ipv4Probe?.tcpSucceeded == true,
+            failure = ipv4Probe?.tcpFailure ?: ErrorIpv4Egress,
+            durationMs,
+            pathKind = RelayPathKind,
+        ),
+        networkEvidenceStep(
+            StepIpv6,
+            preflightError = preflightError,
+            contextError = contextError,
+            succeeded = ipv6Probe?.tcpSucceeded == true,
+            failure = ipv6Probe?.tcpFailure ?: ErrorIpv6Egress,
+            durationMs,
+            pathKind = RelayPathKind,
+        ),
+        pendingStep(StepReconnect),
+        pendingStep(StepHandover),
+        pendingStep(StepScreenOff),
+        resultStep(
+            StepNoDirectEgress,
+            !directEgressObserved,
+            ErrorDirectEgress,
+            durationMs,
+        ),
+    )
+}
+
+internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
+    RemoteDeviceAcceptanceReportJson.encodeToString(report.toRedactedPayload())
+
+private fun RemoteDeviceAcceptanceReport.toRedactedPayload(): RedactedAcceptanceReport =
+    RedactedAcceptanceReport(
+        device =
+            RedactedAcceptanceDevice(
+                model = device.model,
+                csc = device.csc,
+                api = device.api,
+                abi = device.abi,
+            ),
+        transportKind = transportKind,
+        result = status.wireValue,
+        steps =
+            steps.map { step ->
+                RedactedAcceptanceStep(
+                    id = step.id,
+                    status = step.status.wireValue,
+                    durationMs = step.durationMs,
+                    errorClass = step.errorClass,
+                    pathKind = step.pathKind,
+                )
+            },
+        pathHealth = pathHealth?.toRedacted(),
+        underlay = underlay.toRedacted(),
     )
 
 @Serializable
