@@ -452,6 +452,38 @@ class AutomaticProbeSchedulerTest {
             assertTrue(env.handoverStore.acknowledged.isEmpty())
         }
 
+    @Test
+    fun `scheduler retries until the launched scan has a terminal row`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    telemetrySamples =
+                        listOf(
+                            telemetrySample(
+                                createdAt = now - 500L,
+                                failureClass = "dns_tampering",
+                            ),
+                        ),
+                    now = now,
+                    launchResult = false,
+                )
+            val event = handoverEvent()
+
+            env.scheduler.schedule(event)
+            advanceTimeBy(100L)
+            runCurrent()
+            assertEquals(listOf(event), env.launcher.events)
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+
+            env.launcher.launchResult = true
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(listOf(event, event), env.launcher.events)
+            assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
+        }
+
     private fun TestScope.newEnv(
         settings: com.poyka.ripdpi.proto.AppSettings =
             defaultDiagnosticsAppSettings()
@@ -512,7 +544,7 @@ private data class SchedulerEnv(
 
 private class RecordingAutomaticProbeLauncher(
     hasActiveScan: Boolean = false,
-    private val launchResult: Boolean = true,
+    var launchResult: Boolean = true,
 ) : AutomaticProbeLauncher {
     val events = mutableListOf<PolicyHandoverEvent>()
     var hasActiveScan = hasActiveScan
