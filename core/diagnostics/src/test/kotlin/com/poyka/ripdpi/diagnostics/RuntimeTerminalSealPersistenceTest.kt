@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -34,6 +35,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -542,6 +544,10 @@ class RuntimeTerminalSealPersistenceTest {
                     .value
                     .contains("terminal-policy"),
             )
+            val dependencyKey =
+                stores.terminalOutboxState.value
+                    .single { state -> state.key.startsWith(TerminalPolicyDependencyDurableStatePrefix) }
+                    .key
             stores.rememberedPoliciesState.value = emptyList()
             firstScope.cancel()
 
@@ -551,6 +557,7 @@ class RuntimeTerminalSealPersistenceTest {
             restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
 
             assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertNull(stores.getTerminalOutbox(dependencyKey))
             assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
             restoredScope.cancel()
         }

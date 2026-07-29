@@ -56,6 +56,8 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.TerminalOutboxDurableStatePrefix
+import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
@@ -262,6 +264,7 @@ internal class FakeDiagnosticsHistoryStores :
 
     override suspend fun getPendingTerminalOutboxes(limit: Int): List<DiagnosticsDurableStateEntity> =
         terminalOutboxState.value
+            .filter { state -> state.key.startsWith(TerminalOutboxDurableStatePrefix) }
             .sortedBy(DiagnosticsDurableStateEntity::updatedAt)
             .take(limit)
 
@@ -393,7 +396,16 @@ internal class FakeDiagnosticsHistoryStores :
         usageSessionsState.value = usageSessionsState.value.upsertById(finishedSession) { it.id }
         val current = terminalOutboxState.value.firstOrNull { it.key == marker.key }
         if (current == null) {
-            terminalOutboxState.value = terminalOutboxState.value.upsertById(marker) { it.key }
+            terminalOutboxState.value =
+                terminalOutboxState.value
+                    .upsertById(marker) { it.key }
+                    .let { states ->
+                        if (policyDependency == null) {
+                            states
+                        } else {
+                            states.upsertById(policyDependency) { it.key }
+                        }
+                    }
         }
         return current ?: marker
     }
@@ -455,7 +467,11 @@ internal class FakeDiagnosticsHistoryStores :
         retainPolicyDependency: Boolean,
     ): Boolean {
         if (!terminalMarkerIsCurrent(marker)) return false
-        terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+        terminalOutboxState.value =
+            terminalOutboxState.value.filterNot { state ->
+                state.key == marker.key ||
+                    (!retainPolicyDependency && state.key == terminalPolicyDependencyKey(marker.key))
+            }
         afterCompleteTerminalOutbox()
         return true
     }
@@ -469,7 +485,11 @@ internal class FakeDiagnosticsHistoryStores :
         beforeInsertNativeSessionEvent(assessment)
         nativeEventsState.value = nativeEventsState.value.upsertById(assessment) { it.id }
         afterInsertNativeSessionEvent(assessment)
-        terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+        terminalOutboxState.value =
+            terminalOutboxState.value.filterNot { state ->
+                state.key == marker.key ||
+                    (!retainPolicyDependency && state.key == terminalPolicyDependencyKey(marker.key))
+            }
         afterCompleteTerminalOutbox()
         return true
     }
@@ -486,6 +506,9 @@ internal class FakeDiagnosticsHistoryStores :
 
     private fun terminalMarkerIsCurrent(marker: DiagnosticsDurableStateEntity): Boolean =
         terminalOutboxState.value.firstOrNull { state -> state.key == marker.key }?.value == marker.value
+
+    private fun terminalPolicyDependencyKey(markerKey: String): String =
+        "$TerminalPolicyDependencyDurableStatePrefix${markerKey.removePrefix(TerminalOutboxDurableStatePrefix)}"
 
     override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long {
         beforeUpsertRememberedNetworkPolicy(policy)
