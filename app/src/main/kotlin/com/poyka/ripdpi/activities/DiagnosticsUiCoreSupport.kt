@@ -161,14 +161,14 @@ internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
 ): String {
     val report = session.report
     return when {
+        session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null -> {
+            context.getString(R.string.diagnostics_hidden_probe_canceled_summary)
+        }
+
         context != null && report != null -> {
             DiagnosticsUiCoreSupport(formatter, context)
                 .completionPresentation(report, session.status, session.summary)
                 .summaryLabel
-        }
-
-        session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null -> {
-            context.getString(R.string.diagnostics_hidden_probe_canceled_summary)
         }
 
         else -> {

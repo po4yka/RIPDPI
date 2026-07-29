@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
+import com.poyka.ripdpi.diagnostics.BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.ProbeResult
@@ -183,6 +184,21 @@ class DiagnosticsUiCoreSupportTest {
             assertEquals("Partial results · ${expectation.first}", support.displaySessionSummary(resolver, session))
             assertEquals(expectation.second, row.tone)
         }
+    }
+
+    @Test
+    fun `hidden probe cancellation summary wins over partial report projection`() {
+        val support = testDiagnosticsUiCoreSupport()
+        val session =
+            completionSession(
+                completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                terminationReason = ScanTerminationReason.USER_CANCELLED,
+            ).copy(summary = BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary)
+
+        assertEquals(
+            "string-${R.string.diagnostics_hidden_probe_canceled_summary}",
+            support.displaySessionSummary(testStringResolver(), session),
+        )
     }
 
     @Test
