@@ -8,7 +8,10 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -526,6 +529,40 @@ class DiagnosticsScanControllerTest {
             assertEquals("boom", failedSession.summary)
             assertNull(services.timelineSource.activeScanProgress.value)
             assertEquals(1, bridgeFactory.bridge.destroyCount)
+        }
+
+    @Test
+    fun `cancelled controller scope destroys bridge before execution starts`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val cancelledJob = Job().apply { cancel() }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = CoroutineScope(cancelledJob),
+                    json = json,
+                )
+
+            assertSuspendFailsWith<CancellationException> {
+                services.scanController.launchAutomaticProbe(settings, transportSwitchHandoverEvent())
+            }
+
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+            assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
         }
 
     @Test
