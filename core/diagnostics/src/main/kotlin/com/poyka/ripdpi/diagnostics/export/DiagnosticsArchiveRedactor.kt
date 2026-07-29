@@ -425,8 +425,7 @@ internal fun redactDiagnosticsFreeText(value: String): String =
 internal fun redactDiagnosticsLogcat(value: String): String =
     redactDiagnosticsFreeText(value)
         .replaceWhenContainsAny(UrlRegex, "<url-redacted>", "http://", "https://")
-        .replace(WindowsPathRegex, "<path-redacted>")
-        .replace(UnixPathRegex, "<path-redacted>")
+        .let(::redactDiagnosticsPaths)
         .replace(DnsNameRegex, "<host-redacted>")
         .replaceWhenContainsAny(
             EndpointFieldRegex,
@@ -533,13 +532,14 @@ private val DnsNameRegex =
             "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?[.\\u3002\\uFF0E\\uFF61])+" +
             "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
     )
-private const val PathTerminatorPattern =
-    "(?:[,;:](?=[ \\t]|\\r?$)|[\"'<>](?=[,;:.!?)]?(?:[ \\t]|\\r?$))|" +
-        "[ \\t]+(?=[\\p{L}\\p{N}_-]+[ \\t]*=)|\\r?$)"
-private val UnixPathRegex =
-    Regex("(?m)(?<![\\p{L}\\p{N}])/(?:[^\\r\\n])*?(?=$PathTerminatorPattern)")
-private val WindowsPathRegex =
-    Regex("(?im)\\b[A-Z]:\\\\(?:[^\\r\\n])*?(?=$PathTerminatorPattern)")
+private val StructuredPathFieldPrefixRegex =
+    Regex(
+        "(?i)(?:\"(?:file|path|filePath)\"\\s*:\\s*|\\b(?:file|path|filePath)\\s*=\\s*)" +
+            "(?=[\"']?(?:/|[A-Z]:\\\\))",
+    )
+private val FieldAfterPathDelimiterRegex = Regex("\\s*(?:\"?[A-Za-z_][A-Za-z0-9_-]*\"?\\s*[:=])")
+private val BareUnixPathRegex = Regex("(?<![\\p{L}\\p{N}])/(?:[^\\s;\"'<>\\r\\n])+")
+private val BareWindowsPathRegex = Regex("(?i)\\b[A-Z]:\\\\(?:[^\\s;\"'<>\\r\\n])+")
 private val EndpointFieldRegex =
     Regex(
         "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +
@@ -561,3 +561,63 @@ private const val JsonEndpointFieldKeyPattern =
         "upstreamAddress)\"\\s*:\\s*\")"
 private const val JsonEndpointFieldValuePattern =
     "(?!redacted|<redacted>|unavailable|unknown|none|null)(?:[^\"\\\\]|\\\\.)*\""
+
+private fun redactDiagnosticsPaths(value: String): String =
+    redactStructuredPathFields(value)
+        .replace(BareWindowsPathRegex, "<path-redacted>")
+        .replace(BareUnixPathRegex, "<path-redacted>")
+
+private fun redactStructuredPathFields(value: String): String {
+    val redacted = StringBuilder(value.length)
+    var copiedUntil = 0
+    var searchFrom = 0
+    while (true) {
+        val match = StructuredPathFieldPrefixRegex.find(value, searchFrom) ?: break
+        val valueStart = match.range.last + 1
+        val quote = value.getOrNull(valueStart)?.takeIf { it == '\"' || it == '\'' }
+        val contentStart = valueStart + if (quote == null) 0 else 1
+        val contentEnd = findStructuredPathEnd(value, contentStart, quote)
+
+        redacted.append(value, copiedUntil, valueStart)
+        quote?.let(redacted::append)
+        redacted.append("<path-redacted>")
+        copiedUntil = contentEnd
+        if (quote != null && value.getOrNull(contentEnd) == quote) {
+            redacted.append(quote)
+            copiedUntil += 1
+        }
+        searchFrom = copiedUntil
+    }
+    return redacted.append(value, copiedUntil, value.length).toString()
+}
+
+private fun findStructuredPathEnd(
+    value: String,
+    start: Int,
+    quote: Char?,
+): Int {
+    var escaped = false
+    var index = start
+    var boundary: Int? = null
+    while (index < value.length && boundary == null) {
+        val character = value[index]
+        if (quote != null) {
+            when {
+                escaped -> escaped = false
+                character == '\\' -> escaped = true
+                character == quote || character == '\r' || character == '\n' -> boundary = index
+            }
+        } else {
+            when {
+                character == '\r' || character == '\n' || character == ';' -> boundary = index
+                character == ',' && value.hasFieldAfter(index + 1) -> boundary = index
+                character.isWhitespace() && value.hasFieldAfter(index) -> boundary = index
+            }
+        }
+        index += 1
+    }
+    return boundary ?: value.length
+}
+
+private fun String.hasFieldAfter(index: Int): Boolean =
+    FieldAfterPathDelimiterRegex.find(this, index)?.range?.first == index
