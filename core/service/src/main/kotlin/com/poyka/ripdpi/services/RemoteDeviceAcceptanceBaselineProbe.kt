@@ -10,12 +10,14 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.URI
 import javax.inject.Inject
@@ -221,46 +223,83 @@ internal class RelayUdpPayloadHealthCache(
         nowMs: Long,
         loader: suspend () -> RelayUdpPayloadHealthEvidence?,
     ): RelayUdpPayloadHealthEvidence? {
-        while (true) {
-            var leader = false
-            val deferred =
-                mutex.withLock {
-                    freshEntry(key, nowMs)?.let { cached ->
-                        return cached.evidence
-                    }
-                    inFlight[key]
-                        ?: CompletableDeferred<RelayUdpPayloadHealthEvidence?>()
-                            .also { pending ->
-                                inFlight[key] = pending
-                                leader = true
-                            }
+        var result: RelayUdpPayloadHealthEvidence? = null
+        var completed = false
+        while (!completed) {
+            when (val access = reserve(key, nowMs)) {
+                is PayloadCacheAccess.Cached -> {
+                    result = access.evidence
+                    completed = true
                 }
-            if (!leader) {
-                try {
-                    return deferred.await()
-                } catch (_: CancellationException) {
-                    currentCoroutineContext().ensureActive()
-                    continue
+
+                is PayloadCacheAccess.Pending -> {
+                    val resolution = resolvePending(key, nowMs, access, loader)
+                    result = resolution.evidence
+                    completed = resolution.completed
                 }
             }
+        }
+        return result
+    }
 
-            return try {
-                val loaded = loader()
-                mutex.withLock {
-                    entries[key] = CachedRelayUdpPayloadHealth(nowMs, loaded)
-                    trimLocked()
-                    inFlight.remove(key)
+    private suspend fun resolvePending(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+        access: PayloadCacheAccess.Pending,
+        loader: suspend () -> RelayUdpPayloadHealthEvidence?,
+    ): PayloadCacheResolution =
+        if (access.isLeader) {
+            PayloadCacheResolution(loadAndPublish(key, nowMs, access.deferred, loader), completed = true)
+        } else {
+            try {
+                PayloadCacheResolution(access.deferred.await(), completed = true)
+            } catch (_: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                PayloadCacheResolution(evidence = null, completed = false)
+            }
+        }
+
+    private suspend fun reserve(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+    ): PayloadCacheAccess =
+        mutex.withLock {
+            val cached = freshEntry(key, nowMs)
+            if (cached != null) {
+                PayloadCacheAccess.Cached(cached.evidence)
+            } else {
+                val pending = inFlight[key]
+                if (pending != null) {
+                    PayloadCacheAccess.Pending(pending, isLeader = false)
+                } else {
+                    val deferred = CompletableDeferred<RelayUdpPayloadHealthEvidence?>()
+                    inFlight[key] = deferred
+                    PayloadCacheAccess.Pending(deferred, isLeader = true)
                 }
-                deferred.complete(loaded)
-                loaded
-            } catch (cancelled: CancellationException) {
+            }
+        }
+
+    private suspend fun loadAndPublish(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+        deferred: CompletableDeferred<RelayUdpPayloadHealthEvidence?>,
+        loader: suspend () -> RelayUdpPayloadHealthEvidence?,
+    ): RelayUdpPayloadHealthEvidence? {
+        val loadResult =
+            runCatching {
+                loader().also { loaded ->
+                    mutex.withLock {
+                        entries[key] = CachedRelayUdpPayloadHealth(nowMs, loaded)
+                        trimLocked()
+                    }
+                }
+            }
+        return try {
+            loadResult.getOrThrow()
+        } finally {
+            withContext(NonCancellable) {
                 mutex.withLock { inFlight.remove(key) }
-                deferred.completeExceptionally(cancelled)
-                throw cancelled
-            } catch (throwable: Throwable) {
-                mutex.withLock { inFlight.remove(key) }
-                deferred.completeExceptionally(throwable)
-                throw throwable
+                loadResult.fold(deferred::complete, deferred::completeExceptionally)
             }
         }
     }
@@ -278,6 +317,22 @@ internal class RelayUdpPayloadHealthCache(
             entries.remove(entries.keys.first())
         }
     }
+
+    private sealed interface PayloadCacheAccess {
+        data class Cached(
+            val evidence: RelayUdpPayloadHealthEvidence?,
+        ) : PayloadCacheAccess
+
+        data class Pending(
+            val deferred: CompletableDeferred<RelayUdpPayloadHealthEvidence?>,
+            val isLeader: Boolean,
+        ) : PayloadCacheAccess
+    }
+
+    private data class PayloadCacheResolution(
+        val evidence: RelayUdpPayloadHealthEvidence?,
+        val completed: Boolean,
+    )
 }
 
 private fun parseLocalRelayEndpoint(listenerAddress: String?): RelayProbeEndpoint? =
