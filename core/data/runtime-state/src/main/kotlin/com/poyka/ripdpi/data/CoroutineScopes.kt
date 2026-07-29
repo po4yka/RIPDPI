@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -52,9 +53,15 @@ class ApplicationCoroutineScopeTerminator
         @Synchronized
         fun terminate() {
             rootJobs.forEach { job -> job.cancel() }
-            runBlocking { rootJobs.joinAll() }
+            runBlocking {
+                withTimeoutOrNull(ApplicationScopeTerminationTimeoutMillis) {
+                    rootJobs.joinAll()
+                }
+            }
         }
     }
+
+private const val ApplicationScopeTerminationTimeoutMillis = 250L
 
 @Module
 @InstallIn(SingletonComponent::class)
