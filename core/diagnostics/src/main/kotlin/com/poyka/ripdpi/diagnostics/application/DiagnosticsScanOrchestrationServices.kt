@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -55,6 +56,10 @@ internal data class ActiveScanCancellation(
     val partialReportJson: String?,
     val failure: Throwable? = null,
 )
+
+internal class DiagnosticsBridgeStartException(
+    cause: Throwable,
+) : IllegalStateException("Diagnostics scan failed to start", cause)
 
 @Singleton
 class ScanAdmissionService
@@ -582,10 +587,22 @@ class BridgeExecutionService
             handle: BridgeSessionHandle,
             requestJson: String,
         ) {
-            handle.bridge.startScan(
-                requestJson = requestJson,
-                sessionId = handle.sessionId,
-            )
+            val startFailure =
+                runCatching {
+                    handle.bridge.startScan(
+                        requestJson = requestJson,
+                        sessionId = handle.sessionId,
+                    )
+                }.exceptionOrNull()
+            when (startFailure) {
+                null -> Unit
+
+                is CancellationException,
+                is Error,
+                -> throw startFailure
+
+                else -> throw DiagnosticsBridgeStartException(startFailure)
+            }
         }
 
         internal suspend fun destroy(handle: BridgeSessionHandle) {

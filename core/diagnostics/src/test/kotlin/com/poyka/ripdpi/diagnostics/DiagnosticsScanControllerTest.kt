@@ -122,6 +122,7 @@ class DiagnosticsScanControllerTest {
     @Test
     fun `start failure marks session failed and clears active progress`() =
         runTest {
+            val startFailureCanary = "start-secret-token=canary.example"
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory =
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
@@ -129,7 +130,7 @@ class DiagnosticsScanControllerTest {
                         FaultSpec(
                             target = DiagnosticsBridgeFaultTarget.START_SCAN,
                             outcome = FaultOutcome.EXCEPTION,
-                            message = "boom",
+                            message = startFailureCanary,
                         ),
                     )
                 }
@@ -153,7 +154,14 @@ class DiagnosticsScanControllerTest {
 
             val failedSession = stores.sessionsState.value.single()
             assertEquals("failed", failedSession.status)
-            assertEquals("boom", failedSession.summary)
+            assertEquals("Diagnostics scan failed to start", failedSession.summary)
+            assertFalse(failedSession.summary.contains(startFailureCanary))
+            assertFalse(
+                services.shareService
+                    .buildShareSummary(failedSession.id)
+                    .body
+                    .contains(startFailureCanary),
+            )
             assertNull(services.timelineSource.activeScanProgress.value)
             assertEquals(1, bridgeFactory.bridge.destroyCount)
         }
