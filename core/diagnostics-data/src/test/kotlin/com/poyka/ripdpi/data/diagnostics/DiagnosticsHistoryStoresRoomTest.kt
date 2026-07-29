@@ -858,6 +858,74 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `history retention waits for legacy terminal outbox migration`() =
+        runTest {
+            val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
+            val bypassStore = RoomBypassUsageHistoryStore(dao)
+            val retentionStore = RoomDiagnosticsHistoryRetentionStore(dao, clock)
+            val terminalStore = RoomDiagnosticsTerminalOutboxStore(db, dao)
+            val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), 14)
+            val legacySession =
+                bypassUsageSession(
+                    id = "usage-legacy-retention",
+                    startedAt = 1L,
+                    finishedAt = threshold - 10L,
+                )
+            val unrelatedSession =
+                bypassUsageSession(
+                    id = "usage-unrelated-retention",
+                    startedAt = 1L,
+                    finishedAt = threshold - 10L,
+                )
+            bypassStore.upsertBypassUsageSession(legacySession)
+            bypassStore.upsertBypassUsageSession(unrelatedSession)
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(
+                    id = "evt-legacy-retention",
+                    sessionId = null,
+                    connectionSessionId = legacySession.id,
+                    createdAt = threshold - 10L,
+                ),
+            )
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(
+                    id = "evt-unrelated-retention",
+                    sessionId = null,
+                    connectionSessionId = unrelatedSession.id,
+                    createdAt = threshold - 10L,
+                ),
+            )
+            val legacyMarker =
+                NativeSessionEventEntity(
+                    id = "runtime_terminal_outbox:${legacySession.id}",
+                    source = "runtime",
+                    level = "info",
+                    message = "legacy-marker-payload",
+                    createdAt = threshold - 10L,
+                    subsystem = "runtime_terminal_outbox",
+                )
+            artifactStore.insertNativeSessionEvent(legacyMarker)
+
+            retentionStore.trimOldData(retentionDays = 14)
+
+            assertNotNull(artifactStore.getNativeSessionEvent(legacyMarker.id))
+            assertNotNull(bypassStore.getBypassUsageSession(legacySession.id))
+            assertNotNull(bypassStore.getBypassUsageSession(unrelatedSession.id))
+            assertNotNull(artifactStore.getNativeSessionEvent("evt-legacy-retention"))
+            assertNotNull(artifactStore.getNativeSessionEvent("evt-unrelated-retention"))
+
+            assertEquals(1, terminalStore.getPendingTerminalOutboxes().size)
+            retentionStore.trimOldData(retentionDays = 14)
+
+            assertNull(artifactStore.getNativeSessionEvent(legacyMarker.id))
+            assertNotNull(artifactStore.getDurableState(legacyMarker.id))
+            assertNotNull(bypassStore.getBypassUsageSession(legacySession.id))
+            assertNotNull(artifactStore.getNativeSessionEvent("evt-legacy-retention"))
+            assertNull(bypassStore.getBypassUsageSession(unrelatedSession.id))
+            assertNull(artifactStore.getNativeSessionEvent("evt-unrelated-retention"))
+        }
+
+    @Test
     @Suppress("LongMethod")
     fun `history reset store clears runtime history but preserves profiles`() =
         runTest {

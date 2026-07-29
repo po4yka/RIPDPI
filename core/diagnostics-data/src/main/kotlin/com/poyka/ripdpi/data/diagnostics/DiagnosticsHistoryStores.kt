@@ -706,6 +706,12 @@ class RoomDiagnosticsHistoryRetentionStore
             if (retentionDays <= 0) {
                 return
             }
+            // Legacy terminal markers live in native_session_events until the outbox store
+            // migrates them. Their JSON payload is intentionally opaque to SQL, so retention
+            // must fail closed rather than delete a marker or any potentially related evidence.
+            if (dao.countPendingTerminalOutboxes() > 0) {
+                return
+            }
             val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), retentionDays)
             dao.deleteProbeResultsOlderThan(threshold)
             dao.deleteScanSessionsOlderThan(threshold)

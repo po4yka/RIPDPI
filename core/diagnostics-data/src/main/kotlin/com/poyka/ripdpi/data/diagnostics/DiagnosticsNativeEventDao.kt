@@ -75,6 +75,14 @@ interface DiagnosticsNativeEventDao {
     )
     suspend fun getPendingTerminalOutboxes(limit: Int): List<NativeSessionEventEntity>
 
+    @Query(
+        """
+        SELECT COUNT(*) FROM native_session_events
+        WHERE subsystem = 'runtime_terminal_outbox'
+        """,
+    )
+    suspend fun countPendingTerminalOutboxes(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
 
