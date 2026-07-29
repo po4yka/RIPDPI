@@ -91,6 +91,29 @@ internal enum class NotificationChannelState(
     NotSupported("not_supported"),
 }
 
+internal enum class ForegroundServiceTypeBand(
+    val wireValue: String,
+) {
+    None("none"),
+    SpecialUse("special_use"),
+    Other("other"),
+    Unknown("unknown"),
+    NotSupported("not_supported"),
+}
+
+internal enum class ProcessImportanceBand(
+    val wireValue: String,
+) {
+    Foreground("foreground"),
+    Visible("visible"),
+    ForegroundService("foreground_service"),
+    Service("service"),
+    Background("background"),
+    Cached("cached"),
+    Gone("gone"),
+    Unknown("unknown"),
+}
+
 internal enum class MemoryPressureBand(
     val wireValue: String,
 ) {
@@ -137,7 +160,12 @@ internal data class DeviceStateSnapshot(
     val standbyBucket: DeviceStandbyBucket,
     val notificationPermission: DeviceStateValue,
     val notificationsAllowed: DeviceStateValue,
+    val notificationsPaused: DeviceStateValue,
+    val foregroundNotificationActive: DeviceStateValue,
     val foregroundNotificationChannels: NotificationChannelState,
+    val foregroundServiceType: ForegroundServiceTypeBand,
+    val userUnlocked: DeviceStateValue,
+    val processImportance: ProcessImportanceBand,
     val memoryPressure: MemoryPressureBand,
     val thermalStatus: DeviceThermalBand,
     val manufacturerFamily: DeviceManufacturerFamily,

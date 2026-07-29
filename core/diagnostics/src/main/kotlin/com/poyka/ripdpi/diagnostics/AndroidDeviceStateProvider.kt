@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.app.ActivityManager
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
 import android.content.BroadcastReceiver
@@ -9,10 +10,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.UserManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,6 +34,7 @@ internal class AndroidDeviceStateProvider
         private val activityManager = context.getSystemService(ActivityManager::class.java)
         private val usageStatsManager = context.getSystemService(UsageStatsManager::class.java)
         private val notificationManager = context.getSystemService(NotificationManager::class.java)
+        private val userManager = context.getSystemService(UserManager::class.java)
 
         override fun capture(): DeviceStateSnapshot {
             val battery =
@@ -43,6 +47,7 @@ internal class AndroidDeviceStateProvider
                     ActivityManager.getMyMemoryState(processInfo)
                     processInfo.lastTrimLevel
                 }.getOrNull()
+            val foregroundNotificationActive = foregroundNotificationActive()
             return buildDeviceStateSnapshot(
                 apiLevel = Build.VERSION.SDK_INT,
                 screenInteractive = runCatching { powerManager?.isInteractive }.getOrNull(),
@@ -90,7 +95,17 @@ internal class AndroidDeviceStateProvider
                     runCatching {
                         NotificationManagerCompat.from(context).areNotificationsEnabled()
                     }.getOrNull(),
+                notificationsPaused =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        runCatching { notificationManager?.areNotificationsPaused() }.getOrNull()
+                    } else {
+                        null
+                    },
+                foregroundNotificationActive = foregroundNotificationActive,
                 foregroundNotificationChannelState = foregroundNotificationChannelState(),
+                foregroundServiceType = foregroundServiceType(foregroundNotificationActive),
+                userUnlocked = runCatching { userManager?.isUserUnlocked }.getOrNull(),
+                processImportance = processInfo.importance,
                 lastTrimLevel = lastTrimLevel,
                 manufacturer = Build.MANUFACTURER,
             )
@@ -117,6 +132,7 @@ internal class AndroidDeviceStateProvider
                     addAction(Intent.ACTION_BATTERY_CHANGED)
                     addAction(Intent.ACTION_POWER_CONNECTED)
                     addAction(Intent.ACTION_POWER_DISCONNECTED)
+                    addAction(Intent.ACTION_USER_UNLOCKED)
                 }
             val receiverRegistered =
                 runCatching {
@@ -161,6 +177,40 @@ internal class AndroidDeviceStateProvider
                     PackageManager.PERMISSION_GRANTED
             }
 
+        private fun foregroundNotificationActive(): Boolean? =
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                null
+            } else {
+                runCatching {
+                    notificationManager
+                        ?.activeNotifications
+                        ?.any { status -> status.notification.flags and Notification.FLAG_FOREGROUND_SERVICE != 0 }
+                }.getOrNull()
+            }
+
+        @Suppress("DEPRECATION")
+        private fun foregroundServiceType(foregroundNotificationActive: Boolean?): Int? =
+            when {
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> {
+                    null
+                }
+
+                foregroundNotificationActive != true -> {
+                    ForegroundServiceTypeNone
+                }
+
+                else -> {
+                    runCatching {
+                        context.packageManager
+                            .getPackageInfo(context.packageName, PackageManager.GET_SERVICES)
+                            .services
+                            ?.map { service -> service.foregroundServiceType }
+                            ?.distinct()
+                            ?.singleOrNull()
+                    }.getOrNull()
+                }
+            }
+
         private fun foregroundNotificationChannelState(): NotificationChannelState =
             when {
                 Build.VERSION.SDK_INT < Build.VERSION_CODES.O -> NotificationChannelState.NotSupported
@@ -200,7 +250,12 @@ internal fun buildDeviceStateSnapshot(
     standbyBucket: Int?,
     notificationPermissionGranted: Boolean?,
     notificationsAllowed: Boolean?,
+    notificationsPaused: Boolean?,
+    foregroundNotificationActive: Boolean?,
     foregroundNotificationChannelState: NotificationChannelState,
+    foregroundServiceType: Int?,
+    userUnlocked: Boolean?,
+    processImportance: Int?,
     lastTrimLevel: Int?,
     manufacturer: String?,
 ): DeviceStateSnapshot =
@@ -229,11 +284,62 @@ internal fun buildDeviceStateSnapshot(
                 notificationPermissionGranted.toDeviceStateValue()
             },
         notificationsAllowed = notificationsAllowed.toDeviceStateValue(),
+        notificationsPaused =
+            notificationsPaused.toDeviceStateValue(minApi = Build.VERSION_CODES.Q, apiLevel = apiLevel),
+        foregroundNotificationActive =
+            foregroundNotificationActive.toDeviceStateValue(minApi = Build.VERSION_CODES.M, apiLevel = apiLevel),
         foregroundNotificationChannels = foregroundNotificationChannelState,
+        foregroundServiceType = foregroundServiceType.toForegroundServiceTypeBand(apiLevel),
+        userUnlocked = userUnlocked.toDeviceStateValue(minApi = Build.VERSION_CODES.N, apiLevel = apiLevel),
+        processImportance = processImportance.toProcessImportanceBand(),
         memoryPressure = lastTrimLevel.toMemoryPressureBand(),
         thermalStatus = thermalStatus.toThermalBand(apiLevel),
         manufacturerFamily = manufacturer.toManufacturerFamily(),
     )
+
+private fun Int?.toForegroundServiceTypeBand(apiLevel: Int): ForegroundServiceTypeBand =
+    when {
+        apiLevel < Build.VERSION_CODES.Q -> ForegroundServiceTypeBand.NotSupported
+        this == null -> ForegroundServiceTypeBand.Unknown
+        this == ForegroundServiceTypeNone -> ForegroundServiceTypeBand.None
+        this == ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE -> ForegroundServiceTypeBand.SpecialUse
+        else -> ForegroundServiceTypeBand.Other
+    }
+
+private fun Int?.toProcessImportanceBand(): ProcessImportanceBand =
+    when {
+        this == null -> {
+            ProcessImportanceBand.Unknown
+        }
+
+        this == ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE -> {
+            ProcessImportanceBand.Gone
+        }
+
+        this <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND -> {
+            ProcessImportanceBand.Foreground
+        }
+
+        this <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE -> {
+            ProcessImportanceBand.ForegroundService
+        }
+
+        this <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE -> {
+            ProcessImportanceBand.Visible
+        }
+
+        this <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE -> {
+            ProcessImportanceBand.Service
+        }
+
+        this >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED -> {
+            ProcessImportanceBand.Cached
+        }
+
+        else -> {
+            ProcessImportanceBand.Background
+        }
+    }
 
 private fun Intent.batteryChargingState(): Boolean? =
     when (getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)) {
@@ -332,6 +438,7 @@ private fun String?.toManufacturerFamily(): DeviceManufacturerFamily =
 
 private const val VpnNotificationChannelId = "RIPDPIVpn"
 private const val ProxyNotificationChannelId = "RIPDPI Proxy"
+private const val ForegroundServiceTypeNone = 0
 private const val PercentScale = 100
 private const val MinBatteryPercent = 0
 private const val CriticalBatteryPercent = 10

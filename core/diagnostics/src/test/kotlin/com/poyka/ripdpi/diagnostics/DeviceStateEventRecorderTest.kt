@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import android.app.ActivityManager
 import android.app.usage.UsageStatsManager
 import android.content.ComponentCallbacks2
 import android.os.Build
@@ -279,7 +280,12 @@ class DeviceStateEventRecorderTest {
                 standbyBucket = UsageStatsManager.STANDBY_BUCKET_RARE,
                 notificationPermissionGranted = true,
                 notificationsAllowed = false,
+                notificationsPaused = true,
+                foregroundNotificationActive = true,
                 foregroundNotificationChannelState = NotificationChannelState.Enabled,
+                foregroundServiceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                userUnlocked = true,
+                processImportance = ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
                 lastTrimLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
                 manufacturer = "SAMSUNG",
             )
@@ -291,6 +297,11 @@ class DeviceStateEventRecorderTest {
         assertEquals(DeviceStandbyBucket.NotSupported, snapshot.standbyBucket)
         assertEquals(DeviceStateValue.NotRequired, snapshot.notificationPermission)
         assertEquals(DeviceStateValue.Disabled, snapshot.notificationsAllowed)
+        assertEquals(DeviceStateValue.NotSupported, snapshot.notificationsPaused)
+        assertEquals(DeviceStateValue.Enabled, snapshot.foregroundNotificationActive)
+        assertEquals(ForegroundServiceTypeBand.NotSupported, snapshot.foregroundServiceType)
+        assertEquals(DeviceStateValue.Enabled, snapshot.userUnlocked)
+        assertEquals(ProcessImportanceBand.ForegroundService, snapshot.processImportance)
         assertEquals(DeviceBatteryBand.Critical, snapshot.batteryLevel)
         assertEquals(DeviceStateValue.Enabled, snapshot.charging)
         assertEquals(MemoryPressureBand.Background, snapshot.memoryPressure)
@@ -319,7 +330,12 @@ class DeviceStateEventRecorderTest {
                         standbyBucket = Int.MAX_VALUE,
                         notificationPermissionGranted = null,
                         notificationsAllowed = null,
+                        notificationsPaused = null,
+                        foregroundNotificationActive = null,
                         foregroundNotificationChannelState = NotificationChannelState.Unknown,
+                        foregroundServiceType = Int.MAX_VALUE,
+                        userUnlocked = null,
+                        processImportance = Int.MAX_VALUE,
                         lastTrimLevel = Int.MAX_VALUE,
                         manufacturer = "Samsung serial=secret ssid=private ip=192.0.2.1 host=bad.example",
                     ),
@@ -331,6 +347,11 @@ class DeviceStateEventRecorderTest {
 
             val messages = stores.nativeEventsState.value.map { it.message }
             assertTrue(messages.all { it.contains("manufacturer_family=other") })
+            assertTrue(messages.all { it.contains("notifications_paused=unknown") })
+            assertTrue(messages.all { it.contains("foreground_notification_active=unknown") })
+            assertTrue(messages.all { it.contains("foreground_service_type=other") })
+            assertTrue(messages.all { it.contains("user_unlocked=unknown") })
+            assertTrue(messages.all { it.contains("process_importance=cached") })
             listOf("secret", "ssid", "192.0.2.1", "bad.example", "serial").forEach { forbidden ->
                 assertFalse(messages.any { it.contains(forbidden, ignoreCase = true) })
             }
