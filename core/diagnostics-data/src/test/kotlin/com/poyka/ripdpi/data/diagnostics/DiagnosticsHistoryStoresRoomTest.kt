@@ -397,7 +397,7 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
-    fun `remembered policy count pruning pauses while terminal evidence is pending`() =
+    fun `remembered policy count pruning remains bounded while terminal evidence is pending`() =
         runTest {
             val store = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
@@ -419,14 +419,6 @@ class DiagnosticsHistoryStoresRoomTest {
                 ),
             )
 
-            store.pruneRememberedNetworkPolicies()
-
-            assertEquals(RememberedNetworkPolicyRetentionLimit + 2, rowCount("remembered_network_policies"))
-
-            artifactStore.clearDurableStateIfCurrent(
-                key = "runtime_terminal_outbox:usage-pending",
-                expectedValue = "POLICY_FINALIZATION",
-            )
             store.pruneRememberedNetworkPolicies()
 
             assertEquals(RememberedNetworkPolicyRetentionLimit, rowCount("remembered_network_policies"))
@@ -747,7 +739,7 @@ class DiagnosticsHistoryStoresRoomTest {
                         .first()
                         .any { sample -> sample.id == "tel-pending" },
                 )
-                assertNotNull(
+                assertNull(
                     rememberedStore.getRememberedNetworkPolicy(
                         pendingPolicy.fingerprintHash,
                         pendingPolicy.mode,
