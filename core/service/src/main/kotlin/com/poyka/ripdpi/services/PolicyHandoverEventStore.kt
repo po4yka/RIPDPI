@@ -80,29 +80,31 @@ class DefaultPolicyHandoverEventStore
 
         override suspend fun acknowledge(deliveryId: String) {
             val key = deliveryKey(deliveryId)
-            val current = durableStateStore.getDurableState(key) ?: return
-            val envelope = decodeCurrentEnvelope(current.value)
-            val dependencyKey = envelope?.rememberedPolicyDependencyKey
-            val dependency = dependencyKey?.let { durableStateStore.getDurableState(it) }
-            if (dependencyKey != null && dependency != null) {
-                durableStateStore.clearDurableStateAndDependencyIfCurrent(
-                    key = key,
-                    expectedValue = current.value,
-                    dependencyKey = dependencyKey,
-                    expectedDependencyValue = dependency.value,
-                )
-            } else {
-                durableStateStore.clearDurableStateIfCurrent(key, current.value)
+            val current = durableStateStore.getDurableState(key)
+            if (current != null) {
+                val envelope = decodeCurrentEnvelope(current.value)
+                val dependencyKey = envelope?.rememberedPolicyDependencyKey
+                val dependency = dependencyKey?.let { durableStateStore.getDurableState(it) }
+                if (dependencyKey != null && dependency != null) {
+                    durableStateStore.clearDurableStateAndDependencyIfCurrent(
+                        key = key,
+                        expectedValue = current.value,
+                        dependencyKey = dependencyKey,
+                        expectedDependencyValue = dependency.value,
+                    )
+                } else {
+                    durableStateStore.clearDurableStateIfCurrent(key, current.value)
+                }
             }
         }
 
         override suspend fun isPending(deliveryId: String): Boolean {
-            val state = durableStateStore.getDurableState(deliveryKey(deliveryId)) ?: return false
+            val state = durableStateStore.getDurableState(deliveryKey(deliveryId))
             val event =
                 state
-                    .takeIf { it.updatedAt >= System.currentTimeMillis() - PolicyHandoverRetentionMaxAgeMs }
+                    ?.takeIf { it.updatedAt >= System.currentTimeMillis() - PolicyHandoverRetentionMaxAgeMs }
                     ?.let { decodeEvent(it) }
-            if (event == null) clearDelivery(state)
+            if (state != null && event == null) clearDelivery(state)
             return event?.deliveryId == deliveryId
         }
 
