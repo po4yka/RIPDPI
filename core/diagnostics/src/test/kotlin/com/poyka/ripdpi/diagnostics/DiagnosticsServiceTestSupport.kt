@@ -36,6 +36,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
@@ -142,6 +143,7 @@ internal class FakeDiagnosticsHistoryStores :
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
+    val terminalOutboxState = MutableStateFlow<List<DiagnosticsDurableStateEntity>>(emptyList())
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
@@ -150,7 +152,7 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeInsertTelemetrySample: suspend (TelemetrySampleEntity) -> Unit = {}
     var beforeUpsertBypassUsageSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var beforeUpsertRememberedNetworkPolicy: suspend (RememberedNetworkPolicyEntity) -> Unit = {}
-    var beforeCheckpointTerminalOutbox: suspend (NativeSessionEventEntity) -> Unit = {}
+    var beforeCheckpointTerminalOutbox: suspend (DiagnosticsDurableStateEntity) -> Unit = {}
     var beforeCheckpointTerminalPolicy: suspend (RememberedNetworkPolicyEntity?) -> Unit = {}
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
@@ -254,10 +256,9 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun getNativeSessionEvent(eventId: String): NativeSessionEventEntity? =
         nativeEventsState.value.find { event -> event.id == eventId }
 
-    override suspend fun getPendingTerminalOutboxes(limit: Int): List<NativeSessionEventEntity> =
-        nativeEventsState.value
-            .filter { event -> event.subsystem == "runtime_terminal_outbox" }
-            .sortedBy(NativeSessionEventEntity::createdAt)
+    override suspend fun getPendingTerminalOutboxes(limit: Int): List<DiagnosticsDurableStateEntity> =
+        terminalOutboxState.value
+            .sortedBy(DiagnosticsDurableStateEntity::updatedAt)
             .take(limit)
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
@@ -373,42 +374,66 @@ internal class FakeDiagnosticsHistoryStores :
 
     override suspend fun beginTerminalOutbox(
         finishedSession: BypassUsageSessionEntity,
-        marker: NativeSessionEventEntity,
-    ) {
+        marker: DiagnosticsDurableStateEntity,
+    ): DiagnosticsDurableStateEntity {
         beforeUpsertBypassUsageSession(finishedSession)
-        beforeInsertNativeSessionEvent(marker)
         usageSessionsState.value = usageSessionsState.value.upsertById(finishedSession) { it.id }
-        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+        val current = terminalOutboxState.value.firstOrNull { it.key == marker.key }
+        if (current == null) {
+            terminalOutboxState.value = terminalOutboxState.value.upsertById(marker) { it.key }
+        }
+        return current ?: marker
     }
 
-    override suspend fun checkpointTerminalOutbox(marker: NativeSessionEventEntity) {
-        beforeCheckpointTerminalOutbox(marker)
-        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+    override suspend fun checkpointTerminalOutbox(
+        expectedMarker: DiagnosticsDurableStateEntity,
+        replacementMarker: DiagnosticsDurableStateEntity,
+    ): Boolean {
+        beforeCheckpointTerminalOutbox(replacementMarker)
+        return replaceTerminalMarker(expectedMarker, replacementMarker)
     }
 
     override suspend fun checkpointTerminalPolicy(
         policy: RememberedNetworkPolicyEntity?,
-        marker: NativeSessionEventEntity,
-    ) {
+        expectedMarker: DiagnosticsDurableStateEntity,
+        replacementMarker: DiagnosticsDurableStateEntity,
+    ): Boolean {
         beforeCheckpointTerminalPolicy(policy)
+        if (!terminalMarkerIsCurrent(expectedMarker)) return false
         policy?.let { value ->
             rememberedPoliciesState.value = rememberedPoliciesState.value.upsertById(value) { it.id }
         }
-        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+        return replaceTerminalMarker(expectedMarker, replacementMarker)
     }
 
     override suspend fun checkpointTerminalSession(
         finishedSession: BypassUsageSessionEntity,
-        marker: NativeSessionEventEntity,
-    ) {
+        expectedMarker: DiagnosticsDurableStateEntity,
+        replacementMarker: DiagnosticsDurableStateEntity,
+    ): Boolean {
         beforeCheckpointTerminalSession(finishedSession)
+        if (!terminalMarkerIsCurrent(expectedMarker)) return false
         usageSessionsState.value = usageSessionsState.value.upsertById(finishedSession) { it.id }
-        nativeEventsState.value = nativeEventsState.value.upsertById(marker) { it.id }
+        return replaceTerminalMarker(expectedMarker, replacementMarker)
     }
 
-    override suspend fun completeTerminalOutbox(markerId: String) {
-        nativeEventsState.value = nativeEventsState.value.filterNot { event -> event.id == markerId }
+    override suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean {
+        if (!terminalMarkerIsCurrent(marker)) return false
+        terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+        return true
     }
+
+    private fun replaceTerminalMarker(
+        expectedMarker: DiagnosticsDurableStateEntity,
+        replacementMarker: DiagnosticsDurableStateEntity,
+    ): Boolean {
+        if (!terminalMarkerIsCurrent(expectedMarker)) return false
+        terminalOutboxState.value = terminalOutboxState.value.upsertById(replacementMarker) { it.key }
+        return true
+    }
+
+    private fun terminalMarkerIsCurrent(marker: DiagnosticsDurableStateEntity): Boolean =
+        terminalOutboxState.value.firstOrNull { state -> state.key == marker.key }?.value == marker.value
 
     override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long {
         beforeUpsertRememberedNetworkPolicy(policy)

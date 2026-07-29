@@ -294,10 +294,10 @@ class DiagnosticsHistoryStoresRoomTest {
             val store = RoomDiagnosticsTerminalOutboxStore(db, dao)
             val finished = bypassUsageSession(id = "usage-terminal", startedAt = 20L, finishedAt = 30L)
             val marker =
-                nativeEvent(id = "runtime_terminal_outbox:usage-terminal", sessionId = null, createdAt = 30L).copy(
-                    source = "runtime_terminal_outbox",
-                    message = "runtime-events",
-                    subsystem = "runtime_terminal_outbox",
+                DiagnosticsDurableStateEntity(
+                    key = "runtime_terminal_outbox:usage-terminal",
+                    value = "runtime-events",
+                    updatedAt = 30L,
                 )
 
             store.beginTerminalOutbox(finished, marker)
@@ -312,18 +312,19 @@ class DiagnosticsHistoryStoresRoomTest {
                     status = RememberedNetworkPolicyStatusValidated,
                     updatedAt = 20L,
                 ).copy(id = 7L, failureCount = 1)
-            store.checkpointTerminalPolicy(terminalPolicy, marker.copy(message = "session-upsert"))
+            val policyMarker = marker.copy(value = "session-upsert")
+            assertTrue(store.checkpointTerminalPolicy(terminalPolicy, marker, policyMarker))
 
             assertEquals(terminalPolicy, dao.getRememberedNetworkPolicy("terminal-policy", "vpn"))
 
             val sessionCheckpoint = finished.copy(connectionState = "Stopped")
-            val sessionMarker = marker.copy(message = "root-cause-assessment")
-            store.checkpointTerminalSession(sessionCheckpoint, sessionMarker)
+            val sessionMarker = marker.copy(value = "root-cause-assessment")
+            assertTrue(store.checkpointTerminalSession(sessionCheckpoint, policyMarker, sessionMarker))
 
             assertEquals(sessionCheckpoint, dao.getBypassUsageSession(finished.id))
             assertEquals(listOf(sessionMarker), store.getPendingTerminalOutboxes())
 
-            store.completeTerminalOutbox(marker.id)
+            assertTrue(store.completeTerminalOutbox(sessionMarker))
 
             assertTrue(store.getPendingTerminalOutboxes().isEmpty())
         }
@@ -694,6 +695,13 @@ class DiagnosticsHistoryStoresRoomTest {
                     updatedAt = 25L,
                 ),
             )
+            artifactStore.upsertDurableState(
+                DiagnosticsDurableStateEntity(
+                    key = "runtime_terminal_outbox:usage-reset",
+                    value = "terminal-reset",
+                    updatedAt = 25L,
+                ),
+            )
             artifactStore.insertExportRecord(exportRecord(id = "exp-reset", sessionId = session.id, createdAt = 26L))
             bypassStore.upsertBypassUsageSession(
                 bypassUsageSession(id = "usage-reset", startedAt = 27L, finishedAt = 28L),
@@ -744,7 +752,9 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(0, rowCount("network_dns_path_preferences"))
             assertEquals(0, rowCount("network_dns_blocked_paths"))
             assertEquals(0, rowCount("network_edge_preferences"))
-            assertEquals(0, rowCount("diagnostics_durable_state"))
+            assertEquals(1, rowCount("diagnostics_durable_state"))
+            assertNotNull(artifactStore.getDurableState("pending-reset"))
+            assertNull(artifactStore.getDurableState("runtime_terminal_outbox:usage-reset"))
         }
 
     @Test

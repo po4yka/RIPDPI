@@ -176,29 +176,6 @@ interface BypassUsageHistoryStore {
     suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity)
 }
 
-interface DiagnosticsTerminalOutboxStore {
-    suspend fun beginTerminalOutbox(
-        finishedSession: BypassUsageSessionEntity,
-        marker: NativeSessionEventEntity,
-    )
-
-    suspend fun getPendingTerminalOutboxes(limit: Int = 64): List<NativeSessionEventEntity>
-
-    suspend fun checkpointTerminalOutbox(marker: NativeSessionEventEntity)
-
-    suspend fun checkpointTerminalPolicy(
-        policy: RememberedNetworkPolicyEntity?,
-        marker: NativeSessionEventEntity,
-    )
-
-    suspend fun checkpointTerminalSession(
-        finishedSession: BypassUsageSessionEntity,
-        marker: NativeSessionEventEntity,
-    )
-
-    suspend fun completeTerminalOutbox(markerId: String)
-}
-
 interface RememberedNetworkPolicyRecordStore {
     fun observeRememberedNetworkPolicies(limit: Int = 64): Flow<List<RememberedNetworkPolicyEntity>>
 
@@ -525,55 +502,6 @@ class RoomBypassUsageHistoryStore
     }
 
 @Singleton
-class RoomDiagnosticsTerminalOutboxStore
-    @Inject
-    constructor(
-        private val db: DiagnosticsDatabase,
-        private val dao: DiagnosticsDao,
-    ) : DiagnosticsTerminalOutboxStore {
-        override suspend fun beginTerminalOutbox(
-            finishedSession: BypassUsageSessionEntity,
-            marker: NativeSessionEventEntity,
-        ) {
-            db.withTransaction {
-                dao.upsertBypassUsageSession(finishedSession)
-                dao.insertNativeSessionEvent(marker)
-            }
-        }
-
-        override suspend fun getPendingTerminalOutboxes(limit: Int): List<NativeSessionEventEntity> =
-            dao.getPendingTerminalOutboxes(limit)
-
-        override suspend fun checkpointTerminalOutbox(marker: NativeSessionEventEntity) {
-            dao.insertNativeSessionEvent(marker)
-        }
-
-        override suspend fun checkpointTerminalPolicy(
-            policy: RememberedNetworkPolicyEntity?,
-            marker: NativeSessionEventEntity,
-        ) {
-            db.withTransaction {
-                policy?.let { dao.upsertRememberedNetworkPolicy(it) }
-                dao.insertNativeSessionEvent(marker)
-            }
-        }
-
-        override suspend fun checkpointTerminalSession(
-            finishedSession: BypassUsageSessionEntity,
-            marker: NativeSessionEventEntity,
-        ) {
-            db.withTransaction {
-                dao.upsertBypassUsageSession(finishedSession)
-                dao.insertNativeSessionEvent(marker)
-            }
-        }
-
-        override suspend fun completeTerminalOutbox(markerId: String) {
-            dao.deleteNativeSessionEvent(markerId)
-        }
-    }
-
-@Singleton
 class RoomRememberedNetworkPolicyRecordStore
     @Inject
     constructor(
@@ -775,7 +703,7 @@ class RoomDiagnosticsHistoryResetStore
                 dao.clearNetworkDnsPathPreferences()
                 dao.clearBlockedPaths()
                 dao.clearNetworkEdgePreferences()
-                dao.clearAllDiagnosticsDurableState()
+                dao.clearDiagnosticsDurableStateByPrefix(TerminalOutboxDurableStatePrefix)
             }
         }
     }

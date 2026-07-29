@@ -3,10 +3,11 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTerminalOutboxStore
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
+import com.poyka.ripdpi.data.diagnostics.TerminalOutboxDurableStatePrefix
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -30,35 +31,42 @@ internal class RuntimeTerminalOutbox(
                 terminalEvidenceSealed = start.terminalEvidenceSealed,
                 policyOutcome = policyOutcome,
             )
-        outboxStore.beginTerminalOutbox(
-            finishedSession = start.finishedSession,
-            marker = pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS),
-        )
-        return pending
+        val marker =
+            outboxStore.beginTerminalOutbox(
+                finishedSession = start.finishedSession,
+                marker = pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS),
+            )
+        return if (marker.value == pending.toMarker(PendingTerminalPhase.RUNTIME_EVENTS).value) {
+            pending.apply { currentMarker = marker }
+        } else {
+            recover(marker)
+        }
     }
 
     suspend fun recover(): List<PendingTerminalSession> =
-        outboxStore.getPendingTerminalOutboxes().map { marker ->
-            val outbox = RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(marker.message)
-            require(outbox.schemaVersion == TerminalOutboxSchemaVersion) {
-                "Unsupported terminal outbox schema ${outbox.schemaVersion}"
-            }
-            val finishedSession =
-                requireNotNull(usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)) {
-                    "Terminal outbox ${marker.id} has no durable usage session"
-                }
-            PendingTerminalSession(
-                activeSession = finishedSession,
-                finishedSession = finishedSession,
-                telemetry = null,
-                createdAt = outbox.createdAt,
-                terminalEvidenceSealed = false,
-                hasTransientState = false,
-                policyOutcome = outbox.policyOutcome,
-                markerId = marker.id,
-                phase = outbox.phase,
-            )
+        outboxStore.getPendingTerminalOutboxes().map { marker -> recover(marker) }
+
+    private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
+        val outbox = RuntimeHistoryJson.decodeFromString<TerminalOutboxMarker>(marker.value)
+        require(outbox.schemaVersion == TerminalOutboxSchemaVersion) {
+            "Unsupported terminal outbox schema ${outbox.schemaVersion}"
         }
+        val finishedSession =
+            requireNotNull(usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)) {
+                "Terminal outbox ${marker.key} has no durable usage session"
+            }
+        return PendingTerminalSession(
+            activeSession = finishedSession,
+            finishedSession = finishedSession,
+            telemetry = null,
+            createdAt = outbox.createdAt,
+            terminalEvidenceSealed = outbox.terminalEvidenceSealed,
+            hasTransientState = false,
+            policyOutcome = outbox.policyOutcome,
+            currentMarker = marker,
+            phase = outbox.phase,
+        )
+    }
 
     suspend fun persist(pending: PendingTerminalSession) {
         while (pending.phase != PendingTerminalPhase.COMPLETE) {
@@ -101,12 +109,17 @@ internal class RuntimeTerminalOutbox(
 
     private suspend fun finalizeRememberedPolicy(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.SESSION_UPSERT
-        outboxStore.checkpointTerminalPolicy(
-            policy = pending.policyOutcome?.let { outcome -> reconstructPolicy(outcome, pending.finishedSession) },
-            marker = pending.toMarker(nextPhase),
-        )
+        val replacement = pending.toMarker(nextPhase)
+        check(
+            outboxStore.checkpointTerminalPolicy(
+                policy = pending.policyOutcome?.let { outcome -> reconstructPolicy(outcome, pending.finishedSession) },
+                expectedMarker = pending.currentMarker,
+                replacementMarker = replacement,
+            ),
+        ) { "Terminal outbox policy checkpoint lost ownership" }
         runCatching { rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome) }
         rememberedPolicySessionTracker.clear()
+        pending.currentMarker = replacement
         pending.phase = nextPhase
     }
 
@@ -142,10 +155,15 @@ internal class RuntimeTerminalOutbox(
 
     private suspend fun persistFinishedSession(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT
-        outboxStore.checkpointTerminalSession(
-            finishedSession = pending.finishedSession,
-            marker = pending.toMarker(nextPhase),
-        )
+        val replacement = pending.toMarker(nextPhase)
+        check(
+            outboxStore.checkpointTerminalSession(
+                finishedSession = pending.finishedSession,
+                expectedMarker = pending.currentMarker,
+                replacementMarker = replacement,
+            ),
+        ) { "Terminal outbox session checkpoint lost ownership" }
+        pending.currentMarker = replacement
         pending.phase = nextPhase
     }
 
@@ -157,7 +175,9 @@ internal class RuntimeTerminalOutbox(
                 terminalEvidenceSealed = pending.terminalEvidenceSealed && pending.hasTransientState,
             )
         }
-        outboxStore.completeTerminalOutbox(pending.markerId)
+        check(outboxStore.completeTerminalOutbox(pending.currentMarker)) {
+            "Terminal outbox completion lost ownership"
+        }
         pending.phase = PendingTerminalPhase.COMPLETE
     }
 
@@ -165,7 +185,11 @@ internal class RuntimeTerminalOutbox(
         pending: PendingTerminalSession,
         nextPhase: PendingTerminalPhase,
     ) {
-        outboxStore.checkpointTerminalOutbox(pending.toMarker(nextPhase))
+        val replacement = pending.toMarker(nextPhase)
+        check(outboxStore.checkpointTerminalOutbox(pending.currentMarker, replacement)) {
+            "Terminal outbox checkpoint lost ownership"
+        }
+        pending.currentMarker = replacement
         pending.phase = nextPhase
     }
 }
@@ -186,16 +210,14 @@ internal data class PendingTerminalSession(
     val terminalEvidenceSealed: Boolean,
     val hasTransientState: Boolean = true,
     val policyOutcome: RememberedPolicyTerminalOutcome?,
-    val markerId: String = terminalOutboxId(activeSession.id),
+    var currentMarker: DiagnosticsDurableStateEntity = terminalOutboxMarker(activeSession.id, createdAt, ""),
     var phase: PendingTerminalPhase = PendingTerminalPhase.RUNTIME_EVENTS,
 ) {
-    fun toMarker(markerPhase: PendingTerminalPhase): NativeSessionEventEntity =
-        NativeSessionEventEntity(
-            id = markerId,
-            sessionId = null,
-            source = TerminalOutboxSource,
-            level = "info",
-            message =
+    fun toMarker(markerPhase: PendingTerminalPhase): DiagnosticsDurableStateEntity =
+        terminalOutboxMarker(
+            connectionSessionId = activeSession.id,
+            updatedAt = createdAt,
+            value =
                 RuntimeHistoryJson.encodeToString(
                     TerminalOutboxMarker(
                         connectionSessionId = activeSession.id,
@@ -205,8 +227,6 @@ internal data class PendingTerminalSession(
                         phase = markerPhase,
                     ),
                 ),
-            createdAt = createdAt,
-            subsystem = TerminalOutboxSubsystem,
         )
 }
 
@@ -231,7 +251,14 @@ internal enum class PendingTerminalPhase {
 }
 
 private const val TerminalOutboxSchemaVersion = 1
-private const val TerminalOutboxSource = "runtime_terminal_outbox"
-private const val TerminalOutboxSubsystem = "runtime_terminal_outbox"
 
-private fun terminalOutboxId(connectionSessionId: String): String = "$TerminalOutboxSource:$connectionSessionId"
+private fun terminalOutboxMarker(
+    connectionSessionId: String,
+    updatedAt: Long,
+    value: String,
+): DiagnosticsDurableStateEntity =
+    DiagnosticsDurableStateEntity(
+        key = "$TerminalOutboxDurableStatePrefix$connectionSessionId",
+        value = value,
+        updatedAt = updatedAt,
+    )
