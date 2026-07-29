@@ -348,6 +348,31 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
         }
 
     @Test
+    fun `artifact store atomically replaces only the current durable generation`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            val malformed =
+                DiagnosticsDurableStateEntity(
+                    key = "remote-acceptance",
+                    value = "malformed-generation",
+                    updatedAt = 10L,
+                )
+            val replacement = malformed.copy(value = "generation-2", updatedAt = 20L)
+            store.upsertDurableState(malformed)
+
+            assertTrue(store.replaceDurableStateIfCurrent(replacement, malformed.value))
+            assertEquals(replacement, store.getDurableState(malformed.key))
+
+            assertFalse(
+                store.replaceDurableStateIfCurrent(
+                    state = malformed.copy(value = "stale-replacement", updatedAt = 30L),
+                    expectedValue = malformed.value,
+                ),
+            )
+            assertEquals(replacement, store.getDurableState(malformed.key))
+        }
+
+    @Test
     fun `artifact store bounds durable state by age and count transactionally`() =
         runTest {
             val store = RoomDiagnosticsArtifactStore(db, dao)

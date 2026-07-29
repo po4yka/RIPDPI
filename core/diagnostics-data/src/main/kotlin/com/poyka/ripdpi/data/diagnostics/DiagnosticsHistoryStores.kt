@@ -170,6 +170,11 @@ interface DiagnosticsDurableStateStore {
         expectedValue: String,
     ): Boolean
 
+    suspend fun replaceDurableStateIfCurrent(
+        state: DiagnosticsDurableStateEntity,
+        expectedValue: String,
+    ): Boolean
+
     suspend fun clearDurableStateAndDependencyIfCurrent(
         key: String,
         expectedValue: String,
@@ -426,6 +431,17 @@ class RoomDiagnosticsArtifactStore
                     dao.clearDiagnosticsDurableState(key, expectedValue)
                     true
                 }
+
+            override suspend fun replaceDurableStateIfCurrent(
+                state: DiagnosticsDurableStateEntity,
+                expectedValue: String,
+            ): Boolean =
+                dao.replaceDiagnosticsDurableStateIfCurrent(
+                    key = state.key,
+                    expectedValue = expectedValue,
+                    replacementValue = state.value,
+                    updatedAt = state.updatedAt,
+                ) == 1
 
             override suspend fun clearDurableStateAndDependencyIfCurrent(
                 key: String,

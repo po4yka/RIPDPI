@@ -495,6 +495,15 @@ private class HandoverDurableStateStore : DiagnosticsDurableStateStore {
         return true
     }
 
+    override suspend fun replaceDurableStateIfCurrent(
+        state: DiagnosticsDurableStateEntity,
+        expectedValue: String,
+    ): Boolean {
+        if (this.state.value[state.key]?.value != expectedValue) return false
+        this.state.value += state.key to state
+        return true
+    }
+
     override suspend fun clearDurableStateAndDependencyIfCurrent(
         key: String,
         expectedValue: String,

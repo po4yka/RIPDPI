@@ -70,11 +70,12 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
                 }
 
                 persisted.value.canonicalRunGenerationOrNull() == null -> {
-                    durableStateStore.clearDurableStateIfCurrent(
-                        RemoteAcceptancePendingGenerationKey,
-                        persisted.value,
-                    )
-                    durableStateStore.upsertDurableState(nextState)
+                    check(
+                        durableStateStore.replaceDurableStateIfCurrent(
+                            state = nextState,
+                            expectedValue = persisted.value,
+                        ),
+                    ) { "Remote acceptance pending generation changed during replacement" }
                 }
 
                 else -> {

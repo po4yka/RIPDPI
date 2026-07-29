@@ -11,8 +11,11 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -277,6 +280,48 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
         }
 
     @Test
+    fun `cancellation after malformed replacement leaves new generation cancellable`() =
+        runTest {
+            val replacementCommitted = CompletableDeferred<Unit>()
+            val newGeneration = "00000000-0000-0000-0000-00000000000b"
+            val store =
+                RecordingDurableStateStore(
+                    afterReplaceCas = {
+                        replacementCommitted.complete(Unit)
+                        awaitCancellation()
+                    },
+                ).apply {
+                    upsertDurableState(
+                        DiagnosticsDurableStateEntity(
+                            key = RemoteAcceptancePendingGenerationKey,
+                            value = "malformed-generation",
+                            updatedAt = 10L,
+                        ),
+                    )
+                }
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store)
+
+            val begin = launch { writer.beginRun(newGeneration, observedAtMillis = 30L) }
+            replacementCommitted.await()
+            begin.cancelAndJoin()
+
+            assertEquals(
+                newGeneration,
+                store.durableStates.getValue(RemoteAcceptancePendingGenerationKey).value,
+            )
+
+            writer.cancelRun(newGeneration, observedAtMillis = 40L)
+
+            assertFalse(store.durableStates.containsKey(RemoteAcceptancePendingGenerationKey))
+            assertTrue(
+                store.nativeEvents
+                    .single()
+                    .message
+                    .contains("reason=cancelled"),
+            )
+        }
+
+    @Test
     fun `durable writer uses deterministic semantic ids`() =
         runTest {
             val firstStore = RecordingDurableStateStore()
@@ -419,6 +464,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
 
 private class RecordingDurableStateStore(
     private val beforeNonterminalCas: suspend (expectedValue: String) -> Unit = {},
+    private val afterReplaceCas: suspend () -> Unit = {},
 ) : DiagnosticsDurableStateStore {
     val nativeEvents = mutableListOf<NativeSessionEventEntity>()
     val durableStates = mutableMapOf<String, DiagnosticsDurableStateEntity>()
@@ -463,6 +509,16 @@ private class RecordingDurableStateStore(
         } else {
             false
         }
+
+    override suspend fun replaceDurableStateIfCurrent(
+        state: DiagnosticsDurableStateEntity,
+        expectedValue: String,
+    ): Boolean {
+        if (durableStates[state.key]?.value != expectedValue) return false
+        durableStates[state.key] = state
+        afterReplaceCas()
+        return true
+    }
 
     override suspend fun insertNativeSessionEventAndUpsertDurableState(
         event: NativeSessionEventEntity,
