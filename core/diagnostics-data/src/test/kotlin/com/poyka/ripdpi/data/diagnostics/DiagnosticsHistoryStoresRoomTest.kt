@@ -537,13 +537,45 @@ class DiagnosticsHistoryStoresRoomTest {
 
             store.pruneRememberedNetworkPolicies()
 
-            assertEquals(RememberedNetworkPolicyRetentionLimit, rowCount("remembered_network_policies"))
+            assertEquals(RememberedNetworkPolicyRetentionLimit + 1, rowCount("remembered_network_policies"))
             assertNotNull(
                 dao.getRememberedNetworkPolicy(
                     "fp-pending-${RememberedNetworkPolicyRetentionLimit + 1}",
                     "vpn",
                 ),
             )
+        }
+
+    @Test
+    fun `remembered policy pruning never deletes dependencies beyond count limit`() =
+        runTest {
+            val store = RoomRememberedNetworkPolicyRecordStore(dao, clock)
+            val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
+            repeat(RememberedNetworkPolicyRetentionLimit + 1) { index ->
+                val policyId =
+                    store.upsertRememberedNetworkPolicy(
+                        rememberedPolicy(
+                            fingerprintHash = "fp-protected-$index",
+                            mode = "vpn",
+                            status = RememberedNetworkPolicyStatusObserved,
+                            updatedAt = clock.now() - index,
+                        ),
+                    )
+                artifactStore.upsertDurableState(
+                    DiagnosticsDurableStateEntity(
+                        key = "runtime_terminal_policy:usage-protected-$index",
+                        value = policyId.toString(),
+                        updatedAt = clock.now(),
+                    ),
+                )
+            }
+
+            store.pruneRememberedNetworkPolicies()
+
+            assertEquals(RememberedNetworkPolicyRetentionLimit + 1, rowCount("remembered_network_policies"))
+            repeat(RememberedNetworkPolicyRetentionLimit + 1) { index ->
+                assertNotNull(dao.getRememberedNetworkPolicy("fp-protected-$index", "vpn"))
+            }
         }
 
     @Test
