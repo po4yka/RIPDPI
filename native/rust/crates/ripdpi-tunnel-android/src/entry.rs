@@ -42,25 +42,18 @@ use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 
 use crate::session::{
-    bind_to_device_probe_entry, tunnel_create_entry, tunnel_destroy_entry, tunnel_forwarding_evidence_entry,
-    tunnel_icmp_ingress_packets_entry, tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry,
-    tunnel_pcap_start_entry, tunnel_pcap_stop_entry, tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry,
-    tunnel_telemetry_entry,
+    PROBE_BRIDGE_FAILURE, bind_to_device_probe_entry, tunnel_create_entry, tunnel_destroy_entry,
+    tunnel_forwarding_evidence_entry, tunnel_icmp_ingress_packets_entry, tunnel_pcap_list_captures_entry,
+    tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry, tunnel_start_entry, tunnel_stats_entry,
+    tunnel_stop_entry, tunnel_telemetry_entry,
 };
-
-const BIND_TO_DEVICE_PROBE_PANIC_SENTINEL: jint = -1;
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBindings_jniProbeUnprivilegedBindToDevice(
     env: EnvUnowned<'_>,
     _thiz: JObject,
 ) -> jint {
-    ffi_boundary(BIND_TO_DEVICE_PROBE_PANIC_SENTINEL, move || bind_to_device_probe_entry(env))
-}
-
-#[cfg(test)]
-fn bind_to_device_probe_ffi_boundary(probe: impl FnOnce() -> jint + std::panic::UnwindSafe) -> jint {
-    ffi_boundary(BIND_TO_DEVICE_PROBE_PANIC_SENTINEL, probe)
+    ffi_boundary(PROBE_BRIDGE_FAILURE, move || bind_to_device_probe_entry(env))
 }
 
 #[unsafe(no_mangle)]
@@ -220,16 +213,4 @@ pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapRedactToFile(
     dest_fd: jint,
 ) -> jlong {
     ffi_boundary(0, move || tunnel_pcap_redact_entry(env, source_path, dest_fd))
-}
-
-#[cfg(test)]
-mod bind_to_device_probe_ffi_tests {
-    use super::*;
-
-    #[test]
-    fn outer_probe_panic_returns_distinct_negative_sentinel() {
-        let result = bind_to_device_probe_ffi_boundary(|| panic!("simulated outer JNI panic"));
-
-        assert_eq!(result, BIND_TO_DEVICE_PROBE_PANIC_SENTINEL);
-    }
 }

@@ -416,6 +416,18 @@ fn exported_jni_forwarding_evidence_panic_returns_null_without_exception() {
 }
 
 #[test]
+fn production_probe_panic_returns_bridge_failure_without_exception() {
+    let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
+
+    with_env(|env| {
+        let result = super::bind_to_device_probe::bind_to_device_probe_panic_entry_for_test(env_to_unowned(env));
+
+        assert_eq!(result, super::bind_to_device_probe::PROBE_BRIDGE_FAILURE);
+        assert_no_exception(env);
+    });
+}
+
+#[test]
 fn exported_jni_rejects_stale_handles_as_unknown() {
     let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
     let mut handle = TunnelHandle::new();

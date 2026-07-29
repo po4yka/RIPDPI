@@ -16,7 +16,7 @@ mod state_machine;
 mod stats;
 mod telemetry;
 
-pub(crate) use bind_to_device_probe::bind_to_device_probe_entry;
+pub(crate) use bind_to_device_probe::{PROBE_BRIDGE_FAILURE, bind_to_device_probe_entry};
 pub(crate) use entries::{
     tunnel_create_entry, tunnel_destroy_entry, tunnel_forwarding_evidence_entry, tunnel_icmp_ingress_packets_entry,
     tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry, tunnel_telemetry_entry,

@@ -4,6 +4,7 @@ use jni::Outcome;
 use jni::sys::jint;
 
 const PROBE_UNAVAILABLE: jint = 0;
+pub(crate) const PROBE_BRIDGE_FAILURE: jint = -1;
 #[cfg(any(target_os = "android", target_os = "linux", test))]
 const PROBE_SUPPORTED: jint = 1;
 #[cfg(any(target_os = "android", target_os = "linux", test))]
@@ -14,25 +15,30 @@ const PROBE_PERMISSION_DENIED: jint = 2;
 /// The socket is never connected and its interface name and errno remain inside
 /// this native frame. Kotlin receives only a categorical result.
 pub(crate) fn bind_to_device_probe_entry(mut env: EnvUnowned<'_>) -> jint {
-    match env.with_env(|_env| -> jni::errors::Result<jint> { Ok(probe_unprivileged_bind_to_device()) }).into_outcome() {
+    bind_to_device_probe_entry_with(&mut env, probe_unprivileged_bind_to_device)
+}
+
+fn bind_to_device_probe_entry_with(env: &mut EnvUnowned<'_>, probe: impl FnOnce() -> jint) -> jint {
+    match env.with_env(move |_env| -> jni::errors::Result<jint> { Ok(probe()) }).into_outcome() {
         Outcome::Ok(result) => result,
         Outcome::Err(err) => {
             log::error!("Unprivileged bind-to-device probe failed: {err}");
             throw_runtime_exception(
-                &mut env,
+                env,
                 sanitize_error_message(&err.to_string(), "Unprivileged bind-to-device probe failed"),
             );
             PROBE_UNAVAILABLE
         }
         Outcome::Panic(_) => {
             log::error!("Unprivileged bind-to-device probe panicked");
-            throw_runtime_exception(
-                &mut env,
-                sanitize_error_message("panic", "Unprivileged bind-to-device probe failed"),
-            );
-            PROBE_UNAVAILABLE
+            PROBE_BRIDGE_FAILURE
         }
     }
+}
+
+#[cfg(all(test, not(feature = "loom")))]
+pub(crate) fn bind_to_device_probe_panic_entry_for_test(mut env: EnvUnowned<'_>) -> jint {
+    bind_to_device_probe_entry_with(&mut env, || panic!("injected bind-to-device probe panic"))
 }
 
 #[cfg(any(target_os = "android", target_os = "linux"))]

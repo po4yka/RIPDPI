@@ -64,6 +64,11 @@ class SoBindToDeviceUidPolicyEligibilityTest {
     }
 
     @Test
+    fun `native panic sentinel maps to bridge failure`() {
+        assertEquals(BindToDeviceProbeOutcome.BridgeFailure, (-1).toProbeOutcome())
+    }
+
+    @Test
     fun `android 10 accepts kernel 5_7 when the probe is unavailable`() {
         val eligibility = eligibility(Build.VERSION_CODES.Q, "5.7.0-android", BindToDeviceProbeOutcome.Unavailable)
 

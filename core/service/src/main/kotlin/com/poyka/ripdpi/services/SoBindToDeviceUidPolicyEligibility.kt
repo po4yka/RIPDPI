@@ -140,7 +140,7 @@ private fun parseKernelVersion(release: String?): KernelVersion? =
         if (major != null && minor != null) KernelVersion(major, minor) else null
     }
 
-private fun Int.toProbeOutcome(): BindToDeviceProbeOutcome =
+internal fun Int.toProbeOutcome(): BindToDeviceProbeOutcome =
     when (this) {
         NativeProbeSupported -> BindToDeviceProbeOutcome.Supported
         NativeProbePermissionDenied -> BindToDeviceProbeOutcome.PermissionDenied
