@@ -236,7 +236,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         bridge = producer[
             producer.index("private class OrdinaryTun2SocksBridgeFactory") :
         ]
-        bridge = bridge[: bridge.index("private class OrdinaryFaultingProxyFactory")]
+        bridge = bridge[: bridge.index("class OrdinaryFaultingProxyFactory")]
         self.assertIn("completedStarts.get() > previousCount", bridge)
         self.assertIn("lastCompletedIpv6 == ipv6", bridge)
         start = bridge[bridge.index("override suspend fun start") :]
