@@ -78,6 +78,19 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
     def test_valid_receipt(self) -> None:
         self.validate(valid_receipt())
 
+    def test_valid_receipt_accepts_one_retained_startup_datagram(self) -> None:
+        receipt = valid_receipt()
+        receipt["facts"]["postReadyDnsEventCount"] = 2
+        self.validate(receipt)
+
+    def test_post_ready_dns_event_count_is_bounded(self) -> None:
+        for count in (0, 3):
+            with self.subTest(count=count):
+                receipt = valid_receipt()
+                receipt["facts"]["postReadyDnsEventCount"] = count
+                with self.assertRaisesRegex(module.ReceiptError, "postReadyDnsEventCount"):
+                    self.validate(receipt)
+
     def test_unknown_or_missing_fields_fail(self) -> None:
         missing = valid_receipt()
         del missing["facts"]

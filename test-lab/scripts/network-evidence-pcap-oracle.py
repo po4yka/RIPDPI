@@ -1236,6 +1236,7 @@ def _require_receipt_bound_dns(
     packets: list[Packet],
     fixture: FixtureContext,
     expected_query_sha256: str,
+    expected_exchange_count: int,
 ) -> tuple[bytes, set[int]]:
     queries: list[tuple[int, DnsPacketFacts, Packet]] = []
     responses: list[tuple[int, DnsPacketFacts, Packet]] = []
@@ -1287,15 +1288,25 @@ def _require_receipt_bound_dns(
         and query[2].destination_address == response[2].source_address
         and query[2].destination_port == response[2].source_port
     ]
-    if len(valid_pairs) != 1:
+    if len(valid_pairs) != expected_exchange_count:
         raise ValueError(
-            f"{role} must contain exactly one matching NOERROR post-ready fixture DNS query/response"
+            f"{role} must contain exactly {expected_exchange_count} matching NOERROR "
+            "post-ready fixture DNS query/response pair(s)"
         )
-    query, response = valid_pairs[0]
+    identities = [query[1].identity for query, _response in valid_pairs]
+    if len(identities) != len(set(identities)):
+        raise ValueError(f"{role} post-ready fixture DNS exchange identities repeat")
     proof = hashlib.sha256(
-        b"ripdpi:startup-dns-proof:v1:" + query[1].identity + fixture.dns_answer_address
+        b"ripdpi:startup-dns-proof:v2:"
+        + bytes((expected_exchange_count,))
+        + b"".join(sorted(identities))
+        + fixture.dns_answer_address
     ).digest()
-    return proof, {query[0], response[0]}
+    return proof, {
+        record_index
+        for query, response in valid_pairs
+        for record_index in (query[0], response[0])
+    }
 
 
 def _dns_evidence_query_sha256(labels: tuple[bytes, ...]) -> str:
@@ -2160,6 +2171,7 @@ def derive_observation(
     semantic_rules: dict[str, SemanticRule],
     fixture: FixtureContext | None,
     startup_query_sha256: str | None,
+    startup_exchange_count: int | None,
     dns_action_facts: dict[str, dict[str, Any]],
     fixture_transcript_proofs: dict[str, EncryptedDnsTranscriptProof],
 ) -> tuple[dict[str, Any], dict[str, bytes | EncryptedDnsRoleProof]]:
@@ -2206,11 +2218,14 @@ def derive_observation(
             raise ValueError("startup semantic rule requires a fixture manifest")
         if startup_query_sha256 is None:
             raise ValueError("startup semantic rule requires a bound DNS query digest")
+        if startup_exchange_count is None:
+            raise ValueError("startup semantic rule requires a bound DNS exchange count")
         proof, records = _require_receipt_bound_dns(
             role=role,
             packets=packets,
             fixture=fixture,
             expected_query_sha256=startup_query_sha256,
+            expected_exchange_count=startup_exchange_count,
         )
         start, finish = intervals[index]
         if any(record < start or record > finish for record in records):
@@ -2538,6 +2553,7 @@ def main() -> int:
         ]
         fixture: FixtureContext | None = None
         startup_query_sha256: str | None = None
+        startup_exchange_count: int | None = None
         dns_action_facts: dict[str, dict[str, Any]] = {}
         fixture_transcript_proofs: dict[str, EncryptedDnsTranscriptProof] = {}
         if action_rules:
@@ -2574,6 +2590,7 @@ def main() -> int:
                         SHA256_RE,
                         "receipt.facts.dnsQuerySha256",
                     )
+                    startup_exchange_count = action_facts["postReadyDnsEventCount"]
                 else:
                     dns_action_facts[action_rule.window_id] = action_facts
             transcript_rules = [
@@ -2648,6 +2665,7 @@ def main() -> int:
             semantic_rules=semantic_rules,
             fixture=fixture,
             startup_query_sha256=startup_query_sha256,
+            startup_exchange_count=startup_exchange_count,
             dns_action_facts=dns_action_facts,
             fixture_transcript_proofs=fixture_transcript_proofs,
         )
@@ -2661,6 +2679,7 @@ def main() -> int:
             semantic_rules=semantic_rules,
             fixture=fixture,
             startup_query_sha256=startup_query_sha256,
+            startup_exchange_count=startup_exchange_count,
             dns_action_facts=dns_action_facts,
             fixture_transcript_proofs=fixture_transcript_proofs,
         )

@@ -354,10 +354,10 @@ class VpnStartupWindowE2ETest {
                     fixtureEventsViaExcludedAppProcess().filter { event ->
                         event.service == "dns_udp" && event.protocol == "udp" && event.detail == queryHost
                     }
-                assertEquals(
-                    "Expected exactly one fixture DNS UDP event for $queryHost, got $correlatedEvents",
-                    1,
-                    correlatedEvents.size,
+                assertTrue(
+                    "Expected one post-ready fixture DNS UDP event, plus at most one retained " +
+                        "startup datagram for $queryHost, got $correlatedEvents",
+                    correlatedEvents.size in 1..2,
                 )
 
                 stopService(RipDpiVpnService::class.java)

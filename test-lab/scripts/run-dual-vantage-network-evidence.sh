@@ -162,6 +162,7 @@ if [[ "$snapshot_active" == false ]]; then
   snapshot_paths=(
     test-lab/scripts/run-dual-vantage-network-evidence.sh
     test-lab/scripts/network-evidence-pcap-oracle.py
+    scripts/ci/check_android_network_action_receipt.py
     scripts/ci/network_evidence_manifest.py
     scripts/ci/release_evidence_relaxations.py
     quality/release-gates/dns-ipv6-killswitch-gates.json
@@ -179,6 +180,7 @@ if [[ "$snapshot_active" == false ]]; then
   chmod 500 "$source_snapshot/test-lab/scripts/run-dual-vantage-network-evidence.sh"
   chmod 400 \
     "$source_snapshot/test-lab/scripts/network-evidence-pcap-oracle.py" \
+    "$source_snapshot/scripts/ci/check_android_network_action_receipt.py" \
     "$source_snapshot/scripts/ci/network_evidence_manifest.py" \
     "$source_snapshot/scripts/ci/release_evidence_relaxations.py" \
     "$source_snapshot/quality/release-gates/dns-ipv6-killswitch-gates.json" \
@@ -203,6 +205,7 @@ source_sha = sys.argv[3]
 paths = (
     "test-lab/scripts/run-dual-vantage-network-evidence.sh",
     "test-lab/scripts/network-evidence-pcap-oracle.py",
+    "scripts/ci/check_android_network_action_receipt.py",
     "scripts/ci/network_evidence_manifest.py",
     "scripts/ci/release_evidence_relaxations.py",
     "quality/release-gates/dns-ipv6-killswitch-gates.json",

@@ -394,7 +394,13 @@ def _validate_facts(gate_id: str, value: Any) -> dict[str, Any]:
                 raise ReceiptError(
                     "facts.startupWindowAssertionElapsedMs exceeded the fail-closed budget"
                 )
-            if (
+            if field == "postReadyDnsEventCount":
+                if actual_int not in (1, 2):
+                    raise ReceiptError(
+                        "facts.postReadyDnsEventCount must equal one successful query "
+                        "plus at most one retained startup datagram"
+                    )
+            elif (
                 field.endswith("Count")
                 and field != "underlayChangeCount"
                 and actual_int != example

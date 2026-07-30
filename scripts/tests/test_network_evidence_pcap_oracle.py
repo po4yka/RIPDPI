@@ -1993,6 +1993,52 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.assertFalse(self.client_output.exists())
         self.assertFalse(self.observer_output.exists())
 
+    def test_startup_rule_accepts_one_retained_startup_exchange(self) -> None:
+        ledger = self.write_startup_inputs()
+        for index, capture in enumerate((self.client_pcap, self.observer_pcap)):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            source_address = "192.0.2.10" if index == 0 else "203.0.113.77"
+            source_port = 20004 if index == 0 else 30004
+            query = ethernet_ipv4_udp(
+                dns_packet(transaction_id=0x5678),
+                source_port=source_port,
+                destination_port=FIXTURE_DNS_PORT,
+                source_address=source_address,
+            )
+            response = ethernet_ipv4_udp(
+                dns_packet(response=True, transaction_id=0x5678),
+                source_port=FIXTURE_DNS_PORT,
+                destination_port=source_port,
+                source_address=FIXTURE_ADDRESS,
+                destination_address=source_address,
+            )
+            retained_records = [
+                struct.pack("<IIII", 100, 220_000, len(query), len(query)) + query,
+                struct.pack("<IIII", 100, 230_000, len(response), len(response))
+                + response,
+            ]
+            capture.write_bytes(
+                raw[:24]
+                + b"".join(records[:-1] + retained_records + records[-1:])
+            )
+
+        receipt = json.loads(self.action_receipt.read_text(encoding="utf-8"))
+        receipt["facts"]["postReadyDnsEventCount"] = 2
+        receipt_raw = canonical(receipt)
+        self.action_receipt.write_bytes(receipt_raw)
+        ledger["semanticRules"][0]["actionReceiptSha256"] = hashlib.sha256(
+            receipt_raw
+        ).hexdigest()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for output in (self.client_output, self.observer_output):
+            window = json.loads(output.read_text(encoding="utf-8"))["windows"][0]
+            self.assertEqual(window["unexpectedPacketCount"], 0)
+
     def test_startup_rule_rejects_nxdomain_without_fixture_answer(self) -> None:
         self.write_startup_inputs()
         for index, capture in enumerate((self.client_pcap, self.observer_pcap)):
