@@ -73,6 +73,31 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         )
         self.temp.cleanup()
 
+    @contextlib.contextmanager
+    def tightened(self, *withheld: str):
+        """Run the block with ``withheld`` relaxations removed from the policy."""
+        relaxations = gates.network_evidence_manifest.release_evidence_relaxations
+        original = relaxations.POLICY_PATH
+        policy = json.loads(original.read_text(encoding="utf-8"))
+        block = policy.setdefault("relaxedEvidenceRequirements", {})
+        declared = block.get("requirements", [])
+        remaining = [item for item in declared if item not in withheld]
+        self.assertEqual(
+            len(remaining) + len(withheld),
+            len(declared),
+            "withheld relaxation is not declared by the shipped policy",
+        )
+        block["requirements"] = remaining
+        tightened_path = (
+            Path(self.temp.name) / "tightened-dns-ipv6-killswitch-gates.json"
+        )
+        tightened_path.write_text(json.dumps(policy), encoding="utf-8")
+        relaxations.POLICY_PATH = tightened_path
+        try:
+            yield
+        finally:
+            relaxations.POLICY_PATH = original
+
     def results_document(self, *, source_sha: str = "a" * 40) -> dict:
         return {
             "version": "dns_ipv6_killswitch_results_v1",
@@ -651,19 +676,28 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             self.original_action_registry_path
         )
 
-        with self.assertRaisesRegex(ValueError, "not production ready"):
-            gates.main(
-                [
-                    "--results",
-                    str(results_path),
-                    "--evidence-manifest",
-                    str(manifest_path),
-                    "--applies-to",
-                    "android-client-release",
-                    "--expected-source-sha",
-                    "a" * 40,
-                ]
-            )
+        argv = [
+            "--results",
+            str(results_path),
+            "--evidence-manifest",
+            str(manifest_path),
+            "--applies-to",
+            "android-client-release",
+            "--expected-source-sha",
+            "a" * 40,
+        ]
+
+        with self.tightened("android-action-selector-receipt"):
+            with self.assertRaisesRegex(ValueError, "not production ready"):
+                gates.main(argv)
+
+        # Relaxed, unready actions no longer block. The hand-authored all-PASS
+        # document is still refused, by the semantic-provenance guard that the
+        # relaxations deliberately leave in place.
+        with self.assertRaisesRegex(
+            ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
+        ):
+            gates.main(argv)
 
     def test_release_checker_rejects_unapproved_manifest_producers(self) -> None:
         root = Path(self.temp.name) / "unapproved-release"
@@ -686,19 +720,27 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             )
         )
         gates.network_evidence_manifest.write_canonical_json(manifest_path, manifest)
-        with self.assertRaisesRegex(ValueError, "digest is not approved"):
-            gates.main(
-                [
-                    "--results",
-                    str(results_path),
-                    "--evidence-manifest",
-                    str(manifest_path),
-                    "--applies-to",
-                    "android-client-release",
-                    "--expected-source-sha",
-                    "a" * 40,
-                ]
-            )
+        argv = [
+            "--results",
+            str(results_path),
+            "--evidence-manifest",
+            str(manifest_path),
+            "--applies-to",
+            "android-client-release",
+            "--expected-source-sha",
+            "a" * 40,
+        ]
+
+        with self.tightened("producer-collector-workload-allowlist"):
+            with self.assertRaisesRegex(ValueError, "digest is not approved"):
+                gates.main(argv)
+
+        # Relaxed, an empty producer allowlist no longer blocks. The remaining
+        # semantic-provenance guard still refuses the hand-authored all-PASS.
+        with self.assertRaisesRegex(
+            ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
+        ):
+            gates.main(argv)
 
     def test_main_accepts_all_19_fleet_gates_from_ordinary_results(self) -> None:
         fleet_ids = gates.applicable_gate_ids(

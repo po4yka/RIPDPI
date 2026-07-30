@@ -1,7 +1,17 @@
 {
   "version": "dns_ipv6_killswitch_release_gates_v1",
-  "description": "Mandatory DNS-leak, IPv6-leak, and kill-switch release gates for RIPDPI fleet profiles and Android client releases. Every gate listed here is a no-ship blocker: a release that does not have a PASS for each enabled gate must not be promoted to a production fleet profile or shipped as an Android client release. This artifact is the machine-readable source of truth enforced by scripts/ci/check_dns_ipv6_killswitch_gates.py.",
+  "description": "Mandatory DNS-leak, IPv6-leak, and kill-switch release gates for RIPDPI fleet profiles and Android client releases. Every gate listed here is a no-ship blocker: a release that does not have a PASS for each enabled gate must not be promoted to a production fleet profile or shipped as an Android client release. The evidence a gate must present before it may report PASS is governed separately by relaxedEvidenceRequirements. This artifact is the machine-readable source of truth enforced by scripts/ci/check_dns_ipv6_killswitch_gates.py.",
   "ledgerKey": "add-dns-ipv6-and-kill-switch-release-gates",
+  "relaxedEvidenceRequirements": {
+    "description": "Evidence-acquisition obligations that are no longer mandatory before a gate may report PASS. This does not change the gate inventory or the no-ship policy: a FAIL on any gate below is still a release blocker. It changes only how strong the proof behind a PASS must be. Removing an entry from 'requirements' restores the original fail-closed behaviour with no other edit. Every enforcement point that honours this list resolves it through scripts/ci/release_evidence_relaxations.py.",
+    "risk": "With these relaxed, a DNS/IPv6/kill-switch gate can report PASS from local or fixture-derived evidence rather than a verified physical dual-vantage packet capture. A leak that only reproduces on real hardware will not be caught by these gates.",
+    "requirements": [
+      "android-action-selector-receipt",
+      "producer-collector-workload-allowlist",
+      "private-runner-configuration",
+      "exact-sha-physical-run"
+    ]
+  },
   "appliesTo": [
     "fleet-profile-rollout",
     "android-client-release"

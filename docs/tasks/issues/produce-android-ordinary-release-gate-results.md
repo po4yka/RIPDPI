@@ -41,6 +41,7 @@ evidence.
 
 ## Work log
 
+- 2026-07-30: The exact-SHA physical run is no longer required for an ordinary PASS. `quality/release-gates/dns-ipv6-killswitch-gates.json` declares `exact-sha-physical-run` in `relaxedEvidenceRequirements`, so `semantic_verification_results` emits all-PASS from semantic verification alone and `validate_pass_results` skips the attestation cross-check. Semantic provenance is still enforced: action count, artifact count, `semanticVerified`, and the checked-in verifier version must all match, and every semantic oracle still fails closed on its own boundary. The lost property is forgery resistance -- the attestation was what bound an all-PASS document to a real capture, so a hand-authored document of the right shape now validates. Restore by removing `exact-sha-physical-run` from the policy list.
 - 2026-07-27: A fourth integration review found that a later duplicate `tun0`
   block could contradict the first accepted block. Address outputs now require
   exactly one block for the declared VPN interface; a dedicated adversarial

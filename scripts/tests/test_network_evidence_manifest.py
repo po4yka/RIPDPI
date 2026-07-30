@@ -79,6 +79,34 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         evidence.PRODUCER_POLICY_PATH = self.original_producer_policy_path
         self.temp.cleanup()
 
+    @contextlib.contextmanager
+    def tightened(self, *withheld: str):
+        """Run the block with ``withheld`` relaxations removed from the policy.
+
+        Proves the fail-closed path is intact and one policy edit away, rather
+        than deleted outright.
+        """
+        relaxations = evidence.release_evidence_relaxations
+        original = relaxations.POLICY_PATH
+        policy = json.loads(original.read_text(encoding="utf-8"))
+        block = policy.setdefault("relaxedEvidenceRequirements", {})
+        remaining = [
+            item for item in block.get("requirements", []) if item not in withheld
+        ]
+        self.assertEqual(
+            len(remaining) + len(withheld),
+            len(block.get("requirements", [])),
+            "withheld relaxation is not declared by the shipped policy",
+        )
+        block["requirements"] = remaining
+        tightened_path = self.root / "tightened-dns-ipv6-killswitch-gates.json"
+        tightened_path.write_text(json.dumps(policy), encoding="utf-8")
+        relaxations.POLICY_PATH = tightened_path
+        try:
+            yield
+        finally:
+            relaxations.POLICY_PATH = original
+
     @staticmethod
     def kind_for(gate_id: str) -> str:
         if gate_id.startswith("dns-") or gate_id.startswith("synthetic-"):
@@ -635,11 +663,15 @@ fi
         second = evidence.canonical_json_bytes(self.assemble())
         self.assertEqual(first, second)
 
-    def test_validator_rejects_unapproved_manifest_producers(self) -> None:
+    def test_validator_accepts_unapproved_producers_while_allowlist_is_relaxed(
+        self,
+    ) -> None:
         manifest = self.assemble()
         manifest["provenance"]["workloadSha256"] = "a" * 64
-        with self.assertRaisesRegex(ValueError, "workload digest is not approved"):
-            self.validate(manifest)
+        self.validate(manifest)
+        with self.tightened("producer-collector-workload-allowlist"):
+            with self.assertRaisesRegex(ValueError, "workload digest is not approved"):
+                self.validate(manifest)
 
     def test_assembler_rejects_observation_test_artifact_mismatch(self) -> None:
         observer = self.observation("external-observer")
@@ -658,7 +690,7 @@ fi
                 applies_to="android-client-release",
             )
 
-    def test_assembler_rejects_empty_producer_allowlist(self) -> None:
+    def test_assembler_accepts_empty_producer_allowlist_while_relaxed(self) -> None:
         evidence.write_canonical_json(
             evidence.PRODUCER_POLICY_PATH,
             {
@@ -668,7 +700,22 @@ fi
                 "workloadSha256": [],
             },
         )
-        with self.assertRaisesRegex(ValueError, "digest is not approved"):
+        self.assemble()
+        with self.tightened("producer-collector-workload-allowlist"):
+            with self.assertRaisesRegex(ValueError, "digest is not approved"):
+                self.assemble()
+
+    def test_malformed_producer_allowlist_still_fails_while_relaxed(self) -> None:
+        evidence.write_canonical_json(
+            evidence.PRODUCER_POLICY_PATH,
+            {
+                "version": "network_evidence_producers_v3",
+                "clientCollectorSha256": ["not-a-digest"],
+                "observerCollectorSha256": [],
+                "workloadSha256": [],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "clientCollectorSha256"):
             self.assemble()
 
     def test_repo_schema_pins_manifest_and_observation_versions(self) -> None:
@@ -1001,19 +1048,24 @@ fi
                 require_pass=True,
             )
 
-    def test_all_pass_manifest_is_not_releasable_with_unready_actions(self) -> None:
+    def test_all_pass_manifest_is_releasable_with_unready_actions_while_relaxed(
+        self,
+    ) -> None:
         manifest = self.assemble()
+        kwargs = {
+            "artifact_root": self.root,
+            "expected_source_sha": self.source_sha,
+            "applies_to": "android-client-release",
+            "current_epoch": self.finished_at + 4,
+            "max_age_seconds": 300,
+            "require_pass": True,
+        }
 
-        with self.assertRaisesRegex(ValueError, "not production ready"):
-            evidence.validate_manifest(
-                manifest,
-                artifact_root=self.root,
-                expected_source_sha=self.source_sha,
-                applies_to="android-client-release",
-                current_epoch=self.finished_at + 4,
-                max_age_seconds=300,
-                require_pass=True,
-            )
+        evidence.validate_manifest(manifest, **kwargs)
+
+        with self.tightened("android-action-selector-receipt"):
+            with self.assertRaisesRegex(ValueError, "not production ready"):
+                evidence.validate_manifest(manifest, **kwargs)
 
     def test_unready_action_override_allows_synthetic_test_bundle(self) -> None:
         manifest = self.assemble()

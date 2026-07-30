@@ -178,6 +178,30 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
         return status, json.loads(output.read_text(encoding="utf-8"))
 
+    @contextlib.contextmanager
+    def tightened(self, *withheld: str):
+        """Run the block with ``withheld`` relaxations removed from the policy."""
+        relaxations = producer.release_evidence_relaxations
+        original = relaxations.POLICY_PATH
+        policy = json.loads(original.read_text(encoding="utf-8"))
+        block = policy.setdefault("relaxedEvidenceRequirements", {})
+        declared = block.get("requirements", [])
+        remaining = [item for item in declared if item not in withheld]
+        self.assertEqual(
+            len(remaining) + len(withheld),
+            len(declared),
+            "withheld relaxation is not declared by the shipped policy",
+        )
+        block["requirements"] = remaining
+        with tempfile.TemporaryDirectory() as temporary:
+            tightened_path = Path(temporary) / "tightened-policy.json"
+            tightened_path.write_text(json.dumps(policy), encoding="utf-8")
+            relaxations.POLICY_PATH = tightened_path
+            try:
+                yield
+            finally:
+                relaxations.POLICY_PATH = original
+
     def assert_semantic_failure(self, mutation, expected_code: str) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -212,7 +236,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             offset += 16 + included
         return bytes(shifted)
 
-    def test_all_seven_oracles_derive_proofs_but_public_producer_stays_fail_closed(
+    def test_all_seven_oracles_derive_proofs_and_pass_without_physical_attestation(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -221,7 +245,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             status, results = self.run_producer(
                 directory, manifest_path, app_apk, test_apk
             )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             self.assertTrue(producer.SOURCE_OWNED_VERIFIER_AVAILABLE)
             self.assertTrue(producer.SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE)
             self.assertEqual(
@@ -229,11 +253,13 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
             self.assertTrue(
                 all(
-                    value["state"] == "FAIL"
-                    and producer.PRODUCER_ATTESTATION_CODE in value["reason"]
+                    value == {"state": "PASS"}
                     for value in results["gateResults"].values()
                 )
             )
+            # No physical run happened, so no attestation is attached. Semantic
+            # verification is the whole proof behind this PASS.
+            self.assertNotIn("producerAttestation", results)
             self.assertEqual(
                 gates.validate_results_document(
                     gates.load_json(gates.POLICY_PATH),
@@ -244,13 +270,33 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 results,
             )
             provenance = results["rawBundleProvenance"]
-            self.assertFalse(provenance["productionReady"])
+            self.assertTrue(provenance["productionReady"])
             self.assertTrue(provenance["semanticVerified"])
             self.assertEqual(provenance["verifier"], oracles.VERIFIER_VERSION)
             self.assertEqual(
                 set(provenance["actionProofs"]),
                 {spec.action_id for spec in raw_evidence.ACTION_SPECS},
             )
+
+    def test_public_producer_stays_fail_closed_when_physical_run_is_required(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, _ = self.create_bundle(directory)
+            with self.tightened("exact-sha-physical-run"):
+                status, results = self.run_producer(
+                    directory, manifest_path, app_apk, test_apk
+                )
+            self.assertEqual(status, 1)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL"
+                    and producer.PRODUCER_ATTESTATION_CODE in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+            self.assertFalse(results["rawBundleProvenance"]["productionReady"])
 
     def test_one_bounded_capture_clock_offset_is_applied_to_all_actions(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -269,7 +315,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             status, results = self.run_producer(
                 directory, manifest_path, app_apk, test_apk
             )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
             self.assertEqual(
                 results["rawBundleProvenance"]["verifier"],
@@ -306,7 +352,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             status, results = self.run_producer(
                 directory, manifest_path, app_apk, test_apk
             )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
 
     def test_each_action_oracle_fails_closed_on_its_semantic_boundary(self) -> None:
@@ -424,7 +470,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             status, results = self.run_producer(
                 directory, manifest_path, app_apk, test_apk
             )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
 
     def test_permission_revoke_requires_ignore_mode_dual_stack_and_tunnel_activity(self) -> None:
@@ -500,11 +546,11 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 directory, manifest_path, app_apk, test_apk
             )
 
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
             self.assertTrue(
                 all(
-                    producer.PRODUCER_ATTESTATION_CODE in value["reason"]
+                    value == {"state": "PASS"}
                     for value in results["gateResults"].values()
                 )
             )
@@ -574,7 +620,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 directory, manifest_path, app_apk, test_apk
             )
 
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
 
     def test_ipv4_only_oracle_rejects_ipv6_address_dns_connect_and_aaaa_leaks(
@@ -1283,23 +1329,57 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
         self.assert_semantic_failure(duplicate, "SEMANTIC_MARKER_MISMATCH")
         self.assert_semantic_failure(truncated, "SEMANTIC_PCAP_TRUNCATED")
 
-    def test_forged_pass_provenance_is_rejected(self) -> None:
+    def test_forged_pass_provenance_is_rejected_only_while_attestation_is_required(
+        self,
+    ) -> None:
+        """Relaxing the physical run removes the anti-forgery binding.
+
+        The attestation was what tied an all-PASS document to a real capture.
+        Without it, a hand-authored document of the right shape is
+        indistinguishable from a genuine one, so this test records the loss
+        rather than pretending the protection survives.
+        """
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             manifest_path, app_apk, test_apk, _ = self.create_bundle(directory)
             status, results = self.run_producer(
                 directory, manifest_path, app_apk, test_apk
             )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
+
             forged = copy.deepcopy(results)
             forged["gateResults"] = {
                 gate_id: {"state": "PASS"} for gate_id in producer.ORDINARY_GATE_IDS
             }
             forged["rawBundleProvenance"]["productionReady"] = True
-            with self.assertRaisesRegex(
-                producer.EvidenceError, producer.PRODUCER_ATTESTATION_CODE
+
+            producer.validate_pass_results(forged)
+
+            with self.tightened("exact-sha-physical-run"):
+                with self.assertRaisesRegex(
+                    producer.EvidenceError, producer.PRODUCER_ATTESTATION_CODE
+                ):
+                    producer.validate_pass_results(forged)
+
+    def test_semantic_provenance_is_still_required_for_pass(self) -> None:
+        """The relaxation drops the physical run, not the semantic oracles."""
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, _ = self.create_bundle(directory)
+            _, results = self.run_producer(
+                directory, manifest_path, app_apk, test_apk
+            )
+            for field, value in (
+                ("semanticVerified", False),
+                ("actionCount", 6),
+                ("artifactCount", 20),
+                ("verifier", "not_the_checked_in_verifier"),
             ):
-                producer.validate_pass_results(forged)
+                with self.subTest(field=field):
+                    tampered = copy.deepcopy(results)
+                    tampered["rawBundleProvenance"][field] = value
+                    with self.assertRaises(producer.EvidenceError):
+                        producer.validate_pass_results(tampered)
 
 
 if __name__ == "__main__":

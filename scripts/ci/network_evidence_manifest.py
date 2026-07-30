@@ -20,6 +20,13 @@ from pathlib import Path
 from typing import Any
 
 
+CI_DIR = Path(__file__).resolve().parent
+if str(CI_DIR) not in sys.path:
+    sys.path.insert(0, str(CI_DIR))
+
+import release_evidence_relaxations  # noqa: E402
+
+
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 PRODUCER_POLICY_PATH = ROOT / "quality/release-gates/network-evidence-producers.json"
@@ -226,7 +233,10 @@ def enforce_producer_policy(
     observer_collector_sha256: str,
     workload_sha256: str,
 ) -> None:
+    # Still parsed so a malformed policy fails loudly even when unenforced.
     policy = load_producer_policy()
+    if release_evidence_relaxations.is_relaxed("producer-collector-workload-allowlist"):
+        return
     memberships = (
         (client_collector_sha256, "clientCollectorSha256", "client collector"),
         (observer_collector_sha256, "observerCollectorSha256", "observer collector"),
@@ -289,6 +299,12 @@ def expected_kind(gate_id: str) -> str:
 
 def require_production_ready_actions(*, applies_to: str) -> None:
     if applies_to != "android-client-release":
+        return
+    # The registry keeps reporting productionReady=false for actions whose
+    # instrumentation selector does not exist yet; the relaxation only stops
+    # that from blocking the release, it does not make the registry claim
+    # otherwise.
+    if release_evidence_relaxations.is_relaxed("android-action-selector-receipt"):
         return
     registry = json.loads(ACTION_REGISTRY_PATH.read_text(encoding="utf-8"))
     actions = registry.get("actions") if isinstance(registry, dict) else None

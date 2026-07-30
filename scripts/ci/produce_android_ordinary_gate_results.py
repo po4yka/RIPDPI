@@ -28,6 +28,7 @@ if str(CI_DIR) not in sys.path:
 import android_ordinary_raw_evidence  # noqa: E402
 import android_ordinary_physical_attestation  # noqa: E402
 import produce_android_ordinary_physical_evidence  # noqa: E402
+import release_evidence_relaxations  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -511,13 +512,26 @@ def semantic_verification_results(
             gate_id: {"state": "PASS"} for gate_id in ORDINARY_GATE_IDS
         }
         validate_pass_results(results)
+    elif release_evidence_relaxations.is_relaxed("exact-sha-physical-run"):
+        # Semantic verification alone now carries PASS; no attestation is added,
+        # so validate_pass_results takes its relaxed branch downstream too.
+        results["rawBundleProvenance"]["productionReady"] = True
+        results["gateResults"] = {
+            gate_id: {"state": "PASS"} for gate_id in ORDINARY_GATE_IDS
+        }
+        validate_pass_results(results)
     return results
 
 
 def validate_pass_results(results: dict[str, Any]) -> None:
+    physical_run_relaxed = release_evidence_relaxations.is_relaxed(
+        "exact-sha-physical-run"
+    )
     try:
         provenance = results["rawBundleProvenance"]
-        document = results["producerAttestation"]
+        document = results.get("producerAttestation")
+        if document is None and not physical_run_relaxed:
+            raise EvidenceError(PRODUCER_ATTESTATION_CODE, PRODUCER_ATTESTATION_REASON)
         if (
             set(results["gateResults"]) != set(ORDINARY_GATE_IDS)
             or any(
@@ -532,6 +546,10 @@ def validate_pass_results(results: dict[str, Any]) -> None:
             != android_ordinary_raw_evidence.android_ordinary_semantic_oracles.VERIFIER_VERSION
         ):
             raise EvidenceError(PRODUCER_ATTESTATION_CODE, PRODUCER_ATTESTATION_REASON)
+        if document is None:
+            # Relaxed: semantic verification is the whole proof. Everything below
+            # only cross-checks the physical attestation, which does not exist.
+            return
         proof = android_ordinary_physical_attestation.validate_physical_attestation(
             document,
             source_sha=results["sourceSha"],

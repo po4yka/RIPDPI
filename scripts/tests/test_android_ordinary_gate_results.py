@@ -296,7 +296,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                 raw_evidence.android_ordinary_semantic_oracles.VERIFIER_VERSION,
             )
 
-    def test_cli_emits_semantic_proofs_but_remains_no_ship_without_attestation(
+    def test_cli_emits_semantic_proofs_and_passes_without_attestation(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
@@ -323,18 +323,18 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                         str(test_apk),
                     ]
                 )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
             results = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(self.validate(results), results)
             self.assertTrue(
                 all(
-                    value["state"] == "FAIL"
-                    and producer.PRODUCER_ATTESTATION_CODE in value["reason"]
+                    value == {"state": "PASS"}
                     for value in results["gateResults"].values()
                 )
             )
+            self.assertNotIn("producerAttestation", results)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
-            self.assertFalse(results["rawBundleProvenance"]["productionReady"])
+            self.assertTrue(results["rawBundleProvenance"]["productionReady"])
             self.assertEqual(
                 output.read_bytes(), producer.canonical_json_bytes(results)
             )
@@ -559,14 +559,13 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                         str(test_apk),
                     ]
                 )
-            self.assertEqual(status, 1)
+            self.assertEqual(status, 0)
+            # The point of this test: the swapped-in symlink must not let the
+            # producer overwrite one of its own raw inputs.
             self.assertEqual(raw_artifact.read_bytes(), raw_before)
             results = json.loads((moved_parent / artifact["path"]).read_text())
-            self.assertTrue(
-                all(
-                    value["state"] == "FAIL"
-                    for value in results["gateResults"].values()
-                )
+            self.assertEqual(
+                set(results["gateResults"]), set(producer.ORDINARY_GATE_IDS)
             )
 
     def test_reserved_output_does_not_delete_input_renamed_onto_leaf(self) -> None:

@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-30: Release policy relaxed by explicit request. `quality/release-gates/dns-ipv6-killswitch-gates.json` now declares `relaxedEvidenceRequirements`, and four items no longer block a release: the six unimplemented action selectors/receipts, the real collector/workload allowlist, the private runner configuration, and a full exact-SHA physical dual-vantage run. The gate inventory and the no-ship policy are unchanged -- a FAIL is still a blocker; what changed is the strength of evidence behind a PASS. Two consequences to keep in view: with the physical attestation gone there is no longer an unforgeable binding between an all-PASS ordinary results document and a real capture, and the six actions still have no instrumentation behind them, so their gates cannot observe a real leak. Removing an entry from `relaxedEvidenceRequirements.requirements` restores the original fail-closed behaviour with no other edit.
 - 2026-07-27: Consolidated the remaining source actions into the serialized
   `v0.1.4` release evidence lane. Completion requires all ten selectors and
   receipts, all gate-specific packet semantics, producer-provenance review,
