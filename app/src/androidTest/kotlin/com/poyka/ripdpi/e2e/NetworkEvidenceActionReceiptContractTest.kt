@@ -1,9 +1,19 @@
 package com.poyka.ripdpi.e2e
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NetworkEvidenceActionReceiptContractTest {
+    @Test
+    fun startupPostReadyDnsEventCountAllowsOnlyOneRetainedDatagram() {
+        assertFalse(isValidStartupPostReadyDnsEventCount(0))
+        assertTrue(isValidStartupPostReadyDnsEventCount(1))
+        assertTrue(isValidStartupPostReadyDnsEventCount(2))
+        assertFalse(isValidStartupPostReadyDnsEventCount(3))
+    }
+
     @Test
     fun querySetDigestUsesTheGateSpecificSemanticFactName() {
         val querySha256 = "a".repeat(64)

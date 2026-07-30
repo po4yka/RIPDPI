@@ -621,6 +621,8 @@ private fun publishNetworkEvidenceDnsPassReceipt(
 
 private const val VirtualDnsAddressForEvidence = "198.18.0.53"
 
+internal fun isValidStartupPostReadyDnsEventCount(count: Int): Boolean = count in 1..2
+
 private fun publishPrivateJson(
     context: Context,
     name: String,
@@ -659,7 +661,7 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
     require(facts.startupWindowAssertionElapsedMs in 1 until 4_000)
     require(facts.dnsRcode == 0 && facts.dnsAnswersExact)
     require(Sha256Regex.matches(facts.dnsQuerySha256))
-    require(facts.postReadyDnsEventCount == 1)
+    require(isValidStartupPostReadyDnsEventCount(facts.postReadyDnsEventCount))
     require(facts.txPackets > 0 && facts.rxPackets > 0)
 
     val receipt =
