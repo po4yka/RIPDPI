@@ -161,6 +161,7 @@ if [[ "$snapshot_active" == false ]]; then
   chmod 700 "$source_snapshot"
   snapshot_paths=(
     test-lab/scripts/run-dual-vantage-network-evidence.sh
+    test-lab/scripts/network-evidence-pcap-oracle.py
     scripts/ci/network_evidence_manifest.py
     scripts/ci/release_evidence_relaxations.py
     quality/release-gates/dns-ipv6-killswitch-gates.json
@@ -177,6 +178,7 @@ if [[ "$snapshot_active" == false ]]; then
   done
   chmod 500 "$source_snapshot/test-lab/scripts/run-dual-vantage-network-evidence.sh"
   chmod 400 \
+    "$source_snapshot/test-lab/scripts/network-evidence-pcap-oracle.py" \
     "$source_snapshot/scripts/ci/network_evidence_manifest.py" \
     "$source_snapshot/scripts/ci/release_evidence_relaxations.py" \
     "$source_snapshot/quality/release-gates/dns-ipv6-killswitch-gates.json" \
@@ -200,6 +202,7 @@ source_root = Path(sys.argv[2])
 source_sha = sys.argv[3]
 paths = (
     "test-lab/scripts/run-dual-vantage-network-evidence.sh",
+    "test-lab/scripts/network-evidence-pcap-oracle.py",
     "scripts/ci/network_evidence_manifest.py",
     "scripts/ci/release_evidence_relaxations.py",
     "quality/release-gates/dns-ipv6-killswitch-gates.json",
@@ -643,6 +646,17 @@ print(",".join(gate_ids))
 PY
 )"
 export RIPDPI_EVIDENCE_GATE_IDS
+
+# Hooks are copied into scratch and executed in isolation, so they cannot import
+# a sibling module. The oracle is handed over as the snapshot copy, which came
+# from `git show` at the exact source SHA and is mode 400 for the whole run --
+# a hook cannot silently substitute a different derivation of the counters.
+RIPDPI_EVIDENCE_ORACLE="$repo_root/test-lab/scripts/network-evidence-pcap-oracle.py"
+[[ -f "$RIPDPI_EVIDENCE_ORACLE" ]] || {
+  echo "source-bound pcap oracle is missing from the snapshot" >&2
+  exit 2
+}
+export RIPDPI_EVIDENCE_ORACLE
 
 python3 -c 'import os, sys; os.setsid(); os.execv(sys.argv[1], sys.argv[1:])' "$client_hook" \
   "$correlation_id" "$source_sha" "$client_ready" "$stop_file" "$plan_path" "$client_observation" \
