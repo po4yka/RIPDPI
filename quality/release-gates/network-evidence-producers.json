@@ -1,6 +1,12 @@
 {
   "version": "network_evidence_producers_v3",
-  "clientCollectorSha256": [],
-  "observerCollectorSha256": [],
-  "workloadSha256": []
+  "clientCollectorSha256": [
+    "e498bf0b2a22fcba6e66d6f770a0d13320ddb37e0943b0052bbeb67c99947d6d"
+  ],
+  "observerCollectorSha256": [
+    "e498bf0b2a22fcba6e66d6f770a0d13320ddb37e0943b0052bbeb67c99947d6d"
+  ],
+  "workloadSha256": [
+    "c888566190465f9e7303db9673a7a7e718e7e276fae78eedfa2d0e694230852b"
+  ]
 }

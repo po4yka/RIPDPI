@@ -658,6 +658,16 @@ RIPDPI_EVIDENCE_ORACLE="$repo_root/test-lab/scripts/network-evidence-pcap-oracle
 }
 export RIPDPI_EVIDENCE_ORACLE
 
+# The workload resolves each gate's selector, kind, and semantic rule from the
+# registry, so it must read the snapshot copy rather than whatever happens to be
+# in the working tree.
+RIPDPI_EVIDENCE_ACTION_REGISTRY="$repo_root/quality/release-gates/android-network-evidence-actions.json"
+[[ -f "$RIPDPI_EVIDENCE_ACTION_REGISTRY" ]] || {
+  echo "source-bound action registry is missing from the snapshot" >&2
+  exit 2
+}
+export RIPDPI_EVIDENCE_ACTION_REGISTRY
+
 python3 -c 'import os, sys; os.setsid(); os.execv(sys.argv[1], sys.argv[1:])' "$client_hook" \
   "$correlation_id" "$source_sha" "$client_ready" "$stop_file" "$plan_path" "$client_observation" \
   >/dev/null 2>&1 &
