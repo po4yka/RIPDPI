@@ -58,6 +58,11 @@ TEST_RUNNER = "com.poyka.ripdpi.HiltTestRunner"
 INSTRUMENTATION_TIMEOUT_SECONDS = 420
 ADB_TIMEOUT_SECONDS = 120
 EXACT_ONE_TEST_RESULT = re.compile(r"^OK \(1 test\)$", re.MULTILINE)
+SOURCE_OWNED_TRANSCRIPT_RULES = {
+    "virtual-vpn-resolver-v1",
+    "proxied-domain-resolver-path-v1",
+    "encrypted-outage-fail-closed-v1",
+}
 
 
 class WorkloadError(RuntimeError):
@@ -221,10 +226,12 @@ def run_gate(
     receipts.mkdir(mode=0o700, exist_ok=True)
     if not device.pull_app_file(receipt_file, receipts / receipt_file):
         raise WorkloadError(f"{gate_id} passed but wrote no action receipt")
-    transcripts = shared / "fixture-transcripts"
-    transcripts.mkdir(mode=0o700, exist_ok=True)
-    transcript_name = f"network-evidence-fixture-transcript-{gate_id}.json"
-    device.pull_app_file(transcript_name, transcripts / transcript_name)
+    if descriptor["semanticRule"] in SOURCE_OWNED_TRANSCRIPT_RULES:
+        transcripts = shared / "fixture-transcripts"
+        transcripts.mkdir(mode=0o700, exist_ok=True)
+        transcript_name = f"network-evidence-fixture-transcript-{gate_id}.json"
+        if not device.pull_app_file(transcript_name, transcripts / transcript_name):
+            raise WorkloadError(f"{gate_id} passed but wrote no fixture transcript")
 
     if finished <= started:
         # The oracle requires a positive duration; a sub-second window means the

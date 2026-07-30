@@ -29,6 +29,10 @@ COLLECTOR_SPEC = importlib.util.spec_from_file_location("emulator_collector", CO
 assert COLLECTOR_SPEC is not None and COLLECTOR_SPEC.loader is not None
 collector_module = importlib.util.module_from_spec(COLLECTOR_SPEC)
 COLLECTOR_SPEC.loader.exec_module(collector_module)
+WORKLOAD_SPEC = importlib.util.spec_from_file_location("emulator_workload", WORKLOAD)
+assert WORKLOAD_SPEC is not None and WORKLOAD_SPEC.loader is not None
+workload_module = importlib.util.module_from_spec(WORKLOAD_SPEC)
+WORKLOAD_SPEC.loader.exec_module(workload_module)
 
 
 def digest(path: Path) -> str:
@@ -59,6 +63,12 @@ class ProducerAllowlistTest(unittest.TestCase):
 
 
 class CollectorArtifactOrderingTest(unittest.TestCase):
+    def test_collector_and_workload_agree_on_transcript_rules(self) -> None:
+        self.assertEqual(
+            collector_module.SOURCE_OWNED_TRANSCRIPT_RULES,
+            workload_module.SOURCE_OWNED_TRANSCRIPT_RULES,
+        )
+
     def setUp(self) -> None:
         self.plan = {
             "windows": [
