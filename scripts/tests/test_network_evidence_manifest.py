@@ -620,7 +620,7 @@ fi
         manifest = self.assemble()
         result = self.validate(manifest)
 
-        self.assertEqual(len(self.gate_ids), 10)
+        self.assertEqual(len(self.gate_ids), 8)
         self.assertIn("dns-virtual-vpn-resolver", self.gate_ids)
         self.assertIn("killswitch-tun-establish-native-ready", self.gate_ids)
         self.assertEqual(
@@ -689,6 +689,38 @@ fi
                 expected_test_artifact_sha256="a" * 64,
                 applies_to="android-client-release",
             )
+
+    def validate_plan_document(self, document: dict) -> dict:
+        return evidence.validate_plan(
+            document,
+            expected_source_sha=self.source_sha,
+            expected_correlation_id=self.correlation_id,
+            expected_client_artifact_sha256="8" * 64,
+            expected_test_artifact_sha256="7" * 64,
+            applies_to="android-client-release",
+        )
+
+    def test_plan_may_cover_a_subset_of_dual_vantage_gates(self) -> None:
+        # The lane runs only the gates whose Android selectors exist, so a plan
+        # legitimately covers fewer gates than the policy declares. Completeness
+        # is enforced downstream, by --require-pass over the assembled manifest.
+        partial = self.plan()
+        partial["windows"] = partial["windows"][:1]
+        self.assertEqual(len(self.validate_plan_document(partial)["windows"]), 1)
+
+    def test_plan_covering_nothing_is_still_rejected(self) -> None:
+        empty = self.plan()
+        empty["windows"] = []
+        with self.assertRaisesRegex(ValueError, "non-empty array"):
+            self.validate_plan_document(empty)
+
+    def test_plan_still_rejects_gates_outside_the_dual_vantage_set(self) -> None:
+        # Under-coverage is tolerated; a gate the dual-vantage lane does not own
+        # is not, because no observation could ever substantiate it here.
+        outside = self.plan()
+        outside["windows"][0]["id"] = "ipv4only-no-direct-ipv6"
+        with self.assertRaisesRegex(ValueError, "not a dual-vantage gate"):
+            self.validate_plan_document(outside)
 
     def test_assembler_accepts_empty_producer_allowlist_while_relaxed(self) -> None:
         evidence.write_canonical_json(
@@ -1081,7 +1113,7 @@ fi
                 require_pass=True,
                 allow_unready_actions_for_synthetic_test=True,
             )["scenarioCount"],
-            10,
+            8,
         )
 
     def test_capture_error_derives_inconclusive(self) -> None:

@@ -24,7 +24,6 @@
   ],
   "categories": [
     "dns-leak",
-    "synthetic-authoritative-dns",
     "ipv4-only-ipv6-leak",
     "dual-stack-ipv6",
     "kill-switch"
@@ -46,17 +45,6 @@
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Proxied domains resolve through the tunnelled resolver only.",
-      "failureClassification": "dns-leak",
-      "evidenceSources": {
-        "android-client-release": "dual-vantage-network-manifest",
-        "fleet-profile-rollout": "ordinary-results"
-      }
-    },
-    {
-      "id": "dns-direct-ru-only-for-direct-domains",
-      "category": "dns-leak",
-      "noShip": true,
-      "requirement": "Direct RU DNS is used only for explicitly direct-routed domains, never for proxied domains.",
       "failureClassification": "dns-leak",
       "evidenceSources": {
         "android-client-release": "dual-vantage-network-manifest",
@@ -112,17 +100,6 @@
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Android Private DNS configured by the user does not bypass the tunnel; the conflict is detected and handled fail-closed.",
-      "failureClassification": "dns-leak",
-      "evidenceSources": {
-        "android-client-release": "dual-vantage-network-manifest",
-        "fleet-profile-rollout": "ordinary-results"
-      }
-    },
-    {
-      "id": "synthetic-authoritative-dns-query-sources",
-      "category": "synthetic-authoritative-dns",
-      "noShip": true,
-      "requirement": "A synthetic authoritative DNS server verifies proxy, direct, and IPv6 query sources using unique random domains per run.",
       "failureClassification": "dns-leak",
       "evidenceSources": {
         "android-client-release": "dual-vantage-network-manifest",

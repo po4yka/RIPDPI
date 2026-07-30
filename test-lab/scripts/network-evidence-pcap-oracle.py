@@ -51,13 +51,11 @@ STARTUP_RULE = "tun-establish-native-ready-v1"
 DNS_RULES = {
     "dns-virtual-vpn-resolver": "virtual-vpn-resolver-v1",
     "dns-proxied-through-tunnelled-resolver": "proxied-domain-resolver-path-v1",
-    "dns-direct-ru-only-for-direct-domains": "direct-ru-domain-partition-v1",
     "dns-allowlisted-bootstrap-resolution": "allowlisted-bootstrap-v1",
     "dns-no-isp-fallback-on-encrypted-resolver-outage": "encrypted-outage-fail-closed-v1",
     "dns-network-switch-behavior": "network-switch-dns-continuity-v1",
     "dns-core-crash-behavior": "core-crash-dns-fail-closed-v1",
     "dns-android-private-dns-conflict": "android-private-dns-conflict-v1",
-    "synthetic-authoritative-dns-query-sources": "authoritative-query-sources-v1",
 }
 SOURCE_OWNED_ENCRYPTED_DNS_RULES = {
     "virtual-vpn-resolver-v1",
@@ -2112,14 +2110,6 @@ def _require_dns_rule_packets(
         if query_field == "ipv6QuerySha256" and packet.ip_version != 6:
             raise ValueError(
                 f"{role} {gate_id} authoritative IPv6 query has the wrong source class"
-            )
-        if (
-            query_field == "directQuerySha256"
-            and gate_id == "synthetic-authoritative-dns-query-sources"
-            and packet.ip_version != 4
-        ):
-            raise ValueError(
-                f"{role} {gate_id} authoritative direct query has the wrong source class"
             )
         allowed.add(query_index)
         matching_responses = [

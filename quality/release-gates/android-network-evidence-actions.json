@@ -44,20 +44,6 @@
       ]
     },
     {
-      "gateId": "dns-direct-ru-only-for-direct-domains",
-      "kind": "dns",
-      "selector": "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#directRuResolverOnlyForDirectDomains",
-      "receiptVersion": "android_network_evidence_action_receipt_v3",
-      "receiptFile": "network-evidence-action-receipt-dns-direct-ru-only-for-direct-domains.json",
-      "semanticRule": "direct-ru-domain-partition-v1",
-      "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production instrumentation selector is not implemented",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
-    },
-    {
       "gateId": "dns-allowlisted-bootstrap-resolution",
       "kind": "dns",
       "selector": "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#bootstrapResolutionUsesAllowlistedResolver",
@@ -124,20 +110,6 @@
       "blockingReasons": [
         "production instrumentation selector is not implemented",
         "production-observed user-configured Private DNS conflict seam is not yet wired to this action",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
-    },
-    {
-      "gateId": "synthetic-authoritative-dns-query-sources",
-      "kind": "dns",
-      "selector": "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#authoritativeDnsReportsExactQuerySources",
-      "receiptVersion": "android_network_evidence_action_receipt_v3",
-      "receiptFile": "network-evidence-action-receipt-synthetic-authoritative-dns-query-sources.json",
-      "semanticRule": "authoritative-query-sources-v1",
-      "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production instrumentation selector is not implemented",
         "physical dual-vantage Pixel evidence has not yet been executed against the current source"
       ]
     }

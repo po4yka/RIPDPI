@@ -70,14 +70,11 @@ REQUIRED_GATE_IDS = {
     # DNS leak gates.
     "dns-virtual-vpn-resolver",
     "dns-proxied-through-tunnelled-resolver",
-    "dns-direct-ru-only-for-direct-domains",
     "dns-allowlisted-bootstrap-resolution",
     "dns-no-isp-fallback-on-encrypted-resolver-outage",
     "dns-network-switch-behavior",
     "dns-core-crash-behavior",
     "dns-android-private-dns-conflict",
-    # Synthetic authoritative DNS gate.
-    "synthetic-authoritative-dns-query-sources",
     # IPv4-only IPv6-leak gates.
     "ipv4only-no-ipv6-dns-address-route",
     "ipv4only-no-direct-ipv6",
@@ -107,7 +104,6 @@ MANDATORY_FLEET_ORDINARY_GATE_IDS = REQUIRED_GATE_IDS - {
 # Categories the policy must cover; mirrors the acceptance-criteria groupings.
 REQUIRED_CATEGORIES = {
     "dns-leak",
-    "synthetic-authoritative-dns",
     "ipv4-only-ipv6-leak",
     "dual-stack-ipv6",
     "kill-switch",

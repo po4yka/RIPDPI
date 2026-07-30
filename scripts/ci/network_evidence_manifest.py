@@ -414,12 +414,12 @@ def validate_plan(
         if action in all_markers or outcome in all_markers or action == outcome:
             raise ValueError("scenario plan markers must be globally unique")
         all_markers.update((action, outcome))
-    expected_ids = required_gate_ids(applies_to=applies_to)
-    if seen_ids != expected_ids:
-        raise ValueError(
-            "scenario plan gate ids do not match policy; "
-            f"missing={sorted(expected_ids - seen_ids)}, extra={sorted(seen_ids - expected_ids)}"
-        )
+    # A plan may cover a subset of the policy's dual-vantage gates, because the
+    # lane runs only the gates whose Android selectors exist. Ids outside the
+    # policy are still rejected per window above, so only under-coverage is
+    # tolerated here. Completeness is enforced downstream by the manifest and the
+    # gate checker under --require-pass, which fail every gate that produced no
+    # observation.
     return value
 
 

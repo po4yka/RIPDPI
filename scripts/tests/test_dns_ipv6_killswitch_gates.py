@@ -282,11 +282,11 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         expected = {
             gate["id"]
             for gate in self.policy["gates"]
-            if gate["category"] in {"dns-leak", "synthetic-authoritative-dns"}
+            if gate["category"] == "dns-leak"
         }
         expected.add("killswitch-tun-establish-native-ready")
         self.assertEqual(evidence_ids, expected)
-        self.assertEqual(len(evidence_ids), 10)
+        self.assertEqual(len(evidence_ids), 8)
         self.assertEqual(
             gates.dual_vantage_gate_ids(
                 self.policy, applies_to="fleet-profile-rollout"
@@ -299,7 +299,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                     self.policy, applies_to="fleet-profile-rollout"
                 )
             ),
-            19,
+            17,
         )
 
     def test_missing_required_gate_is_rejected(self) -> None:

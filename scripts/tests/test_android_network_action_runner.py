@@ -425,7 +425,7 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
     def test_action_map_keeps_first_gate_fail_closed(self) -> None:
         action_map = json.loads(ACTION_MAP.read_text(encoding="utf-8"))
         self.assertEqual(action_map["version"], "android_network_evidence_actions_v2")
-        self.assertEqual(len(action_map["actions"]), 10)
+        self.assertEqual(len(action_map["actions"]), 8)
         action = next(
             item for item in action_map["actions"] if item["gateId"] == module.GATE_ID
         )

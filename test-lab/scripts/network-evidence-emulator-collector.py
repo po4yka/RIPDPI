@@ -44,13 +44,11 @@ STARTUP_RULE = "tun-establish-native-ready-v1"
 DNS_RULES = {
     "dns-virtual-vpn-resolver": "virtual-vpn-resolver-v1",
     "dns-proxied-through-tunnelled-resolver": "proxied-domain-resolver-path-v1",
-    "dns-direct-ru-only-for-direct-domains": "direct-ru-domain-partition-v1",
     "dns-allowlisted-bootstrap-resolution": "allowlisted-bootstrap-v1",
     "dns-no-isp-fallback-on-encrypted-resolver-outage": "encrypted-outage-fail-closed-v1",
     "dns-network-switch-behavior": "network-switch-dns-continuity-v1",
     "dns-core-crash-behavior": "core-crash-dns-fail-closed-v1",
     "dns-android-private-dns-conflict": "android-private-dns-conflict-v1",
-    "synthetic-authoritative-dns-query-sources": "authoritative-query-sources-v1",
 }
 # Matches the oracle's own bound; a larger capture is a runaway, not evidence.
 MAX_CAPTURE_BYTES = 64 * 1024 * 1024

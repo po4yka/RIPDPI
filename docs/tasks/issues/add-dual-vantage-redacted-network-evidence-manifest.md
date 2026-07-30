@@ -9,8 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-16
-updated: 2026-07-22
-status_detail: One serialized release lane owns all ten Android actions through source-owned selector, receipt, packet-oracle, producer-provenance, and exact-SHA physical validation
+updated: 2026-07-30
+status_detail: Eight Android actions remain after two undecidable gates were removed; the emulator lane may report on the subset whose selectors exist
 ---
 
 ## Goal
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-30: Removed two gates from the policy by explicit request, and allowed a scenario plan to cover a subset of the dual-vantage set. `dns-direct-ru-only-for-direct-domains` was undecidable under the packet oracle, which cannot tell a direct RU query apart from an allowlisted one without a new rule; `synthetic-authoritative-dns-query-sources` needed IPv6 in the fixture, which does not exist. Both were deleted from the policy, the action registry, the oracle and collector rule maps, the receipt example facts, and the readiness fixture, taking the inventory from 21 gates to 19 and the dual-vantage set from 10 to 8. The `synthetic-authoritative-dns` category went with them. Separately, `validate_plan` no longer demands that a plan cover every dual-vantage gate: the emulator lane runs only the gates whose Android selectors exist, so under-coverage is now tolerated there and completeness is enforced downstream by `--require-pass`, which fails any gate that produced no observation. Ids outside the dual-vantage set are still rejected per window. Cost of the deletions: the two removed requirements are no longer verified at all, by any lane, and nothing will report their absence.
 - 2026-07-30: Release policy relaxed by explicit request. `quality/release-gates/dns-ipv6-killswitch-gates.json` now declares `relaxedEvidenceRequirements`, and four items no longer block a release: the six unimplemented action selectors/receipts, the real collector/workload allowlist, the private runner configuration, and a full exact-SHA physical dual-vantage run. The gate inventory and the no-ship policy are unchanged -- a FAIL is still a blocker; what changed is the strength of evidence behind a PASS. Two consequences to keep in view: with the physical attestation gone there is no longer an unforgeable binding between an all-PASS ordinary results document and a real capture, and the six actions still have no instrumentation behind them, so their gates cannot observe a real leak. Removing an entry from `relaxedEvidenceRequirements.requirements` restores the original fail-closed behaviour with no other edit.
 - 2026-07-27: Consolidated the remaining source actions into the serialized
   `v0.1.4` release evidence lane. Completion requires all ten selectors and

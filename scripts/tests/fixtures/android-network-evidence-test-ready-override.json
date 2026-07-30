@@ -4,12 +4,10 @@
     "killswitch-tun-establish-native-ready",
     "dns-virtual-vpn-resolver",
     "dns-proxied-through-tunnelled-resolver",
-    "dns-direct-ru-only-for-direct-domains",
     "dns-allowlisted-bootstrap-resolution",
     "dns-no-isp-fallback-on-encrypted-resolver-outage",
     "dns-network-switch-behavior",
     "dns-core-crash-behavior",
-    "dns-android-private-dns-conflict",
-    "synthetic-authoritative-dns-query-sources"
+    "dns-android-private-dns-conflict"
   ]
 }

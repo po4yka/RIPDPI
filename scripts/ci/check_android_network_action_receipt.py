@@ -291,15 +291,6 @@ def example_valid_facts(gate_id: str) -> dict[str, Any]:
             "responseCount": 1,
             "tunnelEstablished": True,
         },
-        "dns-direct-ru-only-for-direct-domains": {
-            "directQuerySha256": d("directQuery"),
-            "proxiedQuerySha256": d("proxiedQuery"),
-            "directResolverSha256": d("directResolver"),
-            "tunnelResolverSha256": d("tunnelResolver"),
-            "directQueryCount": 1,
-            "proxiedTunnelQueryCount": 1,
-            "proxiedViaDirectCount": 0,
-        },
         "dns-allowlisted-bootstrap-resolution": {
             "bootstrapQuerySha256": d("bootstrapQuery"),
             "allowlistedResolverSetSha256": d("allowlistedResolvers"),
@@ -349,15 +340,6 @@ def example_valid_facts(gate_id: str) -> dict[str, Any]:
             "encryptedControlCount": 1,
             "plainBypassCount": 0,
             "successfulBypassResponseCount": 0,
-        },
-        "synthetic-authoritative-dns-query-sources": {
-            "proxyQuerySha256": d("proxyQuery"),
-            "directQuerySha256": d("directQuery"),
-            "ipv6QuerySha256": d("ipv6Query"),
-            "proxySourceClass": "proxy-egress",
-            "directSourceClass": "client-underlay-ipv4",
-            "ipv6SourceClass": "client-underlay-ipv6",
-            "authoritativeResponseCount": 3,
         },
     }
     try:

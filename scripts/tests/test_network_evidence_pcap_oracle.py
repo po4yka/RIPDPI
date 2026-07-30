@@ -1375,7 +1375,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             for gate_id, descriptor in receipt_contract.load_action_registry().items()
             if descriptor.kind == "dns"
         ]
-        self.assertEqual(len(dns_gates), 9)
+        self.assertEqual(len(dns_gates), 7)
         for gate_id in dns_gates:
             with self.subTest(gate_id=gate_id):
                 self.write_dns_action_inputs(gate_id)
