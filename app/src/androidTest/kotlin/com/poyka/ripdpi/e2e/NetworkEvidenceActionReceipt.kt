@@ -73,6 +73,24 @@ private val EvidenceDescriptors =
                 "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#bootstrapResolutionUsesAllowlistedResolver",
                 "allowlisted-bootstrap-v1",
             ),
+        "dns-network-switch-behavior" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#networkSwitchPreservesDnsTunnel",
+                "network-switch-dns-continuity-v1",
+            ),
+        "dns-core-crash-behavior" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#coreCrashFailsDnsClosed",
+                "core-crash-dns-fail-closed-v1",
+            ),
+        "dns-android-private-dns-conflict" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#privateDnsConflictFailsClosed",
+                "android-private-dns-conflict-v1",
+            ),
     )
 
 internal data class NetworkEvidenceActionContext(
@@ -316,18 +334,55 @@ internal data class NetworkEvidenceDnsFacts(
     }
 }
 
+internal data class NetworkEvidenceDnsScenarioObservation(
+    val startedAtElapsedRealtimeMs: Long,
+    val actionMarkerAtElapsedRealtimeMs: Long,
+    val outcomeMarkerAtElapsedRealtimeMs: Long,
+    val finishedAtElapsedRealtimeMs: Long,
+    val appUid: Int,
+    val testUid: Int,
+    val actionMarker: AppProcessTcpProbeResult,
+    val outcomeMarker: AppProcessTcpProbeResult,
+    val dnsProbes: List<AppProcessDnsProbeResult>,
+)
+
 internal fun writeNetworkEvidenceFixtureTranscript(
     context: Context,
     evidence: NetworkEvidenceActionContext,
     queryHost: String,
     events: List<FixtureEventDto>,
 ): String {
+    val queryEvent = events.singleOrNull { it.service == "dns_dot" && it.detail == queryHost }
+    val queryPeer = queryEvent?.peer
+    val scenarioSocksEvent =
+        queryEvent?.let { query ->
+            events
+                .filter {
+                    it.service == "socks5_relay" &&
+                        it.protocol == "tcp" &&
+                        it.detail == query.target &&
+                        it.createdAt <= query.createdAt
+                }.maxByOrNull { it.createdAt }
+        }
     val relevant =
         events.filter { event ->
-            (event.service == "dns_dot" && (event.detail == queryHost || event.detail.startsWith("fault:"))) ||
-                event.service == "socks5_relay"
+            (
+                event.service == "dns_dot" &&
+                    (event.detail == queryHost || (event.peer == queryPeer && event.detail.startsWith("fault:")))
+            ) ||
+                (
+                    evidence.gateId == "dns-allowlisted-bootstrap-resolution" &&
+                        event.service == "dns_udp" &&
+                        event.detail == queryHost
+                ) ||
+                event == scenarioSocksEvent
         }
     require(relevant.isNotEmpty()) { "Fixture transcript is empty" }
+    val inventoryEvents =
+        events.filter { event ->
+            event in relevant ||
+                (event.service == "dns_dot" && event.peer == queryPeer && event.detail == "accept")
+        }
     val document =
         JSONObject()
             .put("version", "network_evidence_fixture_transcript_v2")
@@ -339,7 +394,7 @@ internal fun writeNetworkEvidenceFixtureTranscript(
             .put(
                 "eventInventory",
                 JSONArray().apply {
-                    events.forEach { event ->
+                    inventoryEvents.forEach { event ->
                         put(redactedFixtureEventInventoryEntry(event))
                     }
                 },
@@ -474,6 +529,57 @@ internal fun writeNetworkEvidenceDnsPassReceipt(
                 error("Unsupported DNS evidence gate ${facts.gateId}")
             }
         }
+    publishNetworkEvidenceDnsPassReceipt(
+        context = context,
+        evidence = evidence,
+        observation =
+            NetworkEvidenceDnsScenarioObservation(
+                startedAtElapsedRealtimeMs = facts.startedAtElapsedRealtimeMs,
+                actionMarkerAtElapsedRealtimeMs = facts.actionMarkerAtElapsedRealtimeMs,
+                outcomeMarkerAtElapsedRealtimeMs = facts.outcomeMarkerAtElapsedRealtimeMs,
+                finishedAtElapsedRealtimeMs = facts.finishedAtElapsedRealtimeMs,
+                appUid = facts.appUid,
+                testUid = facts.testUid,
+                actionMarker = facts.actionMarker,
+                outcomeMarker = facts.outcomeMarker,
+                dnsProbes = listOf(facts.dnsProbe),
+            ),
+        semanticFacts = semanticFacts,
+    )
+}
+
+internal fun writeNetworkEvidenceDnsScenarioPassReceipt(
+    context: Context,
+    evidence: NetworkEvidenceActionContext,
+    observation: NetworkEvidenceDnsScenarioObservation,
+    semanticFacts: JSONObject,
+) {
+    publishNetworkEvidenceDnsPassReceipt(context, evidence, observation, semanticFacts)
+}
+
+private fun publishNetworkEvidenceDnsPassReceipt(
+    context: Context,
+    evidence: NetworkEvidenceActionContext,
+    observation: NetworkEvidenceDnsScenarioObservation,
+    semanticFacts: JSONObject,
+) {
+    require(observation.startedAtElapsedRealtimeMs > 0)
+    require(observation.startedAtElapsedRealtimeMs <= observation.actionMarkerAtElapsedRealtimeMs)
+    require(observation.actionMarkerAtElapsedRealtimeMs < observation.outcomeMarkerAtElapsedRealtimeMs)
+    require(observation.outcomeMarkerAtElapsedRealtimeMs <= observation.finishedAtElapsedRealtimeMs)
+    require(observation.appUid > 0 && observation.testUid > 0 && observation.appUid != observation.testUid)
+    require(observation.actionMarker.probeUid == observation.appUid)
+    require(observation.outcomeMarker.probeUid == observation.appUid)
+    require(observation.dnsProbes.isNotEmpty())
+    require(observation.dnsProbes.all { it.probeUid == observation.testUid })
+    val queryDigests =
+        semanticFacts
+            .keys()
+            .asSequence()
+            .filter { it.endsWith("QuerySha256", ignoreCase = true) }
+            .associateWith { semanticFacts.getString(it) }
+    require(queryDigests.isNotEmpty() && queryDigests.values.all(Sha256Regex::matches))
+    require(queryDigests.values.toSet().size == queryDigests.size)
     val receipt =
         JSONObject()
             .put("version", ReceiptVersion)
@@ -489,19 +595,26 @@ internal fun writeNetworkEvidenceDnsPassReceipt(
             .put("fixtureIdentitySha256", evidence.fixtureIdentitySha256)
             .put("actionMarkerSha256", evidence.actionMarkerSha256)
             .put("outcomeMarkerSha256", evidence.outcomeMarkerSha256)
-            .put("querySetSha256", networkEvidenceQuerySetSha256(evidence.gateId, querySha))
-            .put("startedAtElapsedRealtimeMs", facts.startedAtElapsedRealtimeMs)
-            .put("finishedAtElapsedRealtimeMs", facts.finishedAtElapsedRealtimeMs)
-            .put("actionMarkerAtElapsedRealtimeMs", facts.actionMarkerAtElapsedRealtimeMs)
-            .put("outcomeMarkerAtElapsedRealtimeMs", facts.outcomeMarkerAtElapsedRealtimeMs)
-            .put("appUid", facts.appUid)
-            .put("testUid", facts.testUid)
-            .put("actionMarkerPid", requireNotNull(facts.actionMarker.probePid))
-            .put("actionMarkerUid", requireNotNull(facts.actionMarker.probeUid))
-            .put("outcomeMarkerPid", requireNotNull(facts.outcomeMarker.probePid))
-            .put("outcomeMarkerUid", requireNotNull(facts.outcomeMarker.probeUid))
-            .put("dnsProbePids", JSONArray().put(requireNotNull(facts.dnsProbe.probePid)))
-            .put("dnsProbeUid", requireNotNull(facts.dnsProbe.probeUid))
+            .put("querySetSha256", networkEvidenceQuerySetSha256(evidence.gateId, queryDigests))
+            .put("startedAtElapsedRealtimeMs", observation.startedAtElapsedRealtimeMs)
+            .put("finishedAtElapsedRealtimeMs", observation.finishedAtElapsedRealtimeMs)
+            .put("actionMarkerAtElapsedRealtimeMs", observation.actionMarkerAtElapsedRealtimeMs)
+            .put("outcomeMarkerAtElapsedRealtimeMs", observation.outcomeMarkerAtElapsedRealtimeMs)
+            .put("appUid", observation.appUid)
+            .put("testUid", observation.testUid)
+            .put("actionMarkerPid", requireNotNull(observation.actionMarker.probePid))
+            .put("actionMarkerUid", requireNotNull(observation.actionMarker.probeUid))
+            .put("outcomeMarkerPid", requireNotNull(observation.outcomeMarker.probePid))
+            .put("outcomeMarkerUid", requireNotNull(observation.outcomeMarker.probeUid))
+            .put(
+                "dnsProbePids",
+                JSONArray().apply {
+                    observation.dnsProbes
+                        .map { requireNotNull(it.probePid) }
+                        .distinct()
+                        .forEach(::put)
+                },
+            ).put("dnsProbeUid", observation.testUid)
             .put("facts", semanticFacts)
     publishPrivateJson(context, evidence.receiptFile, receipt)
 }
@@ -634,7 +747,7 @@ private fun networkEvidenceEndpointSha256(
  * are compared against what the capture actually observed, so they need the byte
  * form or the oracle rejects the receipt.
  */
-private fun networkEvidencePacketResolverSha256(
+internal fun networkEvidencePacketResolverSha256(
     host: String,
     port: Int,
 ): String {
@@ -663,7 +776,7 @@ private fun networkEvidenceResolverSetSha256(resolverSha256: String): String {
         ).toHex()
 }
 
-private fun networkEvidenceValueSha256(
+internal fun networkEvidenceValueSha256(
     domain: String,
     value: String,
 ): String =
@@ -722,10 +835,26 @@ internal fun networkEvidenceQuerySetSha256(
             NetworkEvidenceStartupGateId -> "dnsQuerySha256"
             "dns-virtual-vpn-resolver" -> "virtualQuerySha256"
             "dns-proxied-through-tunnelled-resolver" -> "proxiedQuerySha256"
+            "dns-allowlisted-bootstrap-resolution" -> "bootstrapQuerySha256"
             "dns-no-isp-fallback-on-encrypted-resolver-outage" -> "outageQuerySha256"
+            "dns-core-crash-behavior" -> "crashQuerySha256"
+            "dns-android-private-dns-conflict" -> "conflictQuerySha256"
             else -> error("Unsupported network evidence query-set gate $gateId")
         }
-    val canonical = "{\"gateId\":\"$gateId\",\"queries\":[[\"$queryField\",\"$querySha256\"]]}"
+    return networkEvidenceQuerySetSha256(gateId, mapOf(queryField to querySha256))
+}
+
+internal fun networkEvidenceQuerySetSha256(
+    gateId: String,
+    queryDigests: Map<String, String>,
+): String {
+    require(queryDigests.isNotEmpty())
+    require(queryDigests.values.all(Sha256Regex::matches))
+    val queries =
+        queryDigests.entries.sortedBy { it.key }.joinToString(separator = ",") { (field, digest) ->
+            "[${JSONObject.quote(field)},${JSONObject.quote(digest)}]"
+        }
+    val canonical = "{\"gateId\":${JSONObject.quote(gateId)},\"queries\":[$queries]}"
     return MessageDigest
         .getInstance("SHA-256")
         .digest("ripdpi:network-evidence-query-set:v1:$canonical".toByteArray(StandardCharsets.US_ASCII))

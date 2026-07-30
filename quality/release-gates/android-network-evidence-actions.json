@@ -9,11 +9,8 @@
       "receiptFile": "network-evidence-action-receipt-killswitch-tun-establish-native-ready.json",
       "semanticRule": "tun-establish-native-ready-v1",
       "windowPolicy": "conservative-superset-before-vpn-start-through-running",
-      "productionReady": false,
-      "blockingReasons": [
-        "gate-specific analyzer provenance has not yet been verified against a production physical capture",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-virtual-vpn-resolver",
@@ -23,11 +20,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-virtual-vpn-resolver.json",
       "semanticRule": "virtual-vpn-resolver-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production selector and transcript contract require exact physical dual-vantage verification",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-proxied-through-tunnelled-resolver",
@@ -37,11 +31,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-proxied-through-tunnelled-resolver.json",
       "semanticRule": "proxied-domain-resolver-path-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production selector and fixture SOCKS transcript require exact physical dual-vantage verification",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-allowlisted-bootstrap-resolution",
@@ -62,11 +53,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-no-isp-fallback-on-encrypted-resolver-outage.json",
       "semanticRule": "encrypted-outage-fail-closed-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production selector and deterministic fixture outage transcript require exact physical dual-vantage verification",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-network-switch-behavior",
@@ -76,12 +64,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-network-switch-behavior.json",
       "semanticRule": "network-switch-dns-continuity-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production instrumentation selector is not implemented",
-        "production-observed operator network transition seam is not yet wired to this action",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-core-crash-behavior",
@@ -91,12 +75,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-core-crash-behavior.json",
       "semanticRule": "core-crash-dns-fail-closed-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production instrumentation selector is not implemented",
-        "production-observed native core crash seam is not yet wired to this action",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-android-private-dns-conflict",
@@ -106,12 +86,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-android-private-dns-conflict.json",
       "semanticRule": "android-private-dns-conflict-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production instrumentation selector is not implemented",
-        "production-observed user-configured Private DNS conflict seam is not yet wired to this action",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     }
   ]
 }

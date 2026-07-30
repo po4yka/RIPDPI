@@ -911,13 +911,20 @@ private class OrdinaryTun2SocksBridgeFactory(
         }
 }
 
-private class OrdinaryFaultingProxyFactory : RipDpiProxyFactory {
+internal class OrdinaryFaultingProxyFactory(
+    private val faultGateId: String? = null,
+) : RipDpiProxyFactory {
     private val forcedExit = AtomicInteger(0)
 
     @Volatile private var active: RipDpiProxyRuntime? = null
 
     override fun create(): RipDpiProxyRuntime {
         val delegate = RipDpiProxy(RipDpiProxyNativeBindings())
+        if (faultGateId != null &&
+            InstrumentationRegistry.getArguments().getString("ripdpi.networkEvidenceGateId") != faultGateId
+        ) {
+            return delegate
+        }
         return object : RipDpiProxyRuntime {
             override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
                 active = delegate

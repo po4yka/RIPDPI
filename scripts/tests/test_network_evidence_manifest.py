@@ -701,9 +701,9 @@ fi
         )
 
     def test_plan_may_cover_a_subset_of_dual_vantage_gates(self) -> None:
-        # The lane runs only the gates whose Android selectors exist, so a plan
-        # legitimately covers fewer gates than the policy declares. Completeness
-        # is enforced downstream, by --require-pass over the assembled manifest.
+        # A partial producer plan remains a valid intermediate artifact even
+        # though the release lane now has selectors for every policy gate.
+        # Completeness is enforced downstream by --require-pass.
         partial = self.plan()
         partial["windows"] = partial["windows"][:1]
         self.assertEqual(len(self.validate_plan_document(partial)["windows"]), 1)
@@ -1080,7 +1080,7 @@ fi
                 require_pass=True,
             )
 
-    def test_all_pass_manifest_is_releasable_with_unready_actions_while_relaxed(
+    def test_all_pass_manifest_is_releasable_with_ready_actions_when_tightened(
         self,
     ) -> None:
         manifest = self.assemble()
@@ -1096,8 +1096,7 @@ fi
         evidence.validate_manifest(manifest, **kwargs)
 
         with self.tightened("android-action-selector-receipt"):
-            with self.assertRaisesRegex(ValueError, "not production ready"):
-                evidence.validate_manifest(manifest, **kwargs)
+            evidence.validate_manifest(manifest, **kwargs)
 
     def test_unready_action_override_allows_synthetic_test_bundle(self) -> None:
         manifest = self.assemble()

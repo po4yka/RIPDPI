@@ -3,16 +3,22 @@ package com.poyka.ripdpi.e2e
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.InetAddresses
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.core.NativeTun2SocksBridge
+import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBindings
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -37,6 +43,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,9 +64,10 @@ private const val VirtualDnsPort = 53
 private const val EvidenceProbeTimeoutMs = 8_000L
 private const val EvidenceVpnTimeoutMs = 15_000L
 private const val EvidenceSignalTimeoutMs = 2_000L
+private const val EvidenceCoreExitCode = 19
 
 @HiltAndroidTest
-@UninstallModules(Tun2SocksBridgeFactoryModule::class)
+@UninstallModules(Tun2SocksBridgeFactoryModule::class, RipDpiProxyFactoryModule::class)
 class DnsNetworkEvidenceE2ETest {
     @get:Rule(order = 0)
     val fixtureRule = E2eFixtureRule()
@@ -72,10 +80,15 @@ class DnsNetworkEvidenceE2ETest {
         GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
 
     private val evidenceTunnelFactory = EvidenceTun2SocksBridgeFactory(Tun2SocksNativeBindings())
+    private val faultingProxyFactory = OrdinaryFaultingProxyFactory("dns-core-crash-behavior")
 
     @BindValue
     @JvmField
     val tun2SocksBridgeFactory: Tun2SocksBridgeFactory = evidenceTunnelFactory
+
+    @BindValue
+    @JvmField
+    val ripDpiProxyFactory: RipDpiProxyFactory = faultingProxyFactory
 
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
@@ -85,6 +98,9 @@ class DnsNetworkEvidenceE2ETest {
 
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
+
+    private val connectivityManager: ConnectivityManager
+        get() = appContext.getSystemService(ConnectivityManager::class.java)
 
     private lateinit var settingsBeforeTest: AppSettings
     private lateinit var fixtureClient: LocalFixtureClient
@@ -120,6 +136,7 @@ class DnsNetworkEvidenceE2ETest {
 
     @After
     fun tearDown() {
+        runCatching { shell("svc wifi enable") }
         evidenceTunnelFactory.reset()
         if (injected) {
             try {
@@ -188,9 +205,10 @@ class DnsNetworkEvidenceE2ETest {
                 protocol = EncryptedDnsProtocolDot,
             )
             appSettingsRepository.update {
-                fullTunnelMode = true
-                setSplitTunnelMode(SplitTunnelMode.Off)
+                fullTunnelMode = false
+                setSplitTunnelMode(SplitTunnelMode.Include)
                 clearSplitTunnelPackages()
+                addSplitTunnelPackages(InstrumentationRegistry.getInstrumentation().context.packageName)
                 enableCmdSettings = false
                 relayEnabled = false
                 relayKind = "off"
@@ -204,6 +222,7 @@ class DnsNetworkEvidenceE2ETest {
             startService(RipDpiVpnService::class.java)
             awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
             assertTrue(probeService.awaitVpnDefaultNetwork(EvidenceVpnTimeoutMs))
+            awaitStableTunnelRuntime(probeService)
 
             val actionMarker = evidence?.let { emitEvidenceMarker(it.actionWireMarker) }
             val actionMarkerAt = SystemClock.elapsedRealtime()
@@ -274,6 +293,199 @@ class DnsNetworkEvidenceE2ETest {
         }
     }
 
+    @Test
+    fun networkSwitchPreservesDnsTunnel() {
+        val gateId = "dns-network-switch-behavior"
+        val evidence = requireEvidenceContext(gateId)
+        configureFixtureDnsTunnel()
+        val probeService = bindTestProcessDnsProbeService(EvidenceVpnTimeoutMs)
+        var wifiDisabled = false
+        try {
+            val (appUid, testUid) = distinctEvidenceUids()
+            val startedAt = SystemClock.elapsedRealtime()
+            startService(RipDpiVpnService::class.java)
+            awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+            assertTrue(probeService.awaitVpnDefaultNetwork(EvidenceVpnTimeoutMs))
+            awaitStableTunnelRuntime(probeService)
+            val before = requireUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
+
+            val actionMarker = emitEvidenceMarker(evidence.actionWireMarker)
+            val actionMarkerAt = SystemClock.elapsedRealtime()
+            val preQuery = uniqueEvidenceQuery("pre-switch", evidence)
+            val preResult = runFixtureUdpProbe(probeService, preQuery, expectSuccess = true)
+
+            shell("svc wifi disable")
+            wifiDisabled = true
+            val after = awaitUnderlay(NetworkCapabilities.TRANSPORT_CELLULAR)
+            awaitStableTunnelRuntime(probeService)
+            val duringQuery = uniqueEvidenceQuery("during-switch", evidence)
+            val duringResult = runFixtureUdpProbe(probeService, duringQuery, expectSuccess = true)
+            val postQuery = uniqueEvidenceQuery("post-switch", evidence)
+            val postResult = runFixtureUdpProbe(probeService, postQuery, expectSuccess = true)
+            assertTrue("Network switch did not change the underlay", before.networkHandle != after.networkHandle)
+
+            val outcomeMarker = emitEvidenceMarker(evidence.outcomeWireMarker)
+            val outcomeMarkerAt = SystemClock.elapsedRealtime()
+            writeNetworkEvidenceDnsScenarioPassReceipt(
+                context = appContext,
+                evidence = evidence,
+                observation =
+                    scenarioObservation(
+                        startedAt,
+                        actionMarkerAt,
+                        outcomeMarkerAt,
+                        appUid,
+                        testUid,
+                        actionMarker,
+                        outcomeMarker,
+                        listOf(preResult, duringResult, postResult),
+                    ),
+                semanticFacts =
+                    JSONObject()
+                        .put("preSwitchQuerySha256", networkEvidenceDnsQuerySha256V1(preQuery))
+                        .put("duringSwitchQuerySha256", networkEvidenceDnsQuerySha256V1(duringQuery))
+                        .put("postSwitchQuerySha256", networkEvidenceDnsQuerySha256V1(postQuery))
+                        .put("preNetworkSha256", networkEvidenceValueSha256("network", before.networkHandle.toString()))
+                        .put("postNetworkSha256", networkEvidenceValueSha256("network", after.networkHandle.toString()))
+                        .put("transitionObserved", true)
+                        .put("underlayChangeCount", 1)
+                        .put("preTunnelResponseCount", 1)
+                        .put("postTunnelResponseCount", 1)
+                        .put("plainFallbackCount", 0),
+            )
+        } finally {
+            if (wifiDisabled) {
+                shell("svc wifi enable")
+                awaitUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
+            }
+            probeService.close()
+        }
+    }
+
+    @Test
+    fun coreCrashFailsDnsClosed() {
+        val gateId = "dns-core-crash-behavior"
+        val evidence = requireEvidenceContext(gateId)
+        configureFixtureDnsTunnel()
+        val probeService = bindTestProcessDnsProbeService(EvidenceVpnTimeoutMs)
+        try {
+            val (appUid, testUid) = distinctEvidenceUids()
+            val startedAt = SystemClock.elapsedRealtime()
+            startService(RipDpiVpnService::class.java)
+            awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+            assertTrue(probeService.awaitVpnDefaultNetwork(EvidenceVpnTimeoutMs))
+            awaitStableTunnelRuntime(probeService)
+            fixtureClient.setFault(droppedUdpDnsFault())
+
+            val actionMarker = emitEvidenceMarker(evidence.actionWireMarker)
+            val actionMarkerAt = SystemClock.elapsedRealtime()
+            val corePid = android.os.Process.myPid()
+            faultingProxyFactory.injectExit(EvidenceCoreExitCode)
+            awaitUntil(timeoutMs = EvidenceVpnTimeoutMs) {
+                serviceStateStore.telemetry.value.status == AppStatus.Halted
+            }
+            val queryHost = uniqueEvidenceQuery("core-crash", evidence)
+            val result = runFixtureUdpProbe(probeService, queryHost, expectSuccess = false)
+            assertFixtureUdpFault(queryHost)
+
+            val outcomeMarker = emitEvidenceMarker(evidence.outcomeWireMarker)
+            val outcomeMarkerAt = SystemClock.elapsedRealtime()
+            writeNetworkEvidenceDnsScenarioPassReceipt(
+                context = appContext,
+                evidence = evidence,
+                observation =
+                    scenarioObservation(
+                        startedAt,
+                        actionMarkerAt,
+                        outcomeMarkerAt,
+                        appUid,
+                        testUid,
+                        actionMarker,
+                        outcomeMarker,
+                        listOf(result),
+                    ),
+                semanticFacts =
+                    JSONObject()
+                        .put("crashQuerySha256", networkEvidenceDnsQuerySha256V1(queryHost))
+                        .put(
+                            "encryptedResolverProviderSha256",
+                            networkEvidencePacketResolverSha256(fixture.androidHost, fixture.dnsUdpPort),
+                        ).put(
+                            "faultControlSha256",
+                            networkEvidenceValueSha256("fault", "native-core-exit:$EvidenceCoreExitCode"),
+                        ).put("corePid", corePid)
+                        .put("coreExitCode", EvidenceCoreExitCode)
+                        .put("crashObserved", true)
+                        .put("encryptedControlCount", 1)
+                        .put("plainFallbackCount", 0)
+                        .put("successfulResponseAfterCrashCount", 0),
+            )
+        } finally {
+            probeService.close()
+        }
+    }
+
+    @Test
+    fun privateDnsConflictFailsClosed() {
+        val gateId = "dns-android-private-dns-conflict"
+        val evidence = requireEvidenceContext(gateId)
+        val previousMode = shell("settings get global private_dns_mode").trim()
+        val previousSpecifier = shell("settings get global private_dns_specifier").trim()
+        configureFixtureDnsTunnel()
+        val probeService = bindTestProcessDnsProbeService(EvidenceVpnTimeoutMs)
+        try {
+            shell("settings put global private_dns_mode opportunistic")
+            shell("settings delete global private_dns_specifier")
+            assertEquals("opportunistic", shell("settings get global private_dns_mode").trim())
+            val (appUid, testUid) = distinctEvidenceUids()
+            val startedAt = SystemClock.elapsedRealtime()
+            startService(RipDpiVpnService::class.java)
+            awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+            assertTrue(probeService.awaitVpnDefaultNetwork(EvidenceVpnTimeoutMs))
+            awaitStableTunnelRuntime(probeService)
+            fixtureClient.setFault(droppedUdpDnsFault())
+
+            val actionMarker = emitEvidenceMarker(evidence.actionWireMarker)
+            val actionMarkerAt = SystemClock.elapsedRealtime()
+            val queryHost = uniqueEvidenceQuery("private-dns-conflict", evidence)
+            val result = runFixtureUdpProbe(probeService, queryHost, expectSuccess = false)
+            assertFixtureUdpFault(queryHost)
+            val outcomeMarker = emitEvidenceMarker(evidence.outcomeWireMarker)
+            val outcomeMarkerAt = SystemClock.elapsedRealtime()
+
+            writeNetworkEvidenceDnsScenarioPassReceipt(
+                context = appContext,
+                evidence = evidence,
+                observation =
+                    scenarioObservation(
+                        startedAt,
+                        actionMarkerAt,
+                        outcomeMarkerAt,
+                        appUid,
+                        testUid,
+                        actionMarker,
+                        outcomeMarker,
+                        listOf(result),
+                    ),
+                semanticFacts =
+                    JSONObject()
+                        .put("conflictQuerySha256", networkEvidenceDnsQuerySha256V1(queryHost))
+                        .put(
+                            "privateDnsProviderSha256",
+                            networkEvidencePacketResolverSha256(fixture.androidHost, fixture.dnsUdpPort),
+                        ).put("privateDnsModeSha256", networkEvidenceValueSha256("private-dns-mode", "opportunistic"))
+                        .put("conflictObserved", true)
+                        .put("encryptedControlCount", 1)
+                        .put("plainBypassCount", 0)
+                        .put("successfulBypassResponseCount", 0),
+            )
+        } finally {
+            restoreGlobalSetting("private_dns_mode", previousMode)
+            restoreGlobalSetting("private_dns_specifier", previousSpecifier)
+            probeService.close()
+        }
+    }
+
     private fun runDnsEvidenceAction(
         gateId: String,
         mode: EvidenceDnsMode,
@@ -291,9 +503,10 @@ class DnsNetworkEvidenceE2ETest {
                 protocol = EncryptedDnsProtocolDot,
             )
             appSettingsRepository.update {
-                fullTunnelMode = true
-                setSplitTunnelMode(SplitTunnelMode.Off)
+                fullTunnelMode = false
+                setSplitTunnelMode(SplitTunnelMode.Include)
                 clearSplitTunnelPackages()
+                addSplitTunnelPackages(InstrumentationRegistry.getInstrumentation().context.packageName)
                 enableCmdSettings = false
                 relayEnabled = false
                 relayKind = "off"
@@ -320,6 +533,7 @@ class DnsNetworkEvidenceE2ETest {
             startService(RipDpiVpnService::class.java)
             awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
             assertTrue(probeService.awaitVpnDefaultNetwork(EvidenceVpnTimeoutMs))
+            awaitStableTunnelRuntime(probeService)
 
             val actionMarker = evidence?.let { emitEvidenceMarker(it.actionWireMarker) }
             val actionMarkerAt = SystemClock.elapsedRealtime()
@@ -346,7 +560,12 @@ class DnsNetworkEvidenceE2ETest {
                     isSyntheticMapDnsIpv4Answer(result.answers.single()),
                 )
             } else {
-                assertFalse("Resolver outage unexpectedly returned a DNS answer: $result", result.ok)
+                val successfulAnswer = result.ok && result.rcode == 0 && result.answers.isNotEmpty()
+                assertFalse("Resolver outage unexpectedly returned a successful DNS answer: $result", successfulAnswer)
+                assertTrue(
+                    "Resolver outage must time out or return SERVFAIL without answers: $result",
+                    !result.ok || (result.rcode == 2 && result.answers.isEmpty()),
+                )
             }
 
             val outcomeMarker = evidence?.let { emitEvidenceMarker(it.outcomeWireMarker) }
@@ -373,13 +592,26 @@ class DnsNetworkEvidenceE2ETest {
             val events = fixtureClient.events()
             val queryEvents = events.filter { it.service == "dns_dot" && it.detail == queryHost }
             assertEquals("Expected one exact DoT query transcript: $events", 1, queryEvents.size)
-            val faultEvents = events.filter { it.service == "dns_dot" && it.detail.startsWith("fault:") }
+            val queryPeer = queryEvents.single().peer
+            val faultEvents =
+                events.filter {
+                    it.service == "dns_dot" && it.peer == queryPeer && it.detail.startsWith("fault:")
+                }
             if (mode == EvidenceDnsMode.OUTAGE) {
                 assertEquals("Expected one deterministic DoT fault: $events", 1, faultEvents.size)
             } else {
                 assertTrue("Unexpected resolver fault: $events", faultEvents.isEmpty())
             }
-            val socksEvents = events.filter { it.service == "socks5_relay" && it.protocol == "tcp" }
+            val socksEvents =
+                events
+                    .filter {
+                        it.service == "socks5_relay" &&
+                            it.protocol == "tcp" &&
+                            it.detail == "${fixture.androidHost}:${fixture.dnsDotPort}" &&
+                            it.createdAt <= queryEvents.single().createdAt
+                    }.maxByOrNull { it.createdAt }
+                    ?.let(::listOf)
+                    .orEmpty()
             if (mode == EvidenceDnsMode.PROXIED) {
                 assertEquals("Expected one fixture SOCKS event for proxied DNS: $events", 1, socksEvents.size)
                 assertEquals(
@@ -432,6 +664,132 @@ class DnsNetworkEvidenceE2ETest {
         assertFalse(isSyntheticMapDnsIpv4Answer("2001:db8::1"))
     }
 
+    private fun requireEvidenceContext(gateId: String): NetworkEvidenceActionContext =
+        requireNotNull(evidenceContext) { "$gateId requires the source-owned evidence arguments" }.also {
+            assertEquals(gateId, it.gateId)
+        }
+
+    private fun configureFixtureDnsTunnel() {
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.applyFixtureEncryptedDns(
+                fixture = fixture,
+                proxyPort = listenPort,
+                protocol = EncryptedDnsProtocolDot,
+            )
+            appSettingsRepository.update {
+                fullTunnelMode = false
+                setSplitTunnelMode(SplitTunnelMode.Include)
+                clearSplitTunnelPackages()
+                addSplitTunnelPackages(InstrumentationRegistry.getInstrumentation().context.packageName)
+                enableCmdSettings = false
+                relayEnabled = false
+                relayKind = "off"
+            }
+        }
+    }
+
+    private fun uniqueEvidenceQuery(
+        phase: String,
+        evidence: NetworkEvidenceActionContext,
+    ): String = "$phase-${evidence.correlationId.take(16)}.${fixture.fixtureDomain}"
+
+    private fun runFixtureUdpProbe(
+        probeService: TestProcessDnsProbeServiceHandle,
+        queryHost: String,
+        expectSuccess: Boolean,
+    ): AppProcessDnsProbeResult {
+        val signal = EvidenceProbeSignal("dns-scenario-${UUID.randomUUID()}")
+        val result =
+            probeService.dnsProbe(
+                queryHost = queryHost,
+                serverHost = fixture.androidHost,
+                serverPort = fixture.dnsUdpPort,
+                timeoutMs = EvidenceProbeTimeoutMs,
+                signalId = signal.id,
+                probeSignalBinder = signal.binder,
+            )
+        assertTrue("DNS scenario probe was never sent", signal.await(EvidenceSignalTimeoutMs))
+        if (expectSuccess) {
+            assertTrue("Expected fixture DNS response: $result", result.ok)
+            assertEquals(0, result.rcode)
+            assertEquals(listOf(fixture.dnsAnswerIpv4), result.answers)
+        } else {
+            assertFalse(
+                "Fail-closed DNS scenario returned an answer: $result",
+                result.ok && result.answers.isNotEmpty(),
+            )
+        }
+        return result
+    }
+
+    private fun droppedUdpDnsFault(): FixtureFaultSpecDto =
+        FixtureFaultSpecDto(
+            target = FixtureFaultTargetDto.DNS_UDP,
+            outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+            scope = FixtureFaultScopeDto.PERSISTENT,
+        )
+
+    private fun assertFixtureUdpFault(queryHost: String) {
+        val events = fixtureClient.events()
+        assertEquals(1, events.count { it.service == "dns_udp" && it.detail == queryHost })
+        assertEquals(1, events.count { it.service == "dns_udp" && it.detail == "fault:DnsTimeout" })
+    }
+
+    private fun scenarioObservation(
+        startedAt: Long,
+        actionMarkerAt: Long,
+        outcomeMarkerAt: Long,
+        appUid: Int,
+        testUid: Int,
+        actionMarker: AppProcessTcpProbeResult,
+        outcomeMarker: AppProcessTcpProbeResult,
+        dnsProbes: List<AppProcessDnsProbeResult>,
+    ): NetworkEvidenceDnsScenarioObservation =
+        NetworkEvidenceDnsScenarioObservation(
+            startedAtElapsedRealtimeMs = startedAt,
+            actionMarkerAtElapsedRealtimeMs = actionMarkerAt,
+            outcomeMarkerAtElapsedRealtimeMs = outcomeMarkerAt,
+            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            appUid = appUid,
+            testUid = testUid,
+            actionMarker = actionMarker,
+            outcomeMarker = outcomeMarker,
+            dnsProbes = dnsProbes,
+        )
+
+    private fun requireUnderlay(transport: Int): Network =
+        connectivityManager.allNetworks.firstOrNull { network ->
+            connectivityManager.getNetworkCapabilities(network)?.hasTransport(transport) == true
+        } ?: error("Missing underlay transport $transport")
+
+    private fun awaitUnderlay(transport: Int): Network {
+        var result: Network? = null
+        awaitUntil(timeoutMs = EvidenceVpnTimeoutMs) {
+            result = runCatching { requireUnderlay(transport) }.getOrNull()
+            result != null
+        }
+        return requireNotNull(result)
+    }
+
+    private fun shell(command: String): String {
+        val descriptor: ParcelFileDescriptor =
+            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        return descriptor.use { ParcelFileDescriptor.AutoCloseInputStream(it).bufferedReader().readText() }
+    }
+
+    private fun restoreGlobalSetting(
+        name: String,
+        value: String,
+    ) {
+        if (value == "null" || value.isBlank()) {
+            shell("settings delete global $name")
+        } else {
+            require(value.matches(Regex("[A-Za-z0-9._-]+"))) { "Unsafe saved setting value" }
+            shell("settings put global $name $value")
+        }
+    }
+
     private fun distinctEvidenceUids(): Pair<Int, Int> {
         val appUid = appContext.applicationInfo.uid
         val testUid =
@@ -460,6 +818,24 @@ class DnsNetworkEvidenceE2ETest {
         return result
     }
 
+    private fun awaitStableTunnelRuntime(probeService: TestProcessDnsProbeServiceHandle) {
+        var observedStarts = evidenceTunnelFactory.successfulStartCount()
+        awaitStable(
+            timeoutMs = EvidenceVpnTimeoutMs,
+            pollMs = 100,
+            stablePollCount = 40,
+            failureMessage = { serviceStateDebugSummary(serviceStateStore, fixtureClient) },
+        ) {
+            val currentStarts = evidenceTunnelFactory.successfulStartCount()
+            val unchanged = currentStarts > 0 && currentStarts == observedStarts
+            observedStarts = currentStarts
+            unchanged &&
+                serviceStateStore.status.value == AppStatus.Running to Mode.VPN &&
+                serviceStateStore.telemetry.value.status == AppStatus.Running &&
+                probeService.isVpnDefaultNetwork()
+        }
+    }
+
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(appContext, Intent(appContext, serviceClass).setAction(startAction))
     }
@@ -483,6 +859,7 @@ private class EvidenceTun2SocksBridgeFactory(
 ) : Tun2SocksBridgeFactory {
     @Volatile
     private var fixture: FixtureManifestDto? = null
+    private val successfulStarts = AtomicInteger(0)
 
     fun routeDnsThroughFixtureSocks(value: FixtureManifestDto) {
         fixture = value
@@ -490,25 +867,33 @@ private class EvidenceTun2SocksBridgeFactory(
 
     fun reset() {
         fixture = null
+        successfulStarts.set(0)
     }
 
+    fun successfulStartCount(): Int = successfulStarts.get()
+
     override fun create(): Tun2SocksBridge =
-        EvidenceTun2SocksBridge(NativeTun2SocksBridge(bindings)) { config ->
-            fixture?.let { target ->
-                config.copy(
-                    socks5Address = target.androidHost,
-                    socks5Port = target.socks5Port,
-                    username = null,
-                    password = null,
-                    routeDnsThroughSocks5 = true,
-                )
-            } ?: config
-        }
+        EvidenceTun2SocksBridge(
+            delegate = NativeTun2SocksBridge(bindings),
+            transform = { config ->
+                fixture?.let { target ->
+                    config.copy(
+                        socks5Address = target.androidHost,
+                        socks5Port = target.socks5Port,
+                        username = null,
+                        password = null,
+                        routeDnsThroughSocks5 = true,
+                    )
+                } ?: config
+            },
+            onStarted = successfulStarts::incrementAndGet,
+        )
 }
 
 private class EvidenceTun2SocksBridge(
     private val delegate: Tun2SocksBridge,
     private val transform: (Tun2SocksConfig) -> Tun2SocksConfig,
+    private val onStarted: () -> Unit,
 ) : Tun2SocksBridge {
     override suspend fun start(
         config: Tun2SocksConfig,
@@ -516,6 +901,7 @@ private class EvidenceTun2SocksBridge(
         flowAttributionBridge: Any?,
     ) {
         delegate.start(transform(config), tunFd, flowAttributionBridge)
+        onStarted()
     }
 
     override suspend fun stop() = delegate.stop()

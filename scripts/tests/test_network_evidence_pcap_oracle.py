@@ -1389,13 +1389,12 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                     self.assertEqual(window["unexpectedPacketCount"], 0)
                     self.assertEqual(window["captureErrorCount"], 0)
 
-    def test_production_registry_cannot_validate_synthetic_dns_pass(self) -> None:
+    def test_production_registry_validates_ready_dns_contract_fixture(self) -> None:
         self.write_dns_action_inputs("dns-virtual-vpn-resolver")
 
         result = self.run_oracle(test_ready_override=False)
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("not production ready", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_dns_rule_rejects_forged_response_source_address(self) -> None:
         self.write_dns_action_inputs(

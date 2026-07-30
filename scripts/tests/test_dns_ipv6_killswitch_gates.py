@@ -667,7 +667,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                     ]
                 )
 
-    def test_release_checker_rejects_pass_manifest_with_unready_actions(self) -> None:
+    def test_release_checker_still_requires_ordinary_producer_attestation(self) -> None:
         root = Path(self.temp.name) / "unready-actions"
         root.mkdir()
         manifest_path = self.evidence_bundle(root)
@@ -688,12 +688,13 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         ]
 
         with self.tightened("android-action-selector-receipt"):
-            with self.assertRaisesRegex(ValueError, "not production ready"):
+            with self.assertRaisesRegex(
+                ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
+            ):
                 gates.main(argv)
 
-        # Relaxed, unready actions no longer block. The hand-authored all-PASS
-        # document is still refused, by the semantic-provenance guard that the
-        # relaxations deliberately leave in place.
+        # The hand-authored all-PASS document is refused by the independent
+        # semantic-provenance guard in both policy modes.
         with self.assertRaisesRegex(
             ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
         ):

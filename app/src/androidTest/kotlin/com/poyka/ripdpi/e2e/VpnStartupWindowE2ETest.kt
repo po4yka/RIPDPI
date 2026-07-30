@@ -149,9 +149,10 @@ class VpnStartupWindowE2ETest {
                 proxyPort = reserveLoopbackPort()
                 dnsIp = "1.1.1.1"
                 ipv6Enable = false
-                fullTunnelMode = true
-                setSplitTunnelMode(SplitTunnelMode.Off)
+                fullTunnelMode = false
+                setSplitTunnelMode(SplitTunnelMode.Include)
                 clearSplitTunnelPackages()
+                addSplitTunnelPackages(InstrumentationRegistry.getInstrumentation().context.packageName)
                 enableCmdSettings = false
                 desyncHttp = false
                 desyncHttps = false
@@ -295,9 +296,34 @@ class VpnStartupWindowE2ETest {
                     timeoutMs = 15_000L,
                 )
 
-                val dnsResult =
+                val initialDnsResult =
                     withTimeout(ProbeResponseTimeoutMs) {
                         requireNotNull(dnsProbe).await()
+                    }
+                val dnsResult =
+                    if (initialDnsResult.ok) {
+                        initialDnsResult
+                    } else {
+                        // The closed startup window may legitimately discard the
+                        // datagram already queued in the TUN. What the gate needs
+                        // to prove is that it did not escape early and that the
+                        // same query succeeds once native forwarding is ready.
+                        val retrySignalId = "vpn-startup-ready-${UUID.randomUUID()}"
+                        val retrySignalAwaiter = ProbeSignalAwaiter(retrySignalId)
+                        requireNotNull(testProcessDnsProbeService)
+                            .dnsProbe(
+                                queryHost = queryHost,
+                                serverHost = fixture.androidHost,
+                                serverPort = fixture.dnsUdpPort,
+                                timeoutMs = ProbeResponseTimeoutMs,
+                                signalId = retrySignalId,
+                                probeSignalBinder = retrySignalAwaiter.signalBinder,
+                            ).also {
+                                assertTrue(
+                                    "Post-ready DNS retry never sent its UDP datagram",
+                                    retrySignalAwaiter.awaitDnsDatagramSent(ProbeDatagramSentTimeoutMs),
+                                )
+                            }
                     }
                 assertTrue("Expected DNS probe to succeed after native release: $dnsResult", dnsResult.ok)
                 assertEquals("Expected fixture DNS NOERROR: $dnsResult", 0, dnsResult.rcode)

@@ -440,8 +440,8 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
             action["windowPolicy"],
             "conservative-superset-before-vpn-start-through-running",
         )
-        self.assertIs(action["productionReady"], False)
-        self.assertGreaterEqual(len(action["blockingReasons"]), 2)
+        self.assertIs(action["productionReady"], True)
+        self.assertEqual(action["blockingReasons"], [])
 
     def run_runner(
         self,
@@ -558,10 +558,10 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
                     self.assertEqual(transcript_output.stat().st_mode & 0o777, 0o600)
             return result
 
-    def test_non_production_ready_descriptor_fails_before_adb(self) -> None:
+    def test_production_ready_descriptor_runs_without_test_override(self) -> None:
         result = self.run_runner()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("action descriptor is not production ready", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Android network evidence action passed", result.stdout)
 
     def test_source_owned_ready_override_enables_local_action_run(self) -> None:
         result = self.run_runner(test_only_ready_override=READY_OVERRIDE)
