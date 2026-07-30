@@ -59,9 +59,10 @@ jobs:
   # created, and per the 2026-07-22 work log the Pi could not observe the Pixel's
   # wireless network at all, so the vantage pair never formed.
   #
-  # The CI host is a genuine external-observer vantage: emulator traffic to the
-  # local fixture crosses host loopback, and a leak to a real resolver egresses on
-  # a real interface. The collector watches every interface so neither is missed.
+  # The CI host is a genuine external-observer vantage: emulator traffic reaches
+  # the fixture through the runner's routed IPv4 address, and a leak to a real
+  # resolver egresses on a real interface. The collector watches every interface
+  # so neither is missed.
   capture-validate-publish-emulator:
     needs: build-evidence-apks
     runs-on: ubuntu-latest
@@ -104,10 +105,31 @@ jobs:
           sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v tcpdump)"
           tcpdump --version
 
+      - name: Resolve emulator-reachable fixture address
+        run: |
+          fixture_host="$(ip -4 route get 1.1.1.1 | awk '{for (i = 1; i <= NF; i++) if ($i == "src") {print $(i + 1); exit}}')"
+          python3 - "$fixture_host" <<'PY'
+          import ipaddress
+          import sys
+
+          address = ipaddress.ip_address(sys.argv[1])
+          if (
+              address.version != 4
+              or address.is_loopback
+              or address.is_link_local
+              or address.is_multicast
+              or address.is_unspecified
+          ):
+              raise SystemExit(f"runner route returned an unusable fixture address: {address}")
+          PY
+          {
+            echo "RIPDPI_FIXTURE_BIND_HOST=0.0.0.0"
+            echo "RIPDPI_FIXTURE_ANDROID_HOST=$fixture_host"
+            echo "RIPDPI_FIXTURE_EMULATOR_HOST=$fixture_host"
+            echo "RIPDPI_FIXTURE_DNS_ANSWER_IPV4=$fixture_host"
+          } >> "$GITHUB_ENV"
+
       - name: Start local network fixture
-        env:
-          RIPDPI_FIXTURE_ANDROID_HOST: 10.0.2.2
-          RIPDPI_FIXTURE_DNS_ANSWER_IPV4: 10.0.2.2
         run: |
           mkdir -p "$RUNNER_TEMP/local-network-fixture"
           scripts/ci/start-local-network-fixture.sh \
@@ -204,10 +226,8 @@ jobs:
       - name: Report gates left without evidence
         if: always()
         run: |
-          # Nine selectors are still unimplemented, so this lane cannot yet reach
-          # an all-PASS manifest and --require-pass above will fail the job. That
-          # is the intended state: a red job names the missing coverage, while a
-          # green one would be read as proof the gates hold.
+          # Keep partial coverage visible whenever a selector or its assertions
+          # fail. A green run still requires --require-pass above.
           find "${RUNNER_TEMP:?}" -name skipped-gates.json -exec cat {} + || true
 
       - name: Attach and validate source-owned ordinary results
@@ -250,4 +270,3 @@ jobs:
         run: |
           pid_file="$RUNNER_TEMP/local-network-fixture/fixture.pid"
           if [ -f "$pid_file" ]; then kill "$(cat "$pid_file")" || true; fi
-

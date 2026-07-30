@@ -10,10 +10,10 @@ For each gate the hook derives the action and outcome markers, runs that gate's
 single selector, and pulls the private receipt and fixture transcript the test
 wrote. The collectors turn those into the ledger; nothing here judges packets.
 
-Gates whose instrumentation selector does not exist yet are reported and
-skipped. They simply produce no window, so the oracle is never asked to prove a
-scenario that never ran, and the manifest stays honestly incomplete rather than
-silently passing.
+Any selector that does not execute exactly one passing test is reported and
+skipped. It produces no window, so the oracle is never asked to prove a scenario
+that never ran, and the manifest stays honestly incomplete rather than silently
+passing.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ TEST_PACKAGE = "com.poyka.ripdpi.test"
 TEST_RUNNER = "com.poyka.ripdpi.HiltTestRunner"
 INSTRUMENTATION_TIMEOUT_SECONDS = 420
 ADB_TIMEOUT_SECONDS = 120
-OK_RESULT = re.compile(r"^OK \(\d+ test", re.MULTILINE)
+EXACT_ONE_TEST_RESULT = re.compile(r"^OK \(1 test\)$", re.MULTILINE)
 
 
 class WorkloadError(RuntimeError):
@@ -212,7 +212,7 @@ def run_gate(
     completed = device.run(*command, timeout=INSTRUMENTATION_TIMEOUT_SECONDS)
     finished = int(time.time())
     output = completed.stdout.decode("utf-8", "replace")
-    if completed.returncode != 0 or OK_RESULT.search(output) is None:
+    if completed.returncode != 0 or EXACT_ONE_TEST_RESULT.search(output) is None:
         log(shared, f"{gate_id}: instrumentation did not pass; skipping window")
         (shared / f"{gate_id}-instrumentation.log").write_text(output, encoding="utf-8")
         return None

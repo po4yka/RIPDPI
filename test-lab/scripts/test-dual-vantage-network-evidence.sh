@@ -205,6 +205,21 @@ observer_vantage_digest = hashlib.sha256(
 client = documents["client-observation.json"]
 observer = documents["observer-observation.json"]
 manifest = documents["manifest.json"]
+policy = json.loads(
+    (runner.parents[2] / "quality/release-gates/dns-ipv6-killswitch-gates.json").read_text(
+        encoding="utf-8"
+    )
+)
+policy_scopes = policy.get("appliesTo", [])
+expected_gate_ids = {
+    gate["id"]
+    for gate in policy["gates"]
+    if gate.get("evidenceSources", {}).get(
+        "android-client-release", gate.get("evidenceSource")
+    )
+    == "dual-vantage-network-manifest"
+    and "android-client-release" in gate.get("appliesTo", policy_scopes)
+}
 assert client["networkIdSha256"] == client_network_digest
 assert observer["networkIdSha256"] == observer_network_digest
 assert client["vantageIdSha256"] == client_vantage_digest
@@ -229,9 +244,9 @@ assert manifest["provenance"]["runnerSha256"] == hashlib.sha256(
 ).hexdigest()
 assert client["scenarioPlanSha256"] == observer["scenarioPlanSha256"]
 assert manifest["provenance"]["scenarioPlanSha256"] == client["scenarioPlanSha256"]
-assert len({window["actionMarkerSha256"] for window in client["windows"]}) == 10
-assert len({window["outcomeMarkerSha256"] for window in client["windows"]}) == 10
-assert len(manifest["gateResults"]) == 10
+assert len({window["actionMarkerSha256"] for window in client["windows"]}) == len(expected_gate_ids)
+assert len({window["outcomeMarkerSha256"] for window in client["windows"]}) == len(expected_gate_ids)
+assert set(manifest["gateResults"]) == expected_gate_ids
 assert "dns-virtual-vpn-resolver" in manifest["gateResults"]
 assert "killswitch-tun-establish-native-ready" in manifest["gateResults"]
 published = b"".join(path.read_bytes() for path in output.glob("*.json"))

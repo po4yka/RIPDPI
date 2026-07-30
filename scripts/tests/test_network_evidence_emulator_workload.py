@@ -175,6 +175,16 @@ class PlanEmissionTest(unittest.TestCase):
         self.assertIsNone(self.call(device))
         self.assertTrue((self.shared / "dns-virtual-vpn-resolver-instrumentation.log").exists())
 
+    def test_zero_test_instrumentation_produces_no_window(self) -> None:
+        device = self.StubDevice(output="OK (0 tests)", pulled=True)
+        self.assertIsNone(self.call(device))
+        self.assertTrue((self.shared / "dns-virtual-vpn-resolver-instrumentation.log").exists())
+
+    def test_multiple_tests_cannot_impersonate_the_single_selector(self) -> None:
+        device = self.StubDevice(output="OK (2 tests)", pulled=True)
+        self.assertIsNone(self.call(device))
+        self.assertTrue((self.shared / "dns-virtual-vpn-resolver-instrumentation.log").exists())
+
     def test_passing_gate_without_a_receipt_fails_closed(self) -> None:
         device = self.StubDevice(output="OK (1 test)", pulled=False)
         with self.assertRaisesRegex(workload.WorkloadError, "wrote no action receipt"):
