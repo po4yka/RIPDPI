@@ -50,6 +50,11 @@ DNS_RULES = {
     "dns-core-crash-behavior": "core-crash-dns-fail-closed-v1",
     "dns-android-private-dns-conflict": "android-private-dns-conflict-v1",
 }
+SOURCE_OWNED_TRANSCRIPT_RULES = {
+    "virtual-vpn-resolver-v1",
+    "proxied-domain-resolver-path-v1",
+    "encrypted-outage-fail-closed-v1",
+}
 # Matches the oracle's own bound; a larger capture is a runaway, not evidence.
 MAX_CAPTURE_BYTES = 64 * 1024 * 1024
 SNAP_LENGTH = 192
@@ -286,20 +291,49 @@ def semantic_rules_for(plan: dict, receipts: dict[str, Path]) -> list[dict]:
     return rules
 
 
-def collect_bundle(shared: Path) -> tuple[dict[str, Path], list[Path], Path | None]:
-    """Read the private artifacts the workload pulled off the device."""
-    receipts: dict[str, Path] = {}
-    receipt_dir = shared / "action-receipts"
-    if receipt_dir.is_dir():
-        for path in sorted(receipt_dir.glob("*.json")):
+def _index_gate_artifacts(directory: Path) -> dict[str, Path]:
+    artifacts: dict[str, Path] = {}
+    if directory.is_dir():
+        for path in sorted(directory.glob("*.json")):
             document = json.loads(path.read_text(encoding="utf-8"))
-            receipts[document["gateId"]] = path
-    transcript_dir = shared / "fixture-transcripts"
-    transcripts = (
-        sorted(transcript_dir.glob("*.json")) if transcript_dir.is_dir() else []
-    )
+            gate_id = document["gateId"]
+            if gate_id in artifacts:
+                raise CollectorError(f"duplicate private artifact for {gate_id}")
+            artifacts[gate_id] = path
+    return artifacts
+
+
+def collect_bundle(
+    shared: Path,
+) -> tuple[dict[str, Path], dict[str, Path], Path | None]:
+    """Read the private artifacts the workload pulled off the device."""
+    receipts = _index_gate_artifacts(shared / "action-receipts")
+    transcripts = _index_gate_artifacts(shared / "fixture-transcripts")
     manifest = shared / "fixture-manifest.json"
     return receipts, transcripts, manifest if manifest.is_file() else None
+
+
+def ordered_action_artifacts(
+    plan: dict, receipts: dict[str, Path], transcripts: dict[str, Path]
+) -> tuple[list[Path], list[Path]]:
+    action_gate_ids = [
+        window["id"]
+        for window in plan["windows"]
+        if window["id"] == STARTUP_GATE_ID or window["id"] in DNS_RULES
+    ]
+    transcript_gate_ids = [
+        gate_id
+        for gate_id in action_gate_ids
+        if DNS_RULES.get(gate_id) in SOURCE_OWNED_TRANSCRIPT_RULES
+    ]
+    if set(receipts) != set(action_gate_ids):
+        raise CollectorError("action receipt inventory does not match the scenario plan")
+    if set(transcripts) != set(transcript_gate_ids):
+        raise CollectorError("fixture transcript inventory does not match the scenario plan")
+    return (
+        [receipts[gate_id] for gate_id in action_gate_ids],
+        [transcripts[gate_id] for gate_id in transcript_gate_ids],
+    )
 
 
 def run_oracle(shared: Path, correlation_id: str, plan_path: Path) -> None:
@@ -308,6 +342,9 @@ def run_oracle(shared: Path, correlation_id: str, plan_path: Path) -> None:
         raise CollectorError("source-bound pcap oracle path was not provided")
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     receipts, transcripts, manifest = collect_bundle(shared)
+    ordered_receipts, ordered_transcripts = ordered_action_artifacts(
+        plan, receipts, transcripts
+    )
     ledger = {
         "captures": {
             role: {"rawCaptureSha256": sha256_file(shared / f"{role}.pcap")}
@@ -337,9 +374,9 @@ def run_oracle(shared: Path, correlation_id: str, plan_path: Path) -> None:
         "--observer-output",
         str(shared / "external-observer-observation.json"),
     ]
-    for path in receipts.values():
+    for path in ordered_receipts:
         command += ["--action-receipt", str(path)]
-    for path in transcripts:
+    for path in ordered_transcripts:
         command += ["--fixture-transcript", str(path)]
     if manifest is not None:
         command += ["--fixture-manifest", str(manifest)]

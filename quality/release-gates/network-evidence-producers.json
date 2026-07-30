@@ -1,10 +1,10 @@
 {
   "version": "network_evidence_producers_v3",
   "clientCollectorSha256": [
-    "cb4dc6c2737fff913a0f3e8ad92cb227737fe19bfc1af9dd39f47baf54cdd25b"
+    "7c57e97c4772a41ee8591a8e65bfebcce0223d7fe9546868511cb09d589b3a74"
   ],
   "observerCollectorSha256": [
-    "cb4dc6c2737fff913a0f3e8ad92cb227737fe19bfc1af9dd39f47baf54cdd25b"
+    "7c57e97c4772a41ee8591a8e65bfebcce0223d7fe9546868511cb09d589b3a74"
   ],
   "workloadSha256": [
     "f0f1b44e22e8a8f19d2eff866fd4d24562c71e901fbe5e38df3334c822e0dca1"

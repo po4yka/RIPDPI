@@ -10,6 +10,7 @@ asserted here instead.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -23,6 +24,11 @@ COLLECTOR = ROOT / "test-lab/scripts/network-evidence-emulator-collector.py"
 WORKLOAD = ROOT / "test-lab/scripts/network-evidence-emulator-workload.py"
 PRODUCERS = ROOT / "quality/release-gates/network-evidence-producers.json"
 HEX64 = set("0123456789abcdef")
+
+COLLECTOR_SPEC = importlib.util.spec_from_file_location("emulator_collector", COLLECTOR)
+assert COLLECTOR_SPEC is not None and COLLECTOR_SPEC.loader is not None
+collector_module = importlib.util.module_from_spec(COLLECTOR_SPEC)
+COLLECTOR_SPEC.loader.exec_module(collector_module)
 
 
 def digest(path: Path) -> str:
@@ -50,6 +56,63 @@ class ProducerAllowlistTest(unittest.TestCase):
                 with self.subTest(field=field, value=value):
                     self.assertEqual(len(value), 64)
                     self.assertTrue(set(value) <= HEX64)
+
+
+class CollectorArtifactOrderingTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.plan = {
+            "windows": [
+                {"id": "dns-virtual-vpn-resolver"},
+                {"id": "dns-allowlisted-bootstrap-resolution"},
+                {"id": "dns-no-isp-fallback-on-encrypted-resolver-outage"},
+                {"id": "killswitch-tun-establish-native-ready"},
+            ]
+        }
+        self.receipts = {
+            gate_id: Path(f"/{gate_id}-receipt.json")
+            for gate_id in reversed([window["id"] for window in self.plan["windows"]])
+        }
+        self.transcripts = {
+            "dns-no-isp-fallback-on-encrypted-resolver-outage": Path("/outage.json"),
+            "dns-virtual-vpn-resolver": Path("/virtual.json"),
+        }
+
+    def test_artifacts_follow_scenario_order_not_filename_order(self) -> None:
+        receipts, transcripts = collector_module.ordered_action_artifacts(
+            self.plan, self.receipts, self.transcripts
+        )
+
+        self.assertEqual(
+            receipts,
+            [self.receipts[window["id"]] for window in self.plan["windows"]],
+        )
+        self.assertEqual(
+            transcripts,
+            [
+                self.transcripts["dns-virtual-vpn-resolver"],
+                self.transcripts["dns-no-isp-fallback-on-encrypted-resolver-outage"],
+            ],
+        )
+
+    def test_extra_or_missing_artifacts_fail_closed(self) -> None:
+        for receipts, transcripts in (
+            ({**self.receipts, "unexpected": Path("/extra.json")}, self.transcripts),
+            (
+                {
+                    key: value
+                    for key, value in self.receipts.items()
+                    if key != "killswitch-tun-establish-native-ready"
+                },
+                self.transcripts,
+            ),
+            (self.receipts, {}),
+            (self.receipts, {**self.transcripts, "unexpected": Path("/extra.json")}),
+        ):
+            with self.subTest(receipts=receipts, transcripts=transcripts):
+                with self.assertRaises(collector_module.CollectorError):
+                    collector_module.ordered_action_artifacts(
+                        self.plan, receipts, transcripts
+                    )
 
 
 class RunnerConfigGeneratorTest(unittest.TestCase):
