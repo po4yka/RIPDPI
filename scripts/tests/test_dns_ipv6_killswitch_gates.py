@@ -939,8 +939,21 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertIn("--expected-evidence-run-id", release)
         self.assertIn("run-id:", release)
 
-        self.assertIn("ripdpi-network-evidence", evidence)
-        self.assertIn("physical-android", evidence)
+        # The self-hosted Raspberry Pi lane is gone: it required a hand-placed
+        # runner config that never existed and a vantage pair it could not form.
+        # Nothing may reintroduce a dependency on that hardware. Asserted against
+        # the runs-on targets rather than the raw text, so a comment mentioning
+        # the retired lane does not read as a live dependency.
+        runs_on = [
+            line.strip()
+            for line in evidence.splitlines()
+            if line.strip().startswith("runs-on:")
+        ]
+        self.assertTrue(runs_on)
+        for target in runs_on:
+            self.assertNotIn("self-hosted", target)
+            self.assertNotIn("physical-android", target)
+            self.assertNotIn("ripdpi-network-evidence", target)
         self.assertIn("run-dual-vantage-network-evidence.sh", evidence)
         self.assertIn(":app:assembleGithubFullDebugAndroidTest", evidence)
         self.assertIn('--test-artifact "$TEST_ARTIFACT_PATH"', evidence)
@@ -960,15 +973,10 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "${{ github.run_id }}-${{ github.run_attempt }}",
             evidence,
         )
-        # Two lanes now declare an output name: the physical one above and the
-        # emulator one. A global occurrence count stopped expressing anything
-        # once the second lane landed, so each lane is asserted by name instead.
-        self.assertIn(
-            "EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-emulator-evidence-"
-            "${{ github.run_id }}-${{ github.run_attempt }}",
-            evidence,
-        )
-        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME:"), 2)
+        # One capture lane, so exactly one declaration. The emulator lane now owns
+        # the release-evidence name that release.yml downloads; nothing else
+        # publishes it.
+        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME:"), 1)
         self.assertIn(
             "path: ${{ runner.temp }}/${{ env.EVIDENCE_OUTPUT_NAME }}", evidence
         )
