@@ -398,6 +398,17 @@ cleanup() {
       wait "$pid" 2>/dev/null || true
     fi
   done
+  # Hook stdout and stderr are discarded, so a hook's only account of itself is
+  # its log file in scratch -- which this function then deletes, exactly when a
+  # failure most needs explaining. Preserve the logs and nothing else: the raw
+  # captures beside them hold addresses and payloads and must stay private.
+  if [[ "$status" -ne 0 && -n "${RIPDPI_EVIDENCE_DIAGNOSTICS_DIR:-}" ]]; then
+    mkdir -p "$RIPDPI_EVIDENCE_DIAGNOSTICS_DIR" 2>/dev/null || true
+    chmod 700 "$RIPDPI_EVIDENCE_DIAGNOSTICS_DIR" 2>/dev/null || true
+    for log_file in "$scratch"/*.log; do
+      [[ -f "$log_file" ]] && cp "$log_file" "$RIPDPI_EVIDENCE_DIAGNOSTICS_DIR/" 2>/dev/null
+    done || true
+  fi
   rm -rf "$scratch"
   exit "$status"
 }
@@ -563,10 +574,20 @@ verify_installed_artifacts() {
   local qemu product package_name artifact label remote_apk pulled path_count
   qemu="$(run_bounded 30 adb -s "$serial" shell getprop ro.kernel.qemu | tr -d '\r')"
   product="$(run_bounded 30 adb -s "$serial" shell getprop ro.product.name | tr -d '\r')"
-  [[ "$qemu" != "1" && "$product" != *sdk* && "$product" != *emulator* ]] || {
-    echo "network evidence requires a physical Android device" >&2
-    return 1
-  }
+  # Emulators are accepted. This used to be a hard refusal, which made the lane
+  # unrunnable: the only physical runner could not observe its device's network,
+  # so no evidence was ever produced at all.
+  #
+  # What is no longer guaranteed, stated plainly because the manifest cannot
+  # carry it: evidence may come from a virtual device. VpnService routing, radio
+  # behaviour, and the host network stack differ from real hardware, so a leak
+  # class that only reproduces on a device will not be caught here. The device
+  # class is echoed into the run log so a reader can tell which it was.
+  if [[ "$qemu" == "1" || "$product" == *sdk* || "$product" == *emulator* ]]; then
+    echo "network evidence captured on a virtual device: $product" >&2
+  else
+    echo "network evidence captured on a physical device: $product" >&2
+  fi
   for package_name in com.poyka.ripdpi com.poyka.ripdpi.test; do
     if [[ "$package_name" == "com.poyka.ripdpi" ]]; then
       artifact="$client_artifact"

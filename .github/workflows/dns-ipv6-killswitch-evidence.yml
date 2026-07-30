@@ -170,6 +170,10 @@ jobs:
           echo "EVIDENCE_CONFIG=$config_path" >> "$GITHUB_ENV"
 
       - name: Capture client and external-observer evidence
+        env:
+          # Hook logs only. The raw captures beside them hold addresses and
+          # payloads and stay in the private scratch, which is always deleted.
+          RIPDPI_EVIDENCE_DIAGNOSTICS_DIR: ${{ runner.temp }}/evidence-diagnostics
         run: |
           test-lab/scripts/run-dual-vantage-network-evidence.sh \
             --config "$EVIDENCE_CONFIG" \
@@ -237,6 +241,7 @@ jobs:
           name: dns-ipv6-killswitch-emulator-diagnostics
           path: |
             ${{ runner.temp }}/local-network-fixture/fixture.log
+            ${{ runner.temp }}/evidence-diagnostics
           if-no-files-found: ignore
           retention-days: 7
 
