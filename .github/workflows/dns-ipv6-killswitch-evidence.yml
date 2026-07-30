@@ -75,6 +75,16 @@ jobs:
           name: dns-ipv6-killswitch-evidence-apks
           path: ${{ runner.temp }}/evidence-apks
 
+      # Provides the `android` CLI that start-android-emulator.sh drives, plus the
+      # SDK baseline. Nothing is compiled here -- the APKs are prebuilt -- so the
+      # caches are read-only and nothing is saved.
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: "true"
+
       - name: Enable KVM for emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
