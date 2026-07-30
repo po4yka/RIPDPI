@@ -960,13 +960,25 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "${{ github.run_id }}-${{ github.run_attempt }}",
             evidence,
         )
-        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME"), 6)
-        self.assertEqual(evidence.count('"$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME'), 4)
+        # Two lanes now declare an output name: the physical one above and the
+        # emulator one. A global occurrence count stopped expressing anything
+        # once the second lane landed, so each lane is asserted by name instead.
+        self.assertIn(
+            "EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-emulator-evidence-"
+            "${{ github.run_id }}-${{ github.run_attempt }}",
+            evidence,
+        )
+        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME:"), 2)
         self.assertIn(
             "path: ${{ runner.temp }}/${{ env.EVIDENCE_OUTPUT_NAME }}", evidence
         )
         self.assertIn("if: success()", evidence)
-        self.assertNotIn("if: always()", evidence)
+        # Release evidence is published only on success. always() is allowed,
+        # but strictly for teardown and for reporting what went unproven --
+        # never to upload a bundle from a run that did not succeed.
+        for step in evidence.split("- name: ")[1:]:
+            if "upload-artifact@" in step and "diagnostics" not in step:
+                self.assertNotIn("if: always()", step)
         self.assertNotIn("$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence", evidence)
         self.assertIn("scripts.tests.test_network_evidence_manifest", ci)
         self.assertIn("scripts.tests.test_network_evidence_pcap_oracle", ci)

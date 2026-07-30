@@ -204,14 +204,19 @@ class ObserverCapture:
 
     def __init__(self, shared: Path, correlation_id: str) -> None:
         self.shared = shared
-        self.interface = os.environ.get("RIPDPI_EVIDENCE_OBSERVER_INTERFACE")
+        # Defaults to every interface on purpose. Emulator traffic to the local
+        # fixture reaches the host over loopback, while a leak to a real ISP
+        # resolver egresses elsewhere -- and that leak is the thing this vantage
+        # exists to catch. Watching a single interface would miss one or the
+        # other silently, so narrowing this is an explicit opt-in.
+        self.interface = os.environ.get("RIPDPI_EVIDENCE_OBSERVER_INTERFACE", "any")
         self.destination: Path | None = None
         self.process: subprocess.Popen[bytes] | None = None
 
     def start(self) -> None:
         if not self.interface:
             raise CollectorError(
-                "RIPDPI_EVIDENCE_OBSERVER_INTERFACE must name the host egress interface"
+                "RIPDPI_EVIDENCE_OBSERVER_INTERFACE must not be empty"
             )
         if shutil.which("tcpdump") is None:
             raise CollectorError("tcpdump is not available for the observer vantage")

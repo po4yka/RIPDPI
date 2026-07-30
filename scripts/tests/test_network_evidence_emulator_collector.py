@@ -238,6 +238,24 @@ class RendezvousTest(unittest.TestCase):
         self.assertTrue((self.shared / "oracle.failed").exists())
 
 
+class ObserverVantageScopeTest(unittest.TestCase):
+    def tearDown(self) -> None:
+        os.environ.pop("RIPDPI_EVIDENCE_OBSERVER_INTERFACE", None)
+
+    def test_observer_watches_every_interface_by_default(self) -> None:
+        """Loopback carries fixture traffic; a real leak egresses elsewhere."""
+        os.environ.pop("RIPDPI_EVIDENCE_OBSERVER_INTERFACE", None)
+        with tempfile.TemporaryDirectory() as temporary:
+            backend = collector.ObserverCapture(Path(temporary), "a" * 64)
+        self.assertEqual(backend.interface, "any")
+
+    def test_narrowing_the_observer_is_an_explicit_opt_in(self) -> None:
+        os.environ["RIPDPI_EVIDENCE_OBSERVER_INTERFACE"] = "eth0"
+        with tempfile.TemporaryDirectory() as temporary:
+            backend = collector.ObserverCapture(Path(temporary), "a" * 64)
+        self.assertEqual(backend.interface, "eth0")
+
+
 class CaptureMetadataTest(unittest.TestCase):
     def test_metadata_is_canonical_and_matches_the_oracle_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

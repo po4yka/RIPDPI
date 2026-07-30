@@ -51,6 +51,162 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  # Emulator lane. Unlike the self-hosted physical lane below, this one needs no
+  # registered runner and no hand-placed config, so it actually executes. The
+  # host is a genuine external-observer vantage here: emulator traffic to the
+  # local fixture crosses host loopback, and a leak to a real resolver egresses
+  # on a real interface -- the collector watches every interface so neither is
+  # missed. The physical lane never achieved a working pair at all; per the
+  # 2026-07-22 work log the Raspberry Pi could not see the Pixel's network.
+  capture-validate-publish-emulator:
+    needs: build-evidence-apks
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-emulator-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+      RIPDPI_EVIDENCE_OBSERVER_INTERFACE: any
+      ANDROID_SERIAL: emulator-5554
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download exact-SHA evidence APKs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dns-ipv6-killswitch-evidence-apks
+          path: ${{ runner.temp }}/evidence-apks
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Grant packet capture to the unprivileged collector
+        run: |
+          # The collector is an allowlisted producer and must never invoke sudo
+          # itself; granting the capability here keeps privilege out of the
+          # digest-pinned hook.
+          sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v tcpdump)"
+          tcpdump --version
+
+      - name: Start local network fixture
+        env:
+          RIPDPI_FIXTURE_ANDROID_HOST: 10.0.2.2
+          RIPDPI_FIXTURE_DNS_ANSWER_IPV4: 10.0.2.2
+        run: |
+          mkdir -p "$RUNNER_TEMP/local-network-fixture"
+          scripts/ci/start-local-network-fixture.sh \
+            "$RUNNER_TEMP/local-network-fixture/fixture.log" \
+            "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json" \
+            "$RUNNER_TEMP/local-network-fixture/fixture.pid"
+
+      - name: Provision evidence emulator
+        run: |
+          # google_apis, not google_apis_playstore: the client vantage captures
+          # inside the guest and a Play image refuses `adb root`.
+          bash scripts/ci/start-android-emulator.sh \
+            --avd network-evidence \
+            --api 34 \
+            --arch x86_64 \
+            --target google_apis \
+            --boot-timeout 600
+          bash scripts/ci/wait-for-android-package-manager.sh
+
+      - name: Install and measure the exact-SHA client
+        run: |
+          apk="$RUNNER_TEMP/evidence-apks/client.apk"
+          test_apk="$RUNNER_TEMP/evidence-apks/test.apk"
+          test -f "$apk" && test -f "$test_apk"
+          adb -s "$ANDROID_SERIAL" install -r -d "$apk"
+          adb -s "$ANDROID_SERIAL" install -r -d "$test_apk"
+          remote_apk="$(adb -s "$ANDROID_SERIAL" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r')"
+          test -n "$remote_apk"
+          adb -s "$ANDROID_SERIAL" pull "$remote_apk" "$RUNNER_TEMP/installed-ripdpi.apk" >/dev/null
+          cmp -s "$apk" "$RUNNER_TEMP/installed-ripdpi.apk"
+          remote_test_apk="$(adb -s "$ANDROID_SERIAL" shell pm path com.poyka.ripdpi.test | sed -n 's/^package://p' | tr -d '\r')"
+          test -n "$remote_test_apk"
+          adb -s "$ANDROID_SERIAL" pull "$remote_test_apk" "$RUNNER_TEMP/installed-ripdpi-test.apk" >/dev/null
+          cmp -s "$test_apk" "$RUNNER_TEMP/installed-ripdpi-test.apk"
+          {
+            echo "CLIENT_ARTIFACT_PATH=$apk"
+            echo "TEST_ARTIFACT_PATH=$test_apk"
+            echo "CLIENT_ARTIFACT_SHA256=$(sha256sum "$apk" | cut -d' ' -f1)"
+            echo "TEST_ARTIFACT_SHA256=$(sha256sum "$test_apk" | cut -d' ' -f1)"
+          } >> "$GITHUB_ENV"
+
+      - name: Materialize the private runner config
+        run: |
+          umask 077
+          config_path="$(python3 test-lab/scripts/write-emulator-evidence-runner-config.py \
+            --directory "$RUNNER_TEMP/evidence-runner")"
+          echo "EVIDENCE_CONFIG=$config_path" >> "$GITHUB_ENV"
+
+      - name: Capture client and external-observer evidence
+        run: |
+          test-lab/scripts/run-dual-vantage-network-evidence.sh \
+            --config "$EVIDENCE_CONFIG" \
+            --output-dir "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME" \
+            --source-sha "$GITHUB_SHA" \
+            --client-artifact "$CLIENT_ARTIFACT_PATH" \
+            --test-artifact "$TEST_ARTIFACT_PATH" \
+            --applies-to android-client-release
+
+      - name: Reconfirm installed client after capture
+        run: |
+          remote_apk="$(adb -s "$ANDROID_SERIAL" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r')"
+          adb -s "$ANDROID_SERIAL" pull "$remote_apk" "$RUNNER_TEMP/post-capture-ripdpi.apk" >/dev/null
+          test "$(sha256sum "$RUNNER_TEMP/post-capture-ripdpi.apk" | cut -d' ' -f1)" = "$CLIENT_ARTIFACT_SHA256"
+
+      - name: Validate exact-SHA dual-vantage bundle
+        run: |
+          python3 scripts/ci/network_evidence_manifest.py validate \
+            --manifest "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME/manifest.json" \
+            --artifact-root "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME" \
+            --applies-to android-client-release \
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-execution-kind github-actions \
+            --expected-execution-id "$GITHUB_RUN_ID" \
+            --expected-execution-attempt "$GITHUB_RUN_ATTEMPT"
+          # --require-pass is deliberately absent, unlike the physical lane.
+          # Six selectors are unimplemented, so an all-PASS manifest is not
+          # achievable yet and demanding one would only make this job red for a
+          # reason it cannot fix. The bundle is still fully validated: source
+          # SHA, execution identity, vantage provenance, and every packet
+          # judgement the oracle makes. Restore the flag with the last selector.
+
+      - name: Report gates left without evidence
+        if: always()
+        run: |
+          # Six selectors do not exist yet, so a partial run is expected. It is
+          # printed rather than swallowed: a lane that silently proves less than
+          # it claims is worse than one that fails.
+          find "${RUNNER_TEMP:?}" -name skipped-gates.json -exec cat {} + || true
+
+      - name: Publish emulator evidence
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dns-ipv6-killswitch-emulator-evidence
+          path: ${{ runner.temp }}/${{ env.EVIDENCE_OUTPUT_NAME }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish capture diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dns-ipv6-killswitch-emulator-diagnostics
+          path: |
+            ${{ runner.temp }}/local-network-fixture/fixture.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop local network fixture
+        if: always()
+        run: |
+          pid_file="$RUNNER_TEMP/local-network-fixture/fixture.pid"
+          if [ -f "$pid_file" ]; then kill "$(cat "$pid_file")" || true; fi
+
   capture-validate-publish:
     needs: build-evidence-apks
     runs-on: [self-hosted, linux, ripdpi-network-evidence, physical-android]
