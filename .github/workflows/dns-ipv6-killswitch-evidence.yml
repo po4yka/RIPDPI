@@ -28,9 +28,12 @@ jobs:
           rust-cache-save: "true"
           gradle-cache-read-only: "false"
 
-      - name: Build exact-SHA arm64 evidence APKs
+      - name: Build exact-SHA evidence APKs
         run: |
-          device_abi=arm64-v8a
+          # x86_64 because the only consumer is the CI emulator. This was
+          # arm64-v8a while a physical Pixel lane existed; that lane is retired,
+          # so an arm64 build would now install nowhere.
+          device_abi=x86_64
           ./gradlew --no-daemon :app:assembleGithubFullDebug \
             :app:assembleGithubFullDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=$device_abi \
@@ -123,6 +126,19 @@ jobs:
             --target google_apis \
             --boot-timeout 600
           bash scripts/ci/wait-for-android-package-manager.sh
+
+      - name: Put adb on PATH for the capture hooks
+        run: |
+          # The emulator scripts resolve adb internally, but the workflow steps
+          # and the collector/workload hooks invoke it directly. ADB is exported
+          # as well as PATH: the hooks read that variable first and are exec'd
+          # outside this shell.
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          adb_bin="$sdk/platform-tools/adb"
+          test -x "$adb_bin"
+          echo "$sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "ADB=$adb_bin" >> "$GITHUB_ENV"
+          "$adb_bin" version
 
       - name: Install and measure the exact-SHA client
         run: |
