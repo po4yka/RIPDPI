@@ -65,11 +65,8 @@
       "receiptFile": "network-evidence-action-receipt-dns-allowlisted-bootstrap-resolution.json",
       "semanticRule": "allowlisted-bootstrap-v1",
       "windowPolicy": "marker-bounded-exact-query-set",
-      "productionReady": false,
-      "blockingReasons": [
-        "production instrumentation selector is not implemented",
-        "physical dual-vantage Pixel evidence has not yet been executed against the current source"
-      ]
+      "productionReady": true,
+      "blockingReasons": []
     },
     {
       "gateId": "dns-no-isp-fallback-on-encrypted-resolver-outage",

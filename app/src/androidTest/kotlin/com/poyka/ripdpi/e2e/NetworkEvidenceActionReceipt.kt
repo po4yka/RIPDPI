@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.e2e
 
 import android.content.Context
+import android.net.InetAddresses
 import android.os.Bundle
 import android.system.Os
 import com.poyka.ripdpi.BuildConfig
@@ -65,6 +66,12 @@ private val EvidenceDescriptors =
                 "dns",
                 "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#encryptedResolverOutageFailsClosed",
                 "encrypted-outage-fail-closed-v1",
+            ),
+        "dns-allowlisted-bootstrap-resolution" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#bootstrapResolutionUsesAllowlistedResolver",
+                "allowlisted-bootstrap-v1",
             ),
     )
 
@@ -260,6 +267,9 @@ internal data class NetworkEvidenceDnsFacts(
     val tunnelTelemetry: com.poyka.ripdpi.data.NativeRuntimeSnapshot,
     val faultObserved: Boolean,
     val socksTarget: String?,
+    /** Host and port of the fixture's plaintext UDP resolver, for packet-verified gates. */
+    val udpResolverHost: String,
+    val udpResolverPort: Int,
 ) {
     companion object {
         fun fromObserved(
@@ -281,6 +291,7 @@ internal data class NetworkEvidenceDnsFacts(
             socksTarget: String?,
         ): NetworkEvidenceDnsFacts {
             require(fixture.androidHost.isNotBlank() && fixture.dnsDotPort in 1..65535)
+            require(fixture.dnsUdpPort in 1..65535)
             return NetworkEvidenceDnsFacts(
                 gateId,
                 queryHost,
@@ -298,6 +309,8 @@ internal data class NetworkEvidenceDnsFacts(
                 tunnelTelemetry,
                 faultObserved,
                 socksTarget,
+                fixture.androidHost,
+                fixture.dnsUdpPort,
             )
         }
     }
@@ -441,6 +454,20 @@ internal fun writeNetworkEvidenceDnsPassReceipt(
                     .put("encryptedAttemptCount", 1)
                     .put("plainFallbackCount", 0)
                     .put("successfulResponseCount", 0)
+            }
+
+            "dns-allowlisted-bootstrap-resolution" -> {
+                // Packet-verified gate: every resolver digest here must match
+                // what the capture observed, so the byte-form helper is used.
+                val observedResolverSha =
+                    networkEvidencePacketResolverSha256(facts.udpResolverHost, facts.udpResolverPort)
+                JSONObject()
+                    .put("bootstrapQuerySha256", querySha)
+                    .put("allowlistedResolverSetSha256", networkEvidenceResolverSetSha256(observedResolverSha))
+                    .put("observedBootstrapResolverSha256", observedResolverSha)
+                    .put("bootstrapQueryCount", 1)
+                    .put("nonAllowlistedBootstrapCount", 0)
+                    .put("observedResolverAllowlisted", true)
             }
 
             else -> {
@@ -596,6 +623,45 @@ private fun networkEvidenceEndpointSha256(
     protocol: String,
     endpoint: String,
 ): String = networkEvidenceValueSha256("resolver", "$protocol:$endpoint")
+
+/**
+ * Mirrors the oracle's `_resolver_endpoint_sha256`, which digests the raw packed
+ * destination address followed by a big-endian port.
+ *
+ * Deliberately not [networkEvidenceEndpointSha256]: that one shares this domain
+ * string but digests the text form `"dot:host:port"`. The text form is only ever
+ * compared against a fixture transcript, while the six packet-verified DNS gates
+ * are compared against what the capture actually observed, so they need the byte
+ * form or the oracle rejects the receipt.
+ */
+private fun networkEvidencePacketResolverSha256(
+    host: String,
+    port: Int,
+): String {
+    require(port in 1..65535) { "Resolver port is out of range: $port" }
+    val address = InetAddresses.parseNumericAddress(host).address
+    require(address.size == 4 || address.size == 16) { "Unsupported resolver address width" }
+    val payload =
+        ByteBuffer
+            .allocate(address.size + 2)
+            .put(address)
+            .putShort(port.toShort())
+            .array()
+    return MessageDigest
+        .getInstance("SHA-256")
+        .digest("ripdpi:dns-evidence-resolver:v1:".toByteArray(StandardCharsets.US_ASCII) + payload)
+        .toHex()
+}
+
+/** Mirrors the oracle's packet-bound bootstrap allowlist digest. */
+private fun networkEvidenceResolverSetSha256(resolverSha256: String): String {
+    require(Sha256Regex.matches(resolverSha256))
+    return MessageDigest
+        .getInstance("SHA-256")
+        .digest(
+            "ripdpi:dns-evidence-resolver-set:v1:$resolverSha256".toByteArray(StandardCharsets.US_ASCII),
+        ).toHex()
+}
 
 private fun networkEvidenceValueSha256(
     domain: String,

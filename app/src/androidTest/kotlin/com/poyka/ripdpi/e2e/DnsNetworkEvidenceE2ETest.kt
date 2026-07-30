@@ -166,6 +166,114 @@ class DnsNetworkEvidenceE2ETest {
         )
     }
 
+    /**
+     * Bootstrap resolution is verified from the packet capture rather than from a
+     * fixture transcript, so the query has to be a plaintext UDP exchange with the
+     * fixture's own resolver port -- that is the only shape the oracle's
+     * `allowlisted-bootstrap-v1` rule accepts. Reaching the fixture directly while
+     * the tunnel is up is the same path the evidence markers already use.
+     */
+    @Test
+    fun bootstrapResolutionUsesAllowlistedResolver() {
+        val gateId = "dns-allowlisted-bootstrap-resolution"
+        val evidence = evidenceContext
+        if (evidence != null) {
+            assertEquals(gateId, evidence.gateId)
+        }
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.applyFixtureEncryptedDns(
+                fixture = fixture,
+                proxyPort = listenPort,
+                protocol = EncryptedDnsProtocolDot,
+            )
+            appSettingsRepository.update {
+                fullTunnelMode = true
+                setSplitTunnelMode(SplitTunnelMode.Off)
+                clearSplitTunnelPackages()
+                enableCmdSettings = false
+                relayEnabled = false
+                relayKind = "off"
+            }
+        }
+
+        val probeService = bindTestProcessDnsProbeService(EvidenceVpnTimeoutMs)
+        try {
+            val (appUid, testUid) = distinctEvidenceUids()
+            val startedAt = SystemClock.elapsedRealtime()
+            startService(RipDpiVpnService::class.java)
+            awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+            assertTrue(probeService.awaitVpnDefaultNetwork(EvidenceVpnTimeoutMs))
+
+            val actionMarker = evidence?.let { emitEvidenceMarker(it.actionWireMarker) }
+            val actionMarkerAt = SystemClock.elapsedRealtime()
+            val queryHost =
+                "bootstrap-${evidence?.correlationId?.take(16) ?: UUID.randomUUID()}.${fixture.fixtureDomain}"
+            val signal = EvidenceProbeSignal("dns-bootstrap-${UUID.randomUUID()}")
+            val result =
+                probeService.dnsProbe(
+                    queryHost = queryHost,
+                    serverHost = fixture.androidHost,
+                    serverPort = fixture.dnsUdpPort,
+                    timeoutMs = EvidenceProbeTimeoutMs,
+                    signalId = signal.id,
+                    probeSignalBinder = signal.binder,
+                )
+            assertTrue("Bootstrap DNS datagram was never sent", signal.await(EvidenceSignalTimeoutMs))
+            assertTrue("Expected the allowlisted bootstrap resolver to answer: $result", result.ok)
+            assertEquals(0, result.rcode)
+            assertEquals(
+                "Bootstrap answer must be the fixture's bound address: ${result.answers}",
+                listOf(fixture.dnsAnswerIpv4),
+                result.answers,
+            )
+
+            val outcomeMarker = evidence?.let { emitEvidenceMarker(it.outcomeWireMarker) }
+            val outcomeMarkerAt = SystemClock.elapsedRealtime()
+
+            stopService(RipDpiVpnService::class.java)
+            awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.VPN, fixtureClient)
+            val events = fixtureClient.events()
+            val bootstrapEvents = events.filter { it.service == "dns_udp" && it.detail == queryHost }
+            assertEquals("Expected one exact bootstrap query: $events", 1, bootstrapEvents.size)
+            val nonAllowlisted =
+                events.filter { it.detail == queryHost && it.service != "dns_udp" }
+            assertTrue(
+                "Bootstrap query reached a resolver outside the allowlist: $nonAllowlisted",
+                nonAllowlisted.isEmpty(),
+            )
+
+            evidence?.let {
+                val transcriptSha = writeNetworkEvidenceFixtureTranscript(appContext, it, queryHost, events)
+                writeNetworkEvidenceDnsPassReceipt(
+                    context = appContext,
+                    evidence = it,
+                    facts =
+                        NetworkEvidenceDnsFacts.fromObserved(
+                            gateId = gateId,
+                            queryHost = queryHost,
+                            fixture = fixture,
+                            transcriptSha256 = transcriptSha,
+                            startedAtElapsedRealtimeMs = startedAt,
+                            actionMarkerAtElapsedRealtimeMs = actionMarkerAt,
+                            outcomeMarkerAtElapsedRealtimeMs = outcomeMarkerAt,
+                            finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                            appUid = appUid,
+                            testUid = testUid,
+                            actionMarker = requireNotNull(actionMarker),
+                            outcomeMarker = requireNotNull(outcomeMarker),
+                            dnsProbe = result,
+                            tunnelTelemetry = serviceStateStore.telemetry.value.tunnelTelemetry,
+                            faultObserved = false,
+                            socksTarget = null,
+                        ),
+                )
+            }
+        } finally {
+            probeService.close()
+        }
+    }
+
     private fun runDnsEvidenceAction(
         gateId: String,
         mode: EvidenceDnsMode,

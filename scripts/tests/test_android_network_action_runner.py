@@ -623,13 +623,18 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
             self.assertFalse(transcript_output.exists())
 
     def test_every_registry_descriptor_runs_only_its_bound_selector(self) -> None:
-        for gate_id in module.load_action_registry():
+        rejection = "action descriptor is not production ready"
+        for gate_id, descriptor in module.load_action_registry().items():
             with self.subTest(gate_id=gate_id):
                 result = self.run_runner(gate_id=gate_id)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn(
-                    "action descriptor is not production ready", result.stderr
-                )
+                if descriptor.production_ready:
+                    # A ready descriptor must get past the readiness gate. How far
+                    # it then gets depends on this harness, so only the absence of
+                    # the readiness rejection is asserted here.
+                    self.assertNotIn(rejection, result.stderr)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(rejection, result.stderr)
 
     def test_existing_receipt_output_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

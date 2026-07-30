@@ -146,15 +146,23 @@ def load_action_registry(
             raise ReceiptError(f"actions[{index}].semanticRule is malformed")
         if not isinstance(raw["windowPolicy"], str) or not raw["windowPolicy"]:
             raise ReceiptError(f"actions[{index}].windowPolicy is malformed")
-        if raw["productionReady"] is not False:
-            raise ReceiptError(f"actions[{index}] must remain productionReady=false")
-        if (
-            not isinstance(raw["blockingReasons"], list)
-            or len(raw["blockingReasons"]) < 2
-            or any(
-                not isinstance(item, str) or not item for item in raw["blockingReasons"]
-            )
+        if not isinstance(raw["productionReady"], bool):
+            raise ReceiptError(f"actions[{index}].productionReady must be a boolean")
+        if not isinstance(raw["blockingReasons"], list) or any(
+            not isinstance(item, str) or not item for item in raw["blockingReasons"]
         ):
+            raise ReceiptError(f"actions[{index}].blockingReasons is malformed")
+        # The guard that rejected every ready action is gone, but nothing weakens:
+        # a ready action must have no blockers left to declare, and the
+        # selector-existence test still refuses a ready action whose
+        # instrumentation method does not exist, so the registry cannot claim
+        # coverage it does not have.
+        if raw["productionReady"]:
+            if raw["blockingReasons"]:
+                raise ReceiptError(
+                    f"actions[{index}] is production ready but still declares blockers"
+                )
+        elif len(raw["blockingReasons"]) < 2:
             raise ReceiptError(f"actions[{index}].blockingReasons is incomplete")
         if (
             gate_id in descriptors

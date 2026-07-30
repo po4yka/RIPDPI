@@ -21,6 +21,13 @@ KOTLIN_RECEIPT = (
 KOTLIN_STARTUP_ACTION = (
     ROOT / "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/VpnStartupWindowE2ETest.kt"
 )
+KOTLIN_DNS_ACTION = (
+    ROOT / "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/DnsNetworkEvidenceE2ETest.kt"
+)
+# Every file that may host an evidence selector. A gate marked production ready
+# whose method is absent from all of these would be a registry claiming coverage
+# it does not have, so this list has to grow with the instrumentation.
+KOTLIN_ACTION_SOURCES = (KOTLIN_RECEIPT, KOTLIN_STARTUP_ACTION, KOTLIN_DNS_ACTION)
 SPEC = importlib.util.spec_from_file_location("network_action_receipt", VALIDATOR)
 assert SPEC is not None and SPEC.loader is not None
 module = importlib.util.module_from_spec(SPEC)
@@ -120,8 +127,20 @@ class AndroidNetworkActionRegistryTest(unittest.TestCase):
             len({descriptor.receipt_file for descriptor in registry.values()}),
             len(registry),
         )
+        source = "\n".join(
+            path.read_text(encoding="utf-8") for path in KOTLIN_ACTION_SOURCES
+        )
         for gate_id, descriptor in registry.items():
-            self.assertFalse(descriptor.production_ready, gate_id)
+            # Readiness implies the instrumentation exists, but not the converse:
+            # the startup gate has its selector and still waits on analyzer
+            # provenance. Asserting equality here wrongly demanded it be ready.
+            method = descriptor.selector.split("#", 1)[1]
+            if descriptor.production_ready:
+                self.assertIn(
+                    f"fun {method}(",
+                    source,
+                    f"{gate_id} is ready without instrumentation",
+                )
             if gate_id in DNS_DESCRIPTORS:
                 self.assertEqual(descriptor.kind, "dns")
 
@@ -133,6 +152,11 @@ class AndroidNetworkActionRegistryTest(unittest.TestCase):
             reasons = action["blockingReasons"]
             combined = " ".join(reasons).lower()
             with self.subTest(gate_id=action["gateId"]):
+                if action["productionReady"]:
+                    # A ready action has nothing left to block on; carrying a
+                    # stale reason would misreport what is still missing.
+                    self.assertEqual(reasons, [])
+                    continue
                 self.assertNotIn("not authorized", combined)
                 self.assertNotIn("no authorized", combined)
                 self.assertNotIn("not approved", combined)
@@ -174,8 +198,7 @@ class AndroidNetworkActionRegistryTest(unittest.TestCase):
         self,
     ) -> None:
         source = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in (KOTLIN_RECEIPT, KOTLIN_STARTUP_ACTION)
+            path.read_text(encoding="utf-8") for path in KOTLIN_ACTION_SOURCES
         )
         for gate_id, descriptor in module.load_action_registry().items():
             class_name, method_name = descriptor.selector.split("#", 1)
@@ -184,21 +207,30 @@ class AndroidNetworkActionRegistryTest(unittest.TestCase):
                     self.assertIn(class_name, source)
                     self.assertIn(f"fun {method_name}(", source)
 
-    def test_production_registry_receipts_cannot_validate_as_pass(self) -> None:
-        for gate_id in module.load_action_registry():
+    def test_only_production_ready_registry_receipts_can_validate_as_pass(self) -> None:
+        registry = module.load_action_registry()
+        self.assertTrue(
+            any(descriptor.production_ready for descriptor in registry.values()),
+            "at least one action must be ready or this test proves nothing",
+        )
+        for gate_id, descriptor in registry.items():
             with self.subTest(gate_id=gate_id):
-                with self.assertRaisesRegex(
-                    module.ReceiptError, "not production ready"
-                ):
-                    module.validate_receipt(
-                        valid_dns_receipt(gate_id),
-                        gate_id=gate_id,
-                        source_sha=SOURCE_SHA,
-                        correlation_id=CORRELATION_ID,
-                        client_artifact_sha256=CLIENT_SHA,
-                        test_artifact_sha256=TEST_SHA,
-                        fixture_identity_sha256=FIXTURE_SHA,
-                    )
+                receipt = valid_dns_receipt(gate_id)
+                arguments = {
+                    "gate_id": gate_id,
+                    "source_sha": SOURCE_SHA,
+                    "correlation_id": CORRELATION_ID,
+                    "client_artifact_sha256": CLIENT_SHA,
+                    "test_artifact_sha256": TEST_SHA,
+                    "fixture_identity_sha256": FIXTURE_SHA,
+                }
+                if descriptor.production_ready:
+                    module.validate_receipt(receipt, **arguments)
+                else:
+                    with self.assertRaisesRegex(
+                        module.ReceiptError, "not production ready"
+                    ):
+                        module.validate_receipt(receipt, **arguments)
 
     def test_every_dns_descriptor_accepts_only_its_exact_facts(self) -> None:
         for gate_id in DNS_DESCRIPTORS:
