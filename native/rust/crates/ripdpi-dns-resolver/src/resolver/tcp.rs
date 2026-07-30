@@ -57,6 +57,20 @@ impl EncryptedDnsResolver {
 
     async fn connect_socks5_tcp(&self, proxy_host: &str, proxy_port: u16) -> Result<TokioTcpStream, EncryptedDnsError> {
         let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
+        if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
+            let connector = connector.clone();
+            let timeout = self.inner.timeout;
+            return self
+                .connect_socks5_tcp_with(proxy_target, move |target| {
+                    hooks::connect_tokio_tcp_target_with_hook(connector.clone(), target, timeout)
+                })
+                .await;
+        }
+        if self.inner.connect_hooks.requires_direct_tcp_connector() && !proxy_target.ip().is_loopback() {
+            return Err(EncryptedDnsError::Request(
+                "direct TCP connector is required for non-loopback SOCKS5 proxy".to_string(),
+            ));
+        }
         self.connect_socks5_tcp_with(proxy_target, tokio_connect::connect).await
     }
 

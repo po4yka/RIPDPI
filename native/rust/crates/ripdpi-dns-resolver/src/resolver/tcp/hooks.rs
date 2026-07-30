@@ -21,6 +21,20 @@ pub(super) async fn connect_tokio_tcp_with_hook(
     }
 }
 
+pub(super) async fn connect_tokio_tcp_target_with_hook(
+    connector: Arc<DirectTcpConnector>,
+    target: SocketAddr,
+    timeout: std::time::Duration,
+) -> std::io::Result<TokioTcpStream> {
+    match connect_one(connector, target, timeout).await {
+        Ok(DirectTcpConnection::Std(stream)) => adapt_std_tcp_stream(stream).map_err(std::io::Error::other),
+        Ok(DirectTcpConnection::Async(_)) => {
+            Err(std::io::Error::other("async direct TCP connector streams are only supported by DoH"))
+        }
+        Err(HookConnectError::Connect(error)) => Err(std::io::Error::other(error)),
+    }
+}
+
 pub(super) async fn connect_boxed_tcp_with_hook(
     inner: &ResolverInner,
     connector: Arc<DirectTcpConnector>,

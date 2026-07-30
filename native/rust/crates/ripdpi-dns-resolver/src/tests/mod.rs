@@ -630,7 +630,9 @@ fn dot_exchange_supports_socks_transport() {
     });
     let (proxy_port, proxy_handle) = start_socks_proxy("fixture.test", port, 1);
 
-    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+    let connector_calls = Arc::new(AtomicUsize::new(0));
+    let connector_calls_for_hook = Arc::clone(&connector_calls);
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Dot,
             resolver_id: Some("fixture".to_string()),
@@ -646,12 +648,17 @@ fn dot_exchange_supports_socks_transport() {
         EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port, credentials: None },
         DEFAULT_TIMEOUT,
         vec![certificate_der],
+        EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
+            connector_calls_for_hook.fetch_add(1, Ordering::Relaxed);
+            async move { TcpStream::connect_timeout(&target, timeout) }
+        }),
     )
     .expect("resolver builds");
 
     let response = resolver.exchange_blocking(&query).expect("DoT response");
     let answers = extract_ip_answers(&response).expect("answers parse");
     assert_eq!(answers, vec![answer_ip.to_string()]);
+    assert_eq!(connector_calls.load(Ordering::Relaxed), 1, "SOCKS5 proxy dial must use the supplied connector");
     drop(resolver);
     proxy_handle.join().expect("proxy thread completes");
     server.join().expect("server thread completes");
