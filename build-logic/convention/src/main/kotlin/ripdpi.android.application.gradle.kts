@@ -3,6 +3,7 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.FilterConfiguration
 import com.android.build.api.variant.VariantOutputConfiguration
 import com.android.build.gradle.internal.tasks.FinalizeBundleTask
+import org.gradle.api.GradleException
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
 
@@ -57,6 +58,14 @@ extensions.configure<ApplicationExtension> {
     }
 
     val abiSplitsEnabled = providers.gradleProperty("ripdpi.enableAbiSplits").map(String::toBoolean).getOrElse(true)
+    val requestedBundleTasks = requestedApplicationBundleTasks(gradle.startParameter.taskNames, project.path)
+    if (abiSplitsEnabled && requestedBundleTasks.isNotEmpty()) {
+        throw GradleException(
+            "ABI splits cannot be enabled for Android app bundle tasks: " +
+                requestedBundleTasks.joinToString() +
+                ". Run bundle tasks separately with -Pripdpi.enableAbiSplits=false.",
+        )
+    }
     splits {
         abi {
             isEnable = abiSplitsEnabled
