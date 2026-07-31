@@ -840,9 +840,14 @@ mod tests {
 
     #[test]
     fn compiled_guard_matches_the_vendored_cross_repo_policy() {
-        let policy: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json"
-        ))
+        let repo_root = std::env::var_os("RIPDPI_REPO_ROOT").map_or_else(
+            || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../.."),
+            std::path::PathBuf::from,
+        );
+        let policy_path = repo_root.join("core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json");
+        let policy: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&policy_path).expect("vendored AmneziaWG floor policy must be readable"),
+        )
         .expect("vendored AmneziaWG floor policy must be valid JSON");
 
         assert_eq!(policy["guard_required"].as_bool(), Some(ARM64_S34_GUARD_REQUIRED));
