@@ -66,6 +66,32 @@ class NativeDependencyGraphTest(unittest.TestCase):
             job_source("release-verification"),
         )
 
+    def test_packaging_consumers_run_after_intentional_ancestor_skips(self) -> None:
+        expected_results = {
+            "build-android-debug": (
+                "needs.rust-native-packaging.result == 'success'",
+                "needs.rust-native-x86_64.result == 'success'",
+                "needs.pluggable-transport-assets.result == 'success'",
+            ),
+            "release-verification": (
+                "needs.rust-native-packaging.result == 'success'",
+                "needs.rust-native-x86_64.result == 'success'",
+                "needs.owned-stack-tls-fingerprint.result == 'success'",
+                "needs.pluggable-transport-assets.result == 'success'",
+            ),
+            "android-instrumented-tests": (
+                "needs.rust-native-x86_64.result == 'success'",
+                "needs.pluggable-transport-assets.result == 'success'",
+            ),
+        }
+
+        for job_name, result_guards in expected_results.items():
+            with self.subTest(job=job_name):
+                source = job_source(job_name)
+                self.assertIn("!cancelled()", source)
+                for result_guard in result_guards:
+                    self.assertIn(result_guard, source)
+
     def test_debug_apks_build_in_independent_distribution_shards(self) -> None:
         source = job_source("build-android-debug")
 

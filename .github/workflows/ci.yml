@@ -606,8 +606,13 @@ jobs:
   # artifacts. The rust-native Gradle plugin copies these inputs instead of
   # running Cargo, so the shards can execute independently.
   build-android-debug:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, pluggable-transport-assets]
+    if: >-
+      !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -867,8 +872,14 @@ jobs:
         run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
 
   release-verification:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets]
+    if: >-
+      !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.owned-stack-tls-fingerprint.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     # Three two-build shards bound Kotlin heap use without serializing all six
     # variants in one runner. Stop Gradle between variants and emit each build
@@ -1925,8 +1936,12 @@ jobs:
   # The dedicated x86_64 native shard is staged via
   # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-x86_64, pluggable-transport-assets]
+    if: >-
+      !cancelled() &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
