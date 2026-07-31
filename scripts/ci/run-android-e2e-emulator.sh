@@ -48,6 +48,7 @@ run_target() {
     return 1
   fi
   if ! ./gradlew :app:connectedGithubFullDebugAndroidTest \
+    --profile \
     "$GRADLE_ABI" \
     "${PT_GRADLE_ARGS[@]}" \
     "$@" \

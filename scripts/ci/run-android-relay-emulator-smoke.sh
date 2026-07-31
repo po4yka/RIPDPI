@@ -16,6 +16,7 @@ fi
 bash scripts/ci/wait-for-android-package-manager.sh
 
 ./gradlew :app:connectedGithubFullDebugAndroidTest \
+  --profile \
   "$GRADLE_ABI" \
   "${PT_GRADLE_ARGS[@]}" \
   "-Pandroid.testInstrumentationRunnerArguments.class=$TARGET_CLASSES"

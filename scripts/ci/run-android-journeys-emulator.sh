@@ -53,7 +53,7 @@ if [[ -z "$apk" ]]; then
       "-Pripdpi.prebuiltPluggableTransportAssetsManifestSha256=$RIPDPI_PREBUILT_PT_MANIFEST_SHA256"
     )
   fi
-  ( cd "$ROOT_DIR" && ./gradlew --no-daemon :app:assembleGithubFullDebug "${pt_gradle_args[@]}" )
+  ( cd "$ROOT_DIR" && ./gradlew --no-daemon --profile :app:assembleGithubFullDebug "${pt_gradle_args[@]}" )
   apk="$(find "$ROOT_DIR/app/build/outputs/apk/github/debug" -name '*.apk' -print -quit 2>/dev/null || true)"
 fi
 if [[ -z "$apk" || ! -f "$apk" ]]; then

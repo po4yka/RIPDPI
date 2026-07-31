@@ -2384,6 +2384,11 @@ jobs:
             --output-dir "$RUNNER_TEMP/android-network-e2e-diagnostics" \
             --logcat-file android-logcat.txt
 
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-android-network-e2e
+
       - name: Stop emulator
         if: always()
         timeout-minutes: 5
@@ -2484,6 +2489,11 @@ jobs:
             --output-dir "$RUNNER_TEMP/android-journeys-diagnostics" \
             --logcat-file android-logcat.txt
 
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-android-journeys
+
       - name: Stop emulator
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd journeys
@@ -2554,6 +2564,11 @@ jobs:
             --avd relay-smoke \
             --output-dir "$RUNNER_TEMP/android-relay-diagnostics" \
             --logcat-file android-relay-logcat.txt
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-android-relay-smoke
 
       - name: Stop emulator
         if: always()

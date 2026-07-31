@@ -58,6 +58,9 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "gradle-static-analysis": "build-observability-gradle-static-analysis",
             "android-macrobenchmark": "build-observability-android-macrobenchmark",
             "android-instrumented-tests": "build-observability-android-instrumented-${{ matrix.device }}",
+            "android-network-e2e": "build-observability-android-network-e2e",
+            "android-journeys": "build-observability-android-journeys",
+            "android-relay-emulator-smoke": "build-observability-android-relay-smoke",
         }
 
         for job_name, artifact_name in artifact_names.items():
@@ -66,6 +69,16 @@ class BuildObservabilityContractsTest(unittest.TestCase):
                 self.assertIn("uses: ./.github/actions/upload-build-observability", source)
                 self.assertIn("if: always()", source)
                 self.assertIn(f"artifact-name: {artifact_name}", source)
+
+    def test_script_owned_gradle_invocations_emit_profiles(self) -> None:
+        for script_name in (
+            "run-android-e2e-emulator.sh",
+            "run-android-journeys-emulator.sh",
+            "run-android-relay-emulator-smoke.sh",
+        ):
+            with self.subTest(script=script_name):
+                source = (ROOT / "scripts/ci" / script_name).read_text(encoding="utf-8")
+                self.assertIn("--profile", source)
 
     def test_observability_action_captures_profiles_and_cache_stats(self) -> None:
         source = OBSERVABILITY_ACTION.read_text(encoding="utf-8")
