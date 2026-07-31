@@ -139,16 +139,22 @@ jobs:
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          common_args=(
+            -Pripdpi.testBuildType=release
+            -Pripdpi.nativeAbiParallelism=1
+            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
+          )
           ./gradlew \
             :app:bundlePlayFullRelease \
+            -Pripdpi.enableAbiSplits=false \
+            "${common_args[@]}"
+          ./gradlew \
             :app:assembleFdroidFullRelease \
             :app:assembleGithubFullRelease \
             :app:assembleGithubFullReleaseAndroidTest \
-            -Pripdpi.testBuildType=release \
             -Pripdpi.enableAbiSplits=true \
-            -Pripdpi.nativeAbiParallelism=1 \
-            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
+            "${common_args[@]}"
 
       - name: Remove release signing key
         if: always()

@@ -37,6 +37,22 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn("environment: release-signing", signing)
         self.assertIn(":app:assembleGithubFullReleaseAndroidTest", signing)
         self.assertIn("-Pripdpi.testBuildType=release", signing)
+        build_step = re.search(
+            r"(?ms)^      - name: Build signed release candidate once\n.*?(?=^      - name:|\Z)",
+            signing,
+        )
+        self.assertIsNotNone(build_step)
+        assert build_step is not None
+        gradle_invocations = build_step.group(0).split("./gradlew ")[1:]
+        self.assertEqual(2, len(gradle_invocations))
+        bundle_invocation, apk_invocation = gradle_invocations
+        self.assertIn(":app:bundlePlayFullRelease", bundle_invocation)
+        self.assertIn("-Pripdpi.enableAbiSplits=false", bundle_invocation)
+        self.assertNotIn(":app:assembleGithubFullRelease", bundle_invocation)
+        self.assertNotIn(":app:bundlePlayFullRelease", apk_invocation)
+        self.assertIn(":app:assembleFdroidFullRelease", apk_invocation)
+        self.assertIn(":app:assembleGithubFullRelease", apk_invocation)
+        self.assertIn("-Pripdpi.enableAbiSplits=true", apk_invocation)
         compile_preflight = signing.index(":app:compileGithubFullReleaseAndroidTestKotlin")
         signing_key = signing.index("Materialize release signing key")
         native_build = signing.index("Build signed release candidate once")
