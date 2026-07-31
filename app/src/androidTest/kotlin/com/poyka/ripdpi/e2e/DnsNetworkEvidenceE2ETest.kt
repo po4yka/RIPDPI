@@ -384,6 +384,10 @@ class DnsNetworkEvidenceE2ETest {
             awaitUntil(timeoutMs = EvidenceVpnTimeoutMs) {
                 serviceStateStore.telemetry.value.status == AppStatus.Halted
             }
+            assertTrue(
+                "Test-process default network did not return to the non-VPN underlay after the core exit",
+                probeService.awaitNonVpnDefaultNetwork(EvidenceVpnTimeoutMs),
+            )
             val queryHost = uniqueEvidenceQuery("core-crash", evidence)
             val result = runFixtureUdpProbe(probeService, queryHost, expectSuccess = false)
             assertFixtureUdpFault(queryHost)

@@ -58,6 +58,7 @@ SOURCE_OWNED_TRANSCRIPT_RULES = {
 # Matches the oracle's own bound; a larger capture is a runaway, not evidence.
 MAX_CAPTURE_BYTES = 64 * 1024 * 1024
 SNAP_LENGTH = 192
+CAPTURE_FILTER = ("tcp", "or", "udp")
 READY_TIMEOUT_SECONDS = 25
 STOP_TIMEOUT_SECONDS = 900
 DRAIN_TIMEOUT_SECONDS = 20
@@ -173,6 +174,7 @@ class ClientCapture:
                 "-U",
                 "-w",
                 self.remote,
+                *CAPTURE_FILTER,
             ),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -239,6 +241,7 @@ class ObserverCapture:
                 "-n",
                 "-w",
                 str(self.destination),
+                *CAPTURE_FILTER,
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

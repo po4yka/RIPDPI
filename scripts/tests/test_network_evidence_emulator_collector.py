@@ -49,6 +49,11 @@ def pcap(packet_count: int, *, big_endian: bool = False, truncate: int = 0) -> b
     return bytes(payload)
 
 
+class CaptureFilterTest(unittest.TestCase):
+    def test_capture_backends_only_admit_oracle_supported_transports(self) -> None:
+        self.assertEqual(collector.CAPTURE_FILTER, ("tcp", "or", "udp"))
+
+
 class PcapAccountingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()

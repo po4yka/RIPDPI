@@ -18,9 +18,10 @@ internal const val TestNetworkProbeServiceDescriptor = "com.poyka.ripdpi.e2e.Tes
 internal const val TestNetworkProbeDnsTransactionCode = IBinder.FIRST_CALL_TRANSACTION
 internal const val TestNetworkProbeAwaitVpnTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 1
 internal const val TestNetworkProbeIsVpnTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 2
+internal const val TestNetworkProbeAwaitNonVpnTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 3
 private const val ExpectedProbeCallerPackage = "com.poyka.ripdpi"
 private const val DefaultNetworkPollIntervalMs = 25L
-private const val StableVpnObservationMs = 100L
+private const val StableDefaultNetworkObservationMs = 100L
 
 class TestNetworkProbeService : Service() {
     private val binder =
@@ -36,7 +37,8 @@ class TestNetworkProbeService : Service() {
                     (
                         code != TestNetworkProbeDnsTransactionCode &&
                             code != TestNetworkProbeAwaitVpnTransactionCode &&
-                            code != TestNetworkProbeIsVpnTransactionCode
+                            code != TestNetworkProbeIsVpnTransactionCode &&
+                            code != TestNetworkProbeAwaitNonVpnTransactionCode
                     )
                 ) {
                     return super.onTransact(code, data, reply, flags)
@@ -55,6 +57,12 @@ class TestNetworkProbeService : Service() {
                 if (code == TestNetworkProbeIsVpnTransactionCode) {
                     reply.writeNoException()
                     reply.writeInt(if (isVpnDefaultNetwork()) 1 else 0)
+                    return true
+                }
+                if (code == TestNetworkProbeAwaitNonVpnTransactionCode) {
+                    val timeoutMs = data.readInt()
+                    reply.writeNoException()
+                    reply.writeInt(if (awaitNonVpnDefaultNetwork(timeoutMs.toLong())) 1 else 0)
                     return true
                 }
                 val request =
@@ -100,19 +108,29 @@ class TestNetworkProbeService : Service() {
 
     override fun onBind(intent: Intent?): IBinder = binder
 
-    private fun awaitVpnDefaultNetwork(timeoutMs: Long): Boolean {
+    private fun awaitVpnDefaultNetwork(timeoutMs: Long): Boolean =
+        awaitStableDefaultNetwork(timeoutMs, requireVpn = true)
+
+    private fun awaitNonVpnDefaultNetwork(timeoutMs: Long): Boolean =
+        awaitStableDefaultNetwork(timeoutMs, requireVpn = false)
+
+    private fun awaitStableDefaultNetwork(
+        timeoutMs: Long,
+        requireVpn: Boolean,
+    ): Boolean {
         val deadline = SystemClock.elapsedRealtime() + timeoutMs
-        var vpnObservedAt = 0L
+        var matchedAt = 0L
         while (SystemClock.elapsedRealtime() < deadline) {
             val now = SystemClock.elapsedRealtime()
-            if (isVpnDefaultNetwork()) {
-                if (vpnObservedAt == 0L) {
-                    vpnObservedAt = now
-                } else if (now - vpnObservedAt >= StableVpnObservationMs) {
+            val matches = if (requireVpn) isVpnDefaultNetwork() else isNonVpnDefaultNetwork()
+            if (matches) {
+                if (matchedAt == 0L) {
+                    matchedAt = now
+                } else if (now - matchedAt >= StableDefaultNetworkObservationMs) {
                     return true
                 }
             } else {
-                vpnObservedAt = 0L
+                matchedAt = 0L
             }
             Thread.sleep(DefaultNetworkPollIntervalMs)
         }
@@ -125,6 +143,17 @@ class TestNetworkProbeService : Service() {
         return capabilities != null &&
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
             !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+    }
+
+    private fun isNonVpnDefaultNetwork(): Boolean {
+        val connectivityManager = getSystemService(ConnectivityManager::class.java)
+        val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+        return isUsableNonVpnDefaultNetwork(
+            capabilitiesPresent = capabilities != null,
+            hasVpnTransport = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
+            hasNotVpnCapability =
+                capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == true,
+        )
     }
 
     private fun isExpectedCaller(callingUid: Int): Boolean {
@@ -140,3 +169,9 @@ class TestNetworkProbeService : Service() {
             packageManager.checkSignatures(callingUid, applicationInfo.uid) == PackageManager.SIGNATURE_MATCH
     }
 }
+
+internal fun isUsableNonVpnDefaultNetwork(
+    capabilitiesPresent: Boolean,
+    hasVpnTransport: Boolean,
+    hasNotVpnCapability: Boolean,
+): Boolean = capabilitiesPresent && !hasVpnTransport && hasNotVpnCapability
