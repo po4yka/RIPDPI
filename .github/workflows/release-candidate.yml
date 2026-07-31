@@ -150,6 +150,18 @@ jobs:
             echo "::error::Release keystore certificate does not match the published signer continuity fingerprint."
             exit 1
           fi
+          umask 077
+          keytool -exportcert \
+            -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass "$RIPDPI_SIGNING_STORE_PASSWORD" \
+            -alias "$RIPDPI_SIGNING_KEY_ALIAS" \
+            -file "$RUNNER_TEMP/release-certificate.der"
+          keytool -importcert -noprompt \
+            -alias ripdpi-release \
+            -file "$RUNNER_TEMP/release-certificate.der" \
+            -keystore "$RUNNER_TEMP/release-verification-truststore.p12" \
+            -storetype PKCS12 \
+            -storepass ripdpi-public-cert
 
       - name: Build signed release candidate once
         env:
@@ -253,7 +265,10 @@ jobs:
             echo "Verified APK signature: $name"
           done
           aab="$candidate/app-play-full-release.aab"
-          if ! jarsigner -verify -strict "$aab" >/dev/null 2>&1; then
+          if ! jarsigner -J-Duser.language=en -verify -strict \
+            -keystore "$RUNNER_TEMP/release-verification-truststore.p12" \
+            -storepass ripdpi-public-cert \
+            "$aab" ripdpi-release >/dev/null 2>&1; then
             echo "::error file=app-play-full-release.aab::AAB signature verification failed."
             exit 1
           fi
@@ -266,6 +281,13 @@ jobs:
             exit 1
           fi
           echo "Verified AAB signature: app-play-full-release.aab"
+
+      - name: Remove release verification certificate
+        if: always()
+        run: |
+          shred -u \
+            "$RUNNER_TEMP/release-certificate.der" \
+            "$RUNNER_TEMP/release-verification-truststore.p12" 2>/dev/null || true
 
       - name: Verify native ELF payload from exact candidate APKs
         run: |
