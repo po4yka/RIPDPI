@@ -22,10 +22,10 @@ setup:
 
 # ─── Build ────────────────────────────────────────────────────────
 
-# Build debug APK (includes native code)
+# Build the representative GitHub full debug APK (includes native code)
 [group('build')]
 build:
-    ./gradlew assembleDebug
+    ./gradlew :app:assembleGithubFullDebug
 
 # Build release APK
 [group('build')]
@@ -47,17 +47,17 @@ build-cli:
 # Run all Kotlin unit tests
 [group('test')]
 test:
-    ./gradlew testDebugUnitTest
+    ./gradlew testDebugUnitTest -Pripdpi.skipNativeBuild=true
 
 # Run unit tests for a single module (e.g., just test-module core:engine)
 [group('test')]
 test-module mod:
-    ./gradlew :{{mod}}:testDebugUnitTest
+    ./gradlew :{{mod}}:testDebugUnitTest -Pripdpi.skipNativeBuild=true
 
 # Run a single test class (e.g., just test-class core:engine RipDpiProxyPreferencesTest)
 [group('test')]
 test-class mod class:
-    ./gradlew :{{mod}}:testDebugUnitTest --tests "{{class}}"
+    ./gradlew :{{mod}}:testDebugUnitTest --tests "{{class}}" -Pripdpi.skipNativeBuild=true
 
 # Run all Rust workspace tests
 [group('test')]
@@ -137,7 +137,7 @@ test-instrumented:
 # Run full Kotlin quality suite (detekt + ktlint + lint)
 [group('lint')]
 lint:
-    ./gradlew staticAnalysis
+    ./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true
 
 # Run full Rust quality suite (fmt + clippy + cargo-deny)
 [group('lint')]
@@ -186,7 +186,7 @@ run-cli-debug port="1080":
 # Generate Kotlin JaCoCo coverage report
 [group('coverage')]
 coverage:
-    ./gradlew coverageReport
+    ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
 
 # Generate the CI-scoped Rust LLVM coverage report
 [group('coverage')]

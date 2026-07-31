@@ -9,6 +9,24 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
+    def test_local_gradle_recipes_use_build_performance_fast_paths(self) -> None:
+        source = (ROOT / "justfile").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "build:\n    ./gradlew :app:assembleGithubFullDebug",
+            source,
+        )
+        self.assertNotIn("build:\n    ./gradlew assembleDebug", source)
+        for command in (
+            "./gradlew testDebugUnitTest -Pripdpi.skipNativeBuild=true",
+            "./gradlew :{{mod}}:testDebugUnitTest -Pripdpi.skipNativeBuild=true",
+            './gradlew :{{mod}}:testDebugUnitTest --tests "{{class}}" '
+            "-Pripdpi.skipNativeBuild=true",
+            "./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true",
+            "./gradlew coverageReport -Pripdpi.skipNativeBuild=true",
+        ):
+            self.assertIn(command, source)
+
     def test_rust_cache_keeps_host_target_as_the_default_mapping(self) -> None:
         source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
             encoding="utf-8"
