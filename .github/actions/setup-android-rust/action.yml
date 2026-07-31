@@ -94,12 +94,22 @@ runs:
         install -m 0755 "$android_cli" "$HOME/.local/bin/android"
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         export PATH="$HOME/.local/bin:$PATH"
-        ver_line="$(android --version 2>&1 | head -n1)"
-        if [ "$ver_line" != "$android_cli_version" ]; then
-          echo "Android CLI version differs from pinned release (got: $ver_line)" >&2
+        # Capture the complete output before inspecting it. Piping this Rust CLI
+        # through `head` can close stdout early and make the process panic with
+        # exit 101 when a runner emits an additional informational line.
+        version_output="$(android --version 2>&1)"
+        version_matches=false
+        while IFS= read -r version_line; do
+          if [ "$version_line" = "$android_cli_version" ]; then
+            version_matches=true
+            break
+          fi
+        done <<< "$version_output"
+        if [ "$version_matches" != true ]; then
+          echo "Android CLI version differs from pinned release (got: $version_output)" >&2
           exit 1
         fi
-        echo "Android CLI: $ver_line"
+        echo "Android CLI: $android_cli_version"
         # Install the android-cli agent skill (1.0 feature). `android init`
         # writes only to agent skill dirs under $HOME (e.g. ~/.claude/skills/),
         # regardless of cwd -- it never touches the repo tree. Non-fatal: CI

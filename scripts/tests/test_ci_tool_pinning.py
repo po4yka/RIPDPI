@@ -19,6 +19,8 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn("android_cli_version=\"1.0.15857036\"", source)
         self.assertIn("android_cli_sha256=\"6f8c947a", source)
         self.assertIn("sha256sum --check --strict", source)
+        self.assertIn('version_output="$(android --version 2>&1)"', source)
+        self.assertNotIn("android --version 2>&1 | head", source)
         self.assertNotIn("android/cli/latest", source)
         self.assertNotIn("android update", source)
 
