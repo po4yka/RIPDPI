@@ -85,8 +85,12 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
     def test_android_sdk_cache_is_separated_by_ndk_installation_mode(self) -> None:
         source = SETUP_ACTION.read_text(encoding="utf-8")
 
-        self.assertIn("NDK setup mode so a Kotlin-only job cannot", source)
         self.assertIn("-ndk-${{ inputs.setup-android-ndk }}-", source)
+        self.assertIn(
+            "${{ steps.native-toolchain.outputs.sdk-root }}/ndk/"
+            "${{ steps.native-toolchain.outputs.ndk }}",
+            source,
+        )
 
     def test_rust_coverage_skips_android_and_gradle_setup(self) -> None:
         for job_name in ("rust-coverage", "nightly-rust-coverage"):

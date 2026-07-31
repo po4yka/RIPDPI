@@ -60,6 +60,20 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn("steps.native-toolchain.outputs.cmake", action)
         self.assertIn('"cmake/${{ steps.native-toolchain.outputs.cmake }}"', action)
         self.assertIn("-cmake-${{ steps.native-toolchain.outputs.cmake }}-", action)
+        self.assertIn('echo "sdk-root=$sdk_root" >> "$GITHUB_OUTPUT"', action)
+        self.assertIn(
+            "${{ steps.native-toolchain.outputs.sdk-root }}/cmake/"
+            "${{ steps.native-toolchain.outputs.cmake }}",
+            action,
+        )
+        self.assertIn(
+            '[[ -x "$sdk_root/cmake/${{ steps.native-toolchain.outputs.cmake }}/bin/cmake" ]]',
+            action,
+        )
+        self.assertNotIn(
+            "steps.cache-android-sdk.outputs.cache-hit != 'true'",
+            action,
+        )
 
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]

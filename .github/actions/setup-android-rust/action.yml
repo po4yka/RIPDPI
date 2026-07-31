@@ -120,33 +120,48 @@ runs:
       id: native-toolchain
       shell: bash
       run: |
+        set -euo pipefail
+        sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+        if [[ -z "$sdk_root" ]]; then
+          echo "ANDROID_SDK_ROOT or ANDROID_HOME must point to the Android SDK" >&2
+          exit 1
+        fi
+        echo "sdk-root=$sdk_root" >> "$GITHUB_OUTPUT"
         echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
 
-    # Cache the android CLI's SDK+NDK directory (~/.android). The android CLI
-    # writes platform-tools, platforms, and NDK packages here, not to
-    # $ANDROID_HOME (/usr/local/lib/android/sdk). Cache key includes the
-    # compile-sdk, NDK version, and NDK setup mode so a Kotlin-only job cannot
-    # save an SDK-only cache that a later native job treats as NDK-complete.
-    # A hash of this action file also invalidates the cache when installation
-    # commands change.
+    # Cache both Android CLI state and the actual package directories under the
+    # runner SDK root. Caching ~/.android alone can produce a false cache hit:
+    # the CLI metadata is restored while CMake/NDK remain absent from
+    # $ANDROID_HOME. The verification steps below also fail closed when a cache
+    # archive is incomplete.
     - name: Cache Android SDK and NDK
       if: inputs.skip-android-sdk-ndk != 'true'
       id: cache-android-sdk
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ~/.android
+        path: |
+          ~/.android
+          ${{ steps.native-toolchain.outputs.sdk-root }}/platform-tools
+          ${{ steps.native-toolchain.outputs.sdk-root }}/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}
+          ${{ steps.native-toolchain.outputs.sdk-root }}/ndk/${{ steps.native-toolchain.outputs.ndk }}
+          ${{ steps.native-toolchain.outputs.sdk-root }}/cmake/${{ steps.native-toolchain.outputs.cmake }}
         key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ steps.native-toolchain.outputs.ndk }}-cmake-${{ steps.native-toolchain.outputs.cmake }}-ndk-${{ inputs.setup-android-ndk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
 
-    - name: Install Android SDK baseline via android CLI
-      if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
+    - name: Ensure Android SDK baseline via android CLI
+      if: inputs.skip-android-sdk-ndk != 'true'
       shell: bash
       run: |
         set -euo pipefail
-        bash scripts/ci/android-sdk-install.sh \
-          "platform-tools" \
-          "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
+        sdk_root="${{ steps.native-toolchain.outputs.sdk-root }}"
+        packages=()
+        [[ -x "$sdk_root/platform-tools/adb" ]] || packages+=("platform-tools")
+        [[ -f "$sdk_root/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}/android.jar" ]] || \
+          packages+=("platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}")
+        if (( ${#packages[@]} > 0 )); then
+          bash scripts/ci/android-sdk-install.sh "${packages[@]}"
+        fi
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
@@ -161,13 +176,20 @@ runs:
       shell: bash
       run: rustup target add ${{ inputs.rust-targets }}
 
-    - name: Install native toolchain via android CLI
-      if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
+    - name: Ensure native toolchain via android CLI
+      if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
       shell: bash
-      run: >-
-        bash scripts/ci/android-sdk-install.sh
-        "ndk/${{ steps.native-toolchain.outputs.ndk }}"
-        "cmake/${{ steps.native-toolchain.outputs.cmake }}"
+      run: |
+        set -euo pipefail
+        sdk_root="${{ steps.native-toolchain.outputs.sdk-root }}"
+        packages=()
+        [[ -f "$sdk_root/ndk/${{ steps.native-toolchain.outputs.ndk }}/source.properties" ]] || \
+          packages+=("ndk/${{ steps.native-toolchain.outputs.ndk }}")
+        [[ -x "$sdk_root/cmake/${{ steps.native-toolchain.outputs.cmake }}/bin/cmake" ]] || \
+          packages+=("cmake/${{ steps.native-toolchain.outputs.cmake }}")
+        if (( ${#packages[@]} > 0 )); then
+          bash scripts/ci/android-sdk-install.sh "${packages[@]}"
+        fi
 
     - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
       if: inputs.setup-rust == 'true' && inputs.setup-sccache == 'true'
