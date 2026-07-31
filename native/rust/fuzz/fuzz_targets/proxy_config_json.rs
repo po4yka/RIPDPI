@@ -15,7 +15,10 @@ fuzz_target!(|data: &[u8]| {
     let _ = ripdpi_proxy_config::parse_proxy_config_json(&structured);
 
     if !structured.is_empty() {
-        let truncated_len = structured.len().saturating_sub(1 + usize::from(data.first().copied().unwrap_or(0) % 4));
+        let requested_len = structured
+            .len()
+            .saturating_sub(1 + usize::from(data.first().copied().unwrap_or(0) % 4));
+        let truncated_len = structured.floor_char_boundary(requested_len);
         let _ = ripdpi_proxy_config::parse_proxy_config_json(&structured[..truncated_len]);
     }
 });

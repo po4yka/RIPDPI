@@ -6,6 +6,8 @@ fuzz_dir="$repo_root/native/rust/fuzz"
 host_target="$(rustc +nightly -vV | sed -n 's/^host: //p')"
 scratch_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-fuzz-smoke.XXXXXX")"
 artifacts_root="${RIPDPI_FUZZ_ARTIFACTS_DIR:-$scratch_root/artifacts}"
+shard_count="${RIPDPI_FUZZ_SHARD_COUNT:-1}"
+shard_index="${RIPDPI_FUZZ_SHARD_INDEX:-0}"
 
 cleanup() {
   rm -rf "$scratch_root"
@@ -41,6 +43,26 @@ if [[ "${#fuzz_targets[@]}" -eq 0 ]]; then
   exit 1
 fi
 
+if [[ ! "$shard_count" =~ ^[1-9][0-9]*$ ]]; then
+  echo "error: RIPDPI_FUZZ_SHARD_COUNT must be a positive integer, got: $shard_count" >&2
+  exit 2
+fi
+if [[ ! "$shard_index" =~ ^[0-9]+$ ]] || (( shard_index >= shard_count )); then
+  echo "error: RIPDPI_FUZZ_SHARD_INDEX must be an integer in 0..$((shard_count - 1)), got: $shard_index" >&2
+  exit 2
+fi
+
+selected_targets=()
+for target_index in "${!fuzz_targets[@]}"; do
+  if (( target_index % shard_count == shard_index )); then
+    selected_targets+=("${fuzz_targets[$target_index]}")
+  fi
+done
+if [[ "${#selected_targets[@]}" -eq 0 ]]; then
+  echo "error: fuzz shard $shard_index/$shard_count selected no targets" >&2
+  exit 2
+fi
+
 mkdir -p "$artifacts_root"
 
 sanitizer_rustflags="${RUSTFLAGS:-}"
@@ -74,12 +96,12 @@ run_fuzz_target() {
 }
 
 if [[ -n "${RIPDPI_FUZZ_SECONDS:-}" ]]; then
-  for target in "${fuzz_targets[@]}"; do
-    echo "==> fuzz nightly: run $target for ${RIPDPI_FUZZ_SECONDS}s"
+  for target in "${selected_targets[@]}"; do
+    echo "==> fuzz nightly shard $shard_index/$shard_count: run $target for ${RIPDPI_FUZZ_SECONDS}s"
     run_fuzz_target "$target" -max_total_time="$RIPDPI_FUZZ_SECONDS"
   done
 else
-  for target in "${fuzz_targets[@]}"; do
+  for target in "${selected_targets[@]}"; do
     echo "==> fuzz smoke: build $target"
     run_fuzz build "$target"
   done

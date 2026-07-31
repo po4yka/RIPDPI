@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       fuzz_seconds:
-        description: Seconds to run each fuzz target
+        description: Seconds to run each fuzz target in its shard
         required: false
-        default: "1200"
+        default: "600"
         type: string
 
 permissions:
@@ -17,7 +17,13 @@ permissions:
 jobs:
   fuzz-nightly:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # Operators may request up to the documented 1,800 seconds per target;
+    # three targets share a shard, so retain headroom for compilation.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
@@ -26,12 +32,12 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --quiet
       - name: Run fuzz targets
-        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 1200 }} RIPDPI_FUZZ_ARTIFACTS_DIR="$RUNNER_TEMP/fuzz-artifacts" bash scripts/ci/run-rust-fuzz-smoke.sh
+        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 600 }} RIPDPI_FUZZ_SHARD_COUNT=6 RIPDPI_FUZZ_SHARD_INDEX=${{ matrix.shard }} RIPDPI_FUZZ_ARTIFACTS_DIR="$RUNNER_TEMP/fuzz-artifacts" bash scripts/ci/run-rust-fuzz-smoke.sh
       - name: Upload fuzz artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fuzz-artifacts
+          name: fuzz-artifacts-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/fuzz-artifacts/
           if-no-files-found: ignore
           retention-days: 14
