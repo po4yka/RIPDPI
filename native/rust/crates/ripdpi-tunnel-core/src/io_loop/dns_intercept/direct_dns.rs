@@ -199,6 +199,23 @@ mod tests {
         response.to_vec().expect("response")
     }
 
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: cancellation drops any socket reserved by the current
+    /// attempt before the test future is discarded.
+    async fn bind_udp_tcp_fixture() -> (tokio::net::UdpSocket, tokio::net::TcpListener, u16) {
+        for _ in 0..128 {
+            let tcp = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("TCP fixture");
+            let port = tcp.local_addr().expect("TCP address").port();
+            match tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, port)).await {
+                Ok(udp) => return (udp, tcp, port),
+                Err(error) if error.kind() == io::ErrorKind::AddrInUse => continue,
+                Err(error) => panic!("UDP fixture: {error}"),
+            }
+        }
+        panic!("could not reserve a shared UDP/TCP fixture port after 128 attempts");
+    }
+
     #[test]
     fn response_validation_requires_exact_id_and_question() {
         let query = build_query("direct.example", 0x1234);
@@ -264,9 +281,7 @@ mod tests {
             assert_eq!(success.response_bytes, response_bytes(&query, false));
             udp_task.await.expect("UDP fixture task");
 
-            let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("UDP fixture");
-            let port = udp.local_addr().expect("UDP address").port();
-            let tcp = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await.expect("TCP fixture");
+            let (udp, tcp, port) = bind_udp_tcp_fixture().await;
             let udp_task = tokio::spawn(async move {
                 let mut buffer = [0_u8; 512];
                 let (len, peer) = udp.recv_from(&mut buffer).await.expect("UDP query");
@@ -290,9 +305,7 @@ mod tests {
             udp_task.await.expect("UDP truncation task");
             tcp_task.await.expect("TCP fixture task");
 
-            let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("UDP fixture");
-            let port = udp.local_addr().expect("UDP address").port();
-            let tcp = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await.expect("TCP fixture");
+            let (udp, tcp, port) = bind_udp_tcp_fixture().await;
             let udp_task = tokio::spawn(async move {
                 let mut buffer = [0_u8; 512];
                 let (len, peer) = udp.recv_from(&mut buffer).await.expect("UDP query");
