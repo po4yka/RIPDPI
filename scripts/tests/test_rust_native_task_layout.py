@@ -57,6 +57,17 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         )
         self.assertIn('"--locked"', function_source)
 
+    def test_rust_pluggable_transport_cache_tracks_workspace_source_closure(self) -> None:
+        source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+        task_start = source.index('("buildPluggableTransportAssets")')
+        task_source = source[task_start:]
+
+        self.assertIn("abstract val rustSources: ConfigurableFileCollection", source)
+        self.assertIn("rustSources.from(rustWorkspaceCrateSources())", task_source)
+        self.assertIn('rustSources.from(rustWorkspaceDir.resolve("Cargo.lock"))', task_source)
+        self.assertIn('rustSources.from(rustWorkspaceDir.resolve("rust-toolchain.toml"))', task_source)
+        self.assertIn('rustSources.from(rustWorkspaceDir.resolve(".cargo/config.toml"))', task_source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -634,6 +634,10 @@ abstract class BuildPluggableTransportAssetsTask
         private val execOperations: ExecOperations,
         private val fileSystemOperations: FileSystemOperations,
     ) : DefaultTask() {
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val rustSources: ConfigurableFileCollection
+
         @get:InputFile
         @get:PathSensitive(PathSensitivity.RELATIVE)
         abstract val sourcesManifest: RegularFileProperty
@@ -1574,6 +1578,10 @@ val buildPluggableTransportAssets =
 
         sourcesManifest.set(ptSourcesManifestFile)
         rustWorkspaceManifest.set(rustWorkspaceManifestFile)
+        rustSources.from(rustWorkspaceCrateSources())
+        rustSources.from(rustWorkspaceDir.resolve("Cargo.lock"))
+        rustSources.from(rustWorkspaceDir.resolve("rust-toolchain.toml"))
+        rustSources.from(rustWorkspaceDir.resolve(".cargo/config.toml"))
         gitExecutable.set(resolveHostTool("git"))
         goExecutable.set(resolveHostTool("go"))
         cargoExecutable.set(resolveHostTool("cargo"))
