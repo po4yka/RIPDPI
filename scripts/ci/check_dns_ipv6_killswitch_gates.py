@@ -22,6 +22,7 @@ Release evidence combines ordinary results with a validated dual-vantage bundle:
     python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
       --results ordinary-results.json \
       --evidence-manifest evidence/manifest.json \
+      --candidate-manifest evidence/candidate-manifest.json \
       --applies-to android-client-release \
       --expected-source-sha "$GITHUB_SHA"
 
@@ -50,6 +51,7 @@ from release_gate_results import (  # noqa: E402
 )
 import network_evidence_manifest  # noqa: E402
 import produce_android_ordinary_gate_results as android_ordinary_results  # noqa: E402
+import release_candidate_manifest  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -389,25 +391,42 @@ def dual_vantage_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
     }
 
 
-def validate_ordinary_artifact_binding(
-    ordinary_results: dict, evidence_manifest: dict
+def validate_release_artifact_bindings(
+    ordinary_results: dict,
+    evidence_manifest: dict,
+    candidate_manifest: dict,
+    *,
+    expected_source_sha: str,
 ) -> None:
-    """Bind physical ordinary PASS proof to the dual-vantage client bytes."""
+    """Bind emulator and physical proof to their exact candidate APKs."""
     provenance = ordinary_results.get("rawBundleProvenance")
     if provenance is None:
         return
     evidence_provenance = evidence_manifest.get("provenance")
     if not isinstance(provenance, dict) or not isinstance(evidence_provenance, dict):
         raise ValueError("release evidence artifact provenance is missing")
-    bindings = {
-        "appApkSha256": "clientArtifactSha256",
-        "testApkSha256": "testArtifactSha256",
+    release_candidate_manifest.validate_manifest_document(
+        candidate_manifest, expected_source_sha=expected_source_sha
+    )
+    artifacts = candidate_manifest["artifacts"]
+    evidence_client = candidate_manifest["evidenceClient"]
+    evidence_test = candidate_manifest["evidenceTest"]
+    if evidence_provenance.get("clientArtifactSha256") != artifacts[evidence_client]["sha256"]:
+        raise ValueError("dual-vantage client digest does not match release candidate")
+    if evidence_provenance.get("testArtifactSha256") != artifacts[evidence_test]["sha256"]:
+        raise ValueError("dual-vantage test digest does not match release candidate")
+    physical_client_digests = {
+        record["sha256"]
+        for name, record in artifacts.items()
+        if name.startswith("app-github-release-")
+        and name.endswith(".apk")
+        and name != evidence_test
+        and record["publish"] is True
     }
-    for ordinary_key, evidence_key in bindings.items():
-        if provenance.get(ordinary_key) != evidence_provenance.get(evidence_key):
-            raise ValueError(
-                f"ordinary {ordinary_key} does not match dual-vantage {evidence_key}"
-            )
+    if provenance.get("appApkSha256") not in physical_client_digests:
+        raise ValueError("ordinary appApkSha256 is not a publishable GitHub candidate APK")
+    if provenance.get("testApkSha256") != artifacts[evidence_test]["sha256"]:
+        raise ValueError("ordinary testApkSha256 does not match release candidate")
 
 
 def applicable_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
@@ -456,6 +475,11 @@ def main(argv: list[str] | None = None) -> int:
         "--evidence-manifest",
         default=None,
         help="Validated dual-vantage network evidence manifest to enforce.",
+    )
+    parser.add_argument(
+        "--candidate-manifest",
+        default=None,
+        help="Immutable candidate manifest that both evidence lanes must match.",
     )
     parser.add_argument(
         "--policy-only",
@@ -536,6 +560,7 @@ def main(argv: list[str] | None = None) -> int:
 
     evidence_supplied = args.evidence_manifest is not None
     results_supplied = args.results is not None
+    candidate_supplied = args.candidate_manifest is not None
     if not evidence_supplied and not results_supplied and not args.policy_only:
         print(
             "release evidence is required; pass --evidence-manifest FILE, --results FILE, "
@@ -543,8 +568,14 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    if args.policy_only and (evidence_supplied or results_supplied):
+    if args.policy_only and (evidence_supplied or results_supplied or candidate_supplied):
         print("--policy-only cannot be combined with release evidence", file=sys.stderr)
+        return 1
+    if candidate_supplied and not evidence_supplied:
+        print(
+            "--candidate-manifest requires --evidence-manifest",
+            file=sys.stderr,
+        )
         return 1
     if (evidence_supplied or results_supplied) and args.applies_to is None:
         print(
@@ -607,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
 
     merged_gate_results: dict[str, object] = {}
     manifest: dict | None = None
+    candidate_manifest: dict | None = None
     if evidence_supplied:
         manifest_path = Path(args.evidence_manifest)
         if not manifest_path.is_file():
@@ -636,6 +668,22 @@ def main(argv: list[str] | None = None) -> int:
                 "network evidence gateResults do not match policy evidence gates"
             )
         merged_gate_results.update(evidence_summary["gateResults"])
+        candidate_path = (
+            Path(args.candidate_manifest)
+            if args.candidate_manifest is not None
+            else manifest_path.parent / "candidate-manifest.json"
+        )
+        if not candidate_path.is_file():
+            print(
+                f"release candidate manifest not found: {candidate_path}",
+                file=sys.stderr,
+            )
+            return 1
+        candidate_manifest = load_json(candidate_path)
+        if candidate_path.read_bytes() != release_candidate_manifest.canonical_bytes(
+            candidate_manifest
+        ):
+            raise ValueError("release candidate manifest is not canonical JSON")
     if results_supplied:
         results_path = Path(args.results)
         if not results_path.is_file():
@@ -647,8 +695,13 @@ def main(argv: list[str] | None = None) -> int:
             expected_source_sha=args.expected_source_sha,
             applies_to=args.applies_to,
         )
-        if manifest is not None:
-            validate_ordinary_artifact_binding(ordinary_results, manifest)
+        if manifest is not None and candidate_manifest is not None:
+            validate_release_artifact_bindings(
+                ordinary_results,
+                manifest,
+                candidate_manifest,
+                expected_source_sha=args.expected_source_sha,
+            )
         ordinary_gate_results = ordinary_results["gateResults"]
         overlap = set(ordinary_gate_results) & evidence_gate_ids
         if overlap:

@@ -73,9 +73,9 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("--app-apk", producer)
         self.assertIn("--test-apk", producer)
-        self.assertIn("validate_ordinary_artifact_binding", checker)
-        self.assertIn('"appApkSha256": "clientArtifactSha256"', checker)
-        self.assertIn('"testApkSha256": "testArtifactSha256"', checker)
+        self.assertIn("validate_release_artifact_bindings", checker)
+        self.assertIn("physical_client_digests", checker)
+        self.assertIn("publishable GitHub candidate APK", checker)
 
 
 if __name__ == "__main__":

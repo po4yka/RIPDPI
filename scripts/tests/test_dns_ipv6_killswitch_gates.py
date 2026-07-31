@@ -111,7 +111,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
     def test_ordinary_physical_proof_is_bound_to_dual_vantage_artifacts(self) -> None:
         results = {
             "rawBundleProvenance": {
-                "appApkSha256": "8" * 64,
+                "appApkSha256": "6" * 64,
                 "testApkSha256": "7" * 64,
             }
         }
@@ -121,16 +121,54 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 "testArtifactSha256": "7" * 64,
             }
         }
-        gates.validate_ordinary_artifact_binding(results, manifest)
+        candidate = self.candidate_manifest()
+        gates.validate_release_artifact_bindings(
+            results,
+            manifest,
+            candidate,
+            expected_source_sha="a" * 40,
+        )
 
         results["rawBundleProvenance"]["appApkSha256"] = "9" * 64
         with self.assertRaisesRegex(ValueError, "appApkSha256"):
-            gates.validate_ordinary_artifact_binding(results, manifest)
+            gates.validate_release_artifact_bindings(
+                results,
+                manifest,
+                candidate,
+                expected_source_sha="a" * 40,
+            )
 
-        results["rawBundleProvenance"]["appApkSha256"] = "8" * 64
+        results["rawBundleProvenance"]["appApkSha256"] = "6" * 64
         results["rawBundleProvenance"]["testApkSha256"] = "6" * 64
         with self.assertRaisesRegex(ValueError, "testApkSha256"):
-            gates.validate_ordinary_artifact_binding(results, manifest)
+            gates.validate_release_artifact_bindings(
+                results,
+                manifest,
+                candidate,
+                expected_source_sha="a" * 40,
+            )
+
+    @staticmethod
+    def candidate_manifest() -> dict:
+        candidate = gates.release_candidate_manifest
+        artifacts = {
+            name: {
+                "publish": name in candidate.PUBLISH_FILES,
+                "sha256": "5" * 64,
+                "sizeBytes": 1,
+            }
+            for name in candidate.EXPECTED_FILES
+        }
+        artifacts[candidate.EVIDENCE_CLIENT]["sha256"] = "8" * 64
+        artifacts[candidate.EVIDENCE_TEST]["sha256"] = "7" * 64
+        artifacts["app-github-release-arm64-v8a.apk"]["sha256"] = "6" * 64
+        return {
+            "artifacts": artifacts,
+            "evidenceClient": candidate.EVIDENCE_CLIENT,
+            "evidenceTest": candidate.EVIDENCE_TEST,
+            "sourceSha": "a" * 40,
+            "version": candidate.VERSION,
+        }
 
     def evidence_bundle(
         self,
@@ -244,6 +282,9 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         )
         manifest_path = directory / "manifest.json"
         gates.network_evidence_manifest.write_canonical_json(manifest_path, manifest)
+        (directory / "candidate-manifest.json").write_bytes(
+            gates.release_candidate_manifest.canonical_bytes(self.candidate_manifest())
+        )
         return manifest_path
 
     def test_repo_policy_is_valid(self) -> None:

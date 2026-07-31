@@ -86,13 +86,8 @@ def create_manifest(directory: Path, source_sha: str) -> dict:
     }
 
 
-def validate_manifest(
-    manifest: dict,
-    directory: Path,
-    *,
-    expected_source_sha: str,
-    expected_client_sha256: str | None,
-) -> dict:
+def validate_manifest_document(manifest: dict, *, expected_source_sha: str) -> dict:
+    """Validate candidate metadata without requiring the artifact directory."""
     if set(manifest) != {
         "artifacts",
         "evidenceClient",
@@ -107,21 +102,39 @@ def validate_manifest(
         raise CandidateError("candidate source SHA differs")
     if manifest["evidenceClient"] != EVIDENCE_CLIENT or manifest["evidenceTest"] != EVIDENCE_TEST:
         raise CandidateError("candidate evidence artifact selection differs")
-
-    files = candidate_files(directory)
     artifacts = manifest["artifacts"]
     if not isinstance(artifacts, dict) or set(artifacts) != EXPECTED_FILES:
         raise CandidateError("candidate manifest artifact inventory differs")
+    for name, record in artifacts.items():
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"publish", "sha256", "sizeBytes"}
+            or record["publish"] is not (name in PUBLISH_FILES)
+            or isinstance(record["sizeBytes"], bool)
+            or not isinstance(record["sizeBytes"], int)
+            or record["sizeBytes"] <= 0
+            or not isinstance(record["sha256"], str)
+            or SHA256_RE.fullmatch(record["sha256"]) is None
+        ):
+            raise CandidateError(f"candidate artifact record differs: {name}")
+    return manifest
+
+
+def validate_manifest(
+    manifest: dict,
+    directory: Path,
+    *,
+    expected_source_sha: str,
+    expected_client_sha256: str | None,
+) -> dict:
+    validate_manifest_document(manifest, expected_source_sha=expected_source_sha)
+    files = candidate_files(directory)
+    artifacts = manifest["artifacts"]
     for name, path in files.items():
         record = artifacts[name]
-        if set(record) != {"publish", "sha256", "sizeBytes"}:
-            raise CandidateError(f"candidate artifact record differs: {name}")
         digest = sha256(path)
         if (
-            record["publish"] is not (name in PUBLISH_FILES)
-            or not isinstance(record["sizeBytes"], int)
-            or record["sizeBytes"] != path.stat().st_size
-            or SHA256_RE.fullmatch(record["sha256"]) is None
+            record["sizeBytes"] != path.stat().st_size
             or record["sha256"] != digest
         ):
             raise CandidateError(f"candidate artifact metadata differs: {name}")

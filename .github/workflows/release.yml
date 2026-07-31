@@ -91,6 +91,7 @@ jobs:
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
             --results "$evidence/ordinary-results.json" \
             --evidence-manifest "$evidence/manifest.json" \
+            --candidate-manifest "$evidence/candidate-manifest.json" \
             --applies-to android-client-release \
             --expected-source-sha "$GITHUB_SHA" \
             --expected-evidence-run-id "$EVIDENCE_RUN_ID" \

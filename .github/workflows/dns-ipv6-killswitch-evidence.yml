@@ -203,6 +203,11 @@ jobs:
           adb -s "$ANDROID_SERIAL" pull "$remote_apk" "$RUNNER_TEMP/post-capture-ripdpi.apk" >/dev/null
           test "$(sha256sum "$RUNNER_TEMP/post-capture-ripdpi.apk" | cut -d' ' -f1)" = "$CLIENT_ARTIFACT_SHA256"
 
+      - name: Bind both evidence lanes to the immutable candidate inventory
+        run: |
+          cp "$RUNNER_TEMP/release-candidate/candidate-manifest.json" \
+            "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME/candidate-manifest.json"
+
       - name: Validate exact-SHA dual-vantage bundle
         run: |
           python3 scripts/ci/network_evidence_manifest.py validate \
@@ -234,6 +239,7 @@ jobs:
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
             --results "$results" \
             --evidence-manifest "$evidence_dir/manifest.json" \
+            --candidate-manifest "$evidence_dir/candidate-manifest.json" \
             --applies-to android-client-release \
             --expected-source-sha "$GITHUB_SHA" \
             --expected-evidence-run-id "$GITHUB_RUN_ID" \
@@ -242,8 +248,6 @@ jobs:
       - name: Bind evidence to immutable release-candidate run
         run: |
           evidence_dir="$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME"
-          cp "$RUNNER_TEMP/release-candidate/candidate-manifest.json" \
-            "$evidence_dir/candidate-manifest.json"
           python3 - "$evidence_dir/release-candidate-run.json" <<'PY'
           import json
           import os
