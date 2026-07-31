@@ -82,8 +82,6 @@ RELEASE_BUILD_LOGIC_FILENAMES: Final = frozenset(
 
 WORKFLOW_FILES: Final = frozenset(
     {
-        ".github/dependabot.yml",
-        ".github/labeler.yml",
         ".github/workflows/codeql-tracker.yml",
         ".github/workflows/codeql.yml",
         ".github/workflows/i18n-export.yml",
@@ -102,6 +100,18 @@ WORKFLOW_FILES: Final = frozenset(
     }
 )
 
+FAST_FIXTURE_PREFIXES: Final = (
+    "contract-fixtures/hysteria2/",
+    "contract-fixtures/vless/",
+    "core/data/src/test/resources/fleet-fixtures/",
+)
+
+FAST_FIXTURE_FILES: Final = frozenset(
+    {
+        "contract-fixtures/phase16_lab_matrix.json",
+    }
+)
+
 
 def is_documentation_path(path: str) -> bool:
     return path.startswith("docs/") or (path.startswith("README") and path.endswith(".md") and "/" not in path)
@@ -112,10 +122,7 @@ def is_documentation_only(paths: list[str]) -> bool:
 
 
 def is_fixture_path(path: str) -> bool:
-    parts = Path(path).parts
-    return path.startswith("contract-fixtures/") or any(
-        part in {"fixture", "fixtures", "golden", "goldens"} for part in parts
-    )
+    return path in FAST_FIXTURE_FILES or path.startswith(FAST_FIXTURE_PREFIXES)
 
 
 def is_workflow_configuration_path(path: str) -> bool:

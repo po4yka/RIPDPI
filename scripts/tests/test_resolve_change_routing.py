@@ -61,7 +61,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             ],
             ROUTE_RUST_NATIVE: ["native/rust/crates/ripdpi-packets/src/lib.rs"],
             ROUTE_RELEASE_BUILD_LOGIC: ["build-logic/convention/build.gradle.kts"],
-            ROUTE_FIXTURES: ["contract-fixtures/tunnel_config_fields.json"],
+            ROUTE_FIXTURES: ["contract-fixtures/phase16_lab_matrix.json"],
             ROUTE_WORKFLOW: [".github/workflows/codeql.yml"],
         }
         for expected, paths in cases.items():
@@ -91,10 +91,27 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                 self.assertEqual("true", outputs["run_fixtures_ci"])
 
     def test_unclassified_workflows_fail_closed_to_full_ci(self) -> None:
-        self.assertEqual(
-            ROUTE_FULL,
-            classify_change_paths([".github/workflows/fuzz-nightly.yml"]),
-        )
+        for path in (
+            ".github/workflows/fuzz-nightly.yml",
+            ".github/dependabot.yml",
+            ".github/labeler.yml",
+        ):
+            with self.subTest(path=path):
+                outputs = routing_outputs([path])
+                self.assertEqual("true", outputs["run_full_ci"])
+                self.assertEqual("false", outputs["run_fixtures_ci"])
+
+    def test_unowned_fixture_and_golden_trees_fail_closed_to_full_ci(self) -> None:
+        for path in (
+            "contract-fixtures/tunnel_config_fields.json",
+            "core/diagnostics/src/test/resources/golden/report.json",
+            "native/rust/crates/ripdpi-desync/tests/goldens/packet.bin",
+            "app/src/androidTest/assets/fixtures/device.json",
+        ):
+            with self.subTest(path=path):
+                outputs = routing_outputs([path])
+                self.assertEqual("true", outputs["run_full_ci"])
+                self.assertEqual("false", outputs["run_fixtures_ci"])
 
     def test_android_build_contract_and_proto_changes_use_full_ci_route(self) -> None:
         for path in (
@@ -132,7 +149,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
     def test_workflow_and_fixture_routes_skip_full_ci_for_dedicated_gates(self) -> None:
         cases = (
             (".github/workflows/codeql.yml", "run_workflow_ci"),
-            ("contract-fixtures/tunnel_config_fields.json", "run_fixtures_ci"),
+            ("contract-fixtures/phase16_lab_matrix.json", "run_fixtures_ci"),
         )
         for path, gate in cases:
             with self.subTest(path=path):
@@ -152,7 +169,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             "native/rust/crates/ripdpi-packets/src/lib.rs": ("false", "true"),
             "build-logic/convention/build.gradle.kts": ("true", "true"),
             "scripts/ci/unclassified_new_check.py": ("true", "true"),
-            "contract-fixtures/tunnel_config_fields.json": ("false", "false"),
+            "contract-fixtures/tunnel_config_fields.json": ("true", "true"),
         }
         for path, expected in cases.items():
             with self.subTest(path=path):

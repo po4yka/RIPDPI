@@ -101,6 +101,12 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             source,
         )
 
+    def test_full_ci_android_tests_run_new_performance_contracts(self) -> None:
+        source = job_source("build-android-tests")
+
+        self.assertIn("scripts.tests.test_build_observability_contracts", source)
+        self.assertIn("scripts.tests.test_measure_native_abi_parallelism", source)
+
 
 if __name__ == "__main__":
     unittest.main()

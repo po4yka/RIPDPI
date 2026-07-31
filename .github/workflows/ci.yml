@@ -762,6 +762,8 @@ jobs:
       - name: Run release artifact upload contract tests
         run: |
           python3 -m unittest \
+            scripts.tests.test_build_observability_contracts \
+            scripts.tests.test_measure_native_abi_parallelism \
             scripts.tests.test_package_native_symbols \
             scripts.tests.test_release_artifact_uploads \
             scripts.tests.test_rust_native_task_layout \
