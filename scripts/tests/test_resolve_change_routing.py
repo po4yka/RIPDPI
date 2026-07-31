@@ -79,14 +79,16 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                     ROUTE_RELEASE_BUILD_LOGIC, classify_change_paths([path])
                 )
 
-    def test_fixture_workflows_use_fixture_route_and_full_ci(self) -> None:
+    def test_fixture_workflows_use_fixture_contract_route(self) -> None:
         for path in (
             ".github/workflows/fleet-fixtures.yml",
             ".github/workflows/phase16-matrix.yml",
         ):
             with self.subTest(path=path):
                 self.assertEqual(ROUTE_FIXTURES, classify_change_paths([path]))
-                self.assertEqual("true", routing_outputs([path])["run_full_ci"])
+                outputs = routing_outputs([path])
+                self.assertEqual("false", outputs["run_full_ci"])
+                self.assertEqual("true", outputs["run_fixtures_ci"])
 
     def test_unclassified_workflows_fail_closed_to_full_ci(self) -> None:
         self.assertEqual(
@@ -117,16 +119,26 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assertEqual(ROUTE_FULL, classify_change_paths(paths))
 
-    def test_output_switches_preserve_full_ci_for_release_fixture_and_unknown_routes(
+    def test_output_switches_preserve_full_ci_for_release_and_unknown_routes(
         self,
     ) -> None:
         for paths in (
             ["build.gradle.kts"],
-            ["contract-fixtures/tunnel_config_fields.json"],
             ["scripts/ci/unclassified_new_check.py"],
         ):
             with self.subTest(paths=paths):
                 self.assertEqual("true", routing_outputs(paths)["run_full_ci"])
+
+    def test_workflow_and_fixture_routes_skip_full_ci_for_dedicated_gates(self) -> None:
+        cases = (
+            (".github/workflows/codeql.yml", "run_workflow_ci"),
+            ("contract-fixtures/tunnel_config_fields.json", "run_fixtures_ci"),
+        )
+        for path, gate in cases:
+            with self.subTest(path=path):
+                outputs = routing_outputs([path])
+                self.assertEqual("false", outputs["run_full_ci"])
+                self.assertEqual("true", outputs[gate])
 
     def test_targeted_switches_are_exclusive(self) -> None:
         outputs = routing_outputs(["native/rust/Cargo.toml"])
@@ -187,6 +199,10 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("RUN_KOTLIN_COVERAGE", aggregate)
         self.assertIn("RUN_RUST_COVERAGE", aggregate)
         self.assertIn("RUN_NIGHTLY_COVERAGE", aggregate)
+        self.assertIn(
+            'elif event_name != "schedule" and os.environ["RUN_FULL_CI"] == "true":',
+            aggregate,
+        )
 
     def test_preflight_barrier_blocks_compile_heavy_roots(self) -> None:
         preflight = ci_job_source("ci-preflight")

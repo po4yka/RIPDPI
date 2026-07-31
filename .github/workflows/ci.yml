@@ -2764,7 +2764,7 @@ jobs:
 
           if route == "documentation":
               required_success.add("docs-only-gate")
-          elif event_name != "schedule":
+          elif event_name != "schedule" and os.environ["RUN_FULL_CI"] == "true":
               required_success.update(
                   {
                       "design-md-lint",
