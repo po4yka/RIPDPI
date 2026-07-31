@@ -80,6 +80,9 @@ abstract class BuildRustNativeLibsTask
         abstract val ndkVersion: Property<String>
 
         @get:Input
+        abstract val cmakeVersion: Property<String>
+
+        @get:Input
         abstract val cargoProfile: Property<String>
 
         @get:Input
@@ -93,6 +96,9 @@ abstract class BuildRustNativeLibsTask
 
         @get:Input
         abstract val abiParallelism: Property<Int>
+
+        @get:Input
+        abstract val forbiddenAmbientCargoOverrideKeys: ListProperty<String>
 
         @get:Input
         abstract val pruneUnknownArtifacts: Property<Boolean>
@@ -130,6 +136,7 @@ abstract class BuildRustNativeLibsTask
                 copyFromPrebuilt(prebuiltPath)
                 return
             }
+            rejectAmbientCargoOverrides(forbiddenAmbientCargoOverrideKeys.get())
             val installedTargets = installedRustTargets(rustupExecutable.get())
             val hostBinDir = resolveNdkToolchainBinDir()
             val manifest = workspaceManifest.get().asFile
@@ -164,22 +171,8 @@ abstract class BuildRustNativeLibsTask
             // property access (sdkDir.get()) is not safe from background threads, and the
             // cmake crate reads the CMAKE env var to select the cmake binary.  Using the
             // Android SDK cmake avoids macOS sysroot injection by Homebrew cmake.
-            val androidSdkCmake: String? =
-                File(sdkDir.get())
-                    .resolve("cmake")
-                    .takeIf { it.isDirectory }
-                    ?.listFiles()
-                    ?.filter { it.isDirectory }
-                    ?.maxByOrNull { it.name }
-                    ?.resolve("bin/cmake")
-                    ?.takeIf { it.isFile }
-                    ?.absolutePath
-
-            if (androidSdkCmake != null) {
-                logger.lifecycle("boring-sys cmake: $androidSdkCmake")
-            } else {
-                logger.warn("Android SDK cmake not found under ${File(sdkDir.get(), "cmake")} — using system cmake")
-            }
+            val androidSdkCmake = resolvePinnedAndroidSdkCmake().absolutePath
+            logger.lifecycle("boring-sys cmake: $androidSdkCmake")
 
             pruneStaleAbiOutputs(outputRoot)
             debugSymbolsRoot?.let(::pruneStaleAbiOutputs)
@@ -391,9 +384,7 @@ abstract class BuildRustNativeLibsTask
                     // The cmake crate (used by boring-sys) reads CMAKE to select the cmake
                     // binary.  The Android SDK cmake lacks macOS platform defaults, preventing
                     // `-isysroot MacOSX.sdk` from being injected when cross-compiling for Android.
-                    if (androidCmakePath != null) {
-                        put("CMAKE", androidCmakePath)
-                    }
+                    put("CMAKE", requireNotNull(androidCmakePath))
                     // Use static C++ STL so libripdpi.so (and siblings) do not depend on
                     // libc++_shared.so at runtime.  With c++_shared the APK would need to
                     // package libc++_shared.so separately; c++_static embeds the runtime into
@@ -611,6 +602,30 @@ abstract class BuildRustNativeLibsTask
             )
         }
 
+        private fun rejectAmbientCargoOverrides(keys: List<String>) {
+            if (keys.isEmpty()) {
+                return
+            }
+            throw GradleException(
+                "Android native builds reject output-affecting ambient Cargo overrides: " +
+                    keys.sorted().joinToString(", ") +
+                    ". Use a dedicated Cargo invocation for custom compiler/profile flags. " +
+                    "RUSTC_WRAPPER remains supported.",
+            )
+        }
+
+        private fun resolvePinnedAndroidSdkCmake(): File {
+            val version = cmakeVersion.get()
+            val executable = File(sdkDir.get()).resolve("cmake/$version/bin/cmake")
+            if (!executable.isFile) {
+                throw GradleException(
+                    "Pinned Android SDK CMake $version is missing: ${executable.absolutePath}. " +
+                        "Install it with `android sdk install cmake/$version`.",
+                )
+            }
+            return executable
+        }
+
         private fun abiToRustTarget(abi: String): String =
             when (abi) {
                 "armeabi-v7a" -> "armv7-linux-androideabi"
@@ -665,6 +680,9 @@ abstract class BuildPluggableTransportAssetsTask
         abstract val ndkVersion: Property<String>
 
         @get:Input
+        abstract val cmakeVersion: Property<String>
+
+        @get:Input
         abstract val minSdk: Property<Int>
 
         @get:Input
@@ -678,6 +696,9 @@ abstract class BuildPluggableTransportAssetsTask
 
         @get:Input
         abstract val abis: ListProperty<String>
+
+        @get:Input
+        abstract val forbiddenAmbientCargoOverrideKeys: ListProperty<String>
 
         // CI consumers receive this directory only from the dedicated PT producer.
         // The manifest digest is a separate input so an artifact from another run
@@ -735,6 +756,10 @@ abstract class BuildPluggableTransportAssetsTask
                         throw GradleException("Unsupported pluggable transport build mode: $mode")
                     }
                 }
+
+            if (buildFromSource && hasRustSources) {
+                rejectAmbientCargoOverrides(forbiddenAmbientCargoOverrideKeys.get())
+            }
 
             if (mode == "source" && hasGoSources && !executableAvailable(gitExecutable.get(), "--version")) {
                 throw GradleException("git is required for ripdpi.pluggableTransportAssetsMode=source")
@@ -1281,7 +1306,7 @@ abstract class BuildPluggableTransportAssetsTask
                     "CARGO_TARGET_DIR" to targetDir.absolutePath,
                     "BORING_BSSL_RUST_CPPLIB" to "c++_static",
                 )
-            resolveAndroidSdkCmake()?.let { cargoEnvironment["CMAKE"] = it.absolutePath }
+            cargoEnvironment["CMAKE"] = resolvePinnedAndroidSdkCmake().absolutePath
 
             val manifest = rustWorkspaceManifest.get().asFile
             execWithRetry("Build ${source.id} Rust pluggable transport for $abi") {
@@ -1347,15 +1372,29 @@ abstract class BuildPluggableTransportAssetsTask
             return toolchainsDir.resolve(hostTag).resolve("bin")
         }
 
-        private fun resolveAndroidSdkCmake(): File? =
-            File(sdkDir.get())
-                .resolve("cmake")
-                .takeIf { it.isDirectory }
-                ?.listFiles()
-                ?.filter { it.isDirectory }
-                ?.maxByOrNull { it.name }
-                ?.resolve("bin/cmake")
-                ?.takeIf { it.isFile }
+        private fun resolvePinnedAndroidSdkCmake(): File {
+            val version = cmakeVersion.get()
+            val executable = File(sdkDir.get()).resolve("cmake/$version/bin/cmake")
+            if (!executable.isFile) {
+                throw GradleException(
+                    "Pinned Android SDK CMake $version is missing: ${executable.absolutePath}. " +
+                        "Install it with `android sdk install cmake/$version`.",
+                )
+            }
+            return executable
+        }
+
+        private fun rejectAmbientCargoOverrides(keys: List<String>) {
+            if (keys.isEmpty()) {
+                return
+            }
+            throw GradleException(
+                "Android native builds reject output-affecting ambient Cargo overrides: " +
+                    keys.sorted().joinToString(", ") +
+                    ". Use a dedicated Cargo invocation for custom compiler/profile flags. " +
+                    "RUSTC_WRAPPER remains supported.",
+            )
+        }
 
         private fun appleHostEnvKeys(): List<String> =
             listOf(
@@ -1511,6 +1550,18 @@ val rustNativeAbiParallelism =
         .gradleProperty("ripdpi.nativeAbiParallelism")
         .map(String::toInt)
         .orElse(Int.MAX_VALUE)
+val detectedAmbientCargoOverrideKeys =
+    buildSet {
+        listOf(
+            "RUSTFLAGS",
+            "CARGO_ENCODED_RUSTFLAGS",
+            "RUSTC",
+            "RUSTC_WORKSPACE_WRAPPER",
+        ).filterTo(this) { providers.environmentVariable(it).isPresent }
+        for (prefix in listOf("CARGO_PROFILE_", "CARGO_BUILD_", "CARGO_TARGET_")) {
+            addAll(providers.environmentVariablesPrefixedBy(prefix).get().keys)
+        }
+    }.sorted()
 val pluggableTransportAssetsMode = resolvedPluggableTransportAssetsMode()
 val pluggableTransportAssetsStrictFailures = resolvedPluggableTransportAssetsStrictFailures()
 val rustNativeArtifactSpecs =
@@ -1600,10 +1651,12 @@ val buildRustNativeLibs =
         cargoExecutable.set(resolveRustTool("cargo"))
         rustupExecutable.set(resolveRustTool("rustup"))
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustNativeArtifactSpecs)
         stripReleaseOutputs.set(true)
         cargoTargetDir.set(rustNativeLibsBuildDir)
@@ -1650,10 +1703,12 @@ val buildRustRootHelper =
         cargoExecutable.set(resolveRustTool("cargo"))
         rustupExecutable.set(resolveRustTool("rustup"))
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
         stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
@@ -1696,10 +1751,12 @@ val buildRustNaiveProxy =
         cargoExecutable.set(resolveRustTool("cargo"))
         rustupExecutable.set(resolveRustTool("rustup"))
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
         stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
@@ -1741,10 +1798,12 @@ val buildRustCloudflareOrigin =
         cargoExecutable.set(resolveRustTool("cargo"))
         rustupExecutable.set(resolveRustTool("rustup"))
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
         stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
@@ -1778,11 +1837,13 @@ val buildPluggableTransportAssets =
         cargoExecutable.set(resolveHostTool("cargo"))
         sdkDir.set(resolveAndroidSdkDir())
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         cargoProfile.set(rustNativeCargoProfile)
         buildMode.set(pluggableTransportAssetsMode)
         strictFailures.set(pluggableTransportAssetsStrictFailures)
         abis.set(rustNativeAbis)
+        forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         outputDir.set(generatedPtAssetsDir)
         workDir.set(ptAssetsBuildDir)
         providers

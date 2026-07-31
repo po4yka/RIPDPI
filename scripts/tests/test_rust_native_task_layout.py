@@ -11,6 +11,27 @@ BORING_SYS_BUILD_SCRIPT = ROOT / "native/rust/vendor/boring-sys/build/main.rs"
 
 
 class RustNativeTaskLayoutTest(unittest.TestCase):
+    def test_native_tasks_use_pinned_cmake_and_reject_ambient_overrides(self) -> None:
+        source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+
+        self.assertIn("abstract val cmakeVersion: Property<String>", source)
+        self.assertIn('resolve("cmake/$version/bin/cmake")', source)
+        self.assertIn("android sdk install cmake/$version", source)
+        self.assertNotIn("maxByOrNull { it.name }", source)
+        self.assertNotIn("using system cmake", source)
+        self.assertIn("rejectAmbientCargoOverrides", source)
+        for key in (
+            '"RUSTFLAGS"',
+            '"CARGO_ENCODED_RUSTFLAGS"',
+            '"RUSTC"',
+            '"RUSTC_WORKSPACE_WRAPPER"',
+            '"CARGO_PROFILE_"',
+            '"CARGO_BUILD_"',
+            '"CARGO_TARGET_"',
+        ):
+            self.assertIn(key, source)
+        self.assertIn("RUSTC_WRAPPER remains supported", source)
+
     def test_boring_ssl_cleanup_invalidates_cargo_without_watching_generated_output(
         self,
     ) -> None:

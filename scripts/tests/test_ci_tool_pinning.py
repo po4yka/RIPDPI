@@ -50,6 +50,17 @@ class CiToolPinningTest(unittest.TestCase):
         )
         self.assertNotIn("workspaces: native/rust -> target", source)
 
+    def test_android_native_toolchain_installs_pinned_cmake(self) -> None:
+        action = (
+            ROOT / ".github/actions/setup-android-rust/action.yml"
+        ).read_text(encoding="utf-8")
+        properties = (ROOT / "gradle.properties").read_text(encoding="utf-8")
+
+        self.assertIn("ripdpi.nativeCmakeVersion=3.31.6", properties)
+        self.assertIn("steps.native-toolchain.outputs.cmake", action)
+        self.assertIn('"cmake/${{ steps.native-toolchain.outputs.cmake }}"', action)
+        self.assertIn("-cmake-${{ steps.native-toolchain.outputs.cmake }}-", action)
+
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))
