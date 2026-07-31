@@ -5,6 +5,8 @@ import re
 import unittest
 from pathlib import Path
 
+from scripts.ci.release_signature_fingerprint import extract_certificate_sha256
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -55,14 +57,47 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn("-Pripdpi.enableAbiSplits=true", apk_invocation)
         compile_preflight = signing.index(":app:compileGithubFullReleaseAndroidTestKotlin")
         signing_key = signing.index("Materialize release signing key")
+        signing_identity = signing.index("Verify release signing identity before build")
         native_build = signing.index("Build signed release candidate once")
         self.assertLess(compile_preflight, signing_key)
-        self.assertLess(signing_key, native_build)
+        self.assertLess(signing_key, signing_identity)
+        self.assertLess(signing_identity, native_build)
+        self.assertGreaterEqual(signing.count("release_signature_fingerprint.py"), 3)
+        self.assertIn("APK signature verification failed", signing)
+        self.assertIn("AAB signature verification failed", signing)
         self.assertIn("release_candidate_manifest.py create", signing)
         self.assertIn("RIPDPI_RELEASE_CERT_SHA256", signing)
         self.assertIn("Remove release signing key", signing)
         self.assertNotIn("contents: write", signing)
         self.assertNotIn("id-token: write", signing)
+
+    def test_release_signature_fingerprint_accepts_tool_output_variants(self) -> None:
+        expected = "ab" * 32
+        colon_delimited = ":".join(["AB"] * 32)
+
+        self.assertEqual(
+            expected,
+            extract_certificate_sha256(
+                f"Signer #1 certificate SHA-256 digest: {colon_delimited}\r\n",
+            ),
+        )
+        self.assertEqual(
+            expected,
+            extract_certificate_sha256(f"  SHA256: {colon_delimited}  \n"),
+        )
+
+    def test_release_signature_fingerprint_rejects_ambiguous_or_malformed_output(
+        self,
+    ) -> None:
+        valid = "ab" * 32
+        for output in (
+            "",
+            "SHA256: not-a-digest",
+            f"SHA256: {valid}\nSHA256: {valid}\n",
+        ):
+            with self.subTest(output=output):
+                with self.assertRaises(ValueError):
+                    extract_certificate_sha256(output)
 
     def test_evidence_installs_exact_candidate_and_does_not_rebuild(self) -> None:
         source = workflow("dns-ipv6-killswitch-evidence.yml")

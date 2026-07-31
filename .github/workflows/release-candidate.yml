@@ -131,6 +131,26 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           chmod 0600 "$RUNNER_TEMP/release.keystore"
 
+      - name: Verify release signing identity before build
+        env:
+          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          actual="$({
+            keytool -J-Duser.language=en -list -v \
+              -keystore "$RUNNER_TEMP/release.keystore" \
+              -storepass "$RIPDPI_SIGNING_STORE_PASSWORD" \
+              -alias "$RIPDPI_SIGNING_KEY_ALIAS"
+          } | python3 scripts/ci/release_signature_fingerprint.py)" || {
+            echo "::error::Could not extract the release keystore certificate SHA-256 digest."
+            exit 1
+          }
+          if [ "$actual" != "$EXPECTED_RELEASE_CERT_SHA256" ]; then
+            echo "::error::Release keystore certificate does not match the published signer continuity fingerprint."
+            exit 1
+          fi
+
       - name: Build signed release candidate once
         env:
           RUSTC_WRAPPER: sccache
@@ -215,15 +235,37 @@ jobs:
           apksigner="$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name apksigner | sort -V | tail -n1)"
           test -x "$apksigner"
           for apk in "$candidate"/*.apk; do
-            output="$($apksigner verify --verbose --print-certs "$apk")"
-            if [ "$(basename "$apk")" != app-github-release-androidTest.apk ]; then
-              actual="$(printf '%s\n' "$output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr 'A-F' 'a-f')"
-              test "$actual" = "$EXPECTED_RELEASE_CERT_SHA256"
+            name="$(basename "$apk")"
+            if ! output="$($apksigner verify --verbose --print-certs "$apk" 2>&1)"; then
+              echo "::error file=$name::APK signature verification failed."
+              exit 1
             fi
+            if [ "$name" != app-github-release-androidTest.apk ]; then
+              actual="$(printf '%s\n' "$output" | python3 scripts/ci/release_signature_fingerprint.py)" || {
+                echo "::error file=$name::Could not extract the APK signer SHA-256 digest."
+                exit 1
+              }
+              if [ "$actual" != "$EXPECTED_RELEASE_CERT_SHA256" ]; then
+                echo "::error file=$name::APK signer does not match the published signer continuity fingerprint."
+                exit 1
+              fi
+            fi
+            echo "Verified APK signature: $name"
           done
-          jarsigner -verify -strict "$candidate/app-play-full-release.aab"
-          actual_aab="$(keytool -J-Duser.language=en -printcert -jarfile "$candidate/app-play-full-release.aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f')"
-          test "$actual_aab" = "$EXPECTED_RELEASE_CERT_SHA256"
+          aab="$candidate/app-play-full-release.aab"
+          if ! jarsigner -verify -strict "$aab" >/dev/null 2>&1; then
+            echo "::error file=app-play-full-release.aab::AAB signature verification failed."
+            exit 1
+          fi
+          actual_aab="$(keytool -J-Duser.language=en -printcert -jarfile "$aab" | python3 scripts/ci/release_signature_fingerprint.py)" || {
+            echo "::error file=app-play-full-release.aab::Could not extract the AAB signer SHA-256 digest."
+            exit 1
+          }
+          if [ "$actual_aab" != "$EXPECTED_RELEASE_CERT_SHA256" ]; then
+            echo "::error file=app-play-full-release.aab::AAB signer does not match the published signer continuity fingerprint."
+            exit 1
+          fi
+          echo "Verified AAB signature: app-play-full-release.aab"
 
       - name: Verify native ELF payload from exact candidate APKs
         run: |
