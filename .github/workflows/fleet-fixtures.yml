@@ -87,7 +87,7 @@ jobs:
           rust-cache-save: "false"
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Parse materialized fleet bundles through the app contract
         run: >-

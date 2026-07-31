@@ -19,9 +19,9 @@ inputs:
     required: false
     default: "true"
   gradle-cache-read-only:
-    description: Whether Gradle cache is read-only
+    description: Whether Gradle cache is read-only; defaults to true so workflow owners must opt in one designated writer
     required: false
-    default: "false"
+    default: "true"
   java-version:
     description: Java version to install
     required: false

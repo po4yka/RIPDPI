@@ -42,7 +42,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-android
           rust-cache-save: "true"
-          gradle-cache-read-only: "false"
+          gradle-cache-read-only: "true"
 
       - name: Check owned-stack TLS fingerprint snapshot
         run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh

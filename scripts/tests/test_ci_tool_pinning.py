@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -25,6 +26,43 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("android/cli/latest", source)
         self.assertNotIn("android update", source)
         self.assertNotIn("android init", source)
+
+    def test_coverage_is_the_only_gradle_build_cache_writer(self) -> None:
+        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
+            encoding="utf-8"
+        )
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        workflows = sorted((ROOT / ".github/workflows").glob("*.yml"))
+
+        self.assertIn('gradle-cache-read-only:\n    description:', action)
+        self.assertIn('default: "true"', action)
+        self.assertNotIn(
+            "gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}",
+            ci,
+        )
+
+        writer = re.search(
+            r"(?ms)^  coverage:\n.*?(?=^  [\w-]+:\n|\Z)", ci
+        )
+        self.assertIsNotNone(writer)
+        assert writer is not None
+        self.assertIn(
+            "gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}",
+            writer.group(0),
+        )
+
+        writable = []
+        for workflow in workflows:
+            for value in re.findall(
+                r"(?m)^\s+gradle-cache-read-only: ([^\n]+)$",
+                workflow.read_text(encoding="utf-8"),
+            ):
+                if value != '"true"':
+                    writable.append((workflow.name, value))
+        self.assertEqual(
+            [("ci.yml", "${{ github.ref != 'refs/heads/main' }}")],
+            writable,
+        )
 
 
 if __name__ == "__main__":

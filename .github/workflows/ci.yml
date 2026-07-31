@@ -346,7 +346,7 @@ jobs:
           rust-targets: ${{ matrix.abi.rust-target }}
           rust-cache-shared-key: rust-android-${{ matrix.abi.name }}
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Build Rust native libraries + helper binaries for ${{ matrix.abi.name }}
         env:
@@ -431,7 +431,7 @@ jobs:
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android-x86_64
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Build Rust native libraries + helper binaries for x86_64
         env:
@@ -519,7 +519,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-android-debug
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Download native shards
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -607,7 +607,7 @@ jobs:
           rust-cache-save: "false"
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Run JVM unit tests
         run: >-
@@ -683,7 +683,7 @@ jobs:
           rust-cache-save: "false"
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Verify screenshot baselines
         run: >-
@@ -748,7 +748,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-android-release-verify
           rust-cache-save: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Download native release shards
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -1208,7 +1208,7 @@ jobs:
           rust-cache-save: "false"
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Resolve release application IDs
         run: ./gradlew :app:writeReleaseIdentityManifest
@@ -1374,7 +1374,10 @@ jobs:
           rust-targets: ""
           setup-android-ndk: "false"
           setup-sccache: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          # Coverage is the sole Gradle build-cache writer on main. Every other
+          # job restores only, preventing a small parallel job from reserving
+          # the immutable SHA key before the coverage graph can populate it.
+          gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
@@ -1609,7 +1612,7 @@ jobs:
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Enable KVM for emulator
         run: |
@@ -1683,7 +1686,7 @@ jobs:
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android-instrumented
           rust-cache-save: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Download x86_64 native shard
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -2006,7 +2009,7 @@ jobs:
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Cache Appium dependencies
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_appium_smoke == 'true'
@@ -2119,7 +2122,7 @@ jobs:
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-cache-read-only: "true"
 
       - name: Enable KVM for emulator
         run: |
