@@ -6,9 +6,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RUST_NATIVE_PLUGIN = ROOT / "build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts"
+NATIVE_BUILD_POLICY = ROOT / "build-logic/convention/src/main/kotlin/NativeBuildPolicy.kt"
 
 
 class RustNativeTaskLayoutTest(unittest.TestCase):
+    def test_root_and_app_aggregate_builds_use_release_native_policy(self) -> None:
+        source = NATIVE_BUILD_POLICY.read_text(encoding="utf-8")
+
+        self.assertIn("aggregateReleaseTaskPaths", source)
+        for task_path in ("assemble", ":assemble", "build", ":build", ":app:assemble", ":app:build"):
+            self.assertIn(f'"{task_path}"', source)
+
     def test_native_tasks_share_one_cargo_target_root(self) -> None:
         source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
 

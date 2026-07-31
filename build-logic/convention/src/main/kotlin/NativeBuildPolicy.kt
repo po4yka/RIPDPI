@@ -3,6 +3,16 @@ import org.gradle.api.Project
 import org.gradle.api.provider.Provider
 import java.io.File
 
+private val aggregateReleaseTaskPaths =
+    setOf(
+        "assemble",
+        ":assemble",
+        "build",
+        ":build",
+        ":app:assemble",
+        ":app:build",
+    )
+
 internal fun parseAbiList(value: String): List<String> =
     value
         .split(',')
@@ -21,7 +31,8 @@ internal fun Project.isReleaseLikeBuild(): Boolean {
         val normalized = taskName.lowercase()
         normalized.contains("release") ||
             normalized.contains("bundle") ||
-            normalized.contains("publish")
+            normalized.contains("publish") ||
+            normalized in aggregateReleaseTaskPaths
     }
 }
 
