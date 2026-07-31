@@ -128,13 +128,18 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", source)
         self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
 
-    def test_device_smokes_use_the_ci_native_abi_override(self) -> None:
+    def test_packet_smoke_uses_the_ci_native_abi_override(self) -> None:
         packet_smoke = PACKET_SMOKE_SCRIPT.read_text(encoding="utf-8")
-        evidence_workflow = DNS_IPV6_EVIDENCE_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("-Pripdpi.nativeAbisOverride=${gradle_abi}", packet_smoke)
         self.assertNotIn("-Pripdpi.localNativeAbis=", packet_smoke)
-        self.assertIn("-Pripdpi.nativeAbisOverride=$device_abi", evidence_workflow)
+
+    def test_release_evidence_uses_the_exact_prebuilt_candidate(self) -> None:
+        evidence_workflow = DNS_IPV6_EVIDENCE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("app-github-release-x86_64.apk", evidence_workflow)
+        self.assertNotIn("./gradlew", evidence_workflow)
+        self.assertNotIn("-Pripdpi.nativeAbisOverride=", evidence_workflow)
         self.assertNotIn("-Pripdpi.localNativeAbis=", evidence_workflow)
 
 
