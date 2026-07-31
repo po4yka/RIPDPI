@@ -51,6 +51,13 @@ class ReleaseP0ContractsTest(unittest.TestCase):
     def test_evidence_installs_exact_candidate_and_does_not_rebuild(self) -> None:
         source = workflow("dns-ipv6-killswitch-evidence.yml")
         self.assertNotIn("./gradlew", source)
+        for setup_input in (
+            'setup-rust: "false"',
+            'setup-gradle: "false"',
+            'setup-sccache: "false"',
+            'setup-android-ndk: "false"',
+        ):
+            self.assertIn(setup_input, source)
         self.assertNotIn("schedule:", source)
         self.assertIn("android-release-candidate", source)
         self.assertIn("app-github-release-x86_64.apk", source)

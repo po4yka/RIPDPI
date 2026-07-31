@@ -78,6 +78,10 @@ jobs:
       # caches are read-only and nothing is saved.
       - uses: ./.github/actions/setup-android-rust
         with:
+          setup-rust: "false"
+          setup-gradle: "false"
+          setup-sccache: "false"
+          setup-android-ndk: "false"
           rust-components: ""
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
