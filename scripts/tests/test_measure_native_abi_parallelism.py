@@ -4,12 +4,27 @@ import unittest
 
 from scripts.bench.measure_native_abi_parallelism import (
     FULL_ABIS,
+    aggregate_descendant_rss_bytes,
     gradle_command,
     summarize,
 )
 
 
 class MeasureNativeAbiParallelismTest(unittest.TestCase):
+    def test_aggregate_rss_includes_the_entire_process_tree(self) -> None:
+        process_table = """
+          10   1 100
+          11  10 200
+          12  10 300
+          13  11 400
+          99   1 900
+        """
+
+        self.assertEqual(
+            (100 + 200 + 300 + 400) * 1024,
+            aggregate_descendant_rss_bytes(10, process_table),
+        )
+
     def test_gradle_command_targets_full_abi_native_task(self) -> None:
         command = gradle_command(2, cpu_budget=6)
 

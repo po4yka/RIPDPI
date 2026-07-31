@@ -7,11 +7,9 @@ import argparse
 import json
 import os
 import platform
-import re
 import shlex
 import statistics
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -19,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 FULL_ABIS = "armeabi-v7a,arm64-v8a,x86,x86_64"
 DEFAULT_OUTPUT = ROOT / "build/reports/native-build-performance"
+RSS_SAMPLE_INTERVAL_SECONDS = 0.2
 
 
 def gradle_command(parallelism: int, cpu_budget: int | None = None) -> list[str]:
@@ -45,43 +44,60 @@ def clean_command() -> list[str]:
     ]
 
 
-def timed_command(command: list[str]) -> tuple[list[str], re.Pattern[str], int]:
-    if sys.platform == "darwin":
-        return ["/usr/bin/time", "-l", *command], re.compile(
-            r"(?m)^\s*(\d+)\s+maximum resident set size$"
-        ), 1
-    return ["/usr/bin/time", "-v", *command], re.compile(
-        r"(?m)^\s*Maximum resident set size \(kbytes\):\s*(\d+)$"
-    ), 1024
+def aggregate_descendant_rss_bytes(root_pid: int, process_table: str) -> int:
+    processes: dict[int, tuple[int, int]] = {}
+    for line in process_table.splitlines():
+        fields = line.split()
+        if len(fields) != 3:
+            continue
+        pid, parent_pid, rss_kib = (int(field) for field in fields)
+        processes[pid] = (parent_pid, rss_kib)
+
+    descendants = {root_pid}
+    changed = True
+    while changed:
+        changed = False
+        for pid, (parent_pid, _) in processes.items():
+            if parent_pid in descendants and pid not in descendants:
+                descendants.add(pid)
+                changed = True
+    return sum(processes[pid][1] for pid in descendants if pid in processes) * 1024
+
+
+def process_tree_rss_bytes(root_pid: int) -> int:
+    process_table = subprocess.check_output(
+        ["ps", "-axo", "pid=,ppid=,rss="], text=True
+    )
+    return aggregate_descendant_rss_bytes(root_pid, process_table)
 
 
 def run_measurement(
     *, parallelism: int, run: int, output_dir: Path, cpu_budget: int | None
 ) -> dict[str, object]:
     subprocess.run(clean_command(), cwd=ROOT, check=True)
-    command, rss_pattern, rss_multiplier = timed_command(
-        gradle_command(parallelism, cpu_budget)
-    )
+    command = gradle_command(parallelism, cpu_budget)
     log_path = output_dir / f"parallelism-{parallelism}-run-{run}.log"
     started = time.monotonic()
     with log_path.open("w", encoding="utf-8") as log:
-        process = subprocess.run(
+        process = subprocess.Popen(
             command,
             cwd=ROOT,
             stdout=log,
             stderr=subprocess.STDOUT,
-            check=False,
             text=True,
         )
+        peak_rss_bytes = 0
+        while process.poll() is None:
+            peak_rss_bytes = max(peak_rss_bytes, process_tree_rss_bytes(process.pid))
+            time.sleep(RSS_SAMPLE_INTERVAL_SECONDS)
+        return_code = process.wait()
     elapsed = time.monotonic() - started
-    log_text = log_path.read_text(encoding="utf-8")
-    rss_match = rss_pattern.search(log_text)
     return {
         "parallelism": parallelism,
         "run": run,
         "elapsedSeconds": round(elapsed, 3),
-        "peakRssBytes": int(rss_match.group(1)) * rss_multiplier if rss_match else None,
-        "exitCode": process.returncode,
+        "peakRssBytes": peak_rss_bytes,
+        "exitCode": return_code,
         "log": str(log_path.relative_to(ROOT)),
     }
 
@@ -185,6 +201,7 @@ def main() -> int:
         },
         "fullAbis": FULL_ABIS.split(","),
         "cpuBudget": args.cpu_budget,
+        "rssSampleIntervalSeconds": RSS_SAMPLE_INTERVAL_SECONDS,
         "measurements": measurements,
         "summary": summarize(measurements),
     }
