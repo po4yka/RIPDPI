@@ -9,6 +9,16 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
+    def test_compose_reports_require_explicit_gradle_opt_in(self) -> None:
+        source = (
+            ROOT
+            / "build-logic/convention/src/main/kotlin/ripdpi.android.compose.gradle.kts"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('gradleProperty("ripdpi.composeReports")', source)
+        self.assertIn(".map(String::toBooleanStrict)", source)
+        self.assertNotIn('environmentVariable("CI")', source)
+
     def test_local_gradle_recipes_use_build_performance_fast_paths(self) -> None:
         source = (ROOT / "justfile").read_text(encoding="utf-8")
 

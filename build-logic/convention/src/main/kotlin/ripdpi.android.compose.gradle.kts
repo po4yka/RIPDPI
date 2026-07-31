@@ -17,8 +17,10 @@ extensions.findByType<ComposeCompilerGradlePluginExtension>()?.apply {
     )
 
     val generateReports =
-        providers.environmentVariable("CI").isPresent ||
-            providers.gradleProperty("ripdpi.composeReports").map { it.toBoolean() }.getOrElse(false)
+        providers
+            .gradleProperty("ripdpi.composeReports")
+            .map(String::toBooleanStrict)
+            .getOrElse(false)
 
     if (generateReports) {
         reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
