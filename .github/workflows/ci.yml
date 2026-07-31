@@ -231,6 +231,7 @@ jobs:
             scripts.tests.test_dns_ipv6_killswitch_gates \
             scripts.tests.test_network_evidence_manifest \
             scripts.tests.test_network_evidence_pcap_oracle \
+            scripts.tests.test_network_evidence_emulator_workload \
             scripts.tests.test_android_ordinary_gate_results \
             scripts.tests.test_android_ordinary_semantic_oracles \
             scripts.tests.test_android_ordinary_physical_producer \

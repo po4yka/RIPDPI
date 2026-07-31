@@ -17,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKLOAD = ROOT / "test-lab/scripts/network-evidence-emulator-workload.py"
@@ -204,6 +205,26 @@ class PlanEmissionTest(unittest.TestCase):
         self.assertNotIn(
             "clearPackageData", " ".join(part for args in captured for part in args)
         )
+
+
+class CaptureBoundaryTest(unittest.TestCase):
+    def test_first_gate_starts_without_delay(self) -> None:
+        with mock.patch.object(workload.time, "sleep") as sleep:
+            workload.wait_for_capture_boundary(None)
+        sleep.assert_not_called()
+
+    def test_adjacent_gate_waits_past_one_complete_epoch_second(self) -> None:
+        with (
+            mock.patch.object(
+                workload.time,
+                "time",
+                side_effect=[100.9, 101.2, 102.0],
+            ),
+            mock.patch.object(workload.time, "sleep") as sleep,
+        ):
+            workload.wait_for_capture_boundary(100)
+        self.assertEqual(sleep.call_count, 2)
+        sleep.assert_called_with(0.05)
 
 
 if __name__ == "__main__":

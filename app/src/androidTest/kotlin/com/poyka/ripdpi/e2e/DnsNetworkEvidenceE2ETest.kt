@@ -805,6 +805,7 @@ class DnsNetworkEvidenceE2ETest {
     }
 
     private fun emitEvidenceMarker(marker: String): AppProcessTcpProbeResult {
+        awaitEvidenceMarkerTransportReady()
         val result =
             appProcessTcpRoundTrip(
                 context = appContext,
@@ -820,6 +821,49 @@ class DnsNetworkEvidenceE2ETest {
         assertNotNull(result.probePid)
         assertEquals(appContext.applicationInfo.uid, result.probeUid)
         return result
+    }
+
+    private fun awaitEvidenceMarkerTransportReady() {
+        var lastProbe: AppProcessTcpProbeResult? = null
+        var lastError: Throwable? = null
+        awaitUntil(
+            timeoutMs = EvidenceVpnTimeoutMs,
+            pollMs = 100,
+            failureMessage = {
+                "Evidence marker transport did not become ready; lastProbe=$lastProbe lastError=$lastError"
+            },
+        ) {
+            val result =
+                runCatching {
+                    appProcessTcpRoundTrip(
+                        context = appContext,
+                        host = fixture.androidHost,
+                        port = fixture.controlPort,
+                        payload =
+                            "GET /health HTTP/1.1\r\nHost: fixture.test\r\n" +
+                                "Connection: close\r\n\r\n",
+                        connectTimeoutMs = 2_000,
+                        readTimeoutMs = 2_000,
+                    )
+                }.onSuccess { probe ->
+                    lastProbe = probe
+                    lastError = null
+                }.onFailure { error ->
+                    lastError = error
+                }.getOrNull()
+            result?.let { probe ->
+                val statusLine =
+                    probe.response
+                        .orEmpty()
+                        .lineSequence()
+                        .firstOrNull()
+                        ?.trimEnd('\r')
+                probe.ok &&
+                    statusLine == "HTTP/1.1 200 OK" &&
+                    probe.probePid != null &&
+                    probe.probeUid == appContext.applicationInfo.uid
+            } == true
+        }
     }
 
     private fun awaitStableTunnelRuntime(probeService: TestProcessDnsProbeServiceHandle) {

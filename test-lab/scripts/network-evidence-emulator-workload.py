@@ -57,6 +57,7 @@ TEST_PACKAGE = "com.poyka.ripdpi.test"
 TEST_RUNNER = "com.poyka.ripdpi.HiltTestRunner"
 INSTRUMENTATION_TIMEOUT_SECONDS = 420
 ADB_TIMEOUT_SECONDS = 120
+CAPTURE_BOUNDARY_GAP_SECONDS = 2
 EXACT_ONE_TEST_RESULT = re.compile(r"^OK \(1 test\)$", re.MULTILINE)
 SOURCE_OWNED_TRANSCRIPT_RULES = {
     "virtual-vpn-resolver-v1",
@@ -169,6 +170,15 @@ def require_instrumentation_installed(device: Device) -> None:
         raise WorkloadError("androidTest package is not installed on the device")
 
 
+def wait_for_capture_boundary(previous_finished_at: int | None) -> None:
+    """Leave one complete epoch second between adjacent capture windows."""
+    if previous_finished_at is None:
+        return
+    target = previous_finished_at + CAPTURE_BOUNDARY_GAP_SECONDS
+    while int(time.time()) < target:
+        time.sleep(0.05)
+
+
 def run_gate(
     device: Device,
     shared: Path,
@@ -279,7 +289,9 @@ def main(argv: list[str]) -> int:
 
         windows: list[dict] = []
         skipped: list[str] = []
+        previous_finished_at: int | None = None
         for gate_id in gate_ids:
+            wait_for_capture_boundary(previous_finished_at)
             descriptor = registry.get(gate_id)
             if descriptor is None:
                 raise WorkloadError(f"{gate_id} is absent from the action registry")
@@ -293,6 +305,10 @@ def main(argv: list[str]) -> int:
                 client_sha=client_sha,
                 test_sha=test_sha,
                 fixture_identity=fixture_identity,
+            )
+            previous_finished_at = max(
+                int(time.time()),
+                window["finishedAtEpoch"] if window is not None else 0,
             )
             if window is None:
                 skipped.append(gate_id)
