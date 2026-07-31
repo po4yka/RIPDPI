@@ -134,6 +134,20 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertEqual("true", outputs["run_full_ci"])
         self.assertEqual("false", outputs["run_android_ci"])
 
+    def test_coverage_switches_follow_source_ownership(self) -> None:
+        cases = {
+            "app/src/main/kotlin/com/poyka/ripdpi/MainActivity.kt": ("true", "false"),
+            "native/rust/crates/ripdpi-packets/src/lib.rs": ("false", "true"),
+            "build-logic/convention/build.gradle.kts": ("true", "true"),
+            "scripts/ci/unclassified_new_check.py": ("true", "true"),
+            "contract-fixtures/tunnel_config_fields.json": ("false", "false"),
+        }
+        for path, expected in cases.items():
+            with self.subTest(path=path):
+                outputs = routing_outputs([path])
+                self.assertEqual(expected[0], outputs["run_kotlin_coverage"])
+                self.assertEqual(expected[1], outputs["run_rust_coverage"])
+
     def test_pr_labels_do_not_trigger_the_main_ci_workflow(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("types: [opened, synchronize, reopened]", source)
@@ -152,6 +166,8 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("pinact run --fix=false --no-api", source)
         self.assertIn("run_android_ci: ${{ steps.resolve.outputs.run_android_ci }}", source)
         self.assertIn("run_rust_native_ci: ${{ steps.resolve.outputs.run_rust_native_ci }}", source)
+        self.assertIn("run_kotlin_coverage: ${{ steps.resolve.outputs.run_kotlin_coverage }}", source)
+        self.assertIn("run_rust_coverage: ${{ steps.resolve.outputs.run_rust_coverage }}", source)
 
     def test_ci_required_aggregates_every_other_job_and_handles_skips(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
@@ -168,6 +184,12 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("required_success", aggregate)
         self.assertIn("RUN_FULL_CI", aggregate)
         self.assertIn('required_success.add("runtime-api-snapshot")', aggregate)
+        self.assertIn("RUN_KOTLIN_COVERAGE", aggregate)
+        self.assertIn("RUN_RUST_COVERAGE", aggregate)
+        self.assertIn("RUN_NIGHTLY_COVERAGE", aggregate)
+        self.assertIn('required_success.add("kotlin-coverage")', aggregate)
+        self.assertIn('required_success.add("rust-coverage")', aggregate)
+        self.assertIn('"nightly-kotlin-coverage", "nightly-rust-coverage"', aggregate)
 
 
 if __name__ == "__main__":

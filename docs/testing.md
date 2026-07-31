@@ -878,7 +878,8 @@ PR CI includes:
 - `rust-network-e2e` -- host-side proxy E2E against local fixture
 - `android-network-e2e` -- opt-in instrumentation E2E when its dispatch/label condition is satisfied
 - managed-device instrumentation -- flavor-qualified `:app` suites across the API 27 / 33 / 35 registry
-- `coverage` -- JaCoCo + Rust LLVM coverage
+- `kotlin-coverage` -- JaCoCo coverage, routed for Android, release/build-logic, and unknown changes
+- `rust-coverage` -- Rust LLVM coverage, routed for native Rust, release/build-logic, and unknown changes
 - `rust-turmoil` -- deterministic fault-injection network tests
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
@@ -893,9 +894,19 @@ Nightly/manual lanes add:
 - `linux-tun-e2e` -- privileged TUN data-plane roundtrip tests in `ripdpi-tunnel-core --test linux_tun_e2e`
 - `so-bindtodevice-e2e` -- privileged real-`tun0` UID-admission adversarial evidence with non-root clients
 - `linux-tun-soak` -- privileged TUN endurance tests in `ripdpi-tunnel-core --test linux_tun_soak`
-- `nightly-rust-coverage` -- coverage including ignored tests
+- `nightly-kotlin-coverage` / `nightly-rust-coverage` -- independent Kotlin and Rust coverage reports
 
-The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.
+The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and separate Kotlin/Rust coverage reports when available.
+
+### Kotlin coverage lane
+
+Run the Kotlin coverage lane locally with:
+
+```bash
+./gradlew coverageReport -Pripdpi.skipNativeBuild=true
+```
+
+`kotlin-coverage` and `rust-coverage` are required only when their respective change-routing outputs are enabled. Release/build-logic and unknown paths enable both; fixtures, workflow-only, and documentation-only paths do not enable either coverage lane.
 
 ### Rust coverage lane
 
@@ -915,7 +926,7 @@ The script uses `cargo llvm-cov` against the full native workspace for execution
 
 Coverage enforcement is enabled in CI with `RIPDPI_ENFORCE_COVERAGE_THRESHOLDS=1`. The default minimum line threshold is `78%` (`RIPDPI_RUST_COVERAGE_MIN_LINE`), and `scripts/ci/rust-coverage-critical-files.txt` lists critical native files that must not fall to `0%` line coverage. The normal coverage lane skips privileged CAP_NET_ADMIN tests plus one host UDP readiness test that is unstable under `cargo llvm-cov` instrumentation; that UDP test remains covered by the non-instrumented workspace test lane.
 
-Nightly/manual coverage sets `RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED=1`, which adds ignored low-cost tests while still skipping real TUN E2E tests that are covered by the dedicated privileged Linux TUN lanes.
+Nightly/manual Rust coverage sets `RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED=1` for ignored low-cost tests; set the same variable explicitly for a local Rust coverage run. Real TUN E2E tests remain covered by the dedicated privileged Linux TUN lanes.
 
 For a remote sign-off pass, follow the repository ruleset first: push local commits to a review branch, let the pull request checks run, and merge to `main` only after required reviews/checks pass. For final sign-off on the merged commit, use the default workflow-dispatch inputs unless a release owner explicitly asks for the heavier emulator, soak, load, coverage, benchmark, or private-corpus lanes:
 

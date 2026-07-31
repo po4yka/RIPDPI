@@ -28,17 +28,17 @@ def workflow_job(source: str, job_name: str) -> str:
     return match.group(0)
 
 
-def nightly_coverage_job(source: str) -> str:
+def nightly_rust_coverage_job(source: str) -> str:
     return workflow_job(source, "nightly-rust-coverage")
 
 
 class NightlyCoverageSelectionTest(unittest.TestCase):
-    def test_nightly_coverage_does_not_enable_all_ignored_tests(self) -> None:
-        job = nightly_coverage_job(CI_WORKFLOW.read_text(encoding="utf-8"))
-        self.assertNotIn("RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED", job)
+    def test_nightly_rust_coverage_includes_ignored_low_cost_tests(self) -> None:
+        job = nightly_rust_coverage_job(CI_WORKFLOW.read_text(encoding="utf-8"))
+        self.assertIn('RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED: "1"', job)
         self.assertIn("timeout-minutes: 90", job)
-        self.assertIn("coverageReport -Pripdpi.skipNativeBuild=true", job)
         self.assertIn("bash scripts/ci/run-rust-coverage.sh", job)
+        self.assertNotIn("coverageReport", job)
 
     def test_coverage_script_keeps_ignored_tests_opt_in(self) -> None:
         source = COVERAGE_SCRIPT.read_text(encoding="utf-8")
@@ -86,12 +86,45 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn("NDK setup mode so a Kotlin-only job cannot", source)
         self.assertIn("-ndk-${{ inputs.setup-android-ndk }}-", source)
 
-    def test_coverage_skips_unused_android_targets_and_ndk(self) -> None:
-        for job_name in ("coverage", "nightly-rust-coverage"):
+    def test_rust_coverage_skips_android_and_gradle_setup(self) -> None:
+        for job_name in ("rust-coverage", "nightly-rust-coverage"):
             job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), job_name)
-            self.assertIn('rust-targets: ""', job)
-            self.assertIn('setup-android-ndk: "false"', job)
-            self.assertIn('setup-sccache: "false"', job)
+            self.assertIn('setup-java: "false"', job)
+            self.assertIn('setup-gradle: "false"', job)
+            self.assertIn('skip-android-sdk-ndk: "true"', job)
+
+    def test_kotlin_coverage_never_installs_rust_or_ndk(self) -> None:
+        for job_name in ("kotlin-coverage", "nightly-kotlin-coverage"):
+            with self.subTest(job=job_name):
+                job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), job_name)
+                self.assertIn('setup-rust: "false"', job)
+                self.assertIn('setup-android-ndk: "false"', job)
+                self.assertIn('setup-sccache: "false"', job)
+                self.assertIn("coverageReport -Pripdpi.skipNativeBuild=true", job)
+
+    def test_pr_coverage_jobs_use_their_respective_change_route(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        kotlin_job = workflow_job(source, "kotlin-coverage")
+        rust_job = workflow_job(source, "rust-coverage")
+
+        self.assertIn("outputs.run_kotlin_coverage == 'true'", kotlin_job)
+        self.assertNotIn("outputs.run_rust_coverage", kotlin_job)
+        self.assertIn("outputs.run_rust_coverage == 'true'", rust_job)
+        self.assertNotIn("outputs.run_kotlin_coverage", rust_job)
+        for job in (kotlin_job, rust_job):
+            self.assertNotIn("run-heavy-ci", job)
+            self.assertNotIn("run-coverage", job)
+            self.assertIn("run_nightly_coverage != 'true'", job)
+
+    def test_nightly_coverage_runs_kotlin_and_rust_lanes_separately(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        kotlin_job = workflow_job(source, "nightly-kotlin-coverage")
+        rust_job = workflow_job(source, "nightly-rust-coverage")
+
+        self.assertIn("github.event.schedule == '0 4 * * 3'", kotlin_job)
+        self.assertIn("github.event.schedule == '0 4 * * 3'", rust_job)
+        self.assertIn("nightly-kotlin-coverage-artifacts", kotlin_job)
+        self.assertIn("nightly-coverage-artifacts", rust_job)
 
     def test_scheduled_ci_rotates_high_signal_lanes(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
@@ -111,6 +144,7 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             "rust-native-soak": "0 4 * * 2",
             "rust-native-load": "0 4 * * 2",
             "linux-tun-soak": "0 4 * * 2",
+            "nightly-kotlin-coverage": "0 4 * * 3",
             "nightly-rust-coverage": "0 4 * * 3",
             "android-macrobenchmark": "0 4 * * 4",
             "android-relay-emulator-smoke": "0 4 * * 5",

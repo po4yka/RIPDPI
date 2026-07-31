@@ -56,7 +56,8 @@ declare -A JOB_MODE=(
   [release-verification]="native"
   [gradle-static-analysis]="native"
   [native-bloat]="native"
-  [coverage]="native"
+  [kotlin-coverage]="native"
+  [rust-coverage]="native"
   [cli-packet-smoke]="act"
   [local-network-lab]="act"
   [l7-live]="act"
@@ -66,6 +67,7 @@ declare -A JOB_MODE=(
   [linux-tun-soak]="skip"
   [rust-native-soak]="skip"
   [rust-native-load]="skip"
+  [nightly-kotlin-coverage]="skip"
   [nightly-rust-coverage]="skip"
 )
 
@@ -76,6 +78,7 @@ declare -A JOB_SKIP_REASON=(
   [linux-tun-soak]="Needs TUN device + sudo (Linux only)"
   [rust-native-soak]="Schedule/dispatch-only long-running job"
   [rust-native-load]="Schedule/dispatch-only long-running job"
+  [nightly-kotlin-coverage]="Schedule/dispatch-only nightly job"
   [nightly-rust-coverage]="Schedule-only nightly job"
   [cli-packet-smoke]="Needs tcpdump/tshark + cap_net_raw (use --act-only or Linux)"
   [local-network-lab]="Runs Docker lab doctor and readiness preflights through act"
@@ -109,7 +112,8 @@ ALL_NATIVE_JOBS=(
   build
   native-bloat
   release-verification
-  coverage
+  kotlin-coverage
+  rust-coverage
 )
 
 ALL_ACT_JOBS=(cli-packet-smoke local-network-lab l7-live)
@@ -205,9 +209,12 @@ run_native_release_verification() {
   "$REPO_ROOT/gradlew" -p "$REPO_ROOT" :app:assembleRelease
 }
 
-run_native_coverage() {
+run_native_kotlin_coverage() {
+  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" coverageReport -Pripdpi.skipNativeBuild=true
+}
+
+run_native_rust_coverage() {
   require_cmd cargo-llvm-cov "cargo install cargo-llvm-cov" || return
-  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" coverageReport || return
   # Rust coverage uses the CI-scoped native package report from run-rust-coverage.sh.
   bash "$REPO_ROOT/scripts/ci/run-rust-coverage.sh"
 }
@@ -284,7 +291,7 @@ cmd_list() {
     local reason="${JOB_SKIP_REASON[$job]:-}"
     printf "  %-28s $(yellow "%-10s") %s\n" "$job" "act" "$reason"
   done
-  for job in android-macrobenchmark android-network-e2e linux-tun-e2e linux-tun-soak rust-native-soak rust-native-load nightly-rust-coverage; do
+  for job in android-macrobenchmark android-network-e2e linux-tun-e2e linux-tun-soak rust-native-soak rust-native-load nightly-kotlin-coverage nightly-rust-coverage; do
     local reason="${JOB_SKIP_REASON[$job]:-}"
     printf "  %-28s $(red "%-10s") %s\n" "$job" "skip" "$reason"
   done

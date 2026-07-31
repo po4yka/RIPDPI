@@ -27,7 +27,7 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("android update", source)
         self.assertNotIn("android init", source)
 
-    def test_coverage_is_the_only_gradle_build_cache_writer(self) -> None:
+    def test_kotlin_coverage_is_the_only_gradle_build_cache_writer(self) -> None:
         action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
             encoding="utf-8"
         )
@@ -42,7 +42,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         writer = re.search(
-            r"(?ms)^  coverage:\n.*?(?=^  [\w-]+:\n|\Z)", ci
+            r"(?ms)^  kotlin-coverage:\n.*?(?=^  [\w-]+:\n|\Z)", ci
         )
         self.assertIsNotNone(writer)
         assert writer is not None

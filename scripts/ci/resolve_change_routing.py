@@ -170,12 +170,24 @@ def routing_outputs(paths: list[str]) -> dict[str, str]:
     # artifact, device, security, and runtime gate has a proven route matrix.
     # Keep all executable changes fail-closed on the complete CI graph.
     run_full_ci = route != ROUTE_DOCUMENTATION
+    run_kotlin_coverage = route in {
+        ROUTE_FULL,
+        ROUTE_ANDROID,
+        ROUTE_RELEASE_BUILD_LOGIC,
+    }
+    run_rust_coverage = route in {
+        ROUTE_FULL,
+        ROUTE_RUST_NATIVE,
+        ROUTE_RELEASE_BUILD_LOGIC,
+    }
     return {
         "route": route,
         "docs_only": str(route == ROUTE_DOCUMENTATION).lower(),
         "run_full_ci": str(run_full_ci).lower(),
         "run_android_ci": str(route == ROUTE_ANDROID).lower(),
         "run_rust_native_ci": str(route == ROUTE_RUST_NATIVE).lower(),
+        "run_kotlin_coverage": str(run_kotlin_coverage).lower(),
+        "run_rust_coverage": str(run_rust_coverage).lower(),
         "run_fixtures_ci": str(route == ROUTE_FIXTURES).lower(),
         "run_workflow_ci": str(
             route == ROUTE_WORKFLOW
