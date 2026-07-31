@@ -72,10 +72,11 @@ COVERAGE_ONLY_SKIP_PATTERNS=(
 )
 
 # Nightly coverage includes ignored tests for additional low-cost coverage, but
-# real TUN E2E requires CAP_NET_ADMIN and is covered by the dedicated Linux TUN
-# lanes instead.
+# real TUN and SO_BINDTODEVICE E2E require privileged runner state and are
+# covered by the dedicated Linux TUN lanes instead.
 IGNORED_SKIP_PATTERNS=(
     --skip 'real_tun_'
+    --skip 'so_bindtodevice_'
 )
 
 run_coverage() {

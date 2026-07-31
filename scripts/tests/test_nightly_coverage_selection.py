@@ -46,6 +46,8 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             'include_ignored="${RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED:-0}"',
             source,
         )
+        self.assertIn("--skip 'real_tun_'", source)
+        self.assertIn("--skip 'so_bindtodevice_'", source)
 
     def test_coverage_tests_default_to_the_report_package_scope(self) -> None:
         source = COVERAGE_SCRIPT.read_text(encoding="utf-8")
