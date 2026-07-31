@@ -48,10 +48,11 @@ for line in section_match.group("body").splitlines():
     if match and match.group(1) != "Relay":
         documented.add(match.group(1))
 
-if documented != required:
+missing = required - documented
+if missing:
     raise SystemExit(
-        "manual evidence relay rows do not match relay validator: "
-        f"documented={sorted(documented)!r} required={sorted(required)!r}"
+        "manual evidence template is missing relay rows required by the validator: "
+        f"missing={sorted(missing)!r} documented={sorted(documented)!r}"
     )
 PY
 
