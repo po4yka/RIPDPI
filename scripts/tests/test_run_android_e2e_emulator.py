@@ -252,6 +252,20 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
             assert cleanup_timeout is not None
             self.assertLessEqual(int(cleanup_timeout.group(1)), 10)
 
+    def test_ordinary_instrumented_matrix_validates_full_simple_and_jni_evidence(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        job_start = workflow.index("  android-instrumented-tests:\n")
+        job_end = workflow.index("\n  rust-loom:\n", job_start)
+        job = workflow[job_start:job_end]
+
+        self.assertIn("Validate GitHub Full instrumentation evidence", job)
+        self.assertIn("Validate GitHub Simple instrumentation evidence", job)
+        self.assertIn("Run JNI strategy instrumentation", job)
+        self.assertIn("Validate JNI strategy instrumentation evidence", job)
+        self.assertIn("if: matrix.api == 35", job)
+        self.assertIn("StrategyEngineJniInstrumentedTest", job)
+        self.assertIn("--expected-total-count 5", job)
+
 
 if __name__ == "__main__":
     unittest.main()

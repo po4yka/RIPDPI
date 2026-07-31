@@ -1639,6 +1639,7 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: |
+          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
           ./gradlew :app:connectedGithubFullDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
@@ -1653,6 +1654,7 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: |
+          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple
           ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
@@ -1662,6 +1664,48 @@ jobs:
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
+      - name: Validate GitHub Full instrumentation evidence on ${{ matrix.device }}
+        run: |
+          python3 scripts/ci/validate_android_junit_results.py \
+            app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --require-test com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsCreateAndDestroySessionsWithoutStarting \
+            --expected-count 1
+
+      - name: Validate GitHub Simple instrumentation evidence on ${{ matrix.device }}
+        run: |
+          python3 scripts/ci/validate_android_junit_results.py \
+            app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple \
+            --require-test com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
+            --expected-count 1 \
+            --expected-total-count 1 \
+            --forbid-skips
+
+      - name: Run JNI strategy instrumentation on ${{ matrix.device }}
+        if: matrix.api == 35
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
+          ./gradlew :app:connectedGithubFullDebugAndroidTest \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest \
+            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
+      - name: Validate JNI strategy instrumentation evidence
+        if: matrix.api == 35
+        run: |
+          python3 scripts/ci/validate_android_junit_results.py \
+            app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --require-test com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest#strategyConfigValidationAcceptsRegistryYaml \
+            --expected-count 1 \
+            --expected-total-count 5 \
+            --forbid-skips
 
       - name: Capture Android instrumented-test emulator diagnostics
         if: always()
