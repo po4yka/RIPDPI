@@ -66,6 +66,23 @@ class NativeDependencyGraphTest(unittest.TestCase):
             job_source("release-verification"),
         )
 
+    def test_debug_apks_build_in_independent_distribution_shards(self) -> None:
+        source = job_source("build-android-debug")
+
+        for shard_id, task in (
+            ("github", ":app:assembleGithubFullDebug"),
+            ("fdroid", ":app:assembleFdroidFullDebug"),
+            ("play", ":app:assemblePlayFullDebug"),
+        ):
+            self.assertIn(f"id: {shard_id}, task: '{task}'", source)
+        self.assertIn('./gradlew "${{ matrix.shard.task }}"', source)
+        self.assertIn(
+            "name: native-size-report-debug-${{ matrix.shard.id }}",
+            source,
+        )
+        self.assertIn('rust-cache-save: "false"', source)
+        self.assertNotIn("./gradlew \\\n+            :app:assembleGithubFullDebug", source)
+
     def test_packaging_matrix_excludes_x86_64(self) -> None:
         packaging = job_source("rust-native-packaging")
         self.assertNotIn("x86_64-linux-android", packaging)

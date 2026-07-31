@@ -590,25 +590,29 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Assembles the debug APK using prebuilt native artifacts from the native
-  # matrix. Skips cargo entirely via -Pripdpi.prebuilt*Dir properties, which the
-  # rust-native Gradle plugin honors by copying instead of running cargo.
+  # Assembles each debug distribution in its own shard using prebuilt native
+  # artifacts. The rust-native Gradle plugin copies these inputs instead of
+  # running Cargo, so the shards can execute independently.
   build-android-debug:
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, pluggable-transport-assets]
     runs-on: ubuntu-latest
-    # Builds three debug APK flavors (~22-23 min typical); 25 was too tight a
-    # cap and flaked on slower runners. 40 matches the headroom of the other
-    # heavy Android build jobs without reaching their 60-min ceiling.
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - { id: github, task: ':app:assembleGithubFullDebug' }
+          - { id: fdroid, task: ':app:assembleFdroidFullDebug' }
+          - { id: play, task: ':app:assemblePlayFullDebug' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-android-rust
         with:
           rust-components: ""
-          rust-cache-shared-key: rust-android-debug
-          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          rust-cache-shared-key: rust-android-debug-${{ matrix.shard.id }}
+          rust-cache-save: "false"
           gradle-cache-read-only: "true"
 
       - name: Download native shards
@@ -653,7 +657,7 @@ jobs:
           echo "Assets-bin staging:"
           ls -la "$assets_root" || true
 
-      - name: Build debug APKs with prebuilt natives
+      - name: Build ${{ matrix.shard.id }} debug APK with prebuilt natives
         env:
           RUSTC_WRAPPER: sccache
         run: |
@@ -667,11 +671,7 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
-          ./gradlew \
-            :app:assembleGithubFullDebug \
-            :app:assembleFdroidFullDebug \
-            :app:assemblePlayFullDebug \
-            "${common_args[@]}"
+          ./gradlew "${{ matrix.shard.task }}" "${common_args[@]}"
 
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
@@ -687,7 +687,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: native-size-report
+          name: native-size-report-debug-${{ matrix.shard.id }}
           path: ${{ runner.temp }}/native-size-report/*
           if-no-files-found: warn
           retention-days: 14
