@@ -3,7 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 fuzz_dir="$repo_root/native/rust/fuzz"
-host_target="$(rustc +nightly -vV | sed -n 's/^host: //p')"
+rust_toolchain="${RIPDPI_FUZZ_RUST_TOOLCHAIN:-nightly}"
+host_target="$(rustc "+$rust_toolchain" -vV | sed -n 's/^host: //p')"
 scratch_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-fuzz-smoke.XXXXXX")"
 artifacts_root="${RIPDPI_FUZZ_ARTIFACTS_DIR:-$scratch_root/artifacts}"
 shard_count="${RIPDPI_FUZZ_SHARD_COUNT:-1}"
@@ -51,6 +52,11 @@ if [[ ! "$shard_index" =~ ^[0-9]+$ ]] || (( shard_index >= shard_count )); then
   echo "error: RIPDPI_FUZZ_SHARD_INDEX must be an integer in 0..$((shard_count - 1)), got: $shard_index" >&2
   exit 2
 fi
+if [[ -n "${RIPDPI_FUZZ_SECONDS:-}" ]] && \
+  { [[ ! "$RIPDPI_FUZZ_SECONDS" =~ ^[1-9][0-9]*$ ]] || (( RIPDPI_FUZZ_SECONDS > 1800 )); }; then
+  echo "error: RIPDPI_FUZZ_SECONDS must be an integer in 1..1800, got: $RIPDPI_FUZZ_SECONDS" >&2
+  exit 2
+fi
 
 selected_targets=()
 for target_index in "${!fuzz_targets[@]}"; do
@@ -78,7 +84,7 @@ run_fuzz() {
     env \
       -u CARGO_BUILD_TARGET \
       RUSTFLAGS="$sanitizer_rustflags" \
-      cargo +nightly fuzz "$subcommand" --target "$host_target" "$@"
+      cargo "+$rust_toolchain" fuzz "$subcommand" --target "$host_target" "$@"
   )
 }
 
@@ -105,6 +111,10 @@ else
     echo "==> fuzz smoke: build $target"
     run_fuzz build "$target"
   done
-  echo "==> fuzz smoke: run packets_parse once"
-  run_fuzz_target packets_parse -runs=1
+  for target in "${selected_targets[@]}"; do
+    if [[ "$target" == "packets_parse" ]]; then
+      echo "==> fuzz smoke: run packets_parse once"
+      run_fuzz_target packets_parse -runs=1
+    fi
+  done
 fi

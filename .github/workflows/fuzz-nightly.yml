@@ -28,11 +28,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2026-06-12
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --quiet
+        run: cargo +nightly-2026-06-12 install cargo-fuzz --version 0.13.1 --locked --quiet
       - name: Run fuzz targets
-        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 600 }} RIPDPI_FUZZ_SHARD_COUNT=6 RIPDPI_FUZZ_SHARD_INDEX=${{ matrix.shard }} RIPDPI_FUZZ_ARTIFACTS_DIR="$RUNNER_TEMP/fuzz-artifacts" bash scripts/ci/run-rust-fuzz-smoke.sh
+        env:
+          RIPDPI_FUZZ_SECONDS: ${{ inputs.fuzz_seconds || 600 }}
+          RIPDPI_FUZZ_RUST_TOOLCHAIN: nightly-2026-06-12
+          RIPDPI_FUZZ_SHARD_COUNT: "6"
+          RIPDPI_FUZZ_SHARD_INDEX: ${{ matrix.shard }}
+          RIPDPI_FUZZ_ARTIFACTS_DIR: ${{ runner.temp }}/fuzz-artifacts
+        run: bash scripts/ci/run-rust-fuzz-smoke.sh
       - name: Upload fuzz artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
