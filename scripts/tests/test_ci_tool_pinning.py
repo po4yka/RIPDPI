@@ -9,6 +9,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
+    def test_rust_cache_keeps_host_target_as_the_default_mapping(self) -> None:
+        source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("rust-cache-workspaces:\n    description:", source)
+        self.assertIn('default: "native/rust -> target"', source)
+        self.assertIn(
+            "workspaces: ${{ inputs.rust-cache-workspaces }}",
+            source,
+        )
+        self.assertNotIn("workspaces: native/rust -> target", source)
+
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))

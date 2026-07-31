@@ -14,6 +14,10 @@ inputs:
     description: Shared key for Swatinem/rust-cache
     required: false
     default: "rust-android"
+  rust-cache-workspaces:
+    description: Cargo workspace-to-target mappings passed to Swatinem/rust-cache
+    required: false
+    default: "native/rust -> target"
   rust-cache-save:
     description: Whether to save the Rust cache (set false for restore-only)
     required: false
@@ -146,7 +150,7 @@ runs:
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
       with:
-        workspaces: native/rust -> target
+        workspaces: ${{ inputs.rust-cache-workspaces }}
         cache-on-failure: true
         shared-key: ${{ inputs.rust-cache-shared-key }}
         save-if: ${{ inputs.rust-cache-save }}

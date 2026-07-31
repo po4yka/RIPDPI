@@ -18,6 +18,36 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_native_producers_cache_the_gradle_cargo_target_per_abi(self) -> None:
+        expected_mapping = (
+            'rust-cache-workspaces: "native/rust -> '
+            '../../core/engine/build/intermediates/rust-native-libs"'
+        )
+
+        packaging = job_source("rust-native-packaging")
+        self.assertIn(expected_mapping, packaging)
+        self.assertIn(
+            "rust-cache-shared-key: rust-android-${{ matrix.abi.name }}",
+            packaging,
+        )
+        self.assertIn(
+            "rust-cache-save: ${{ github.ref == 'refs/heads/main' }}",
+            packaging,
+        )
+
+        x86_64 = job_source("rust-native-x86_64")
+        self.assertIn(expected_mapping, x86_64)
+        self.assertIn("rust-cache-shared-key: rust-android-x86_64", x86_64)
+        self.assertIn(
+            "rust-cache-save: ${{ github.ref == 'refs/heads/main' }}",
+            x86_64,
+        )
+
+        self.assertNotIn(
+            "rust-cache-workspaces:",
+            job_source("rust-cross-check"),
+        )
+
     def test_instrumented_tests_wait_for_x86_64_and_verified_pt_assets(self) -> None:
         self.assertIn(
             "needs: [change-routing, rust-native-x86_64, pluggable-transport-assets]",

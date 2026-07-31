@@ -347,6 +347,7 @@ jobs:
           rust-components: ""
           rust-targets: ${{ matrix.abi.rust-target }}
           rust-cache-shared-key: rust-android-${{ matrix.abi.name }}
+          rust-cache-workspaces: "native/rust -> ../../core/engine/build/intermediates/rust-native-libs"
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: "true"
 
@@ -432,6 +433,7 @@ jobs:
           rust-components: ""
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android-x86_64
+          rust-cache-workspaces: "native/rust -> ../../core/engine/build/intermediates/rust-native-libs"
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: "true"
 
