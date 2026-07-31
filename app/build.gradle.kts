@@ -188,6 +188,7 @@ val forwardedInstrumentationArguments =
 
 extensions.configure<ApplicationExtension> {
     namespace = "com.poyka.ripdpi"
+    testBuildType = providers.gradleProperty("ripdpi.testBuildType").orElse("debug").get()
 
     defaultConfig {
         applicationId = "com.poyka.ripdpi"
