@@ -56,13 +56,28 @@ if count == 1:
       name="environmentSupportsFixtureReachabilityAndVpnConsent" />
 </testsuite>
 """
-else:
+elif count == 2:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <testsuite tests="2" skipped="1" failures="0" errors="0">
   <testcase classname="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
       name="vpnStartupWindowHoldsDnsPacketUntilNativeReady" />
   <testcase classname="com.poyka.ripdpi.e2e.OptionalCapabilityTest"
       name="unsupportedOnThisEmulator"><skipped /></testcase>
+</testsuite>
+"""
+else:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuite tests="5" skipped="0" failures="0" errors="0">
+  <testcase classname="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
+      name="luaLoadScriptLoadsBundledZapretScriptsAfterExtraction" />
+  <testcase classname="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
+      name="luaLoadScriptMissingPathReturnsErrorString" />
+  <testcase classname="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
+      name="luaLoadScriptRejectsPathOutsideSeededJail" />
+  <testcase classname="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
+      name="strategyConfigValidationAcceptsRegistryYaml" />
+  <testcase classname="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
+      name="strategyConfigValidationRejectsInvalidYaml" />
 </testsuite>
 """
 (results_dir / "TEST-network-e2e.xml").write_text(xml, encoding="utf-8")
@@ -127,10 +142,11 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(
-            (self.runner_temp / "gradle-count").read_text(encoding="utf-8"), "2"
+            (self.runner_temp / "gradle-count").read_text(encoding="utf-8"), "3"
         )
         self.assertIn("validated 1 testcases", completed.stdout)
         self.assertIn("validated 2 testcases", completed.stdout)
+        self.assertIn("validated 5 testcases", completed.stdout)
         self.assertTrue(wrong_variant.is_file())
 
     def test_runner_uses_ci_native_abi_override(self) -> None:
@@ -143,10 +159,15 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
             .read_text(encoding="utf-8")
             .splitlines()
         ]
-        self.assertEqual(len(invocations), 2)
+        self.assertEqual(len(invocations), 3)
         for arguments in invocations:
             self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", arguments)
             self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", arguments)
+
+        self.assertIn(
+            "-Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest",
+            invocations[2],
+        )
 
     def test_runner_rejects_missing_second_run_results(self) -> None:
         completed = self.run_runner(OMIT_SECOND_RESULTS="1")

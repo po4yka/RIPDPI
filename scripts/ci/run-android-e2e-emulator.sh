@@ -18,6 +18,9 @@ RESULT_VALIDATOR="$script_dir/validate_android_junit_results.py"
 PREFLIGHT_CLASS="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
 PREFLIGHT_TEST="$PREFLIGHT_CLASS#environmentSupportsFixtureReachabilityAndVpnConsent"
 STARTUP_WINDOW_TEST="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady"
+STRATEGY_ENGINE_JNI_CLASS="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
+STRATEGY_ENGINE_JNI_TEST="$STRATEGY_ENGINE_JNI_CLASS#strategyConfigValidationAcceptsRegistryYaml"
+STRATEGY_ENGINE_JNI_TEST_COUNT=5
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
@@ -25,8 +28,9 @@ run_target() {
   local target="$1"
   local required_test="$2"
   local expected_count="$3"
-  local forbid_skips="$4"
-  shift 4
+  local expected_total_count="$4"
+  local forbid_skips="$5"
+  shift 5
   echo "$target" | tee "$TARGET_FILE"
   echo "Running Android instrumentation target: $target"
 
@@ -48,6 +52,9 @@ run_target() {
   if [ -n "$expected_count" ]; then
     validator_args+=(--expected-count "$expected_count")
   fi
+  if [ -n "$expected_total_count" ]; then
+    validator_args+=(--expected-total-count "$expected_total_count")
+  fi
   if [ "$forbid_skips" = "true" ]; then
     validator_args+=(--forbid-skips)
   fi
@@ -57,7 +64,8 @@ run_target() {
 if ! run_target \
   "$PREFLIGHT_CLASS" \
   "$PREFLIGHT_TEST" \
-  "" \
+  1 \
+  1 \
   true \
   "-Pandroid.testInstrumentationRunnerArguments.class=$PREFLIGHT_CLASS" \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
@@ -70,12 +78,24 @@ if ! run_target \
   "com.poyka.ripdpi.e2e" \
   "$STARTUP_WINDOW_TEST" \
   1 \
+  "" \
   false \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
   "-Pandroid.testInstrumentationRunnerArguments.notClass=$PREFLIGHT_CLASS" \
   -Pandroid.testInstrumentationRunnerArguments.notAnnotation=com.poyka.ripdpi.e2e.RawPacketValidationOnly \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
+  adb_cmd logcat -d > android-logcat.txt || true
+  exit 1
+fi
+
+if ! run_target \
+  "$STRATEGY_ENGINE_JNI_CLASS" \
+  "$STRATEGY_ENGINE_JNI_TEST" \
+  1 \
+  "$STRATEGY_ENGINE_JNI_TEST_COUNT" \
+  true \
+  "-Pandroid.testInstrumentationRunnerArguments.class=$STRATEGY_ENGINE_JNI_CLASS"; then
   adb_cmd logcat -d > android-logcat.txt || true
   exit 1
 fi

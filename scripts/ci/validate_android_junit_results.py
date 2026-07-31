@@ -37,6 +37,11 @@ def parse_args() -> argparse.Namespace:
         help="require the selected testcase to execute exactly this many times",
     )
     parser.add_argument(
+        "--expected-total-count",
+        type=int,
+        help="require the result set to contain exactly this many testcases",
+    )
+    parser.add_argument(
         "--forbid-skips",
         action="store_true",
         help="reject every skipped testcase in the result set",
@@ -156,6 +161,7 @@ def validate(
     required_test: str,
     *,
     expected_count: int | None,
+    expected_total_count: int | None,
     forbid_skips: bool,
 ) -> int:
     xml_files = sorted(results_dir.rglob("*.xml")) if results_dir.is_dir() else []
@@ -176,6 +182,12 @@ def validate(
 
     if expected_count is not None and expected_count < 1:
         raise ValueError("--expected-count must be at least 1")
+    if expected_total_count is not None and expected_total_count < 1:
+        raise ValueError("--expected-total-count must be at least 1")
+    if expected_total_count is not None and len(testcases) != expected_total_count:
+        raise ValueError(
+            f"result set contains {len(testcases)} testcases, expected {expected_total_count}"
+        )
     required_class, separator, required_method = required_test.rpartition("#")
     if not separator or not required_class or not required_method:
         raise ValueError("--require-test must use CLASS#METHOD format")
@@ -223,6 +235,7 @@ def main() -> int:
             args.results_dir,
             args.require_test,
             expected_count=args.expected_count,
+            expected_total_count=args.expected_total_count,
             forbid_skips=args.forbid_skips,
         )
     except (OSError, ValueError) as error:

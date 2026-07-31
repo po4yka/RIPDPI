@@ -62,6 +62,14 @@ class ValidateAndroidJunitResultsTest(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("validated 2 testcases", completed.stdout)
 
+    def test_expected_total_count_is_enforced(self) -> None:
+        self.install_fixture("pass.xml")
+
+        completed = self.run_validator("--expected-total-count", "1")
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("result set contains 2 testcases, expected 1", completed.stderr)
+
     def test_missing_result_directory_is_rejected(self) -> None:
         completed = self.run_validator()
 
