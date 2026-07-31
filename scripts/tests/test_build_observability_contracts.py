@@ -92,6 +92,15 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             source,
         )
 
+    def test_workflow_only_gate_checks_observability_contract_and_action_pin(self) -> None:
+        source = job_source("workflow-only-contracts")
+
+        self.assertIn("scripts.tests.test_build_observability_contracts", source)
+        self.assertIn(
+            ".github/actions/upload-build-observability/action.yml",
+            source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -165,11 +165,15 @@ jobs:
       - name: Lint workflow syntax and action pins
         run: |
           actionlint .github/workflows/*.yml
-          pinact run --fix=false --no-api .github/workflows/*.yml .github/actions/setup-android-rust/action.yml
+          pinact run --fix=false --no-api \
+            .github/workflows/*.yml \
+            .github/actions/setup-android-rust/action.yml \
+            .github/actions/upload-build-observability/action.yml
 
       - name: Validate workflow and release contracts
         run: |
           python3 -m unittest \
+            scripts.tests.test_build_observability_contracts \
             scripts.tests.test_check_ci_preflight \
             scripts.tests.test_ci_native_dependency_graph \
             scripts.tests.test_ci_tool_pinning \
