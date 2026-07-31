@@ -71,28 +71,21 @@ internal fun resolvePluggableTransportUpstreamAsset(
     availableAssets: Set<String>,
 ): String? {
     val legacyUpstream = "$binaryName.upstream"
-    if (manifestPayload == null) {
-        throw IllegalArgumentException("Pluggable transport manifest is unavailable")
-    }
+    val payload = requireNotNull(manifestPayload) { "Pluggable transport manifest is unavailable" }
 
     val artifact =
-        try {
-            Json
-                .parseToJsonElement(manifestPayload)
-                .jsonObject
-                .getValue("artifacts")
-                .jsonArray
+        requireNotNull(
+            requireNotNull(Json.parseToJsonElement(payload).jsonObject["artifacts"]) {
+                "Pluggable transport manifest has no artifacts array"
+            }.jsonArray
                 .asSequence()
                 .map { it.jsonObject }
                 .singleOrNull { candidate ->
                     candidate["abi"]?.jsonPrimitive?.content == abi &&
                         candidate["outputName"]?.jsonPrimitive?.content == binaryName
-                }
-                ?: throw IllegalArgumentException("Manifest has no unique artifact for $binaryName/$abi")
-        } catch (error: IllegalArgumentException) {
-            throw error
-        } catch (error: RuntimeException) {
-            throw IllegalArgumentException("Malformed pluggable transport manifest", error)
+                },
+        ) {
+            "Manifest has no unique artifact for $binaryName/$abi"
         }
 
     val upstreamElement = artifact["upstreamBinary"]
@@ -103,10 +96,13 @@ internal fun resolvePluggableTransportUpstreamAsset(
     require(manifestUpstream.isNotBlank() && File(manifestUpstream).name == manifestUpstream) {
         "Unsafe upstream asset name for $binaryName/$abi"
     }
-    return listOf(manifestUpstream, legacyUpstream)
-        .distinct()
-        .firstOrNull(availableAssets::contains)
-        ?: throw IllegalArgumentException("Upstream asset is missing for $binaryName/$abi")
+    return requireNotNull(
+        listOf(manifestUpstream, legacyUpstream)
+            .distinct()
+            .firstOrNull(availableAssets::contains),
+    ) {
+        "Upstream asset is missing for $binaryName/$abi"
+    }
 }
 
 internal fun removeStalePluggableTransportFile(file: File) {

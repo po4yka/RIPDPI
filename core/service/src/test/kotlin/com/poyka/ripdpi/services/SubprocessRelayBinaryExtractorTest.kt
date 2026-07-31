@@ -35,7 +35,11 @@ class SubprocessRelayBinaryExtractorTest {
     @Test
     fun `legacy per-launcher upstream remains supported`() {
         val manifest =
-            """{"artifacts":[{"abi":"arm64-v8a","outputName":"ripdpi-snowflake","upstreamBinary":"ripdpi-snowflake.upstream"}]}"""
+            """
+            {"artifacts":[
+              {"abi":"arm64-v8a","outputName":"ripdpi-snowflake","upstreamBinary":"ripdpi-snowflake.upstream"}
+            ]}
+            """.trimIndent()
 
         assertEquals(
             "ripdpi-snowflake.upstream",
@@ -66,7 +70,11 @@ class SubprocessRelayBinaryExtractorTest {
     @Test
     fun `single-output transport keeps its existing upstream name`() {
         val manifest =
-            """{"artifacts":[{"abi":"x86_64","outputName":"ripdpi-webtunnel","upstreamBinary":"ripdpi-webtunnel.upstream"}]}"""
+            """
+            {"artifacts":[
+              {"abi":"x86_64","outputName":"ripdpi-webtunnel","upstreamBinary":"ripdpi-webtunnel.upstream"}
+            ]}
+            """.trimIndent()
 
         assertEquals(
             "ripdpi-webtunnel.upstream",
