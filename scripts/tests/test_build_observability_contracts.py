@@ -85,6 +85,7 @@ class BuildObservabilityContractsTest(unittest.TestCase):
 
         self.assertIn("build/reports/profile", source)
         self.assertIn("sccache --show-stats", source)
+        self.assertIn("name: Upload build observability\n      if: always()", source)
         self.assertIn("if-no-files-found: warn", source)
         self.assertIn("retention-days: 7", source)
         self.assertIn(
