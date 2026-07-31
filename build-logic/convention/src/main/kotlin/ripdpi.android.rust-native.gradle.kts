@@ -14,6 +14,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.LocalState
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
@@ -97,6 +98,9 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val abiParallelism: Property<Int>
 
+        @get:Internal
+        abstract val cpuBudget: Property<Int>
+
         @get:Input
         abstract val forbiddenAmbientCargoOverrideKeys: ListProperty<String>
 
@@ -163,9 +167,6 @@ abstract class BuildRustNativeLibsTask
             }
             val abiList = abis.get()
             val configuredAbiParallelism = abiParallelism.get()
-            if (configuredAbiParallelism < 1) {
-                throw GradleException("ripdpi.nativeAbiParallelism must be at least 1.")
-            }
 
             // Resolve the Android SDK cmake binary on the Gradle task thread.  Gradle lazy
             // property access (sdkDir.get()) is not safe from background threads, and the
@@ -205,10 +206,17 @@ abstract class BuildRustNativeLibsTask
                 }
 
             // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
-            // Cap thread count to available processors to avoid CPU contention.
+            // Keep Gradle/Cargo child work within the configured native CPU budget.
             val availableCpus = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
-            val threadCount = abiConfigs.size.coerceAtMost(availableCpus).coerceAtMost(configuredAbiParallelism)
-            val cargoJobs = (availableCpus / threadCount).coerceAtLeast(1)
+            val concurrency =
+                computeNativeConcurrency(
+                    abiCount = abiConfigs.size,
+                    availableCpus = availableCpus,
+                    abiParallelism = configuredAbiParallelism,
+                    cpuBudget = cpuBudget.orNull ?: availableCpus,
+                )
+            val threadCount = concurrency.abiWorkers
+            val cargoJobs = concurrency.cargoJobsPerWorker
             val executor = Executors.newFixedThreadPool(threadCount)
             try {
                 val futures: List<Future<*>> =
@@ -1550,6 +1558,10 @@ val rustNativeAbiParallelism =
         .gradleProperty("ripdpi.nativeAbiParallelism")
         .map(String::toInt)
         .orElse(Int.MAX_VALUE)
+val rustNativeCpuBudget =
+    providers
+        .gradleProperty("ripdpi.nativeCpuBudget")
+        .map(String::toInt)
 val detectedAmbientCargoOverrideKeys =
     buildSet {
         listOf(
@@ -1656,6 +1668,7 @@ val buildRustNativeLibs =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        cpuBudget.set(rustNativeCpuBudget)
         forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustNativeArtifactSpecs)
         stripReleaseOutputs.set(true)
@@ -1708,6 +1721,7 @@ val buildRustRootHelper =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        cpuBudget.set(rustNativeCpuBudget)
         forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
         stripReleaseOutputs.set(true)
@@ -1756,6 +1770,7 @@ val buildRustNaiveProxy =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        cpuBudget.set(rustNativeCpuBudget)
         forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
         stripReleaseOutputs.set(true)
@@ -1803,6 +1818,7 @@ val buildRustCloudflareOrigin =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
+        cpuBudget.set(rustNativeCpuBudget)
         forbiddenAmbientCargoOverrideKeys.set(detectedAmbientCargoOverrideKeys)
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
         stripReleaseOutputs.set(true)

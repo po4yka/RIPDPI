@@ -20,6 +20,30 @@ internal fun parseAbiList(value: String): List<String> =
         .map(String::trim)
         .filter(String::isNotEmpty)
 
+internal data class NativeConcurrency(
+    val abiWorkers: Int,
+    val cargoJobsPerWorker: Int,
+)
+
+internal fun computeNativeConcurrency(
+    abiCount: Int,
+    availableCpus: Int,
+    abiParallelism: Int,
+    cpuBudget: Int,
+): NativeConcurrency {
+    require(abiCount > 0) { "abiCount must be at least 1" }
+    require(availableCpus > 0) { "availableCpus must be at least 1" }
+    require(abiParallelism > 0) { "ripdpi.nativeAbiParallelism must be at least 1" }
+    require(cpuBudget > 0) { "ripdpi.nativeCpuBudget must be at least 1" }
+
+    val effectiveBudget = minOf(availableCpus, cpuBudget)
+    val abiWorkers = minOf(abiCount, abiParallelism, effectiveBudget)
+    return NativeConcurrency(
+        abiWorkers = abiWorkers,
+        cargoJobsPerWorker = (effectiveBudget / abiWorkers).coerceAtLeast(1),
+    )
+}
+
 internal fun Project.isCiBuild(): Boolean = providers.environmentVariable("CI").isPresent
 
 internal fun Project.isReleaseLikeBuild(): Boolean {

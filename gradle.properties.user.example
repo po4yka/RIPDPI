@@ -17,6 +17,10 @@
 # auto-picks arm64-v8a on Apple Silicon and x86_64 on Intel.)
 # ripdpi.localNativeAbis=arm64-v8a
 
+# --- Bound child Cargo/rustc work when Gradle runs other tasks in parallel.
+# Omit to keep the current auto policy based on all processors visible to Gradle.
+# ripdpi.nativeCpuBudget=8
+
 # --- Bigger daemons (only if you have RAM headroom — defaults target 32 GB).
 # org.gradle.jvmargs=-Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
 # kotlin.daemon.jvmargs=-Xmx4g -XX:+UseG1GC -Dfile.encoding=UTF-8
