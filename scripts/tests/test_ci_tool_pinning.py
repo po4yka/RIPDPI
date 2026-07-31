@@ -69,6 +69,20 @@ class CiToolPinningTest(unittest.TestCase):
             action,
         )
 
+    def test_android_sdk_install_uses_the_pinned_cli_package_suffix(self) -> None:
+        action = (
+            ROOT / ".github/actions/setup-android-rust/action.yml"
+        ).read_text(encoding="utf-8")
+        properties = (ROOT / "gradle.properties").read_text(encoding="utf-8")
+
+        self.assertIn("ripdpi.compileSdk=37", properties)
+        self.assertIn("ripdpi.compileSdkPackage=37.0", properties)
+        self.assertIn("steps.native-toolchain.outputs.compile-sdk-package", action)
+        self.assertIn(
+            '"platforms/android-${{ steps.native-toolchain.outputs.compile-sdk-package }}"',
+            action,
+        )
+
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))

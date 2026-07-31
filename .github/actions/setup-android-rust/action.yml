@@ -123,6 +123,7 @@ runs:
         echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+        echo "compile-sdk-package=$(grep '^ripdpi.compileSdkPackage=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
 
     # Cache the Android CLI state directory as an installation accelerator only.
     # Every job still reconciles the packages below because Gradle consumes them
@@ -143,7 +144,7 @@ runs:
         set -euo pipefail
         bash scripts/ci/android-sdk-install.sh \
           "platform-tools" \
-          "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
+          "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk-package }}"
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
