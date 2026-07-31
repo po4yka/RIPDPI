@@ -301,6 +301,10 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                     source,
                     r"(?ms)^    if: >-\n      !cancelled\(\) &&",
                 )
+                self.assertIn(
+                    "needs.ci-preflight.result == 'success'",
+                    source,
+                )
 
         aggregate = ci_job_source("ci-required")
         self.assertIn("      - ci-preflight\n", aggregate)

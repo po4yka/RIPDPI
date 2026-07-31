@@ -350,7 +350,7 @@ jobs:
   rust-native-packaging:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -451,7 +451,7 @@ jobs:
   rust-native-x86_64:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -546,7 +546,7 @@ jobs:
   pluggable-transport-assets:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       (github.event_name != 'schedule' ||
       github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
@@ -718,7 +718,7 @@ jobs:
   build-android-tests:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -805,7 +805,7 @@ jobs:
   verify-roborazzi:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -849,7 +849,7 @@ jobs:
 
   owned-stack-tls-fingerprint:
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, ci-preflight]
     runs-on: ubuntu-latest
@@ -1040,7 +1040,7 @@ jobs:
   native-bloat:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1103,7 +1103,7 @@ jobs:
   rust-miri:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -1170,7 +1170,7 @@ jobs:
   diagnostics-probes-facade:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1213,7 +1213,7 @@ jobs:
   rust-lint:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1250,7 +1250,7 @@ jobs:
   rust-cross-check:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1278,7 +1278,7 @@ jobs:
   rust-workspace-tests:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1327,7 +1327,7 @@ jobs:
   rust-fuzz-smoke:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1359,7 +1359,7 @@ jobs:
   runtime-api-snapshot:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true'
     name: JNI API snapshot check
     runs-on: ubuntu-latest
@@ -1444,7 +1444,7 @@ jobs:
   rust-network-e2e:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1474,7 +1474,7 @@ jobs:
   relay-interoperability:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1504,7 +1504,7 @@ jobs:
   cli-packet-smoke:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -1540,7 +1540,7 @@ jobs:
   rust-turmoil:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -1569,7 +1569,7 @@ jobs:
   kotlin-coverage:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_kotlin_coverage == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1624,7 +1624,7 @@ jobs:
   rust-coverage:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_rust_coverage == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1674,7 +1674,7 @@ jobs:
   rust-criterion-bench:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       ((github.event_name == 'schedule' && github.event.schedule == '7 4 * * 1') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
@@ -2138,7 +2138,7 @@ jobs:
   rust-loom:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -2164,7 +2164,7 @@ jobs:
   rust-native-soak:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2210,7 +2210,7 @@ jobs:
   rust-native-load:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2256,7 +2256,7 @@ jobs:
   nightly-kotlin-coverage:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -2291,7 +2291,7 @@ jobs:
   nightly-rust-coverage:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -2631,7 +2631,7 @@ jobs:
   linux-tun-e2e:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -2670,7 +2670,7 @@ jobs:
   so-bindtodevice-e2e:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -2755,7 +2755,7 @@ jobs:
   linux-tun-soak:
     needs: [change-routing, ci-preflight]
     if: >-
-      !cancelled() &&
+      !cancelled() && needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
