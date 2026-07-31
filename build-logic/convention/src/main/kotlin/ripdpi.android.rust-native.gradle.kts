@@ -841,11 +841,16 @@ abstract class BuildPluggableTransportAssetsTask
                                 null
                             }
                         val capturedError = buildError
-                        for (outputName in source.outputNames) {
-                            val launcher = abiBinDir.resolve(outputName)
-                            val upstreamBinary = abiBinDir.resolve("$outputName.upstream")
-                            if (sourceBuildResult != null) {
-                                copyIfChanged(sourceBuildResult, upstreamBinary)
+                        val packagedUpstreamBinary =
+                            sourceBuildResult?.let { builtBinary ->
+                                val upstreamName =
+                                    if (source.outputNames.size > 1) {
+                                        "${source.sourceBinaryName}.upstream"
+                                    } else {
+                                        "${source.outputNames.single()}.upstream"
+                                    }
+                                val upstreamBinary = abiBinDir.resolve(upstreamName)
+                                copyIfChanged(builtBinary, upstreamBinary)
                                 if (source.sourceType == "rust" && cargoProfile.get() == "android-jni") {
                                     val hostBinDir = resolveNdkToolchainBinDir()
                                     val llvmStrip = hostBinDir.resolve("llvm-strip")
@@ -873,26 +878,25 @@ abstract class BuildPluggableTransportAssetsTask
                                             )
                                         }.assertNormalExitValue()
                                 }
+                                upstreamBinary.setExecutable(true, true)
+                                upstreamBinary
+                            }
+                        for (outputName in source.outputNames) {
+                            val launcher = abiBinDir.resolve(outputName)
+                            if (packagedUpstreamBinary != null) {
                                 launcher.writeText(
-                                    sourceBuildLauncherScript(upstreamBinary.name),
+                                    sourceBuildLauncherScript("$outputName.upstream"),
                                     Charsets.UTF_8,
                                 )
                             } else if (capturedError != null) {
-                                if (upstreamBinary.exists()) {
-                                    upstreamBinary.delete()
-                                }
                                 launcher.writeText(
                                     sourceBuildFailedScript(outputName, source, capturedError),
                                     Charsets.UTF_8,
                                 )
                             } else {
-                                if (upstreamBinary.exists()) {
-                                    upstreamBinary.delete()
-                                }
                                 launcher.writeText(sourceBuildUnavailableScript(outputName, source), Charsets.UTF_8)
                             }
                             launcher.setExecutable(true, true)
-                            upstreamBinary.takeIf(File::exists)?.setExecutable(true, true)
                             records +=
                                 mapOf(
                                     "abi" to abi,
@@ -908,8 +912,8 @@ abstract class BuildPluggableTransportAssetsTask
                                     "mode" to if (sourceBuildResult != null) "source" else "stub",
                                     "buildError" to buildError,
                                     "launcherSha256" to sha256(launcher),
-                                    "upstreamBinary" to upstreamBinary.name.takeIf { upstreamBinary.exists() },
-                                    "upstreamSha256" to upstreamBinary.takeIf(File::exists)?.let(::sha256),
+                                    "upstreamBinary" to packagedUpstreamBinary?.name,
+                                    "upstreamSha256" to packagedUpstreamBinary?.let(::sha256),
                                 )
                         }
                     }

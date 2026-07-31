@@ -2,6 +2,10 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import android.os.Build
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 internal class SubprocessRelayBinaryExtractor(
@@ -17,8 +21,22 @@ internal class SubprocessRelayBinaryExtractor(
                 .list(assetDirectory)
                 ?.toSet()
                 .orEmpty()
-        if (availableAssets.contains("$binaryName.upstream")) {
-            context.assets.open("$assetDirectory/$binaryName.upstream").use { input ->
+        val manifestPayload =
+            runCatching {
+                context.assets
+                    .open("metadata/pluggable-transports.json")
+                    .bufferedReader()
+                    .use { it.readText() }
+            }.getOrNull()
+        val upstreamAsset =
+            resolvePluggableTransportUpstreamAsset(
+                manifestPayload = manifestPayload,
+                abi = abi,
+                binaryName = binaryName,
+                availableAssets = availableAssets,
+            )
+        if (upstreamAsset != null) {
+            context.assets.open("$assetDirectory/$upstreamAsset").use { input ->
                 File(targetDir, "$binaryName.upstream").outputStream().use { output ->
                     input.copyTo(output)
                 }
@@ -34,4 +52,34 @@ internal class SubprocessRelayBinaryExtractor(
         target.setExecutable(true, true)
         return target
     }
+}
+
+internal fun resolvePluggableTransportUpstreamAsset(
+    manifestPayload: String?,
+    abi: String,
+    binaryName: String,
+    availableAssets: Set<String>,
+): String? {
+    val manifestUpstream =
+        manifestPayload?.let { payload ->
+            runCatching {
+                Json
+                    .parseToJsonElement(payload)
+                    .jsonObject
+                    .getValue("artifacts")
+                    .jsonArray
+                    .asSequence()
+                    .map { it.jsonObject }
+                    .singleOrNull { artifact ->
+                        artifact["abi"]?.jsonPrimitive?.content == abi &&
+                            artifact["outputName"]?.jsonPrimitive?.content == binaryName
+                    }?.get("upstreamBinary")
+                    ?.jsonPrimitive
+                    ?.content
+                    ?.takeIf { File(it).name == it }
+            }.getOrNull()
+        }
+    return listOfNotNull(manifestUpstream, "$binaryName.upstream")
+        .distinct()
+        .firstOrNull(availableAssets::contains)
 }

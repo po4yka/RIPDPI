@@ -112,6 +112,15 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         )
         self.assertIn('"--locked"', function_source)
 
+    def test_multi_output_transport_packages_one_shared_upstream(self) -> None:
+        source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+
+        self.assertIn('"${source.sourceBinaryName}.upstream"', source)
+        self.assertIn('sourceBuildLauncherScript("$outputName.upstream")', source)
+        self.assertIn('"upstreamBinary" to packagedUpstreamBinary?.name', source)
+        self.assertIn('"upstreamSha256" to packagedUpstreamBinary?.let(::sha256)', source)
+        self.assertEqual(1, source.count("copyIfChanged(builtBinary, upstreamBinary)"))
+
     def test_rust_pluggable_transport_cache_tracks_workspace_source_closure(self) -> None:
         source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
         task_start = source.index('("buildPluggableTransportAssets")')
