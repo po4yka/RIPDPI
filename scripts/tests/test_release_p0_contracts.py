@@ -85,6 +85,19 @@ class ReleaseP0ContractsTest(unittest.TestCase):
             expected,
             extract_certificate_sha256(f"  SHA256: {colon_delimited}  \n"),
         )
+        self.assertEqual(
+            expected,
+            extract_certificate_sha256(
+                "\x1b[32mSigner 1 certificate SHA256 digest: "
+                f"{colon_delimited} (verified)\x1b[0m\n",
+            ),
+        )
+        self.assertEqual(
+            expected,
+            extract_certificate_sha256(
+                f"certificate SHA 256 digest: {colon_delimited.replace(':', ' ')}\n",
+            ),
+        )
 
     def test_release_signature_fingerprint_rejects_ambiguous_or_malformed_output(
         self,
@@ -93,6 +106,9 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         for output in (
             "",
             "SHA256: not-a-digest",
+            valid,
+            f"SHA-1: {valid}",
+            f"SHA256: {valid} {'cd' * 32}",
             f"SHA256: {valid}\nSHA256: {valid}\n",
         ):
             with self.subTest(output=output):
