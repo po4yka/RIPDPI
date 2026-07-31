@@ -7,6 +7,32 @@ import org.junit.Test
 
 class NetworkEvidenceActionReceiptContractTest {
     @Test
+    fun fixtureEventParserKeepsJsonNullSniAbsent() {
+        val events =
+            parseFixtureEvents(
+                """
+                [{"service":"dns_dot","protocol":"dot","peer":"127.0.0.1:1","target":"127.0.0.1:2",
+                "detail":"accept","bytes":0,"sni":null,"createdAt":1}]
+                """.trimIndent(),
+            )
+
+        assertEquals(null, events.single().sni)
+    }
+
+    @Test
+    fun fixtureEventParserPreservesPresentSni() {
+        val events =
+            parseFixtureEvents(
+                """
+                [{"service":"dns_dot","protocol":"dot","peer":"127.0.0.1:1","target":"127.0.0.1:2",
+                "detail":"query.fixture.test","bytes":42,"sni":"fixture.test","createdAt":2}]
+                """.trimIndent(),
+            )
+
+        assertEquals("fixture.test", events.single().sni)
+    }
+
+    @Test
     fun startupPostReadyDnsEventCountAllowsOnlyOneRetainedDatagram() {
         assertFalse(isValidStartupPostReadyDnsEventCount(0))
         assertTrue(isValidStartupPostReadyDnsEventCount(1))

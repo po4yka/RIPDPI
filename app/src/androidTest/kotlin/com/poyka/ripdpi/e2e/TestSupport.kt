@@ -309,7 +309,7 @@ class LocalFixtureClient(
 
     fun events(): List<FixtureEventDto> =
         request("/events") { body ->
-            parseEvents(body)
+            parseFixtureEvents(body)
         }
 
     fun resetEvents() {
@@ -2115,7 +2115,7 @@ private fun parseManifest(body: String): FixtureManifestDto {
     )
 }
 
-private fun parseEvents(body: String): List<FixtureEventDto> {
+internal fun parseFixtureEvents(body: String): List<FixtureEventDto> {
     val array = org.json.JSONArray(body)
     return buildList(array.length()) {
         for (index in 0 until array.length()) {
@@ -2128,7 +2128,7 @@ private fun parseEvents(body: String): List<FixtureEventDto> {
                     target = json.getString("target"),
                     detail = json.getString("detail"),
                     bytes = json.getInt("bytes"),
-                    sni = json.optString("sni").takeIf { it.isNotBlank() },
+                    sni = if (json.isNull("sni")) null else json.getString("sni"),
                     createdAt = json.getLong("createdAt"),
                 ),
             )
