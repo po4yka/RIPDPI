@@ -170,6 +170,7 @@ jobs:
       - name: Validate workflow and release contracts
         run: |
           python3 -m unittest \
+            scripts.tests.test_check_ci_preflight \
             scripts.tests.test_ci_native_dependency_graph \
             scripts.tests.test_ci_tool_pinning \
             scripts.tests.test_nightly_coverage_selection \
@@ -325,11 +326,39 @@ jobs:
       - name: Run REALITY BoringSSL hook vector guard
         run: python3 scripts/ci/check_reality_boring_vector.py
 
+  ci-preflight:
+    name: CI preflight barrier
+    if: always()
+    needs:
+      - change-routing
+      - docs-only-gate
+      - workflow-only-contracts
+      - fixture-contracts
+      - android-e2e-result-contracts
+      - design-md-lint
+      - architecture-health
+      - release-gates
+      - cargo-deny
+      - gradle-static-analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Release expensive jobs after required gates pass
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ROUTE: ${{ needs.change-routing.outputs.route }}
+          RUN_FULL_CI: ${{ needs.change-routing.outputs.run_full_ci }}
+          RUN_FIXTURES_CI: ${{ needs.change-routing.outputs.run_fixtures_ci }}
+          RUN_WORKFLOW_CI: ${{ needs.change-routing.outputs.run_workflow_ci }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/check_ci_preflight.py
+
   # Builds the non-x86_64 CI-default android-jni libraries + helpers. APK and
   # release consumers need the complete ABI set, while instrumented tests use
   # the separately-produced x86_64 shard below and can start sooner.
   rust-native-packaging:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -422,7 +451,7 @@ jobs:
   # Produces the only shard required by the Android instrumented-test matrix.
   # Keeping it outside the packaging matrix removes the wait for arm/x86 jobs.
   rust-native-x86_64:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -509,7 +538,7 @@ jobs:
   # Android APK/test consumers receive this exact tree only after Gradle verifies
   # the producer's manifest digest and every launcher/upstream binary digest.
   pluggable-transport-assets:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: >-
       needs.change-routing.outputs.run_full_ci == 'true' &&
       (github.event_name != 'schedule' ||
@@ -666,7 +695,7 @@ jobs:
   # load JNI libraries, so -Pripdpi.skipNativeBuild=true safely skips the entire
   # Rust dependency chain that preBuild normally pulls in.
   build-android-tests:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -742,7 +771,7 @@ jobs:
 
   # Roborazzi screenshot tests run in parallel; they don't load JNI either.
   verify-roborazzi:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -780,7 +809,7 @@ jobs:
 
   owned-stack-tls-fingerprint:
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -958,7 +987,7 @@ jobs:
           retention-days: 7
 
   native-bloat:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: >-
       needs.change-routing.outputs.run_full_ci == 'true' &&
       github.event_name != 'schedule' &&
@@ -1020,7 +1049,7 @@ jobs:
           retention-days: 14
 
   rust-miri:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -1085,7 +1114,7 @@ jobs:
         run: cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
 
   diagnostics-probes-facade:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1121,7 +1150,7 @@ jobs:
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
   rust-lint:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1151,7 +1180,7 @@ jobs:
         run: bash scripts/ci/run-rust-lint.sh
 
   rust-cross-check:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1172,7 +1201,7 @@ jobs:
         run: bash scripts/ci/run-rust-cross-check.sh
 
   rust-workspace-tests:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1214,7 +1243,7 @@ jobs:
           retention-days: 7
 
   rust-fuzz-smoke:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1244,7 +1273,7 @@ jobs:
         run: bash scripts/ci/run-rust-fuzz-smoke.sh
 
   runtime-api-snapshot:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true'
     name: JNI API snapshot check
     runs-on: ubuntu-latest
@@ -1322,7 +1351,7 @@ jobs:
           retention-days: 7
 
   rust-network-e2e:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1350,7 +1379,7 @@ jobs:
         run: bash scripts/ci/run-rust-network-e2e.sh
 
   relay-interoperability:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1378,7 +1407,7 @@ jobs:
         run: bash scripts/ci/run-rust-relay-interoperability.sh
 
   cli-packet-smoke:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -1412,7 +1441,7 @@ jobs:
           retention-days: 7
 
   rust-turmoil:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -1439,7 +1468,7 @@ jobs:
         run: bash scripts/ci/run-rust-turmoil-tests.sh
 
   kotlin-coverage:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: >-
       needs.change-routing.outputs.run_kotlin_coverage == 'true' &&
       github.event_name != 'schedule' &&
@@ -1493,7 +1522,7 @@ jobs:
           retention-days: 7
 
   rust-coverage:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: >-
       needs.change-routing.outputs.run_rust_coverage == 'true' &&
       github.event_name != 'schedule' &&
@@ -1542,7 +1571,7 @@ jobs:
           retention-days: 7
 
   rust-criterion-bench:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: >-
       needs.change-routing.outputs.run_full_ci == 'true' &&
       ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 1') ||
@@ -1994,7 +2023,7 @@ jobs:
           retention-days: 7
 
   rust-loom:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -2018,7 +2047,7 @@ jobs:
         run: bash scripts/ci/run-rust-loom.sh
 
   rust-native-soak:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2062,7 +2091,7 @@ jobs:
           retention-days: 7
 
   rust-native-load:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2106,7 +2135,7 @@ jobs:
           retention-days: 7
 
   nightly-kotlin-coverage:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -2139,7 +2168,7 @@ jobs:
           retention-days: 7
 
   nightly-rust-coverage:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -2462,7 +2491,7 @@ jobs:
           retention-days: 7
 
   linux-tun-e2e:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -2499,7 +2528,7 @@ jobs:
             bash scripts/ci/run-linux-tun-e2e.sh
 
   so-bindtodevice-e2e:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -2582,7 +2611,7 @@ jobs:
           retention-days: 30
 
   linux-tun-soak:
-    needs: change-routing
+    needs: [change-routing, ci-preflight]
     if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 4 * * 2') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
@@ -2654,6 +2683,7 @@ jobs:
       - workflow-only-contracts
       - fixture-contracts
       - android-e2e-result-contracts
+      - ci-preflight
       - design-md-lint
       - architecture-health
       - release-gates
@@ -2722,7 +2752,11 @@ jobs:
           unexpected = {
               job: result for job, result in results.items() if result not in allowed_results
           }
-          required_success = {"change-routing", "android-e2e-result-contracts"}
+          required_success = {
+              "change-routing",
+              "android-e2e-result-contracts",
+              "ci-preflight",
+          }
           route = os.environ["ROUTE"]
           event_name = os.environ["EVENT_NAME"]
           run_nightly_coverage = os.environ["RUN_NIGHTLY_COVERAGE"] == "true"

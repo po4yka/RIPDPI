@@ -187,6 +187,65 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("RUN_KOTLIN_COVERAGE", aggregate)
         self.assertIn("RUN_RUST_COVERAGE", aggregate)
         self.assertIn("RUN_NIGHTLY_COVERAGE", aggregate)
+
+    def test_preflight_barrier_blocks_compile_heavy_roots(self) -> None:
+        preflight = ci_job_source("ci-preflight")
+        self.assertIn("if: always()", preflight)
+        for required_gate in (
+            "change-routing",
+            "docs-only-gate",
+            "workflow-only-contracts",
+            "fixture-contracts",
+            "android-e2e-result-contracts",
+            "design-md-lint",
+            "architecture-health",
+            "release-gates",
+            "cargo-deny",
+            "gradle-static-analysis",
+        ):
+            self.assertIn(f"      - {required_gate}\n", preflight)
+        self.assertIn("python3 scripts/ci/check_ci_preflight.py", preflight)
+
+        for job in (
+            "rust-native-packaging",
+            "rust-native-x86_64",
+            "pluggable-transport-assets",
+            "build-android-tests",
+            "verify-roborazzi",
+            "owned-stack-tls-fingerprint",
+            "native-bloat",
+            "rust-miri",
+            "diagnostics-probes-facade",
+            "rust-lint",
+            "rust-cross-check",
+            "rust-workspace-tests",
+            "rust-fuzz-smoke",
+            "runtime-api-snapshot",
+            "rust-network-e2e",
+            "relay-interoperability",
+            "cli-packet-smoke",
+            "rust-turmoil",
+            "kotlin-coverage",
+            "rust-coverage",
+            "rust-criterion-bench",
+            "rust-loom",
+            "rust-native-soak",
+            "rust-native-load",
+            "nightly-kotlin-coverage",
+            "nightly-rust-coverage",
+            "linux-tun-e2e",
+            "so-bindtodevice-e2e",
+            "linux-tun-soak",
+        ):
+            with self.subTest(job=job):
+                self.assertIn(
+                    "needs: [change-routing, ci-preflight]",
+                    ci_job_source(job),
+                )
+
+        aggregate = ci_job_source("ci-required")
+        self.assertIn("      - ci-preflight\n", aggregate)
+        self.assertIn('"ci-preflight",', aggregate)
         self.assertIn('required_success.add("kotlin-coverage")', aggregate)
         self.assertIn('required_success.add("rust-coverage")', aggregate)
         self.assertIn('"nightly-kotlin-coverage", "nightly-rust-coverage"', aggregate)
