@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 REVIEW_PATH = ROOT / "quality/release-gates/app-identity-review.json"
 RESOLVED_PATH = ROOT / "app/build/reports/app-identity/release-identity.json"
-RELEASE_WORKFLOW_PATH = ROOT / ".github/workflows/release.yml"
+RELEASE_WORKFLOW_PATH = ROOT / ".github/workflows/release-candidate.yml"
 
 SCHEMA_VERSION = 1
 REQUIRED_SOURCE_IDS = {
