@@ -80,6 +80,12 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn("if: inputs.setup-rust == 'true'", source)
         self.assertIn("inputs.setup-android-ndk == 'true'", source)
 
+    def test_android_sdk_cache_is_separated_by_ndk_installation_mode(self) -> None:
+        source = SETUP_ACTION.read_text(encoding="utf-8")
+
+        self.assertIn("NDK setup mode so a Kotlin-only job cannot", source)
+        self.assertIn("-ndk-${{ inputs.setup-android-ndk }}-", source)
+
     def test_coverage_skips_unused_android_targets_and_ndk(self) -> None:
         for job_name in ("coverage", "nightly-rust-coverage"):
             job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), job_name)
