@@ -64,6 +64,7 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
 
         self.assertIn("abstract val rustSources: ConfigurableFileCollection", source)
         self.assertIn("rustSources.from(rustWorkspaceCrateSources())", task_source)
+        self.assertIn('fileTree(rustWorkspaceDir.resolve("vendor"))', task_source)
         self.assertIn('rustSources.from(rustWorkspaceDir.resolve("Cargo.lock"))', task_source)
         self.assertIn('rustSources.from(rustWorkspaceDir.resolve("rust-toolchain.toml"))', task_source)
         self.assertIn('rustSources.from(rustWorkspaceDir.resolve(".cargo/config.toml"))', task_source)

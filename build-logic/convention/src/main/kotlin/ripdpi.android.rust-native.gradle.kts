@@ -1579,6 +1579,11 @@ val buildPluggableTransportAssets =
         sourcesManifest.set(ptSourcesManifestFile)
         rustWorkspaceManifest.set(rustWorkspaceManifestFile)
         rustSources.from(rustWorkspaceCrateSources())
+        rustSources.from(
+            fileTree(rustWorkspaceDir.resolve("vendor")) {
+                include("**/*")
+            },
+        )
         rustSources.from(rustWorkspaceDir.resolve("Cargo.lock"))
         rustSources.from(rustWorkspaceDir.resolve("rust-toolchain.toml"))
         rustSources.from(rustWorkspaceDir.resolve(".cargo/config.toml"))
