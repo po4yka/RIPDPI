@@ -33,13 +33,50 @@ def release_verification_job(source: str) -> str:
 
 
 class ReleaseArtifactUploadsTest(unittest.TestCase):
-    def test_ci_release_verification_uses_isolated_variant_matrix(self) -> None:
+    def test_ci_release_verification_uses_measured_two_variant_shards(self) -> None:
         source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         job = release_verification_job(source)
-        self.assertIn("matrix:\n        variant:", job)
-        self.assertEqual(6, job.count("id: "))
-        self.assertIn('./gradlew "${{ matrix.variant.task }}" "${common_args[@]}"', job)
-        self.assertNotIn("for task in \\", job)
+        self.assertIn("matrix:\n        shard:", job)
+        self.assertEqual(3, job.count("id: "))
+        shards = re.findall(
+            r"(?m)^          - \{ id: ([\w-]+), tasks: '([^']+)' \}$", job
+        )
+        self.assertEqual(3, len(shards))
+        self.assertTrue(
+            all(len(tasks.split(",")) == 2 for _, tasks in shards),
+            "each release shard must contain exactly two builds",
+        )
+        for task in (
+            ":app:assembleFdroidFullRelease",
+            ":app:assembleFdroidSimpleRelease",
+            ":app:assembleGithubFullRelease",
+            ":app:assembleGithubSimpleRelease",
+            ":app:assemblePlayFullRelease",
+            ":app:assemblePlaySimpleRelease",
+        ):
+            self.assertEqual(1, job.count(task))
+        self.assertIn("IFS=',' read -r -a release_tasks", job)
+        self.assertIn('for task in "${release_tasks[@]}"', job)
+        self.assertIn("printf '### %s release build", job)
+        self.assertIn("./gradlew --stop", job)
+        self.assertIn(
+            "needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint]",
+            job,
+        )
+        self.assertNotIn("Check owned-stack TLS fingerprint snapshot", job)
+
+    def test_ci_tls_fingerprint_gate_runs_once_before_release_shards(self) -> None:
+        source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertEqual(1, source.count("Check owned-stack TLS fingerprint snapshot"))
+        tls_job = re.search(
+            r"(?ms)^  owned-stack-tls-fingerprint:\n.*?(?=^  [\w-]+:\n|\Z)",
+            source,
+        )
+        self.assertIsNotNone(tls_job)
+        assert tls_job is not None
+        self.assertEqual(1, tls_job.group(0).count("Check owned-stack TLS fingerprint snapshot"))
+        self.assertIn("bash scripts/ci/check-owned-stack-tls-fingerprint.sh", tls_job.group(0))
+        self.assertIn('skip-android-sdk-ndk: "true"', tls_job.group(0))
 
     def test_retrace_uploads_are_variant_aware_and_fail_closed(self) -> None:
         for workflow in WORKFLOWS:
@@ -55,14 +92,14 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             self.assertIn("if-no-files-found: error", block)
 
         ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        self.assertIn("name: release-retrace-inputs-${{ matrix.variant.id }}", ci_source)
+        self.assertIn("name: release-retrace-inputs-${{ matrix.shard.id }}", ci_source)
 
     def test_native_symbol_bundle_uses_one_shared_fail_closed_packager(self) -> None:
         ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         release_source = (ROOT / ".github/workflows/release-candidate.yml").read_text(encoding="utf-8")
 
         self.assertEqual(1, ci_source.count("name: release-native-symbols\n"))
-        self.assertIn("matrix.variant.id == 'github-full'", ci_source)
+        self.assertIn("matrix.shard.id == 'github'", ci_source)
         for source in (ci_source, release_source):
             self.assertIn("python3 scripts/ci/package_native_symbols.py", source)
             block = upload_block(source, "Upload release native symbols")

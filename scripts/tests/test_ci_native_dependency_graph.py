@@ -27,7 +27,10 @@ class NativeDependencyGraphTest(unittest.TestCase):
     def test_packaging_consumers_wait_for_complete_abi_set(self) -> None:
         expected_needs = "needs: [change-routing, rust-native-packaging, rust-native-x86_64]"
         self.assertIn(expected_needs, job_source("build-android-debug"))
-        self.assertIn(expected_needs, job_source("release-verification"))
+        self.assertIn(
+            "needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint]",
+            job_source("release-verification"),
+        )
 
     def test_packaging_matrix_excludes_x86_64(self) -> None:
         packaging = job_source("rust-native-packaging")
