@@ -621,8 +621,13 @@ jobs:
   # artifacts. The rust-native Gradle plugin copies these inputs instead of
   # running Cargo, so the shards can execute independently.
   build-android-debug:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, pluggable-transport-assets]
+    if: >-
+      !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -882,8 +887,14 @@ jobs:
         run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
 
   release-verification:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets]
+    if: >-
+      !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.owned-stack-tls-fingerprint.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     # Three two-build shards bound Kotlin heap use without serializing all six
     # variants in one runner. Stop Gradle between variants and emit each build
@@ -1802,6 +1813,7 @@ jobs:
     # snapshot manual to avoid paying for the same native work twice per cycle.
     needs: [change-routing, pluggable-transport-assets]
     if: >-
+      !cancelled() && needs.pluggable-transport-assets.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       github.event_name == 'workflow_dispatch' &&
       (github.event.inputs.coverage_phase0_mode == 'phase0-baseline' ||
@@ -1865,7 +1877,11 @@ jobs:
     # already tolerates emulator runs (androidx.benchmark.suppressErrors includes
     # EMULATOR) and the regression check is warn-only.
     needs: [change-routing, pluggable-transport-assets]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true'))
+    if: >-
+      !cancelled() && needs.pluggable-transport-assets.result == 'success' &&
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '11 4 * * 4') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -1946,8 +1962,12 @@ jobs:
   # The dedicated x86_64 native shard is staged via
   # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-x86_64, pluggable-transport-assets]
+    if: >-
+      !cancelled() &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -2355,6 +2375,7 @@ jobs:
   android-network-e2e:
     needs: [change-routing, pluggable-transport-assets]
     if: >-
+      !cancelled() && needs.pluggable-transport-assets.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') ||
       (
@@ -2489,6 +2510,7 @@ jobs:
   android-journeys:
     needs: [change-routing, pluggable-transport-assets]
     if: >-
+      !cancelled() && needs.pluggable-transport-assets.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       ((github.event_name == 'workflow_dispatch' &&
       (github.event.inputs.android_extended_mode == 'journeys' ||
@@ -2578,6 +2600,7 @@ jobs:
   android-relay-emulator-smoke:
     needs: [change-routing, pluggable-transport-assets]
     if: >-
+      !cancelled() && needs.pluggable-transport-assets.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' &&
       ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') ||
       (github.event_name == 'workflow_dispatch' &&

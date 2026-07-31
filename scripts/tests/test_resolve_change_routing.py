@@ -281,6 +281,38 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                     job_source,
                 )
 
+        downstream_dependencies = {
+            "build-android-debug": (
+                "rust-native-packaging",
+                "rust-native-x86_64",
+                "pluggable-transport-assets",
+            ),
+            "release-verification": (
+                "rust-native-packaging",
+                "rust-native-x86_64",
+                "owned-stack-tls-fingerprint",
+                "pluggable-transport-assets",
+            ),
+            "android-instrumented-tests": (
+                "rust-native-x86_64",
+                "pluggable-transport-assets",
+            ),
+            "phase0-baseline": ("pluggable-transport-assets",),
+            "android-macrobenchmark": ("pluggable-transport-assets",),
+            "android-network-e2e": ("pluggable-transport-assets",),
+            "android-journeys": ("pluggable-transport-assets",),
+            "android-relay-emulator-smoke": ("pluggable-transport-assets",),
+        }
+        for job, dependencies in downstream_dependencies.items():
+            with self.subTest(job=job):
+                job_source = ci_job_source(job)
+                self.assertIn("!cancelled()", job_source)
+                for dependency in dependencies:
+                    self.assertIn(
+                        f"needs.{dependency}.result == 'success'",
+                        job_source,
+                    )
+
         aggregate = ci_job_source("ci-required")
         self.assertIn("      - ci-preflight\n", aggregate)
         self.assertIn('"ci-preflight",', aggregate)
