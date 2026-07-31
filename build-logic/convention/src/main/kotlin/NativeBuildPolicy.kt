@@ -6,11 +6,9 @@ import java.io.File
 private val aggregateReleaseTaskPaths =
     setOf(
         "assemble",
-        ":assemble",
         "build",
-        ":build",
-        ":app:assemble",
-        ":app:build",
+        "app:assemble",
+        "app:build",
     )
 
 internal fun parseAbiList(value: String): List<String> =
@@ -28,7 +26,7 @@ internal fun Project.isReleaseLikeBuild(): Boolean {
     }
 
     return taskNames.any { taskName ->
-        val normalized = taskName.lowercase()
+        val normalized = taskName.lowercase().removePrefix(":")
         normalized.contains("release") ||
             normalized.contains("bundle") ||
             normalized.contains("publish") ||

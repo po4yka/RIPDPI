@@ -14,7 +14,8 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         source = NATIVE_BUILD_POLICY.read_text(encoding="utf-8")
 
         self.assertIn("aggregateReleaseTaskPaths", source)
-        for task_path in ("assemble", ":assemble", "build", ":build", ":app:assemble", ":app:build"):
+        self.assertIn('removePrefix(":")', source)
+        for task_path in ("assemble", "build", "app:assemble", "app:build"):
             self.assertIn(f'"{task_path}"', source)
 
     def test_native_tasks_share_one_cargo_target_root(self) -> None:
