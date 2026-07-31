@@ -130,6 +130,7 @@ runs:
         echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+        echo "compile-sdk-package=$(grep '^ripdpi.compileSdkPackage=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
 
     # Cache both Android CLI state and the actual package directories under the
     # runner SDK root. Caching ~/.android alone can produce a false cache hit:
@@ -144,8 +145,8 @@ runs:
         path: |
           ~/.android
           ${{ steps.native-toolchain.outputs.sdk-root }}/platform-tools
-          ${{ steps.native-toolchain.outputs.sdk-root }}/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}
-        key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
+          ${{ steps.native-toolchain.outputs.sdk-root }}/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk-package }}
+        key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk-package }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
 
     - name: Cache Android NDK and CMake
       if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
@@ -165,13 +166,13 @@ runs:
         sdk_root="${{ steps.native-toolchain.outputs.sdk-root }}"
         packages=()
         [[ -x "$sdk_root/platform-tools/adb" ]] || packages+=("platform-tools")
-        [[ -f "$sdk_root/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}/android.jar" ]] || \
-          packages+=("platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}")
+        [[ -f "$sdk_root/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk-package }}/android.jar" ]] || \
+          packages+=("platforms/android-${{ steps.native-toolchain.outputs.compile-sdk-package }}")
         if (( ${#packages[@]} > 0 )); then
           bash scripts/ci/android-sdk-install.sh "${packages[@]}"
         fi
         [[ -x "$sdk_root/platform-tools/adb" ]]
-        [[ -f "$sdk_root/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}/android.jar" ]]
+        [[ -f "$sdk_root/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk-package }}/android.jar" ]]
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
