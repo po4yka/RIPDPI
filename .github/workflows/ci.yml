@@ -632,9 +632,9 @@ jobs:
 
       - uses: ./.github/actions/setup-android-rust
         with:
-          rust-components: ""
-          rust-cache-shared-key: rust-android-debug-${{ matrix.shard.id }}
-          rust-cache-save: "false"
+          setup-rust: "false"
+          setup-sccache: "false"
+          setup-android-ndk: "false"
           gradle-cache-read-only: "true"
 
       - name: Download native shards
@@ -680,8 +680,6 @@ jobs:
           ls -la "$assets_root" || true
 
       - name: Build ${{ matrix.shard.id }} debug APK with prebuilt natives
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           common_args=(
             --no-parallel
@@ -890,9 +888,9 @@ jobs:
 
       - uses: ./.github/actions/setup-android-rust
         with:
-          rust-components: ""
-          rust-cache-shared-key: rust-android-release-verify
-          rust-cache-save: "false"
+          setup-rust: "false"
+          setup-sccache: "false"
+          setup-android-ndk: ${{ matrix.shard.id == 'github' }}
           gradle-cache-read-only: "true"
 
       - name: Download native release shards
@@ -945,8 +943,6 @@ jobs:
           ls -la "$assets_root" || true
 
       - name: Verify ${{ matrix.shard.id }} release shard with prebuilt natives
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           common_args=(
             --max-workers=1
@@ -1927,10 +1923,9 @@ jobs:
 
       - uses: ./.github/actions/setup-android-rust
         with:
-          rust-components: ""
-          rust-targets: x86_64-linux-android
-          rust-cache-shared-key: rust-android-instrumented
-          rust-cache-save: "false"
+          setup-rust: "false"
+          setup-sccache: "false"
+          setup-android-ndk: "false"
           gradle-cache-read-only: "true"
 
       - name: Download x86_64 native shard
@@ -1978,8 +1973,6 @@ jobs:
             --boot-timeout 600
 
       - name: Run instrumented tests on ${{ matrix.device }}
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
           ./gradlew :app:connectedGithubFullDebugAndroidTest \
@@ -1996,8 +1989,6 @@ jobs:
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
       - name: Run Simple experience integration on ${{ matrix.device }}
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple
           ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
@@ -2044,8 +2035,6 @@ jobs:
 
       - name: Run JNI strategy instrumentation on ${{ matrix.device }}
         if: matrix.api == 35
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
           ./gradlew :app:connectedGithubFullDebugAndroidTest \

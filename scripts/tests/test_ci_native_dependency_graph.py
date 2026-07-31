@@ -80,7 +80,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
             "name: native-size-report-debug-${{ matrix.shard.id }}",
             source,
         )
-        self.assertIn('rust-cache-save: "false"', source)
+        self.assertIn('setup-rust: "false"', source)
         self.assertNotIn("./gradlew \\\n+            :app:assembleGithubFullDebug", source)
 
     def test_packaging_matrix_excludes_x86_64(self) -> None:
@@ -132,6 +132,21 @@ class NativeDependencyGraphTest(unittest.TestCase):
                 source = job_source(job_name)
                 for property_name in expected_properties:
                     self.assertIn(f'-P{property_name}="{assets_dir}"', source)
+
+    def test_prebuilt_native_consumers_skip_unused_rust_setup(self) -> None:
+        for job_name in ("build-android-debug", "android-instrumented-tests"):
+            with self.subTest(job=job_name):
+                source = job_source(job_name)
+                self.assertIn('setup-rust: "false"', source)
+                self.assertIn('setup-sccache: "false"', source)
+                self.assertIn('setup-android-ndk: "false"', source)
+                self.assertNotIn("RUSTC_WRAPPER: sccache", source)
+
+        release = job_source("release-verification")
+        self.assertIn('setup-rust: "false"', release)
+        self.assertIn('setup-sccache: "false"', release)
+        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github' }}", release)
+        self.assertNotIn("RUSTC_WRAPPER: sccache", release)
 
     def test_pt_producer_is_source_only_and_consumers_bind_manifest_digest(self) -> None:
         producer = job_source("pluggable-transport-assets")
