@@ -176,6 +176,7 @@ jobs:
             scripts.tests.test_release_artifact_uploads \
             scripts.tests.test_release_candidate_manifest \
             scripts.tests.test_release_p0_contracts \
+            scripts.tests.test_path_filtered_pr_checks \
             scripts.tests.test_resolve_change_routing
 
   fixture-contracts:

@@ -98,6 +98,7 @@ WORKFLOW_FILES: Final = frozenset(
         "scripts/tests/test_release_candidate_manifest.py",
         "scripts/tests/test_release_p0_contracts.py",
         "scripts/tests/test_resolve_change_routing.py",
+        "scripts/tests/test_path_filtered_pr_checks.py",
     }
 )
 

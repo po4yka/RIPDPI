@@ -7,6 +7,11 @@ name: Play Store Screenshots
 # is reported, not auto-applied.
 
 on:
+  pull_request:
+    paths:
+      - "play-store-screenshots/**"
+      - "docs/screenshots/**"
+      - ".github/workflows/play-store-screenshots.yml"
   workflow_dispatch:
   schedule:
     # Daily at 04:00 UTC -- after the nightly Rust/CI bursts (02:00, 03:00) so

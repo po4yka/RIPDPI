@@ -4,6 +4,16 @@ name: Upstream Spec Watch
 # pinned fixture tags, then uploads a non-blocking pin-inventory report.
 
 on:
+  pull_request:
+    paths:
+      - "native/rust/crates/**/SPEC.md"
+      - "native/rust/crates/**/SPEC_VERSION.md"
+      - "contract-fixtures/**"
+      - "scripts/ci/check_protocol_fixture_versions.py"
+      - "scripts/ci/verify_spec_md_present.sh"
+      - "scripts/ci/verify_spec_versions.py"
+      - "scripts/tests/test_protocol_fixture_versions.py"
+      - ".github/workflows/upstream-spec-watch.yml"
   schedule:
     - cron: "0 9 * * 1"  # Mondays 09:00 UTC
   workflow_dispatch: {}
