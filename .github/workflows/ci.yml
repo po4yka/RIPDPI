@@ -391,7 +391,13 @@ jobs:
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
+            --profile \
             -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }}
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-native-${{ matrix.abi.name }}
 
       - name: Stage native artifacts for ${{ matrix.abi.name }}
         run: |
@@ -477,7 +483,13 @@ jobs:
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
+            --profile \
             -Pripdpi.nativeAbisOverride=x86_64
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-native-x86_64
 
       - name: Stage native artifacts for x86_64
         run: |
@@ -563,8 +575,14 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: >-
           ./gradlew :core:engine:buildPluggableTransportAssets
+          --profile
           -Pripdpi.pluggableTransportAssetsMode=source
           -Pripdpi.pluggableTransportAssetsStrictFailures=true
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-pluggable-transports
 
       - name: Stage verified pluggable transport assets
         id: digest
@@ -671,7 +689,12 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
-          ./gradlew "${{ matrix.shard.task }}" "${common_args[@]}"
+          ./gradlew "${{ matrix.shard.task }}" "${common_args[@]}" --profile
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-debug-${{ matrix.shard.id }}
 
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
@@ -723,6 +746,7 @@ jobs:
           -x :app:testGithubSimpleDebugUnitTest
           -x :app:testPlayFullDebugUnitTest
           -x :app:testPlaySimpleDebugUnitTest
+          --profile
           -Pripdpi.skipNativeBuild=true
 
       - name: Run app unit tests
@@ -730,6 +754,7 @@ jobs:
           ./gradlew
           :app:testGithubFullDebugUnitTest
           :app:testGithubSimpleDebugUnitTest
+          --profile
           -Pripdpi.skipNativeBuild=true
 
       - name: Run release artifact upload contract tests
@@ -759,6 +784,11 @@ jobs:
 
       - name: Run mutation wrapper unit test
         run: bash scripts/tests/test_run_rust_mutants.sh
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-android-tests
 
       - name: Upload test results
         if: always()
@@ -795,9 +825,15 @@ jobs:
           ./gradlew
           :app:verifyRoborazziGithubFullDebug
           :app:verifyRoborazziGithubSimpleDebug
+          --profile
           -Pripdpi.skipNativeBuild=true
           -Pripdpi.includeRoborazziUnitTests=true
           --tests 'com.poyka.ripdpi.ui.screenshot.*'
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-roborazzi
 
       - name: Upload Roborazzi diffs
         if: always()
@@ -922,11 +958,16 @@ jobs:
           IFS=',' read -r -a release_tasks <<< "${{ matrix.shard.tasks }}"
           for task in "${release_tasks[@]}"; do
             started_at="$(date +%s)"
-            ./gradlew "$task" "${common_args[@]}"
+            ./gradlew "$task" "${common_args[@]}" --profile
             elapsed_seconds="$(( $(date +%s) - started_at ))"
             printf '### %s release build\n\nDuration: %ss\n' "$task" "$elapsed_seconds" >> "$GITHUB_STEP_SUMMARY"
             ./gradlew --stop
           done
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-release-${{ matrix.shard.id }}
 
       - name: Verify packaged release native ELFs
         run: |
@@ -1150,6 +1191,11 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-diagnostics-probes
+
   rust-lint:
     needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
@@ -1180,6 +1226,11 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-lint.sh
 
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-rust-lint
+
   rust-cross-check:
     needs: [change-routing, ci-preflight]
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
@@ -1200,6 +1251,11 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-cross-check.sh
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-rust-cross-check
 
   rust-workspace-tests:
     needs: [change-routing, ci-preflight]
@@ -1234,6 +1290,11 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-workspace-tests.sh
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-rust-workspace-tests
 
       - name: Upload Rust analysis reports
         if: always()
@@ -1331,13 +1392,18 @@ jobs:
           gradle-cache-read-only: "true"
 
       - name: Resolve release application IDs
-        run: ./gradlew :app:writeReleaseIdentityManifest
+        run: ./gradlew :app:writeReleaseIdentityManifest --profile
 
       - name: Run app identity release gate
         run: python3 scripts/ci/check_app_identity_review.py
 
       - name: Run static analysis
-        run: ./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true
+        run: ./gradlew staticAnalysis --profile -Pripdpi.skipNativeBuild=true
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-gradle-static-analysis
 
       - name: Upload Gradle analysis reports
         if: always()
@@ -1803,7 +1869,13 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark \
+            --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-android-macrobenchmark
 
       - name: Check for regressions
         run: |
@@ -1916,6 +1988,7 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
       - name: Run Simple experience integration on ${{ matrix.device }}
@@ -1933,6 +2006,7 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
       - name: Validate GitHub Full instrumentation evidence on ${{ matrix.device }}
@@ -1980,6 +2054,7 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
       - name: Validate JNI strategy instrumentation evidence
@@ -2005,6 +2080,11 @@ jobs:
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
             --avd "${{ matrix.device }}" \
             --output-dir "$RUNNER_TEMP/android-instrumented-${{ matrix.device }}"
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-android-instrumented-${{ matrix.device }}
 
       - name: Stop ${{ matrix.device }} emulator
         if: always()

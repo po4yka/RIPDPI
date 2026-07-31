@@ -1,0 +1,31 @@
+name: Upload build observability
+description: Preserve Gradle profiles and final sccache statistics for a CI build lane.
+
+inputs:
+  artifact-name:
+    description: Unique artifact name for this job or matrix shard.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Collect build observability
+      shell: bash
+      run: |
+        set -euo pipefail
+        output_dir="$RUNNER_TEMP/build-observability"
+        mkdir -p "$output_dir"
+        if [[ -d "$GITHUB_WORKSPACE/build/reports/profile" ]]; then
+          cp -R "$GITHUB_WORKSPACE/build/reports/profile" "$output_dir/gradle-profile"
+        fi
+        if command -v sccache >/dev/null 2>&1; then
+          sccache --show-stats > "$output_dir/sccache-stats.txt" || true
+        fi
+
+    - name: Upload build observability
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/build-observability/
+        if-no-files-found: warn
+        retention-days: 7
