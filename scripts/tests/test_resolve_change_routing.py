@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,14 @@ from scripts.ci.resolve_change_routing import (
 
 ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
+
+
+def ci_job_source(name: str) -> str:
+    source = CI_WORKFLOW.read_text(encoding="utf-8")
+    match = re.search(rf"(?ms)^  {re.escape(name)}:\n.*?(?=^  [\w-]+:\n|\Z)", source)
+    if match is None:
+        raise AssertionError(f"missing {name} CI job")
+    return match.group(0)
 
 
 class ResolveChangeRoutingTest(unittest.TestCase):
@@ -143,6 +152,22 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("pinact run --fix=false --no-api", source)
         self.assertIn("run_android_ci: ${{ steps.resolve.outputs.run_android_ci }}", source)
         self.assertIn("run_rust_native_ci: ${{ steps.resolve.outputs.run_rust_native_ci }}", source)
+
+    def test_ci_required_aggregates_every_other_job_and_handles_skips(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        aggregate = ci_job_source("ci-required")
+        all_jobs = set(
+            re.findall(r"(?m)^  ([\w-]+):\n", source.split("\njobs:\n", 1)[1])
+        )
+        aggregate_needs = set(re.findall(r"(?m)^      - ([\w-]+)$", aggregate))
+
+        self.assertEqual(all_jobs - {"ci-required"}, aggregate_needs)
+        self.assertIn("if: always()", aggregate)
+        self.assertIn('allowed_results = {"success", "skipped"}', aggregate)
+        self.assertIn("Accepted routed/skipped jobs", aggregate)
+        self.assertIn("required_success", aggregate)
+        self.assertIn("RUN_FULL_CI", aggregate)
+        self.assertIn('required_success.add("runtime-api-snapshot")', aggregate)
 
 
 if __name__ == "__main__":

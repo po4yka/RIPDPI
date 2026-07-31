@@ -2381,3 +2381,134 @@ jobs:
           path: |
             ${{ runner.temp }}/linux-tun-soak-artifacts/
           retention-days: 7
+
+  ci-required:
+    name: ci-required
+    if: always()
+    needs:
+      - change-routing
+      - docs-only-gate
+      - workflow-only-contracts
+      - fixture-contracts
+      - android-e2e-result-contracts
+      - design-md-lint
+      - architecture-health
+      - release-gates
+      - rust-native-packaging
+      - rust-native-x86_64
+      - build-android-debug
+      - build-android-tests
+      - verify-roborazzi
+      - release-verification
+      - native-bloat
+      - rust-miri
+      - cargo-deny
+      - cargo-deny-advisories
+      - diagnostics-probes-facade
+      - rust-lint
+      - rust-cross-check
+      - rust-workspace-tests
+      - rust-fuzz-smoke
+      - runtime-api-snapshot
+      - gradle-static-analysis
+      - rust-network-e2e
+      - relay-interoperability
+      - cli-packet-smoke
+      - rust-turmoil
+      - coverage
+      - rust-criterion-bench
+      - phase0-baseline
+      - android-macrobenchmark
+      - android-instrumented-tests
+      - rust-loom
+      - rust-native-soak
+      - rust-native-load
+      - nightly-rust-coverage
+      - android-network-e2e
+      - android-journeys
+      - android-relay-emulator-smoke
+      - linux-tun-e2e
+      - so-bindtodevice-e2e
+      - linux-tun-soak
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce routed CI results
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ROUTE: ${{ needs.change-routing.outputs.route }}
+          RUN_FULL_CI: ${{ needs.change-routing.outputs.run_full_ci }}
+          RUN_FIXTURES_CI: ${{ needs.change-routing.outputs.run_fixtures_ci }}
+          RUN_WORKFLOW_CI: ${{ needs.change-routing.outputs.run_workflow_ci }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          results = {job: detail["result"] for job, detail in needs.items()}
+          allowed_results = {"success", "skipped"}
+          unexpected = {
+              job: result for job, result in results.items() if result not in allowed_results
+          }
+          required_success = {"change-routing", "android-e2e-result-contracts"}
+          route = os.environ["ROUTE"]
+          event_name = os.environ["EVENT_NAME"]
+
+          if route == "documentation":
+              required_success.add("docs-only-gate")
+          elif event_name != "schedule":
+              required_success.update(
+                  {
+                      "design-md-lint",
+                      "architecture-health",
+                      "release-gates",
+                      "rust-native-packaging",
+                      "rust-native-x86_64",
+                      "build-android-debug",
+                      "build-android-tests",
+                      "verify-roborazzi",
+                      "release-verification",
+                      "rust-miri",
+                      "cargo-deny",
+                      "diagnostics-probes-facade",
+                      "rust-lint",
+                      "rust-cross-check",
+                      "rust-workspace-tests",
+                      "rust-fuzz-smoke",
+                      "runtime-api-snapshot",
+                      "gradle-static-analysis",
+                      "rust-network-e2e",
+                      "relay-interoperability",
+                      "cli-packet-smoke",
+                      "rust-turmoil",
+                      "android-instrumented-tests",
+                      "rust-loom",
+                  }
+              )
+
+          if os.environ["RUN_FULL_CI"] == "true":
+              required_success.add("runtime-api-snapshot")
+
+          if os.environ["RUN_FIXTURES_CI"] == "true":
+              required_success.add("fixture-contracts")
+          if os.environ["RUN_WORKFLOW_CI"] == "true":
+              required_success.add("workflow-only-contracts")
+
+          missing = {
+              job: results.get(job, "missing")
+              for job in required_success
+              if results.get(job) != "success"
+          }
+          skipped = sorted(job for job, result in results.items() if result == "skipped")
+          if skipped:
+              print("Accepted routed/skipped jobs: " + ", ".join(skipped))
+          if unexpected or missing:
+              if unexpected:
+                  print("Unexpected CI results: " + json.dumps(unexpected, sort_keys=True))
+              if missing:
+                  print("Required CI jobs not successful: " + json.dumps(missing, sort_keys=True))
+              sys.exit(1)
+          print("All required CI jobs completed successfully.")
+          PY
