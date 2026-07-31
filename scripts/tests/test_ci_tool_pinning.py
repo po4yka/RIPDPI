@@ -17,12 +17,14 @@ class CiToolPinningTest(unittest.TestCase):
     def test_android_cli_uses_versioned_digest_verified_binary(self) -> None:
         source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(encoding="utf-8")
         self.assertIn("android_cli_version=\"1.0.15857036\"", source)
-        self.assertIn("android_cli_sha256=\"6f8c947a", source)
+        self.assertIn("android_cli_sha256=\"e5b6930e", source)
+        self.assertIn("linux_x86_64/android-cli", source)
         self.assertIn("sha256sum --check --strict", source)
-        self.assertIn('version_output="$(android --version 2>&1)"', source)
+        self.assertIn('version_output="$(android --no-metrics --version 2>&1)"', source)
         self.assertNotIn("android --version 2>&1 | head", source)
         self.assertNotIn("android/cli/latest", source)
         self.assertNotIn("android update", source)
+        self.assertNotIn("android init", source)
 
 
 if __name__ == "__main__":

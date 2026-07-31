@@ -84,10 +84,10 @@ runs:
       run: |
         set -euo pipefail
         readonly android_cli_version="1.0.15857036"
-        readonly android_cli_sha256="6f8c947a1a393e213e28e1419aeafcdafc43e6ea97a90296375eaabc6bcacbd6"
-        android_cli="$RUNNER_TEMP/android"
+        readonly android_cli_sha256="e5b6930e96a1e898a69f0194c68f5867bc83fa86dde87ab733ab5493d0c8e7c2"
+        android_cli="$RUNNER_TEMP/android-cli"
         curl -fsSL \
-          "https://dl.google.com/android/cli/$android_cli_version/linux_x86_64/android" \
+          "https://dl.google.com/android/cli/$android_cli_version/linux_x86_64/android-cli" \
           -o "$android_cli"
         printf '%s  %s\n' "$android_cli_sha256" "$android_cli" | sha256sum --check --strict
         mkdir -p "$HOME/.local/bin"
@@ -97,7 +97,7 @@ runs:
         # Capture the complete output before inspecting it. Piping this Rust CLI
         # through `head` can close stdout early and make the process panic with
         # exit 101 when a runner emits an additional informational line.
-        version_output="$(android --version 2>&1)"
+        version_output="$(android --no-metrics --version 2>&1)"
         version_matches=false
         while IFS= read -r version_line; do
           if [ "$version_line" = "$android_cli_version" ]; then
@@ -110,11 +110,6 @@ runs:
           exit 1
         fi
         echo "Android CLI: $android_cli_version"
-        # Install the android-cli agent skill (1.0 feature). `android init`
-        # writes only to agent skill dirs under $HOME (e.g. ~/.claude/skills/),
-        # regardless of cwd -- it never touches the repo tree. Non-fatal: CI
-        # invokes `android` directly; the skill only aids agent-driven runs.
-        android init || echo "android init skipped (non-fatal)"
 
     - name: Read native toolchain policy
       if: inputs.skip-android-sdk-ndk != 'true'
