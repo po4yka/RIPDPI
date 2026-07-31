@@ -45,6 +45,18 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
             self.assertIn("stripReleaseOutputs.set(true)", task_source)
             self.assertNotIn("debugSymbolsDir.set", task_source)
 
+    def test_rust_pluggable_transport_build_retries_transient_cargo_failures(self) -> None:
+        source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+        function_start = source.index("private fun buildRustBinary(")
+        function_end = source.index("private fun buildGoCgoEnvironment(", function_start)
+        function_source = source[function_start:function_end]
+
+        self.assertIn(
+            'execWithRetry("Build ${source.id} Rust pluggable transport for $abi")',
+            function_source,
+        )
+        self.assertIn('"--locked"', function_source)
+
 
 if __name__ == "__main__":
     unittest.main()

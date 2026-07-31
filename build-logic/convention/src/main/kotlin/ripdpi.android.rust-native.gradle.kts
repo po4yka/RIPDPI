@@ -1096,25 +1096,24 @@ abstract class BuildPluggableTransportAssetsTask
             resolveAndroidSdkCmake()?.let { cargoEnvironment["CMAKE"] = it.absolutePath }
 
             val manifest = rustWorkspaceManifest.get().asFile
-            execOperations
-                .exec {
-                    workingDir = manifest.parentFile
-                    environment(cargoEnvironment)
-                    appleHostEnvKeys().forEach(environment::remove)
-                    commandLine(
-                        cargoExecutable.get(),
-                        "build",
-                        "--manifest-path",
-                        manifest.absolutePath,
-                        "-p",
-                        packageName,
-                        "--locked",
-                        "--target",
-                        target,
-                        "--profile",
-                        cargoProfile.get(),
-                    )
-                }.assertNormalExitValue()
+            execWithRetry("Build ${source.id} Rust pluggable transport for $abi") {
+                workingDir = manifest.parentFile
+                environment(cargoEnvironment)
+                appleHostEnvKeys().forEach(environment::remove)
+                commandLine(
+                    cargoExecutable.get(),
+                    "build",
+                    "--manifest-path",
+                    manifest.absolutePath,
+                    "-p",
+                    packageName,
+                    "--locked",
+                    "--target",
+                    target,
+                    "--profile",
+                    cargoProfile.get(),
+                )
+            }
 
             val outputFile = targetDir.resolve("$target/${cargoProfile.get()}/${source.sourceBinaryName}")
             if (!outputFile.isFile) {
