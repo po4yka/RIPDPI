@@ -1557,6 +1557,49 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("target, SNI, or byte count mismatch", result.stderr)
 
+    def test_encrypted_dns_accept_may_predate_the_query_window(self) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        accept = next(
+            item
+            for item in transcript["eventInventory"]
+            if item["detailSha256"]
+            == hashlib.sha256(
+                b"ripdpi:network-evidence-fixture-event-field:v1:detail:accept"
+            ).hexdigest()
+        )
+        accept["createdAt"] = 99_999
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_encrypted_dns_accept_rejects_impossible_timestamps(self) -> None:
+        for created_at in (-1, 100_151):
+            with self.subTest(created_at=created_at):
+                ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+                transcript = json.loads(
+                    self.fixture_transcript.read_text(encoding="utf-8")
+                )
+                accept = next(
+                    item
+                    for item in transcript["eventInventory"]
+                    if item["detailSha256"]
+                    == hashlib.sha256(
+                        b"ripdpi:network-evidence-fixture-event-field:v1:detail:accept"
+                    ).hexdigest()
+                )
+                accept["createdAt"] = created_at
+                self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(
+                    "redacted DoT accept event binding mismatch", result.stderr
+                )
+
     def test_encrypted_dns_transcript_rejects_self_consistent_wrong_query_host(
         self,
     ) -> None:

@@ -1579,6 +1579,9 @@ def _load_fixture_transcript(
     if len(auxiliary_inventory) != 1:
         raise ValueError(f"{gate_id} must contain one redacted DoT accept event")
     accept = auxiliary_inventory[0]
+    # The resolver may preconnect before the scenario marker/window. The exact
+    # peer/target binding still ties that accept to the in-window query flow;
+    # only an impossible negative or post-query accept timestamp is invalid.
     if (
         accept["service"] != "dns_dot"
         or accept["protocol"] != "dot"
@@ -1587,7 +1590,7 @@ def _load_fixture_transcript(
         or accept["detailSha256"] != accept_detail_sha256
         or accept["bytes"] != 0
         or accept["sniSha256"] is not None
-        or not started_ms <= accept["createdAt"] <= query_event["createdAt"]
+        or not 0 <= accept["createdAt"] <= query_event["createdAt"]
     ):
         raise ValueError(f"{gate_id} redacted DoT accept event binding mismatch")
     fault_events = [
