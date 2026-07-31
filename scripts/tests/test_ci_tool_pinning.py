@@ -60,6 +60,14 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn("steps.native-toolchain.outputs.cmake", action)
         self.assertIn('"cmake/${{ steps.native-toolchain.outputs.cmake }}"', action)
         self.assertIn("-cmake-${{ steps.native-toolchain.outputs.cmake }}-", action)
+        self.assertNotIn(
+            "steps.cache-android-sdk.outputs.cache-hit != 'true'",
+            action,
+        )
+        self.assertIn(
+            "a ~/.android cache hit is not installation evidence",
+            action,
+        )
 
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]

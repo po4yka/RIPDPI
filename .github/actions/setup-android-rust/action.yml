@@ -124,13 +124,10 @@ runs:
         echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
 
-    # Cache the android CLI's SDK+NDK directory (~/.android). The android CLI
-    # writes platform-tools, platforms, and NDK packages here, not to
-    # $ANDROID_HOME (/usr/local/lib/android/sdk). Cache key includes the
-    # compile-sdk, NDK version, and NDK setup mode so a Kotlin-only job cannot
-    # save an SDK-only cache that a later native job treats as NDK-complete.
-    # A hash of this action file also invalidates the cache when installation
-    # commands change.
+    # Cache the Android CLI state directory as an installation accelerator only.
+    # Every job still reconciles the packages below because Gradle consumes them
+    # from ANDROID_HOME, and a ~/.android cache hit is not installation evidence.
+    # A hash of this action file invalidates stale CLI state when commands change.
     - name: Cache Android SDK and NDK
       if: inputs.skip-android-sdk-ndk != 'true'
       id: cache-android-sdk
@@ -140,7 +137,7 @@ runs:
         key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ steps.native-toolchain.outputs.ndk }}-cmake-${{ steps.native-toolchain.outputs.cmake }}-ndk-${{ inputs.setup-android-ndk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
 
     - name: Install Android SDK baseline via android CLI
-      if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
+      if: inputs.skip-android-sdk-ndk != 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -162,7 +159,7 @@ runs:
       run: rustup target add ${{ inputs.rust-targets }}
 
     - name: Install native toolchain via android CLI
-      if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
+      if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
       shell: bash
       run: >-
         bash scripts/ci/android-sdk-install.sh
