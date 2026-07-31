@@ -16,6 +16,7 @@ class ProtocolFixtureSpec:
     name: str
     fixture_dir: Path
     spec_version: Path
+    local_fixture_dirs: tuple[str, ...] = ()
 
 
 PROTOCOL_FIXTURES = [
@@ -28,6 +29,7 @@ PROTOCOL_FIXTURES = [
         name="vless",
         fixture_dir=Path("contract-fixtures/vless"),
         spec_version=Path("native/rust/crates/ripdpi-vless/SPEC_VERSION.md"),
+        local_fixture_dirs=("sing-mux-6fb501d",),
     ),
 ]
 
@@ -74,7 +76,8 @@ def check_protocol_fixture(
         else:
             failures.append(f"{spec.name}: unexpected file {child.relative_to(repo_root)}")
 
-    unexpected_tags = sorted(path.name for path in tag_dirs if path.name != expected_tag)
+    expected_dirs = {expected_tag, *spec.local_fixture_dirs}
+    unexpected_tags = sorted(path.name for path in tag_dirs if path.name not in expected_dirs)
     for tag in unexpected_tags:
         failures.append(f"{spec.name}: stale or unpinned fixture tag '{tag}', expected only '{expected_tag}'")
 

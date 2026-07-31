@@ -36,6 +36,16 @@ class ProtocolFixtureVersionsTest(unittest.TestCase):
 
         self.assertTrue(any("vless: stale or unpinned fixture tag 'v0.0.0'" in failure for failure in failures))
 
+    def test_declared_local_vless_fixture_directory_is_allowed(self) -> None:
+        with fixture_repo() as root:
+            local = root / "contract-fixtures/vless/sing-mux-6fb501d/mux/yamux"
+            local.mkdir(parents=True)
+            (local / "frame.hex").write_text("00000000", encoding="utf-8")
+
+            failures = check_protocol_fixture_versions(root)
+
+        self.assertEqual([], failures)
+
     def test_annotated_upstream_tag_normalizes_to_first_token(self) -> None:
         tag = pinned_upstream_tag("- **Upstream tag:** v2 (latest tagged release line)\n")
 
