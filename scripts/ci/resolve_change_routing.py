@@ -101,8 +101,6 @@ WORKFLOW_FILES: Final = frozenset(
 )
 
 FAST_FIXTURE_PREFIXES: Final = (
-    "contract-fixtures/hysteria2/",
-    "contract-fixtures/vless/",
     "core/data/src/test/resources/fleet-fixtures/",
 )
 

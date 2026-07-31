@@ -104,6 +104,8 @@ class ResolveChangeRoutingTest(unittest.TestCase):
     def test_unowned_fixture_and_golden_trees_fail_closed_to_full_ci(self) -> None:
         for path in (
             "contract-fixtures/tunnel_config_fields.json",
+            "contract-fixtures/hysteria2/v2/handshake.bin",
+            "contract-fixtures/vless/v1.260206.0/mux/yamux/frame.bin",
             "core/diagnostics/src/test/resources/golden/report.json",
             "native/rust/crates/ripdpi-desync/tests/goldens/packet.bin",
             "app/src/androidTest/assets/fixtures/device.json",
