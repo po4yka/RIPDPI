@@ -1670,7 +1670,14 @@ jobs:
           python3 scripts/ci/validate_android_junit_results.py \
             app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
             --require-test com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsCreateAndDestroySessionsWithoutStarting \
-            --expected-count 1
+            --expected-count 1 \
+            --minimum-total-count 54
+
+      - name: Preserve GitHub Full instrumentation evidence on ${{ matrix.device }}
+        run: |
+          evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/github-full-integration"
+          mkdir -p "$evidence_dir"
+          cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
 
       - name: Validate GitHub Simple instrumentation evidence on ${{ matrix.device }}
         run: |
@@ -1680,6 +1687,12 @@ jobs:
             --expected-count 1 \
             --expected-total-count 1 \
             --forbid-skips
+
+      - name: Preserve GitHub Simple instrumentation evidence on ${{ matrix.device }}
+        run: |
+          evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/github-simple-integration"
+          mkdir -p "$evidence_dir"
+          cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple/. "$evidence_dir/"
 
       - name: Run JNI strategy instrumentation on ${{ matrix.device }}
         if: matrix.api == 35
@@ -1707,6 +1720,13 @@ jobs:
             --expected-total-count 5 \
             --forbid-skips
 
+      - name: Preserve JNI strategy instrumentation evidence
+        if: matrix.api == 35
+        run: |
+          evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/github-full-jni"
+          mkdir -p "$evidence_dir"
+          cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
+
       - name: Capture Android instrumented-test emulator diagnostics
         if: always()
         run: |
@@ -1726,6 +1746,7 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            ${{ runner.temp }}/android-instrumented-results/
             app/build/outputs/managed_device_android_test_additional_output/
             ${{ runner.temp }}/android-instrumented-${{ matrix.device }}/
           retention-days: 7

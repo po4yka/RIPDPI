@@ -265,6 +265,11 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
         self.assertIn("if: matrix.api == 35", job)
         self.assertIn("StrategyEngineJniInstrumentedTest", job)
         self.assertIn("--expected-total-count 5", job)
+        self.assertIn("--minimum-total-count 54", job)
+        self.assertIn("Preserve GitHub Full instrumentation evidence", job)
+        self.assertIn("Preserve GitHub Simple instrumentation evidence", job)
+        self.assertIn("Preserve JNI strategy instrumentation evidence", job)
+        self.assertIn("${{ runner.temp }}/android-instrumented-results/", job)
 
 
 if __name__ == "__main__":

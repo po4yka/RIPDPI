@@ -42,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         help="require the result set to contain exactly this many testcases",
     )
     parser.add_argument(
+        "--minimum-total-count",
+        type=int,
+        help="require the result set to contain at least this many testcases",
+    )
+    parser.add_argument(
         "--forbid-skips",
         action="store_true",
         help="reject every skipped testcase in the result set",
@@ -162,6 +167,7 @@ def validate(
     *,
     expected_count: int | None,
     expected_total_count: int | None,
+    minimum_total_count: int | None,
     forbid_skips: bool,
 ) -> int:
     xml_files = sorted(results_dir.rglob("*.xml")) if results_dir.is_dir() else []
@@ -184,9 +190,15 @@ def validate(
         raise ValueError("--expected-count must be at least 1")
     if expected_total_count is not None and expected_total_count < 1:
         raise ValueError("--expected-total-count must be at least 1")
+    if minimum_total_count is not None and minimum_total_count < 1:
+        raise ValueError("--minimum-total-count must be at least 1")
     if expected_total_count is not None and len(testcases) != expected_total_count:
         raise ValueError(
             f"result set contains {len(testcases)} testcases, expected {expected_total_count}"
+        )
+    if minimum_total_count is not None and len(testcases) < minimum_total_count:
+        raise ValueError(
+            f"result set contains {len(testcases)} testcases, minimum is {minimum_total_count}"
         )
     required_class, separator, required_method = required_test.rpartition("#")
     if not separator or not required_class or not required_method:
@@ -236,6 +248,7 @@ def main() -> int:
             args.require_test,
             expected_count=args.expected_count,
             expected_total_count=args.expected_total_count,
+            minimum_total_count=args.minimum_total_count,
             forbid_skips=args.forbid_skips,
         )
     except (OSError, ValueError) as error:
