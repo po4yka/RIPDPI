@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import android.os.Build
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -29,19 +30,28 @@ internal class SubprocessRelayBinaryExtractor(
                     .use { it.readText() }
             }.getOrNull()
         val upstreamAsset =
-            resolvePluggableTransportUpstreamAsset(
-                manifestPayload = manifestPayload,
-                abi = abi,
-                binaryName = binaryName,
-                availableAssets = availableAssets,
-            )
+            try {
+                resolvePluggableTransportUpstreamAsset(
+                    manifestPayload = manifestPayload,
+                    abi = abi,
+                    binaryName = binaryName,
+                    availableAssets = availableAssets,
+                )
+            } catch (error: IllegalArgumentException) {
+                removeStalePluggableTransportFile(File(targetDir, binaryName))
+                removeStalePluggableTransportFile(File(targetDir, "$binaryName.upstream"))
+                throw IllegalStateException("Invalid pluggable transport manifest for $binaryName/$abi", error)
+            }
+        val upstreamTarget = File(targetDir, "$binaryName.upstream")
         if (upstreamAsset != null) {
             context.assets.open("$assetDirectory/$upstreamAsset").use { input ->
-                File(targetDir, "$binaryName.upstream").outputStream().use { output ->
+                upstreamTarget.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
-            File(targetDir, "$binaryName.upstream").setExecutable(true, true)
+            upstreamTarget.setExecutable(true, true)
+        } else {
+            removeStalePluggableTransportFile(upstreamTarget)
         }
         val target = File(targetDir, binaryName)
         context.assets.open(assetPath).use { input ->
@@ -60,26 +70,45 @@ internal fun resolvePluggableTransportUpstreamAsset(
     binaryName: String,
     availableAssets: Set<String>,
 ): String? {
-    val manifestUpstream =
-        manifestPayload?.let { payload ->
-            runCatching {
-                Json
-                    .parseToJsonElement(payload)
-                    .jsonObject
-                    .getValue("artifacts")
-                    .jsonArray
-                    .asSequence()
-                    .map { it.jsonObject }
-                    .singleOrNull { artifact ->
-                        artifact["abi"]?.jsonPrimitive?.content == abi &&
-                            artifact["outputName"]?.jsonPrimitive?.content == binaryName
-                    }?.get("upstreamBinary")
-                    ?.jsonPrimitive
-                    ?.content
-                    ?.takeIf { File(it).name == it }
-            }.getOrNull()
+    val legacyUpstream = "$binaryName.upstream"
+    if (manifestPayload == null) {
+        throw IllegalArgumentException("Pluggable transport manifest is unavailable")
+    }
+
+    val artifact =
+        try {
+            Json
+                .parseToJsonElement(manifestPayload)
+                .jsonObject
+                .getValue("artifacts")
+                .jsonArray
+                .asSequence()
+                .map { it.jsonObject }
+                .singleOrNull { candidate ->
+                    candidate["abi"]?.jsonPrimitive?.content == abi &&
+                        candidate["outputName"]?.jsonPrimitive?.content == binaryName
+                }
+                ?: throw IllegalArgumentException("Manifest has no unique artifact for $binaryName/$abi")
+        } catch (error: IllegalArgumentException) {
+            throw error
+        } catch (error: RuntimeException) {
+            throw IllegalArgumentException("Malformed pluggable transport manifest", error)
         }
-    return listOfNotNull(manifestUpstream, "$binaryName.upstream")
+
+    val upstreamElement = artifact["upstreamBinary"]
+    if (upstreamElement == null || upstreamElement is JsonNull) {
+        return null
+    }
+    val manifestUpstream = upstreamElement.jsonPrimitive.content
+    require(manifestUpstream.isNotBlank() && File(manifestUpstream).name == manifestUpstream) {
+        "Unsafe upstream asset name for $binaryName/$abi"
+    }
+    return listOf(manifestUpstream, legacyUpstream)
         .distinct()
         .firstOrNull(availableAssets::contains)
+        ?: throw IllegalArgumentException("Upstream asset is missing for $binaryName/$abi")
+}
+
+internal fun removeStalePluggableTransportFile(file: File) {
+    check(!file.exists() || file.delete()) { "Unable to remove stale pluggable transport file: $file" }
 }

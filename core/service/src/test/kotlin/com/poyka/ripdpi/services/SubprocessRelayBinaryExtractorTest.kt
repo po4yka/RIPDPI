@@ -2,7 +2,9 @@ package com.poyka.ripdpi.services
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.nio.file.Files
 
 class SubprocessRelayBinaryExtractorTest {
     @Test
@@ -32,10 +34,13 @@ class SubprocessRelayBinaryExtractorTest {
 
     @Test
     fun `legacy per-launcher upstream remains supported`() {
+        val manifest =
+            """{"artifacts":[{"abi":"arm64-v8a","outputName":"ripdpi-snowflake","upstreamBinary":"ripdpi-snowflake.upstream"}]}"""
+
         assertEquals(
             "ripdpi-snowflake.upstream",
             resolvePluggableTransportUpstreamAsset(
-                manifestPayload = null,
+                manifestPayload = manifest,
                 abi = "arm64-v8a",
                 binaryName = "ripdpi-snowflake",
                 availableAssets = setOf("ripdpi-snowflake.upstream"),
@@ -44,18 +49,18 @@ class SubprocessRelayBinaryExtractorTest {
     }
 
     @Test
-    fun `unsafe manifest path falls back without traversal`() {
+    fun `unsafe manifest path fails closed without traversal`() {
         val manifest =
             """{"artifacts":[{"abi":"arm64-v8a","outputName":"ripdpi-obfs4","upstreamBinary":"../escape"}]}"""
 
-        assertNull(
+        assertThrows(IllegalArgumentException::class.java) {
             resolvePluggableTransportUpstreamAsset(
                 manifest,
                 "arm64-v8a",
                 "ripdpi-obfs4",
                 setOf("../escape"),
-            ),
-        )
+            )
+        }
     }
 
     @Test
@@ -72,5 +77,44 @@ class SubprocessRelayBinaryExtractorTest {
                 setOf("ripdpi-webtunnel.upstream"),
             ),
         )
+    }
+
+    @Test
+    fun `stub manifest ignores and removes stale legacy upstream`() {
+        val manifest =
+            """{"artifacts":[{"abi":"arm64-v8a","outputName":"ripdpi-obfs4","upstreamBinary":null}]}"""
+        val tempDir = Files.createTempDirectory("ripdpi-pt-extractor").toFile()
+        try {
+            val staleUpstream = tempDir.resolve("ripdpi-obfs4.upstream")
+            staleUpstream.writeText("stale")
+
+            assertNull(
+                resolvePluggableTransportUpstreamAsset(
+                    manifest,
+                    "arm64-v8a",
+                    "ripdpi-obfs4",
+                    setOf("ripdpi-obfs4.upstream"),
+                ),
+            )
+            removeStalePluggableTransportFile(staleUpstream)
+
+            assertEquals(false, staleUpstream.exists())
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `malformed manifest does not fall back to legacy asset`() {
+        for (manifest in listOf(null, "{not-json")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                resolvePluggableTransportUpstreamAsset(
+                    manifest,
+                    "arm64-v8a",
+                    "ripdpi-obfs4",
+                    setOf("ripdpi-obfs4.upstream"),
+                )
+            }
+        }
     }
 }
