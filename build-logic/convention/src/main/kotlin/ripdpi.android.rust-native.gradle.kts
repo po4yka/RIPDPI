@@ -11,6 +11,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.LocalState
@@ -676,6 +677,18 @@ abstract class BuildPluggableTransportAssetsTask
         @get:Input
         abstract val abis: ListProperty<String>
 
+        // CI consumers receive this directory only from the dedicated PT producer.
+        // The manifest digest is a separate input so an artifact from another run
+        // cannot be substituted silently after download.
+        @get:InputDirectory
+        @get:Optional
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val prebuiltSourceDir: DirectoryProperty
+
+        @get:Input
+        @get:Optional
+        abstract val prebuiltManifestSha256: Property<String>
+
         @get:OutputDirectory
         abstract val outputDir: DirectoryProperty
 
@@ -688,6 +701,15 @@ abstract class BuildPluggableTransportAssetsTask
             val outputRoot = outputDir.get().asFile
             val workRoot = workDir.get().asFile
             val sources = parseSourcesManifest(sourcesManifest.get().asFile)
+            val prebuiltPath = prebuiltSourceDir.orNull?.asFile
+            if (prebuiltPath != null) {
+                copyFromVerifiedPrebuilt(
+                    prebuiltRoot = prebuiltPath,
+                    expectedManifestSha256 = prebuiltManifestSha256.orNull,
+                    sources = sources,
+                )
+                return
+            }
             val strictMode = strictFailures.get()
             val hasGoSources = sources.any { it.sourceType == "go" }
             val hasRustSources = sources.any { it.sourceType == "rust" }
@@ -931,6 +953,166 @@ abstract class BuildPluggableTransportAssetsTask
                     require(
                         source.outputNames.isNotEmpty(),
                     ) { "Source ${source.id} must declare at least one output name" }
+                }
+            }
+        }
+
+        private fun copyFromVerifiedPrebuilt(
+            prebuiltRoot: File,
+            expectedManifestSha256: String?,
+            sources: List<PluggableTransportSource>,
+        ) {
+            require(prebuiltRoot.isDirectory) {
+                "Prebuilt pluggable transport assets directory is missing: ${prebuiltRoot.absolutePath}"
+            }
+            require(expectedManifestSha256?.matches(Regex("[0-9a-f]{64}")) == true) {
+                "ripdpi.prebuiltPluggableTransportAssetsManifestSha256 must be a lowercase SHA-256 digest"
+            }
+
+            val manifestFile = prebuiltRoot.resolve("metadata/pluggable-transports.json")
+            require(manifestFile.isFile) {
+                "Prebuilt pluggable transport assets are missing metadata/pluggable-transports.json"
+            }
+            require(sha256(manifestFile) == expectedManifestSha256) {
+                "Prebuilt pluggable transport manifest digest does not match the producer output"
+            }
+
+            val manifest =
+                JsonSlurper().parse(manifestFile) as? Map<*, *>
+                    ?: throw GradleException("Prebuilt pluggable transport manifest must be a JSON object")
+            require((manifest["schemaVersion"] as? Number)?.toInt() == 1) {
+                "Unsupported prebuilt pluggable transport manifest schema"
+            }
+            require(manifest["buildMode"] == "source") {
+                "Prebuilt pluggable transport manifest must contain source-built artifacts"
+            }
+            verifyPrebuiltSources(manifest, sources)
+
+            val records =
+                manifest["artifacts"] as? List<*>
+                    ?: throw GradleException("Prebuilt pluggable transport manifest is missing artifacts")
+            val parsedRecords =
+                records.map { entry ->
+                    val record =
+                        entry as? Map<*, *>
+                            ?: throw GradleException("Prebuilt pluggable transport artifact record must be an object")
+                    val abi = record.requireString("abi")
+                    val outputName = record.requireString("outputName")
+                    (abi to outputName) to record
+                }
+            val recordsByKey = parsedRecords.toMap()
+            require(recordsByKey.size == parsedRecords.size) {
+                "Prebuilt pluggable transport manifest contains duplicate ABI/output records"
+            }
+            val expectedRecords =
+                abis
+                    .get()
+                    .flatMap { abi ->
+                        sources.flatMap { source -> source.outputNames.map { outputName -> abi to outputName } }
+                    }.toSet()
+            require(recordsByKey.keys.containsAll(expectedRecords)) {
+                "Prebuilt pluggable transport manifest does not cover the requested ABI/output set"
+            }
+
+            for ((abi, outputName) in expectedRecords) {
+                val record = requireNotNull(recordsByKey[abi to outputName])
+                val source =
+                    sources.singleOrNull { outputName in it.outputNames }
+                        ?: throw GradleException("No source manifest entry owns prebuilt output $outputName")
+                require(record.requireString("sourceId") == source.id) {
+                    "Prebuilt pluggable transport artifact $abi/$outputName has an unexpected source"
+                }
+                require(record["mode"] == "source") {
+                    "Prebuilt pluggable transport artifact $abi/$outputName was not source-built"
+                }
+
+                val binDir = prebuiltRoot.resolve("bin").resolve(abi)
+                val launcher = binDir.resolve(outputName)
+                require(launcher.isFile && launcher.canExecute()) {
+                    "Prebuilt pluggable transport launcher is missing or not executable: $abi/$outputName"
+                }
+                require(sha256(launcher) == record.requireString("launcherSha256")) {
+                    "Prebuilt pluggable transport launcher digest mismatch: $abi/$outputName"
+                }
+                val upstreamName = record.requireString("upstreamBinary")
+                require(File(upstreamName).name == upstreamName) {
+                    "Prebuilt pluggable transport upstream path is unsafe: $abi/$outputName"
+                }
+                val upstream = binDir.resolve(upstreamName)
+                require(upstream.isFile && upstream.canExecute()) {
+                    "Prebuilt pluggable transport upstream binary is missing or not executable: $abi/$upstreamName"
+                }
+                require(sha256(upstream) == record.requireString("upstreamSha256")) {
+                    "Prebuilt pluggable transport upstream digest mismatch: $abi/$upstreamName"
+                }
+            }
+
+            val outputRoot = outputDir.get().asFile
+            pruneStaleOutputs(outputRoot)
+            copyIfChanged(manifestFile, outputRoot.resolve("metadata/pluggable-transports.json"))
+            for ((abi, outputName) in expectedRecords) {
+                val record = requireNotNull(recordsByKey[abi to outputName])
+                val sourceBinDir = prebuiltRoot.resolve("bin").resolve(abi)
+                val targetBinDir = outputRoot.resolve("bin").resolve(abi)
+                val launcher = sourceBinDir.resolve(outputName)
+                val upstream = sourceBinDir.resolve(record.requireString("upstreamBinary"))
+                val targetLauncher = targetBinDir.resolve(launcher.name)
+                val targetUpstream = targetBinDir.resolve(upstream.name)
+                copyIfChanged(launcher, targetLauncher)
+                copyIfChanged(upstream, targetUpstream)
+                targetLauncher.setExecutable(true, true)
+                targetUpstream.setExecutable(true, true)
+            }
+            makeTreeWritable(outputRoot)
+        }
+
+        private fun verifyPrebuiltSources(
+            manifest: Map<*, *>,
+            sources: List<PluggableTransportSource>,
+        ) {
+            val manifestSources =
+                manifest["sources"] as? List<*>
+                    ?: throw GradleException("Prebuilt pluggable transport manifest is missing sources")
+            val byId =
+                manifestSources.associate { entry ->
+                    val record =
+                        entry as? Map<*, *>
+                            ?: throw GradleException("Prebuilt pluggable transport source record must be an object")
+                    record.requireString("id") to record
+                }
+            require(
+                byId.size == manifestSources.size && byId.keys == sources.map(PluggableTransportSource::id).toSet(),
+            ) {
+                "Prebuilt pluggable transport manifest has an unexpected source set"
+            }
+            for (source in sources) {
+                val record = requireNotNull(byId[source.id])
+                require(record.requireString("sourceType") == source.sourceType) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected source type"
+                }
+                require(record.optionalString("repoUrl") == source.repoUrl) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected repository"
+                }
+                require(record.optionalString("commit") == source.commit) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected pinned revision"
+                }
+                require(record.optionalString("goToolchain") == source.goToolchain) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected Go toolchain"
+                }
+                require(record.optionalString("packagePath") == source.packagePath) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected package path"
+                }
+                require(record.optionalString("packageName") == source.packageName) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected Rust package"
+                }
+                require(record.requireString("sourceBinaryName") == source.sourceBinaryName) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected binary name"
+                }
+                require(record["cgoEnabled"] == source.cgoEnabled) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected CGO setting"
+                }
+                require((record["outputNames"] as? List<*>)?.map(Any?::toString) == source.outputNames) {
+                    "Prebuilt pluggable transport source ${source.id} has an unexpected output list"
                 }
             }
         }
@@ -1316,6 +1498,8 @@ abstract class BuildPluggableTransportAssetsTask
         private fun Map<*, *>.requireString(key: String): String =
             this[key]?.toString()?.takeIf(String::isNotBlank)
                 ?: throw GradleException("Missing required pluggable transport manifest field: $key")
+
+        private fun Map<*, *>.optionalString(key: String): String? = this[key]?.toString()?.takeIf(String::isNotBlank)
     }
 
 val rustNativeAbis = resolvedNativeAbis()
@@ -1599,6 +1783,16 @@ val buildPluggableTransportAssets =
         abis.set(rustNativeAbis)
         outputDir.set(generatedPtAssetsDir)
         workDir.set(ptAssetsBuildDir)
+        providers
+            .gradleProperty("ripdpi.prebuiltPluggableTransportAssetsDir")
+            .orNull
+            ?.takeIf(String::isNotBlank)
+            ?.let { prebuiltSourceDir.set(file(it)) }
+        providers
+            .gradleProperty("ripdpi.prebuiltPluggableTransportAssetsManifestSha256")
+            .orNull
+            ?.takeIf(String::isNotBlank)
+            ?.let { prebuiltManifestSha256.set(it) }
     }
 
 // Wire the Rust build into the actual JNI packaging tasks so Rust-only source

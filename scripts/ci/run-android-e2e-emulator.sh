@@ -12,6 +12,15 @@ run_maestro="${2:-false}"
 run_appium="${3:-false}"
 
 GRADLE_ABI="-Pripdpi.nativeAbisOverride=x86_64"
+PT_GRADLE_ARGS=()
+if [[ -n "${RIPDPI_PREBUILT_PT_DIR:-}" || -n "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:-}" ]]; then
+  : "${RIPDPI_PREBUILT_PT_DIR:?RIPDPI_PREBUILT_PT_DIR is required with a prebuilt PT digest}"
+  : "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:?RIPDPI_PREBUILT_PT_MANIFEST_SHA256 is required with prebuilt PT assets}"
+  PT_GRADLE_ARGS=(
+    "-Pripdpi.prebuiltPluggableTransportAssetsDir=$RIPDPI_PREBUILT_PT_DIR"
+    "-Pripdpi.prebuiltPluggableTransportAssetsManifestSha256=$RIPDPI_PREBUILT_PT_MANIFEST_SHA256"
+  )
+fi
 TARGET_FILE="${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
 RESULTS_DIR="app/build/outputs/androidTest-results/connected/debug/flavors/githubFull"
 RESULT_VALIDATOR="$script_dir/validate_android_junit_results.py"
@@ -40,6 +49,7 @@ run_target() {
   fi
   if ! ./gradlew :app:connectedGithubFullDebugAndroidTest \
     "$GRADLE_ABI" \
+    "${PT_GRADLE_ARGS[@]}" \
     "$@" \
     -Pandroid.testInstrumentationRunnerArguments.coverage=false; then
     return 1

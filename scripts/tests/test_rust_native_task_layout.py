@@ -81,6 +81,27 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         self.assertIn('rustSources.from(rustWorkspaceDir.resolve("rust-toolchain.toml"))', task_source)
         self.assertIn('rustSources.from(rustWorkspaceDir.resolve(".cargo/config.toml"))', task_source)
 
+    def test_prebuilt_pluggable_transports_are_digest_bound_and_verified(self) -> None:
+        source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+        task_start = source.index("abstract class BuildPluggableTransportAssetsTask")
+        task_end = source.index("val rustNativeAbis", task_start)
+        task_source = source[task_start:task_end]
+
+        self.assertIn("abstract val prebuiltSourceDir: DirectoryProperty", task_source)
+        self.assertIn("abstract val prebuiltManifestSha256: Property<String>", task_source)
+        self.assertIn("copyFromVerifiedPrebuilt", task_source)
+        self.assertIn("metadata/pluggable-transports.json", task_source)
+        self.assertIn("manifest digest does not match", task_source)
+        self.assertIn("launcher digest mismatch", task_source)
+        self.assertIn("upstream digest mismatch", task_source)
+        self.assertIn("verifyPrebuiltSources", task_source)
+        self.assertIn("unexpected pinned revision", task_source)
+        self.assertIn("unexpected source set", task_source)
+        self.assertIn("recordsByKey.keys.containsAll(expectedRecords)", task_source)
+        self.assertIn('record["mode"] == "source"', task_source)
+        self.assertIn("ripdpi.prebuiltPluggableTransportAssetsDir", source)
+        self.assertIn("ripdpi.prebuiltPluggableTransportAssetsManifestSha256", source)
+
 
 if __name__ == "__main__":
     unittest.main()

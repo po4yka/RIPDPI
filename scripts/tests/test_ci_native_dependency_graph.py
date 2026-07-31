@@ -18,17 +18,21 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
-    def test_instrumented_tests_wait_only_for_x86_64_shard(self) -> None:
+    def test_instrumented_tests_wait_for_x86_64_and_verified_pt_assets(self) -> None:
         self.assertIn(
-            "needs: [change-routing, rust-native-x86_64]",
+            "needs: [change-routing, rust-native-x86_64, pluggable-transport-assets]",
             job_source("android-instrumented-tests"),
         )
 
     def test_packaging_consumers_wait_for_complete_abi_set(self) -> None:
-        expected_needs = "needs: [change-routing, rust-native-packaging, rust-native-x86_64]"
+        expected_needs = (
+            "needs: [change-routing, rust-native-packaging, rust-native-x86_64, "
+            "pluggable-transport-assets]"
+        )
         self.assertIn(expected_needs, job_source("build-android-debug"))
         self.assertIn(
-            "needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint]",
+            "needs: [change-routing, rust-native-packaging, rust-native-x86_64, "
+            "owned-stack-tls-fingerprint, pluggable-transport-assets]",
             job_source("release-verification"),
         )
 
@@ -81,6 +85,56 @@ class NativeDependencyGraphTest(unittest.TestCase):
                 source = job_source(job_name)
                 for property_name in expected_properties:
                     self.assertIn(f'-P{property_name}="{assets_dir}"', source)
+
+    def test_pt_producer_is_source_only_and_consumers_bind_manifest_digest(self) -> None:
+        producer = job_source("pluggable-transport-assets")
+        self.assertIn(":core:engine:buildPluggableTransportAssets", producer)
+        self.assertIn("-Pripdpi.pluggableTransportAssetsMode=source", producer)
+        self.assertIn("-Pripdpi.pluggableTransportAssetsStrictFailures=true", producer)
+        self.assertIn("github.event.schedule == '0 4 * * 4'", producer)
+        self.assertIn("github.event.schedule == '0 4 * * 5'", producer)
+        self.assertIn("manifest_sha256", producer)
+        self.assertIn("name: pluggable-transport-assets", producer)
+        self.assertIn("pluggable-transport-assets.tar.gz", producer)
+
+        for job_name in (
+            "build-android-debug",
+            "release-verification",
+            "android-instrumented-tests",
+        ):
+            with self.subTest(job=job_name):
+                source = job_source(job_name)
+                self.assertIn("name: pluggable-transport-assets", source)
+                self.assertIn("ripdpi.prebuiltPluggableTransportAssetsDir", source)
+                self.assertIn(
+                    "ripdpi.prebuiltPluggableTransportAssetsManifestSha256",
+                    source,
+                )
+                self.assertIn(
+                    "needs.pluggable-transport-assets.outputs.manifest_sha256",
+                    source,
+                )
+                self.assertIn("Extract verified pluggable transport assets", source)
+                self.assertIn("pluggable-transport-assets.tar.gz", source)
+
+    def test_every_android_asset_consumer_uses_the_pt_producer(self) -> None:
+        workflow_consumers = {
+            "phase0-baseline": "needs: [change-routing, pluggable-transport-assets]",
+            "android-macrobenchmark": "needs: [change-routing, pluggable-transport-assets]",
+            "android-network-e2e": "needs: [change-routing, pluggable-transport-assets]",
+            "android-journeys": "needs: [change-routing, pluggable-transport-assets]",
+            "android-relay-emulator-smoke": "needs: [change-routing, pluggable-transport-assets]",
+        }
+        for job_name, expected_needs in workflow_consumers.items():
+            with self.subTest(job=job_name):
+                source = job_source(job_name)
+                self.assertIn(expected_needs, source)
+                self.assertIn("Download verified pluggable transport assets", source)
+                self.assertIn("Extract verified pluggable transport assets", source)
+                self.assertIn(
+                    "needs.pluggable-transport-assets.outputs.manifest_sha256",
+                    source,
+                )
 
 
 if __name__ == "__main__":

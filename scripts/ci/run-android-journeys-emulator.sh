@@ -44,7 +44,16 @@ adb wait-for-device
 apk="${RIPDPI_JOURNEYS_APK:-}"
 if [[ -z "$apk" ]]; then
   echo "Assembling :app:assembleGithubFullDebug ..."
-  ( cd "$ROOT_DIR" && ./gradlew --no-daemon :app:assembleGithubFullDebug )
+  pt_gradle_args=()
+  if [[ -n "${RIPDPI_PREBUILT_PT_DIR:-}" || -n "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:-}" ]]; then
+    : "${RIPDPI_PREBUILT_PT_DIR:?RIPDPI_PREBUILT_PT_DIR is required with a prebuilt PT digest}"
+    : "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:?RIPDPI_PREBUILT_PT_MANIFEST_SHA256 is required with prebuilt PT assets}"
+    pt_gradle_args=(
+      "-Pripdpi.prebuiltPluggableTransportAssetsDir=$RIPDPI_PREBUILT_PT_DIR"
+      "-Pripdpi.prebuiltPluggableTransportAssetsManifestSha256=$RIPDPI_PREBUILT_PT_MANIFEST_SHA256"
+    )
+  fi
+  ( cd "$ROOT_DIR" && ./gradlew --no-daemon :app:assembleGithubFullDebug "${pt_gradle_args[@]}" )
   apk="$(find "$ROOT_DIR/app/build/outputs/apk/github/debug" -name '*.apk' -print -quit 2>/dev/null || true)"
 fi
 if [[ -z "$apk" || ! -f "$apk" ]]; then

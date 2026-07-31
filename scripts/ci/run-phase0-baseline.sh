@@ -4,6 +4,15 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 artifact_dir="${1:-$repo_root/build/phase0-baseline}"
 load_profile="${RIPDPI_SOAK_PROFILE:-smoke}"
+pt_gradle_args=()
+if [[ -n "${RIPDPI_PREBUILT_PT_DIR:-}" || -n "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:-}" ]]; then
+  : "${RIPDPI_PREBUILT_PT_DIR:?RIPDPI_PREBUILT_PT_DIR is required with a prebuilt PT digest}"
+  : "${RIPDPI_PREBUILT_PT_MANIFEST_SHA256:?RIPDPI_PREBUILT_PT_MANIFEST_SHA256 is required with prebuilt PT assets}"
+  pt_gradle_args=(
+    "-Pripdpi.prebuiltPluggableTransportAssetsDir=$RIPDPI_PREBUILT_PT_DIR"
+    "-Pripdpi.prebuiltPluggableTransportAssetsManifestSha256=$RIPDPI_PREBUILT_PT_MANIFEST_SHA256"
+  )
+fi
 
 mkdir -p "$artifact_dir"
 
@@ -48,7 +57,7 @@ echo "==> Engine wrapper baseline"
 echo "==> Android builds for packaged native size baselines"
 (
   cd "$repo_root"
-  ./gradlew :app:assembleDebug :app:assembleRelease
+  ./gradlew :app:assembleDebug :app:assembleRelease "${pt_gradle_args[@]}"
 )
 
 python3 "$repo_root/scripts/ci/verify_native_sizes.py" \

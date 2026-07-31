@@ -16,7 +16,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  pluggable-transport-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      manifest_sha256: ${{ steps.digest.outputs.manifest_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-release-candidate-pluggable-transports
+          rust-cache-save: "false"
+          gradle-cache-read-only: "true"
+
+      - name: Build source-pinned pluggable transport assets
+        env:
+          RUSTC_WRAPPER: sccache
+        run: >-
+          ./gradlew :core:engine:buildPluggableTransportAssets
+          -Pripdpi.pluggableTransportAssetsMode=source
+          -Pripdpi.pluggableTransportAssetsStrictFailures=true
+
+      - name: Stage verified pluggable transport assets
+        id: digest
+        run: |
+          set -euo pipefail
+          source_root="core/engine/build/generated/pluggableTransportAssets"
+          stage_root="$RUNNER_TEMP/pluggable-transport-assets"
+          test -f "$source_root/metadata/pluggable-transports.json"
+          mkdir -p "$stage_root"
+          cp -a "$source_root/." "$stage_root/"
+          manifest_sha256="$(sha256sum "$stage_root/metadata/pluggable-transports.json" | awk '{print $1}')"
+          test "${#manifest_sha256}" -eq 64
+          tar -C "$stage_root" -czf "$RUNNER_TEMP/pluggable-transport-assets.tar.gz" .
+          printf 'manifest_sha256=%s\n' "$manifest_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified pluggable transport assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pluggable-transport-assets
+          path: ${{ runner.temp }}/pluggable-transport-assets.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
   build-signed-candidate:
+    needs: pluggable-transport-assets
     runs-on: ubuntu-latest
     timeout-minutes: 150
     environment: release-signing
@@ -43,6 +91,19 @@ jobs:
           rust-cache-shared-key: rust-android
           rust-cache-save: "true"
           gradle-cache-read-only: "true"
+
+      - name: Download verified pluggable transport assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pluggable-transport-assets
+          path: ${{ runner.temp }}/pluggable-transport-download
+
+      - name: Extract verified pluggable transport assets
+        run: |
+          set -euo pipefail
+          scripts/ci/extract-pluggable-transport-artifact.sh \
+            "$RUNNER_TEMP/pluggable-transport-download/pluggable-transport-assets.tar.gz" \
+            "$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
 
       - name: Check owned-stack TLS fingerprint snapshot
         run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
@@ -85,7 +146,9 @@ jobs:
             :app:assembleGithubFullReleaseAndroidTest \
             -Pripdpi.testBuildType=release \
             -Pripdpi.enableAbiSplits=true \
-            -Pripdpi.nativeAbiParallelism=1
+            -Pripdpi.nativeAbiParallelism=1 \
+            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
 
       - name: Remove release signing key
         if: always()
