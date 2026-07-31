@@ -17,6 +17,9 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         self.assertIn('removePrefix(":")', source)
         for task_path in ("assemble", "build", "app:assemble", "app:build"):
             self.assertIn(f'"{task_path}"', source)
+        self.assertIn("isReleaseProducingAppAggregate", source)
+        self.assertIn('startsWith("app:assemble")', source)
+        self.assertIn('!contains("debug")', source)
 
     def test_native_tasks_share_one_cargo_target_root(self) -> None:
         source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")

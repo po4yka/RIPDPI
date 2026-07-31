@@ -11,6 +11,9 @@ private val aggregateReleaseTaskPaths =
         "app:build",
     )
 
+private fun String.isReleaseProducingAppAggregate(): Boolean =
+    startsWith("app:assemble") && !contains("debug") && !contains("androidtest")
+
 internal fun parseAbiList(value: String): List<String> =
     value
         .split(',')
@@ -30,7 +33,8 @@ internal fun Project.isReleaseLikeBuild(): Boolean {
         normalized.contains("release") ||
             normalized.contains("bundle") ||
             normalized.contains("publish") ||
-            normalized in aggregateReleaseTaskPaths
+            normalized in aggregateReleaseTaskPaths ||
+            normalized.isReleaseProducingAppAggregate()
     }
 }
 
