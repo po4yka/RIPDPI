@@ -133,10 +133,10 @@ runs:
 
     # Cache both Android CLI state and the actual package directories under the
     # runner SDK root. Caching ~/.android alone can produce a false cache hit:
-    # the CLI metadata is restored while CMake/NDK remain absent from
-    # $ANDROID_HOME. The verification steps below also fail closed when a cache
-    # archive is incomplete.
-    - name: Cache Android SDK and NDK
+    # the CLI metadata is restored while installed packages remain absent from
+    # $ANDROID_HOME. Keep the large native toolchain in its own conditional
+    # cache so Kotlin-only jobs never archive or restore an NDK.
+    - name: Cache Android SDK baseline
       if: inputs.skip-android-sdk-ndk != 'true'
       id: cache-android-sdk
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -145,9 +145,17 @@ runs:
           ~/.android
           ${{ steps.native-toolchain.outputs.sdk-root }}/platform-tools
           ${{ steps.native-toolchain.outputs.sdk-root }}/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}
+        key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
+
+    - name: Cache Android NDK and CMake
+      if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
+      id: cache-android-native
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: |
           ${{ steps.native-toolchain.outputs.sdk-root }}/ndk/${{ steps.native-toolchain.outputs.ndk }}
           ${{ steps.native-toolchain.outputs.sdk-root }}/cmake/${{ steps.native-toolchain.outputs.cmake }}
-        key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ steps.native-toolchain.outputs.ndk }}-cmake-${{ steps.native-toolchain.outputs.cmake }}-ndk-${{ inputs.setup-android-ndk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
+        key: android-native-${{ runner.os }}-${{ steps.native-toolchain.outputs.ndk }}-cmake-${{ steps.native-toolchain.outputs.cmake }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
 
     - name: Ensure Android SDK baseline via android CLI
       if: inputs.skip-android-sdk-ndk != 'true'
@@ -162,6 +170,8 @@ runs:
         if (( ${#packages[@]} > 0 )); then
           bash scripts/ci/android-sdk-install.sh "${packages[@]}"
         fi
+        [[ -x "$sdk_root/platform-tools/adb" ]]
+        [[ -f "$sdk_root/platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}/android.jar" ]]
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
@@ -190,6 +200,8 @@ runs:
         if (( ${#packages[@]} > 0 )); then
           bash scripts/ci/android-sdk-install.sh "${packages[@]}"
         fi
+        [[ -f "$sdk_root/ndk/${{ steps.native-toolchain.outputs.ndk }}/source.properties" ]]
+        [[ -x "$sdk_root/cmake/${{ steps.native-toolchain.outputs.cmake }}/bin/cmake" ]]
 
     - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
       if: inputs.setup-rust == 'true' && inputs.setup-sccache == 'true'

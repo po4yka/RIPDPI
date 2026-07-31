@@ -66,6 +66,12 @@ class CiToolPinningTest(unittest.TestCase):
             "${{ steps.native-toolchain.outputs.cmake }}",
             action,
         )
+        self.assertIn("id: cache-android-native", action)
+        self.assertIn(
+            "if: inputs.skip-android-sdk-ndk != 'true' && "
+            "inputs.setup-android-ndk == 'true'",
+            action,
+        )
         self.assertIn(
             '[[ -x "$sdk_root/cmake/${{ steps.native-toolchain.outputs.cmake }}/bin/cmake" ]]',
             action,

@@ -82,10 +82,12 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn("if: inputs.setup-rust == 'true'", source)
         self.assertIn("inputs.setup-android-ndk == 'true'", source)
 
-    def test_android_sdk_cache_is_separated_by_ndk_installation_mode(self) -> None:
+    def test_android_native_toolchain_uses_a_separate_conditional_cache(self) -> None:
         source = SETUP_ACTION.read_text(encoding="utf-8")
 
-        self.assertIn("-ndk-${{ inputs.setup-android-ndk }}-", source)
+        self.assertIn("id: cache-android-sdk", source)
+        self.assertIn("id: cache-android-native", source)
+        self.assertIn("key: android-native-${{ runner.os }}-", source)
         self.assertIn(
             "${{ steps.native-toolchain.outputs.sdk-root }}/ndk/"
             "${{ steps.native-toolchain.outputs.ndk }}",
