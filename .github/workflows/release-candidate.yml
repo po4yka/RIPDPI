@@ -236,7 +236,7 @@ jobs:
           test -x "$apksigner"
           for apk in "$candidate"/*.apk; do
             name="$(basename "$apk")"
-            if ! output="$($apksigner verify --verbose --print-certs "$apk" 2>&1)"; then
+            if ! output="$($apksigner verify --verbose --print-certs-pem "$apk" 2>&1)"; then
               echo "::error file=$name::APK signature verification failed."
               exit 1
             fi

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import re
 import unittest
@@ -63,6 +65,7 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertLess(signing_key, signing_identity)
         self.assertLess(signing_identity, native_build)
         self.assertGreaterEqual(signing.count("release_signature_fingerprint.py"), 3)
+        self.assertIn("--print-certs-pem", signing)
         self.assertIn("APK signature verification failed", signing)
         self.assertIn("AAB signature verification failed", signing)
         self.assertIn("release_candidate_manifest.py create", signing)
@@ -86,6 +89,21 @@ class ReleaseP0ContractsTest(unittest.TestCase):
             extract_certificate_sha256(f"  SHA256: {colon_delimited}  \n"),
         )
 
+    def test_release_signature_fingerprint_hashes_pem_certificate_der(self) -> None:
+        certificate_der = b"release-certificate-der"
+        encoded = base64.b64encode(certificate_der).decode("ascii")
+        output = (
+            "Signer #1 certificate DN: CN=RIPDPI\n"
+            "-----BEGIN CERTIFICATE-----\n"
+            f"{encoded}\n"
+            "-----END CERTIFICATE-----\n"
+        )
+
+        self.assertEqual(
+            hashlib.sha256(certificate_der).hexdigest(),
+            extract_certificate_sha256(output),
+        )
+
     def test_release_signature_fingerprint_rejects_ambiguous_or_malformed_output(
         self,
     ) -> None:
@@ -94,6 +112,9 @@ class ReleaseP0ContractsTest(unittest.TestCase):
             "",
             "SHA256: not-a-digest",
             f"SHA256: {valid}\nSHA256: {valid}\n",
+            "-----BEGIN CERTIFICATE-----\n***\n-----END CERTIFICATE-----\n",
+            "-----BEGIN CERTIFICATE-----\nYWJj\n-----END CERTIFICATE-----\n"
+            "-----BEGIN CERTIFICATE-----\nZGVm\n-----END CERTIFICATE-----\n",
         ):
             with self.subTest(output=output):
                 with self.assertRaises(ValueError):
