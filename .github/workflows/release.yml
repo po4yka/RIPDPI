@@ -3,42 +3,50 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
-    inputs:
-      create_release:
-        description: "Create GitHub Release"
-        required: false
-        default: "true"
-        type: boolean
-      gate_evidence_run_id:
-        description: "Workflow run containing exact-SHA DNS/IPv6/kill-switch evidence"
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release:
+  prepare-exact-candidate:
     runs-on: ubuntu-latest
-    env:
-      EVIDENCE_RUN_ID: ${{ inputs.gate_evidence_run_id || vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
+    timeout-minutes: 30
     permissions:
       actions: read
-      contents: write
-      id-token: write
-      attestations: write
+      contents: read
+    env:
+      EVIDENCE_RUN_ID: ${{ vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Require DNS/IPv6/kill-switch evidence run
-        run: test -n "$EVIDENCE_RUN_ID"
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            17
 
-      - name: Verify DNS/IPv6/kill-switch evidence provenance
+      - name: Verify immutable release tag and version
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          ./gradlew :app:verifyReleaseVersion -Pripdpi.skipNativeBuild=true
+
+      - name: Require exact-SHA release evidence
+        run: |
+          [[ "$EVIDENCE_RUN_ID" =~ ^[0-9]+$ ]]
+
+      - name: Verify release-evidence workflow provenance
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXPECTED_SHA: ${{ github.sha }}
         run: |
           python3 - <<'PY'
           import json
@@ -46,23 +54,22 @@ jobs:
           import subprocess
 
           run_id = os.environ["EVIDENCE_RUN_ID"]
-          completed = subprocess.run(
+          response = subprocess.run(
               ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"],
               check=True,
               capture_output=True,
               text=True,
           )
-          run = json.loads(completed.stdout)
+          run = json.loads(response.stdout)
           expected = {
-              "path": ".github/workflows/dns-ipv6-killswitch-evidence.yml",
-              "head_sha": os.environ["EXPECTED_SHA"],
               "conclusion": "success",
+              "event": "workflow_dispatch",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "path": ".github/workflows/dns-ipv6-killswitch-evidence.yml",
           }
           for field, value in expected.items():
               if run.get(field) != value:
                   raise SystemExit(f"evidence run {field} does not match release")
-          if run.get("event") not in {"workflow_dispatch", "schedule"}:
-              raise SystemExit("evidence run event is not an approved capture trigger")
           attempt = run.get("run_attempt")
           if not isinstance(attempt, int) or attempt < 1:
               raise SystemExit("evidence run attempt is invalid")
@@ -70,242 +77,214 @@ jobs:
               handle.write(f"EVIDENCE_RUN_ATTEMPT={attempt}\n")
           PY
 
-      - name: Download DNS/IPv6/kill-switch release evidence
+      - name: Download exact-SHA release evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dns-ipv6-killswitch-release-evidence
-          path: ${{ runner.temp }}/dns-ipv6-killswitch-release-evidence
+          path: ${{ runner.temp }}/release-evidence
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ env.EVIDENCE_RUN_ID }}
 
-      - name: Enforce DNS/IPv6/kill-switch release evidence
-        env:
-          RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS: ${{ vars.RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS }}
+      - name: Enforce physical DNS/IPv6/kill-switch evidence
         run: |
-          results_name="${RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS:-}"
-          test "$results_name" = ordinary-results.json || {
-            echo "RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS must name ordinary-results.json from the exact-SHA evidence artifact" >&2
-            exit 1
-          }
-          results_path="$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/$results_name"
-          test -f "$results_path" || {
-            echo "ordinary DNS/IPv6/kill-switch results artifact not found: $results_path" >&2
-            exit 1
-          }
+          evidence="$RUNNER_TEMP/release-evidence"
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
-            --results "$results_path" \
-            --evidence-manifest "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/manifest.json" \
+            --results "$evidence/ordinary-results.json" \
+            --evidence-manifest "$evidence/manifest.json" \
             --applies-to android-client-release \
             --expected-source-sha "$GITHUB_SHA" \
             --expected-evidence-run-id "$EVIDENCE_RUN_ID" \
             --expected-evidence-run-attempt "$EVIDENCE_RUN_ATTEMPT"
 
-      - uses: ./.github/actions/setup-android-rust
-        with:
-          rust-components: ""
-          rust-cache-shared-key: rust-android
-          rust-cache-save: "true"
-          gradle-cache-read-only: "false"
+      - name: Resolve immutable release-candidate handoff
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-      - name: Check owned-stack TLS fingerprint snapshot
-        run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
+          evidence = Path(os.environ["RUNNER_TEMP"]) / "release-evidence"
+          run = json.loads((evidence / "release-candidate-run.json").read_text())
+          if (
+              set(run) != {"runId", "sourceSha", "version"}
+              or run["version"] != "ripdpi_release_candidate_run_v1"
+              or run["sourceSha"] != os.environ["GITHUB_SHA"]
+              or not isinstance(run["runId"], int)
+          ):
+              raise SystemExit("release-candidate handoff is malformed or stale")
+          manifest = json.loads((evidence / "manifest.json").read_text())
+          client_sha = manifest.get("provenance", {}).get("clientArtifactSha256")
+          if not isinstance(client_sha, str) or len(client_sha) != 64:
+              raise SystemExit("evidence client artifact digest is missing")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"CANDIDATE_RUN_ID={run['runId']}\n")
+              handle.write(f"EVIDENCE_CLIENT_SHA256={client_sha}\n")
+          PY
 
-      - name: Resolve release application IDs
-        run: ./gradlew :app:writeReleaseIdentityManifest
-
-      - name: Verify app identity review
-        run: python3 scripts/ci/check_app_identity_review.py --report | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
-
-      - name: Verify release version
-        run: ./gradlew :app:verifyReleaseVersion
-
-      - name: Build Play release AAB
+      - name: Verify release-candidate workflow provenance
         env:
-          RUSTC_WRAPPER: sccache
-          RIPDPI_SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
-          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundlePlayFullRelease -Pripdpi.enableAbiSplits=false -Pripdpi.nativeAbiParallelism=1
-
-      - name: Build F-Droid release APK
-        env:
-          RUSTC_WRAPPER: sccache
-          RIPDPI_SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
-          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleFdroidFullRelease -Pripdpi.nativeAbiParallelism=1
-
-      - name: Build GitHub release APK
-        env:
-          RUSTC_WRAPPER: sccache
-          RIPDPI_SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
-          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleGithubFullRelease -Pripdpi.nativeAbiParallelism=1
-
-      - name: Normalize F-Droid release APK names
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          scripts/ci/generate_update_metadata.py \
-            --apk-glob "app/build/outputs/apk/fdroidFull/release/*.apk" \
-            --output-metadata "app/build/outputs/apk/fdroidFull/release/output-metadata.json" \
-            --gradle-properties "gradle.properties" \
-            --package-name "com.poyka.ripdpi" \
-            --artifact-prefix "app-fdroid-release" \
-            --size-report "fdroid-apk-size-report.md"
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
 
-      - name: Generate GitHub updater metadata
+          run_id = os.environ["CANDIDATE_RUN_ID"]
+          response = subprocess.run(
+              ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          run = json.loads(response.stdout)
+          expected = {
+              "conclusion": "success",
+              "event": "workflow_dispatch",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "path": ".github/workflows/release-candidate.yml",
+          }
+          for field, value in expected.items():
+              if run.get(field) != value:
+                  raise SystemExit(f"candidate run {field} does not match release")
+          PY
+
+      - name: Download exact immutable Android release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: android-release-candidate
+          path: ${{ runner.temp }}/release-candidate
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ env.CANDIDATE_RUN_ID }}
+
+      - name: Bind candidate bytes to physical evidence
         run: |
-          # ponytail: --max-abi-apk-size-mib 170 calibrated to actual per-ABI size
-          # (v0.1.2 max 156.2 MiB; gate introduced post-v0.1.1, never validated at 140).
-          # Real reduction is ABI-filtering the bundled Go PT asset binaries, which are
-          # duplicated across every per-ABI APK because assets aren't ABI-split.
-          scripts/ci/generate_update_metadata.py \
-            --apk-glob "app/build/outputs/apk/githubFull/release/*.apk" \
-            --output-metadata "app/build/outputs/apk/githubFull/release/output-metadata.json" \
-            --gradle-properties "gradle.properties" \
-            --package-name "com.poyka.ripdpi" \
-            --artifact-prefix "app-github-release" \
-            --update-json "update.json" \
-            --sha256sums "SHA256SUMS" \
-            --size-report "github-apk-size-report.md" \
-            --max-abi-apk-size-mib 170
+          candidate="$RUNNER_TEMP/release-candidate"
+          cmp -s \
+            "$candidate/candidate-manifest.json" \
+            "$RUNNER_TEMP/release-evidence/candidate-manifest.json"
+          python3 scripts/ci/release_candidate_manifest.py verify \
+            --directory "$candidate" \
+            --manifest "$candidate/candidate-manifest.json" \
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-client-sha256 "$EVIDENCE_CLIENT_SHA256"
 
-      - name: Install Syft
+      - name: Install pinned Syft
         run: |
           set -euo pipefail
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh |
-            sh -s -- -b /usr/local/bin
+          readonly syft_version=1.50.0
+          readonly syft_sha256=bf7b29ff57f06da30918266a0e1c2885a8f99784798d1bdb1628886aa015d788
+          archive="$RUNNER_TEMP/syft.tar.gz"
+          curl -fsSL \
+            "https://github.com/anchore/syft/releases/download/v$syft_version/syft_${syft_version}_linux_amd64.tar.gz" \
+            -o "$archive"
+          printf '%s  %s\n' "$syft_sha256" "$archive" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/syft"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/syft" syft
+          "$RUNNER_TEMP/syft/syft" version
 
-      - name: Generate Rust SBOM
+      - name: Generate candidate-bound SBOMs
+        run: |
+          syft="$RUNNER_TEMP/syft/syft"
+          "$syft" scan "dir:$RUNNER_TEMP/release-candidate" \
+            --output "cyclonedx-json=$RUNNER_TEMP/android-bom.json"
+          "$syft" scan dir:native/rust \
+            --output "cyclonedx-json=$RUNNER_TEMP/rust-bom.json"
+
+      - name: Stage and verify flat release bundle
         run: |
           set -euo pipefail
-          syft packages dir:native/rust --output "cyclonedx-json=$GITHUB_WORKSPACE/rust-bom.json"
+          candidate="$RUNNER_TEMP/release-candidate"
+          publish="$RUNNER_TEMP/release-publish"
+          mkdir -p "$publish"
+          python3 - "$candidate" "$publish" <<'PY'
+          import json
+          import shutil
+          import sys
+          from pathlib import Path
 
-      - name: Generate Android SBOM
-        run: |
-          set -euo pipefail
-          syft packages dir:. --output "cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json"
+          candidate = Path(sys.argv[1])
+          publish = Path(sys.argv[2])
+          manifest = json.loads((candidate / "candidate-manifest.json").read_text())
+          for name, record in manifest["artifacts"].items():
+              if record["publish"]:
+                  shutil.copy2(candidate / name, publish / name)
+          PY
+          cp "$RUNNER_TEMP/android-bom.json" "$RUNNER_TEMP/rust-bom.json" "$publish/"
+          python3 - "$publish/release-receipt.json" <<'PY'
+          import json
+          import os
+          import sys
 
-      - name: Generate SHA-256 checksums
-        run: |
-          cd "$GITHUB_WORKSPACE"
-          sha256sum \
-            app/build/outputs/bundle/playFullRelease/*.aab \
-            app/build/outputs/apk/fdroidFull/release/*.apk \
-            update.json \
-            rust-bom.json \
-            android-bom.json \
-            >> SHA256SUMS
-          cat SHA256SUMS
+          receipt = {
+              "candidateRunId": int(os.environ["CANDIDATE_RUN_ID"]),
+              "evidenceRunAttempt": int(os.environ["EVIDENCE_RUN_ATTEMPT"]),
+              "evidenceRunId": int(os.environ["EVIDENCE_RUN_ID"]),
+              "sourceSha": os.environ["GITHUB_SHA"],
+              "version": "ripdpi_release_receipt_v1",
+          }
+          with open(sys.argv[1], "w", encoding="utf-8") as handle:
+              json.dump(receipt, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+          checksums="$RUNNER_TEMP/SHA256SUMS"
+          (
+            cd "$publish"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sed 's#  \./#  #'
+          ) > "$checksums"
+          mv "$checksums" "$publish/SHA256SUMS"
+          (
+            cd "$publish"
+            sha256sum -c SHA256SUMS
+          )
 
-      - name: Package deterministic release native symbols
-        run: |
-          set -euo pipefail
-          ndk_version="$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)"
-          readelf="$ANDROID_SDK_ROOT/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
-          test -x "$readelf"
-          python3 scripts/ci/package_native_symbols.py \
-            --symbols-dir core/engine/build/generated/nativeSymbols \
-            --stripped-libs-dir core/engine/build/generated/jniLibs \
-            --output-dir "$RUNNER_TEMP/release-native-symbols" \
-            --readelf "$readelf"
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
-        with:
-          subject-path: |
-            app/build/outputs/bundle/playFullRelease/*.aab
-            app/build/outputs/apk/fdroidFull/release/*.apk
-            app/build/outputs/apk/githubFull/release/*.apk
-            update.json
-            rust-bom.json
-            android-bom.json
-            SHA256SUMS
-            github-apk-size-report.md
-            fdroid-apk-size-report.md
-
-      - name: Upload Play release AAB
+      - name: Upload exact release publish bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: play-release-aab
-          path: app/build/outputs/bundle/playFullRelease/*.aab
-          retention-days: 90
-
-      - name: Upload F-Droid release APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: fdroid-release-apk
-          path: app/build/outputs/apk/fdroidFull/release/*.apk
-          retention-days: 90
-
-      - name: Upload GitHub release APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: github-release-apk
-          path: app/build/outputs/apk/githubFull/release/*.apk
-          retention-days: 90
-
-      - name: Upload GitHub updater metadata
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: github-update-metadata
-          path: |
-            update.json
-            SHA256SUMS
-            github-apk-size-report.md
-            fdroid-apk-size-report.md
-          retention-days: 90
-
-      - name: Upload release retrace inputs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-retrace-inputs
-          path: |
-            app/build/outputs/mapping/*Release/mapping.txt
-            app/build/intermediates/compose_mapping/*Release/compose-mapping.txt
+          name: release-publish-bundle
+          path: ${{ runner.temp }}/release-publish
           if-no-files-found: error
           retention-days: 90
 
-      - name: Upload release native symbols
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  publish:
+    needs: prepare-exact-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release-publish
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release publish bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-native-symbols
-          path: |
-            ${{ runner.temp }}/release-native-symbols/manifest.json
-            ${{ runner.temp }}/release-native-symbols/release-native-symbols.zip
-          if-no-files-found: error
-          retention-days: 90
+          name: release-publish-bundle
+          path: publish
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release == 'true')
+      - name: Reverify publish bundle and require a fresh tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          (cd publish && sha256sum -c SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release already exists and immutable versions must never be overwritten" >&2
+            exit 1
+          fi
+
+      - name: Create draft GitHub Release from exact candidate bytes
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
-          files: |
-            app/build/outputs/bundle/playFullRelease/*.aab
-            app/build/outputs/apk/fdroidFull/release/*.apk
-            app/build/outputs/apk/githubFull/release/*.apk
-            update.json
-            rust-bom.json
-            android-bom.json
-            SHA256SUMS
-            github-apk-size-report.md
-            fdroid-apk-size-report.md
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          overwrite_files: false
+          fail_on_unmatched_files: true
+          files: publish/*
           generate_release_notes: true
 
-      - name: Upload SBOMs and checksums
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-sbom-checksums
-          path: |
-            rust-bom.json
-            android-bom.json
-            SHA256SUMS
-            github-apk-size-report.md
-            fdroid-apk-size-report.md
-          retention-days: 90
+      - name: Publish the fully uploaded draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

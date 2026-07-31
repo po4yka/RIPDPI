@@ -73,31 +73,6 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         )
         self.temp.cleanup()
 
-    @contextlib.contextmanager
-    def tightened(self, *withheld: str):
-        """Run the block with ``withheld`` relaxations removed from the policy."""
-        relaxations = gates.network_evidence_manifest.release_evidence_relaxations
-        original = relaxations.POLICY_PATH
-        policy = json.loads(original.read_text(encoding="utf-8"))
-        block = policy.setdefault("relaxedEvidenceRequirements", {})
-        declared = block.get("requirements", [])
-        remaining = [item for item in declared if item not in withheld]
-        self.assertEqual(
-            len(remaining) + len(withheld),
-            len(declared),
-            "withheld relaxation is not declared by the shipped policy",
-        )
-        block["requirements"] = remaining
-        tightened_path = (
-            Path(self.temp.name) / "tightened-dns-ipv6-killswitch-gates.json"
-        )
-        tightened_path.write_text(json.dumps(policy), encoding="utf-8")
-        relaxations.POLICY_PATH = tightened_path
-        try:
-            yield
-        finally:
-            relaxations.POLICY_PATH = original
-
     def results_document(self, *, source_sha: str = "a" * 40) -> dict:
         return {
             "version": "dns_ipv6_killswitch_results_v1",
@@ -132,6 +107,30 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         path = directory / "results.json"
         path.write_text(json.dumps(document), encoding="utf-8")
         return path
+
+    def test_ordinary_physical_proof_is_bound_to_dual_vantage_artifacts(self) -> None:
+        results = {
+            "rawBundleProvenance": {
+                "appApkSha256": "8" * 64,
+                "testApkSha256": "7" * 64,
+            }
+        }
+        manifest = {
+            "provenance": {
+                "clientArtifactSha256": "8" * 64,
+                "testArtifactSha256": "7" * 64,
+            }
+        }
+        gates.validate_ordinary_artifact_binding(results, manifest)
+
+        results["rawBundleProvenance"]["appApkSha256"] = "9" * 64
+        with self.assertRaisesRegex(ValueError, "appApkSha256"):
+            gates.validate_ordinary_artifact_binding(results, manifest)
+
+        results["rawBundleProvenance"]["appApkSha256"] = "8" * 64
+        results["rawBundleProvenance"]["testApkSha256"] = "6" * 64
+        with self.assertRaisesRegex(ValueError, "testApkSha256"):
+            gates.validate_ordinary_artifact_binding(results, manifest)
 
     def evidence_bundle(
         self,
@@ -672,10 +671,6 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         root.mkdir()
         manifest_path = self.evidence_bundle(root)
         results_path = self.write_ordinary_results(root)
-        gates.network_evidence_manifest.ACTION_REGISTRY_PATH = (
-            self.original_action_registry_path
-        )
-
         argv = [
             "--results",
             str(results_path),
@@ -687,14 +682,9 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "a" * 40,
         ]
 
-        with self.tightened("android-action-selector-receipt"):
-            with self.assertRaisesRegex(
-                ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
-            ):
-                gates.main(argv)
-
-        # The hand-authored all-PASS document is refused by the independent
-        # semantic-provenance guard in both policy modes.
+        # The shipped policy is fail-closed: source-owned selectors are ready,
+        # so the hand-authored all-PASS document reaches and fails the physical
+        # attestation guard.
         with self.assertRaisesRegex(
             ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
         ):
@@ -732,15 +722,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "a" * 40,
         ]
 
-        with self.tightened("producer-collector-workload-allowlist"):
-            with self.assertRaisesRegex(ValueError, "digest is not approved"):
-                gates.main(argv)
-
-        # Relaxed, an empty producer allowlist no longer blocks. The remaining
-        # semantic-provenance guard still refuses the hand-authored all-PASS.
-        with self.assertRaisesRegex(
-            ValueError, "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
-        ):
+        with self.assertRaisesRegex(ValueError, "digest is not approved"):
             gates.main(argv)
 
     def test_main_accepts_all_19_fleet_gates_from_ordinary_results(self) -> None:
@@ -932,8 +914,8 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertIn("actions/download-artifact@", release)
         self.assertIn("dns-ipv6-killswitch-release-evidence", release)
         self.assertIn("--evidence-manifest", release)
-        self.assertIn('--results "$results_path"', release)
-        self.assertIn("RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS", release)
+        self.assertIn('--results "$evidence/ordinary-results.json"', release)
+        self.assertNotIn("RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS", release)
         self.assertIn("--applies-to android-client-release", release)
         self.assertIn('--expected-source-sha "$GITHUB_SHA"', release)
         self.assertIn("actions/runs/", release)
@@ -956,7 +938,10 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             self.assertNotIn("physical-android", target)
             self.assertNotIn("ripdpi-network-evidence", target)
         self.assertIn("run-dual-vantage-network-evidence.sh", evidence)
-        self.assertIn(":app:assembleGithubFullDebugAndroidTest", evidence)
+        self.assertNotIn(":app:assemble", evidence)
+        self.assertIn("app-github-release-x86_64.apk", evidence)
+        self.assertIn("app-github-release-androidTest.apk", evidence)
+        self.assertIn("candidate_run_id", evidence)
         self.assertIn('--test-artifact "$TEST_ARTIFACT_PATH"', evidence)
         self.assertIn("com.poyka.ripdpi.test", evidence)
         self.assertIn("TEST_ARTIFACT_SHA256", evidence)

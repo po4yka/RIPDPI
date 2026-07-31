@@ -43,7 +43,7 @@ class ReleaseEvidenceRelaxationsTest(unittest.TestCase):
 
     def test_shipped_policy_declares_only_known_relaxations(self) -> None:
         declared = relaxations.relaxed_requirements()
-        self.assertTrue(declared <= relaxations.KNOWN_RELAXATIONS)
+        self.assertEqual(frozenset(), declared)
 
     def test_absent_block_means_nothing_is_relaxed(self) -> None:
         self.assertEqual(relaxations.relaxed_requirements(self.write(None)), frozenset())

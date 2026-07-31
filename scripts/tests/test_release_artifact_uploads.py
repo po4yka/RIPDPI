@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = (
     ROOT / ".github/workflows/ci.yml",
-    ROOT / ".github/workflows/release.yml",
+    ROOT / ".github/workflows/release-candidate.yml",
 )
 
 
@@ -59,7 +59,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
 
     def test_native_symbol_bundle_uses_one_shared_fail_closed_packager(self) -> None:
         ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        release_source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        release_source = (ROOT / ".github/workflows/release-candidate.yml").read_text(encoding="utf-8")
 
         self.assertEqual(1, ci_source.count("name: release-native-symbols\n"))
         self.assertIn("matrix.variant.id == 'github-full'", ci_source)
@@ -78,21 +78,15 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         self.assertIn("name: native-symbols-x86_64", source)
         self.assertIn("if-no-files-found: error", source)
 
-    def test_release_sboms_use_single_scoped_syft_inventories(self) -> None:
+    def test_release_sboms_use_pinned_syft_outside_signing_job(self) -> None:
         source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
 
-        self.assertEqual(1, source.count("anchore/syft/main/install.sh"))
+        self.assertNotIn("anchore/syft/main/install.sh", source)
         self.assertNotIn("cargo cyclonedx", source)
-        rust_block = upload_block(source, "Generate Rust SBOM")
-        self.assertIn(
-            'syft packages dir:native/rust --output "cyclonedx-json=$GITHUB_WORKSPACE/rust-bom.json"',
-            rust_block,
-        )
-        android_block = upload_block(source, "Generate Android SBOM")
-        self.assertIn(
-            'syft packages dir:. --output "cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json"',
-            android_block,
-        )
+        self.assertIn("readonly syft_version=1.50.0", source)
+        self.assertIn("sha256sum --check --strict", source)
+        self.assertIn('"dir:$RUNNER_TEMP/release-candidate"', source)
+        self.assertIn("dir:native/rust", source)
 
     def test_release_evidence_handoff_is_private_and_fail_closed(self) -> None:
         evidence_source = (
@@ -102,11 +96,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn(
-            "ORDINARY_RESULTS_BASE64: "
-            "${{ secrets.RIPDPI_ANDROID_ORDINARY_RESULTS_BASE64 }}",
-            evidence_source,
-        )
+        self.assertIn("ORDINARY_RESULTS_BASE64: ${{ secrets.RIPDPI_ANDROID_ORDINARY_RESULTS_BASE64 }}", evidence_source)
         self.assertIn(
             "printf '%s' \"$ORDINARY_RESULTS_BASE64\" | base64 --decode",
             evidence_source,
@@ -115,14 +105,8 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             "--expected-evidence-run-id \"$GITHUB_RUN_ID\"",
             evidence_source,
         )
-        self.assertIn(
-            'test "$results_name" = ordinary-results.json', release_source
-        )
-        self.assertIn(
-            'results_path="$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/'
-            '$results_name"',
-            release_source,
-        )
+        self.assertIn("--expected-client-sha256 \"$EVIDENCE_CLIENT_SHA256\"", release_source)
+        self.assertIn("release-candidate-run.json", release_source)
         self.assertNotIn("eval ", release_source)
 
 

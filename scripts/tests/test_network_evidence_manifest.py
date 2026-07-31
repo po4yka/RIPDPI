@@ -80,28 +80,19 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         self.temp.cleanup()
 
     @contextlib.contextmanager
-    def tightened(self, *withheld: str):
-        """Run the block with ``withheld`` relaxations removed from the policy.
-
-        Proves the fail-closed path is intact and one policy edit away, rather
-        than deleted outright.
-        """
+    def relaxed(self, *requirements: str):
+        """Apply an explicit test-only relaxation without changing production."""
         relaxations = evidence.release_evidence_relaxations
         original = relaxations.POLICY_PATH
         policy = json.loads(original.read_text(encoding="utf-8"))
         block = policy.setdefault("relaxedEvidenceRequirements", {})
-        remaining = [
-            item for item in block.get("requirements", []) if item not in withheld
-        ]
-        self.assertEqual(
-            len(remaining) + len(withheld),
-            len(block.get("requirements", [])),
-            "withheld relaxation is not declared by the shipped policy",
-        )
-        block["requirements"] = remaining
-        tightened_path = self.root / "tightened-dns-ipv6-killswitch-gates.json"
-        tightened_path.write_text(json.dumps(policy), encoding="utf-8")
-        relaxations.POLICY_PATH = tightened_path
+        declared = block.setdefault("requirements", [])
+        unknown = set(requirements) - relaxations.KNOWN_RELAXATIONS
+        self.assertFalse(unknown, f"unknown test relaxation: {sorted(unknown)}")
+        block["requirements"] = sorted(set(declared) | set(requirements))
+        relaxed_path = self.root / "relaxed-dns-ipv6-killswitch-gates.json"
+        relaxed_path.write_text(json.dumps(policy), encoding="utf-8")
+        relaxations.POLICY_PATH = relaxed_path
         try:
             yield
         finally:
@@ -668,10 +659,10 @@ fi
     ) -> None:
         manifest = self.assemble()
         manifest["provenance"]["workloadSha256"] = "a" * 64
-        self.validate(manifest)
-        with self.tightened("producer-collector-workload-allowlist"):
-            with self.assertRaisesRegex(ValueError, "workload digest is not approved"):
-                self.validate(manifest)
+        with self.relaxed("producer-collector-workload-allowlist"):
+            self.validate(manifest)
+        with self.assertRaisesRegex(ValueError, "workload digest is not approved"):
+            self.validate(manifest)
 
     def test_assembler_rejects_observation_test_artifact_mismatch(self) -> None:
         observer = self.observation("external-observer")
@@ -732,10 +723,10 @@ fi
                 "workloadSha256": [],
             },
         )
-        self.assemble()
-        with self.tightened("producer-collector-workload-allowlist"):
-            with self.assertRaisesRegex(ValueError, "digest is not approved"):
-                self.assemble()
+        with self.relaxed("producer-collector-workload-allowlist"):
+            self.assemble()
+        with self.assertRaisesRegex(ValueError, "digest is not approved"):
+            self.assemble()
 
     def test_malformed_producer_allowlist_still_fails_while_relaxed(self) -> None:
         evidence.write_canonical_json(
@@ -1080,7 +1071,7 @@ fi
                 require_pass=True,
             )
 
-    def test_all_pass_manifest_is_releasable_with_ready_actions_when_tightened(
+    def test_all_pass_manifest_is_releasable_with_ready_actions_under_strict_policy(
         self,
     ) -> None:
         manifest = self.assemble()
@@ -1094,9 +1085,6 @@ fi
         }
 
         evidence.validate_manifest(manifest, **kwargs)
-
-        with self.tightened("android-action-selector-receipt"):
-            evidence.validate_manifest(manifest, **kwargs)
 
     def test_unready_action_override_allows_synthetic_test_bundle(self) -> None:
         manifest = self.assemble()

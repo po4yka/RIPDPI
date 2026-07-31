@@ -1,0 +1,238 @@
+name: Android release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Future immutable release tag (vX.Y.Z)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build-signed-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    environment: release-signing
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      EXPECTED_RELEASE_CERT_SHA256: ${{ vars.RIPDPI_RELEASE_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate release-candidate ref and identity inputs
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$EXPECTED_RELEASE_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "true"
+          gradle-cache-read-only: "false"
+
+      - name: Check owned-stack TLS fingerprint snapshot
+        run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
+
+      - name: Resolve and verify release identity
+        run: |
+          ./gradlew :app:writeReleaseIdentityManifest \
+            :app:verifyReleaseVersion \
+            -Pripdpi.releaseRefName="$RELEASE_TAG"
+          python3 scripts/ci/check_app_identity_review.py --report | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Materialize release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          chmod 0600 "$RUNNER_TEMP/release.keystore"
+
+      - name: Build signed release candidate once
+        env:
+          RUSTC_WRAPPER: sccache
+          RIPDPI_SIGNING_STORE_FILE: ${{ runner.temp }}/release.keystore
+          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew \
+            :app:bundlePlayFullRelease \
+            :app:assembleFdroidFullRelease \
+            :app:assembleGithubFullRelease \
+            :app:assembleGithubFullReleaseAndroidTest \
+            -Pripdpi.testBuildType=release \
+            -Pripdpi.enableAbiSplits=true \
+            -Pripdpi.nativeAbiParallelism=1
+
+      - name: Remove release signing key
+        if: always()
+        run: |
+          key="$RUNNER_TEMP/release.keystore"
+          if [ -f "$key" ]; then
+            shred -u "$key"
+          fi
+
+      - name: Normalize channel artifacts and metadata
+        run: |
+          set -euo pipefail
+          scripts/ci/generate_update_metadata.py \
+            --apk-glob "app/build/outputs/apk/fdroidFull/release/*.apk" \
+            --output-metadata "app/build/outputs/apk/fdroidFull/release/output-metadata.json" \
+            --gradle-properties gradle.properties \
+            --package-name com.poyka.ripdpi \
+            --artifact-prefix app-fdroid-release \
+            --size-report fdroid-apk-size-report.md
+          scripts/ci/generate_update_metadata.py \
+            --apk-glob "app/build/outputs/apk/githubFull/release/*.apk" \
+            --output-metadata "app/build/outputs/apk/githubFull/release/output-metadata.json" \
+            --gradle-properties gradle.properties \
+            --package-name com.poyka.ripdpi \
+            --artifact-prefix app-github-release \
+            --update-json update.json \
+            --sha256sums "$RUNNER_TEMP/intermediate-SHA256SUMS" \
+            --size-report github-apk-size-report.md \
+            --max-abi-apk-size-mib 170
+
+      - name: Stage immutable candidate inventory
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/release-candidate"
+          mkdir -p "$candidate"
+          mapfile -t bundles < <(find app/build/outputs/bundle/playFullRelease -maxdepth 1 -type f -name '*.aab')
+          test "${#bundles[@]}" -eq 1
+          cp "${bundles[0]}" "$candidate/app-play-full-release.aab"
+          cp app/build/outputs/apk/fdroidFull/release/app-fdroid-release-*.apk "$candidate/"
+          cp app/build/outputs/apk/githubFull/release/app-github-release-*.apk "$candidate/"
+          mapfile -t test_apks < <(find app/build/outputs/apk/androidTest -type f -name '*.apk')
+          test "${#test_apks[@]}" -eq 1
+          cp "${test_apks[0]}" "$candidate/app-github-release-androidTest.apk"
+          cp update.json github-apk-size-report.md fdroid-apk-size-report.md "$candidate/"
+          python3 scripts/ci/release_candidate_manifest.py create \
+            --directory "$candidate" \
+            --source-sha "$GITHUB_SHA" \
+            --output "$candidate/candidate-manifest.json"
+          python3 scripts/ci/release_candidate_manifest.py verify \
+            --directory "$candidate" \
+            --manifest "$candidate/candidate-manifest.json" \
+            --expected-source-sha "$GITHUB_SHA"
+
+      - name: Verify release signatures and signer continuity
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/release-candidate"
+          apksigner="$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          test -x "$apksigner"
+          for apk in "$candidate"/*.apk; do
+            output="$($apksigner verify --verbose --print-certs "$apk")"
+            if [ "$(basename "$apk")" != app-github-release-androidTest.apk ]; then
+              actual="$(printf '%s\n' "$output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr 'A-F' 'a-f')"
+              test "$actual" = "$EXPECTED_RELEASE_CERT_SHA256"
+            fi
+          done
+          jarsigner -verify -strict "$candidate/app-play-full-release.aab"
+          actual_aab="$(keytool -J-Duser.language=en -printcert -jarfile "$candidate/app-play-full-release.aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f')"
+          test "$actual_aab" = "$EXPECTED_RELEASE_CERT_SHA256"
+
+      - name: Verify native ELF payload from exact candidate APKs
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/release-candidate"
+          extracted="$RUNNER_TEMP/candidate-native"
+          mkdir -p "$extracted"
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            unzip -q "$candidate/app-github-release-$abi.apk" 'lib/*/*.so' -d "$extracted"
+          done
+          python3 scripts/ci/verify_native_elfs.py \
+            --lib-dir "$extracted/lib" \
+            --abis arm64-v8a,armeabi-v7a,x86,x86_64
+
+      - name: Package deterministic release native symbols
+        run: |
+          set -euo pipefail
+          ndk_version="$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)"
+          readelf="$ANDROID_SDK_ROOT/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          test -x "$readelf"
+          python3 scripts/ci/package_native_symbols.py \
+            --symbols-dir core/engine/build/generated/nativeSymbols \
+            --stripped-libs-dir core/engine/build/generated/jniLibs \
+            --output-dir "$RUNNER_TEMP/release-native-symbols" \
+            --readelf "$readelf"
+
+      - name: Upload immutable Android release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-release-candidate
+          path: ${{ runner.temp }}/release-candidate
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload release retrace inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate-retrace-inputs
+          path: |
+            app/build/outputs/mapping/*Release/mapping.txt
+            app/build/intermediates/compose_mapping/*Release/compose-mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload release native symbols
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate-native-symbols
+          path: |
+            ${{ runner.temp }}/release-native-symbols/manifest.json
+            ${{ runner.temp }}/release-native-symbols/release-native-symbols.zip
+          if-no-files-found: error
+          retention-days: 90
+
+  attest-candidate:
+    needs: build-signed-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download immutable Android release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: android-release-candidate
+          path: ${{ runner.temp }}/release-candidate
+
+      - name: Reverify candidate before attestation
+        run: |
+          python3 scripts/ci/release_candidate_manifest.py verify \
+            --directory "$RUNNER_TEMP/release-candidate" \
+            --manifest "$RUNNER_TEMP/release-candidate/candidate-manifest.json" \
+            --expected-source-sha "$GITHUB_SHA"
+
+      - name: Attest exact candidate build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-candidate/*.apk
+            ${{ runner.temp }}/release-candidate/*.aab
+            ${{ runner.temp }}/release-candidate/candidate-manifest.json

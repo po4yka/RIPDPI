@@ -389,6 +389,27 @@ def dual_vantage_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
     }
 
 
+def validate_ordinary_artifact_binding(
+    ordinary_results: dict, evidence_manifest: dict
+) -> None:
+    """Bind physical ordinary PASS proof to the dual-vantage client bytes."""
+    provenance = ordinary_results.get("rawBundleProvenance")
+    if provenance is None:
+        return
+    evidence_provenance = evidence_manifest.get("provenance")
+    if not isinstance(provenance, dict) or not isinstance(evidence_provenance, dict):
+        raise ValueError("release evidence artifact provenance is missing")
+    bindings = {
+        "appApkSha256": "clientArtifactSha256",
+        "testApkSha256": "testArtifactSha256",
+    }
+    for ordinary_key, evidence_key in bindings.items():
+        if provenance.get(ordinary_key) != evidence_provenance.get(evidence_key):
+            raise ValueError(
+                f"ordinary {ordinary_key} does not match dual-vantage {evidence_key}"
+            )
+
+
 def applicable_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
     """Return policy gates that apply to the selected release target."""
     policy_scopes = policy.get("appliesTo", [])
@@ -585,6 +606,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     merged_gate_results: dict[str, object] = {}
+    manifest: dict | None = None
     if evidence_supplied:
         manifest_path = Path(args.evidence_manifest)
         if not manifest_path.is_file():
@@ -625,6 +647,8 @@ def main(argv: list[str] | None = None) -> int:
             expected_source_sha=args.expected_source_sha,
             applies_to=args.applies_to,
         )
+        if manifest is not None:
+            validate_ordinary_artifact_binding(ordinary_results, manifest)
         ordinary_gate_results = ordinary_results["gateResults"]
         overlap = set(ordinary_gate_results) & evidence_gate_ids
         if overlap:

@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
-    echo "Usage: $0 --device SERIAL --fixture-ssh USER@HOST --fixture-ssh-port PORT --fixture-ipv4 IP --fixture-ipv6 IP --output-dir ABSOLUTE_DIR [--fixture-tailscale-proxy --fixture-host-key-alias HOST]" >&2
+    echo "Usage: $0 --device SERIAL --fixture-ssh USER@HOST --fixture-ssh-port PORT --fixture-ipv4 IP --fixture-ipv6 IP --output-dir ABSOLUTE_DIR [--app-apk ABSOLUTE_APK --test-apk ABSOLUTE_APK] [--fixture-tailscale-proxy --fixture-host-key-alias HOST]" >&2
 }
 
 device=""
@@ -15,6 +15,8 @@ fixture_ipv6=""
 output_dir=""
 fixture_tailscale_proxy=0
 fixture_host_key_alias=""
+app_apk=""
+test_apk=""
 while (($#)); do
     case "$1" in
         --device) device="$2"; shift 2 ;;
@@ -23,6 +25,8 @@ while (($#)); do
         --fixture-ipv4) fixture_ipv4="$2"; shift 2 ;;
         --fixture-ipv6) fixture_ipv6="$2"; shift 2 ;;
         --output-dir) output_dir="$2"; shift 2 ;;
+        --app-apk) app_apk="$2"; shift 2 ;;
+        --test-apk) test_apk="$2"; shift 2 ;;
         --fixture-tailscale-proxy) fixture_tailscale_proxy=1; shift ;;
         --fixture-host-key-alias) fixture_host_key_alias="$2"; shift 2 ;;
         *) usage; exit 2 ;;
@@ -31,6 +35,14 @@ done
 if [[ -z "$device" || -z "$fixture_ssh" || -z "$fixture_ssh_port" || -z "$fixture_ipv4" || -z "$fixture_ipv6" || "$output_dir" != /* ]]; then
     usage
     exit 2
+fi
+if [[ -n "$app_apk" || -n "$test_apk" ]]; then
+    if [[ "$app_apk" != /* || "$test_apk" != /* || ! -f "$app_apk" || ! -f "$test_apk" ]]; then
+        echo "Prebuilt evidence APKs must be supplied together as absolute regular files." >&2
+        exit 2
+    fi
+    app_apk="$(realpath "$app_apk")"
+    test_apk="$(realpath "$test_apk")"
 fi
 if ((fixture_tailscale_proxy)); then
     if [[ ! "$fixture_host_key_alias" =~ ^[A-Za-z0-9.:-]+$ ]]; then
@@ -251,9 +263,11 @@ manifest="$output_dir/raw-manifest.json"
 attestation="$output_dir/physical-attestation.json"
 results="$output_dir/ordinary-results.json"
 
-./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest
-app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-${device_abi}-debug.apk"
-test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
+if [[ -z "$app_apk" ]]; then
+    ./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest
+    app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-${device_abi}-debug.apk"
+    test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
+fi
 test -f "$app_apk" -a -f "$test_apk"
 app_sha="$(shasum -a 256 "$app_apk" | awk '{print $1}')"
 test_sha="$(shasum -a 256 "$test_apk" | awk '{print $1}')"
@@ -273,8 +287,13 @@ fi
 "${adb[@]}" install -r -t "$test_apk" >/dev/null
 installed_app_path="$("${adb[@]}" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r' | head -n1)"
 installed_test_path="$("${adb[@]}" shell pm path com.poyka.ripdpi.test | sed -n 's/^package://p' | tr -d '\r' | head -n1)"
-installed_app_sha="$("${adb[@]}" shell run-as com.poyka.ripdpi toybox sha256sum "$installed_app_path" | awk '{print $1}' | tr -d '\r')"
-installed_test_sha="$("${adb[@]}" shell run-as com.poyka.ripdpi.test toybox sha256sum "$installed_test_path" | awk '{print $1}' | tr -d '\r')"
+installed_app_copy="$output_dir/installed-app.apk"
+installed_test_copy="$output_dir/installed-test.apk"
+"${adb[@]}" pull "$installed_app_path" "$installed_app_copy" >/dev/null
+"${adb[@]}" pull "$installed_test_path" "$installed_test_copy" >/dev/null
+installed_app_sha="$(shasum -a 256 "$installed_app_copy" | awk '{print $1}')"
+installed_test_sha="$(shasum -a 256 "$installed_test_copy" | awk '{print $1}')"
+rm -f "$installed_app_copy" "$installed_test_copy"
 if [[ "$installed_app_sha" != "$app_sha" || "$installed_test_sha" != "$test_sha" ]]; then
     echo "Installed APK readback differs from the exact build outputs." >&2
     exit 2
