@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import android.os.Build
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
@@ -71,29 +72,19 @@ internal fun resolvePluggableTransportUpstreamAsset(
     availableAssets: Set<String>,
 ): String? {
     val legacyUpstream = "$binaryName.upstream"
-    if (manifestPayload == null) {
-        throw IllegalArgumentException("Pluggable transport manifest is unavailable")
-    }
-
-    val artifact =
-        try {
-            Json
-                .parseToJsonElement(manifestPayload)
-                .jsonObject
-                .getValue("artifacts")
-                .jsonArray
-                .asSequence()
-                .map { it.jsonObject }
-                .singleOrNull { candidate ->
-                    candidate["abi"]?.jsonPrimitive?.content == abi &&
-                        candidate["outputName"]?.jsonPrimitive?.content == binaryName
-                }
-                ?: throw IllegalArgumentException("Manifest has no unique artifact for $binaryName/$abi")
-        } catch (error: IllegalArgumentException) {
-            throw error
-        } catch (error: RuntimeException) {
-            throw IllegalArgumentException("Malformed pluggable transport manifest", error)
+    val manifest =
+        requireNotNull(manifestPayload) {
+            "Pluggable transport manifest is unavailable"
         }
+    val artifact =
+        parsePluggableTransportArtifacts(manifest)
+            .asSequence()
+            .map { it.jsonObject }
+            .singleOrNull { candidate ->
+                candidate["abi"]?.jsonPrimitive?.content == abi &&
+                    candidate["outputName"]?.jsonPrimitive?.content == binaryName
+            }
+            ?: throw IllegalArgumentException("Manifest has no unique artifact for $binaryName/$abi")
 
     val upstreamElement = artifact["upstreamBinary"]
     if (upstreamElement == null || upstreamElement is JsonNull) {
@@ -108,6 +99,24 @@ internal fun resolvePluggableTransportUpstreamAsset(
         .firstOrNull(availableAssets::contains)
         ?: throw IllegalArgumentException("Upstream asset is missing for $binaryName/$abi")
 }
+
+private fun parsePluggableTransportArtifacts(manifestPayload: String) =
+    try {
+        Json
+            .parseToJsonElement(manifestPayload)
+            .jsonObject
+            .getValue("artifacts")
+            .jsonArray
+    } catch (error: SerializationException) {
+        malformedPluggableTransportManifest(error)
+    } catch (error: NoSuchElementException) {
+        malformedPluggableTransportManifest(error)
+    } catch (error: IllegalArgumentException) {
+        malformedPluggableTransportManifest(error)
+    }
+
+private fun malformedPluggableTransportManifest(error: Exception): Nothing =
+    throw IllegalArgumentException("Malformed pluggable transport manifest", error)
 
 internal fun removeStalePluggableTransportFile(file: File) {
     check(!file.exists() || file.delete()) { "Unable to remove stale pluggable transport file: $file" }

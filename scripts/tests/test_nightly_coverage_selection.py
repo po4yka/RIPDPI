@@ -116,7 +116,50 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         for job in (kotlin_job, rust_job):
             self.assertNotIn("run-heavy-ci", job)
             self.assertNotIn("run-coverage", job)
-            self.assertIn("run_nightly_coverage != 'true'", job)
+            self.assertIn("coverage_phase0_mode != 'nightly-coverage'", job)
+            self.assertIn("coverage_phase0_mode != 'nightly-and-phase0'", job)
+
+    def test_manual_dispatch_stays_within_input_limit_and_preserves_lanes(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        dispatch = source.split("  workflow_dispatch:\n", maxsplit=1)[1].split(
+            "  schedule:\n", maxsplit=1
+        )[0]
+        inputs = re.findall(r"(?m)^      ([a-z0-9_]+):$", dispatch)
+
+        self.assertLessEqual(len(inputs), 10)
+        self.assertIn("native_stress_mode", inputs)
+        self.assertIn("coverage_phase0_mode", inputs)
+        self.assertIn("android_extended_mode", inputs)
+
+        expected_modes = {
+            "rust-native-soak": ("native_stress_mode == 'soak'", "soak-and-load"),
+            "rust-native-load": ("native_stress_mode == 'load'", "soak-and-load"),
+            "nightly-kotlin-coverage": (
+                "coverage_phase0_mode == 'nightly-coverage'",
+                "nightly-and-phase0",
+            ),
+            "nightly-rust-coverage": (
+                "coverage_phase0_mode == 'nightly-coverage'",
+                "nightly-and-phase0",
+            ),
+            "phase0-baseline": (
+                "coverage_phase0_mode == 'phase0-baseline'",
+                "nightly-and-phase0",
+            ),
+            "android-journeys": (
+                "android_extended_mode == 'journeys'",
+                "journeys-and-relay",
+            ),
+            "android-relay-emulator-smoke": (
+                "android_extended_mode == 'relay'",
+                "journeys-and-relay",
+            ),
+        }
+        for job_name, expected_fragments in expected_modes.items():
+            with self.subTest(job=job_name):
+                job = workflow_job(source, job_name)
+                for fragment in expected_fragments:
+                    self.assertIn(fragment, job)
 
     def test_nightly_coverage_runs_kotlin_and_rust_lanes_separately(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")

@@ -26,21 +26,26 @@ on:
         required: false
         default: false
         type: boolean
-      run_native_soak:
-        description: Run native Rust soak suites
+      native_stress_mode:
+        description: Select native Rust stress suites
         required: false
-        default: false
-        type: boolean
-      run_native_load:
-        description: Run native Rust load suites
+        default: none
+        type: choice
+        options:
+          - none
+          - soak
+          - load
+          - soak-and-load
+      coverage_phase0_mode:
+        description: Select nightly coverage and/or Phase 0 baseline
         required: false
-        default: false
-        type: boolean
-      run_nightly_coverage:
-        description: Run full nightly coverage flow
-        required: false
-        default: false
-        type: boolean
+        default: none
+        type: choice
+        options:
+          - none
+          - nightly-coverage
+          - phase0-baseline
+          - nightly-and-phase0
       run_rust_criterion_bench:
         description: Run Rust criterion benchmarks
         required: false
@@ -61,21 +66,16 @@ on:
         required: false
         default: false
         type: boolean
-      run_android_journeys:
-        description: Run Android CLI Journeys emulator suite
+      android_extended_mode:
+        description: Select Android Journeys and/or relay emulator smoke
         required: false
-        default: false
-        type: boolean
-      run_android_relay_smoke:
-        description: Run Android relay emulator smoke suite
-        required: false
-        default: false
-        type: boolean
-      run_phase0_baseline:
-        description: Capture the full Phase 0 baseline snapshot
-        required: false
-        default: false
-        type: boolean
+        default: none
+        type: choice
+        options:
+          - none
+          - journeys
+          - relay
+          - journeys-and-relay
   schedule:
     # Daily security signal; each expensive lane gets its own weekly window so
     # scheduled runs stay actionable instead of repeating the entire suite.
@@ -1543,7 +1543,8 @@ jobs:
       github.event_name != 'schedule' &&
       (
         github.event_name != 'workflow_dispatch' ||
-        github.event.inputs.run_nightly_coverage != 'true'
+        github.event.inputs.coverage_phase0_mode != 'nightly-coverage' &&
+        github.event.inputs.coverage_phase0_mode != 'nightly-and-phase0'
       )
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -1597,7 +1598,8 @@ jobs:
       github.event_name != 'schedule' &&
       (
         github.event_name != 'workflow_dispatch' ||
-        github.event.inputs.run_nightly_coverage != 'true'
+        github.event.inputs.coverage_phase0_mode != 'nightly-coverage' &&
+        github.event.inputs.coverage_phase0_mode != 'nightly-and-phase0'
       )
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -1762,7 +1764,11 @@ jobs:
     # the recurring lanes already execute independently. Keep the composite
     # snapshot manual to avoid paying for the same native work twice per cycle.
     needs: [change-routing, pluggable-transport-assets]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true'
+    if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.coverage_phase0_mode == 'phase0-baseline' ||
+      github.event.inputs.coverage_phase0_mode == 'nightly-and-phase0')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -2124,7 +2130,12 @@ jobs:
 
   rust-native-soak:
     needs: [change-routing, ci-preflight]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
+    if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.native_stress_mode == 'soak' ||
+      github.event.inputs.native_stress_mode == 'soak-and-load')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -2168,7 +2179,12 @@ jobs:
 
   rust-native-load:
     needs: [change-routing, ci-preflight]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
+    if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.native_stress_mode == 'load' ||
+      github.event.inputs.native_stress_mode == 'soak-and-load')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -2212,7 +2228,12 @@ jobs:
 
   nightly-kotlin-coverage:
     needs: [change-routing, ci-preflight]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
+    if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.coverage_phase0_mode == 'nightly-coverage' ||
+      github.event.inputs.coverage_phase0_mode == 'nightly-and-phase0')))
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -2245,7 +2266,12 @@ jobs:
 
   nightly-rust-coverage:
     needs: [change-routing, ci-preflight]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
+    if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.coverage_phase0_mode == 'nightly-coverage' ||
+      github.event.inputs.coverage_phase0_mode == 'nightly-and-phase0')))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -2421,7 +2447,9 @@ jobs:
     needs: [change-routing, pluggable-transport-assets]
     if: >-
       needs.change-routing.outputs.run_full_ci == 'true' &&
-      ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_journeys == 'true') ||
+      ((github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.android_extended_mode == 'journeys' ||
+      github.event.inputs.android_extended_mode == 'journeys-and-relay')) ||
       (
         github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'run-android-journeys')
@@ -2506,7 +2534,12 @@ jobs:
 
   android-relay-emulator-smoke:
     needs: [change-routing, pluggable-transport-assets]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_relay_smoke == 'true'))
+    if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.android_extended_mode == 'relay' ||
+      github.event.inputs.android_extended_mode == 'journeys-and-relay')))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -2829,7 +2862,7 @@ jobs:
           RUN_WORKFLOW_CI: ${{ needs.change-routing.outputs.run_workflow_ci }}
           RUN_KOTLIN_COVERAGE: ${{ needs.change-routing.outputs.run_kotlin_coverage }}
           RUN_RUST_COVERAGE: ${{ needs.change-routing.outputs.run_rust_coverage }}
-          RUN_NIGHTLY_COVERAGE: ${{ (github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true') }}
+          RUN_NIGHTLY_COVERAGE: ${{ (github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && (github.event.inputs.coverage_phase0_mode == 'nightly-coverage' || github.event.inputs.coverage_phase0_mode == 'nightly-and-phase0')) }}
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
           python3 - <<'PY'
