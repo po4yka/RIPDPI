@@ -22,7 +22,8 @@ grep -Fxq "network_handover" "$tmpdir/required-scenarios.txt"
 jq -e '.initialTransportRaceScenarios | map(.id) | sort == ["tcp_application_blackhole_udp_healthy", "udp_drop_reality_healthy"]' "$example" >/dev/null
 
 "$python_bin" - "$repo_root/docs/feature-test-manual-evidence-template.md" \
-  "$tmpdir/required-paths.txt" <<'PY'
+  "$tmpdir/required-paths.txt" \
+  "$repo_root/core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -33,6 +34,7 @@ required = {
     for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
     if line.strip()
 }
+relay_settings = Path(sys.argv[3]).read_text(encoding="utf-8")
 
 section_match = re.search(
     r"## Provider Relay Matrix\n(?P<body>.*?)\n## TalkBack",
@@ -53,6 +55,16 @@ if missing:
     raise SystemExit(
         "manual evidence template is missing relay rows required by the validator: "
         f"missing={sorted(missing)!r} documented={sorted(documented)!r}"
+    )
+
+supported = set(re.findall(r'^const val RelayKind\w+ = "([a-z0-9_]+)"$', relay_settings, re.M))
+supported.add("mock_relay")
+allowed = supported | required
+unknown = documented - allowed
+if unknown:
+    raise SystemExit(
+        "manual evidence template has relay rows absent from both the current relay inventory and provider contract: "
+        f"unknown={sorted(unknown)!r} allowed={sorted(allowed)!r}"
     )
 PY
 
