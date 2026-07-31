@@ -31,6 +31,7 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         ):
             self.assertIn(key, source)
         self.assertIn("RUSTC_WRAPPER remains supported", source)
+        self.assertIn('.filterNot { it == "CARGO_TARGET_DIR" }', source)
 
     def test_boring_ssl_cleanup_invalidates_cargo_without_watching_generated_output(
         self,

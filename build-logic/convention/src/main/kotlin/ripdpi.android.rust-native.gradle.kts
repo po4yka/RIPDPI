@@ -1575,7 +1575,13 @@ val detectedAmbientCargoOverrideKeys =
             "RUSTC_WORKSPACE_WRAPPER",
         ).filterTo(this) { providers.environmentVariable(it).isPresent }
         for (prefix in listOf("CARGO_PROFILE_", "CARGO_BUILD_", "CARGO_TARGET_")) {
-            addAll(providers.environmentVariablesPrefixedBy(prefix).get().keys)
+            addAll(
+                providers
+                    .environmentVariablesPrefixedBy(prefix)
+                    .get()
+                    .keys
+                    .filterNot { it == "CARGO_TARGET_DIR" },
+            )
         }
     }.sorted()
 val pluggableTransportAssetsMode = resolvedPluggableTransportAssetsMode()
