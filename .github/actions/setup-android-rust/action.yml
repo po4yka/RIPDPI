@@ -69,38 +69,33 @@ runs:
           ${{ inputs.java-version }}
 
     # Keep in sync with native/rust/rust-toolchain.toml
-    - uses: dtolnay/rust-toolchain@master
+    - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
       if: inputs.setup-rust == 'true'
       with:
         toolchain: "1.96.0"
         components: ${{ inputs.rust-components }}
 
-    # Android CLI bootstrap from the official dl.google.com installer. The
-    # old d.android.com/tools/agents/install.sh path now redirects to HTML,
-    # so fetch the installer explicitly and validate it before execution.
+    # Android CLI is downloaded from a versioned official URL and verified
+    # before execution. Do not use the mutable `latest` installer here: it
+    # downloads another mutable payload and crosses the release signing boundary.
     - name: Install Android CLI
       if: inputs.skip-android-sdk-ndk != 'true'
       shell: bash
       run: |
         set -euo pipefail
-        installer="$RUNNER_TEMP/android-cli-install.sh"
-        curl -fsSL "https://dl.google.com/android/cli/latest/linux_x86_64/install.sh" -o "$installer"
-        if ! head -n 1 "$installer" | grep -Eq '^#!/'; then
-          echo "Android CLI installer did not look like a shell script" >&2
-          echo "First bytes from payload:" >&2
-          head -c 200 "$installer" >&2 || true
-          exit 1
-        fi
-        bash "$installer"
-        android update
-        # Fail fast if the runner resolved a pre-1.0 binary (stale ~/.android
-        # cache or a Google CDN regression). CI fetches `latest`, which is
-        # 1.0 stable as of 2026-05; the slash-notation `sdk install` package
-        # IDs below and `android docs search` require >= 1.0.
+        readonly android_cli_version="1.0.15857036"
+        readonly android_cli_sha256="6f8c947a1a393e213e28e1419aeafcdafc43e6ea97a90296375eaabc6bcacbd6"
+        android_cli="$RUNNER_TEMP/android"
+        curl -fsSL \
+          "https://dl.google.com/android/cli/$android_cli_version/linux_x86_64/android" \
+          -o "$android_cli"
+        printf '%s  %s\n' "$android_cli_sha256" "$android_cli" | sha256sum --check --strict
+        install -m 0755 "$android_cli" "$HOME/.local/bin/android"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        export PATH="$HOME/.local/bin:$PATH"
         ver_line="$(android --version 2>&1 | head -n1)"
-        major="$(printf '%s' "$ver_line" | grep -oE '[0-9]+' | head -n1)"
-        if [ -z "$major" ] || [ "$major" -lt 1 ]; then
-          echo "Android CLI must be >= 1.0 stable (got: $ver_line)" >&2
+        if [ "$ver_line" != "$android_cli_version" ]; then
+          echo "Android CLI version differs from pinned release (got: $ver_line)" >&2
           exit 1
         fi
         echo "Android CLI: $ver_line"

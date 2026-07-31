@@ -6,10 +6,3 @@ version: 3
 #   - pattern: */action.yaml
 
 # separator: "  # "
-
-ignore_actions:
-  # dtolnay/rust-toolchain intentionally uses @master to resolve the current
-  # stable/beta/nightly toolchain — pinning to a commit SHA would freeze the
-  # resolved toolchain version and defeat the purpose of the action.
-  - name: dtolnay/rust-toolchain
-    ref: master
