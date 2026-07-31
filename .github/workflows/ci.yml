@@ -46,11 +46,6 @@ on:
         required: false
         default: false
         type: boolean
-      capture_criterion_baseline:
-        description: Capture a fresh Rust criterion baseline (uploads a candidate JSON artifact for human review + PR commit)
-        required: false
-        default: false
-        type: boolean
       run_android_macrobenchmark:
         description: Run Android macrobenchmark suite
         required: false
@@ -61,21 +56,11 @@ on:
         required: false
         default: false
         type: boolean
-      run_android_journeys:
-        description: Run Android CLI Journeys emulator suite
+      specialized_lanes:
+        description: "Comma-separated opt-ins: criterion_baseline,phase0_baseline,android_journeys,android_relay_smoke"
         required: false
-        default: false
-        type: boolean
-      run_android_relay_smoke:
-        description: Run Android relay emulator smoke suite
-        required: false
-        default: false
-        type: boolean
-      run_phase0_baseline:
-        description: Capture the full Phase 0 baseline snapshot
-        required: false
-        default: false
-        type: boolean
+        default: ""
+        type: string
   schedule:
     # Daily security signal; each expensive lane gets its own weekly window so
     # scheduled runs stay actionable instead of repeating the entire suite.
@@ -1645,7 +1630,7 @@ jobs:
       needs.change-routing.outputs.run_full_ci == 'true' &&
       ((github.event_name == 'schedule' && github.event.schedule == '7 4 * * 1') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true') ||
+      (github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'criterion_baseline')) ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1680,7 +1665,7 @@ jobs:
       # Advisory on PRs / manual dispatch: heterogeneous hardware should not hard-fail
       # on throughput noise, so warn only (full suite, baseline 10% threshold).
       - name: Check for regressions (advisory)
-        if: github.event_name != 'schedule' && github.event.inputs.capture_criterion_baseline != 'true'
+        if: github.event_name != 'schedule' && !contains(github.event.inputs.specialized_lanes, 'criterion_baseline')
         run: |
           python3 scripts/ci/check-criterion-regressions.py \
             --criterion-dir native/rust/target/criterion \
@@ -1718,7 +1703,7 @@ jobs:
       # artifact for a human to review and commit to scripts/ci/rust-bench-baseline.json
       # via a normal reviewed PR -- never auto-committed (see golden-bless-discipline.md).
       - name: Capture criterion baseline candidate
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true'
+        if: github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'criterion_baseline')
         run: |
           python3 scripts/ci/check-criterion-regressions.py \
             --criterion-dir native/rust/target/criterion \
@@ -1732,7 +1717,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload criterion baseline candidate
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true'
+        if: github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'criterion_baseline')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rust-bench-baseline-candidate
@@ -1762,7 +1747,7 @@ jobs:
     # the recurring lanes already execute independently. Keep the composite
     # snapshot manual to avoid paying for the same native work twice per cycle.
     needs: [change-routing, pluggable-transport-assets]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true'
+    if: needs.change-routing.outputs.run_full_ci == 'true' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'phase0_baseline')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -2421,7 +2406,7 @@ jobs:
     needs: [change-routing, pluggable-transport-assets]
     if: >-
       needs.change-routing.outputs.run_full_ci == 'true' &&
-      ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_journeys == 'true') ||
+      ((github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'android_journeys')) ||
       (
         github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'run-android-journeys')
@@ -2506,7 +2491,7 @@ jobs:
 
   android-relay-emulator-smoke:
     needs: [change-routing, pluggable-transport-assets]
-    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_relay_smoke == 'true'))
+    if: needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || (github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'android_relay_smoke')))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

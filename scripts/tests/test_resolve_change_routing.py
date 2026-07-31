@@ -185,6 +185,28 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertNotIn("types: [opened, synchronize, reopened, labeled]", source)
         self.assertNotIn("github.event.action == 'labeled'", source)
 
+    def test_manual_dispatch_stays_within_github_input_limit(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        dispatch = re.search(
+            r"(?ms)^  workflow_dispatch:\n    inputs:\n(.*?)(?=^  schedule:)", source
+        )
+        self.assertIsNotNone(dispatch)
+        assert dispatch is not None
+        input_names = re.findall(r"(?m)^      ([a-z0-9_]+):$", dispatch.group(1))
+
+        self.assertLessEqual(len(input_names), 10)
+        self.assertIn("specialized_lanes", input_names)
+        for lane in (
+            "criterion_baseline",
+            "phase0_baseline",
+            "android_journeys",
+            "android_relay_smoke",
+        ):
+            self.assertIn(
+                f"contains(github.event.inputs.specialized_lanes, '{lane}')",
+                source,
+            )
+
     def test_workflow_collects_push_paths_and_wires_targeted_gates(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("PUSH_BEFORE_SHA: ${{ github.event.before }}", source)
