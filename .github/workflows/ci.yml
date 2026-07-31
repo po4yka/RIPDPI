@@ -606,7 +606,9 @@ jobs:
   # artifacts. The rust-native Gradle plugin copies these inputs instead of
   # running Cargo, so the shards can execute independently.
   build-android-debug:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    if: >-
+      !cancelled() &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, pluggable-transport-assets]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -867,7 +869,9 @@ jobs:
         run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
 
   release-verification:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    if: >-
+      !cancelled() &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets]
     runs-on: ubuntu-latest
     # Three two-build shards bound Kotlin heap use without serializing all six
@@ -1925,7 +1929,9 @@ jobs:
   # The dedicated x86_64 native shard is staged via
   # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
-    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    if: >-
+      !cancelled() &&
+      github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-x86_64, pluggable-transport-assets]
     runs-on: ubuntu-latest
     timeout-minutes: 60

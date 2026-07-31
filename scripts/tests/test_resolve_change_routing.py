@@ -245,6 +245,19 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             aggregate,
         )
 
+    def test_full_android_jobs_run_past_skipped_routing_ancestors(self) -> None:
+        for job in (
+            "build-android-debug",
+            "release-verification",
+            "android-instrumented-tests",
+        ):
+            with self.subTest(job=job):
+                source = ci_job_source(job)
+                self.assertRegex(
+                    source,
+                    r"(?ms)^    if: >-\n      !cancelled\(\) &&",
+                )
+
     def test_preflight_barrier_blocks_compile_heavy_roots(self) -> None:
         preflight = ci_job_source("ci-preflight")
         self.assertIn("if: always()", preflight)
