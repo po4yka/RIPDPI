@@ -295,9 +295,11 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             "linux-tun-soak",
         ):
             with self.subTest(job=job):
-                self.assertIn(
-                    "needs: [change-routing, ci-preflight]",
-                    ci_job_source(job),
+                source = ci_job_source(job)
+                self.assertIn("needs: [change-routing, ci-preflight]", source)
+                self.assertRegex(
+                    source,
+                    r"(?ms)^    if: >-\n      !cancelled\(\) &&",
                 )
 
         aggregate = ci_job_source("ci-required")
