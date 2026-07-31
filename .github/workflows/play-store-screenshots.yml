@@ -14,9 +14,9 @@ on:
       - ".github/workflows/play-store-screenshots.yml"
   workflow_dispatch:
   schedule:
-    # Daily at 04:00 UTC -- after the nightly Rust/CI bursts (02:00, 03:00) so
+    # Daily at 04:41 UTC -- after the nightly Rust/CI bursts (02:00, 03:00) so
     # we don't compete for runner concurrency with `ci.yml` / `fuzz-nightly.yml`.
-    - cron: "0 4 * * *"
+    - cron: "41 4 * * *"
 
 permissions:
   contents: read

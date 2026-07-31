@@ -9,7 +9,7 @@ on:
         default: ""
         type: string
   schedule:
-    - cron: "0 7 * * 2"
+    - cron: "23 7 * * 2"
 
 permissions:
   contents: read
@@ -57,4 +57,3 @@ jobs:
             ${{ runner.temp }}/offline-analytics-private/**
           if-no-files-found: warn
           retention-days: 14
-

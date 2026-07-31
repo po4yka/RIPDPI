@@ -2,7 +2,7 @@ name: Fuzz Nightly
 
 on:
   schedule:
-    - cron: "0 2 * * *"
+    - cron: "43 2 * * *"
   workflow_dispatch:
     inputs:
       fuzz_seconds:

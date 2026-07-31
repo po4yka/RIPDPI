@@ -123,35 +123,35 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         kotlin_job = workflow_job(source, "nightly-kotlin-coverage")
         rust_job = workflow_job(source, "nightly-rust-coverage")
 
-        self.assertIn("github.event.schedule == '0 4 * * 3'", kotlin_job)
-        self.assertIn("github.event.schedule == '0 4 * * 3'", rust_job)
+        self.assertIn("github.event.schedule == '43 4 * * 3'", kotlin_job)
+        self.assertIn("github.event.schedule == '43 4 * * 3'", rust_job)
         self.assertIn("nightly-kotlin-coverage-artifacts", kotlin_job)
         self.assertIn("nightly-coverage-artifacts", rust_job)
 
     def test_scheduled_ci_rotates_high_signal_lanes(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
         for cron in (
-            'cron: "0 3 * * *"',
-            'cron: "0 4 * * 1"',
-            'cron: "0 4 * * 2"',
-            'cron: "0 4 * * 3"',
-            'cron: "0 4 * * 4"',
-            'cron: "0 4 * * 5"',
+            'cron: "23 3 * * *"',
+            'cron: "7 4 * * 1"',
+            'cron: "19 4 * * 2"',
+            'cron: "43 4 * * 3"',
+            'cron: "11 4 * * 4"',
+            'cron: "27 4 * * 5"',
         ):
             self.assertIn(cron, source)
 
         expected_lanes = {
-            "cargo-deny-advisories": "0 3 * * *",
-            "rust-criterion-bench": "0 4 * * 1",
-            "rust-native-soak": "0 4 * * 2",
-            "rust-native-load": "0 4 * * 2",
-            "linux-tun-soak": "0 4 * * 2",
-            "nightly-kotlin-coverage": "0 4 * * 3",
-            "nightly-rust-coverage": "0 4 * * 3",
-            "android-macrobenchmark": "0 4 * * 4",
-            "android-relay-emulator-smoke": "0 4 * * 5",
-            "linux-tun-e2e": "0 4 * * 5",
-            "so-bindtodevice-e2e": "0 4 * * 5",
+            "cargo-deny-advisories": "23 3 * * *",
+            "rust-criterion-bench": "7 4 * * 1",
+            "rust-native-soak": "19 4 * * 2",
+            "rust-native-load": "19 4 * * 2",
+            "linux-tun-soak": "19 4 * * 2",
+            "nightly-kotlin-coverage": "43 4 * * 3",
+            "nightly-rust-coverage": "43 4 * * 3",
+            "android-macrobenchmark": "11 4 * * 4",
+            "android-relay-emulator-smoke": "27 4 * * 5",
+            "linux-tun-e2e": "27 4 * * 5",
+            "so-bindtodevice-e2e": "27 4 * * 5",
         }
         for job_name, cron in expected_lanes.items():
             job = workflow_job(source, job_name)

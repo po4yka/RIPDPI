@@ -15,7 +15,7 @@ on:
       - "scripts/tests/test_protocol_fixture_versions.py"
       - ".github/workflows/upstream-spec-watch.yml"
   schedule:
-    - cron: "0 9 * * 1"  # Mondays 09:00 UTC
+    - cron: "47 9 * * 1"  # Mondays 09:47 UTC
   workflow_dispatch: {}
 
 permissions:

@@ -2,7 +2,7 @@ name: Mutation Testing
 
 on:
   schedule:
-    - cron: "0 6 * * 1" # Weekly on Monday at 06:00 UTC
+    - cron: "29 6 * * 1" # Weekly on Monday at 06:29 UTC
   workflow_dispatch:
     inputs:
       packages:

@@ -2,7 +2,7 @@ name: CodeQL Kotlin Support Tracker
 
 on:
   schedule:
-    - cron: "0 9 * * 1" # Monday 09:00 UTC
+    - cron: "19 9 * * 1" # Monday 09:19 UTC
   workflow_dispatch:
 
 permissions:

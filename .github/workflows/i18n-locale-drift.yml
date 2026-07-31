@@ -11,7 +11,7 @@ name: i18n locale parity
 
 on:
   schedule:
-    - cron: "0 6 * * 1"   # Every Monday at 06:00 UTC
+    - cron: "11 6 * * 1"  # Every Monday at 06:11 UTC
   workflow_dispatch:
   push:
     branches: [main]
