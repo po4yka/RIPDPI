@@ -338,19 +338,21 @@ abstract class BuildRustNativeLibsTask
                                 (cachedCc != null && cachedCc != config.linker.absolutePath) ||
                                 (cachedCxx != null && cachedCxx != config.cxx.absolutePath)
                         if (stale) {
-                            // Delete the entire boring-sys OUT_DIR (cacheFile.parentFile is the
-                            // cmake build subdir; its parent is the Cargo OUT_DIR).  Deleting
-                            // just the cmake build subdir left libcrypto.a missing but Cargo's
-                            // build-script fingerprint still valid, so the link step failed.
-                            // Deleting OUT_DIR causes Cargo to re-run boring-sys's build script
-                            // on the next invocation, which rebuilds BoringSSL from scratch.
-                            val outDir = cacheFile.parentFile.parentFile
+                            // Delete the entire Cargo build-script run directory. The CMake cache
+                            // lives under <run>/out/build; deleting only OUT_DIR leaves Cargo's
+                            // build-script output/fingerprint intact and the next link can fail on
+                            // missing archives. Removing <run> invalidates Cargo's own fingerprint
+                            // without making boring-sys watch its mutable generated output.
+                            val cargoBuildScriptDir = cacheFile.parentFile.parentFile.parentFile
+                            if (!cargoBuildScriptDir.name.startsWith("boring-sys-")) {
+                                return@forEach
+                            }
                             logger.warn(
-                                "Deleting stale BoringSSL OUT_DIR " +
+                                "Deleting stale BoringSSL Cargo build-script directory " +
                                     "(cmake=$cachedCmake, cc=$cachedCc, cxx=$cachedCxx): " +
-                                    outDir.absolutePath,
+                                    cargoBuildScriptDir.absolutePath,
                             )
-                            fileSystemOperations.delete { delete(outDir) }
+                            fileSystemOperations.delete { delete(cargoBuildScriptDir) }
                         }
                     }
             }

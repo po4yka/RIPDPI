@@ -7,9 +7,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 RUST_NATIVE_PLUGIN = ROOT / "build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts"
 NATIVE_BUILD_POLICY = ROOT / "build-logic/convention/src/main/kotlin/NativeBuildPolicy.kt"
+BORING_SYS_BUILD_SCRIPT = ROOT / "native/rust/vendor/boring-sys/build/main.rs"
 
 
 class RustNativeTaskLayoutTest(unittest.TestCase):
+    def test_boring_ssl_cleanup_invalidates_cargo_without_watching_generated_output(
+        self,
+    ) -> None:
+        plugin = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+        build_script = BORING_SYS_BUILD_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertNotIn('cargo:rerun-if-changed={}", bssl_dir.display()', build_script)
+        self.assertIn(
+            "val cargoBuildScriptDir = cacheFile.parentFile.parentFile.parentFile",
+            plugin,
+        )
+        self.assertIn(
+            'cargoBuildScriptDir.name.startsWith("boring-sys-")',
+            plugin,
+        )
+        self.assertIn(
+            "fileSystemOperations.delete { delete(cargoBuildScriptDir) }",
+            plugin,
+        )
+        self.assertNotIn("fileSystemOperations.delete { delete(outDir) }", plugin)
+
     def test_root_and_app_aggregate_builds_use_release_native_policy(self) -> None:
         source = NATIVE_BUILD_POLICY.read_text(encoding="utf-8")
 
