@@ -32,6 +32,7 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn("-Pripdpi.pluggableTransportAssetsMode=source", producer)
         self.assertIn("-Pripdpi.pluggableTransportAssetsStrictFailures=true", producer)
         self.assertIn("manifest_sha256", producer)
+        self.assertIn("environment: release-signing", producer)
         self.assertIn("Download verified pluggable transport assets", signing)
         self.assertIn("Extract verified pluggable transport assets", signing)
         self.assertIn("ripdpi.prebuiltPluggableTransportAssetsDir", signing)
