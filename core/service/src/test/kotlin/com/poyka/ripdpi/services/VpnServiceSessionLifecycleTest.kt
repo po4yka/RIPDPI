@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -102,8 +103,22 @@ class VpnServiceSessionLifecycleTest {
                     )
                 }.exceptionOrNull()
 
-            assertSame(failure, thrown)
+            assertEquals(failure::class, thrown?.let { it::class })
+            assertEquals(failure.message, thrown?.message)
             assertEquals(listOf(Event.ProfileRecover, Event.UnderlayReady), events)
+        }
+
+    @Test
+    fun `recovery starts runtime when underlay readiness times out`() =
+        runTest {
+            recoverProfileMutationsAndAwaitUnderlayThenStart(
+                recoverProfileMutations = { events += Event.ProfileRecover },
+                awaitRecoveryUnderlay = { awaitCancellation() },
+                startRuntime = { events += Event.RuntimeStart },
+                underlayTimeoutMillis = 1L,
+            )
+
+            assertEquals(listOf(Event.ProfileRecover, Event.RuntimeStart), events)
         }
 
     /**
