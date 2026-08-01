@@ -24,10 +24,12 @@
 //!
 //! RIPDPI writes the VLESS request header eagerly before this wrapper engages,
 //! so the xray "hide-header" zero-content chunk is not emitted. The UUID still
-//! prefixes the first real chunk. `Direct` switches reads and writes to the
-//! transport beneath the outer Reality TLS stream, matching xray's raw-conn
-//! splice; `End` keeps the outer layer. The owner-only live test exercises a
-//! complete HTTPS exchange against a Vision-enforcing Xray server.
+//! prefixes the first real chunk. For inner TLS, `Direct` switches reads and
+//! writes to the transport beneath the outer Reality TLS stream, matching
+//! xray's raw-conn splice; `End` keeps the outer layer. Non-TLS XUDP carriers
+//! disable that splice so datagrams remain protected by Reality TLS. The
+//! owner-only live test exercises a complete HTTPS exchange against a
+//! Vision-enforcing Xray server.
 
 use std::io;
 use std::pin::Pin;
@@ -92,6 +94,8 @@ pub struct VisionStream<S> {
     inner: S,
     /// `false` for `flow=none`: transparent passthrough in both directions.
     vision: bool,
+    /// Whether Vision may bypass the outer Reality TLS transport.
+    allow_direct: bool,
     /// 16-byte user UUID, prefixed on the first chunk of each direction.
     uuid: [u8; 16],
     rng: SystemRandom,
@@ -127,18 +131,25 @@ impl<S> VisionStream<S> {
     /// `uuid` is the binary 16-byte VLESS user id (the same bytes used in the
     /// VLESS request header).
     pub fn new_vision(inner: S, uuid: [u8; 16]) -> Self {
-        Self::with_mode(inner, uuid, true)
+        Self::with_mode(inner, uuid, true, true)
+    }
+
+    /// Wrap a non-TLS payload stream with Vision framing while keeping every
+    /// byte inside the outer Reality TLS transport.
+    pub fn new_vision_tls_only(inner: S, uuid: [u8; 16]) -> Self {
+        Self::with_mode(inner, uuid, true, false)
     }
 
     /// Wrap `inner` as a transparent passthrough (`flow=none`).
     pub fn new_passthrough(inner: S) -> Self {
-        Self::with_mode(inner, [0u8; 16], false)
+        Self::with_mode(inner, [0u8; 16], false, false)
     }
 
-    fn with_mode(inner: S, uuid: [u8; 16], vision: bool) -> Self {
+    fn with_mode(inner: S, uuid: [u8; 16], vision: bool, allow_direct: bool) -> Self {
         Self {
             inner,
             vision,
+            allow_direct,
             uuid,
             rng: SystemRandom::new(),
             w_padding: vision,
@@ -302,7 +313,7 @@ impl<S> VisionStream<S> {
                     // End keeps the outer transport; Direct bypasses Reality
                     // TLS as well. In both cases Vision padding stops.
                     self.r_padding = false;
-                    self.r_direct = self.r_cur_cmd == CMD_DIRECT;
+                    self.r_direct = self.allow_direct && self.r_cur_cmd == CMD_DIRECT;
                     let rest = self.r_inbuf.split_off(i);
                     self.r_out.extend_from_slice(&rest);
                     self.r_inbuf.clear();
@@ -418,7 +429,8 @@ impl<S: XtlsDirectWrite> AsyncWrite for VisionStream<S> {
 
         this.w_chunks += 1;
         let reached_appdata = this.note_records(buf);
-        let stop = reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT);
+        let stop =
+            this.allow_direct && (reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT));
         let cmd = if stop { CMD_DIRECT } else { CMD_CONTINUE };
         this.encode_outgoing(buf, cmd);
         if stop {
@@ -651,6 +663,23 @@ mod tests {
 
         let expected = [appdata.as_slice(), raw].concat();
         assert_eq!(recovered, expected, "post-Direct downlink must bypass outer TLS");
+    }
+
+    #[tokio::test]
+    async fn tls_only_vision_never_writes_non_tls_payload_directly() {
+        let mut writer =
+            VisionStream::new_vision_tls_only(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
+
+        for payload in [b"xudp-one".as_slice(), b"xudp-two", b"xudp-three", b"xudp-four", b"xudp-secret-five"] {
+            writer.write_all(payload).await.expect("write XUDP payload");
+        }
+        writer.flush().await.expect("flush outer TLS transport");
+
+        assert!(writer.inner.direct.is_empty(), "XUDP payload must never bypass Reality TLS");
+        assert!(
+            writer.inner.outer_tls.windows(b"xudp-secret-five".len()).any(|window| window == b"xudp-secret-five"),
+            "the fifth payload must remain on the outer TLS write path"
+        );
     }
 
     #[tokio::test]
