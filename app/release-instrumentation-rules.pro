@@ -713,6 +713,10 @@
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridgeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$*
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksNativeBindings
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksNativeBindings { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksNativeBindings$*
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings
 -keepclassmembers class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings$*
@@ -845,10 +849,18 @@
 -keepclassmembers class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory$*
 -keepclassmembers class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsRepository
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsRepository { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsRepository$*
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsRepositoryModule
 -keepclassmembers class com.poyka.ripdpi.data.AppSettingsRepositoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsRepositoryModule$*
 -keepclassmembers class com.poyka.ripdpi.data.AppSettingsRepositoryModule$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppStatus
+-keepclassmembers class com.poyka.ripdpi.data.AppStatus { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppStatus$*
+-keepclassmembers class com.poyka.ripdpi.data.AppStatus$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator
 -keepclassmembers class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator$*
@@ -949,10 +961,18 @@
 -keepclassmembers class com.poyka.ripdpi.data.ServerCapabilityStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServerCapabilityStoreModule$*
 -keepclassmembers class com.poyka.ripdpi.data.ServerCapabilityStoreModule$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceStateStore
+-keepclassmembers class com.poyka.ripdpi.data.ServiceStateStore { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceStateStore$*
+-keepclassmembers class com.poyka.ripdpi.data.ServiceStateStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceStateStoreModule
 -keepclassmembers class com.poyka.ripdpi.data.ServiceStateStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceStateStoreModule$*
 -keepclassmembers class com.poyka.ripdpi.data.ServiceStateStoreModule$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+-keepclassmembers class com.poyka.ripdpi.data.ServiceTelemetrySnapshot { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceTelemetrySnapshot$*
+-keepclassmembers class com.poyka.ripdpi.data.ServiceTelemetrySnapshot$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
 -keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository$*
@@ -973,6 +993,10 @@
 -keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore$*
 -keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.StrategyChainProtobufKt
+-keepclassmembers class com.poyka.ripdpi.data.StrategyChainProtobufKt { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.StrategyChainProtobufKt$*
+-keepclassmembers class com.poyka.ripdpi.data.StrategyChainProtobufKt$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.StrategyPackStateStoreModule
 -keepclassmembers class com.poyka.ripdpi.data.StrategyPackStateStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.StrategyPackStateStoreModule$*
@@ -1957,6 +1981,10 @@
 -keepclassmembers class com.poyka.ripdpi.proto.AppSettings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proto.AppSettings$*
 -keepclassmembers class com.poyka.ripdpi.proto.AppSettings$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proto.AppSettings$Builder
+-keepclassmembers class com.poyka.ripdpi.proto.AppSettings$Builder { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proto.AppSettings$Builder$*
+-keepclassmembers class com.poyka.ripdpi.proto.AppSettings$Builder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider
 -keepclassmembers class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider$*
