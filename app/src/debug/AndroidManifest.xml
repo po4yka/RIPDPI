@@ -3,12 +3,6 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <permission
-        android:name="com.poyka.ripdpi.permission.TEST_NETWORK_PROBE"
-        android:protectionLevel="signature" />
-
-    <uses-permission android:name="com.poyka.ripdpi.permission.TEST_NETWORK_PROBE" />
-
     <application android:usesCleartextTraffic="true">
         <receiver
             android:name=".debug.AppStartupReadinessDebugReceiver"

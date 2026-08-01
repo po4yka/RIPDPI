@@ -423,6 +423,23 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("result.ok && result.response == payload", probe)
         self.assertNotIn("testProcessTcpConnect(", probe)
 
+    def test_release_target_owns_the_test_probe_signature_permission(self) -> None:
+        main_manifest = Path("app/src/main/AndroidManifest.xml").read_text()
+        debug_manifest = Path("app/src/debug/AndroidManifest.xml").read_text()
+        test_manifest = Path("app/src/androidTest/AndroidManifest.xml").read_text()
+        permission = "com.poyka.ripdpi.permission.TEST_NETWORK_PROBE"
+
+        self.assertIn(
+            f'<permission\n        android:name="{permission}"\n'
+            '        android:protectionLevel="signature" />',
+            main_manifest,
+        )
+        self.assertIn(
+            f'<uses-permission android:name="{permission}" />', main_manifest
+        )
+        self.assertIn(f'android:permission="{permission}"', test_manifest)
+        self.assertNotIn(permission, debug_manifest)
+
     def test_tcp_round_trip_reads_echo_before_half_closing_the_socket(self) -> None:
         receiver = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
