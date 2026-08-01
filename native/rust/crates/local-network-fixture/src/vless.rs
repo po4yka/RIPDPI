@@ -251,7 +251,7 @@ async fn handle_connection(
             return Err(io::Error::new(io::ErrorKind::InvalidData, "XUDP frame arrived before VLESS response"));
         }
         tls.write_all(&encode_response(&[])?).await?;
-        return serve_xudp_carrier(VisionStream::new_vision(FixtureRealityTlsStream(tls), header.uuid)).await;
+        return serve_xudp_carrier(VisionStream::new_vision_tls_only(FixtureRealityTlsStream(tls), header.uuid)).await;
     }
 
     // 3. A Sager mux carrier has a fixed reserved VLESS destination. It is
