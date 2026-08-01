@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import dagger.hilt.EntryPoints
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Provider
 
 internal class VpnServiceSessionLifecycle(
@@ -145,11 +146,14 @@ internal suspend inline fun recoverProfileMutationsAndAwaitUnderlayThenStart(
     crossinline recoverProfileMutations: suspend () -> Unit,
     crossinline awaitRecoveryUnderlay: suspend () -> Unit,
     crossinline startRuntime: suspend () -> Unit,
+    underlayTimeoutMillis: Long = RecoveryUnderlayTimeoutMs,
 ) {
     recoverProfileMutations()
-    awaitRecoveryUnderlay()
+    withTimeoutOrNull(underlayTimeoutMillis) { awaitRecoveryUnderlay() }
     startRuntime()
 }
+
+internal const val RecoveryUnderlayTimeoutMs = 3_000L
 
 internal interface HardKillSwitchRefreshLifecycle : AutoCloseable {
     fun start()
