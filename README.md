@@ -1,9 +1,6 @@
 <p align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="RIPDPI Logo"/>
+  <img src="./assets/readme/hero.svg" width="100%" alt="RIPDPI: Android network-path diagnostics that measures the direct path, classifies the failure, and applies the lightest working fix or an optional relay"/>
 </p>
-
-<h1 align="center">RIPDPI</h1>
-<p align="center"><b>Routing & Internet Performance Diagnostics Platform Interface</b></p>
 
 <p align="center">
   <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
@@ -20,9 +17,33 @@
 > [!WARNING]
 > **The project is in an active phase of development.** New features are being added and large refactorings are frequently performed to improve the quality of the code base. Coding agents are used heavily for this work, so **breaking changes, schema migrations, and partially broken functionality are currently possible on `main`**. If you hit a regression, please [open an issue](https://github.com/po4yka/RIPDPI/issues) — your feedback helps stabilise the project.
 
-RIPDPI is an Android network-path diagnostics and optimization toolkit. It applies configurable packet strategies on-device, can connect to relay servers you control, and runs per-connection diagnostics to identify why each target is failing or degrading. The three capabilities work independently or in combination.
+RIPDPI is an Android network-path diagnostics and optimization toolkit. It measures why a target is failing or degrading, applies configurable packet strategies on-device, and can connect through relay servers you control. Each capability works independently or in combination.
 
-## Three pillars
+## See the path, not just a switch
+
+<p align="center">
+  <img src="docs/screenshots/01-hero.png" width="29%" alt="RIPDPI home screen with local path strategy, relay path, and diagnostic scan controls"/>
+  &nbsp;
+  <img src="docs/screenshots/05-diagnostics.png" width="29%" alt="RIPDPI diagnostics screen with per-target network results"/>
+  &nbsp;
+  <img src="docs/screenshots/03-relays.png" width="29%" alt="RIPDPI relay path configuration screen"/>
+</p>
+
+Instead of a single global policy, RIPDPI classifies each target and network separately, remembers validated outcomes, and makes its failure verdicts visible. Start locally; introduce a relay only when the direct path cannot be recovered.
+
+## Quick start
+
+Build the Android debug APK from source:
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+./gradlew assembleDebug
+```
+
+See [build requirements and output paths](#build-requirements) before preparing a device or release build.
+
+## Three capabilities, one decision loop
 
 ### On-device packet strategies
 
@@ -32,7 +53,18 @@ Supported techniques: TCP segment splitting and disorder, fake packet injection,
 
 When no relay is configured, traffic exits the device directly — on-device mutations are the only change to the path.
 
-### VPN relay
+### Diagnostics
+
+Scans each connection target independently and produces a typed verdict:
+
+- `TRANSPARENT_WORKS` — raw path works, no intervention needed
+- `OWNED_STACK_ONLY` — works only via the app's owned TLS stack
+- `NO_DIRECT_SOLUTION` — on-device mutations cannot recover this target; relay required
+- `IP_BLOCK_SUSPECT` — IP-level block detected
+
+Verdicts are stored per network fingerprint and replayed automatically when the same network is seen again. The diagnostics screen adds TCP and QUIC strategy probing from the `ripdpi-diagnostics-candidates` quick/full-matrix suites, DNS tampering detection, DoH/DoT/DNSCrypt/DoQ resolver recommendations, and exportable diagnostic archives.
+
+### Optional VPN relay
 
 Chains local proxy or VPN traffic through encrypted relay protocols to a server you configure:
 
@@ -65,18 +97,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 Both local proxy mode and Android VPN redirection mode work with or without a relay configured.
 
-### Diagnostics
-
-Scans each connection target independently and produces a typed verdict:
-
-- `TRANSPARENT_WORKS` — raw path works, no intervention needed
-- `OWNED_STACK_ONLY` — works only via the app's owned TLS stack
-- `NO_DIRECT_SOLUTION` — on-device mutations cannot recover this target; relay required
-- `IP_BLOCK_SUSPECT` — IP-level block detected
-
-Verdicts are stored per network fingerprint and replayed automatically when the same network is seen again. The diagnostics screen adds TCP and QUIC strategy probing from the `ripdpi-diagnostics-candidates` quick/full-matrix suites, DNS tampering detection, DoH/DoT/DNSCrypt/DoQ resolver recommendations, and exportable diagnostic archives.
-
-## Why RIPDPI
+## Why this approach
 
 Modern Android networks regularly apply L7 fingerprinting (TLS JA3/JA4, QUIC), aggressive QoS on cellular and public Wi-Fi, MTU and ECN desync, and middlebox-induced TLS handshake aborts — causing some targets to fail while others on the same network work fine. A single global setting cannot address all cases.
 
@@ -87,19 +108,12 @@ RIPDPI's design principle: classify each target and each network separately, app
 3. **Fall back to a tunneled relay when the direct path is degraded.** The relay matrix above distinguishes native relay-core backends, helper subprocesses, external pluggable transports, and separate VPN/tunnel profile surfaces so unsupported or opt-in paths are not hidden behind one feature label.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
 
-## Screenshots
+## More of the interface
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI home screen"/>
-  &nbsp;
   <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI remote relays"/>
-  &nbsp;
   <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
-</p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI diagnostics"/>
   &nbsp;
   <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI feature overview"/>
 </p>
@@ -140,7 +154,7 @@ Relay traffic privacy depends on the relay endpoint and profile you configure.
 
 Multi-hop relay chains carry an ordered list of 2-4 TCP hops (entry, optional intermediates, exit). The stored profile model, native wire schema (`chainHops`), per-hop telemetry, and chain editor all carry the ordered hop list, with the legacy two-hop `chainEntry`/`chainExit` shape preserved as a backward-compatible mirror (hop[0]/hop[last]) so existing two-hop configs migrate cleanly. The 2-4 bound is enforced as a typed validation error, not a silent truncation. UDP through a chain is intentionally unsupported (`udpCapable=false`). A chain only improves anti-correlation when hops are in different trust domains; reusing the same operator or jurisdiction across hops can create false confidence and is surfaced as a warning condition in the UX.
 
-## Build
+## Build requirements
 
 Requirements: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.96.0`, Android Rust targets for the needed ABIs, [`just`](https://just.systems) (task runner; `justfile` recipes mirror CI), and [`lefthook`](https://github.com/evilmartians/lefthook) (run `lefthook install` once to wire the pre-commit gates).
 
