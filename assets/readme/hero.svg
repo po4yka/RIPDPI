@@ -22,12 +22,12 @@
       <rect width="102" height="34" rx="17" fill="#173C35"/>
       <circle cx="21" cy="17" r="5" fill="#34D399"/>
       <text x="35" y="23" fill="#C8F8DF">LOCAL</text>
-      <rect x="116" width="148" height="34" rx="17" fill="#102D45"/>
+      <rect x="116" width="188" height="34" rx="17" fill="#102D45"/>
       <circle cx="137" cy="17" r="5" fill="#60A5FA"/>
       <text x="151" y="23" fill="#CDE8FF">EVIDENCE-LED</text>
-      <rect x="278" width="154" height="34" rx="17" fill="#332913"/>
-      <circle cx="299" cy="17" r="5" fill="#FBBF24"/>
-      <text x="313" y="23" fill="#FFE6A3">NO ROOT REQUIRED</text>
+      <rect x="318" width="228" height="34" rx="17" fill="#332913"/>
+      <circle cx="339" cy="17" r="5" fill="#FBBF24"/>
+      <text x="353" y="23" fill="#FFE6A3">NO ROOT REQUIRED</text>
     </g>
   </g>
 
