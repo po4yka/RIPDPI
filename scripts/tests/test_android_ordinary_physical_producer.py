@@ -239,9 +239,14 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "configure_vpn_manager_profile com.poyka.ripdpi true true",
             setup,
         )
-        self.assertIn("com.android.settings.vpn2.AppManagementFragment", configurator)
-        self.assertIn("android:id/switch_widget", configurator)
+        self.assertIn("Settings.ACTION_VPN_SETTINGS", configurator)
+        self.assertIn('SettingsButtonResource = "settings_button"', configurator)
+        self.assertIn('SwitchResource = "switchWidget"', configurator)
         self.assertIn("android:id/button1", configurator)
+        self.assertIn("@HiltAndroidTest", configurator)
+        self.assertIn("HiltAndroidRule(this)", configurator)
+        self.assertNotIn("AppManagementFragment", configurator)
+        self.assertNotIn("START_ANY_ACTIVITY", configurator)
 
     def test_runner_opens_only_runtime_nftables_rules_and_removes_by_marker(
         self,
