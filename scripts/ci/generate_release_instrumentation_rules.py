@@ -22,6 +22,7 @@ EXCLUDED_PREFIXES = (
 )
 TEST_ONLY_PREFIX = "com.poyka.ripdpi.e2e."
 PRODUCTION_PREFIX = "com.poyka.ripdpi."
+ORDINARY_SOURCE_FILE = b"AndroidOrdinaryPhysicalEvidenceTest.kt"
 BYTECODE_REFERENCE_PATTERN = re.compile(
     r"= (?:InterfaceMethod|Method|Field)ref\s+.*// ([A-Za-z0-9_/$]+)\."
 )
@@ -81,7 +82,9 @@ def bytecode_boundary_classes(repo_root: Path) -> set[str]:
         / "compileGithubFullReleaseAndroidTestKotlin/classes/com/poyka/ripdpi/e2e"
     )
     class_files = sorted(
-        bytecode_root.glob("AndroidOrdinaryPhysicalEvidenceTest*.class")
+        path
+        for path in bytecode_root.glob("*.class")
+        if ORDINARY_SOURCE_FILE in path.read_bytes()
     )
     if not class_files:
         raise ValueError(

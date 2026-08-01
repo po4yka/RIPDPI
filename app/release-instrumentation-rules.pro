@@ -613,6 +613,10 @@
 -keepclassmembers class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings$*
 -keepclassmembers class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeTun2SocksBridge
+-keepclassmembers class com.poyka.ripdpi.core.NativeTun2SocksBridge { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeTun2SocksBridge$*
+-keepclassmembers class com.poyka.ripdpi.core.NativeTun2SocksBridge$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBindings
 -keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBindings$*
@@ -649,6 +653,10 @@
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings$*
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxy
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxy { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxy$*
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyBindings
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyBindings$*
@@ -665,6 +673,10 @@
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyNativeBindings$*
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyNativeBindings$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyRuntime
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyRuntime { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyRuntime$*
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyRuntime$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayBindings
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayBindings$*
@@ -709,10 +721,18 @@
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBindingsModule$*
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBindingsModule$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridge
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridge { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridge$*
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridge$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridgeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$*
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$* { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksConfig
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksConfig { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksConfig$*
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksConfig$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksNativeBindings
 -keepclassmembers class com.poyka.ripdpi.core.Tun2SocksNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksNativeBindings$*

@@ -99,6 +99,11 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "com.poyka.ripdpi.data.ServiceTelemetrySnapshot { *; }",
             generated_rules,
         )
+        self.assertIn(
+            "-keepclassmembers class "
+            "com.poyka.ripdpi.core.Tun2SocksConfig { *; }",
+            generated_rules,
+        )
 
     def test_marker_relay_forwards_exact_marker_and_acknowledges_capture(self) -> None:
         marker = b"RIPDPI-ORDINARY-V1:dual-stack:" + b"a" * 64 + b":outcome"
