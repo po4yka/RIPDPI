@@ -16,6 +16,7 @@ class VerifyJniReadinessMappingTest(unittest.TestCase):
         optimized_callback: bool = False,
         omitted_test_boundary: str | None = None,
         renamed_test_boundary: str | None = None,
+        removed_test_boundary: str | None = None,
     ) -> Path:
         temporary = tempfile.NamedTemporaryFile(
             mode="w",
@@ -31,19 +32,22 @@ class VerifyJniReadinessMappingTest(unittest.TestCase):
                     continue
                 mapped = "d" if boundary == renamed_test_boundary else boundary
                 temporary.write(f"{boundary} -> {mapped}:\n")
+            for boundary in verify_jni_readiness_mapping.RETAINED_RELEASE_TEST_CLASSES:
+                mapped = (
+                    "R8$$REMOVED$$CLASS$$1"
+                    if boundary == removed_test_boundary
+                    else "r"
+                )
+                temporary.write(f"{boundary} -> {mapped}:\n")
             temporary.write(
-                "com.poyka.ripdpi.core.RuntimeReadinessListener "
-                f"-> {class_mapping}:\n"
+                f"com.poyka.ripdpi.core.RuntimeReadinessListener -> {class_mapping}:\n"
             )
             if method_mapping is not None:
-                temporary.write(
-                    f"    void onRuntimeReady() -> {method_mapping}\n"
-                )
+                temporary.write(f"    void onRuntimeReady() -> {method_mapping}\n")
             if optimized_callback:
                 temporary.write("example.SyntheticListener -> b:\n")
                 temporary.write(
-                    "    1:2:void example.Owner.lambda$0():42 "
-                    "-> onRuntimeReady\n"
+                    "    1:2:void example.Owner.lambda$0():42 -> onRuntimeReady\n"
                 )
             temporary.write("example.After -> c:\n")
         self.addCleanup(Path(temporary.name).unlink)
@@ -93,6 +97,19 @@ class VerifyJniReadinessMappingTest(unittest.TestCase):
                 self.write_mapping(
                     "onRuntimeReady",
                     renamed_test_boundary=boundary,
+                )
+            )
+
+    def test_rejects_removed_release_test_boundary(self) -> None:
+        boundary = "dagger.hilt.android.flags.FragmentGetContextFix$FragmentGetContextFixEntryPoint"
+        with self.assertRaisesRegex(
+            ValueError,
+            "R8 removed release instrumentation boundary",
+        ):
+            verify_jni_readiness_mapping.verify_mapping(
+                self.write_mapping(
+                    "onRuntimeReady",
+                    removed_test_boundary=boundary,
                 )
             )
 

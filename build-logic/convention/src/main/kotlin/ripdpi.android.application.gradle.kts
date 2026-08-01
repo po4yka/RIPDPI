@@ -24,6 +24,10 @@ val moduleProguardRules =
     project.layout.projectDirectory
         .file("proguard-rules.pro")
         .asFile
+val releaseInstrumentationProguardRules =
+    project.layout.projectDirectory
+        .file("release-instrumentation-rules.pro")
+        .asFile
 val r8DiagnosticsEnabled =
     providers.gradleProperty("ripdpi.r8Diagnostics").map(String::toBoolean).getOrElse(false)
 val releaseR8DiagnosticsConfig = project.layout.buildDirectory.file("generated/r8/release-diagnostics.pro")
@@ -83,6 +87,9 @@ extensions.configure<ApplicationExtension> {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             if (moduleProguardRules.isFile) {
                 proguardFiles(moduleProguardRules)
+            }
+            if (releaseInstrumentationProguardRules.isFile) {
+                proguardFiles(releaseInstrumentationProguardRules)
             }
             if (r8DiagnosticsEnabled) {
                 proguardFiles(releaseR8DiagnosticsConfig.get().asFile)

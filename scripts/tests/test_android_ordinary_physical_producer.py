@@ -56,6 +56,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "app/src/androidTest/kotlin/com/poyka/ripdpi/HiltTestRunner.kt"
         ).read_text()
         rules = Path("app/proguard-rules.pro").read_text()
+        generated_rules = Path("app/release-instrumentation-rules.pro").read_text()
 
         self.assertIn(
             '"com.poyka.ripdpi.RipDpiCustomTestApplication_Application"',
@@ -78,6 +79,16 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         ):
             with self.subTest(required_rule=required_rule):
                 self.assertIn(required_rule, rules)
+        self.assertIn(
+            "-keep,allowoptimization,allowobfuscation class "
+            "dagger.hilt.android.flags.FragmentGetContextFix$* { *; }",
+            generated_rules,
+        )
+        self.assertIn(
+            "-keep,allowoptimization,allowobfuscation class "
+            "com.poyka.ripdpi.RipDpiApp_MembersInjector { *; }",
+            generated_rules,
+        )
 
     def test_marker_relay_forwards_exact_marker_and_acknowledges_capture(self) -> None:
         marker = b"RIPDPI-ORDINARY-V1:dual-stack:" + b"a" * 64 + b":outcome"
@@ -217,7 +228,9 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("setSplitTunnelMode(SplitTunnelMode.Off)", configure)
         self.assertIn("clearSplitTunnelPackages()", configure)
 
-    def test_lockdown_convergence_uses_socket_outcomes_not_network_visibility(self) -> None:
+    def test_lockdown_convergence_uses_socket_outcomes_not_network_visibility(
+        self,
+    ) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
             "AndroidOrdinaryPhysicalEvidenceTest.kt"
@@ -286,7 +299,9 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         sleep = sleep[: sleep.index("private fun runAlwaysOnProtectedAction")]
         always_on = producer[producer.index("private fun runAlwaysOnProtectedAction") :]
         always_on = always_on[: always_on.index("private fun configureAndStart")]
-        revoke = producer[producer.index("private fun runPermissionRevokeProtectedAction") :]
+        revoke = producer[
+            producer.index("private fun runPermissionRevokeProtectedAction") :
+        ]
         revoke = revoke[: revoke.index("private fun runNetworkSwitchAction")]
         for action in (network, sleep, always_on, revoke):
             self.assertIn('capturePhase("protected", expectVpn = true)', action)
@@ -294,8 +309,12 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             self.assertNotIn("awaitTestProcessLockdown", action)
         self.assertIn("ACTIVATE_VPN ignore", revoke)
         self.assertIn('appOpState.contains("ignore")', revoke)
-        self.assertIn('probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true)', revoke)
-        self.assertIn('probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true)', revoke)
+        self.assertIn(
+            'probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true)', revoke
+        )
+        self.assertIn(
+            'probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true)', revoke
+        )
 
     def test_network_switch_waits_for_the_new_native_bridge_generation(self) -> None:
         producer = Path(
@@ -331,9 +350,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         ).read_text()
         sleep = producer[producer.index("private fun runSleepWakeAction") :]
         sleep = sleep[: sleep.index("private fun runAlwaysOnProtectedAction")]
-        helper = producer[
-            producer.index("private fun awaitStablePhysicalRuntime") :
-        ]
+        helper = producer[producer.index("private fun awaitStablePhysicalRuntime") :]
         helper = helper[: helper.index("private fun configureAndStart")]
 
         before_sleep = sleep.index("configureAndStart(ipv6 = false)")
@@ -410,14 +427,16 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
             "AndroidOrdinaryPhysicalEvidenceTest.kt"
         ).read_text()
-        runner = Path("scripts/ci/run-android-ordinary-physical-evidence.sh").read_text()
+        runner = Path(
+            "scripts/ci/run-android-ordinary-physical-evidence.sh"
+        ).read_text()
         self.assertIn("bindTestProcessDnsProbeService(", producer)
         self.assertIn("probeService.dnsProbe(", producer)
         self.assertIn("queryType = DnsQueryTypeAaaa", producer)
         self.assertIn("transport = DnsTransportTcp", producer)
         self.assertNotIn("private fun ordinaryAaaaQuery", producer)
-        self.assertIn('(udp port $dns_port)', runner)
-        self.assertIn('(tcp port $dns_port)', runner)
+        self.assertIn("(udp port $dns_port)", runner)
+        self.assertIn("(tcp port $dns_port)", runner)
         self.assertIn("/usr/bin/tcpdump -i any", runner)
         self.assertIn("android_ordinary_marker_relay.py", runner)
         self.assertIn('--forward-command "${marker_forward_command[@]}"', runner)
@@ -426,7 +445,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn('reverse "tcp:$marker_relay_port"', runner)
         self.assertIn('reverse --remove "tcp:$marker_relay_port"', runner)
         self.assertIn('requiredPort("ripdpi.ordinaryMarkerRelayPort")', producer)
-        self.assertIn('Socket().use { socket ->', producer)
+        self.assertIn("Socket().use { socket ->", producer)
         self.assertNotIn("toybox nc -u", producer)
         self.assertIn("--fixture-tailscale-proxy", runner)
         self.assertIn('"ProxyCommand=$tailscale_path nc %h %p"', runner)
@@ -479,7 +498,9 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         framed = struct.pack("!H", len(query)) + query
         response = dns_fixture.build_tcp_response(framed, dual_stack_ipv6=ipv6)
         self.assertEqual(struct.unpack("!H", response[:2])[0], len(response) - 2)
-        self.assertEqual(response[-16:], __import__("ipaddress").IPv6Address(ipv6).packed)
+        self.assertEqual(
+            response[-16:], __import__("ipaddress").IPv6Address(ipv6).packed
+        )
         with self.assertRaisesRegex(ValueError, "length is invalid"):
             dns_fixture.build_tcp_response(b"\0\x01bad", dual_stack_ipv6=ipv6)
 
@@ -495,7 +516,9 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             ).start()
             with mock.patch("sys.stdout", new=io.StringIO()):
                 with socket.create_connection(listener.getsockname(), timeout=1):
-                    with socket.create_connection(listener.getsockname(), timeout=1) as valid:
+                    with socket.create_connection(
+                        listener.getsockname(), timeout=1
+                    ) as valid:
                         query = dns_query(dns_fixture.DUAL_STACK_NAME)
                         valid.sendall(struct.pack("!H", len(query)) + query)
                         valid.settimeout(1)

@@ -118,9 +118,10 @@ jobs:
 
       - name: Compile release instrumentation before the native build
         run: |
-          ./gradlew :app:compileGithubFullReleaseAndroidTestKotlin \
+          ./gradlew :app:hiltJavaCompileGithubFullReleaseAndroidTest \
             -Pripdpi.testBuildType=release \
             -Pripdpi.skipNativeBuild=true
+          python3 scripts/ci/generate_release_instrumentation_rules.py --check
 
       - name: Materialize release signing key
         env:

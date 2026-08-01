@@ -22,6 +22,14 @@ PRESERVED_RELEASE_TEST_CLASSES = (
     "dagger.hilt.internal.TestSingletonComponent",
     "dagger.hilt.internal.TestSingletonComponentManager",
 )
+RETAINED_RELEASE_TEST_CLASSES = (
+    "androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory",
+    "com.poyka.ripdpi.RipDpiApp_MembersInjector",
+    "dagger.hilt.android.flags.FragmentGetContextFix$FragmentGetContextFixEntryPoint",
+    "dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$InternalFactoryFactory",
+    "dagger.hilt.android.internal.managers.FragmentComponentManager$FragmentComponentBuilderEntryPoint",
+    "dagger.hilt.components.SingletonComponent",
+)
 
 
 def verify_preserved_class(source: str, class_name: str, mapping_path: Path) -> None:
@@ -40,10 +48,28 @@ def verify_preserved_class(source: str, class_name: str, mapping_path: Path) -> 
         )
 
 
+def verify_retained_class(source: str, class_name: str, mapping_path: Path) -> None:
+    class_pattern = re.compile(
+        rf"^{re.escape(class_name)} -> ([^:]+):$",
+        re.MULTILINE,
+    )
+    class_match = class_pattern.search(source)
+    if class_match is None:
+        raise ValueError(f"missing retained {class_name} in R8 mapping: {mapping_path}")
+    mapped_class = class_match.group(1)
+    if mapped_class.startswith("R8$$REMOVED"):
+        raise ValueError(
+            f"R8 removed release instrumentation boundary {class_name} in "
+            f"{mapping_path}"
+        )
+
+
 def verify_mapping(mapping_path: Path) -> None:
     source = mapping_path.read_text(encoding="utf-8")
     for class_name in PRESERVED_RELEASE_TEST_CLASSES:
         verify_preserved_class(source, class_name, mapping_path)
+    for class_name in RETAINED_RELEASE_TEST_CLASSES:
+        verify_retained_class(source, class_name, mapping_path)
 
     class_match = CLASS_MAPPING_PATTERN.search(source)
     if class_match is None:
@@ -85,16 +111,13 @@ def verify_mapping(mapping_path: Path) -> None:
 
 
 def discover_mappings(repo_root: Path) -> list[Path]:
-    return sorted(
-        repo_root.glob("app/build/outputs/mapping/*Release/mapping.txt")
-    )
+    return sorted(repo_root.glob("app/build/outputs/mapping/*Release/mapping.txt"))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Verify release R8 mappings for JNI and instrumentation runtime "
-            "boundaries."
+            "Verify release R8 mappings for JNI and instrumentation runtime boundaries."
         )
     )
     parser.add_argument(
