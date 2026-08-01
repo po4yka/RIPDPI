@@ -69,6 +69,8 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "-keep class androidx.work.Configuration { *; }",
             "-keep interface androidx.work.Configuration$Provider",
             "-keep interface dagger.hilt.internal.GeneratedComponentManager { *; }",
+            "-keep interface dagger.hilt.internal.TestSingletonComponent { *; }",
+            "-keep interface dagger.hilt.internal.TestSingletonComponentManager { *; }",
             "-keep class dagger.hilt.internal.Preconditions { *; }",
             "-keep public class kotlin.** {",
             "-keep class kotlinx.coroutines.BuildersKt { public *; }",

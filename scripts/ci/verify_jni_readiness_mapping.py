@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify that R8 preserves the JNI readiness callback method name."""
+"""Verify source-named runtime boundaries in release R8 mappings."""
 
 from __future__ import annotations
 
@@ -18,10 +18,33 @@ DIRECT_METHOD_MAPPING_PATTERN = re.compile(
     rf"^\s+void {CALLBACK_METHOD}\(\) -> (\S+)$",
     re.MULTILINE,
 )
+PRESERVED_RELEASE_TEST_CLASSES = (
+    "dagger.hilt.internal.TestSingletonComponent",
+    "dagger.hilt.internal.TestSingletonComponentManager",
+)
+
+
+def verify_preserved_class(source: str, class_name: str, mapping_path: Path) -> None:
+    class_pattern = re.compile(
+        rf"^{re.escape(class_name)} -> ([^:]+):$",
+        re.MULTILINE,
+    )
+    class_match = class_pattern.search(source)
+    if class_match is None:
+        raise ValueError(f"missing {class_name} in R8 mapping: {mapping_path}")
+    mapped_class = class_match.group(1)
+    if mapped_class != class_name:
+        raise ValueError(
+            f"R8 renamed release instrumentation boundary {class_name} to "
+            f"{mapped_class} in {mapping_path}"
+        )
 
 
 def verify_mapping(mapping_path: Path) -> None:
     source = mapping_path.read_text(encoding="utf-8")
+    for class_name in PRESERVED_RELEASE_TEST_CLASSES:
+        verify_preserved_class(source, class_name, mapping_path)
+
     class_match = CLASS_MAPPING_PATTERN.search(source)
     if class_match is None:
         raise ValueError(f"missing {LISTENER_CLASS} in R8 mapping: {mapping_path}")
@@ -69,7 +92,10 @@ def discover_mappings(repo_root: Path) -> list[Path]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Verify the R8 mapping for the JNI runtime-readiness callback."
+        description=(
+            "Verify release R8 mappings for JNI and instrumentation runtime "
+            "boundaries."
+        )
     )
     parser.add_argument(
         "--mapping",
@@ -92,7 +118,7 @@ def main() -> int:
         if not mapping_path.is_file():
             raise ValueError(f"R8 mapping file not found: {mapping_path}")
         verify_mapping(mapping_path)
-        print(f"Verified JNI readiness callback mapping in {mapping_path}")
+        print(f"Verified release runtime boundary mapping in {mapping_path}")
     return 0
 
 

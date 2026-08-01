@@ -197,6 +197,9 @@ jobs:
             shred -u "$key"
           fi
 
+      - name: Verify release runtime boundaries in R8 mappings
+        run: python3 scripts/ci/verify_jni_readiness_mapping.py
+
       - name: Normalize channel artifacts and metadata
         run: |
           set -euo pipefail

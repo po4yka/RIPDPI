@@ -60,9 +60,15 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         signing_key = signing.index("Materialize release signing key")
         signing_identity = signing.index("Verify release signing identity before build")
         native_build = signing.index("Build signed release candidate once")
+        mapping_verification = signing.index(
+            "python3 scripts/ci/verify_jni_readiness_mapping.py"
+        )
+        artifact_normalization = signing.index("Normalize channel artifacts and metadata")
         self.assertLess(compile_preflight, signing_key)
         self.assertLess(signing_key, signing_identity)
         self.assertLess(signing_identity, native_build)
+        self.assertLess(native_build, mapping_verification)
+        self.assertLess(mapping_verification, artifact_normalization)
         self.assertGreaterEqual(signing.count("release_signature_fingerprint.py"), 3)
         self.assertIn("APK signature verification failed", signing)
         self.assertIn("AAB signature verification failed", signing)

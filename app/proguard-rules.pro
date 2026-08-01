@@ -31,6 +31,8 @@
 -keep class dagger.hilt.android.EntryPointAccessors { *; }
 -keep interface dagger.hilt.internal.GeneratedComponentManager { *; }
 -keep interface dagger.hilt.internal.GeneratedComponentManagerHolder { *; }
+-keep interface dagger.hilt.internal.TestSingletonComponent { *; }
+-keep interface dagger.hilt.internal.TestSingletonComponentManager { *; }
 -keep class androidx.tracing.Trace { *; }
 -keep public class kotlin.** {
     public protected *;

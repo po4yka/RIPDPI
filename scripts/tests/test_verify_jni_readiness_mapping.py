@@ -14,6 +14,8 @@ class VerifyJniReadinessMappingTest(unittest.TestCase):
         *,
         class_mapping: str = "com.poyka.ripdpi.core.RuntimeReadinessListener",
         optimized_callback: bool = False,
+        omitted_test_boundary: str | None = None,
+        renamed_test_boundary: str | None = None,
     ) -> Path:
         temporary = tempfile.NamedTemporaryFile(
             mode="w",
@@ -24,6 +26,11 @@ class VerifyJniReadinessMappingTest(unittest.TestCase):
         with temporary:
             temporary.write("example.Unrelated -> a:\n")
             temporary.write("    void other() -> a\n")
+            for boundary in verify_jni_readiness_mapping.PRESERVED_RELEASE_TEST_CLASSES:
+                if boundary == omitted_test_boundary:
+                    continue
+                mapped = "d" if boundary == renamed_test_boundary else boundary
+                temporary.write(f"{boundary} -> {mapped}:\n")
             temporary.write(
                 "com.poyka.ripdpi.core.RuntimeReadinessListener "
                 f"-> {class_mapping}:\n"
@@ -65,6 +72,29 @@ class VerifyJniReadinessMappingTest(unittest.TestCase):
     def test_rejects_missing_callback_method(self) -> None:
         with self.assertRaisesRegex(ValueError, "missing preserved onRuntimeReady"):
             verify_jni_readiness_mapping.verify_mapping(self.write_mapping(None))
+
+    def test_rejects_missing_release_test_boundary(self) -> None:
+        boundary = "dagger.hilt.internal.TestSingletonComponentManager"
+        with self.assertRaisesRegex(ValueError, f"missing {boundary}"):
+            verify_jni_readiness_mapping.verify_mapping(
+                self.write_mapping(
+                    "onRuntimeReady",
+                    omitted_test_boundary=boundary,
+                )
+            )
+
+    def test_rejects_renamed_release_test_boundary(self) -> None:
+        boundary = "dagger.hilt.internal.TestSingletonComponent"
+        with self.assertRaisesRegex(
+            ValueError,
+            "renamed release instrumentation boundary",
+        ):
+            verify_jni_readiness_mapping.verify_mapping(
+                self.write_mapping(
+                    "onRuntimeReady",
+                    renamed_test_boundary=boundary,
+                )
+            )
 
 
 if __name__ == "__main__":
