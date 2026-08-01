@@ -9,5 +9,10 @@ class HiltTestRunner : AndroidJUnitRunner() {
         cl: ClassLoader,
         name: String,
         context: Context,
-    ): Application = super.newApplication(cl, RipDpiCustomTestApplication_Application::class.java.name, context)
+    ): Application =
+        super.newApplication(
+            cl,
+            "com.poyka.ripdpi.RipDpiCustomTestApplication_Application",
+            context,
+        )
 }

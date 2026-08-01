@@ -51,6 +51,32 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
     test_sha = hashlib.sha256(b"test").hexdigest()
     run_id = hashlib.sha256(b"physical-run").hexdigest()
 
+    def test_release_instrumentation_keeps_test_only_runtime_boundary(self) -> None:
+        runner = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/HiltTestRunner.kt"
+        ).read_text()
+        rules = Path("app/proguard-rules.pro").read_text()
+
+        self.assertIn(
+            '"com.poyka.ripdpi.RipDpiCustomTestApplication_Application"',
+            runner,
+        )
+        self.assertNotIn(
+            "RipDpiCustomTestApplication_Application::class.java.name",
+            runner,
+        )
+        for required_rule in (
+            "-keep class androidx.work.Configuration { *; }",
+            "-keep interface androidx.work.Configuration$Provider",
+            "-keep interface dagger.hilt.internal.GeneratedComponentManager { *; }",
+            "-keep class dagger.hilt.internal.Preconditions { *; }",
+            "-keep public class kotlin.** {",
+            "-keep class kotlinx.coroutines.BuildersKt { public *; }",
+            "-keep class com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule { *; }",
+        ):
+            with self.subTest(required_rule=required_rule):
+                self.assertIn(required_rule, rules)
+
     def test_marker_relay_forwards_exact_marker_and_acknowledges_capture(self) -> None:
         marker = b"RIPDPI-ORDINARY-V1:dual-stack:" + b"a" * 64 + b":outcome"
         client, server = socket.socketpair()

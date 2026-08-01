@@ -20,3 +20,34 @@
     public void verbose(...);
     public void debug(...);
 }
+
+# The release AndroidTest APK supplies a custom Hilt Application that implements
+# WorkManager's Configuration.Provider. R8 processes the target APK before the
+# test APK and cannot see those test-only references, so these types must remain
+# available under their source names for the instrumentation class loader.
+-keep class androidx.work.Configuration { *; }
+-keep class androidx.work.Configuration$Builder { *; }
+-keep interface androidx.work.Configuration$Provider
+-keep class dagger.hilt.android.EntryPointAccessors { *; }
+-keep interface dagger.hilt.internal.GeneratedComponentManager { *; }
+-keep interface dagger.hilt.internal.GeneratedComponentManagerHolder { *; }
+-keep class androidx.tracing.Trace { *; }
+-keep public class kotlin.** {
+    public protected *;
+}
+-keep class kotlinx.coroutines.BuildersKt { public *; }
+-keep class androidx.core.content.ContextCompat { public protected *; }
+-keep interface dagger.MembersInjector { *; }
+-keep class dagger.hilt.android.internal.Contexts { *; }
+-keep class dagger.hilt.internal.Preconditions { *; }
+-keep interface dagger.internal.Factory { *; }
+-keep class dagger.internal.Preconditions { *; }
+-keep interface com.poyka.ripdpi.core.RipDpiProxyBindings { *; }
+-keep interface com.poyka.ripdpi.core.RipDpiProxyFactory { *; }
+-keep interface com.poyka.ripdpi.core.RipDpiProxyRuntime { *; }
+-keep interface com.poyka.ripdpi.core.Tun2SocksBindings { *; }
+-keep interface com.poyka.ripdpi.core.Tun2SocksBridge { *; }
+-keep interface com.poyka.ripdpi.core.Tun2SocksBridgeFactory { *; }
+-keep class com.poyka.ripdpi.core.RipDpiProxyFactoryModule { *; }
+-keep class com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule { *; }
+-keep interface com.poyka.ripdpi.data.ServiceStateStore { *; }
