@@ -19,6 +19,11 @@ ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_ASN_ASSET_PATHS = {
     Path("core/data/settings/src/main/assets/integrations/asn-routing-map.json"),
     Path("core/diagnostics/src/main/assets/dpich/ipv4_whitelist_asns.json"),
+    # Hand-curated subnet/ASN reference for well-known public DoH providers,
+    # loaded by DpiAssetLoader alongside the entry above. It is neither generated
+    # nor deploy-style, and it predates this guard; it went unreported only
+    # because the quoted-key ASN pattern below could never match.
+    Path("core/diagnostics/src/main/assets/dpich/doh_bootstrap_subnet_metadata.json"),
 }
 
 PROVENANCE_URLS = (
@@ -34,15 +39,25 @@ FORBIDDEN_PATH_PATTERNS = (
     re.compile(r"(^|[-_/])ip[-_]?(deny|block|black)list($|[-_/.])", re.IGNORECASE),
 )
 
+# Prefix-length alternatives are ordered longest-first on purpose. Python picks
+# the first alternative that matches, so listing `[0-9]` first would truncate
+# `/24` to `/2` and report a prefix the asset never contained.
 CIDR_RE = re.compile(
     r"(?<![\w.])(?:"
-    r"(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}/(?:[0-9]|[12]\d|3[0-2])"
+    r"(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}/(?:3[0-2]|[12]\d|[0-9])"
     r"|"
-    r"(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{0,4}/(?:[0-9]|[1-9]\d|1[01]\d|12[0-8])"
+    r"(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{0,4}/(?:12[0-8]|1[01]\d|[1-9]\d|[0-9])"
     r")",
     re.IGNORECASE,
 )
-ASN_RE = re.compile(r"\bAS[0-9]{2,}\b|\b\"asn\"\s*:\s*[0-9]{2,}\b", re.IGNORECASE)
+# No `\b` before the quoted key: a word boundary cannot exist between a quote
+# and the `{`, `,`, or space that precedes it in JSON, so anchoring there made
+# this alternative unreachable and let `"asn": 64500` through unnoticed. The
+# value may be bare, quoted, or the head of an array.
+ASN_RE = re.compile(
+    r"\bAS[0-9]{2,}\b" r'|"asn"\s*:\s*\[?\s*"?[0-9]{2,}',
+    re.IGNORECASE,
+)
 
 
 def iter_asset_files(repo_root: Path) -> list[Path]:

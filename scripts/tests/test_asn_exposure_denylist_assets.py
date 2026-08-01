@@ -58,6 +58,41 @@ class AsnExposureDenylistAssetsTest(unittest.TestCase):
             self.assertEqual(1, len(violations))
             self.assertIn("combines ASN identifiers with IP ranges", violations[0])
 
+    def test_asn_json_key_forms_are_detected(self) -> None:
+        # This alternative sat behind a word boundary that can never match before
+        # a quote, so every `"asn": <number>` asset slipped through unreported.
+        for payload in (
+            '{"asn":64500}',
+            '{"asn": 64500}',
+            '{"asn":"64500"}',
+            '{"asn":[64500,64501]}',
+            '{"ASN": 64500}',
+        ):
+            with self.subTest(payload=payload):
+                self.assertIsNotNone(guard.ASN_RE.search(payload))
+
+    def test_asn_pattern_ignores_short_or_absent_identifiers(self) -> None:
+        for payload in ('{"asn":"n/a"}', '{"assignee":64500}', '{"region":"eu"}'):
+            with self.subTest(payload=payload):
+                self.assertIsNone(guard.ASN_RE.search(payload))
+
+    def test_cidr_matches_keep_the_full_prefix_length(self) -> None:
+        # Ordered alternation used to stop at the first digit, reporting `/2` for
+        # a `/24` range. The count was unaffected, the reported range was not.
+        self.assertEqual(["203.0.113.0/24"], guard.CIDR_RE.findall('"203.0.113.0/24"'))
+        self.assertEqual(["10.0.0.0/8"], guard.CIDR_RE.findall('"10.0.0.0/8"'))
+        self.assertEqual(["1.2.3.4/32"], guard.CIDR_RE.findall('"1.2.3.4/32"'))
+        self.assertEqual(
+            ["2001:0db8:0000:0000:0000:0000:0000:0001/32"],
+            guard.CIDR_RE.findall('"2001:0db8:0000:0000:0000:0000:0000:0001/32"'),
+        )
+
+    def test_compressed_ipv6_cidr_is_a_known_blind_spot(self) -> None:
+        # Documents a pre-existing gap rather than endorsing it: `::` compression
+        # is not recognised, so an IPv6-only denylist using it would pass. Delete
+        # this test when the pattern learns compressed notation.
+        self.assertEqual([], guard.CIDR_RE.findall('"2001:db8::/32"'))
+
 
 if __name__ == "__main__":
     unittest.main()
