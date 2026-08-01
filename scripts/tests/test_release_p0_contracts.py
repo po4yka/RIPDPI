@@ -56,7 +56,10 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn(":app:assembleFdroidFullRelease", apk_invocation)
         self.assertIn(":app:assembleGithubFullRelease", apk_invocation)
         self.assertIn("-Pripdpi.enableAbiSplits=true", apk_invocation)
-        compile_preflight = signing.index(":app:compileGithubFullReleaseAndroidTestKotlin")
+        compile_preflight = signing.index(":app:hiltJavaCompileGithubFullReleaseAndroidTest")
+        generator_check = signing.index(
+            "python3 scripts/ci/generate_release_instrumentation_rules.py --check"
+        )
         signing_key = signing.index("Materialize release signing key")
         signing_identity = signing.index("Verify release signing identity before build")
         native_build = signing.index("Build signed release candidate once")
@@ -64,6 +67,8 @@ class ReleaseP0ContractsTest(unittest.TestCase):
             "python3 scripts/ci/verify_jni_readiness_mapping.py"
         )
         artifact_normalization = signing.index("Normalize channel artifacts and metadata")
+        self.assertLess(compile_preflight, generator_check)
+        self.assertLess(generator_check, signing_key)
         self.assertLess(compile_preflight, signing_key)
         self.assertLess(signing_key, signing_identity)
         self.assertLess(signing_identity, native_build)
