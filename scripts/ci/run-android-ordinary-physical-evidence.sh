@@ -109,6 +109,7 @@ wifi_before=""
 always_on_before=""
 lockdown_before=""
 vpn_manager_rebooted=0
+vpn_profile_configurator_ready=0
 
 wait_for_device_boot() {
     local attempt
@@ -139,6 +140,34 @@ wait_for_user_unlock() {
     done
     echo "The physical Android device was not unlocked within ${timeout_seconds}s." >&2
     return 1
+}
+
+configure_vpn_manager_profile() {
+    local package_name="$1"
+    local enabled="$2"
+    local lockdown="$3"
+    local transcript_path="$4"
+    local instrumentation_status
+
+    if [[ ! "$package_name" =~ ^[A-Za-z0-9._]+$ ]] || [[ ! "$enabled" =~ ^(true|false)$ ]] || [[ ! "$lockdown" =~ ^(true|false)$ ]]; then
+        echo "Invalid VPN manager configurator arguments." >&2
+        return 2
+    fi
+
+    set +e
+    "${adb[@]}" shell am instrument -w -r \
+        -e class com.poyka.ripdpi.e2e.AlwaysOnVpnSettingsConfiguratorTest#configureAlwaysOnVpnThroughSettings \
+        -e ripdpi.alwaysOnPackage "$package_name" \
+        -e ripdpi.alwaysOnEnabled "$enabled" \
+        -e ripdpi.alwaysOnLockdown "$lockdown" \
+        com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner >"$transcript_path" 2>&1
+    instrumentation_status=$?
+    set -e
+    chmod 0600 "$transcript_path"
+    if ((instrumentation_status != 0)) || [[ "$(grep -c '^OK (1 test)$' "$transcript_path")" != "1" ]] || grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|AssumptionViolated' "$transcript_path"; then
+        echo "Android VPN manager configurator did not finish as OK (1 test)." >&2
+        return 1
+    fi
 }
 
 cleanup_remote() {
@@ -184,21 +213,31 @@ cleanup_device() {
     fi
     "${adb[@]}" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
     "${adb[@]}" shell am force-stop com.poyka.ripdpi >/dev/null 2>&1 || true
-    "${adb[@]}" shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 || true
-    if [[ -n "$always_on_before" ]]; then
+    if ((vpn_profile_configurator_ready)) && [[ -n "$always_on_before" && -n "$lockdown_before" ]]; then
         if [[ "$always_on_before" == "null" ]]; then
-            "${adb[@]}" shell settings delete secure always_on_vpn_app >/dev/null 2>&1 || true
+            configure_vpn_manager_profile com.poyka.ripdpi false false "$output_dir/always-on-restore.txt" >/dev/null 2>&1 || true
         else
-            "${adb[@]}" shell settings put secure always_on_vpn_app "$always_on_before" >/dev/null 2>&1 || true
+            restore_lockdown=false
+            [[ "$lockdown_before" == "1" ]] && restore_lockdown=true
+            configure_vpn_manager_profile "$always_on_before" true "$restore_lockdown" "$output_dir/always-on-restore.txt" >/dev/null 2>&1 || true
+        fi
+    else
+        if [[ -n "$always_on_before" ]]; then
+            if [[ "$always_on_before" == "null" ]]; then
+                "${adb[@]}" shell settings delete secure always_on_vpn_app >/dev/null 2>&1 || true
+            else
+                "${adb[@]}" shell settings put secure always_on_vpn_app "$always_on_before" >/dev/null 2>&1 || true
+            fi
+        fi
+        if [[ -n "$lockdown_before" ]]; then
+            if [[ "$lockdown_before" == "null" ]]; then
+                "${adb[@]}" shell settings delete secure always_on_vpn_lockdown >/dev/null 2>&1 || true
+            else
+                "${adb[@]}" shell settings put secure always_on_vpn_lockdown "$lockdown_before" >/dev/null 2>&1 || true
+            fi
         fi
     fi
-    if [[ -n "$lockdown_before" ]]; then
-        if [[ "$lockdown_before" == "null" ]]; then
-            "${adb[@]}" shell settings delete secure always_on_vpn_lockdown >/dev/null 2>&1 || true
-        else
-            "${adb[@]}" shell settings put secure always_on_vpn_lockdown "$lockdown_before" >/dev/null 2>&1 || true
-        fi
-    fi
+    "${adb[@]}" shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 || true
     if ((test_preinstalled == 0)); then
         "${adb[@]}" uninstall com.poyka.ripdpi.test >/dev/null 2>&1 || true
     fi
@@ -299,8 +338,8 @@ if [[ "$installed_app_sha" != "$app_sha" || "$installed_test_sha" != "$test_sha"
     exit 2
 fi
 "${adb[@]}" shell cmd appops set com.poyka.ripdpi ACTIVATE_VPN allow
-"${adb[@]}" shell settings put secure always_on_vpn_app com.poyka.ripdpi
-"${adb[@]}" shell settings put secure always_on_vpn_lockdown 1
+vpn_profile_configurator_ready=1
+configure_vpn_manager_profile com.poyka.ripdpi true true "$output_dir/always-on-setup.txt"
 vpn_manager_rebooted=1
 "${adb[@]}" reboot
 wait_for_device_boot

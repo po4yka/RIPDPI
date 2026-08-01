@@ -210,14 +210,38 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         ).read_text()
         saved = runner.index('always_on_before=""')
         suspended = runner.rindex("settings delete secure always_on_vpn_app")
-        instrumented = runner.index("shell am instrument")
+        instrumented = runner.rindex("shell am instrument")
         restored = runner.index(
-            'settings put secure always_on_vpn_app "$always_on_before"'
+            'configure_vpn_manager_profile "$always_on_before" true'
         )
-        self.assertLess(saved, suspended)
-        self.assertLess(suspended, instrumented)
+        self.assertLess(saved, restored)
         self.assertLess(restored, suspended)
+        self.assertLess(suspended, instrumented)
         self.assertIn('am force-stop "$always_on_before"', runner)
+
+    def test_runner_uses_vpn_manager_ui_instead_of_unstable_secure_settings(self) -> None:
+        runner = Path(
+            "scripts/ci/run-android-ordinary-physical-evidence.sh"
+        ).read_text()
+        configurator = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AlwaysOnVpnSettingsConfiguratorTest.kt"
+        ).read_text()
+
+        setup = runner[runner.index('shell cmd appops set com.poyka.ripdpi ACTIVATE_VPN allow') :]
+        setup = setup[: setup.index('"${adb[@]}" reboot')]
+        self.assertNotIn(
+            "settings put secure always_on_vpn_app com.poyka.ripdpi",
+            setup,
+        )
+        self.assertNotIn("settings put secure always_on_vpn_lockdown 1", setup)
+        self.assertIn(
+            "configure_vpn_manager_profile com.poyka.ripdpi true true",
+            setup,
+        )
+        self.assertIn("com.android.settings.vpn2.AppManagementFragment", configurator)
+        self.assertIn("android:id/switch_widget", configurator)
+        self.assertIn("android:id/button1", configurator)
 
     def test_runner_opens_only_runtime_nftables_rules_and_removes_by_marker(
         self,
@@ -486,8 +510,10 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("collect_failure_diagnostics", runner)
         self.assertIn("failed-fixture-observer.pcap", runner)
         self.assertIn("failed-fixture-journal.txt", runner)
-        self.assertIn("settings put secure always_on_vpn_app com.poyka.ripdpi", runner)
-        self.assertIn("settings put secure always_on_vpn_lockdown 1", runner)
+        self.assertIn(
+            "configure_vpn_manager_profile com.poyka.ripdpi true true",
+            runner,
+        )
         self.assertGreaterEqual(runner.count('"${adb[@]}" reboot'), 2)
         self.assertIn("wait_for_device_boot", runner)
         self.assertIn("State: RUNNING_UNLOCKED", runner)
