@@ -185,7 +185,11 @@ impl VlessRealityClient {
         let stream = match config.flow {
             crate::addons::VlessFlow::None => VisionStream::new_passthrough(response),
             crate::addons::VlessFlow::Vision | crate::addons::VlessFlow::VisionUdp443 => {
-                VisionStream::new_vision(response, config.uuid)
+                if command == wire::VlessCommand::Mux {
+                    VisionStream::new_vision_tls_only(response, config.uuid)
+                } else {
+                    VisionStream::new_vision(response, config.uuid)
+                }
             }
         };
         Ok(stream)
