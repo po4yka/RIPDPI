@@ -75,13 +75,13 @@ def render_rules(repo_root: Path) -> str:
             f"-keep,allowoptimization,allowobfuscation class {class_name}"
         )
         lines.append(
-            f"-keepclassmembers,allowoptimization class {class_name} {{ *; }}"
+            f"-keepclassmembers class {class_name} {{ *; }}"
         )
         lines.append(
             f"-keep,allowoptimization,allowobfuscation class {class_name}$*"
         )
         lines.append(
-            f"-keepclassmembers,allowoptimization class {class_name}$* {{ *; }}"
+            f"-keepclassmembers class {class_name}$* {{ *; }}"
         )
     return "\n".join(lines) + "\n"
 

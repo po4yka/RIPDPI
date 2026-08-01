@@ -85,12 +85,12 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             generated_rules,
         )
         self.assertIn(
-            "-keepclassmembers,allowoptimization class "
+            "-keepclassmembers class "
             "dagger.hilt.android.flags.FragmentGetContextFix$* { *; }",
             generated_rules,
         )
         self.assertIn(
-            "-keepclassmembers,allowoptimization class "
+            "-keepclassmembers class "
             "com.poyka.ripdpi.RipDpiApp_MembersInjector { *; }",
             generated_rules,
         )

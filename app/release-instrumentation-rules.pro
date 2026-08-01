@@ -10,4122 +10,4122 @@
 # Regenerate after compiling :app:hiltJavaCompileGithubFullReleaseAndroidTest.
 
 -keep,allowoptimization,allowobfuscation class androidx.datastore.core.DataStore
--keepclassmembers,allowoptimization class androidx.datastore.core.DataStore { *; }
+-keepclassmembers class androidx.datastore.core.DataStore { *; }
 -keep,allowoptimization,allowobfuscation class androidx.datastore.core.DataStore$*
--keepclassmembers,allowoptimization class androidx.datastore.core.DataStore$* { *; }
+-keepclassmembers class androidx.datastore.core.DataStore$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.fragment.app.Fragment
--keepclassmembers,allowoptimization class androidx.fragment.app.Fragment { *; }
+-keepclassmembers class androidx.fragment.app.Fragment { *; }
 -keep,allowoptimization,allowobfuscation class androidx.fragment.app.Fragment$*
--keepclassmembers,allowoptimization class androidx.fragment.app.Fragment$* { *; }
+-keepclassmembers class androidx.fragment.app.Fragment$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.HiltWorkerFactory
--keepclassmembers,allowoptimization class androidx.hilt.work.HiltWorkerFactory { *; }
+-keepclassmembers class androidx.hilt.work.HiltWorkerFactory { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.HiltWorkerFactory$*
--keepclassmembers,allowoptimization class androidx.hilt.work.HiltWorkerFactory$* { *; }
+-keepclassmembers class androidx.hilt.work.HiltWorkerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.HiltWrapper_WorkerFactoryModule
--keepclassmembers,allowoptimization class androidx.hilt.work.HiltWrapper_WorkerFactoryModule { *; }
+-keepclassmembers class androidx.hilt.work.HiltWrapper_WorkerFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.HiltWrapper_WorkerFactoryModule$*
--keepclassmembers,allowoptimization class androidx.hilt.work.HiltWrapper_WorkerFactoryModule$* { *; }
+-keepclassmembers class androidx.hilt.work.HiltWrapper_WorkerFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.WorkerAssistedFactory
--keepclassmembers,allowoptimization class androidx.hilt.work.WorkerAssistedFactory { *; }
+-keepclassmembers class androidx.hilt.work.WorkerAssistedFactory { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.WorkerAssistedFactory$*
--keepclassmembers,allowoptimization class androidx.hilt.work.WorkerAssistedFactory$* { *; }
+-keepclassmembers class androidx.hilt.work.WorkerAssistedFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory
--keepclassmembers,allowoptimization class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory { *; }
+-keepclassmembers class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory { *; }
 -keep,allowoptimization,allowobfuscation class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory$*
--keepclassmembers,allowoptimization class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory$* { *; }
+-keepclassmembers class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.lifecycle.SavedStateHandle
--keepclassmembers,allowoptimization class androidx.lifecycle.SavedStateHandle { *; }
+-keepclassmembers class androidx.lifecycle.SavedStateHandle { *; }
 -keep,allowoptimization,allowobfuscation class androidx.lifecycle.SavedStateHandle$*
--keepclassmembers,allowoptimization class androidx.lifecycle.SavedStateHandle$* { *; }
+-keepclassmembers class androidx.lifecycle.SavedStateHandle$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.lifecycle.ViewModel
--keepclassmembers,allowoptimization class androidx.lifecycle.ViewModel { *; }
+-keepclassmembers class androidx.lifecycle.ViewModel { *; }
 -keep,allowoptimization,allowobfuscation class androidx.lifecycle.ViewModel$*
--keepclassmembers,allowoptimization class androidx.lifecycle.ViewModel$* { *; }
+-keepclassmembers class androidx.lifecycle.ViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.work.ListenableWorker
--keepclassmembers,allowoptimization class androidx.work.ListenableWorker { *; }
+-keepclassmembers class androidx.work.ListenableWorker { *; }
 -keep,allowoptimization,allowobfuscation class androidx.work.ListenableWorker$*
--keepclassmembers,allowoptimization class androidx.work.ListenableWorker$* { *; }
+-keepclassmembers class androidx.work.ListenableWorker$* { *; }
 -keep,allowoptimization,allowobfuscation class androidx.work.WorkerParameters
--keepclassmembers,allowoptimization class androidx.work.WorkerParameters { *; }
+-keepclassmembers class androidx.work.WorkerParameters { *; }
 -keep,allowoptimization,allowobfuscation class androidx.work.WorkerParameters$*
--keepclassmembers,allowoptimization class androidx.work.WorkerParameters$* { *; }
+-keepclassmembers class androidx.work.WorkerParameters$* { *; }
 -keep,allowoptimization,allowobfuscation class com.google.common.collect.ImmutableMap
--keepclassmembers,allowoptimization class com.google.common.collect.ImmutableMap { *; }
+-keepclassmembers class com.google.common.collect.ImmutableMap { *; }
 -keep,allowoptimization,allowobfuscation class com.google.common.collect.ImmutableMap$*
--keepclassmembers,allowoptimization class com.google.common.collect.ImmutableMap$* { *; }
+-keepclassmembers class com.google.common.collect.ImmutableMap$* { *; }
 -keep,allowoptimization,allowobfuscation class com.google.common.collect.ImmutableSet
--keepclassmembers,allowoptimization class com.google.common.collect.ImmutableSet { *; }
+-keepclassmembers class com.google.common.collect.ImmutableSet { *; }
 -keep,allowoptimization,allowobfuscation class com.google.common.collect.ImmutableSet$*
--keepclassmembers,allowoptimization class com.google.common.collect.ImmutableSet$* { *; }
+-keepclassmembers class com.google.common.collect.ImmutableSet$* { *; }
 -keep,allowoptimization,allowobfuscation class com.google.errorprone.annotations.CanIgnoreReturnValue
--keepclassmembers,allowoptimization class com.google.errorprone.annotations.CanIgnoreReturnValue { *; }
+-keepclassmembers class com.google.errorprone.annotations.CanIgnoreReturnValue { *; }
 -keep,allowoptimization,allowobfuscation class com.google.errorprone.annotations.CanIgnoreReturnValue$*
--keepclassmembers,allowoptimization class com.google.errorprone.annotations.CanIgnoreReturnValue$* { *; }
+-keepclassmembers class com.google.errorprone.annotations.CanIgnoreReturnValue$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppCompatibilityReset
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppCompatibilityReset { *; }
+-keepclassmembers class com.poyka.ripdpi.AppCompatibilityReset { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppCompatibilityReset$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppCompatibilityReset$* { *; }
+-keepclassmembers class com.poyka.ripdpi.AppCompatibilityReset$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppCompatibilityResetBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppCompatibilityResetBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.AppCompatibilityResetBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppCompatibilityResetBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppCompatibilityResetBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.AppCompatibilityResetBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppStartupInitializer
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppStartupInitializer { *; }
+-keepclassmembers class com.poyka.ripdpi.AppStartupInitializer { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppStartupInitializer$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppStartupInitializer$* { *; }
+-keepclassmembers class com.poyka.ripdpi.AppStartupInitializer$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppStartupReadiness
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppStartupReadiness { *; }
+-keepclassmembers class com.poyka.ripdpi.AppStartupReadiness { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.AppStartupReadiness$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.AppStartupReadiness$* { *; }
+-keepclassmembers class com.poyka.ripdpi.AppStartupReadiness$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.HiltWrapper_TestWorkerFactoryEntryPoint
--keepclassmembers,allowoptimization class com.poyka.ripdpi.HiltWrapper_TestWorkerFactoryEntryPoint { *; }
+-keepclassmembers class com.poyka.ripdpi.HiltWrapper_TestWorkerFactoryEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.HiltWrapper_TestWorkerFactoryEntryPoint$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.HiltWrapper_TestWorkerFactoryEntryPoint$* { *; }
+-keepclassmembers class com.poyka.ripdpi.HiltWrapper_TestWorkerFactoryEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp
--keepclassmembers,allowoptimization class com.poyka.ripdpi.RipDpiApp { *; }
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.RipDpiApp$* { *; }
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp_GeneratedInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.RipDpiApp_GeneratedInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp_GeneratedInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp_GeneratedInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.RipDpiApp_GeneratedInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp_GeneratedInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp_MembersInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.RipDpiApp_MembersInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp_MembersInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp_MembersInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.RipDpiApp_MembersInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp_MembersInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.StartupDataRecovery
--keepclassmembers,allowoptimization class com.poyka.ripdpi.StartupDataRecovery { *; }
+-keepclassmembers class com.poyka.ripdpi.StartupDataRecovery { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.StartupDataRecovery$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.StartupDataRecovery$* { *; }
+-keepclassmembers class com.poyka.ripdpi.StartupDataRecovery$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.StartupDiagnosticsProbes
--keepclassmembers,allowoptimization class com.poyka.ripdpi.StartupDiagnosticsProbes { *; }
+-keepclassmembers class com.poyka.ripdpi.StartupDiagnosticsProbes { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.StartupDiagnosticsProbes$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.StartupDiagnosticsProbes$* { *; }
+-keepclassmembers class com.poyka.ripdpi.StartupDiagnosticsProbes$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigCapabilityObserver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigCapabilityObserver { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigCapabilityObserver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigCapabilityObserver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigCapabilityObserver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigCapabilityObserver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigImportDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigImportDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigImportDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigImportDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigImportDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigImportDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigRelayArtifactRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigRelayArtifactRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigRelayArtifactRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigRelayArtifactRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigRelayArtifactRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModelDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModelDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModelDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModelDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModelDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModelDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.ConfigViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DefaultHistoryDetailLoader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DefaultHistoryDetailLoader { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DefaultHistoryDetailLoader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DefaultHistoryDetailLoader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DefaultHistoryDetailLoader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DefaultHistoryDetailLoader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DefaultMainActivityHost
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DefaultMainActivityHost { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DefaultMainActivityHost { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DefaultMainActivityHost$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DefaultMainActivityHost$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DefaultMainActivityHost$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsApproachesUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsApproachesUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsApproachesUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsApproachesUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsApproachesUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsApproachesUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsContextDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsContextDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsContextDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsContextDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsContextDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsContextDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsEventsUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsEventsUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsEventsUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsEventsUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsEventsUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsEventsUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsFiles
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsFiles { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsFiles { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsFiles$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsFiles$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsFiles$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsInteractionDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsInteractionDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsInteractionDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsInteractionDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsInteractionDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsInteractionDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsLiveUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsLiveUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsLiveUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsLiveUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsLiveUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsLiveUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsOverviewUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsOverviewUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsOverviewUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsOverviewUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsOverviewUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsOverviewUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsPerformanceUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsPerformanceUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsPerformanceUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsPerformanceUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsPerformanceUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsPerformanceUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsProbeDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsProbeDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsProbeDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsProbeDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsProbeDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsProbeDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsRemoteDeviceAcceptance
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsRemoteDeviceAcceptance { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsRemoteDeviceAcceptance { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsRemoteDeviceAcceptance$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsRemoteDeviceAcceptance$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsRemoteDeviceAcceptance$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsScanUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsScanUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsScanUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsScanUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsScanUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsScanUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsSessionsUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsSessionsUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsSessionsUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsSessionsUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsSessionsUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsSessionsUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsShareUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsShareUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsShareUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsShareUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsShareUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsShareUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiCoreSupport
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiCoreSupport { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiCoreSupport { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiCoreSupport$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiCoreSupport$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiCoreSupport$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiFormatter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiFormatter { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiFormatter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiFormatter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiFormatter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiFormatter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiInputResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiInputResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiInputResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiInputResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiInputResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiInputResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiStateAssembler
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiStateAssembler { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiStateAssembler { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiStateAssembler$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiStateAssembler$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiStateAssembler$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModelBootstrapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModelBootstrapper { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModelBootstrapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModelBootstrapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModelBootstrapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModelBootstrapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.DiagnosticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HiltWrapper_ConfigEditorDraftStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HiltWrapper_ConfigEditorDraftStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HiltWrapper_ConfigEditorDraftStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HiltWrapper_ConfigEditorDraftStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HiltWrapper_ConfigEditorDraftStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HiltWrapper_ConfigEditorDraftStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HiltWrapper_HistoryViewModelModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HiltWrapper_HistoryViewModelModule { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HiltWrapper_HistoryViewModelModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HiltWrapper_HistoryViewModelModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HiltWrapper_HistoryViewModelModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HiltWrapper_HistoryViewModelModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HiltWrapper_MainActivityHostModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HiltWrapper_MainActivityHostModule { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HiltWrapper_MainActivityHostModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HiltWrapper_MainActivityHostModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HiltWrapper_MainActivityHostModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HiltWrapper_MainActivityHostModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryUiStateFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryUiStateFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryUiStateFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryUiStateFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryUiStateFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryUiStateFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HomeDiagnosticsServices
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HomeDiagnosticsServices { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HomeDiagnosticsServices { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.HomeDiagnosticsServices$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.HomeDiagnosticsServices$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.HomeDiagnosticsServices$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogAggregatorUseCase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogAggregatorUseCase { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogAggregatorUseCase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogAggregatorUseCase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogAggregatorUseCase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogAggregatorUseCase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsServiceEventObserver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsServiceEventObserver { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsServiceEventObserver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsServiceEventObserver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsServiceEventObserver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsServiceEventObserver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModelDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModelDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModelDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModelDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModelDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModelDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.LogsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainActivity
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainActivity { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainActivity { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainActivity$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainActivity$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainActivity$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainActivity_GeneratedInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainActivity_GeneratedInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainActivity_GeneratedInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainActivity_GeneratedInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainActivity_GeneratedInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainActivity_GeneratedInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainActivity_MembersInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainActivity_MembersInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainActivity_MembersInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainActivity_MembersInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainActivity_MembersInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainActivity_MembersInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainAppLockLifecycleCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainAppLockLifecycleCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainAppLockLifecycleCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainAppLockLifecycleCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainAppLockLifecycleCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainAppLockLifecycleCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainControlPlaneDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainControlPlaneDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainControlPlaneDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainControlPlaneDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainControlPlaneDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainControlPlaneDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainCrashReportCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainCrashReportCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainCrashReportCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainCrashReportCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainCrashReportCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainCrashReportCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainDiagnosticsDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainDiagnosticsDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainDiagnosticsDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainDiagnosticsDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainDiagnosticsDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainDiagnosticsDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainLifecycleDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainLifecycleDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainLifecycleDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainLifecycleDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainLifecycleDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainLifecycleDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainPermissionDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainPermissionDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainPermissionDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainPermissionDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainPermissionDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainPermissionDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainServiceDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainServiceDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainServiceDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainServiceDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainServiceDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainServiceDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainSettingsDismissCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainSettingsDismissCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainSettingsDismissCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainSettingsDismissCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainSettingsDismissCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainSettingsDismissCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingPermissionCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingPermissionCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingPermissionCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingPermissionCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingPermissionCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingPermissionCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingSettingsCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingSettingsCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingSettingsCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingSettingsCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingSettingsCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingSettingsCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingValidationCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingValidationCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingValidationCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingValidationCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingValidationCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingValidationCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.OnboardingViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.RememberedNetworksViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsActionDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsActionDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsActionDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsActionDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsActionDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsActionDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsUiDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsUiDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsUiDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsUiDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsUiDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsUiDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsUiStateAssembler
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsUiStateAssembler { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsUiStateAssembler { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsUiStateAssembler$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsUiStateAssembler$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsUiStateAssembler$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModelBootstrapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModelBootstrapper { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModelBootstrapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModelBootstrapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModelBootstrapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModelBootstrapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.activities.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.DefaultGeoAssetDownloadService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.DefaultGeoAssetDownloadService { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.DefaultGeoAssetDownloadService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.DefaultGeoAssetDownloadService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.DefaultGeoAssetDownloadService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.DefaultGeoAssetDownloadService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.DefaultGeoAssetRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.DefaultGeoAssetRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.DefaultGeoAssetRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.DefaultGeoAssetRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.DefaultGeoAssetRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.DefaultGeoAssetRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.DnsProviderCatalogLoaderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.DnsProviderCatalogLoaderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.DnsProviderCatalogLoaderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.DnsProviderCatalogLoaderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.DnsProviderCatalogLoaderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.DnsProviderCatalogLoaderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.GeoAssetDownloadServiceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.GeoAssetDownloadServiceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.GeoAssetDownloadServiceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.GeoAssetDownloadServiceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.GeoAssetDownloadServiceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.GeoAssetDownloadServiceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.GeoAssetRepositoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.GeoAssetRepositoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.GeoAssetRepositoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.assets.GeoAssetRepositoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.assets.GeoAssetRepositoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.assets.GeoAssetRepositoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.automation.AutomationControllerOptionalBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.automation.AutomationControllerOptionalBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.automation.AutomationControllerOptionalBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.automation.AutomationControllerOptionalBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.automation.AutomationControllerOptionalBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.automation.AutomationControllerOptionalBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.AwgUserDataResetter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.AwgUserDataResetter { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.AwgUserDataResetter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.AwgUserDataResetter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.AwgUserDataResetter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.AwgUserDataResetter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupExportPolicy
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupExportPolicy { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupExportPolicy { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupExportPolicy$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupExportPolicy$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupExportPolicy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupRestoreViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupShareReminderPreferences
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupShareReminderPreferences { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupShareReminderPreferences { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.BackupShareReminderPreferences$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.BackupShareReminderPreferences$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.BackupShareReminderPreferences$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.CacheDirectoryCleanerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.CacheDirectoryCleanerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.CacheDirectoryCleanerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.CacheDirectoryCleanerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.CacheDirectoryCleanerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.CacheDirectoryCleanerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.DefaultCacheDirectoryCleaner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.DefaultCacheDirectoryCleaner { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.DefaultCacheDirectoryCleaner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.DefaultCacheDirectoryCleaner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.DefaultCacheDirectoryCleaner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.DefaultCacheDirectoryCleaner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.DefaultUserArtifactResetStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.DefaultUserArtifactResetStore { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.DefaultUserArtifactResetStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.DefaultUserArtifactResetStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.DefaultUserArtifactResetStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.DefaultUserArtifactResetStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.DefaultUserProfileResetStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.DefaultUserProfileResetStore { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.DefaultUserProfileResetStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.DefaultUserProfileResetStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.DefaultUserProfileResetStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.DefaultUserProfileResetStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetActionsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetActionsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetActionsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetActionsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetActionsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetActionsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.HiltWrapper_UserProfileResetStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.RelayUserDataResetter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.RelayUserDataResetter { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.RelayUserDataResetter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.RelayUserDataResetter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.RelayUserDataResetter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.RelayUserDataResetter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.ResetAllSettingsUseCase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.ResetAllSettingsUseCase { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.ResetAllSettingsUseCase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.ResetAllSettingsUseCase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.ResetAllSettingsUseCase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.ResetAllSettingsUseCase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.ResetEventRecorderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.ResetEventRecorderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.ResetEventRecorderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.ResetEventRecorderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.ResetEventRecorderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.ResetEventRecorderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.SessionUserDataResetter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.SessionUserDataResetter { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.SessionUserDataResetter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.SessionUserDataResetter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.SessionUserDataResetter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.SessionUserDataResetter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.SharedPreferencesResetEventRecorder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.SharedPreferencesResetEventRecorder { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.SharedPreferencesResetEventRecorder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.SharedPreferencesResetEventRecorder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.SharedPreferencesResetEventRecorder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.SharedPreferencesResetEventRecorder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserArtifactResetStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserArtifactResetStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserArtifactResetStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserArtifactResetStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserArtifactResetStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserArtifactResetStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideAwgUserDataResetterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideAwgUserDataResetterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideAwgUserDataResetterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideAwgUserDataResetterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideAwgUserDataResetterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideAwgUserDataResetterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideRelayUserDataResetterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideRelayUserDataResetterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideRelayUserDataResetterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideRelayUserDataResetterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideRelayUserDataResetterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideRelayUserDataResetterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideSessionUserDataResetterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideSessionUserDataResetterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideSessionUserDataResetterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideSessionUserDataResetterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideSessionUserDataResetterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideSessionUserDataResetterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideWarpUserDataResetterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideWarpUserDataResetterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideWarpUserDataResetterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideWarpUserDataResetterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideWarpUserDataResetterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideWarpUserDataResetterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideXrayUserDataResetterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideXrayUserDataResetterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideXrayUserDataResetterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideXrayUserDataResetterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideXrayUserDataResetterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.UserProfileResetActionsModule_ProvideXrayUserDataResetterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.WarpUserDataResetter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.WarpUserDataResetter { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.WarpUserDataResetter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.WarpUserDataResetter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.WarpUserDataResetter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.WarpUserDataResetter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.XrayUserDataResetter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.XrayUserDataResetter { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.XrayUserDataResetter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.backup.XrayUserDataResetter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.backup.XrayUserDataResetter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.backup.XrayUserDataResetter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultNativeOwnedTlsHttpFetcher
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultNativeOwnedTlsHttpFetcher { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultNativeOwnedTlsHttpFetcher { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultNativeOwnedTlsHttpFetcher$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultNativeOwnedTlsHttpFetcher$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultNativeOwnedTlsHttpFetcher$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultNetworkDiagnosticsBridgeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultNetworkDiagnosticsBridgeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultNetworkDiagnosticsBridgeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultNetworkDiagnosticsBridgeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultNetworkDiagnosticsBridgeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultNetworkDiagnosticsBridgeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultRipDpiAmneziaWgFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultRipDpiAmneziaWgFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultRipDpiAmneziaWgFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultRipDpiAmneziaWgFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultRipDpiAmneziaWgFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultRipDpiAmneziaWgFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultRipDpiRelayFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultRipDpiRelayFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultRipDpiRelayFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultRipDpiRelayFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultRipDpiRelayFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultRipDpiRelayFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultRipDpiWarpFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultRipDpiWarpFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultRipDpiWarpFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.DefaultRipDpiWarpFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.DefaultRipDpiWarpFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.DefaultRipDpiWarpFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.HiltWrapper_NativeOwnedTlsHttpFetcherModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.HiltWrapper_NativeOwnedTlsHttpFetcherModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.HiltWrapper_NativeOwnedTlsHttpFetcherModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.HiltWrapper_NativeOwnedTlsHttpFetcherModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.HiltWrapper_NativeOwnedTlsHttpFetcherModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.HiltWrapper_NativeOwnedTlsHttpFetcherModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcherNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.ProxyPreferencesResolverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.ProxyPreferencesResolverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.ProxyPreferencesResolverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.ProxyPreferencesResolverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.ProxyPreferencesResolverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.ProxyPreferencesResolverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiAmneziaWgNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiProxyNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiProxyNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiProxyNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiRelayNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiRelayNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiRelayNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.StrategyEngineBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.StrategyEngineBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.StrategyEngineBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.StrategyEngineBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.StrategyEngineBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.StrategyEngineBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.Tun2SocksBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.Tun2SocksBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridgeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.Tun2SocksBridgeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridgeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.Tun2SocksBridgeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings { *; }
+-keepclassmembers class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.TunDeviceQualificationNativeBindings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayBridgeModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayBridgeModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayBridgeModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayBridgeModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayBridgeModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayBridgeModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayDatDirFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayDatDirFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayDatDirFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayDatDirFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayDatDirFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayDatDirFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayNativeBridgeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayNativeBridgeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayNativeBridgeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayNativeBridgeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayNativeBridgeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayBridgeModule_ProvideXrayNativeBridgeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayNativeBridge
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayNativeBridge { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayNativeBridge { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.XrayNativeBridge$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.XrayNativeBridge$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.XrayNativeBridge$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultBypassCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultBypassCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultBypassCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultBypassCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultBypassCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultBypassCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultCallTransportCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultCallTransportCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultCallTransportCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultCallTransportCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultCallTransportCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultCallTransportCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultCdnPullingCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultCdnPullingCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultCdnPullingCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultCdnPullingCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultCdnPullingCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultCdnPullingCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDetectionCheckRunner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDetectionCheckRunner { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDetectionCheckRunner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDetectionCheckRunner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDetectionCheckRunner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDetectionCheckRunner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDetectionVerdictEvaluator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDetectionVerdictEvaluator { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDetectionVerdictEvaluator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDetectionVerdictEvaluator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDetectionVerdictEvaluator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDetectionVerdictEvaluator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDirectSignsCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDirectSignsCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDirectSignsCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDirectSignsCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDirectSignsCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDirectSignsCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDnsLeakCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDnsLeakCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDnsLeakCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultDnsLeakCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultDnsLeakCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultDnsLeakCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultGeoIpCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultGeoIpCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultGeoIpCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultGeoIpCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultGeoIpCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultGeoIpCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultIcmpSpoofingCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultIcmpSpoofingCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultIcmpSpoofingCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultIcmpSpoofingCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultIcmpSpoofingCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultIcmpSpoofingCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultIndirectSignsCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultIndirectSignsCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultIndirectSignsCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultIndirectSignsCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultIndirectSignsCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultIndirectSignsCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultIpComparisonCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultIpComparisonCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultIpComparisonCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultIpComparisonCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultIpComparisonCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultIpComparisonCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultLocationSignalsCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultLocationSignalsCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultLocationSignalsCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultLocationSignalsCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultLocationSignalsCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultLocationSignalsCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultNativeSignsCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultNativeSignsCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultNativeSignsCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultNativeSignsCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultNativeSignsCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultNativeSignsCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultRttTriangulationCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultRttTriangulationCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultRttTriangulationCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultRttTriangulationCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultRttTriangulationCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultRttTriangulationCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultTimingAnalysisCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultTimingAnalysisCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultTimingAnalysisCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultTimingAnalysisCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultTimingAnalysisCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultTimingAnalysisCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultTlsFingerprintCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultTlsFingerprintCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultTlsFingerprintCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultTlsFingerprintCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultTlsFingerprintCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultTlsFingerprintCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultWebRtcLeakCheckerPort
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultWebRtcLeakCheckerPort { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultWebRtcLeakCheckerPort { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DefaultWebRtcLeakCheckerPort$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DefaultWebRtcLeakCheckerPort$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DefaultWebRtcLeakCheckerPort$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionCheckScheduler
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionCheckScheduler { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionCheckScheduler { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionCheckScheduler$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionCheckScheduler$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionCheckScheduler$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionCheckSchedulerBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionCheckSchedulerBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionCheckSchedulerBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionCheckSchedulerBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionCheckSchedulerBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionCheckSchedulerBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionCheckerPortsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionCheckerPortsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionCheckerPortsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionCheckerPortsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionCheckerPortsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionCheckerPortsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionHistoryBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionHistoryBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionHistoryBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionHistoryBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionHistoryBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionHistoryBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionHistoryStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionHistoryStore { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionHistoryStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.DetectionHistoryStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.DetectionHistoryStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.DetectionHistoryStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.community.CommunityComparisonStore { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.community.CommunityComparisonStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.community.CommunityComparisonStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.community.CommunityComparisonStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.community.CommunityComparisonStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.community.CommunityStatsRepositoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.community.CommunityStatsRepositoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.community.CommunityStatsRepositoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.community.CommunityStatsRepositoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.community.CommunityStatsRepositoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.community.CommunityStatsRepositoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.community.DefaultCommunityStatsRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.community.DefaultCommunityStatsRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.community.DefaultCommunityStatsRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.core.detection.community.DefaultCommunityStatsRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.core.detection.community.DefaultCommunityStatsRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.core.detection.community.DefaultCommunityStatsRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppCoroutineDispatchers
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppCoroutineDispatchers { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppCoroutineDispatchers { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppCoroutineDispatchers$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppCoroutineDispatchers$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppCoroutineDispatchers$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsDataStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppSettingsDataStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsDataStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsDataStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppSettingsDataStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsDataStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsDataStoreModule_ProvideAppSettingsDataStoreFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsRepositoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppSettingsRepositoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsRepositoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.AppSettingsRepositoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.AppSettingsRepositoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.AppSettingsRepositoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideAppCoroutineDispatchersFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideAppCoroutineDispatchersFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideAppCoroutineDispatchersFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideAppCoroutineDispatchersFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideAppCoroutineDispatchersFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideAppCoroutineDispatchersFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationIoScopeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationIoScopeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationIoScopeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationIoScopeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationIoScopeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationIoScopeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationScopeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationScopeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationScopeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationScopeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationScopeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.CoroutineScopesModule_ProvideApplicationScopeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultAppSettingsRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultAppSettingsRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultAppSettingsRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultAppSettingsRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultAppSettingsRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultAppSettingsRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultServiceStateStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultServiceStateStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultServiceStateStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultServiceStateStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultServiceStateStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultServiceStateStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultWidgetStateRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultWidgetStateRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultWidgetStateRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DefaultWidgetStateRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DefaultWidgetStateRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DefaultWidgetStateRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DeviceRuntimeEvidenceStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DeviceRuntimeEvidenceStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DeviceRuntimeEvidenceStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.DeviceRuntimeEvidenceStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.DeviceRuntimeEvidenceStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.DeviceRuntimeEvidenceStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.EncryptedProfileMutationJournal
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.EncryptedProfileMutationJournal { *; }
+-keepclassmembers class com.poyka.ripdpi.data.EncryptedProfileMutationJournal { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.EncryptedProfileMutationJournal$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.EncryptedProfileMutationJournal$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.EncryptedProfileMutationJournal$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.InMemoryStrategyPackStateStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.InMemoryStrategyPackStateStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.InMemoryStrategyPackStateStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.InMemoryStrategyPackStateStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.InMemoryStrategyPackStateStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.KeystoreProxyGroupBlobStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.KeystoreProxyGroupBlobStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.KeystoreProxyGroupBlobStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.KeystoreProxyGroupBlobStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.KeystoreProxyGroupBlobStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.KeystoreProxyGroupBlobStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.KeystoreRelayCredentialStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.KeystoreRelayCredentialStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.KeystoreRelayCredentialStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.KeystoreRelayCredentialStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.KeystoreRelayCredentialStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.KeystoreRelayCredentialStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.KeystoreWarpCredentialStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.KeystoreWarpCredentialStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.KeystoreWarpCredentialStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.KeystoreWarpCredentialStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.KeystoreWarpCredentialStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.KeystoreWarpCredentialStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationCoordinatorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationCoordinatorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationCoordinatorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationCoordinatorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationCoordinatorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationCoordinatorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationJournalModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationJournalModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationJournalModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationJournalModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationJournalModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationJournalModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationStores
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationStores { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationStores { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProfileMutationStores$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProfileMutationStores$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProfileMutationStores$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProxyGroupStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProxyGroupStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProxyGroupStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ProxyGroupStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ProxyGroupStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ProxyGroupStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.RelayPresetCatalog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.RelayPresetCatalog { *; }
+-keepclassmembers class com.poyka.ripdpi.data.RelayPresetCatalog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.RelayPresetCatalog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.RelayPresetCatalog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.RelayPresetCatalog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.RelayStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.RelayStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.RelayStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.RelayStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.RelayStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.RelayStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SerializationJsonModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SerializationJsonModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SerializationJsonModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SerializationJsonModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SerializationJsonModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SerializationJsonModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SerializationJsonModule_ProvideRipDpiJsonFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SerializationJsonModule_ProvideRipDpiJsonFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SerializationJsonModule_ProvideRipDpiJsonFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SerializationJsonModule_ProvideRipDpiJsonFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SerializationJsonModule_ProvideRipDpiJsonFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SerializationJsonModule_ProvideRipDpiJsonFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServerCapabilityStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ServerCapabilityStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ServerCapabilityStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServerCapabilityStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ServerCapabilityStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ServerCapabilityStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceStateStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ServiceStateStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ServiceStateStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.ServiceStateStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.ServiceStateStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.ServiceStateStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesServerCapabilityStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesServerCapabilityStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesServerCapabilityStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesServerCapabilityStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesServerCapabilityStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesServerCapabilityStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.StrategyPackStateStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.StrategyPackStateStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.StrategyPackStateStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.StrategyPackStateStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.StrategyPackStateStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.StrategyPackStateStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.TrimmableCache
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.TrimmableCache { *; }
+-keepclassmembers class com.poyka.ripdpi.data.TrimmableCache { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.TrimmableCache$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.TrimmableCache$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.TrimmableCache$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WarpPayloadGenCatalog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WarpPayloadGenCatalog { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WarpPayloadGenCatalog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WarpPayloadGenCatalog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WarpPayloadGenCatalog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WarpPayloadGenCatalog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WarpStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WarpStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WarpStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WarpStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WarpStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WarpStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WidgetStateModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WidgetStateModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WidgetStateModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WidgetStateModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WidgetStateModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WidgetStateModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WidgetStateRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WidgetStateRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WidgetStateRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.WidgetStateRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.WidgetStateRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.WidgetStateRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgCohortCatalog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgCohortCatalog { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgCohortCatalog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgCohortCatalog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgCohortCatalog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgCohortCatalog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgProfileDao
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgProfileDao { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgProfileDao { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgProfileDao$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgProfileDao$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgProfileDao$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgProfileRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgProfileRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgProfileRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgProfileRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgProfileRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgProfileRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.AwgStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.AwgStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.AwgStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.BackupExportUseCase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.BackupExportUseCase { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.BackupExportUseCase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.BackupExportUseCase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.BackupExportUseCase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.BackupExportUseCase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.BackupPrivateDataStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.BackupPrivateDataStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.BackupPrivateDataStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.BackupPrivateDataStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.BackupPrivateDataStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.BackupPrivateDataStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.BackupRestoreUseCase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.BackupRestoreUseCase { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.BackupRestoreUseCase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.BackupRestoreUseCase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.BackupRestoreUseCase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.BackupRestoreUseCase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.BootSessionStateStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.BootSessionStateStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.BootSessionStateStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.BootSessionStateStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.BootSessionStateStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.BootSessionStateStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule_ProvideDeviceProtectedBootPrefsFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule_ProvideDeviceProtectedBootPrefsFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule_ProvideDeviceProtectedBootPrefsFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule_ProvideDeviceProtectedBootPrefsFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule_ProvideDeviceProtectedBootPrefsFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.DeviceProtectedBootPrefsModule_ProvideDeviceProtectedBootPrefsFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDao
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDao { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDao { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDao$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDao$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDao$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDaoFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDaoFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDaoFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDaoFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDaoFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDaoFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDatabaseFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDatabaseFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDatabaseFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDatabaseFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDatabaseFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabaseModule_ProvideDiagnosticsDatabaseFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryStoresModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryStoresModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryStoresModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryStoresModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryStoresModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryStoresModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomBypassUsageHistoryStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomBypassUsageHistoryStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomBypassUsageHistoryStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomBypassUsageHistoryStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomBypassUsageHistoryStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomBypassUsageHistoryStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsArtifactStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsArtifactStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsArtifactStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsArtifactStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsArtifactStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsArtifactStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsExportRecordStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsExportRecordStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsExportRecordStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsExportRecordStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsExportRecordStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsExportRecordStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsFailureArtifactStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsFailureArtifactStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsFailureArtifactStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsFailureArtifactStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsFailureArtifactStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsFailureArtifactStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryResetStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryResetStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryResetStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryResetStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryResetStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryResetStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryRetentionStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryRetentionStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryRetentionStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryRetentionStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryRetentionStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsHistoryRetentionStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsProfileCatalog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsProfileCatalog { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsProfileCatalog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsProfileCatalog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsProfileCatalog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsProfileCatalog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsScanRecordStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsScanRecordStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsScanRecordStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsScanRecordStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsScanRecordStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsScanRecordStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsTerminalOutboxStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsTerminalOutboxStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsTerminalOutboxStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsTerminalOutboxStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsTerminalOutboxStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomDiagnosticsTerminalOutboxStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsBlockedPathStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsBlockedPathStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsBlockedPathStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsBlockedPathStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsBlockedPathStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsBlockedPathStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsPathPreferenceRecordStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsPathPreferenceRecordStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsPathPreferenceRecordStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsPathPreferenceRecordStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsPathPreferenceRecordStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomNetworkDnsPathPreferenceRecordStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomNetworkEdgePreferenceRecordStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomNetworkEdgePreferenceRecordStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomNetworkEdgePreferenceRecordStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomNetworkEdgePreferenceRecordStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomNetworkEdgePreferenceRecordStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomNetworkEdgePreferenceRecordStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomRememberedNetworkPolicyRecordStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomRememberedNetworkPolicyRecordStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomRememberedNetworkPolicyRecordStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.RoomRememberedNetworkPolicyRecordStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.RoomRememberedNetworkPolicyRecordStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.RoomRememberedNetworkPolicyRecordStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.SystemDiagnosticsHistoryClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.SystemDiagnosticsHistoryClock { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.SystemDiagnosticsHistoryClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.diagnostics.SystemDiagnosticsHistoryClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.diagnostics.SystemDiagnosticsHistoryClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.diagnostics.SystemDiagnosticsHistoryClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabase { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideAwgProfileDaoFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideAwgProfileDaoFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideAwgProfileDaoFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideAwgProfileDaoFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideAwgProfileDaoFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideAwgProfileDaoFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRipDpiDatabaseFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRipDpiDatabaseFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRipDpiDatabaseFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRipDpiDatabaseFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRipDpiDatabaseFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRipDpiDatabaseFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRuleDaoFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRuleDaoFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRuleDaoFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRuleDaoFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRuleDaoFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RipDpiDatabaseModule_ProvideRuleDaoFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RuleDao
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RuleDao { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RuleDao { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RuleDao$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RuleDao$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RuleDao$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RuleRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RuleRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RuleRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.rules.RuleRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.rules.RuleRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.rules.RuleRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.selector.SelectorSelectionStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.selector.SelectorSelectionStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.selector.SelectorSelectionStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.selector.SelectorSelectionStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.selector.SelectorSelectionStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.selector.SelectorSelectionStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.support.SupportSettingsApplyUseCase
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.support.SupportSettingsApplyUseCase { *; }
+-keepclassmembers class com.poyka.ripdpi.data.support.SupportSettingsApplyUseCase { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.support.SupportSettingsApplyUseCase$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.support.SupportSettingsApplyUseCase$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.support.SupportSettingsApplyUseCase$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.DefaultXrayProviderProbeCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.DefaultXrayProviderProbeCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.DefaultXrayProviderProbeCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.DefaultXrayProviderProbeCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.DefaultXrayProviderProbeCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.DefaultXrayProviderProbeCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.KeystoreXrayProfileSecretStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.KeystoreXrayProfileSecretStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.KeystoreXrayProfileSecretStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.KeystoreXrayProfileSecretStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.KeystoreXrayProfileSecretStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.KeystoreXrayProfileSecretStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinatorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinatorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinatorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinatorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinatorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinatorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.XrayProviderStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.XrayProviderStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.XrayProviderStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.data.xray.XrayProviderStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.data.xray.XrayProviderStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.data.xray.XrayProviderStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ActiveScanRegistry
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ActiveScanRegistry { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ActiveScanRegistry { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ActiveScanRegistry$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ActiveScanRegistry$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ActiveScanRegistry$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidDeviceStateProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidDeviceStateProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidDeviceStateProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidDeviceStateProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidDeviceStateProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidDeviceStateProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidDiagnosticsContextProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidDiagnosticsContextProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidDiagnosticsContextProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidDiagnosticsContextProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidDiagnosticsContextProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidDiagnosticsContextProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidNetworkMetadataProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidNetworkMetadataProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidNetworkMetadataProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidNetworkMetadataProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidNetworkMetadataProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidNetworkMetadataProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidNetworkPathValidationSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidNetworkPathValidationSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidNetworkPathValidationSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AndroidNetworkPathValidationSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AndroidNetworkPathValidationSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AndroidNetworkPathValidationSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AssetBundledDiagnosticsProfileSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AssetBundledDiagnosticsProfileSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AssetBundledDiagnosticsProfileSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AssetBundledDiagnosticsProfileSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AssetBundledDiagnosticsProfileSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AssetBundledDiagnosticsProfileSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.AutomaticProbeScheduler$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BridgeExecutionService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BridgeExecutionService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BridgeExecutionService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BridgeExecutionService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BridgeExecutionService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BridgeExecutionService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BridgePollingService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BridgePollingService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BridgePollingService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BridgePollingService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BridgePollingService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BridgePollingService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BridgeRetirementQueue
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BridgeRetirementQueue { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BridgeRetirementQueue { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BridgeRetirementQueue$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BridgeRetirementQueue$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BridgeRetirementQueue$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileSourceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileSourceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileSourceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileSourceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileSourceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileSourceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ComparisonScanCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ComparisonScanCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ComparisonScanCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ComparisonScanCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ComparisonScanCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ComparisonScanCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDeveloperAnalyticsSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDeveloperAnalyticsSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDeveloperAnalyticsSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDeveloperAnalyticsSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDeveloperAnalyticsSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDeveloperAnalyticsSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDeviceStateEventRecorder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDeviceStateEventRecorder { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDeviceStateEventRecorder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDeviceStateEventRecorder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDeviceStateEventRecorder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDeviceStateEventRecorder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsActiveConnectionPolicySource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsActiveConnectionPolicySource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsActiveConnectionPolicySource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsActiveConnectionPolicySource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsActiveConnectionPolicySource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsActiveConnectionPolicySource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHistorySource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHistorySource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHistorySource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHistorySource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHistorySource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHistorySource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeCompositeRunService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeCompositeRunService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeCompositeRunService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeCompositeRunService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeCompositeRunService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeCompositeRunService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeWorkflowService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeWorkflowService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeWorkflowService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeWorkflowService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeWorkflowService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsHomeWorkflowService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsIntentResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsIntentResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsIntentResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsIntentResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsIntentResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsIntentResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsRememberedPolicySource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsRememberedPolicySource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsRememberedPolicySource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsRememberedPolicySource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsRememberedPolicySource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsRememberedPolicySource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsScanController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsScanController { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsScanController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsScanController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsScanController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsScanController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsTimelineSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsTimelineSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsTimelineSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsTimelineSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsTimelineSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultDiagnosticsTimelineSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultHomeAnalysisAugmentationSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultHomeAnalysisAugmentationSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultHomeAnalysisAugmentationSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultHomeAnalysisAugmentationSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultHomeAnalysisAugmentationSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultHomeAnalysisAugmentationSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultHomeDetectionStageRunner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultHomeDetectionStageRunner { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultHomeDetectionStageRunner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultHomeDetectionStageRunner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultHomeDetectionStageRunner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultHomeDetectionStageRunner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultHomeDetectorCatalogSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultHomeDetectorCatalogSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultHomeDetectorCatalogSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultHomeDetectorCatalogSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultHomeDetectorCatalogSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultHomeDetectorCatalogSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultProbeResultCache
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultProbeResultCache { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultProbeResultCache { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultProbeResultCache$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultProbeResultCache$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultProbeResultCache$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultScanContextCollector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultScanContextCollector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultScanContextCollector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultScanContextCollector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultScanContextCollector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultScanContextCollector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeCandidateProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeCandidateProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeCandidateProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeCandidateProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeCandidateProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeCandidateProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeDnsComparator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeDnsComparator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeDnsComparator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeDnsComparator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeDnsComparator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeDnsComparator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DefaultStrategyProbeService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DeveloperBreadcrumbBuffer
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DeveloperBreadcrumbBuffer { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DeveloperBreadcrumbBuffer { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DeveloperBreadcrumbBuffer$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DeveloperBreadcrumbBuffer$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DeveloperBreadcrumbBuffer$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsBoundaryMapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsContextProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsContextProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsContextProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsContextProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsContextProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsContextProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcomeBuilder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcomeBuilder { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcomeBuilder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcomeBuilder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcomeBuilder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcomeBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeCapabilityEvidenceSummarizer
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeCapabilityEvidenceSummarizer { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeCapabilityEvidenceSummarizer { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeCapabilityEvidenceSummarizer$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeCapabilityEvidenceSummarizer$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeCapabilityEvidenceSummarizer$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeRecommendationApplier
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeRecommendationApplier { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeRecommendationApplier { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeRecommendationApplier$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeRecommendationApplier$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeRecommendationApplier$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeResolverActionCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeResolverActionCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeResolverActionCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsHomeResolverActionCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsHomeResolverActionCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsHomeResolverActionCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideActiveProbeSafetyPolicy$diagnosticsFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideActiveProbeSafetyPolicy$diagnosticsFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideActiveProbeSafetyPolicy$diagnosticsFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideActiveProbeSafetyPolicy$diagnosticsFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideActiveProbeSafetyPolicy$diagnosticsFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideActiveProbeSafetyPolicy$diagnosticsFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveClockFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveClockFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveClockFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveClockFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveClockFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveClockFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveFileStoreFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveFileStoreFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveFileStoreFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveFileStoreFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveFileStoreFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveFileStoreFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveIdGeneratorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveIdGeneratorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveIdGeneratorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveIdGeneratorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveIdGeneratorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsArchiveIdGeneratorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsJsonFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsJsonFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsJsonFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsJsonFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsJsonFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule_Companion_ProvideDiagnosticsJsonFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsScanExecutionCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsScanExecutionCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsScanExecutionCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsScanExecutionCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsScanExecutionCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsScanExecutionCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DnsOverHttpsAddressResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DnsOverHttpsAddressResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DnsOverHttpsAddressResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.DnsOverHttpsAddressResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.DnsOverHttpsAddressResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.DnsOverHttpsAddressResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileBundledDiagnosticsCatalogOverrideSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileBundledDiagnosticsCatalogOverrideSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileBundledDiagnosticsCatalogOverrideSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileBundledDiagnosticsCatalogOverrideSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileBundledDiagnosticsCatalogOverrideSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileBundledDiagnosticsCatalogOverrideSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileLogModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileLogModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileLogModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileLogModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileLogModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileLogModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileLogModule_ProvideFileLogWriterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileLogModule_ProvideFileLogWriterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileLogModule_ProvideFileLogWriterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileLogModule_ProvideFileLogWriterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileLogModule_ProvideFileLogWriterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileLogModule_ProvideFileLogWriterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileLogWriter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileLogWriter { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileLogWriter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.FileLogWriter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.FileLogWriter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.FileLogWriter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiddenProbeConflictRequestFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiddenProbeConflictRequestFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiddenProbeConflictRequestFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiddenProbeConflictRequestFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiddenProbeConflictRequestFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiddenProbeConflictRequestFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_DeviceStateEventRecorderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_DeviceStateEventRecorderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_DeviceStateEventRecorderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_DeviceStateEventRecorderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_DeviceStateEventRecorderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_DeviceStateEventRecorderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsComparisonProvidersModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsComparisonProvidersModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsComparisonProvidersModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsComparisonProvidersModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsComparisonProvidersModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsComparisonProvidersModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsPlanningModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsPlanningModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsPlanningModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsPlanningModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsPlanningModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_DiagnosticsPlanningModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_NetworkPathValidationSourceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_NetworkPathValidationSourceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_NetworkPathValidationSourceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HiltWrapper_NetworkPathValidationSourceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HiltWrapper_NetworkPathValidationSourceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HiltWrapper_NetworkPathValidationSourceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HomeCompositeStageExecutor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HomeCompositeStageExecutor { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HomeCompositeStageExecutor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HomeCompositeStageExecutor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HomeCompositeStageExecutor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HomeCompositeStageExecutor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HomeDiagnosticsAugmentationModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HomeDiagnosticsAugmentationModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HomeDiagnosticsAugmentationModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.HomeDiagnosticsAugmentationModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.HomeDiagnosticsAugmentationModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.HomeDiagnosticsAugmentationModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.LocalDnsAddressResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.LocalDnsAddressResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.LocalDnsAddressResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.LocalDnsAddressResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.LocalDnsAddressResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.LocalDnsAddressResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.NativeStrategyProbeResultInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.NativeStrategyProbeResultInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.NativeStrategyProbeResultInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.NativeStrategyProbeResultInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.NativeStrategyProbeResultInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.NativeStrategyProbeResultInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.NetworkMetadataProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.NetworkMetadataProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.NetworkMetadataProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.NetworkMetadataProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.NetworkMetadataProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.NetworkMetadataProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.OkHttpStrategyProbeTransport
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.OkHttpStrategyProbeTransport { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.OkHttpStrategyProbeTransport { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.OkHttpStrategyProbeTransport$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.OkHttpStrategyProbeTransport$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.OkHttpStrategyProbeTransport$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.PassiveEventPersistenceService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.PassiveEventPersistenceService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.PassiveEventPersistenceService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.PassiveEventPersistenceService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.PassiveEventPersistenceService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.PassiveEventPersistenceService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.PublicIpInfoResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.PublicIpInfoResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.PublicIpInfoResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.PublicIpInfoResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.PublicIpInfoResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.PublicIpInfoResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RememberedPolicySessionTracker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RememberedPolicySessionTracker { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RememberedPolicySessionTracker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RememberedPolicySessionTracker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RememberedPolicySessionTracker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RememberedPolicySessionTracker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitor { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeSessionCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeSessionCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeSessionCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.RuntimeSessionCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.RuntimeSessionCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.RuntimeSessionCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ScanAdmissionService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ScanAdmissionService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ScanAdmissionService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ScanAdmissionService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ScanAdmissionService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ScanAdmissionService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ScanFinalizationService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ScanFinalizationService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ScanFinalizationService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.ScanFinalizationService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.ScanFinalizationService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.ScanFinalizationService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.SettingsStrategyProbeActivator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.SettingsStrategyProbeActivator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.SettingsStrategyProbeActivator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.SettingsStrategyProbeActivator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.SettingsStrategyProbeActivator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.SettingsStrategyProbeActivator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeActivator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeActivator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeActivator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeActivator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeActivator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeActivator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeDnsComparator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeDnsComparator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeDnsComparator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeDnsComparator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeDnsComparator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeDnsComparator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyEngineBindingsFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyEngineBindingsFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyEngineBindingsFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyEngineBindingsFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyEngineBindingsFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyEngineBindingsFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyProbeOkHttpClientFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyProbeOkHttpClientFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyProbeOkHttpClientFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyProbeOkHttpClientFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyProbeOkHttpClientFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeModule_Companion_ProvideStrategyProbeOkHttpClientFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeResultInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeResultInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeResultInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeResultInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeResultInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeResultInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeTransport
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeTransport { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeTransport { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.StrategyProbeTransport$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.StrategyProbeTransport$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.StrategyProbeTransport$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.SystemDeviceStateEventClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.SystemDeviceStateEventClock { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.SystemDeviceStateEventClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.SystemDeviceStateEventClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.SystemDeviceStateEventClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.SystemDeviceStateEventClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.crash.CrashReportModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.crash.CrashReportModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.crash.CrashReportModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.crash.CrashReportModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.crash.CrashReportModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.crash.CrashReportModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.crash.CrashReportModule_ProvideCrashReportReaderFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.crash.CrashReportModule_ProvideCrashReportReaderFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.crash.CrashReportModule_ProvideCrashReportReaderFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.crash.CrashReportModule_ProvideCrashReportReaderFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.crash.CrashReportModule_ProvideCrashReportReaderFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.crash.CrashReportModule_ProvideCrashReportReaderFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.crash.CrashReportReader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.crash.CrashReportReader { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.crash.CrashReportReader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.crash.CrashReportReader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.crash.CrashReportReader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.crash.CrashReportReader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DoqQuicClient
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DoqQuicClient { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DoqQuicClient { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DoqQuicClient$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DoqQuicClient$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DoqQuicClient$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule_ProvideDpiAssetLoaderFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule_ProvideDpiAssetLoaderFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule_ProvideDpiAssetLoaderFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule_ProvideDpiAssetLoaderFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule_ProvideDpiAssetLoaderFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderModule_ProvideDpiAssetLoaderFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsAvailabilitySurveyFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsAvailabilitySurveyFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsAvailabilitySurveyFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsAvailabilitySurveyFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsAvailabilitySurveyFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsAvailabilitySurveyFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsIntegrityCheckerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsIntegrityCheckerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsIntegrityCheckerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsIntegrityCheckerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsIntegrityCheckerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDnsIntegrityCheckerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDomainReachabilityScannerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDomainReachabilityScannerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDomainReachabilityScannerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDomainReachabilityScannerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDomainReachabilityScannerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDomainReachabilityScannerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDoqQuicClientFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDoqQuicClientFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDoqQuicClientFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDoqQuicClientFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDoqQuicClientFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideDoqQuicClientFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideHttpCompressionProberFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideHttpCompressionProberFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideHttpCompressionProberFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideHttpCompressionProberFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideHttpCompressionProberFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideHttpCompressionProberFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideNativeDoqQuicClientBindingsFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideNativeDoqQuicClientBindingsFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideNativeDoqQuicClientBindingsFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideNativeDoqQuicClientBindingsFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideNativeDoqQuicClientBindingsFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideNativeDoqQuicClientBindingsFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideRknLayeredProbePipelineFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideRknLayeredProbePipelineFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideRknLayeredProbePipelineFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideRknLayeredProbePipelineFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideRknLayeredProbePipelineFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideRknLayeredProbePipelineFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideTcp16FatHeaderProbeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideTcp16FatHeaderProbeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideTcp16FatHeaderProbeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideTcp16FatHeaderProbeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideTcp16FatHeaderProbeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpiDiagnosticsToolModule_ProvideTcp16FatHeaderProbeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideCidrWhitelistDetectorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideCidrWhitelistDetectorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideCidrWhitelistDetectorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideCidrWhitelistDetectorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideCidrWhitelistDetectorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideCidrWhitelistDetectorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideEchTlsHandshakeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideEchTlsHandshakeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideEchTlsHandshakeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideEchTlsHandshakeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideEchTlsHandshakeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideEchTlsHandshakeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideIpv4WhitelistedSubnetDiscovererFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideIpv4WhitelistedSubnetDiscovererFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideIpv4WhitelistedSubnetDiscovererFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideIpv4WhitelistedSubnetDiscovererFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideIpv4WhitelistedSubnetDiscovererFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideIpv4WhitelistedSubnetDiscovererFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideSelfInfoFetcherFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideSelfInfoFetcherFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideSelfInfoFetcherFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideSelfInfoFetcherFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideSelfInfoFetcherFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideSelfInfoFetcherFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideTlsKeylogRunFinalizerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideTlsKeylogRunFinalizerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideTlsKeylogRunFinalizerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideTlsKeylogRunFinalizerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideTlsKeylogRunFinalizerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.DpichDiagnosticsToolModule_ProvideTlsKeylogRunFinalizerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.AndroidDiagnosticsArchiveBuildInfoProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.AndroidDiagnosticsArchiveBuildInfoProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.AndroidDiagnosticsArchiveBuildInfoProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.AndroidDiagnosticsArchiveBuildInfoProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.AndroidDiagnosticsArchiveBuildInfoProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.AndroidDiagnosticsArchiveBuildInfoProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.AndroidInstalledArtifactSnapshotSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.AndroidInstalledArtifactSnapshotSource { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.AndroidInstalledArtifactSnapshotSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.AndroidInstalledArtifactSnapshotSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.AndroidInstalledArtifactSnapshotSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.AndroidInstalledArtifactSnapshotSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollector { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRenderer
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRenderer { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRenderer { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRenderer$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRenderer$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRenderer$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.HiltWrapper_DiagnosticsArchiveBuildInfoProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.HiltWrapper_DiagnosticsArchiveBuildInfoProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.HiltWrapper_DiagnosticsArchiveBuildInfoProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.HiltWrapper_DiagnosticsArchiveBuildInfoProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.HiltWrapper_DiagnosticsArchiveBuildInfoProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.HiltWrapper_DiagnosticsArchiveBuildInfoProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.DefaultProbeReplayService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.DefaultProbeReplayService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.DefaultProbeReplayService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.DefaultProbeReplayService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.DefaultProbeReplayService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.DefaultProbeReplayService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule_Companion_ProvideReplayHttpClientFactoryFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule_Companion_ProvideReplayHttpClientFactoryFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule_Companion_ProvideReplayHttpClientFactoryFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule_Companion_ProvideReplayHttpClientFactoryFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule_Companion_ProvideReplayHttpClientFactoryFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ProbeReplayModule_Companion_ProvideReplayHttpClientFactoryFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ProbeReplayService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ProbeReplayService { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ProbeReplayService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ProbeReplayService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ProbeReplayService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ProbeReplayService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ReplayHttpClientFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ReplayHttpClientFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ReplayHttpClientFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ReplayHttpClientFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ReplayHttpClientFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ReplayHttpClientFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ReplayResultStore { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ReplayResultStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.replay.ReplayResultStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.replay.ReplayResultStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.replay.ReplayResultStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher$* { *; }
+-keepclassmembers class com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.failover.ActiveTransportProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.failover.ActiveTransportProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.failover.ActiveTransportProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.failover.ActiveTransportProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.failover.ActiveTransportProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.failover.ActiveTransportProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackCatalogDownloadService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackCatalogDownloadService { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackCatalogDownloadService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackCatalogDownloadService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackCatalogDownloadService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackCatalogDownloadService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackCatalogRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackCatalogRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackCatalogRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackCatalogRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackCatalogRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackCatalogRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackCatalogTempFileFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackCatalogTempFileFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackCatalogTempFileFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackCatalogTempFileFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackCatalogTempFileFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackCatalogTempFileFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackVerifier
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackVerifier { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackVerifier { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.DefaultHostPackVerifier$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.DefaultHostPackVerifier$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.DefaultHostPackVerifier$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogNetworkModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogNetworkModule { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogNetworkModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogNetworkModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogNetworkModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogNetworkModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackVerifierBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackVerifierBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackVerifierBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.HostPackVerifierBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.HostPackVerifierBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.HostPackVerifierBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.SystemHostPackCatalogClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.SystemHostPackCatalogClock { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.SystemHostPackCatalogClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.hosts.SystemHostPackCatalogClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.hosts.SystemHostPackCatalogClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.hosts.SystemHostPackCatalogClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.AndroidPermissionStatusProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.AndroidPermissionStatusProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.AndroidPermissionStatusProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.AndroidPermissionStatusProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.AndroidPermissionStatusProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.AndroidPermissionStatusProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.AndroidRuntimePermissionChecker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.AndroidRuntimePermissionChecker { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.AndroidRuntimePermissionChecker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.AndroidRuntimePermissionChecker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.AndroidRuntimePermissionChecker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.AndroidRuntimePermissionChecker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.PermissionCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.PermissionCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.PermissionCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.PermissionCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.PermissionCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.PermissionCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.PermissionStatusProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.PermissionStatusProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.PermissionStatusProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.PermissionStatusProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.PermissionStatusProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.PermissionStatusProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.RuntimePermissionCheckerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.RuntimePermissionCheckerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.RuntimePermissionCheckerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.permissions.RuntimePermissionCheckerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.permissions.RuntimePermissionCheckerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.permissions.RuntimePermissionCheckerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AndroidPermissionPlatformBridge
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AndroidPermissionPlatformBridge { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AndroidPermissionPlatformBridge { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AndroidPermissionPlatformBridge$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AndroidPermissionPlatformBridge$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AndroidPermissionPlatformBridge$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AndroidStringResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AndroidStringResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AndroidStringResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AndroidStringResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AndroidStringResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AndroidStringResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AndroidTrafficStatsReader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AndroidTrafficStatsReader { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AndroidTrafficStatsReader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AndroidTrafficStatsReader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AndroidTrafficStatsReader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AndroidTrafficStatsReader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AppPlatformBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AppPlatformBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AppPlatformBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.AppPlatformBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.AppPlatformBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.AppPlatformBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideAppVersionNameFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideAppVersionNameFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideAppVersionNameFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideAppVersionNameFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideAppVersionNameFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideAppVersionNameFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideGitCommitFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideGitCommitFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideGitCommitFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideGitCommitFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideGitCommitFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideGitCommitFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideNativeLibVersionFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideNativeLibVersionFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideNativeLibVersionFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideNativeLibVersionFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideNativeLibVersionFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.BuildProvenanceModule_ProvideNativeLibVersionFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.DefaultLauncherIconController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.DefaultLauncherIconController { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.DefaultLauncherIconController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.DefaultLauncherIconController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.DefaultLauncherIconController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.DefaultLauncherIconController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.DnsInvalidatorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.DnsInvalidatorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.DnsInvalidatorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.DnsInvalidatorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.DnsInvalidatorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.DnsInvalidatorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.DnsInvalidatorModule_ProvideVpnFamilyPackagesFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.DnsInvalidatorModule_ProvideVpnFamilyPackagesFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.DnsInvalidatorModule_ProvideVpnFamilyPackagesFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.DnsInvalidatorModule_ProvideVpnFamilyPackagesFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.DnsInvalidatorModule_ProvideVpnFamilyPackagesFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.DnsInvalidatorModule_ProvideVpnFamilyPackagesFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.MemoryTrimCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.MemoryTrimCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.MemoryTrimCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.MemoryTrimCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.MemoryTrimCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.MemoryTrimCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.MemoryTrimModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.MemoryTrimModule { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.MemoryTrimModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.MemoryTrimModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.MemoryTrimModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.MemoryTrimModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.StartOnBootController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.StartOnBootController { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.StartOnBootController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.StartOnBootController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.StartOnBootController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.StartOnBootController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.TrafficStatsBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.TrafficStatsBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.TrafficStatsBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.platform.TrafficStatsBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.platform.TrafficStatsBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.platform.TrafficStatsBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proto.AppSettings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proto.AppSettings { *; }
+-keepclassmembers class com.poyka.ripdpi.proto.AppSettings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proto.AppSettings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proto.AppSettings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proto.AppSettings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.ActiveSelectorSelectionProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ClipboardReaderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.ClipboardReaderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.ClipboardReaderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ClipboardReaderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.ClipboardReaderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.ClipboardReaderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.RelayActivationSelectorReloadTrigger
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.RelayActivationSelectorReloadTrigger { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.RelayActivationSelectorReloadTrigger { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.RelayActivationSelectorReloadTrigger$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.RelayActivationSelectorReloadTrigger$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.RelayActivationSelectorReloadTrigger$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.RelayProfileActivator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.RelayProfileActivator { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.RelayProfileActivator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.RelayProfileActivator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.RelayProfileActivator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.RelayProfileActivator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadCoordinatorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadCoordinatorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadCoordinatorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadCoordinatorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadCoordinatorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadCoordinatorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadLifecycleListenerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadLifecycleListenerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadLifecycleListenerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadLifecycleListenerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadLifecycleListenerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadLifecycleListenerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadScopeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadScopeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadScopeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadScopeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadScopeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SelectorReloadModule_Companion_ProvideSelectorReloadScopeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ServiceControllerRunningRelayRefresher
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.ServiceControllerRunningRelayRefresher { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.ServiceControllerRunningRelayRefresher { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.ServiceControllerRunningRelayRefresher$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.ServiceControllerRunningRelayRefresher$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.ServiceControllerRunningRelayRefresher$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SystemClipboardReader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SystemClipboardReader { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SystemClipboardReader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.proxyimport.SystemClipboardReader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.proxyimport.SystemClipboardReader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.proxyimport.SystemClipboardReader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AndroidBiometricCapabilityChecker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AndroidBiometricCapabilityChecker { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AndroidBiometricCapabilityChecker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AndroidBiometricCapabilityChecker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AndroidBiometricCapabilityChecker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AndroidBiometricCapabilityChecker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AndroidMasqueClientCredentialImporter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AndroidMasqueClientCredentialImporter { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AndroidMasqueClientCredentialImporter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AndroidMasqueClientCredentialImporter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AndroidMasqueClientCredentialImporter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AndroidMasqueClientCredentialImporter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AppLockLifecycleObserver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AppLockLifecycleObserver { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AppLockLifecycleObserver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AppLockLifecycleObserver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AppLockLifecycleObserver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AppLockLifecycleObserver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AppTrustedSigningKeyBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AppTrustedSigningKeyBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AppTrustedSigningKeyBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.AppTrustedSigningKeyBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.AppTrustedSigningKeyBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.AppTrustedSigningKeyBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.BiometricCapabilityChecker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.BiometricCapabilityChecker { *; }
+-keepclassmembers class com.poyka.ripdpi.security.BiometricCapabilityChecker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.BiometricCapabilityChecker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.BiometricCapabilityChecker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.BiometricCapabilityChecker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.DefaultAppTrustedSigningKeyResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.DefaultAppTrustedSigningKeyResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.security.DefaultAppTrustedSigningKeyResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.DefaultAppTrustedSigningKeyResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.DefaultAppTrustedSigningKeyResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.DefaultAppTrustedSigningKeyResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.KeystorePinVerifier
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.KeystorePinVerifier { *; }
+-keepclassmembers class com.poyka.ripdpi.security.KeystorePinVerifier { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.KeystorePinVerifier$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.KeystorePinVerifier$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.KeystorePinVerifier$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.MasqueClientCredentialImporterModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.MasqueClientCredentialImporterModule { *; }
+-keepclassmembers class com.poyka.ripdpi.security.MasqueClientCredentialImporterModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.MasqueClientCredentialImporterModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.MasqueClientCredentialImporterModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.MasqueClientCredentialImporterModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.PinLockoutManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.PinLockoutManager { *; }
+-keepclassmembers class com.poyka.ripdpi.security.PinLockoutManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.PinLockoutManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.PinLockoutManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.PinLockoutManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.SecurityModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.SecurityModule { *; }
+-keepclassmembers class com.poyka.ripdpi.security.SecurityModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.security.SecurityModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.security.SecurityModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.security.SecurityModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.seed.SimpleFlavorSeederModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.seed.SimpleFlavorSeederModule { *; }
+-keepclassmembers class com.poyka.ripdpi.seed.SimpleFlavorSeederModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.seed.SimpleFlavorSeederModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.seed.SimpleFlavorSeederModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.seed.SimpleFlavorSeederModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.seed.SimpleFlavorSessionWatcherModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.seed.SimpleFlavorSessionWatcherModule { *; }
+-keepclassmembers class com.poyka.ripdpi.seed.SimpleFlavorSessionWatcherModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.seed.SimpleFlavorSessionWatcherModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.seed.SimpleFlavorSessionWatcherModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.seed.SimpleFlavorSessionWatcherModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.seed.SimpleFlavorStartupHooks
--keepclassmembers,allowoptimization class com.poyka.ripdpi.seed.SimpleFlavorStartupHooks { *; }
+-keepclassmembers class com.poyka.ripdpi.seed.SimpleFlavorStartupHooks { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.seed.SimpleFlavorStartupHooks$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.seed.SimpleFlavorStartupHooks$* { *; }
+-keepclassmembers class com.poyka.ripdpi.seed.SimpleFlavorStartupHooks$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.awg.DefaultAmneziaWgRuntimeConfigResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.awg.DefaultAmneziaWgRuntimeConfigResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.service.awg.DefaultAmneziaWgRuntimeConfigResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.awg.DefaultAmneziaWgRuntimeConfigResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.awg.DefaultAmneziaWgRuntimeConfigResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.awg.DefaultAmneziaWgRuntimeConfigResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.awg.HiltWrapper_AmneziaWgRuntimeConfigResolverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.awg.HiltWrapper_AmneziaWgRuntimeConfigResolverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.service.awg.HiltWrapper_AmneziaWgRuntimeConfigResolverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.awg.HiltWrapper_AmneziaWgRuntimeConfigResolverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.awg.HiltWrapper_AmneziaWgRuntimeConfigResolverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.awg.HiltWrapper_AmneziaWgRuntimeConfigResolverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.HiltWrapper_RuntimeControlPlaneModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.HiltWrapper_RuntimeControlPlaneModule { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.HiltWrapper_RuntimeControlPlaneModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.HiltWrapper_RuntimeControlPlaneModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.HiltWrapper_RuntimeControlPlaneModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.HiltWrapper_RuntimeControlPlaneModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlaneModule_Companion_ProvideRuntimeControlPlaneFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlaneModule_Companion_ProvideRuntimeControlPlaneFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlaneModule_Companion_ProvideRuntimeControlPlaneFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlaneModule_Companion_ProvideRuntimeControlPlaneFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlaneModule_Companion_ProvideRuntimeControlPlaneFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.RuntimeControlPlaneModule_Companion_ProvideRuntimeControlPlaneFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.HiltWrapper_ProxyServiceSessionModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.HiltWrapper_ProxyServiceSessionModule { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.HiltWrapper_ProxyServiceSessionModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.HiltWrapper_ProxyServiceSessionModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.HiltWrapper_ProxyServiceSessionModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.HiltWrapper_ProxyServiceSessionModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyAmneziaWgRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyAmneziaWgRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyAmneziaWgRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyAmneziaWgRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyAmneziaWgRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyAmneziaWgRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyCoordinatorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyCoordinatorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyCoordinatorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyCoordinatorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyCoordinatorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyCoordinatorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorBundleFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorBundleFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorBundleFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorBundleFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorBundleFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorBundleFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyStatusReporterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyStatusReporterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyStatusReporterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyStatusReporterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyStatusReporterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideProxyStatusReporterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideUpstreamRelaySupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideUpstreamRelaySupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideUpstreamRelaySupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideUpstreamRelaySupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideUpstreamRelaySupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideUpstreamRelaySupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideWarpRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideWarpRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideWarpRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideWarpRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideWarpRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule_ProvideWarpRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.HiltWrapper_VpnServiceSessionModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.HiltWrapper_VpnServiceSessionModule { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.HiltWrapper_VpnServiceSessionModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.HiltWrapper_VpnServiceSessionModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.HiltWrapper_VpnServiceSessionModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.HiltWrapper_VpnServiceSessionModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnAmneziaWgRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnAmneziaWgRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnAmneziaWgRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnAmneziaWgRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnAmneziaWgRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnAmneziaWgRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorServicesFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorServicesFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorServicesFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorServicesFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorServicesFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnCoordinatorServicesFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnEncryptedDnsFailoverControllerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnEncryptedDnsFailoverControllerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnEncryptedDnsFailoverControllerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnEncryptedDnsFailoverControllerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnEncryptedDnsFailoverControllerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnEncryptedDnsFailoverControllerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectFailureMonitorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectFailureMonitorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectFailureMonitorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectFailureMonitorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectFailureMonitorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectFailureMonitorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectSocketServerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectSocketServerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectSocketServerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectSocketServerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectSocketServerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProtectSocketServerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProxyRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProxyRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProxyRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProxyRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProxyRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnProxyRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnServiceXrayProtectControllerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnServiceXrayProtectControllerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnServiceXrayProtectControllerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnServiceXrayProtectControllerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnServiceXrayProtectControllerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnServiceXrayProtectControllerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnStatusReporterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnStatusReporterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnStatusReporterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnStatusReporterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnStatusReporterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnStatusReporterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnTunnelRuntimeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnTunnelRuntimeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnTunnelRuntimeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnTunnelRuntimeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnTunnelRuntimeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnTunnelRuntimeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnUpstreamRelaySupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnUpstreamRelaySupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnUpstreamRelaySupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnUpstreamRelaySupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnUpstreamRelaySupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnUpstreamRelaySupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnWarpRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnWarpRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnWarpRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnWarpRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnWarpRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideVpnWarpRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayProviderSessionControllerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayProviderSessionControllerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayProviderSessionControllerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayProviderSessionControllerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayProviderSessionControllerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayProviderSessionControllerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayRenderedConfigHolderFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayRenderedConfigHolderFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayRenderedConfigHolderFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayRenderedConfigHolderFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayRenderedConfigHolderFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayRenderedConfigHolderFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayTunnelStartParamsHolderFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayTunnelStartParamsHolderFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayTunnelStartParamsHolderFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayTunnelStartParamsHolderFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayTunnelStartParamsHolderFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule_ProvideXrayTunnelStartParamsHolderFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.telemetry.DefaultRuntimeTelemetryInsightsRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.telemetry.DefaultRuntimeTelemetryInsightsRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.service.telemetry.DefaultRuntimeTelemetryInsightsRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.telemetry.DefaultRuntimeTelemetryInsightsRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.telemetry.DefaultRuntimeTelemetryInsightsRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.telemetry.DefaultRuntimeTelemetryInsightsRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepositoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepositoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepositoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepositoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepositoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepositoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.DefaultWarpRuntimeConfigResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.DefaultWarpRuntimeConfigResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.DefaultWarpRuntimeConfigResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.DefaultWarpRuntimeConfigResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.DefaultWarpRuntimeConfigResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.DefaultWarpRuntimeConfigResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.HiltWrapper_WarpRuntimeConfigResolverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.HiltWrapper_WarpRuntimeConfigResolverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.HiltWrapper_WarpRuntimeConfigResolverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.HiltWrapper_WarpRuntimeConfigResolverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.HiltWrapper_WarpRuntimeConfigResolverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.HiltWrapper_WarpRuntimeConfigResolverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy$* { *; }
+-keepclassmembers class com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AcceptedUserStopRecorder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AcceptedUserStopRecorder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AcceptedUserStopRecorder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AcceptedUserStopRecorder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AcceptedUserStopRecorder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AcceptedUserStopRecorder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ActiveConnectionPolicyStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ActiveConnectionPolicyStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ActiveConnectionPolicyStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ActiveConnectionPolicyStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ActiveConnectionPolicyStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ActiveConnectionPolicyStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ActiveProtectSocketPathProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ActiveProtectSocketPathProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ActiveProtectSocketPathProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ActiveProtectSocketPathProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ActiveProtectSocketPathProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ActiveProtectSocketPathProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidCloudflareMasqueGeohashResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidCloudflareMasqueGeohashResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidCloudflareMasqueGeohashResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidCloudflareMasqueGeohashResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidCloudflareMasqueGeohashResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidCloudflareMasqueGeohashResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidHardKillSwitchStateModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidHardKillSwitchStateModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidHardKillSwitchStateModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidHardKillSwitchStateModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidHardKillSwitchStateModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidHardKillSwitchStateModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidNetworkFingerprintProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidNetworkFingerprintProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidNetworkFingerprintProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidNetworkFingerprintProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidNetworkFingerprintProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidNetworkFingerprintProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidTorRuntimePathProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidTorRuntimePathProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidTorRuntimePathProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AndroidTorRuntimePathProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AndroidTorRuntimePathProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AndroidTorRuntimePathProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AntiCorrelationRoutingPolicyModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AntiCorrelationRoutingPolicyModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AntiCorrelationRoutingPolicyModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AntiCorrelationRoutingPolicyModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AntiCorrelationRoutingPolicyModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AntiCorrelationRoutingPolicyModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AssetAppRoutingCatalogProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AssetAppRoutingCatalogProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AssetAppRoutingCatalogProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AssetAppRoutingCatalogProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AssetAppRoutingCatalogProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AssetAppRoutingCatalogProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AssetAsnRoutingCatalogProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AssetAsnRoutingCatalogProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AssetAsnRoutingCatalogProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AssetAsnRoutingCatalogProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AssetAsnRoutingCatalogProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AssetAsnRoutingCatalogProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AssetDhtTriggerCidrsCatalogProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AssetDhtTriggerCidrsCatalogProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AssetDhtTriggerCidrsCatalogProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AssetDhtTriggerCidrsCatalogProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AssetDhtTriggerCidrsCatalogProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AssetDhtTriggerCidrsCatalogProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AwgEgressSelectionSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AwgEgressSelectionSource { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AwgEgressSelectionSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.AwgEgressSelectionSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.AwgEgressSelectionSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.AwgEgressSelectionSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootReceiver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootReceiver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootReceiver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootReceiver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootReceiver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootReceiver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootReceiver_GeneratedInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootReceiver_GeneratedInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootReceiver_GeneratedInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootReceiver_GeneratedInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootReceiver_GeneratedInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootReceiver_GeneratedInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootReceiver_MembersInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootReceiver_MembersInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootReceiver_MembersInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootReceiver_MembersInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootReceiver_MembersInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootReceiver_MembersInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootResumeCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootResumeCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootResumeCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootResumeCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootResumeCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootResumeCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootResumeProfileGuardModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootResumeProfileGuardModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootResumeProfileGuardModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootResumeProfileGuardModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootResumeProfileGuardModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootResumeProfileGuardModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootSessionRecorder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootSessionRecorder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootSessionRecorder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootSessionRecorder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootSessionRecorder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootSessionRecorder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionComponent
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionComponent { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionComponent { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionComponent$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionComponent$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionComponentBuilder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionComponentBuilder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionComponentBuilder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionComponentBuilder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionModule_ProvideBootstrapProxyRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionModule_ProvideBootstrapProxyRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionModule_ProvideBootstrapProxyRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionModule_ProvideBootstrapProxyRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionModule_ProvideBootstrapProxyRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionModule_ProvideBootstrapProxyRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionScope
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionScope { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionScope { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BootstrapProxySessionScope$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BootstrapProxySessionScope$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BootstrapProxySessionScope$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BuildConfigMasquePrivacyPassProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BuildConfigMasquePrivacyPassProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BuildConfigMasquePrivacyPassProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BuildConfigMasquePrivacyPassProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BuildConfigMasquePrivacyPassProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BuildConfigMasquePrivacyPassProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BuildVersionOwnedStackBrowserSupportProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BuildVersionOwnedStackBrowserSupportProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BuildVersionOwnedStackBrowserSupportProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.BuildVersionOwnedStackBrowserSupportProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.BuildVersionOwnedStackBrowserSupportProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.BuildVersionOwnedStackBrowserSupportProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchPersistedCacheModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchPersistedCacheModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchPersistedCacheModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchPersistedCacheModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchPersistedCacheModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchPersistedCacheModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchRefreshWorker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchRefreshWorker { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchRefreshWorker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchRefreshWorker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchRefreshWorker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchRefreshWorker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchRefreshWorker_AssistedFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchRefreshWorker_AssistedFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchRefreshWorker_AssistedFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchRefreshWorker_AssistedFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchRefreshWorker_AssistedFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchRefreshWorker_AssistedFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchRefreshWorker_HiltModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchRefreshWorker_HiltModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchRefreshWorker_HiltModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchRefreshWorker_HiltModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchRefreshWorker_HiltModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchRefreshWorker_HiltModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchSeedFromCache
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchSeedFromCache { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchSeedFromCache { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CdnEchSeedFromCache$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CdnEchSeedFromCache$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CdnEchSeedFromCache$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ChainRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ChainRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ChainRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ChainRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ChainRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ChainRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflareMasqueGeohashResolverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflareMasqueGeohashResolverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflareMasqueGeohashResolverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflareMasqueGeohashResolverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflareMasqueGeohashResolverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflareMasqueGeohashResolverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishBinaryExtractor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishBinaryExtractor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishBinaryExtractor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishBinaryExtractor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishBinaryExtractor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishBinaryExtractor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishConfigParser
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishConfigParser { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishConfigParser { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishConfigParser$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishConfigParser$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishConfigParser$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishManager { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishProcessOutputReader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishProcessOutputReader { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishProcessOutputReader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishProcessOutputReader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishProcessOutputReader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishProcessOutputReader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishProcessSupervisor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishProcessSupervisor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishProcessSupervisor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishProcessSupervisor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishProcessSupervisor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishProcessSupervisor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishReadinessPoller
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishReadinessPoller { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishReadinessPoller { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishReadinessPoller$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishReadinessPoller$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishReadinessPoller$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishRuntime
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishRuntime { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishRuntime { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishRuntime$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishRuntime$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishRuntime$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishRuntimeFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishRuntimeFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishRuntimeFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishRuntimeFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishRuntimeFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishRuntimeFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishTelemetryProjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishTelemetryProjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishTelemetryProjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishTelemetryProjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishTelemetryProjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishTelemetryProjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishVersionProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishVersionProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishVersionProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflarePublishVersionProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflarePublishVersionProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflarePublishVersionProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflareTunnelRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflareTunnelRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflareTunnelRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflareTunnelRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflareTunnelRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflareTunnelRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflaredLaunchPlanBuilder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflaredLaunchPlanBuilder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflaredLaunchPlanBuilder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.CloudflaredLaunchPlanBuilder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.CloudflaredLaunchPlanBuilder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.CloudflaredLaunchPlanBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ConnectionHealthRepositoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ConnectionHealthRepositoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ConnectionHealthRepositoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ConnectionHealthRepositoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ConnectionHealthRepositoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ConnectionHealthRepositoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ConnectionPolicyResolverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ConnectionPolicyResolverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ConnectionPolicyResolverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ConnectionPolicyResolverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ConnectionPolicyResolverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ConnectionPolicyResolverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ContextCompatForegroundServiceStarter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ContextCompatForegroundServiceStarter { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ContextCompatForegroundServiceStarter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ContextCompatForegroundServiceStarter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ContextCompatForegroundServiceStarter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ContextCompatForegroundServiceStarter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultAndroidNetworkSnapshotSource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultAndroidNetworkSnapshotSource { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultAndroidNetworkSnapshotSource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultAndroidNetworkSnapshotSource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultAndroidNetworkSnapshotSource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultAndroidNetworkSnapshotSource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultAntiCorrelationRoutingPolicy
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultAntiCorrelationRoutingPolicy { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultAntiCorrelationRoutingPolicy { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultAntiCorrelationRoutingPolicy$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultAntiCorrelationRoutingPolicy$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultAntiCorrelationRoutingPolicy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultAwgEgressSelectionProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultAwgEgressSelectionProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultAwgEgressSelectionProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultAwgEgressSelectionProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultAwgEgressSelectionProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultAwgEgressSelectionProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultBootResumeProfileGuard
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultBootResumeProfileGuard { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultBootResumeProfileGuard { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultBootResumeProfileGuard$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultBootResumeProfileGuard$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultBootResumeProfileGuard$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultBootstrapProxyRuntimeSupervisorSessionFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultBootstrapProxyRuntimeSupervisorSessionFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultBootstrapProxyRuntimeSupervisorSessionFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultBootstrapProxyRuntimeSupervisorSessionFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultBootstrapProxyRuntimeSupervisorSessionFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultBootstrapProxyRuntimeSupervisorSessionFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultCloudflarePublishRuntimeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultCloudflarePublishRuntimeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultCloudflarePublishRuntimeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultCloudflarePublishRuntimeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultCloudflarePublishRuntimeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultCloudflarePublishRuntimeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultConnectionHealthRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultConnectionHealthRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultConnectionHealthRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultConnectionHealthRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultConnectionHealthRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultConnectionHealthRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultConnectionPolicyResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultConnectionPolicyResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultConnectionPolicyResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultConnectionPolicyResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultConnectionPolicyResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultConnectionPolicyResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultDiagnosticsRuntimeCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultDiagnosticsRuntimeCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultDiagnosticsRuntimeCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultDiagnosticsRuntimeCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultDiagnosticsRuntimeCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultDiagnosticsRuntimeCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultEnginePlatformCapabilities
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultEnginePlatformCapabilities { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultEnginePlatformCapabilities { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultEnginePlatformCapabilities$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultEnginePlatformCapabilities$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultEnginePlatformCapabilities$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultFlowAppAttributionStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultFlowAppAttributionStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultFlowAppAttributionStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultFlowAppAttributionStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultFlowAppAttributionStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultFlowAppAttributionStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultGoogleAppsScriptRelayRuntimeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultGoogleAppsScriptRelayRuntimeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultGoogleAppsScriptRelayRuntimeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultGoogleAppsScriptRelayRuntimeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultGoogleAppsScriptRelayRuntimeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultGoogleAppsScriptRelayRuntimeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultHostAutolearnStoreController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultHostAutolearnStoreController { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultHostAutolearnStoreController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultHostAutolearnStoreController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultHostAutolearnStoreController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultHostAutolearnStoreController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultLatestDirectModeOutcomeStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultLatestDirectModeOutcomeStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultLatestDirectModeOutcomeStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultLatestDirectModeOutcomeStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultLatestDirectModeOutcomeStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultLatestDirectModeOutcomeStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultNaiveProxyRuntimeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultNaiveProxyRuntimeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultNaiveProxyRuntimeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultNaiveProxyRuntimeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultNaiveProxyRuntimeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultNaiveProxyRuntimeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultNetworkHandoverMonitor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultNetworkHandoverMonitor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultNetworkHandoverMonitor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultNetworkHandoverMonitor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultNetworkHandoverMonitor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultNetworkHandoverMonitor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultOwnedStackBrowserService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultOwnedStackBrowserService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultOwnedStackBrowserService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultOwnedStackBrowserService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultOwnedStackBrowserService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultOwnedStackBrowserService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultOwnedTlsClientFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultOwnedTlsClientFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultOwnedTlsClientFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultOwnedTlsClientFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultOwnedTlsClientFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultOwnedTlsClientFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultPermissionWatchdog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultPermissionWatchdog { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultPermissionWatchdog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultPermissionWatchdog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultPermissionWatchdog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultPermissionWatchdog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultPluggableTransportRuntimeFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultPluggableTransportRuntimeFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultPluggableTransportRuntimeFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultPluggableTransportRuntimeFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultPluggableTransportRuntimeFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultPluggableTransportRuntimeFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultProxyRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultProxyRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultProxyRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultProxyRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultProxyRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultProxyRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceEvidenceWriter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceEvidenceWriter { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceEvidenceWriter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceEvidenceWriter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceEvidenceWriter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceEvidenceWriter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceGate
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceGate { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceGate { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceGate$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceGate$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRemoteDeviceAcceptanceGate$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultResolverOverrideStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultResolverOverrideStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultResolverOverrideStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultResolverOverrideStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultResolverOverrideStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultResolverOverrideStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRoutingProtectionCatalogService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRoutingProtectionCatalogService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRoutingProtectionCatalogService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRoutingProtectionCatalogService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRoutingProtectionCatalogService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRoutingProtectionCatalogService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRuntimeExperimentSelectionProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRuntimeExperimentSelectionProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRuntimeExperimentSelectionProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultRuntimeExperimentSelectionProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultRuntimeExperimentSelectionProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultRuntimeExperimentSelectionProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultScreenStateObserver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultScreenStateObserver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultScreenStateObserver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultScreenStateObserver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultScreenStateObserver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultScreenStateObserver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultSecureHttpClient
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultSecureHttpClient { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultSecureHttpClient { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultSecureHttpClient$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultSecureHttpClient$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultSecureHttpClient$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultServiceController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultServiceController { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultServiceController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultServiceController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultServiceController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultServiceController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultServiceStatusReporterFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultServiceStatusReporterFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultServiceStatusReporterFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultServiceStatusReporterFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultServiceStatusReporterFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultServiceStatusReporterFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultSharedPriorsCatalogDownloadService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultSharedPriorsCatalogDownloadService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultSharedPriorsCatalogDownloadService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultSharedPriorsCatalogDownloadService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultSharedPriorsCatalogDownloadService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultSharedPriorsCatalogDownloadService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultStandaloneAmneziaWgActivator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultStandaloneAmneziaWgActivator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultStandaloneAmneziaWgActivator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultStandaloneAmneziaWgActivator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultStandaloneAmneziaWgActivator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultStandaloneAmneziaWgActivator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultTelemetryFingerprintHasher
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultTelemetryFingerprintHasher { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultTelemetryFingerprintHasher { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultTelemetryFingerprintHasher$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultTelemetryFingerprintHasher$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultTelemetryFingerprintHasher$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultUpstreamRelayRuntimeConfigResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultUpstreamRelayRuntimeConfigResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultUpstreamRelayRuntimeConfigResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultUpstreamRelayRuntimeConfigResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultUpstreamRelayRuntimeConfigResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultUpstreamRelayRuntimeConfigResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultVpnAppExclusionPolicy
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultVpnAppExclusionPolicy { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultVpnAppExclusionPolicy { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultVpnAppExclusionPolicy$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultVpnAppExclusionPolicy$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultVpnAppExclusionPolicy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultVpnDhtMitigationPolicy
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultVpnDhtMitigationPolicy { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultVpnDhtMitigationPolicy { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultVpnDhtMitigationPolicy$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultVpnDhtMitigationPolicy$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultVpnDhtMitigationPolicy$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultVpnTunnelSessionProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultVpnTunnelSessionProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultVpnTunnelSessionProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultVpnTunnelSessionProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultVpnTunnelSessionProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultVpnTunnelSessionProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpCredentialProfileMutationService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpCredentialProfileMutationService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpCredentialProfileMutationService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpCredentialProfileMutationService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpCredentialProfileMutationService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpCredentialProfileMutationService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEndpointProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEndpointProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEndpointProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEndpointProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEndpointProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEndpointProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEndpointScanner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEndpointScanner { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEndpointScanner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEndpointScanner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEndpointScanner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEndpointScanner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEnrollmentFlowService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEnrollmentFlowService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEnrollmentFlowService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEnrollmentFlowService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEnrollmentFlowService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEnrollmentFlowService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEnrollmentOrchestrator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEnrollmentOrchestrator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEnrollmentOrchestrator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpEnrollmentOrchestrator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpEnrollmentOrchestrator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpEnrollmentOrchestrator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpProfileActivationService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpProfileActivationService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpProfileActivationService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpProfileActivationService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpProfileActivationService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpProfileActivationService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpProvisioningClient
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpProvisioningClient { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpProvisioningClient { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DefaultWarpProvisioningClient$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DefaultWarpProvisioningClient$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DefaultWarpProvisioningClient$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DirectDnsUnderlayAuthority
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DirectDnsUnderlayAuthority { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DirectDnsUnderlayAuthority { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DirectDnsUnderlayAuthority$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DirectDnsUnderlayAuthority$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DirectDnsUnderlayAuthority$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DirectPathPolicyLearner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DirectPathPolicyLearner { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DirectPathPolicyLearner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DirectPathPolicyLearner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DirectPathPolicyLearner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DirectPathPolicyLearner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DnsPathPreferenceInvalidator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DnsPathPreferenceInvalidator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.DnsPathPreferenceInvalidator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.DnsPathPreferenceInvalidator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.DnsPathPreferenceInvalidator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EncryptedSharedPreferencesCdnEchPersistedCache
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EncryptedSharedPreferencesCdnEchPersistedCache { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EncryptedSharedPreferencesCdnEchPersistedCache { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EncryptedSharedPreferencesCdnEchPersistedCache$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EncryptedSharedPreferencesCdnEchPersistedCache$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EncryptedSharedPreferencesCdnEchPersistedCache$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EncryptedSharedPreferencesSharedPriorsRefreshCache
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EncryptedSharedPreferencesSharedPriorsRefreshCache { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EncryptedSharedPreferencesSharedPriorsRefreshCache { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EncryptedSharedPreferencesSharedPriorsRefreshCache$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EncryptedSharedPreferencesSharedPriorsRefreshCache$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EncryptedSharedPreferencesSharedPriorsRefreshCache$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EngineAppFacadeModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EngineAppFacadeModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EngineAppFacadeModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EngineAppFacadeModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EngineAppFacadeModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EngineAppFacadeModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EnvironmentDetector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EnvironmentDetector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EnvironmentDetector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.EnvironmentDetector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.EnvironmentDetector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.EnvironmentDetector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FieldTelemetryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FieldTelemetryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FieldTelemetryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FieldTelemetryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FieldTelemetryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FieldTelemetryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FileBackedTelemetryInstallSaltStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FileBackedTelemetryInstallSaltStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FileBackedTelemetryInstallSaltStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FileBackedTelemetryInstallSaltStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FileBackedTelemetryInstallSaltStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FileBackedTelemetryInstallSaltStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FlowAppAttributionStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FlowAppAttributionStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FlowAppAttributionStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FlowAppAttributionStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FlowAppAttributionStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FlowAppAttributionStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FlowAttributionBridge
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FlowAttributionBridge { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FlowAttributionBridge { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.FlowAttributionBridge$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.FlowAttributionBridge$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.FlowAttributionBridge$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ForegroundServiceStarterModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ForegroundServiceStarterModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ForegroundServiceStarterModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ForegroundServiceStarterModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ForegroundServiceStarterModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ForegroundServiceStarterModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.GoogleAppsScriptRelayRuntime
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.GoogleAppsScriptRelayRuntime { *; }
+-keepclassmembers class com.poyka.ripdpi.services.GoogleAppsScriptRelayRuntime { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.GoogleAppsScriptRelayRuntime$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.GoogleAppsScriptRelayRuntime$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.GoogleAppsScriptRelayRuntime$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_AndroidRuntimeEvidenceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_AndroidRuntimeEvidenceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_AndroidRuntimeEvidenceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_AndroidRuntimeEvidenceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_AndroidRuntimeEvidenceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_AndroidRuntimeEvidenceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_AuthoritativeVpnUnderlayObservationModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_AuthoritativeVpnUnderlayObservationModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_AuthoritativeVpnUnderlayObservationModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_AuthoritativeVpnUnderlayObservationModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_AuthoritativeVpnUnderlayObservationModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_AuthoritativeVpnUnderlayObservationModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_AwgEgressSelectionProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_AwgEgressSelectionProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_AwgEgressSelectionProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_AwgEgressSelectionProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_AwgEgressSelectionProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_AwgEgressSelectionProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxyRuntimeSupervisorSessionFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxyRuntimeSupervisorSessionFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxyRuntimeSupervisorSessionFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxyRuntimeSupervisorSessionFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxyRuntimeSupervisorSessionFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxyRuntimeSupervisorSessionFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionEntryPoint
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionEntryPoint { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionEntryPoint$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionEntryPoint$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_BootstrapProxySessionModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_DiagnosticsRuntimeCoordinatorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_DiagnosticsRuntimeCoordinatorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_DiagnosticsRuntimeCoordinatorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_DiagnosticsRuntimeCoordinatorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_DiagnosticsRuntimeCoordinatorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_DiagnosticsRuntimeCoordinatorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_DirectPathPolicyLearnerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_DirectPathPolicyLearnerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_DirectPathPolicyLearnerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_DirectPathPolicyLearnerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_DirectPathPolicyLearnerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_DirectPathPolicyLearnerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_GoogleAppsScriptRelayRuntimeFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_GoogleAppsScriptRelayRuntimeFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_GoogleAppsScriptRelayRuntimeFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_GoogleAppsScriptRelayRuntimeFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_GoogleAppsScriptRelayRuntimeFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_GoogleAppsScriptRelayRuntimeFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_MasquePrivacyPassProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_MasquePrivacyPassProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_MasquePrivacyPassProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_MasquePrivacyPassProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_MasquePrivacyPassProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_MasquePrivacyPassProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_NetworkFingerprintBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_NetworkFingerprintBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_NetworkFingerprintBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_NetworkFingerprintBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_NetworkFingerprintBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_NetworkFingerprintBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_OwnedStackBrowserServiceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_OwnedStackBrowserServiceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_OwnedStackBrowserServiceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_OwnedStackBrowserServiceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_OwnedStackBrowserServiceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_OwnedStackBrowserServiceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsClientModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsClientModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsClientModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsClientModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsClientModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsClientModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsSeedModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsSeedModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsSeedModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsSeedModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsSeedModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_OwnedTlsSeedModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_ProxyRuntimeSupervisorFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_ProxyRuntimeSupervisorFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_ProxyRuntimeSupervisorFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_ProxyRuntimeSupervisorFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_ProxyRuntimeSupervisorFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_ProxyRuntimeSupervisorFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_ProxyServiceSessionEntryPoint
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_ProxyServiceSessionEntryPoint { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_ProxyServiceSessionEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_ProxyServiceSessionEntryPoint$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_ProxyServiceSessionEntryPoint$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_ProxyServiceSessionEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_RemoteAcceptanceProbeTargetsProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_RemoteAcceptanceProbeTargetsProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_RemoteAcceptanceProbeTargetsProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_RemoteAcceptanceProbeTargetsProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_RemoteAcceptanceProbeTargetsProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_RemoteAcceptanceProbeTargetsProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceEvidenceWriterModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceEvidenceWriterModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceEvidenceWriterModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceEvidenceWriterModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceEvidenceWriterModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceEvidenceWriterModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceGateModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceGateModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceGateModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceGateModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceGateModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_RemoteDeviceAcceptanceGateModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_ServiceStatusReporterFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_ServiceStatusReporterFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_ServiceStatusReporterFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_ServiceStatusReporterFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_ServiceStatusReporterFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_ServiceStatusReporterFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_StandaloneAmneziaWgActivatorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_StandaloneAmneziaWgActivatorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_StandaloneAmneziaWgActivatorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_StandaloneAmneziaWgActivatorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_StandaloneAmneziaWgActivatorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_StandaloneAmneziaWgActivatorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_UpstreamRelayRuntimeConfigResolverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_UpstreamRelayRuntimeConfigResolverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_UpstreamRelayRuntimeConfigResolverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_UpstreamRelayRuntimeConfigResolverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_UpstreamRelayRuntimeConfigResolverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_UpstreamRelayRuntimeConfigResolverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_VpnServiceSessionEntryPoint
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_VpnServiceSessionEntryPoint { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_VpnServiceSessionEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_VpnServiceSessionEntryPoint$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_VpnServiceSessionEntryPoint$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_VpnServiceSessionEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_WarpProvisioningClientModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_WarpProvisioningClientModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_WarpProvisioningClientModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HiltWrapper_WarpProvisioningClientModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HiltWrapper_WarpProvisioningClientModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HiltWrapper_WarpProvisioningClientModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HttpEngineOwnedStackPlatformBrowserExecutor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HttpEngineOwnedStackPlatformBrowserExecutor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HttpEngineOwnedStackPlatformBrowserExecutor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.HttpEngineOwnedStackPlatformBrowserExecutor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.HttpEngineOwnedStackPlatformBrowserExecutor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.HttpEngineOwnedStackPlatformBrowserExecutor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.InitialRelayRacePolicyModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.InitialRelayRacePolicyModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.InitialRelayRacePolicyModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.InitialRelayRacePolicyModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.InitialRelayRacePolicyModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.InitialRelayRacePolicyModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.LatestDirectModeOutcomeStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.LatestDirectModeOutcomeStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.LatestDirectModeOutcomeStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.LatestDirectModeOutcomeStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.LatestDirectModeOutcomeStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.LatestDirectModeOutcomeStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.LocalPathRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.LocalPathRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.LocalPathRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.LocalPathRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.LocalPathRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.LocalPathRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ManagedTorPluggableTransportProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ManagedTorPluggableTransportProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ManagedTorPluggableTransportProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ManagedTorPluggableTransportProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ManagedTorPluggableTransportProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ManagedTorPluggableTransportProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ManagedWarpBootstrapProxyRunner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ManagedWarpBootstrapProxyRunner { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ManagedWarpBootstrapProxyRunner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ManagedWarpBootstrapProxyRunner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ManagedWarpBootstrapProxyRunner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ManagedWarpBootstrapProxyRunner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassAvailability
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassAvailability { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassAvailability { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassAvailability$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassAvailability$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassAvailability$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassAvailabilityFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassAvailabilityFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassAvailabilityFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassAvailabilityFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassAvailabilityFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassAvailabilityFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderSettingsFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderSettingsFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderSettingsFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderSettingsFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderSettingsFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderModule_ProvideMasquePrivacyPassProviderSettingsFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderSettings
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderSettings { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderSettings { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasquePrivacyPassProviderSettings$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasquePrivacyPassProviderSettings$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasquePrivacyPassProviderSettings$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasqueRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasqueRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasqueRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.MasqueRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.MasqueRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.MasqueRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveProxyManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveProxyManager { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveProxyManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveProxyManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveProxyManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveProxyManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveProxyRuntime
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveProxyRuntime { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveProxyRuntime { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveProxyRuntime$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveProxyRuntime$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveProxyRuntime$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveProxyRuntimeFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveProxyRuntimeFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveProxyRuntimeFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveProxyRuntimeFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveProxyRuntimeFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveProxyRuntimeFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NaiveRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NaiveRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NaiveRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NativeNetworkSnapshotProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NativeNetworkSnapshotProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NativeNetworkSnapshotProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NativeNetworkSnapshotProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NativeNetworkSnapshotProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NativeNetworkSnapshotProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NetworkFingerprintMapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NetworkFingerprintMapper { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NetworkFingerprintMapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NetworkFingerprintMapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NetworkFingerprintMapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NetworkFingerprintMapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NetworkHandoverMonitorModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NetworkHandoverMonitorModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NetworkHandoverMonitorModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NetworkHandoverMonitorModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NetworkHandoverMonitorModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NetworkHandoverMonitorModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NetworkSnapshotFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NetworkSnapshotFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NetworkSnapshotFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.NetworkSnapshotFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.NetworkSnapshotFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.NetworkSnapshotFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.OwnedTlsSeedModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.OwnedTlsSeedModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.OwnedTlsSeedModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.OwnedTlsSeedModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.OwnedTlsSeedModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.OwnedTlsSeedModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PackageManagerInstalledPackagesProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PackageManagerInstalledPackagesProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PackageManagerInstalledPackagesProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PackageManagerInstalledPackagesProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PackageManagerInstalledPackagesProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PackageManagerInstalledPackagesProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PermissionWatchdogModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PermissionWatchdogModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PermissionWatchdogModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PermissionWatchdogModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PermissionWatchdogModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PermissionWatchdogModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PluggableTransportManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PluggableTransportManager { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PluggableTransportManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PluggableTransportManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PluggableTransportManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PluggableTransportManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PluggableTransportRuntime
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PluggableTransportRuntime { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PluggableTransportRuntime { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PluggableTransportRuntime$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PluggableTransportRuntime$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PluggableTransportRuntime$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PluggableTransportRuntimeFactoryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PluggableTransportRuntimeFactoryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PluggableTransportRuntimeFactoryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PluggableTransportRuntimeFactoryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PluggableTransportRuntimeFactoryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PluggableTransportRuntimeFactoryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PolicyHandoverEventStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PolicyHandoverEventStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PolicyHandoverEventStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.PolicyHandoverEventStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.PolicyHandoverEventStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.PolicyHandoverEventStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProcessDeathResumeCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProcessDeathResumeCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProcessDeathResumeCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProcessDeathResumeCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProcessDeathResumeCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProcessDeathResumeCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProxyRuntimeSupervisor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProxyRuntimeSupervisor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProxyRuntimeSupervisor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProxyRuntimeSupervisor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProxyRuntimeSupervisor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProxyRuntimeSupervisor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProxyServiceSessionComponent
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProxyServiceSessionComponent { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProxyServiceSessionComponent { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProxyServiceSessionComponent$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProxyServiceSessionComponent$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProxyServiceSessionComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProxyServiceSessionComponentBuilder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProxyServiceSessionComponentBuilder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProxyServiceSessionComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ProxyServiceSessionComponentBuilder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ProxyServiceSessionComponentBuilder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ProxyServiceSessionComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.QuickTileService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.QuickTileService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.QuickTileService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.QuickTileService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.QuickTileService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.QuickTileService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.QuickTileService_GeneratedInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.QuickTileService_GeneratedInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.QuickTileService_GeneratedInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.QuickTileService_GeneratedInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.QuickTileService_GeneratedInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.QuickTileService_GeneratedInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.QuickTileService_MembersInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.QuickTileService_MembersInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.QuickTileService_MembersInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.QuickTileService_MembersInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.QuickTileService_MembersInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.QuickTileService_MembersInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RecoveringConnectionPolicyResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RecoveringConnectionPolicyResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RecoveringConnectionPolicyResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RecoveringConnectionPolicyResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RecoveringConnectionPolicyResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RecoveringConnectionPolicyResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RelayCapabilityProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RelayCapabilityProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RelayCapabilityProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RelayCapabilityProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RelayCapabilityProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RelayCapabilityProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RelayKindResolverRegistry
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RelayKindResolverRegistry { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RelayKindResolverRegistry { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RelayKindResolverRegistry$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RelayKindResolverRegistry$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RelayKindResolverRegistry$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RelayRuntimeProfileReader
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RelayRuntimeProfileReader { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RelayRuntimeProfileReader { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RelayRuntimeProfileReader$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RelayRuntimeProfileReader$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RelayRuntimeProfileReader$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RemoteDeviceAcceptanceBaselineProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RemoteDeviceAcceptanceBaselineProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RemoteDeviceAcceptanceBaselineProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RemoteDeviceAcceptanceBaselineProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RemoteDeviceAcceptanceBaselineProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RemoteDeviceAcceptanceBaselineProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ResolverOverrideStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ResolverOverrideStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ResolverOverrideStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ResolverOverrideStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ResolverOverrideStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ResolverOverrideStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiProxyService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiProxyService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiProxyService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiProxyService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiProxyService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiProxyService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiProxyService_GeneratedInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiProxyService_GeneratedInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiProxyService_GeneratedInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiProxyService_GeneratedInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiProxyService_GeneratedInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiProxyService_GeneratedInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiProxyService_MembersInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiProxyService_MembersInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiProxyService_MembersInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiProxyService_MembersInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiProxyService_MembersInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiProxyService_MembersInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiVpnService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiVpnService { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiVpnService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiVpnService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiVpnService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiVpnService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiVpnService_GeneratedInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiVpnService_GeneratedInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiVpnService_GeneratedInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiVpnService_GeneratedInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiVpnService_GeneratedInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiVpnService_GeneratedInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiVpnService_MembersInjector
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiVpnService_MembersInjector { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiVpnService_MembersInjector { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RipDpiVpnService_MembersInjector$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RipDpiVpnService_MembersInjector$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RipDpiVpnService_MembersInjector$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RootHelperManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RootHelperManager { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RootHelperManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RootHelperManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RootHelperManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RootHelperManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RuntimeExperimentSelectionModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RuntimeExperimentSelectionModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RuntimeExperimentSelectionModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RuntimeExperimentSelectionModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RuntimeExperimentSelectionModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RuntimeExperimentSelectionModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RuntimeResumeIntentTracker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RuntimeResumeIntentTracker { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RuntimeResumeIntentTracker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.RuntimeResumeIntentTracker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.RuntimeResumeIntentTracker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.RuntimeResumeIntentTracker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ScreenStateObserverModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ScreenStateObserverModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ScreenStateObserverModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ScreenStateObserverModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ScreenStateObserverModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ScreenStateObserverModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceAutomationControllerOptionalBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceAutomationControllerOptionalBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceAutomationControllerOptionalBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceAutomationControllerOptionalBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceAutomationControllerOptionalBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceAutomationControllerOptionalBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceController { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceControllerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceControllerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceControllerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceControllerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceControllerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceControllerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceCoordinatorHost
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceCoordinatorHost { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceCoordinatorHost { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceCoordinatorHost$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceCoordinatorHost$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceCoordinatorHost$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceIntentArbiter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceIntentArbiter { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceIntentArbiter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceIntentArbiter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceIntentArbiter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceIntentArbiter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceRuntimeRegistryModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceRuntimeRegistryModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceRuntimeRegistryModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceRuntimeRegistryModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceRuntimeRegistryModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceRuntimeRegistryModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceSessionScope
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceSessionScope { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceSessionScope { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceSessionScope$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceSessionScope$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceSessionScope$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceStatusReporter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceStatusReporter { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceStatusReporter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ServiceStatusReporter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ServiceStatusReporter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ServiceStatusReporter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SettingsBackedOwnedTlsFingerprintProfileProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SettingsBackedOwnedTlsFingerprintProfileProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SettingsBackedOwnedTlsFingerprintProfileProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SettingsBackedOwnedTlsFingerprintProfileProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SettingsBackedOwnedTlsFingerprintProfileProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SettingsBackedOwnedTlsFingerprintProfileProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ShadowTlsRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ShadowTlsRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ShadowTlsRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.ShadowTlsRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.ShadowTlsRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.ShadowTlsRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPreferencesAndroidHardKillSwitchStateStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPreferencesAndroidHardKillSwitchStateStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPreferencesAndroidHardKillSwitchStateStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPreferencesAndroidHardKillSwitchStateStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPreferencesAndroidHardKillSwitchStateStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPreferencesAndroidHardKillSwitchStateStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPreferencesRemoteDeviceRecoveryReceiptPersistence { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPreferencesRemoteDeviceRecoveryReceiptPersistence { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPreferencesRemoteDeviceRecoveryReceiptPersistence$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPreferencesRemoteDeviceRecoveryReceiptPersistence$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPreferencesRemoteDeviceRecoveryReceiptPersistence$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsCatalogNetworkModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsCatalogNetworkModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsCatalogNetworkModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsCatalogNetworkModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsCatalogNetworkModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsCatalogNetworkModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshCacheModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshCacheModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshCacheModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshCacheModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshCacheModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshCacheModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshWorker
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshWorker { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshWorker { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshWorker$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshWorker$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshWorker$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_AssistedFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_AssistedFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_AssistedFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_AssistedFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_AssistedFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_AssistedFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_HiltModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_HiltModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_HiltModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_HiltModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_HiltModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SharedPriorsRefreshWorker_HiltModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SnowflakeRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SnowflakeRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SnowflakeRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SnowflakeRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SnowflakeRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SnowflakeRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SubprocessSocksRelayManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SubprocessSocksRelayManager { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SubprocessSocksRelayManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SubprocessSocksRelayManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SubprocessSocksRelayManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SubprocessSocksRelayManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SystemAndroidRuntimeEvidenceClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SystemAndroidRuntimeEvidenceClock { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SystemAndroidRuntimeEvidenceClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.SystemAndroidRuntimeEvidenceClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.SystemAndroidRuntimeEvidenceClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.SystemAndroidRuntimeEvidenceClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.TorRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.TorRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.TorRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.TorRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.TorRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.TorRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.TrojanRelayKindResolver
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.TrojanRelayKindResolver { *; }
+-keepclassmembers class com.poyka.ripdpi.services.TrojanRelayKindResolver { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.TrojanRelayKindResolver$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.TrojanRelayKindResolver$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.TrojanRelayKindResolver$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.UpstreamRelaySupervisor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.UpstreamRelaySupervisor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.UpstreamRelaySupervisor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.UpstreamRelaySupervisor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.UpstreamRelaySupervisor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.UpstreamRelaySupervisor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnAppExclusionPolicyModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnAppExclusionPolicyModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnAppExclusionPolicyModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnAppExclusionPolicyModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnAppExclusionPolicyModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnAppExclusionPolicyModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnCoordinatorHost
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnCoordinatorHost { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnCoordinatorHost { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnCoordinatorHost$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnCoordinatorHost$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnCoordinatorHost$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnDhtMitigationPolicyModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnDhtMitigationPolicyModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnDhtMitigationPolicyModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnDhtMitigationPolicyModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnDhtMitigationPolicyModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnDhtMitigationPolicyModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnProtectFailureMonitor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnProtectFailureMonitor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnProtectFailureMonitor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnProtectFailureMonitor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnProtectFailureMonitor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnProtectFailureMonitor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnProtectSocketServer
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnProtectSocketServer { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnProtectSocketServer { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnProtectSocketServer$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnProtectSocketServer$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnProtectSocketServer$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnResolverRefreshPlanner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnResolverRefreshPlanner { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnResolverRefreshPlanner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnResolverRefreshPlanner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnResolverRefreshPlanner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnResolverRefreshPlanner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnServiceSessionComponent
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnServiceSessionComponent { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnServiceSessionComponent { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnServiceSessionComponent$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnServiceSessionComponent$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnServiceSessionComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnServiceSessionComponentBuilder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnServiceSessionComponentBuilder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnServiceSessionComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnServiceSessionComponentBuilder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnServiceSessionComponentBuilder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnServiceSessionComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnServiceXrayProtectController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnServiceXrayProtectController { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnServiceXrayProtectController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnServiceXrayProtectController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnServiceXrayProtectController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnServiceXrayProtectController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnTunnelRuntime
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnTunnelRuntime { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnTunnelRuntime { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnTunnelRuntime$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnTunnelRuntime$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnTunnelRuntime$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnTunnelSessionProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnTunnelSessionProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.VpnTunnelSessionProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.VpnTunnelSessionProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.VpnTunnelSessionProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpEnrollmentBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpEnrollmentBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpEnrollmentBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpEnrollmentBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpEnrollmentBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpEnrollmentBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpRuntimeSupervisor
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpRuntimeSupervisor { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpRuntimeSupervisor { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpRuntimeSupervisor$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpRuntimeSupervisor$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpRuntimeSupervisor$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpStoreMutationLock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpStoreMutationLock { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpStoreMutationLock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.WarpStoreMutationLock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.WarpStoreMutationLock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.WarpStoreMutationLock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.XrayProviderSessionController
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.XrayProviderSessionController { *; }
+-keepclassmembers class com.poyka.ripdpi.services.XrayProviderSessionController { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.XrayProviderSessionController$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.XrayProviderSessionController$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.XrayProviderSessionController$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.XrayRenderedConfigHolder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.XrayRenderedConfigHolder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.XrayRenderedConfigHolder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.XrayRenderedConfigHolder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.XrayRenderedConfigHolder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.XrayRenderedConfigHolder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.XrayTunnelStartParamsHolder
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.XrayTunnelStartParamsHolder { *; }
+-keepclassmembers class com.poyka.ripdpi.services.XrayTunnelStartParamsHolder { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.XrayTunnelStartParamsHolder$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.XrayTunnelStartParamsHolder$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.XrayTunnelStartParamsHolder$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.routing.RoomDestinationRoutingPolicySource
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.routing.RoomDestinationRoutingPolicySource { *; }
+-keepclassmembers class com.poyka.ripdpi.services.routing.RoomDestinationRoutingPolicySource { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.routing.RoomDestinationRoutingPolicySource$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.routing.RoomDestinationRoutingPolicySource$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.routing.RoomDestinationRoutingPolicySource$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.selector.SelectorReloadCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.services.selector.SelectorReloadCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.selector.SelectorReloadCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.selector.SelectorReloadCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.selector.SelectorReloadCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener { *; }
+-keepclassmembers class com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener$* { *; }
+-keepclassmembers class com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
--keepclassmembers,allowoptimization class com.poyka.ripdpi.shortcuts.AppShortcutsPublisher { *; }
+-keepclassmembers class com.poyka.ripdpi.shortcuts.AppShortcutsPublisher { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.shortcuts.AppShortcutsPublisher$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.shortcuts.AppShortcutsPublisher$* { *; }
+-keepclassmembers class com.poyka.ripdpi.shortcuts.AppShortcutsPublisher$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
--keepclassmembers,allowoptimization class com.poyka.ripdpi.shortcuts.SelectorShortcutCapability { *; }
+-keepclassmembers class com.poyka.ripdpi.shortcuts.SelectorShortcutCapability { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.shortcuts.SelectorShortcutCapability$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.shortcuts.SelectorShortcutCapability$* { *; }
+-keepclassmembers class com.poyka.ripdpi.shortcuts.SelectorShortcutCapability$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.storage.AtomicTextFileWriterBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.storage.AtomicTextFileWriterBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.storage.AtomicTextFileWriterBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.storage.AtomicTextFileWriterBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.storage.AtomicTextFileWriterBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.storage.AtomicTextFileWriterBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter
--keepclassmembers,allowoptimization class com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter { *; }
+-keepclassmembers class com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter$* { *; }
+-keepclassmembers class com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackBuildProvenanceProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackBuildProvenanceProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackBuildProvenanceProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackBuildProvenanceProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackBuildProvenanceProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackBuildProvenanceProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackDownloadService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackDownloadService { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackDownloadService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackDownloadService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackDownloadService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackDownloadService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackService
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackService { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackService { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackService$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackService$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackService$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackTempFileFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackTempFileFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackTempFileFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackTempFileFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackTempFileFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackTempFileFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackVerifier
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackVerifier { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackVerifier { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.DefaultStrategyPackVerifier$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.DefaultStrategyPackVerifier$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.DefaultStrategyPackVerifier$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackProvenanceBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackProvenanceBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackProvenanceBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackProvenanceBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackProvenanceBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackProvenanceBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackServiceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackServiceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackServiceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackServiceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackServiceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackServiceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackServiceTimingModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackServiceTimingModule { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackServiceTimingModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackServiceTimingModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackServiceTimingModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackServiceTimingModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackVerifierBindingsModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackVerifierBindingsModule { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackVerifierBindingsModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.StrategyPackVerifierBindingsModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.StrategyPackVerifierBindingsModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.StrategyPackVerifierBindingsModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.SystemStrategyPackClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.SystemStrategyPackClock { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.SystemStrategyPackClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.strategy.SystemStrategyPackClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.strategy.SystemStrategyPackClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.strategy.SystemStrategyPackClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestCoordinatorFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestCoordinatorFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestCoordinatorFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestCoordinatorFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestCoordinatorFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestCoordinatorFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestLifecycleListenerFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestLifecycleListenerFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestLifecycleListenerFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestLifecycleListenerFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestLifecycleListenerFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestLifecycleListenerFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestProberFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestProberFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestProberFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestProberFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestProberFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestModule_Companion_ProvideSelectorUrltestProberFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestProber
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestProber { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestProber { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SelectorUrltestProber$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SelectorUrltestProber$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SelectorUrltestProber$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionExpiryClock
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionExpiryClock { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionExpiryClock { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionExpiryClock$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionExpiryClock$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionExpiryClock$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionRefreshModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionRefreshModule { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionRefreshModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionRefreshModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionRefreshModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionRefreshModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionRefreshModule_ProvideSubscriptionExpiryClockFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionRefreshModule_ProvideSubscriptionExpiryClockFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionRefreshModule_ProvideSubscriptionExpiryClockFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionRefreshModule_ProvideSubscriptionExpiryClockFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionRefreshModule_ProvideSubscriptionExpiryClockFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionRefreshModule_ProvideSubscriptionExpiryClockFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionStatusNotifier
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionStatusNotifier { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionStatusNotifier { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.SubscriptionStatusNotifier$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.SubscriptionStatusNotifier$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.SubscriptionStatusNotifier$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.TcpConnectMemberLatencyProbe
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.TcpConnectMemberLatencyProbe { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.TcpConnectMemberLatencyProbe { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.subscription.TcpConnectMemberLatencyProbe$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.subscription.TcpConnectMemberLatencyProbe$* { *; }
+-keepclassmembers class com.poyka.ripdpi.subscription.TcpConnectMemberLatencyProbe$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.AppStartupReadinessTestModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.AppStartupReadinessTestModule { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.AppStartupReadinessTestModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.AppStartupReadinessTestModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.AppStartupReadinessTestModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.AppStartupReadinessTestModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.AppStartupReadinessTestModule_ProvideAppStartupReadinessFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.AppStartupReadinessTestModule_ProvideAppStartupReadinessFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.AppStartupReadinessTestModule_ProvideAppStartupReadinessFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.AppStartupReadinessTestModule_ProvideAppStartupReadinessFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.AppStartupReadinessTestModule_ProvideAppStartupReadinessFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.AppStartupReadinessTestModule_ProvideAppStartupReadinessFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule_ProvidePublicIpInfoResolverFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule_ProvidePublicIpInfoResolverFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule_ProvidePublicIpInfoResolverFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule_ProvidePublicIpInfoResolverFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule_ProvidePublicIpInfoResolverFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.testing.PublicIpInfoResolverTestModule_ProvidePublicIpInfoResolverFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.logs.LogEntryMapper
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.logs.LogEntryMapper { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.logs.LogEntryMapper { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.logs.LogEntryMapper$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.logs.LogEntryMapper$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.logs.LogEntryMapper$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AssetAwgCohortCatalogProvider
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AssetAwgCohortCatalogProvider { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AssetAwgCohortCatalogProvider { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AssetAwgCohortCatalogProvider$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AssetAwgCohortCatalogProvider$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AssetAwgCohortCatalogProvider$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AwgCohortCatalogProviderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AwgCohortCatalogProviderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AwgCohortCatalogProviderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.awg.AwgCohortCatalogProviderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.awg.AwgCohortCatalogProviderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.awg.AwgCohortCatalogProviderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckDiagnosisModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckDiagnosisModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckDiagnosisModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckDiagnosisModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckDiagnosisModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckDiagnosisModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckProbeOrchestrator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckProbeOrchestrator { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckProbeOrchestrator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckProbeOrchestrator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckProbeOrchestrator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckProbeOrchestrator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRecommendationModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRecommendationModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRecommendationModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRecommendationModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRecommendationModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRecommendationModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule_ProvideBlockcheckStrategyReloaderFactory
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule_ProvideBlockcheckStrategyReloaderFactory { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule_ProvideBlockcheckStrategyReloaderFactory { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule_ProvideBlockcheckStrategyReloaderFactory$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule_ProvideBlockcheckStrategyReloaderFactory$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckStrategyReloaderModule_ProvideBlockcheckStrategyReloaderFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckDiagnosisRunner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckDiagnosisRunner { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckDiagnosisRunner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckDiagnosisRunner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckDiagnosisRunner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckDiagnosisRunner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckRecommendationRepository
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckRecommendationRepository { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckRecommendationRepository { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckRecommendationRepository$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckRecommendationRepository$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.blockcheck.DefaultBlockcheckRecommendationRepository$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPlatform
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPlatform { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPlatform { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPlatform$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPlatform$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPlatform$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPreferences
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPreferences { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPreferences { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPreferences$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPreferences$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckPreferences$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionCheckViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.detection.DetectionSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.health.ConnectionHealthViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.mieru.MieruProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.onboarding.DefaultOnboardingModeValidationRunner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.onboarding.DefaultOnboardingModeValidationRunner { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.onboarding.DefaultOnboardingModeValidationRunner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.onboarding.DefaultOnboardingModeValidationRunner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.onboarding.DefaultOnboardingModeValidationRunner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.onboarding.DefaultOnboardingModeValidationRunner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunnerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunnerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunnerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunnerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunnerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunnerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRouteViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.OutboundTargetCatalog
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.OutboundTargetCatalog { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.OutboundTargetCatalog { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.OutboundTargetCatalog$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.OutboundTargetCatalog$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.OutboundTargetCatalog$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RoutesViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.routes.RuleEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.scanner.QrScannerViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.AssetProviderViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.DomainBypassListViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.FileStrategyConfigDraftStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.FileStrategyConfigDraftStore { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.FileStrategyConfigDraftStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.FileStrategyConfigDraftStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.FileStrategyConfigDraftStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.FileStrategyConfigDraftStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.HiltWrapper_StrategyConfigDraftStoreModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.HiltWrapper_StrategyConfigDraftStoreModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.HiltWrapper_StrategyConfigDraftStoreModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.HiltWrapper_StrategyConfigDraftStoreModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.HiltWrapper_StrategyConfigDraftStoreModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.HiltWrapper_StrategyConfigDraftStoreModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.SplitTunnelViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.settings.StrategyConfigEditorViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.ssh.SshProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.support.SupportSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.DefaultStrategyTunerRunner
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.DefaultStrategyTunerRunner { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.DefaultStrategyTunerRunner { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.DefaultStrategyTunerRunner$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.DefaultStrategyTunerRunner$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.DefaultStrategyTunerRunner$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.tuner.StrategyTunerViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.DefaultXrayProfilePersistence
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.DefaultXrayProfilePersistence { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.DefaultXrayProfilePersistence { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.DefaultXrayProfilePersistence$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.DefaultXrayProfilePersistence$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.DefaultXrayProfilePersistence$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfileImportViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfilePersistenceModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfilePersistenceModule { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfilePersistenceModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProfilePersistenceModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProfilePersistenceModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProfilePersistenceModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProviderSelectionStore
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProviderSelectionStore { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProviderSelectionStore { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.ui.screens.xray.XrayProviderSelectionStore$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.ui.screens.xray.XrayProviderSelectionStore$* { *; }
+-keepclassmembers class com.poyka.ripdpi.ui.screens.xray.XrayProviderSelectionStore$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.GithubUpdateManager
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.GithubUpdateManager { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.GithubUpdateManager { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.GithubUpdateManager$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.GithubUpdateManager$* { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.GithubUpdateManager$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.GithubUpdateModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.GithubUpdateModule { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.GithubUpdateModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.GithubUpdateModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.GithubUpdateModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.GithubUpdateModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel$* { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules$* { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_BindsModule_Binds_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_BindsModule_Binds_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_BindsModule_Binds_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_BindsModule_Binds_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_KeyModule_Provide_LazyMapKey
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_KeyModule_Provide_LazyMapKey { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_KeyModule_Provide_LazyMapKey$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
+-keepclassmembers class com.poyka.ripdpi.updates.UpdateViewModel_HiltModules_KeyModule_Provide_LazyMapKey$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.widget.WidgetHiltModule
--keepclassmembers,allowoptimization class com.poyka.ripdpi.widget.WidgetHiltModule { *; }
+-keepclassmembers class com.poyka.ripdpi.widget.WidgetHiltModule { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.widget.WidgetHiltModule$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.widget.WidgetHiltModule$* { *; }
+-keepclassmembers class com.poyka.ripdpi.widget.WidgetHiltModule$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.widget.WidgetUpdater
--keepclassmembers,allowoptimization class com.poyka.ripdpi.widget.WidgetUpdater { *; }
+-keepclassmembers class com.poyka.ripdpi.widget.WidgetUpdater { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.widget.WidgetUpdater$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.widget.WidgetUpdater$* { *; }
+-keepclassmembers class com.poyka.ripdpi.widget.WidgetUpdater$* { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.widget.actions.WidgetEntryPoint
--keepclassmembers,allowoptimization class com.poyka.ripdpi.widget.actions.WidgetEntryPoint { *; }
+-keepclassmembers class com.poyka.ripdpi.widget.actions.WidgetEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.widget.actions.WidgetEntryPoint$*
--keepclassmembers,allowoptimization class com.poyka.ripdpi.widget.actions.WidgetEntryPoint$* { *; }
+-keepclassmembers class com.poyka.ripdpi.widget.actions.WidgetEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Binds
--keepclassmembers,allowoptimization class dagger.Binds { *; }
+-keepclassmembers class dagger.Binds { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Binds$*
--keepclassmembers,allowoptimization class dagger.Binds$* { *; }
+-keepclassmembers class dagger.Binds$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Component
--keepclassmembers,allowoptimization class dagger.Component { *; }
+-keepclassmembers class dagger.Component { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Component$*
--keepclassmembers,allowoptimization class dagger.Component$* { *; }
+-keepclassmembers class dagger.Component$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Module
--keepclassmembers,allowoptimization class dagger.Module { *; }
+-keepclassmembers class dagger.Module { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Module$*
--keepclassmembers,allowoptimization class dagger.Module$* { *; }
+-keepclassmembers class dagger.Module$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Subcomponent
--keepclassmembers,allowoptimization class dagger.Subcomponent { *; }
+-keepclassmembers class dagger.Subcomponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.Subcomponent$*
--keepclassmembers,allowoptimization class dagger.Subcomponent$* { *; }
+-keepclassmembers class dagger.Subcomponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.ActivityRetainedLifecycle
--keepclassmembers,allowoptimization class dagger.hilt.android.ActivityRetainedLifecycle { *; }
+-keepclassmembers class dagger.hilt.android.ActivityRetainedLifecycle { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.ActivityRetainedLifecycle$*
--keepclassmembers,allowoptimization class dagger.hilt.android.ActivityRetainedLifecycle$* { *; }
+-keepclassmembers class dagger.hilt.android.ActivityRetainedLifecycle$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.ViewModelLifecycle
--keepclassmembers,allowoptimization class dagger.hilt.android.ViewModelLifecycle { *; }
+-keepclassmembers class dagger.hilt.android.ViewModelLifecycle { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.ViewModelLifecycle$*
--keepclassmembers,allowoptimization class dagger.hilt.android.ViewModelLifecycle$* { *; }
+-keepclassmembers class dagger.hilt.android.ViewModelLifecycle$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ActivityComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ActivityComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.ActivityComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ActivityComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ActivityComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.ActivityComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ActivityRetainedComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ActivityRetainedComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.ActivityRetainedComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ActivityRetainedComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ActivityRetainedComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.ActivityRetainedComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.FragmentComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.FragmentComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.FragmentComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.FragmentComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.FragmentComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.FragmentComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ServiceComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ServiceComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.ServiceComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ServiceComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ServiceComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.ServiceComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ViewComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ViewComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.ViewComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ViewComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ViewComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.ViewComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ViewModelComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ViewModelComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.ViewModelComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ViewModelComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ViewModelComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.ViewModelComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ViewWithFragmentComponent
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ViewWithFragmentComponent { *; }
+-keepclassmembers class dagger.hilt.android.components.ViewWithFragmentComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.components.ViewWithFragmentComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.android.components.ViewWithFragmentComponent$* { *; }
+-keepclassmembers class dagger.hilt.android.components.ViewWithFragmentComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.flags.FragmentGetContextFix
--keepclassmembers,allowoptimization class dagger.hilt.android.flags.FragmentGetContextFix { *; }
+-keepclassmembers class dagger.hilt.android.flags.FragmentGetContextFix { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.flags.FragmentGetContextFix$*
--keepclassmembers,allowoptimization class dagger.hilt.android.flags.FragmentGetContextFix$* { *; }
+-keepclassmembers class dagger.hilt.android.flags.FragmentGetContextFix$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule
--keepclassmembers,allowoptimization class dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule { *; }
+-keepclassmembers class dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule$* { *; }
+-keepclassmembers class dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ActivityComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ActivityComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ActivityComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ActivityComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ActivityComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ActivityComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ActivityRetainedComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.FragmentComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.FragmentComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.FragmentComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.FragmentComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.FragmentComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.FragmentComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ServiceComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ServiceComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ServiceComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ServiceComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ServiceComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ServiceComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ViewComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ViewComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ViewComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ViewComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ViewComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ViewComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ViewModelComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ViewModelComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ViewModelComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ViewModelComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ViewModelComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ViewModelComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.builders.ViewWithFragmentComponentBuilder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_InternalFactoryFactory_Factory$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltViewModelFactory
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltViewModelFactory { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltViewModelFactory { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltWrapper_DefaultViewModelFactories_ActivityModule
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltWrapper_DefaultViewModelFactories_ActivityModule { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltWrapper_DefaultViewModelFactories_ActivityModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltWrapper_DefaultViewModelFactories_ActivityModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltWrapper_DefaultViewModelFactories_ActivityModule$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltWrapper_DefaultViewModelFactories_ActivityModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ActivityCreatorEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ViewModelModule
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ViewModelModule { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ViewModelModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ViewModelModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ViewModelModule$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.HiltWrapper_HiltViewModelFactory_ViewModelModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ActivityComponentManager
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ActivityComponentManager { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ActivityComponentManager { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ActivityComponentManager$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ActivityComponentManager$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ActivityComponentManager$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.FragmentComponentManager
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.FragmentComponentManager { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.FragmentComponentManager { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.FragmentComponentManager$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.FragmentComponentManager$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.FragmentComponentManager$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedLifecycleEntryPoint
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedLifecycleEntryPoint { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedLifecycleEntryPoint { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedLifecycleEntryPoint$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedLifecycleEntryPoint$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedLifecycleEntryPoint$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_LifecycleModule
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_LifecycleModule { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_LifecycleModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_LifecycleModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_LifecycleModule$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivityRetainedComponentManager_LifecycleModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivitySavedStateHandleModule
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivitySavedStateHandleModule { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivitySavedStateHandleModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.HiltWrapper_ActivitySavedStateHandleModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.HiltWrapper_ActivitySavedStateHandleModule$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.HiltWrapper_ActivitySavedStateHandleModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.SavedStateHandleHolder
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.SavedStateHandleHolder { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.SavedStateHandleHolder { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.SavedStateHandleHolder$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.SavedStateHandleHolder$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.SavedStateHandleHolder$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ServiceComponentManager
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ServiceComponentManager { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ServiceComponentManager { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ServiceComponentManager$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ServiceComponentManager$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ServiceComponentManager$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ViewComponentManager
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ViewComponentManager { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ViewComponentManager { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.ViewComponentManager$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.managers.ViewComponentManager$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.managers.ViewComponentManager$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.modules.ApplicationContextModule
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.modules.ApplicationContextModule { *; }
+-keepclassmembers class dagger.hilt.android.internal.modules.ApplicationContextModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.modules.ApplicationContextModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.modules.ApplicationContextModule$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.modules.ApplicationContextModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory { *; }
+-keepclassmembers class dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.modules.HiltWrapper_ActivityModule
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.modules.HiltWrapper_ActivityModule { *; }
+-keepclassmembers class dagger.hilt.android.internal.modules.HiltWrapper_ActivityModule { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.modules.HiltWrapper_ActivityModule$*
--keepclassmembers,allowoptimization class dagger.hilt.android.internal.modules.HiltWrapper_ActivityModule$* { *; }
+-keepclassmembers class dagger.hilt.android.internal.modules.HiltWrapper_ActivityModule$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ActivityRetainedScoped
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ActivityRetainedScoped { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ActivityRetainedScoped { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ActivityRetainedScoped$*
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ActivityRetainedScoped$* { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ActivityRetainedScoped$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ActivityScoped
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ActivityScoped { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ActivityScoped { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ActivityScoped$*
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ActivityScoped$* { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ActivityScoped$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.FragmentScoped
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.FragmentScoped { *; }
+-keepclassmembers class dagger.hilt.android.scopes.FragmentScoped { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.FragmentScoped$*
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.FragmentScoped$* { *; }
+-keepclassmembers class dagger.hilt.android.scopes.FragmentScoped$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ServiceScoped
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ServiceScoped { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ServiceScoped { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ServiceScoped$*
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ServiceScoped$* { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ServiceScoped$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ViewModelScoped
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ViewModelScoped { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ViewModelScoped { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ViewModelScoped$*
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ViewModelScoped$* { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ViewModelScoped$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ViewScoped
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ViewScoped { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ViewScoped { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.android.scopes.ViewScoped$*
--keepclassmembers,allowoptimization class dagger.hilt.android.scopes.ViewScoped$* { *; }
+-keepclassmembers class dagger.hilt.android.scopes.ViewScoped$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.components.SingletonComponent
--keepclassmembers,allowoptimization class dagger.hilt.components.SingletonComponent { *; }
+-keepclassmembers class dagger.hilt.components.SingletonComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.components.SingletonComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.components.SingletonComponent$* { *; }
+-keepclassmembers class dagger.hilt.components.SingletonComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.internal.GeneratedComponent
--keepclassmembers,allowoptimization class dagger.hilt.internal.GeneratedComponent { *; }
+-keepclassmembers class dagger.hilt.internal.GeneratedComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.internal.GeneratedComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.internal.GeneratedComponent$* { *; }
+-keepclassmembers class dagger.hilt.internal.GeneratedComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.internal.TestSingletonComponent
--keepclassmembers,allowoptimization class dagger.hilt.internal.TestSingletonComponent { *; }
+-keepclassmembers class dagger.hilt.internal.TestSingletonComponent { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.internal.TestSingletonComponent$*
--keepclassmembers,allowoptimization class dagger.hilt.internal.TestSingletonComponent$* { *; }
+-keepclassmembers class dagger.hilt.internal.TestSingletonComponent$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.migration.DisableInstallInCheck
--keepclassmembers,allowoptimization class dagger.hilt.migration.DisableInstallInCheck { *; }
+-keepclassmembers class dagger.hilt.migration.DisableInstallInCheck { *; }
 -keep,allowoptimization,allowobfuscation class dagger.hilt.migration.DisableInstallInCheck$*
--keepclassmembers,allowoptimization class dagger.hilt.migration.DisableInstallInCheck$* { *; }
+-keepclassmembers class dagger.hilt.migration.DisableInstallInCheck$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.DaggerGenerated
--keepclassmembers,allowoptimization class dagger.internal.DaggerGenerated { *; }
+-keepclassmembers class dagger.internal.DaggerGenerated { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.DaggerGenerated$*
--keepclassmembers,allowoptimization class dagger.internal.DaggerGenerated$* { *; }
+-keepclassmembers class dagger.internal.DaggerGenerated$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.DoubleCheck
--keepclassmembers,allowoptimization class dagger.internal.DoubleCheck { *; }
+-keepclassmembers class dagger.internal.DoubleCheck { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.DoubleCheck$*
--keepclassmembers,allowoptimization class dagger.internal.DoubleCheck$* { *; }
+-keepclassmembers class dagger.internal.DoubleCheck$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.LazyClassKeyMap
--keepclassmembers,allowoptimization class dagger.internal.LazyClassKeyMap { *; }
+-keepclassmembers class dagger.internal.LazyClassKeyMap { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.LazyClassKeyMap$*
--keepclassmembers,allowoptimization class dagger.internal.LazyClassKeyMap$* { *; }
+-keepclassmembers class dagger.internal.LazyClassKeyMap$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.Preconditions
--keepclassmembers,allowoptimization class dagger.internal.Preconditions { *; }
+-keepclassmembers class dagger.internal.Preconditions { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.Preconditions$*
--keepclassmembers,allowoptimization class dagger.internal.Preconditions$* { *; }
+-keepclassmembers class dagger.internal.Preconditions$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.Provider
--keepclassmembers,allowoptimization class dagger.internal.Provider { *; }
+-keepclassmembers class dagger.internal.Provider { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.Provider$*
--keepclassmembers,allowoptimization class dagger.internal.Provider$* { *; }
+-keepclassmembers class dagger.internal.Provider$* { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.SingleCheck
--keepclassmembers,allowoptimization class dagger.internal.SingleCheck { *; }
+-keepclassmembers class dagger.internal.SingleCheck { *; }
 -keep,allowoptimization,allowobfuscation class dagger.internal.SingleCheck$*
--keepclassmembers,allowoptimization class dagger.internal.SingleCheck$* { *; }
+-keepclassmembers class dagger.internal.SingleCheck$* { *; }
 -keep,allowoptimization,allowobfuscation class kotlinx.coroutines.CoroutineScope
--keepclassmembers,allowoptimization class kotlinx.coroutines.CoroutineScope { *; }
+-keepclassmembers class kotlinx.coroutines.CoroutineScope { *; }
 -keep,allowoptimization,allowobfuscation class kotlinx.coroutines.CoroutineScope$*
--keepclassmembers,allowoptimization class kotlinx.coroutines.CoroutineScope$* { *; }
+-keepclassmembers class kotlinx.coroutines.CoroutineScope$* { *; }
 -keep,allowoptimization,allowobfuscation class kotlinx.serialization.json.Json
--keepclassmembers,allowoptimization class kotlinx.serialization.json.Json { *; }
+-keepclassmembers class kotlinx.serialization.json.Json { *; }
 -keep,allowoptimization,allowobfuscation class kotlinx.serialization.json.Json$*
--keepclassmembers,allowoptimization class kotlinx.serialization.json.Json$* { *; }
+-keepclassmembers class kotlinx.serialization.json.Json$* { *; }
 -keep,allowoptimization,allowobfuscation class okhttp3.OkHttpClient
--keepclassmembers,allowoptimization class okhttp3.OkHttpClient { *; }
+-keepclassmembers class okhttp3.OkHttpClient { *; }
 -keep,allowoptimization,allowobfuscation class okhttp3.OkHttpClient$*
--keepclassmembers,allowoptimization class okhttp3.OkHttpClient$* { *; }
+-keepclassmembers class okhttp3.OkHttpClient$* { *; }
