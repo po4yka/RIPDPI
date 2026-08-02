@@ -219,7 +219,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         }
 
     @Test
-    fun `createArchive removes completed file when export record persistence fails`() =
+    fun `createArchive preserves completed file when export record persistence fails`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -245,7 +245,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
             }.onSuccess { fail("Expected export record failure") }
 
             val archiveDir = context.cacheDir.resolve(DiagnosticsArchiveFormat.directoryName)
-            assertTrue(archiveDir.listFiles().orEmpty().isEmpty())
+            assertEquals(1, archiveDir.listFiles().orEmpty().size)
             assertTrue(stores.exportsState.value.isEmpty())
         }
 

@@ -48,6 +48,10 @@ sealed interface MainEffect {
         val fileName: String,
     ) : MainEffect
 
+    data class SaveDiagnosticsArchive(
+        val request: com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest,
+    ) : MainEffect
+
     data object RelockRequested : MainEffect
 }
 

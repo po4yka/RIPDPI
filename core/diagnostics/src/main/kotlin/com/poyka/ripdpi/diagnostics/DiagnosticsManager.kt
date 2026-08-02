@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.OutputStream
 import java.util.UUID
 import javax.inject.Named
 import javax.inject.Singleton
@@ -152,6 +153,11 @@ interface DiagnosticsShareService {
     suspend fun buildShareSummary(sessionId: String?): ShareSummary
 
     suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive
+
+    suspend fun writeArchive(
+        request: DiagnosticsArchiveRequest,
+        destination: OutputStream,
+    ): Unit = error("Direct archive export is unavailable")
 }
 
 interface DiagnosticsResolverActions {

@@ -59,6 +59,10 @@ internal sealed interface MainActivityHostCommand {
         val fileName: String,
     ) : MainActivityHostCommand
 
+    data class SaveDiagnosticsArchiveRequest(
+        val request: DiagnosticsArchiveRequest,
+    ) : MainActivityHostCommand
+
     data class ShareDiagnosticsArchive(
         val filePath: String,
         val fileName: String,
@@ -96,6 +100,7 @@ internal class DefaultMainActivityHost
         private lateinit var logsLauncher: ActivityResultLauncher<Intent>
         private lateinit var diagnosticsArchiveLauncher: ActivityResultLauncher<Intent>
         private var pendingDiagnosticsArchive: PendingDiagnosticsArchive? = null
+        private var pendingDiagnosticsArchiveRequest: DiagnosticsArchiveRequest? = null
         private var registered = false
 
         override fun register(
@@ -204,6 +209,17 @@ internal class DefaultMainActivityHost
                     )
                 }
 
+                is MainActivityHostCommand.SaveDiagnosticsArchiveRequest -> {
+                    pendingDiagnosticsArchiveRequest = command.request
+                    diagnosticsArchiveLauncher.launch(
+                        Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/zip"
+                            putExtra(Intent.EXTRA_TITLE, "ripdpi-analysis.zip")
+                        },
+                    )
+                }
+
                 is MainActivityHostCommand.ShareDiagnosticsArchive -> {
                     shareDiagnosticsArchive(command.filePath, command.fileName)
                 }
@@ -247,6 +263,26 @@ internal class DefaultMainActivityHost
         }
 
         private fun handleDiagnosticsArchiveResult(uri: Uri?) {
+            pendingDiagnosticsArchiveRequest?.let { request ->
+                pendingDiagnosticsArchiveRequest = null
+                if (uri == null) return
+                activity.lifecycleScope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            activity.contentResolver.openOutputStream(uri)?.use { stream ->
+                                diagnosticsShareService.writeArchive(request, stream)
+                            } ?: throw IOException("Failed to open diagnostics archive destination")
+                        }
+                    }.onFailure { error ->
+                        Logger.e(error) { "Failed to save diagnostics archive" }
+                        viewModel.reportSupportError(
+                            message = activity.getString(R.string.diagnostics_archive_save_failed),
+                            supportCode = ArchiveIoSupportCode,
+                        )
+                    }
+                }
+                return
+            }
             val archive = pendingDiagnosticsArchive ?: return
             if (uri == null) {
                 pendingDiagnosticsArchive = null

@@ -290,6 +290,7 @@ internal fun hostCommandFailurePermissionResult(
         MainActivityHostCommand.SaveLogs,
         MainActivityHostCommand.ShareDebugBundle,
         is MainActivityHostCommand.SaveDiagnosticsArchive,
+        is MainActivityHostCommand.SaveDiagnosticsArchiveRequest,
         is MainActivityHostCommand.ShareDiagnosticsArchive,
         is MainActivityHostCommand.ShareDiagnosticsSummary,
         -> {

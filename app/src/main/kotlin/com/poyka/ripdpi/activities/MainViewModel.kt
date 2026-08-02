@@ -290,6 +290,10 @@ class MainViewModel
             homeDiagnostics.actions.shareLatestHomeAnalysis()
         }
 
+        val onSaveHomeAnalysis: () -> Unit = {
+            homeDiagnostics.actions.saveLatestHomeAnalysis()
+        }
+
         val dismissHomeAnalysisSheet: () -> Unit = {
             homeDiagnostics.actions.dismissAnalysisSheet()
         }

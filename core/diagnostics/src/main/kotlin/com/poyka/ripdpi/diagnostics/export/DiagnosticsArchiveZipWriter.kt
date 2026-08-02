@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import java.io.File
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.util.zip.ZipEntry
@@ -10,6 +11,20 @@ import javax.inject.Inject
 class DiagnosticsArchiveZipWriter
     @Inject
     constructor() {
+        internal fun write(
+            target: OutputStream,
+            entries: List<DiagnosticsArchiveEntry>,
+        ) {
+            validateArchiveEntries(entries)
+            ZipOutputStream(target.buffered()).use { zip ->
+                entries.forEach { entry ->
+                    zip.putNextEntry(ZipEntry(entry.name))
+                    zip.write(entry.bytes)
+                    zip.closeEntry()
+                }
+            }
+        }
+
         internal fun write(
             target: File,
             entries: List<DiagnosticsArchiveEntry>,

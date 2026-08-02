@@ -140,6 +140,10 @@ internal class MainActivityShellController(
                 )
             }
 
+            is MainEffect.SaveDiagnosticsArchive -> {
+                _hostCommands.trySend(MainActivityHostCommand.SaveDiagnosticsArchiveRequest(effect.request))
+            }
+
             MainEffect.RelockRequested -> {
                 _state.update { it.copy(relockRequested = true) }
             }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,6 +30,11 @@ interface DiagnosticsArchiveExporter {
     suspend fun cleanupCache()
 
     suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive
+
+    suspend fun writeArchive(
+        request: DiagnosticsArchiveRequest,
+        destination: OutputStream,
+    ): Unit = error("Direct archive export is unavailable")
 }
 
 @Singleton
@@ -88,6 +94,24 @@ internal class DefaultDiagnosticsArchiveExporter
                 }
             }
 
+        override suspend fun writeArchive(
+            request: DiagnosticsArchiveRequest,
+            destination: OutputStream,
+        ) = archiveMutex.withLock {
+            require(!request.includePcap) {
+                "PCAP cannot be embedded in a redacted diagnostics archive; export it as a separate raw artifact"
+            }
+            val target = archiveStage(DiagnosticsArchiveFailureCode.STORAGE) { fileStore.createTarget() }
+            val selection =
+                archiveStage(DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT) {
+                    buildArchiveSelection(request)
+                }
+            val developerAnalytics = collectDeveloperAnalytics(selection, target)
+            archiveStage(DiagnosticsArchiveFailureCode.IO) {
+                zipWriter.write(destination, renderer.render(target, selection, developerAnalytics))
+            }
+        }
+
         private suspend fun <T> archiveStage(
             failureCode: DiagnosticsArchiveFailureCode,
             block: suspend () -> T,
@@ -134,7 +158,9 @@ internal class DefaultDiagnosticsArchiveExporter
             error: Throwable,
         ): Nothing =
             withContext(NonCancellable) {
-                if (archiveWritten) {
+                val preservesWrittenArchive =
+                    (error as? DiagnosticsArchiveException)?.failureCode == DiagnosticsArchiveFailureCode.DATABASE
+                if (archiveWritten && !preservesWrittenArchive) {
                     runCatching { fileStore.deleteArchive(target.file) }
                         .exceptionOrNull()
                         ?.let(error::addSuppressed)

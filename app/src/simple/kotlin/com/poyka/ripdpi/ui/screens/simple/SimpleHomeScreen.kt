@@ -76,6 +76,7 @@ fun SimpleHomeScreen(
         onRunReport = viewModel::onRunHomeFullAnalysis,
         onCancelReport = viewModel::onCancelHomeAnalysis,
         onShareReport = viewModel.onShareHomeAnalysis,
+        onSaveReport = viewModel.onSaveHomeAnalysis,
         modifier = modifier,
     )
 }
@@ -91,6 +92,7 @@ internal fun SimpleHomeContent(
     onRunReport: () -> Unit,
     onCancelReport: () -> Unit,
     onShareReport: () -> Unit = {},
+    onSaveReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -154,6 +156,7 @@ internal fun SimpleHomeContent(
                 SimpleDiagnosticsStatus(
                     diagnostics = diagnostics,
                     onShareReport = onShareReport,
+                    onSaveReport = onSaveReport,
                     modifier = Modifier.padding(top = spacing.lg),
                 )
 
@@ -197,6 +200,7 @@ internal fun SimpleHomeContent(
 internal fun SimpleDiagnosticsStatus(
     diagnostics: HomeDiagnosticsUiState,
     onShareReport: () -> Unit = {},
+    onSaveReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val statusLabel =
@@ -281,6 +285,13 @@ internal fun SimpleDiagnosticsStatus(
                     text = stringResource(R.string.home_diagnostics_share_action),
                     onClick = onShareReport,
                     loading = sheet.shareBusy,
+                    enabled = !sheet.shareBusy,
+                    variant = RipDpiButtonVariant.Outline,
+                )
+                RipDpiButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.diagnostics_save_archive_action),
+                    onClick = onSaveReport,
                     enabled = !sheet.shareBusy,
                     variant = RipDpiButtonVariant.Outline,
                 )

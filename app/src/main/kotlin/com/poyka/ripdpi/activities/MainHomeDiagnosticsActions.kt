@@ -449,6 +449,23 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
+    fun saveLatestHomeAnalysis() {
+        mutations.launch {
+            val outcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
+            mutations.emit(
+                MainEffect.SaveDiagnosticsArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = null,
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
+                        requestedAt = System.currentTimeMillis(),
+                    ),
+                ),
+            )
+        }
+    }
+
     fun dismissAnalysisSheet() {
         homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }
     }

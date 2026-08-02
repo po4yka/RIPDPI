@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.ShareSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -38,4 +39,9 @@ class DefaultDiagnosticsShareService
             request: DiagnosticsArchiveRequest,
         ): com.poyka.ripdpi.diagnostics.DiagnosticsArchive =
             withContext(Dispatchers.IO) { archiveExporter.createArchive(request) }
+
+        override suspend fun writeArchive(
+            request: DiagnosticsArchiveRequest,
+            destination: OutputStream,
+        ) = withContext(Dispatchers.IO) { archiveExporter.writeArchive(request, destination) }
     }
