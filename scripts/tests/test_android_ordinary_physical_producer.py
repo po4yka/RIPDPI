@@ -162,6 +162,8 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "-keep public class kotlin.** {",
             "-keep class kotlinx.coroutines.BuildersKt { public *; }",
             "-keep class com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule { *; }",
+            "-keep class com.poyka.ripdpi.e2e.VpnConsentUiCandidate { *; }",
+            "-keep class com.poyka.ripdpi.e2e.VpnConsentUiSelector { *; }",
         ):
             with self.subTest(required_rule=required_rule):
                 self.assertIn(required_rule, rules)

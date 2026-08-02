@@ -52,4 +52,6 @@
 -keep interface com.poyka.ripdpi.core.Tun2SocksBridgeFactory { *; }
 -keep class com.poyka.ripdpi.core.RipDpiProxyFactoryModule { *; }
 -keep class com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule { *; }
+-keep class com.poyka.ripdpi.e2e.VpnConsentUiCandidate { *; }
+-keep class com.poyka.ripdpi.e2e.VpnConsentUiSelector { *; }
 -keep interface com.poyka.ripdpi.data.ServiceStateStore { *; }
