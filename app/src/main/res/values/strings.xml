@@ -526,6 +526,7 @@
     <string name="home_remediation_no_hint_step_review_evidence">Review the latest audit evidence and authority-specific capability notes.</string>
     <string name="home_remediation_no_hint_step_retry">Run another full analysis on the same network to collect a stronger hint.</string>
     <string name="home_diagnostics_share_failed">Failed to share analysis logs and results.</string>
+    <string name="home_diagnostics_copy_support_code">Copy for support</string>
     <string name="home_diagnostics_verification_failed">Failed to start the short verification probe.</string>
     <string name="home_diagnostics_analysis_sheet_title">Analysis Result</string>
     <string name="home_diagnostics_verified_sheet_title">Verified VPN Result</string>

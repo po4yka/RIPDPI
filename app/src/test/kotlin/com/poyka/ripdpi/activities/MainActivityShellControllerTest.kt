@@ -168,6 +168,30 @@ class MainActivityShellControllerTest {
     }
 
     @Test
+    fun `support code remains attached to the error snackbar event`() =
+        runTest {
+            val controller = MainActivityShellController()
+
+            controller.uiEvents.test {
+                controller.onEffect(
+                    MainEffect.ShowError(
+                        message = "Archive failed",
+                        supportCode = "archive_storage",
+                    ),
+                )
+
+                assertEquals(
+                    MainActivityUiEvent.ShowErrorSnackbar(
+                        message = "Archive failed",
+                        supportCode = "archive_storage",
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `show error effect emits snackbar event`() =
         runTest {
             val controller = MainActivityShellController()

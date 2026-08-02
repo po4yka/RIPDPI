@@ -1,15 +1,20 @@
 package com.poyka.ripdpi.activities
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.R
@@ -152,6 +157,9 @@ private fun MainActivityEffects(
     connectionState: ConnectionState,
     snackbarHostState: SnackbarHostState,
 ) {
+    val context = LocalContext.current
+    val copyActionLabel = stringResource(R.string.home_diagnostics_copy_support_code)
+    val clipboardLabel = stringResource(R.string.clipboard_label_error)
     LaunchedEffect(viewModel) {
         viewModel.initialize()
         viewModel.onForeground()
@@ -165,12 +173,21 @@ private fun MainActivityEffects(
         when (event) {
             is MainActivityUiEvent.ShowErrorSnackbar -> {
                 performHaptic(RipDpiHapticFeedback.Error)
-                snackbarHostState.showRipDpiSnackbar(
-                    message = event.message,
-                    tone = RipDpiSnackbarTone.Error,
-                    duration = SnackbarDuration.Short,
-                    testTag = RipDpiTestTags.MainErrorSnackbar,
-                )
+                val result =
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = event.message.withSupportCode(event.supportCode),
+                        tone = RipDpiSnackbarTone.Error,
+                        actionLabel = event.supportCode?.let { copyActionLabel },
+                        duration = SnackbarDuration.Short,
+                        testTag = RipDpiTestTags.MainErrorSnackbar,
+                    )
+                if (result == SnackbarResult.ActionPerformed) {
+                    event.supportCode?.let { supportCode ->
+                        context
+                            .getSystemService(ClipboardManager::class.java)
+                            ?.setPrimaryClip(ClipData.newPlainText(clipboardLabel, supportCode))
+                    }
+                }
             }
         }
     }
@@ -193,6 +210,8 @@ private fun MainActivityEffects(
         controller.onConnectionStateChanged(connectionState)
     }
 }
+
+private fun String.withSupportCode(supportCode: String?): String = supportCode?.let { "$this\n$it" } ?: this
 
 @Composable
 private fun MainActivityDialogs(

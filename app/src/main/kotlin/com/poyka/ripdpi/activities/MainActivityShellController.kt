@@ -30,6 +30,7 @@ internal data class SelectorSelectionRequest(
 internal sealed interface MainActivityUiEvent {
     data class ShowErrorSnackbar(
         val message: String,
+        val supportCode: String? = null,
     ) : MainActivityUiEvent
 }
 
@@ -124,7 +125,12 @@ internal class MainActivityShellController(
             }
 
             is MainEffect.ShowError -> {
-                _uiEvents.trySend(MainActivityUiEvent.ShowErrorSnackbar(effect.message))
+                _uiEvents.trySend(
+                    MainActivityUiEvent.ShowErrorSnackbar(
+                        message = effect.message,
+                        supportCode = effect.supportCode,
+                    ),
+                )
             }
 
             is MainEffect.ShareDiagnosticsArchive -> {

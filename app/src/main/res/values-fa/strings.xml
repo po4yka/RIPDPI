@@ -516,6 +516,7 @@
     <string name="home_remediation_no_hint_step_review_evidence">آخرین شواهد حسابرسی و یادداشت‌های قابلیت خاص مرجع را بررسی کنید.</string>
     <string name="home_remediation_no_hint_step_retry">یک تحلیل کامل دیگر روی همان شبکه اجرا کنید تا راهنمایی قوی‌تری جمع‌آوری کنید.</string>
     <string name="home_diagnostics_share_failed">اشتراک‌گذاری گزارش‌های تحلیل و نتایج ناموفق بود.</string>
+    <string name="home_diagnostics_copy_support_code">رونوشت برای پشتیبانی</string>
     <string name="home_diagnostics_verification_failed">شروع کاوش کوتاه تأیید ناموفق بود.</string>
     <string name="home_diagnostics_analysis_sheet_title">نتیجهٔ تحلیل</string>
     <string name="home_diagnostics_verified_sheet_title">نتیجهٔ VPN تأییدشده</string>

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -312,7 +313,15 @@ internal class DefaultMainActivityHost
                 )
             }.onFailure { error ->
                 Logger.e(error) { "Failed to share diagnostics archive" }
-                Toast.makeText(activity, R.string.home_diagnostics_share_failed, Toast.LENGTH_SHORT).show()
+                viewModel.reportSupportError(
+                    message = activity.getString(R.string.home_diagnostics_share_failed),
+                    supportCode =
+                        if (error is ActivityNotFoundException) {
+                            ShareNoHandlerSupportCode
+                        } else {
+                            ArchiveIoSupportCode
+                        },
+                )
             }
         }
 
@@ -332,6 +341,9 @@ internal fun copyDiagnosticsArchive(
         } ?: throw IOException("Failed to open diagnostics archive destination")
     }
 }
+
+private const val ArchiveIoSupportCode = "archive_io"
+private const val ShareNoHandlerSupportCode = "share_no_handler"
 
 @Module
 @InstallIn(ActivityComponent::class)

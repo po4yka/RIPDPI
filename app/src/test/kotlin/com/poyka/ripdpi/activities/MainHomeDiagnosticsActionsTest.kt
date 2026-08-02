@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveFailureCode
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
@@ -463,6 +465,41 @@ class MainHomeDiagnosticsActionsTest {
             assertTrue(
                 "expected ShowError effect but got $effect",
                 effect is MainEffect.ShowError,
+            )
+        }
+
+    @Test
+    fun `share failure exposes only its stable support code`() =
+        runTest {
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
+            val shareService =
+                StubDiagnosticsShareService().apply {
+                    archiveFailure =
+                        DiagnosticsArchiveException(
+                            DiagnosticsArchiveFailureCode.DATABASE,
+                            IllegalStateException("sensitive database detail"),
+                        )
+                }
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    effects = effects,
+                    diagnosticsShareService = shareService,
+                    homeDiagnosticsState =
+                        MutableStateFlow(
+                            HomeDiagnosticsRuntimeState(
+                                latestCompositeOutcome = compositeOutcome(),
+                            ),
+                        ),
+                )
+
+            actions.shareLatestHomeAnalysis()
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(
+                "archive_database",
+                (effects.replayCache.single() as MainEffect.ShowError).supportCode,
             )
         }
 

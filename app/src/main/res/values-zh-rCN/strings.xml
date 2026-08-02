@@ -2444,6 +2444,7 @@ fake_burst 3</string>
     <string name="home_diagnostics_recommendation_label">建议</string>
     <string name="home_diagnostics_regression_summary">新失败 %1$d 项,新恢复 %2$d 项,未变更 %3$d 项。</string>
     <string name="home_diagnostics_share_failed">分享分析日志和结果失败。</string>
+    <string name="home_diagnostics_copy_support_code">复制以供支持使用</string>
     <string name="home_diagnostics_verification_failed">无法启动短时验证探测。</string>
     <string name="home_history_body">历史记录保留持久的连接会话、采样的运行时诊断,以及实时诊断工具之外的原生故障。</string>
     <string name="home_mode_card_connected_format">已连接 %1$s</string>

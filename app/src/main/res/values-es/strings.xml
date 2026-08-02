@@ -275,6 +275,7 @@
     <string name="home_diagnostics_regression_recovered_label">Recuperados recientemente</string>
     <string name="home_diagnostics_run_again">La red cambió. Ejecuta el análisis completo de nuevo.</string>
     <string name="home_diagnostics_share_failed">No se pudieron compartir los registros y resultados del análisis.</string>
+    <string name="home_diagnostics_copy_support_code">Copiar para soporte</string>
     <string name="home_diagnostics_title">Audita esta red y prepara un inicio verificado</string>
     <string name="home_diagnostics_vpn_detectors_summary">%1$d apps instaladas son detectores conocidos de VPN.</string>
     <string name="home_history_title">Revisar sesiones guardadas y fallos</string>

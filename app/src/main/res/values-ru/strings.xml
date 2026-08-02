@@ -478,6 +478,7 @@
     <string name="home_remediation_no_hint_step_review_evidence">Проверьте доказательства последнего аудита и authority-specific capability notes.</string>
     <string name="home_remediation_no_hint_step_retry">Сделайте ещё один полный анализ на той же сети, чтобы собрать более сильную подсказку.</string>
     <string name="home_diagnostics_share_failed">Не удалось отправить логи и результаты анализа.</string>
+    <string name="home_diagnostics_copy_support_code">Скопировать для поддержки</string>
     <string name="home_diagnostics_verification_failed">Не удалось запустить короткую проверку доступа.</string>
     <string name="home_diagnostics_analysis_sheet_title">Результат анализа</string>
     <string name="home_diagnostics_verified_sheet_title">Результат проверенного VPN</string>

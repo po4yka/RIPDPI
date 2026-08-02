@@ -40,6 +40,7 @@ sealed interface MainEffect {
 
     data class ShowError(
         val message: String,
+        val supportCode: String? = null,
     ) : MainEffect
 
     data class ShareDiagnosticsArchive(

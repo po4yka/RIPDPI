@@ -512,6 +512,7 @@
     <string name="home_remediation_no_hint_step_review_evidence">راجع أحدث أدلة التدقيق والملاحظات الخاصة بإمكانيات كل جهة.</string>
     <string name="home_remediation_no_hint_step_retry">شغّل تحليلاً كاملاً آخر على نفس الشبكة للحصول على تلميح أقوى.</string>
     <string name="home_diagnostics_share_failed">فشل مشاركة سجلات التحليل والنتائج.</string>
+    <string name="home_diagnostics_copy_support_code">نسخ للدعم</string>
     <string name="home_diagnostics_verification_failed">فشل تشغيل مسبار التحقق السريع.</string>
     <string name="home_diagnostics_analysis_sheet_title">نتيجة التحليل</string>
     <string name="home_diagnostics_verified_sheet_title">نتيجة VPN موثّقة</string>

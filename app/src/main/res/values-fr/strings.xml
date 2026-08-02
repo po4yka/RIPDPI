@@ -275,6 +275,7 @@
     <string name="home_diagnostics_regression_recovered_label">Nouvellement rétablis</string>
     <string name="home_diagnostics_run_again">Le réseau a changé. Relancez l\'analyse complète.</string>
     <string name="home_diagnostics_share_failed">Échec du partage des journaux et résultats d\'analyse.</string>
+    <string name="home_diagnostics_copy_support_code">Copier pour l\'assistance</string>
     <string name="home_diagnostics_title">Auditer ce réseau et préparer un lancement vérifié</string>
     <string name="home_diagnostics_vpn_detectors_summary">%1$d applications installées sont des détecteurs de VPN connus.</string>
     <string name="home_history_title">Examiner les sessions enregistrées et les échecs</string>

@@ -275,6 +275,7 @@
     <string name="home_diagnostics_regression_recovered_label">Neu wiederhergestellt</string>
     <string name="home_diagnostics_run_again">Das Netzwerk hat sich geändert. Führen Sie die vollständige Analyse erneut aus.</string>
     <string name="home_diagnostics_share_failed">Analyseprotokolle und Ergebnisse konnten nicht geteilt werden.</string>
+    <string name="home_diagnostics_copy_support_code">Für den Support kopieren</string>
     <string name="home_diagnostics_title">Dieses Netzwerk auditieren und verifizierten Start vorbereiten</string>
     <string name="home_diagnostics_vpn_detectors_summary">%1$d installierte Apps sind bekannte VPN-Detektoren.</string>
     <string name="home_history_title">Gespeicherte Sitzungen und Fehler überprüfen</string>

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -29,6 +30,7 @@ import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -428,6 +430,7 @@ internal class MainHomeDiagnosticsActions(
                     ),
                 )
             }.onFailure { error ->
+                if (error is CancellationException) throw error
                 Logger.withTag(LogTags.DIAGNOSTICS).e(error) {
                     "Failed to create home analysis archive"
                 }
@@ -435,6 +438,11 @@ internal class MainHomeDiagnosticsActions(
                 mutations.emit(
                     MainEffect.ShowError(
                         stringResolver.getString(R.string.home_diagnostics_share_failed),
+                        supportCode =
+                            (error as? DiagnosticsArchiveException)
+                                ?.failureCode
+                                ?.supportCode
+                                ?: ArchiveIoSupportCode,
                     ),
                 )
             }
@@ -529,6 +537,8 @@ internal class MainHomeDiagnosticsActions(
         latestDirectModeOutcomeStore.publish(snapshot)
     }
 }
+
+private const val ArchiveIoSupportCode = "archive_io"
 
 private fun HomeDiagnosticsRuntimeState.analysisInProgress(): Boolean =
     analysisStarting || activeRunId != null ||

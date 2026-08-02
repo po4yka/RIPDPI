@@ -7,10 +7,13 @@ import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsContext
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsSource
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveFailureCode
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,23 +53,55 @@ internal class DefaultDiagnosticsArchiveExporter
                 require(!request.includePcap) {
                     "PCAP cannot be embedded in a redacted diagnostics archive; export it as a separate raw artifact"
                 }
-                reconcileCache(reservedSlots = 1)
-                val selection = buildArchiveSelection(request)
-                val target = fileStore.createTarget()
+                archiveStage(DiagnosticsArchiveFailureCode.STORAGE) {
+                    reconcileCache(reservedSlots = 1)
+                }
+                val selection =
+                    archiveStage(DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT) {
+                        buildArchiveSelection(request)
+                    }
+                val target = archiveStage(DiagnosticsArchiveFailureCode.STORAGE) { fileStore.createTarget() }
                 val developerAnalytics = collectDeveloperAnalytics(selection, target)
                 var exportRecordId: String? = null
                 var archiveWritten = false
                 runCatching {
-                    zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
+                    archiveStage(DiagnosticsArchiveFailureCode.IO) {
+                        zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
+                    }
                     archiveWritten = true
                     val recordId = idGenerator.nextId()
                     exportRecordId = recordId
-                    exportRecordStore.insertExportRecord(target.toExportRecord(recordId, selection.primarySession?.id))
-                    reconcileCache(reservedSlots = 0)
+                    archiveStage(DiagnosticsArchiveFailureCode.DATABASE) {
+                        exportRecordStore.insertExportRecord(
+                            target.toExportRecord(
+                                recordId = recordId,
+                                sessionId = selection.primarySession?.id,
+                            ),
+                        )
+                    }
+                    archiveStage(DiagnosticsArchiveFailureCode.STORAGE) {
+                        reconcileCache(reservedSlots = 0)
+                    }
                     target.toArchive(selection.primarySession?.id)
                 }.getOrElse { error ->
                     rollbackArchive(target, exportRecordId, archiveWritten, error)
                 }
+            }
+
+        private suspend fun <T> archiveStage(
+            failureCode: DiagnosticsArchiveFailureCode,
+            block: suspend () -> T,
+        ): T =
+            try {
+                block()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: DiagnosticsArchiveException) {
+                throw error
+            } catch (error: Error) {
+                throw error
+            } catch (error: Throwable) {
+                throw DiagnosticsArchiveException(failureCode, error)
             }
 
         private fun DiagnosticsArchiveTarget.toExportRecord(
