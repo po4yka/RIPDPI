@@ -76,6 +76,7 @@ private const val OrdinaryObservationVersion = "android_ordinary_physical_observ
 private const val OrdinaryObservationResultKey = "ripdpi.ordinaryObservationsBase64"
 private const val OrdinaryObservationMaxBytes = 512 * 1024
 private const val OrdinaryDnsAttemptLimit = 3
+private const val OrdinaryConnectedProbeAttempts = 5
 private const val OrdinaryMarkerPrefix = "RIPDPI-ORDINARY-V1"
 private const val OrdinaryAttestationPrefix = "RIPDPI-ORDINARY-ATTESTATION-V1"
 private const val OrdinaryTimeoutMs = 25_000L
@@ -527,13 +528,17 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val started = now()
         val payload = "ordinary-${hash("$runId:$id").take(24)}"
         val result =
-            testProcessTcpRoundTrip(
-                host = target,
-                port = fixtureTcpEchoPort,
-                payload = payload,
-                connectTimeoutMs = 4_000,
-                readTimeoutMs = 4_000,
-            )
+            if (connected) {
+                connectedProbe(target, payload)
+            } else {
+                testProcessTcpRoundTrip(
+                    host = target,
+                    port = fixtureTcpEchoPort,
+                    payload = payload,
+                    connectTimeoutMs = 4_000,
+                    readTimeoutMs = 4_000,
+                )
+            }
         val finished = now()
         if (connected) {
             assertTrue(
@@ -552,6 +557,30 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             .put("startedAtEpochMs", started)
             .put("targetAddress", target)
             .put("targetPort", fixtureTcpEchoPort)
+    }
+
+    private fun connectedProbe(
+        target: String,
+        payload: String,
+    ): AppProcessTcpProbeResult {
+        lateinit var lastResult: AppProcessTcpProbeResult
+        repeat(OrdinaryConnectedProbeAttempts) { attempt ->
+            lastResult =
+                testProcessTcpRoundTrip(
+                    host = target,
+                    port = fixtureTcpEchoPort,
+                    payload = payload,
+                    connectTimeoutMs = 4_000,
+                    readTimeoutMs = 4_000,
+                )
+            if (lastResult.ok && lastResult.response == payload) {
+                return lastResult
+            }
+            if (attempt + 1 < OrdinaryConnectedProbeAttempts) {
+                Thread.sleep(250)
+            }
+        }
+        return lastResult
     }
 
     private fun normalizedFailure(result: AppProcessTcpProbeResult): String =

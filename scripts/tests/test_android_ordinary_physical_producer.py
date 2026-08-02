@@ -349,6 +349,19 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("instrumentation.addResults", producer)
         self.assertIn(observation_extractor.RESULT_KEY, producer)
 
+    def test_positive_physical_probes_retry_without_weakening_negative_probes(
+        self,
+    ) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+
+        self.assertIn("OrdinaryConnectedProbeAttempts = 5", producer)
+        self.assertIn("if (connected) {\n                connectedProbe", producer)
+        self.assertIn("repeat(OrdinaryConnectedProbeAttempts)", producer)
+        self.assertIn("if (lastResult.ok && lastResult.response == payload)", producer)
+
     def test_runner_opens_only_runtime_nftables_rules_and_removes_by_marker(
         self,
     ) -> None:
