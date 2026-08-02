@@ -12,6 +12,7 @@ private const val PcapRetentionWindowMs = 24L * 60L * 60L * 1000L
 class DiagnosticsArchiveFileStore(
     private val cacheDir: File,
     private val clock: DiagnosticsArchiveClock,
+    private val deleteFile: (File) -> Boolean = File::delete,
 ) {
     fun cleanup(reservedSlots: Int = 0) {
         require(reservedSlots in 0..DiagnosticsArchiveFormat.maxArchiveFiles)
@@ -103,7 +104,7 @@ class DiagnosticsArchiveFileStore(
     }
 
     private fun deleteVerified(file: File) {
-        check(!file.exists() || file.delete()) { "Unable to delete diagnostics archive artifact: ${file.name}" }
+        check(!file.exists() || deleteFile(file)) { "Unable to delete diagnostics archive artifact: ${file.name}" }
     }
 
     private fun isManagedArchive(file: File): Boolean =

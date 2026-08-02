@@ -75,6 +75,28 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
+    fun `file store reports deletion refusal and leaves the archive intact`() {
+        val cacheDir = Files.createTempDirectory("archive-delete-refusal").toFile()
+        val archiveDir = cacheDir.resolve(DiagnosticsArchiveFormat.directoryName).apply { mkdirs() }
+        val archive =
+            archiveDir.resolve("${DiagnosticsArchiveFormat.fileNamePrefix}expired.zip").apply {
+                writeText("archive")
+                setLastModified(0L)
+            }
+        val fileStore =
+            DiagnosticsArchiveFileStore(
+                cacheDir = cacheDir,
+                clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
+                deleteFile = { false },
+            )
+
+        val failure = runCatching { fileStore.cleanup() }.exceptionOrNull()
+
+        assertNotNull(failure)
+        assertTrue(archive.exists())
+    }
+
+    @Test
     fun `zip writer rejects unsafe and duplicate entry names and uses owner only permissions`() {
         val cacheDir = Files.createTempDirectory("archive-zip-security").toFile()
         val target = cacheDir.resolve("safe.zip")

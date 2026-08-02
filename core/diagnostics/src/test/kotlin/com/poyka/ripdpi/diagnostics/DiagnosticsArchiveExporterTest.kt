@@ -20,6 +20,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.IOException
+import java.io.OutputStream
 import java.util.zip.ZipFile
 
 internal abstract class DiagnosticsArchiveExporterTestBase {
@@ -180,6 +182,65 @@ internal class ArchiveCompositeRunService : DiagnosticsHomeCompositeRunService {
 }
 
 internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBase() {
+    @Test
+    fun `writeArchive reports io failure without leaving a cache archive`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    "session-write-failure",
+                    "default",
+                    ScanPathMode.IN_PATH.name,
+                    "Write failure",
+                )
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+
+            val failure =
+                runCatching {
+                    createArchiveExporter(stores, context, rootModeEnabled = false).writeArchive(
+                        archiveRequestFor(session.id, 28L),
+                        object : OutputStream() {
+                            override fun write(value: Int): Unit = throw IOException("destination refused")
+                        },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is DiagnosticsArchiveException)
+            assertEquals(
+                DiagnosticsArchiveFailureCode.IO,
+                (failure as DiagnosticsArchiveException).failureCode,
+            )
+            assertTrue(
+                context.cacheDir
+                    .resolve(DiagnosticsArchiveFormat.directoryName)
+                    .listFiles()
+                    .orEmpty()
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `createArchive exports an incomplete session with available artifacts`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    "session-incomplete",
+                    "default",
+                    ScanPathMode.IN_PATH.name,
+                    "Partial",
+                    status = "failed",
+                )
+            seedSingleSessionStore(stores, session)
+
+            val archive =
+                createArchiveExporter(stores).createArchive(archiveRequestFor(session.id, 29L))
+
+            assertEquals(session.id, archive.sessionId)
+            ZipFile(archive.absolutePath).use { zip -> assertNotNull(zip.getEntry("manifest.json")) }
+        }
+
     @Test
     fun `createArchive persists requested session export and writes schema v4 archive`() =
         runTest {
@@ -565,18 +626,22 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 }
             val exporter = createArchiveExporter(stores)
 
-            try {
-                exporter.createArchive(
-                    DiagnosticsArchiveRequest(
-                        requestedSessionId = "missing-session",
-                        reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
-                        requestedAt = 26L,
-                    ),
-                )
-                fail("Expected createArchive to reject a missing requested session")
-            } catch (error: IllegalArgumentException) {
-                assertTrue(error.message.orEmpty().contains("missing-session"))
-            }
+            val failure =
+                runCatching {
+                    exporter.createArchive(
+                        DiagnosticsArchiveRequest(
+                            requestedSessionId = "missing-session",
+                            reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
+                            requestedAt = 26L,
+                        ),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is DiagnosticsArchiveException)
+            assertEquals(
+                DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT,
+                (failure as DiagnosticsArchiveException).failureCode,
+            )
 
             assertTrue(stores.exportsState.value.isEmpty())
         }
