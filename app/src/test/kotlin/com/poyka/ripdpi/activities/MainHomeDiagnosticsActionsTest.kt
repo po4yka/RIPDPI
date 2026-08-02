@@ -469,41 +469,6 @@ class MainHomeDiagnosticsActionsTest {
         }
 
     @Test
-    fun `share failure exposes only its stable support code`() =
-        runTest {
-            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
-            val shareService =
-                StubDiagnosticsShareService().apply {
-                    archiveFailure =
-                        DiagnosticsArchiveException(
-                            DiagnosticsArchiveFailureCode.DATABASE,
-                            IllegalStateException("sensitive database detail"),
-                        )
-                }
-            val actions =
-                createActions(
-                    scope = backgroundScope,
-                    effects = effects,
-                    diagnosticsShareService = shareService,
-                    homeDiagnosticsState =
-                        MutableStateFlow(
-                            HomeDiagnosticsRuntimeState(
-                                latestCompositeOutcome = compositeOutcome(),
-                            ),
-                        ),
-                )
-
-            actions.shareLatestHomeAnalysis()
-            runCurrent()
-            advanceUntilIdle()
-
-            assertEquals(
-                "archive_database",
-                (effects.replayCache.single() as MainEffect.ShowError).supportCode,
-            )
-        }
-
-    @Test
     fun `buildHomeDiagnosticsUiState maps active run progress to analysisProgress`() {
         val uiState =
             buildHomeDiagnosticsUiState(
@@ -888,6 +853,48 @@ class MainHomeDiagnosticsConcurrencyTest {
             assertEquals("Testing two", state.activeRunStageProgress)
             assertEquals(0.4f, state.activeStageStepProgress, 0.001f)
             assertFalse(state.externalScanActive)
+        }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class MainHomeDiagnosticsShareFailureTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `share failure exposes only its stable support code`() =
+        runTest {
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
+            val shareService =
+                StubDiagnosticsShareService().apply {
+                    archiveFailure =
+                        DiagnosticsArchiveException(
+                            DiagnosticsArchiveFailureCode.DATABASE,
+                            IllegalStateException("sensitive database detail"),
+                        )
+                }
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    effects = effects,
+                    diagnosticsShareService = shareService,
+                    homeDiagnosticsState =
+                        MutableStateFlow(
+                            HomeDiagnosticsRuntimeState(
+                                latestCompositeOutcome = compositeOutcome(),
+                            ),
+                        ),
+                )
+
+            actions.shareLatestHomeAnalysis()
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(
+                "archive_database",
+                (effects.replayCache.single() as MainEffect.ShowError).supportCode,
+            )
         }
 }
 

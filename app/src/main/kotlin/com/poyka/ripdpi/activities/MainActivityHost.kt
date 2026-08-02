@@ -263,43 +263,47 @@ internal class DefaultMainActivityHost
         }
 
         private fun handleDiagnosticsArchiveResult(uri: Uri?) {
-            pendingDiagnosticsArchiveRequest?.let { request ->
+            val request = pendingDiagnosticsArchiveRequest
+            if (request != null) {
                 pendingDiagnosticsArchiveRequest = null
-                if (uri == null) return
-                activity.lifecycleScope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            activity.contentResolver.openOutputStream(uri)?.use { stream ->
-                                diagnosticsShareService.writeArchive(request, stream)
-                            } ?: throw IOException("Failed to open diagnostics archive destination")
+                if (uri != null) {
+                    activity.lifecycleScope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                activity.contentResolver.openOutputStream(uri)?.use { stream ->
+                                    diagnosticsShareService.writeArchive(request, stream)
+                                } ?: throw IOException("Failed to open diagnostics archive destination")
+                            }
+                        }.onFailure { error ->
+                            Logger.e(error) { "Failed to save diagnostics archive" }
+                            viewModel.reportSupportError(
+                                activity.getString(R.string.diagnostics_archive_save_failed),
+                                ArchiveIoSupportCode,
+                            )
                         }
-                    }.onFailure { error ->
-                        Logger.e(error) { "Failed to save diagnostics archive" }
-                        viewModel.reportSupportError(
-                            message = activity.getString(R.string.diagnostics_archive_save_failed),
-                            supportCode = ArchiveIoSupportCode,
-                        )
                     }
                 }
-                return
-            }
-            val archive = pendingDiagnosticsArchive ?: return
-            if (uri == null) {
-                pendingDiagnosticsArchive = null
-                return
-            }
-            activity.lifecycleScope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        copyDiagnosticsArchive(source = File(archive.filePath)) {
-                            activity.contentResolver.openOutputStream(uri)
+            } else {
+                val archive = pendingDiagnosticsArchive
+                if (archive != null && uri != null) {
+                    activity.lifecycleScope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                copyDiagnosticsArchive(source = File(archive.filePath)) {
+                                    activity.contentResolver.openOutputStream(uri)
+                                }
+                            }
+                        }.onSuccess {
+                            pendingDiagnosticsArchive = null
+                        }.onFailure { error ->
+                            Logger.e(error) { "Failed to save diagnostics archive" }
+                            Toast
+                                .makeText(activity, R.string.diagnostics_archive_save_failed, Toast.LENGTH_SHORT)
+                                .show()
                         }
                     }
-                }.onSuccess {
+                } else if (uri == null) {
                     pendingDiagnosticsArchive = null
-                }.onFailure { error ->
-                    Logger.e(error) { "Failed to save diagnostics archive" }
-                    Toast.makeText(activity, R.string.diagnostics_archive_save_failed, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -350,13 +354,12 @@ internal class DefaultMainActivityHost
             }.onFailure { error ->
                 Logger.e(error) { "Failed to share diagnostics archive" }
                 viewModel.reportSupportError(
-                    message = activity.getString(R.string.home_diagnostics_share_failed),
-                    supportCode =
-                        if (error is ActivityNotFoundException) {
-                            ShareNoHandlerSupportCode
-                        } else {
-                            ArchiveIoSupportCode
-                        },
+                    activity.getString(R.string.home_diagnostics_share_failed),
+                    if (error is ActivityNotFoundException) {
+                        ShareNoHandlerSupportCode
+                    } else {
+                        ArchiveIoSupportCode
+                    },
                 )
             }
         }

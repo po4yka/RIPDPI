@@ -449,7 +449,7 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    fun saveLatestHomeAnalysis() {
+    val saveLatestHomeAnalysis: () -> Unit = {
         mutations.launch {
             val outcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
             mutations.emit(
