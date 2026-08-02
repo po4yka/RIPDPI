@@ -430,7 +430,6 @@ private fun Int?.toThermalBand(apiLevel: Int): DeviceThermalBand =
 private fun String?.toManufacturerFamily(): DeviceManufacturerFamily =
     when (this?.trim()?.lowercase(Locale.US)) {
         null, "" -> DeviceManufacturerFamily.Unknown
-        "samsung" -> DeviceManufacturerFamily.Samsung
         else -> DeviceManufacturerFamily.Other
     }
 

@@ -71,7 +71,6 @@ class ResolveChangeRoutingTest(unittest.TestCase):
     def test_release_workflows_are_release_build_logic_not_workflow_only(self) -> None:
         for path in (
             ".github/workflows/release.yml",
-            ".github/workflows/dns-ipv6-killswitch-evidence.yml",
             "scripts/ci/resolve_change_routing.py",
         ):
             with self.subTest(path=path):

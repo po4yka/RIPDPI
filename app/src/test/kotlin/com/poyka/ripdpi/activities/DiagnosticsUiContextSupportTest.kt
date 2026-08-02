@@ -19,22 +19,22 @@ class DiagnosticsUiContextSupportTest {
     private val support = DiagnosticsUiFactorySupport(RuntimeEnvironment.getApplication())
 
     @Test
-    fun `missing doze exemption alone does not create samsung background warning`() {
+    fun `missing doze exemption alone does not create a background warning`() {
         val warnings =
             support.buildContextWarnings(
-                context = diagnosticContext(manufacturer = "Samsung", batteryOptimizationState = "disabled"),
+                context = diagnosticContext(manufacturer = "Google", batteryOptimizationState = "disabled"),
             )
 
         assertTrue(warnings.isEmpty())
     }
 
     @Test
-    fun `power restrictions use generic warning even on samsung`() {
+    fun `power restrictions use the generic warning`() {
         val warnings =
             support.buildContextWarnings(
                 context =
                     diagnosticContext(
-                        manufacturer = "Samsung",
+                        manufacturer = "Google",
                         batteryOptimizationState = "disabled",
                         dataSaverState = "enabled",
                     ),

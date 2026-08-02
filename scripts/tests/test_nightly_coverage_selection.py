@@ -15,7 +15,6 @@ SETUP_ACTION = ROOT / ".github/actions/setup-android-rust/action.yml"
 COVERAGE_SCRIPT = ROOT / "scripts/ci/run-rust-coverage.sh"
 RELAY_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-relay-emulator-smoke.sh"
 PACKET_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-packet-smoke.sh"
-DNS_IPV6_EVIDENCE_WORKFLOW = ROOT / ".github/workflows/dns-ipv6-killswitch-evidence.yml"
 
 
 def workflow_job(source: str, job_name: str) -> str:
@@ -178,15 +177,6 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
 
         self.assertIn("-Pripdpi.nativeAbisOverride=${gradle_abi}", packet_smoke)
         self.assertNotIn("-Pripdpi.localNativeAbis=", packet_smoke)
-
-    def test_release_evidence_uses_the_exact_prebuilt_candidate(self) -> None:
-        evidence_workflow = DNS_IPV6_EVIDENCE_WORKFLOW.read_text(encoding="utf-8")
-
-        self.assertIn("app-github-release-x86_64.apk", evidence_workflow)
-        self.assertNotIn("./gradlew", evidence_workflow)
-        self.assertNotIn("-Pripdpi.nativeAbisOverride=", evidence_workflow)
-        self.assertNotIn("-Pripdpi.localNativeAbis=", evidence_workflow)
-
 
 if __name__ == "__main__":
     unittest.main()

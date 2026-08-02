@@ -17,7 +17,7 @@ class KnownLocalServicesTest {
     }
 
     @Test
-    fun `Samsung Knox ports are excluded`() {
+    fun `device-management ports are excluded`() {
         assertTrue(8610 in KnownLocalServices.excludedPorts)
         assertTrue(8615 in KnownLocalServices.excludedPorts)
     }

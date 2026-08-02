@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 class VendorAutoStartComponentsTest {
     @Test
     fun `each known vendor maps to non-empty components`() {
-        listOf("xiaomi", "huawei", "oppo", "vivo", "samsung").forEach { manufacturer ->
+        listOf("xiaomi", "huawei", "oppo", "vivo").forEach { manufacturer ->
             assertTrue(
                 "expected non-empty mapping for $manufacturer",
                 vendorAutoStartComponents(manufacturer).isNotEmpty(),
@@ -47,10 +47,6 @@ class VendorAutoStartComponentsTest {
         assertEquals(
             vendorAutoStartComponents("xiaomi"),
             vendorAutoStartComponents("XIAOMI"),
-        )
-        assertEquals(
-            vendorAutoStartComponents("samsung"),
-            vendorAutoStartComponents("Samsung"),
         )
     }
 

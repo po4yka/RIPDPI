@@ -649,7 +649,7 @@ class RemoteDeviceAcceptanceGateTest {
         val rendered = renderRemoteDeviceAcceptanceReport(report)
 
         assertTrue(rendered.contains("ripdpi_remote_device_acceptance_v2"))
-        assertTrue(rendered.contains("samsung_s24_ultra_family"))
+        assertTrue(rendered.contains("other_android_family"))
         assertTrue(rendered.contains("cscStatus"))
         assertTrue(rendered.contains("available"))
         assertTrue(rendered.contains("arm64"))

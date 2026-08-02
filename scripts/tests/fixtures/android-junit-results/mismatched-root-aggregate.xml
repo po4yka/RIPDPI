@@ -2,12 +2,12 @@
 <testsuites tests="3" skipped="0" failures="0" errors="0">
   <testsuite name="preflight" tests="1" skipped="0" failures="0" errors="0">
     <testcase
-        classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
-        name="environmentSupportsFixtureReachabilityAndVpnConsent" />
+        classname="com.poyka.ripdpi.e2e.OptionalCapabilityTest"
+        name="supportedOnThisEmulator" />
   </testsuite>
   <testsuite name="package" tests="1" skipped="0" failures="0" errors="0">
     <testcase
-        classname="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
-        name="vpnStartupWindowHoldsDnsPacketUntilNativeReady" />
+        classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
+        name="environmentSupportsFixtureReachabilityAndVpnConsent" />
   </testsuite>
 </testsuites>

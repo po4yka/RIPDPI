@@ -1466,7 +1466,6 @@ Origen: %2$s</string>
     <string name="owned_stack_browser_error_title">La petición con pila propia falló</string>
     <string name="owned_stack_browser_trace_h2_retry">Se reintentó con pila de plataforma solo H2 tras fallar el intento con QUIC.</string>
     <string name="owned_stack_browser_url_label">URL HTTPS</string>
-    <string name="permissions_background_activity_body_samsung">Los dispositivos Samsung pueden seguir deteniendo RIPDPI en segundo plano aunque la optimización de batería de Android esté desactivada. Si las sesiones se detienen, configura Info de la app &gt; Batería en Sin restricciones y añade RIPDPI a las apps que nunca duermen.</string>
     <string name="permissions_notifications_denied">Permite las notificaciones para mostrar el estado de RIPDPI y las alertas del servicio mientras la VPN local o el proxy estén en ejecución.</string>
     <string name="permissions_vpn_error_body">Concede el permiso de VPN de Android para mantener RIPDPI ejecutándose localmente en este dispositivo.</string>
     <string name="proxy_address">%1$s:%2$s</string>

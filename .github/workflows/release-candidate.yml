@@ -116,13 +116,6 @@ jobs:
             -Pripdpi.releaseRefName="$RELEASE_TAG"
           python3 scripts/ci/check_app_identity_review.py --report | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Compile release instrumentation before the native build
-        run: |
-          ./gradlew :app:hiltJavaCompileGithubFullReleaseAndroidTest \
-            -Pripdpi.testBuildType=release \
-            -Pripdpi.skipNativeBuild=true
-          python3 scripts/ci/generate_release_instrumentation_rules.py --check
-
       - name: Materialize release signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}

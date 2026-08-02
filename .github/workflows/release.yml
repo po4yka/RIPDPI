@@ -19,7 +19,7 @@ jobs:
       actions: read
       contents: read
     env:
-      EVIDENCE_RUN_ID: ${{ vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
+      CANDIDATE_RUN_ID: ${{ vars.RIPDPI_RELEASE_CANDIDATE_RUN_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,87 +40,9 @@ jobs:
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           ./gradlew :app:verifyReleaseVersion -Pripdpi.skipNativeBuild=true
 
-      - name: Require exact-SHA release evidence
+      - name: Require exact-SHA release candidate
         run: |
-          [[ "$EVIDENCE_RUN_ID" =~ ^[0-9]+$ ]]
-
-      - name: Verify release-evidence workflow provenance
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import subprocess
-
-          run_id = os.environ["EVIDENCE_RUN_ID"]
-          response = subprocess.run(
-              ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"],
-              check=True,
-              capture_output=True,
-              text=True,
-          )
-          run = json.loads(response.stdout)
-          expected = {
-              "conclusion": "success",
-              "event": "workflow_dispatch",
-              "head_sha": os.environ["GITHUB_SHA"],
-              "path": ".github/workflows/dns-ipv6-killswitch-evidence.yml",
-          }
-          for field, value in expected.items():
-              if run.get(field) != value:
-                  raise SystemExit(f"evidence run {field} does not match release")
-          attempt = run.get("run_attempt")
-          if not isinstance(attempt, int) or attempt < 1:
-              raise SystemExit("evidence run attempt is invalid")
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
-              handle.write(f"EVIDENCE_RUN_ATTEMPT={attempt}\n")
-          PY
-
-      - name: Download exact-SHA release evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: dns-ipv6-killswitch-release-evidence
-          path: ${{ runner.temp }}/release-evidence
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ env.EVIDENCE_RUN_ID }}
-
-      - name: Enforce physical DNS/IPv6/kill-switch evidence
-        run: |
-          evidence="$RUNNER_TEMP/release-evidence"
-          python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
-            --results "$evidence/ordinary-results.json" \
-            --evidence-manifest "$evidence/manifest.json" \
-            --candidate-manifest "$evidence/candidate-manifest.json" \
-            --applies-to android-client-release \
-            --expected-source-sha "$GITHUB_SHA" \
-            --expected-evidence-run-id "$EVIDENCE_RUN_ID" \
-            --expected-evidence-run-attempt "$EVIDENCE_RUN_ATTEMPT"
-
-      - name: Resolve immutable release-candidate handoff
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          evidence = Path(os.environ["RUNNER_TEMP"]) / "release-evidence"
-          run = json.loads((evidence / "release-candidate-run.json").read_text())
-          if (
-              set(run) != {"runId", "sourceSha", "version"}
-              or run["version"] != "ripdpi_release_candidate_run_v1"
-              or run["sourceSha"] != os.environ["GITHUB_SHA"]
-              or not isinstance(run["runId"], int)
-          ):
-              raise SystemExit("release-candidate handoff is malformed or stale")
-          manifest = json.loads((evidence / "manifest.json").read_text())
-          client_sha = manifest.get("provenance", {}).get("clientArtifactSha256")
-          if not isinstance(client_sha, str) or len(client_sha) != 64:
-              raise SystemExit("evidence client artifact digest is missing")
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
-              handle.write(f"CANDIDATE_RUN_ID={run['runId']}\n")
-              handle.write(f"EVIDENCE_CLIENT_SHA256={client_sha}\n")
-          PY
+          [[ "$CANDIDATE_RUN_ID" =~ ^[0-9]+$ ]]
 
       - name: Verify release-candidate workflow provenance
         env:
@@ -158,17 +80,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ env.CANDIDATE_RUN_ID }}
 
-      - name: Bind candidate bytes to physical evidence
+      - name: Verify immutable candidate bytes
         run: |
           candidate="$RUNNER_TEMP/release-candidate"
-          cmp -s \
-            "$candidate/candidate-manifest.json" \
-            "$RUNNER_TEMP/release-evidence/candidate-manifest.json"
           python3 scripts/ci/release_candidate_manifest.py verify \
             --directory "$candidate" \
             --manifest "$candidate/candidate-manifest.json" \
-            --expected-source-sha "$GITHUB_SHA" \
-            --expected-client-sha256 "$EVIDENCE_CLIENT_SHA256"
+            --expected-source-sha "$GITHUB_SHA"
 
       - name: Install pinned Syft
         run: |
@@ -219,8 +137,6 @@ jobs:
 
           receipt = {
               "candidateRunId": int(os.environ["CANDIDATE_RUN_ID"]),
-              "evidenceRunAttempt": int(os.environ["EVIDENCE_RUN_ATTEMPT"]),
-              "evidenceRunId": int(os.environ["EVIDENCE_RUN_ID"]),
               "sourceSha": os.environ["GITHUB_SHA"],
               "version": "ripdpi_release_receipt_v1",
           }

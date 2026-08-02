@@ -1466,7 +1466,6 @@ Source : %2$s</string>
     <string name="owned_stack_browser_error_title">Échec de la requête à pile détenue</string>
     <string name="owned_stack_browser_trace_h2_retry">Nouvelle tentative avec une pile plateforme H2 uniquement après l\'échec de la tentative compatible QUIC.</string>
     <string name="owned_stack_browser_url_label">URL HTTPS</string>
-    <string name="permissions_background_activity_body_samsung">Les appareils Samsung peuvent quand même arrêter RIPDPI en arrière-plan, même quand l\'optimisation de batterie d\'Android est désactivée. Si les sessions s\'arrêtent, réglez Infos de l\'application &gt; Batterie sur Sans restriction et ajoutez RIPDPI aux Applications jamais en veille.</string>
     <string name="permissions_notifications_denied">Autorisez les notifications pour afficher l\'état de RIPDPI et les alertes de service pendant que le VPN local ou le proxy fonctionne.</string>
     <string name="permissions_vpn_error_body">Accordez l\'autorisation VPN Android pour maintenir RIPDPI en fonctionnement local sur cet appareil.</string>
     <string name="proxy_address">%1$s:%2$s</string>

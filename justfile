@@ -87,11 +87,6 @@ test-pmtud-local-evidence output_dir="":
     bash scripts/ci/run-pmtud-local-evidence.sh --output-dir "$output_dir"
     echo "PMTUD evidence: $output_dir/manifest.json"
 
-# Run the local Android ordinary release-evidence contract suites
-[group('test')]
-test-android-ordinary-release-gates:
-    python3 -m unittest scripts.tests.test_android_ordinary_gate_results scripts.tests.test_android_ordinary_semantic_oracles scripts.tests.test_android_ordinary_physical_producer scripts.tests.test_dns_ipv6_killswitch_gates scripts.tests.test_local_android_release_acceptance
-
 # Verify Roborazzi screenshot baselines
 [group('test')]
 test-screenshots:

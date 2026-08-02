@@ -142,7 +142,6 @@ internal enum class DeviceThermalBand(
 internal enum class DeviceManufacturerFamily(
     val wireValue: String,
 ) {
-    Samsung("samsung"),
     Other("other"),
     Unknown("unknown"),
 }

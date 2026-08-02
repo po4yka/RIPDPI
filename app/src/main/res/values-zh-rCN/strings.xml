@@ -2528,7 +2528,6 @@ fake_burst 3</string>
     <string name="owned_stack_browser_status_value">HTTP %1$d · %2$s</string>
     <string name="owned_stack_browser_trace_native_ech_missing">已确认此权威无法使用 Android 17 ECH,因此 RIPDPI 改用原生自有 TLS。</string>
     <string name="owned_stack_browser_url_label">HTTPS URL</string>
-    <string name="permissions_background_activity_body_samsung">即使已禁用 Android 电池优化,三星设备仍可能在后台停止 RIPDPI。如果会话被中断,请在「应用信息 &gt; 电池」中设置为「不受限」,并将 RIPDPI 添加到「永不休眠应用」。</string>
     <string name="permissions_battery_body">允许 RIPDPI 忽略 Android 电池优化,以减少 Doze 中断后台本地 VPN 或代理的可能性。</string>
     <string name="permissions_notifications_title">允许状态通知</string>
     <string name="permissions_vpn_error_title">仍需授予权限</string>

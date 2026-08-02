@@ -2,12 +2,12 @@
 <j:testsuites xmlns:j="urn:junit" tests="2" skipped="0" failures="0" errors="0">
   <j:testsuite name="preflight" tests="1" skipped="0" failures="0" errors="0">
     <j:testcase
-        classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
-        name="environmentSupportsFixtureReachabilityAndVpnConsent" />
+        classname="com.poyka.ripdpi.e2e.OptionalCapabilityTest"
+        name="supportedOnThisEmulator" />
   </j:testsuite>
   <j:testsuite name="package" tests="1" skipped="0" failures="0" errors="0">
     <j:testcase
-        classname="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
-        name="vpnStartupWindowHoldsDnsPacketUntilNativeReady" />
+        classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
+        name="environmentSupportsFixtureReachabilityAndVpnConsent" />
   </j:testsuite>
 </j:testsuites>

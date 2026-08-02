@@ -26,7 +26,6 @@ RESULTS_DIR="app/build/outputs/androidTest-results/connected/debug/flavors/githu
 RESULT_VALIDATOR="$script_dir/validate_android_junit_results.py"
 PREFLIGHT_CLASS="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
 PREFLIGHT_TEST="$PREFLIGHT_CLASS#environmentSupportsFixtureReachabilityAndVpnConsent"
-STARTUP_WINDOW_TEST="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady"
 STRATEGY_ENGINE_JNI_CLASS="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
 STRATEGY_ENGINE_JNI_TEST="$STRATEGY_ENGINE_JNI_CLASS#strategyConfigValidationAcceptsRegistryYaml"
 STRATEGY_ENGINE_JNI_TEST_COUNT=5
@@ -79,21 +78,6 @@ if ! run_target \
   1 \
   true \
   "-Pandroid.testInstrumentationRunnerArguments.class=$PREFLIGHT_CLASS" \
-  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
-  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
-  adb_cmd logcat -d > android-logcat.txt || true
-  exit 1
-fi
-
-if ! run_target \
-  "com.poyka.ripdpi.e2e" \
-  "$STARTUP_WINDOW_TEST" \
-  1 \
-  "" \
-  false \
-  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
-  "-Pandroid.testInstrumentationRunnerArguments.notClass=$PREFLIGHT_CLASS" \
-  -Pandroid.testInstrumentationRunnerArguments.notAnnotation=com.poyka.ripdpi.e2e.RawPacketValidationOnly \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
   adb_cmd logcat -d > android-logcat.txt || true

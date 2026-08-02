@@ -22,18 +22,10 @@ class BatteryOptimizationGuidanceTest {
     }
 
     @Test
-    fun `returns samsung guidance for samsung devices`() {
+    fun `returns generic guidance for an unrecognized manufacturer`() {
         assertEquals(
-            R.string.permissions_background_activity_body_samsung,
-            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("samsung"),
-        )
-        assertEquals(
-            R.string.permissions_background_activity_body_samsung,
-            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Samsung"),
-        )
-        assertEquals(
-            R.string.permissions_background_activity_body_samsung,
-            BatteryOptimizationGuidance.backgroundGuidanceMessageRes(" samsung "),
+            R.string.permissions_background_activity_body,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("unrecognized"),
         )
     }
 

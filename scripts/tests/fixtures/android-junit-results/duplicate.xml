@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="network-e2e" tests="2" skipped="0" failures="0" errors="0">
   <testcase
-      classname="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
-      name="vpnStartupWindowHoldsDnsPacketUntilNativeReady"
+      classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
+      name="environmentSupportsFixtureReachabilityAndVpnConsent"
       time="1.0" />
   <testcase
-      classname="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
-      name="vpnStartupWindowHoldsDnsPacketUntilNativeReady"
+      classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
+      name="environmentSupportsFixtureReachabilityAndVpnConsent"
       time="1.1" />
 </testsuite>

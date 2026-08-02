@@ -2020,7 +2020,6 @@ fakeddisorder endhost</string>
     <string name="permissions_battery_body">اسمح لـ RIPDPI بتجاهل تحسين بطارية Android لتقليل احتمال مقاطعة VPN المحلية أو الوكيل في الخلفية من وضع Doze.</string>
     <string name="permissions_background_activity_title">نشاط الخلفية</string>
     <string name="permissions_background_activity_body">تضيف بعض الأجهزة قيوداً إضافية على الخلفية تتجاوز تحسين بطارية Android. إذا توقف RIPDPI في الخلفية، راجع إعدادات استخدام البطارية أو الخلفية للتطبيق.</string>
-    <string name="permissions_background_activity_body_samsung">قد توقف أجهزة Samsung تشغيل RIPDPI في الخلفية حتى عند تعطيل تحسين بطارية Android. إذا توقفت الجلسات، اضبط معلومات التطبيق &gt; البطارية على غير مقيّد وأضف RIPDPI إلى تطبيقات \"لا تنام أبداً\".</string>
     <string name="permissions_background_activity_body_xiaomi">قد تمنع أجهزة Xiaomi/MIUI تشغيل RIPDPI في الخلفية. اذهب إلى الإعدادات &gt; التطبيقات &gt; إدارة التطبيقات &gt; RIPDPI، اضبط موفّر البطارية على بلا قيود وفعّل البدء التلقائي.</string>
     <string name="permissions_background_activity_body_huawei">قد توقف أجهزة Huawei تشغيل RIPDPI في الخلفية. اذهب إلى الإعدادات &gt; البطارية &gt; تشغيل التطبيق، ابحث عن RIPDPI وعطّل الإدارة التلقائية وفعّل التشغيل التلقائي والتشغيل الثانوي والتشغيل في الخلفية.</string>
     <string name="permissions_background_activity_body_oneplus">قد توقف أجهزة OnePlus تطبيقات الخلفية بقوة. اذهب إلى الإعدادات &gt; البطارية &gt; تحسين البطارية، ابحث عن RIPDPI واختر عدم التحسين. عطّل أيضاً التحسين العميق وتحسين وضع الاستعداد إذا كانا متاحَين.</string>

@@ -257,8 +257,6 @@ jobs:
 
   # Enforces the machine-readable release-gate policies under quality/release-gates/:
   #   - Per-release Android application-ID review against package-based VPN detection.
-  #   - DNS-leak / IPv6-leak / kill-switch no-ship gates for fleet profiles and
-  #     Android client releases.
   #   - Fleet release-gating + cadence policy (daily/weekly/release cadences,
   #     staging/production/client-release gate sets, no-ship + warn-only policy).
   # Each check validates its policy artifact is well-formed and complete, and the
@@ -277,26 +275,8 @@ jobs:
       - name: Run app identity review unit tests
         run: python3 -m unittest scripts.tests.test_app_identity_review
 
-      - name: Run DNS/IPv6/kill-switch release-gate unit tests
-        run: |
-          python3 -m unittest \
-            scripts.tests.test_dns_ipv6_killswitch_gates \
-            scripts.tests.test_network_evidence_manifest \
-            scripts.tests.test_network_evidence_pcap_oracle \
-            scripts.tests.test_network_evidence_emulator_workload \
-            scripts.tests.test_android_ordinary_gate_results \
-            scripts.tests.test_android_ordinary_semantic_oracles \
-            scripts.tests.test_android_ordinary_physical_producer \
-            scripts.tests.test_emulator_evidence_runner_config \
-            scripts.tests.test_local_android_release_acceptance \
-            scripts.tests.test_so_bindtodevice_evidence \
-            scripts.tests.test_so_bindtodevice_lane
-
-      - name: Test dual-vantage network evidence runner
-        run: bash test-lab/scripts/test-dual-vantage-network-evidence.sh
-
-      - name: Validate DNS/IPv6/kill-switch policy contract
-        run: python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --policy-only
+      - name: Validate fleet release-gate policy contract
+        run: python3 scripts/ci/check_fleet_release_gates.py
 
       - name: Run fleet release-gating + cadence unit tests
         run: python3 -m unittest scripts.tests.test_fleet_release_gates

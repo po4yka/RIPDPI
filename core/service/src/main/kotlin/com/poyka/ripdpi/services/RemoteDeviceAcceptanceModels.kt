@@ -181,8 +181,6 @@ private data class RedactedAcceptanceDevice(
 private fun String.redactedModelFamily(): String =
     when {
         isBlank() || equals("unknown", ignoreCase = true) -> "unknown"
-        startsWith("SM-S928", ignoreCase = true) -> "samsung_s24_ultra_family"
-        startsWith("SM-", ignoreCase = true) -> "samsung_galaxy_family"
         else -> "other_android_family"
     }
 

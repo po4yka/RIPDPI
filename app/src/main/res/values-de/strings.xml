@@ -1466,7 +1466,6 @@ Quelle: %2$s</string>
     <string name="owned_stack_browser_error_title">Anfrage mit eigenem Stack fehlgeschlagen</string>
     <string name="owned_stack_browser_trace_h2_retry">Erneut mit reinem H2-Plattform-Stack versucht, nachdem der QUIC-fähige Versuch fehlgeschlagen war.</string>
     <string name="owned_stack_browser_url_label">HTTPS-URL</string>
-    <string name="permissions_background_activity_body_samsung">Samsung-Geräte können RIPDPI im Hintergrund weiterhin stoppen, selbst wenn die Android-Akku-Optimierung deaktiviert ist. Falls Sitzungen abbrechen, setzen Sie unter App-Info &gt; Akku auf Uneingeschränkt und fügen Sie RIPDPI zu den nie schlafenden Apps hinzu.</string>
     <string name="permissions_notifications_denied">Erlaube Benachrichtigungen, um RIPDPI-Status und Dienstwarnungen anzuzeigen, während das lokale VPN oder der Proxy läuft.</string>
     <string name="permissions_vpn_error_body">Erteilen Sie die Android-VPN-Berechtigung, damit RIPDPI lokal auf diesem Gerät weiterläuft.</string>
     <string name="proxy_address">%1$s:%2$s</string>

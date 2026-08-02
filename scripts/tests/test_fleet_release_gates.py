@@ -187,7 +187,7 @@ class FleetReleaseGatesEvaluationTest(unittest.TestCase):
 
     def test_missing_gate_blocks(self) -> None:
         results = _pass_results(self.policy, "production")
-        del results["ipv6-leak"]
+        del results["dns-leak"]
         evaluation = fleet.evaluate_gate_set(self.policy, "production", {"gateResults": results})
         self.assertEqual(evaluation["verdict"], "FAIL")
         self.assertIn("missing result", evaluation["blocking"][0])
@@ -218,27 +218,27 @@ class FleetReleaseGatesEvaluationTest(unittest.TestCase):
 
     def test_na_state_without_scope_blocks(self) -> None:
         results = _pass_results(self.policy, "client-release")
-        results["captive-portal"] = "N/A"
+        results["logcat-no-secrets"] = "N/A"
         evaluation = fleet.evaluate_gate_set(self.policy, "client-release", {"gateResults": results})
         self.assertEqual(evaluation["verdict"], "FAIL")
         self.assertIn("outOfScope", evaluation["blocking"][0])
 
     def test_scoped_out_of_scope_na_is_allowed(self) -> None:
         results = _pass_results(self.policy, "client-release")
-        results["captive-portal"] = {
+        results["logcat-no-secrets"] = {
             "state": "N/A",
             "outOfScope": True,
-            "reason": "No captive portal fixture is available for this release lane.",
+            "reason": "The logcat collection is outside this release lane.",
             "gateSets": ["client-release"],
         }
         evaluation = fleet.evaluate_gate_set(self.policy, "client-release", {"gateResults": results})
         self.assertEqual(evaluation["verdict"], "PASS")
-        row = [r for r in evaluation["rows"] if r["gate"] == "captive-portal"][0]
+        row = [r for r in evaluation["rows"] if r["gate"] == "logcat-no-secrets"][0]
         self.assertIn("out-of-scope", row["note"])
 
     def test_out_of_scope_na_for_wrong_gate_set_blocks(self) -> None:
         results = _pass_results(self.policy, "client-release")
-        results["captive-portal"] = {
+        results["logcat-no-secrets"] = {
             "state": "N/A",
             "outOfScope": True,
             "reason": "Only skipped for staging.",

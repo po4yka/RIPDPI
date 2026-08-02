@@ -14,10 +14,6 @@ internal object BatteryOptimizationGuidance {
     fun backgroundGuidanceMessageRes(manufacturer: String): Int {
         val normalized = manufacturer.trim().lowercase()
         return when {
-            normalized == "samsung" -> {
-                R.string.permissions_background_activity_body_samsung
-            }
-
             normalized in XIAOMI_BRANDS -> {
                 R.string.permissions_background_activity_body_xiaomi
             }

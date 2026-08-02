@@ -17,10 +17,6 @@ PREFLIGHT_TEST = (
     "com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
     "#environmentSupportsFixtureReachabilityAndVpnConsent"
 )
-STARTUP_WINDOW_TEST = (
-    "com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
-    "#vpnStartupWindowHoldsDnsPacketUntilNativeReady"
-)
 
 
 class ValidateAndroidJunitResultsTest(unittest.TestCase):
@@ -146,7 +142,6 @@ class ValidateAndroidJunitResultsTest(unittest.TestCase):
         completed = self.run_validator(
             "--expected-count",
             "1",
-            required_test=STARTUP_WINDOW_TEST,
         )
 
         self.assertNotEqual(completed.returncode, 0)

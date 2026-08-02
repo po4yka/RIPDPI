@@ -50,7 +50,6 @@ RELEASE_BUILD_LOGIC_PREFIXES: Final = (
 RELEASE_BUILD_LOGIC_FILES: Final = frozenset(
     {
         ".github/workflows/ci.yml",
-        ".github/workflows/dns-ipv6-killswitch-evidence.yml",
         ".github/workflows/release-candidate.yml",
         ".github/workflows/release.yml",
         "build.gradle.kts",

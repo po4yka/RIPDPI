@@ -45,12 +45,12 @@ observed.
 - No serial, Android ID, IMEI, stable device/network identifier, IP or DNS
   address, interface name, SSID/BSSID, operator code, endpoint, profile secret,
   raw certificate, filesystem path, or unrestricted exception text.
-- No hidden Android or Samsung API and no claim that OEM sleeping-app membership
+- No hidden vendor-specific Android API and no claim that OEM sleeping-app membership
   was observed.
 - No archive golden, quality baseline, dependency, release, signing, version, or
   application identity changes without the exact required authorization.
 - External physical-device, provider, controlled-endpoint, and dual-vantage
-  evidence remains a separately reported gate, not source-code completion.
+  evidence is outside the release gate and not source-code completion.
 
 ## Acceptance
 

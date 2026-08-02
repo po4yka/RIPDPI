@@ -947,13 +947,13 @@ class MainViewModelTest {
                 issue = null,
                 configuredMode = Mode.VPN,
                 stringResolver = FakeStringResolver(),
-                deviceManufacturer = "samsung",
+                deviceManufacturer = "Google",
             )
 
         assertNull(summary.recommendedIssue)
         assertEquals(R.string.permissions_background_activity_title.toString(), summary.backgroundGuidance?.title)
         assertEquals(
-            R.string.permissions_background_activity_body_samsung.toString(),
+            R.string.permissions_background_activity_body.toString(),
             summary.backgroundGuidance?.message,
         )
     }

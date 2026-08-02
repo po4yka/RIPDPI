@@ -117,15 +117,6 @@ internal fun vendorAutoStartComponents(manufacturer: String): List<ComponentName
             )
         }
 
-        "samsung" -> {
-            listOf(
-                ComponentName(
-                    "com.samsung.android.lool",
-                    "com.samsung.android.sm.ui.battery.BatteryActivity",
-                ),
-            )
-        }
-
         else -> {
             emptyList()
         }

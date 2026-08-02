@@ -32,7 +32,7 @@ class DeviceStateEventRecorderTest {
     fun `buffers start transitions until session exists and deduplicates unchanged broadcasts`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
-            val provider = FakeDeviceStateProvider(manufacturerSnapshot(DeviceManufacturerFamily.Samsung))
+            val provider = FakeDeviceStateProvider(manufacturerSnapshot(DeviceManufacturerFamily.Other))
             val recorder = recorder(provider, stores)
 
             recorder.beginServiceStart(Mode.VPN)
@@ -52,7 +52,7 @@ class DeviceStateEventRecorderTest {
             assertTrue(attachedEvents[2].message.contains("trigger=running_ready"))
             assertTrue(attachedEvents.all { it.connectionSessionId == "connection-1" })
             assertTrue(attachedEvents.all { it.mode == "vpn" })
-            assertTrue(attachedEvents.all { it.message.contains("manufacturer_family=samsung") })
+            assertTrue(attachedEvents.all { it.message.contains("manufacturer_family=other") })
 
             provider.emitChanged()
             runCurrent()
@@ -288,7 +288,7 @@ class DeviceStateEventRecorderTest {
                 userUnlocked = true,
                 processImportance = ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
                 lastTrimLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
-                manufacturer = "SAMSUNG",
+                manufacturer = "Google",
             )
 
         assertEquals(DeviceStateValue.NotSupported, snapshot.backgroundRestricted)
@@ -306,7 +306,7 @@ class DeviceStateEventRecorderTest {
         assertEquals(DeviceBatteryBand.Critical, snapshot.batteryLevel)
         assertEquals(DeviceStateValue.Enabled, snapshot.charging)
         assertEquals(MemoryPressureBand.Background, snapshot.memoryPressure)
-        assertEquals(DeviceManufacturerFamily.Samsung, snapshot.manufacturerFamily)
+        assertEquals(DeviceManufacturerFamily.Other, snapshot.manufacturerFamily)
     }
 
     @Test
@@ -338,7 +338,7 @@ class DeviceStateEventRecorderTest {
                         userUnlocked = null,
                         processImportance = Int.MAX_VALUE,
                         lastTrimLevel = Int.MAX_VALUE,
-                        manufacturer = "Samsung serial=secret ssid=private ip=192.0.2.1 host=bad.example",
+                        manufacturer = "Google serial=secret ssid=private ip=192.0.2.1 host=bad.example",
                     ),
                 )
             val recorder = recorder(provider, stores)
