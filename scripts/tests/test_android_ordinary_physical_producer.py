@@ -481,6 +481,21 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             'probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = false)', revoke
         )
 
+    def test_revoke_restores_vpn_consent_before_the_next_oracle(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        sequence = producer[producer.index("fun produceSevenOrdinaryPhysicalActions") :]
+        revoke = sequence.index("actions.put(runPermissionRevokeClosedAction())")
+        restore_app_op = sequence.index("ACTIVATE_VPN allow", revoke)
+        restore_consent = sequence.index("ensureVpnConsentGranted(appContext)", restore_app_op)
+        next_oracle = sequence.index('runClosedAction("core-fault")', restore_consent)
+
+        self.assertLess(revoke, restore_app_op)
+        self.assertLess(restore_app_op, restore_consent)
+        self.assertLess(restore_consent, next_oracle)
+
     def test_network_switch_waits_for_the_new_native_bridge_generation(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"

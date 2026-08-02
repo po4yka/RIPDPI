@@ -184,6 +184,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         actions.put(runSteadyAction("dual-stack", ipv6 = true))
         actions.put(runPermissionRevokeClosedAction())
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
+        ensureVpnConsentGranted(appContext)
         actions.put(
             runClosedAction("core-fault") {
                 val pid = android.os.Process.myPid()
