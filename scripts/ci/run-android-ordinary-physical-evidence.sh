@@ -418,8 +418,9 @@ if ((instrumentation_status != 0)) || [[ "$(grep -c '^OK (1 test)$' "$transcript
     echo "Exact physical instrumentation did not finish as OK (1 test)." >&2
     exit 1
 fi
-"${adb[@]}" exec-out "run-as com.poyka.ripdpi dd if=files/android-ordinary-physical-observations.json bs=1048576 2>/dev/null" >"$observations"
-chmod 0600 "$observations"
+python3 scripts/ci/extract_android_ordinary_observations.py \
+    --transcript "$transcript" \
+    --output "$observations"
 
 "${ssh_remote[@]}" "set -e; sudo systemctl stop '$capture_unit.service'; sudo chmod 0600 '$remote_dir/capture.pcap'; sudo chown \"\$(id -u):\$(id -g)\" '$remote_dir/capture.pcap'; test -s '$remote_dir/capture.pcap'"
 "${scp_remote[@]}" "$fixture_ssh:$remote_dir/capture.pcap" "$capture" >/dev/null

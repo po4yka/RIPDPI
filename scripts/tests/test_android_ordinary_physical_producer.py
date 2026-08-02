@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import io
 import json
+import os
 import socket
+import stat
 import struct
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -19,6 +23,7 @@ from scripts.ci import android_ordinary_marker_relay as marker_relay
 from scripts.ci import android_ordinary_physical_attestation as attestation
 from scripts.ci import android_ordinary_raw_evidence as raw_evidence
 from scripts.ci import android_ordinary_semantic_oracles as oracles
+from scripts.ci import extract_android_ordinary_observations as observation_extractor
 from scripts.ci import produce_android_ordinary_gate_results as gate_producer
 from scripts.ci import produce_android_ordinary_physical_evidence as physical_producer
 from scripts.tests import android_ordinary_semantic_fixtures as fixtures
@@ -50,6 +55,87 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
     app_sha = hashlib.sha256(b"app").hexdigest()
     test_sha = hashlib.sha256(b"test").hexdigest()
     run_id = hashlib.sha256(b"physical-run").hexdigest()
+
+    def test_observation_extractor_accepts_one_bounded_json_result(self) -> None:
+        payload = b'{"actions":[]}\n'
+        transcript = (
+            observation_extractor.RESULT_PREFIX
+            + base64.b64encode(payload)
+            + b"\nOK (1 test)\n"
+        )
+
+        self.assertEqual(observation_extractor.extract_observations(transcript), payload)
+
+    def test_observation_extractor_rejects_ambiguous_or_malformed_results(self) -> None:
+        valid = observation_extractor.RESULT_PREFIX + base64.b64encode(b"{}\n")
+        invalid_transcripts = (
+            b"OK (1 test)\n",
+            valid + b"\n" + valid + b"\n",
+            observation_extractor.RESULT_PREFIX + b"not-base64!\n",
+            observation_extractor.RESULT_PREFIX
+            + base64.b64encode(b"[]\n")
+            + b"\n",
+            observation_extractor.RESULT_PREFIX
+            + base64.b64encode(b"{}")
+            + b"\n",
+        )
+
+        for transcript in invalid_transcripts:
+            with self.subTest(transcript=transcript[:80]):
+                with self.assertRaises(observation_extractor.ExtractionError):
+                    observation_extractor.extract_observations(transcript)
+
+    def test_observation_extractor_rejects_oversized_decoded_result(self) -> None:
+        payload = b"{" + b" " * observation_extractor.MAX_OBSERVATIONS_BYTES + b"}\n"
+        transcript = observation_extractor.RESULT_PREFIX + base64.b64encode(payload)
+
+        with self.assertRaises(observation_extractor.ExtractionError):
+            observation_extractor.extract_observations(transcript)
+
+    def test_observation_extractor_creates_one_private_exclusive_output(self) -> None:
+        payload = b'{"actions":[]}\n'
+        transcript_payload = (
+            observation_extractor.RESULT_PREFIX
+            + base64.b64encode(payload)
+            + b"\nOK (1 test)\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            os.chmod(root, 0o700)
+            transcript = root / "instrumentation.txt"
+            transcript.write_bytes(transcript_payload)
+            transcript.chmod(0o600)
+            output = root / "observations.json"
+
+            observation_extractor.extract_to_path(transcript, output)
+
+            self.assertEqual(output.read_bytes(), payload)
+            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+            with self.assertRaises(observation_extractor.ExtractionError):
+                observation_extractor.extract_to_path(transcript, output)
+
+    def test_observation_extractor_rejects_non_private_or_linked_transcript(
+        self,
+    ) -> None:
+        payload = observation_extractor.RESULT_PREFIX + base64.b64encode(b"{}\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            os.chmod(root, 0o700)
+            transcript = root / "instrumentation.txt"
+            transcript.write_bytes(payload + b"\n")
+            transcript.chmod(0o644)
+            with self.assertRaises(observation_extractor.ExtractionError):
+                observation_extractor.extract_to_path(
+                    transcript, root / "mode-observations.json"
+                )
+
+            transcript.chmod(0o600)
+            linked = root / "instrumentation-linked.txt"
+            os.link(transcript, linked)
+            with self.assertRaises(observation_extractor.ExtractionError):
+                observation_extractor.extract_to_path(
+                    transcript, root / "linked-observations.json"
+                )
 
     def test_release_instrumentation_keeps_test_only_runtime_boundary(self) -> None:
         runner = Path(
@@ -247,6 +333,21 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("HiltAndroidRule(this)", configurator)
         self.assertNotIn("AppManagementFragment", configurator)
         self.assertNotIn("START_ANY_ACTIVITY", configurator)
+
+    def test_release_runner_extracts_observations_without_target_run_as(self) -> None:
+        runner = Path(
+            "scripts/ci/run-android-ordinary-physical-evidence.sh"
+        ).read_text()
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+
+        self.assertNotIn("run-as com.poyka.ripdpi", runner)
+        self.assertIn("extract_android_ordinary_observations.py", runner)
+        self.assertIn("OrdinaryObservationResultKey", producer)
+        self.assertIn("instrumentation.addResults", producer)
+        self.assertIn(observation_extractor.RESULT_KEY, producer)
 
     def test_runner_opens_only_runtime_nftables_rules_and_removes_by_marker(
         self,

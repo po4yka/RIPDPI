@@ -8,6 +8,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Binder
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
@@ -72,6 +73,8 @@ import javax.inject.Inject
 
 private const val OrdinaryObservationFile = "android-ordinary-physical-observations.json"
 private const val OrdinaryObservationVersion = "android_ordinary_physical_observations_v1"
+private const val OrdinaryObservationResultKey = "ripdpi.ordinaryObservationsBase64"
+private const val OrdinaryObservationMaxBytes = 512 * 1024
 private const val OrdinaryDnsAttemptLimit = 3
 private const val OrdinaryMarkerPrefix = "RIPDPI-ORDINARY-V1"
 private const val OrdinaryAttestationPrefix = "RIPDPI-ORDINARY-ATTESTATION-V1"
@@ -839,13 +842,23 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     }
 
     private fun publishPrivate(value: JSONObject) {
+        val payload = (value.toString() + "\n").toByteArray(StandardCharsets.UTF_8)
+        check(payload.size in 1..OrdinaryObservationMaxBytes)
         val temporary = File(appContext.filesDir, "$OrdinaryObservationFile.tmp")
         val destination = File(appContext.filesDir, OrdinaryObservationFile)
         appContext.openFileOutput(temporary.name, Context.MODE_PRIVATE).use { output ->
-            output.write((value.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
+            output.write(payload)
             output.fd.sync()
         }
         check(temporary.renameTo(destination))
+        instrumentation.addResults(
+            Bundle().apply {
+                putString(
+                    OrdinaryObservationResultKey,
+                    Base64.encodeToString(payload, Base64.NO_WRAP),
+                )
+            },
+        )
     }
 
     private fun now(): Long = System.currentTimeMillis()
