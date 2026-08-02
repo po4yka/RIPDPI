@@ -297,13 +297,18 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         saved = runner.index('always_on_before=""')
         suspended = runner.rindex("settings delete secure always_on_vpn_app")
         instrumented = runner.rindex("shell am instrument")
+        cleanup = runner[runner.index("cleanup_device()") : runner.index("cleanup()")]
         restored = runner.index(
-            'configure_vpn_manager_profile "$always_on_before" true'
+            'settings put secure always_on_vpn_app "$always_on_before"'
         )
         self.assertLess(saved, restored)
         self.assertLess(restored, suspended)
         self.assertLess(suspended, instrumented)
         self.assertIn('am force-stop "$always_on_before"', runner)
+        self.assertIn("settings delete secure always_on_vpn_app", cleanup)
+        self.assertIn(
+            'settings put secure always_on_vpn_lockdown "$lockdown_before"', cleanup
+        )
 
     def test_runner_uses_vpn_manager_ui_instead_of_unstable_secure_settings(self) -> None:
         runner = Path(
@@ -458,20 +463,22 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         always_on = producer[producer.index("private fun runAlwaysOnProtectedAction") :]
         always_on = always_on[: always_on.index("private fun configureAndStart")]
         revoke = producer[
-            producer.index("private fun runPermissionRevokeProtectedAction") :
+            producer.index("private fun runPermissionRevokeClosedAction") :
         ]
         revoke = revoke[: revoke.index("private fun runNetworkSwitchAction")]
-        for action in (network, sleep, always_on, revoke):
+        for action in (network, sleep, always_on):
             self.assertIn('capturePhase("protected", expectVpn = true)', action)
             self.assertNotIn("blockedTransitionProbes", action)
             self.assertNotIn("awaitTestProcessLockdown", action)
         self.assertIn("ACTIVATE_VPN ignore", revoke)
         self.assertIn('appOpState.contains("ignore")', revoke)
+        self.assertIn("awaitTestProcessLockdown()", revoke)
+        self.assertIn('capturePhase("closed", expectVpn = false)', revoke)
         self.assertIn(
-            'probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true)', revoke
+            'probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = false)', revoke
         )
         self.assertIn(
-            'probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true)', revoke
+            'probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = false)', revoke
         )
 
     def test_network_switch_waits_for_the_new_native_bridge_generation(self) -> None:

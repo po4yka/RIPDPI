@@ -87,8 +87,8 @@ EXPECTED_PROBES = {
     ),
     "dual-stack": (("ipv6-via-tunnel", "ipv6", "connected"),),
     "forced-revoke": (
-        ("post-revoke-ipv4", "ipv4", "connected"),
-        ("post-revoke-ipv6", "ipv6", "connected"),
+        ("post-revoke-ipv4", "ipv4", "blocked"),
+        ("post-revoke-ipv6", "ipv6", "blocked"),
     ),
     "core-fault": (
         ("transition-ipv4", "ipv4", "blocked"),
@@ -108,7 +108,7 @@ EXPECTED_PROBES = {
 EXPECTED_PHASES = {
     "ipv4-only": ("steady",),
     "dual-stack": ("steady",),
-    "forced-revoke": ("protected",),
+    "forced-revoke": ("closed",),
     "core-fault": ("closed",),
     "wifi-lte-switch": ("protected",),
     "sleep-wake": ("protected",),
@@ -118,7 +118,6 @@ EXPECTED_PHASES = {
 TUNNEL_ACTIVITY_ACTIONS = {
     "ipv4-only",
     "dual-stack",
-    "forced-revoke",
     "wifi-lte-switch",
     "sleep-wake",
     "android-always-on-block",
@@ -290,7 +289,7 @@ def _event_time(event: dict[str, Any], action_id: str) -> int:
         "dual-stack": ({"kind", "mode", "observedAtEpochMs"}, "mode-applied"),
         "forced-revoke": (
             {"appOpMode", "kind", "observedAtEpochMs"},
-            "vpn-permission-revoke-absorbed-under-lockdown",
+            "vpn-permission-revoke-failed-closed-under-lockdown",
         ),
         "core-fault": (
             {"coreExitCode", "corePid", "kind", "observedAtEpochMs"},
@@ -861,7 +860,7 @@ def _validate_route_facts(
                 "dual-stack tunnel lacks its IPv4/IPv6 routes or address",
             )
         return
-    if action_id == "core-fault":
+    if action_id in {"core-fault", "forced-revoke"}:
         closed = phases[0]
         if (
             closed["vpnActive"]
@@ -872,6 +871,11 @@ def _validate_route_facts(
             raise OracleError(
                 "SEMANTIC_KILLSWITCH_ROUTE_OPEN",
                 f"{action_id} route snapshot is not fail-closed",
+            )
+        if action_id == "forced-revoke" and receipt["event"]["appOpMode"] != "ignore":
+            raise OracleError(
+                "SEMANTIC_PERMISSION_REVOKE_INVALID",
+                "permission revoke did not enter ignore mode",
             )
         return
     protected = phases[0]
@@ -884,12 +888,6 @@ def _validate_route_facts(
             "SEMANTIC_KILLSWITCH_ROUTE_OPEN",
             f"{action_id} did not remain protected by the VPN",
         )
-    if action_id == "forced-revoke":
-        if receipt["event"]["appOpMode"] != "ignore" or not protected["ipv6Default"]:
-            raise OracleError(
-                "SEMANTIC_PERMISSION_REVOKE_INVALID",
-                "permission revoke did not retain dual-stack VPN protection",
-            )
     if action_id == "android-always-on-block":
         settings = protected["settings"]
         if (

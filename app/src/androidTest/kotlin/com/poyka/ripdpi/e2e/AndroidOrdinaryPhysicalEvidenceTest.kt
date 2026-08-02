@@ -182,7 +182,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         hardwareAttestation = createHardwareAttestation()
         actions.put(runSteadyAction("ipv4-only", ipv6 = false))
         actions.put(runSteadyAction("dual-stack", ipv6 = true))
-        actions.put(runPermissionRevokeProtectedAction())
+        actions.put(runPermissionRevokeClosedAction())
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         actions.put(
             runClosedAction("core-fault") {
@@ -261,7 +261,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         return actionDocument(actionId, correlation, started, finished, event, probes, JSONObject.NULL, phases)
     }
 
-    private fun runPermissionRevokeProtectedAction(): JSONObject {
+    private fun runPermissionRevokeClosedAction(): JSONObject {
         configureAndStart(ipv6 = true)
         val started = now()
         val correlation = correlation("forced-revoke")
@@ -269,19 +269,17 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
         val appOpState = shell("cmd appops get ${appContext.packageName} ACTIVATE_VPN")
         assertTrue("ACTIVATE_VPN was not revoked: $appOpState", appOpState.contains("ignore"))
-        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
-            serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
-        }
+        awaitTestProcessLockdown()
         val event =
             JSONObject()
                 .put("appOpMode", "ignore")
-                .put("kind", "vpn-permission-revoke-absorbed-under-lockdown")
+                .put("kind", "vpn-permission-revoke-failed-closed-under-lockdown")
                 .put("observedAtEpochMs", now())
         val probes =
             JSONArray()
-                .put(probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true))
-                .put(probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true))
-        val protected = capturePhase("protected", expectVpn = true)
+                .put(probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = false))
+                .put(probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = false))
+        val closed = capturePhase("closed", expectVpn = false)
         sendMarker("forced-revoke", correlation, "outcome")
         val finished = now()
         return actionDocument(
@@ -292,7 +290,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             event,
             probes,
             JSONObject.NULL,
-            JSONArray().put(protected),
+            JSONArray().put(closed),
         )
     }
 
