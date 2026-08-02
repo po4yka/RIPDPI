@@ -2187,6 +2187,7 @@
     <string name="diagnostics_value_unavailable">अनुपलब्ध</string>
     <string name="diagnostics_value_unknown">अज्ञात</string>
     <string name="diagnostics_value_unresolved">अनसुलझा</string>
+    <string name="home_diagnostics_copy_support_code">सहायता के लिए कॉपी करें</string>
     <string name="home_diagnostics_verification_busy">VPN सत्यापन व्यस्त है</string>
     <string name="home_diagnostics_verification_could_not_start">VPN सत्यापन शुरू नहीं हो सका</string>
     <string name="home_diagnostics_verification_incomplete">VPN सत्यापन अधूरा रहा</string>
