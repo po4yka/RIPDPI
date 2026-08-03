@@ -358,10 +358,7 @@ private fun rememberDiagnosticsScreenActions(
         onOpenOwnedStackBrowser = callbacks.onOpenOwnedStackBrowser,
         onOpenPcapCaptureList = callbacks.onOpenPcapCaptureList,
         onOpenPastReplays = callbacks.onOpenPastReplays,
-        onTogglePcapRecording =
-            pcapCaptureViewModel?.let { captureViewModel ->
-                remember(captureViewModel) { captureViewModel::toggle }
-            } ?: remember(viewModel) { viewModel::togglePcapRecording },
+        onTogglePcapRecording = rememberPcapToggleAction(viewModel, pcapCaptureViewModel),
         onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
         onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
         onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
@@ -389,6 +386,15 @@ private fun rememberDiagnosticsScreenActions(
         onRunRemoteDeviceAcceptance = remember(viewModel) { viewModel::runRemoteDeviceAcceptance },
         onShareRemoteDeviceAcceptance = remember(viewModel) { viewModel::shareRemoteDeviceAcceptance },
     )
+
+@Composable
+private fun rememberPcapToggleAction(
+    viewModel: DiagnosticsViewModel,
+    pcapCaptureViewModel: PcapCaptureViewModel?,
+): () -> Unit =
+    pcapCaptureViewModel?.let { captureViewModel ->
+        remember(captureViewModel) { captureViewModel::toggle }
+    } ?: remember(viewModel) { viewModel::togglePcapRecording }
 
 private data class DiagnosticsToolsRouteState(
     val pcapRecording: Boolean = false,

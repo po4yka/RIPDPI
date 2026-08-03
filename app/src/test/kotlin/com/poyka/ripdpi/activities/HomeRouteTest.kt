@@ -96,6 +96,7 @@ class HomeRouteTest {
             mainLifecycleDependencies = homeRouteLifecycleDependencies(appSettingsRepository, crashReportReader),
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
+            pcapCaptureRuntimeController = null,
         ).also(MainViewModel::initialize)
     }
 }

@@ -205,32 +205,13 @@ internal class MainHomeDiagnosticsActions(
                             it.copy(
                                 waitingForVerifiedVpnStart = false,
                                 verificationProgress = null,
-                                verificationSheet = blockedPermissionVerificationOutcome(issue),
+                                verificationSheet = blockedPermissionVerificationOutcome(issue, stringResolver),
                             )
                         }
                     }
                 }
         }
     }
-
-    private fun blockedPermissionVerificationOutcome(
-        issue: PermissionIssueUiState,
-    ): DiagnosticsHomeVerificationOutcome =
-        if (issue.kind == PermissionKind.VpnConsent) {
-            DiagnosticsHomeVerificationOutcome(
-                sessionId = "",
-                success = false,
-                headline = stringResolver.getString(R.string.home_diagnostics_vpn_permission_required_headline),
-                summary = stringResolver.getString(R.string.home_diagnostics_permission_required),
-            )
-        } else {
-            DiagnosticsHomeVerificationOutcome(
-                sessionId = "",
-                success = false,
-                headline = issue.title,
-                summary = issue.message,
-            )
-        }
 
     private fun observeServiceStatusForFingerprint() {
         mutations.launch {
@@ -574,6 +555,26 @@ internal class MainHomeDiagnosticsActions(
 }
 
 private const val ArchiveIoSupportCode = "archive_io"
+
+private fun blockedPermissionVerificationOutcome(
+    issue: PermissionIssueUiState,
+    stringResolver: StringResolver,
+): DiagnosticsHomeVerificationOutcome =
+    if (issue.kind == PermissionKind.VpnConsent) {
+        DiagnosticsHomeVerificationOutcome(
+            sessionId = "",
+            success = false,
+            headline = stringResolver.getString(R.string.home_diagnostics_vpn_permission_required_headline),
+            summary = stringResolver.getString(R.string.home_diagnostics_permission_required),
+        )
+    } else {
+        DiagnosticsHomeVerificationOutcome(
+            sessionId = "",
+            success = false,
+            headline = issue.title,
+            summary = issue.message,
+        )
+    }
 
 private fun HomeDiagnosticsRuntimeState.analysisInProgress(): Boolean =
     analysisStarting || activeRunId != null ||

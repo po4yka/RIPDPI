@@ -49,34 +49,46 @@ internal object DetectionExportShare {
                 privacyMode = privacyModeEnabled,
             )
         val fileName = "ripdpi-detection-${FilenameTimestamp.format(now)}.${format.extension}"
-        val body =
-            runCatching { format.render(result, metadata) }
-                .getOrElse { return Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveInconsistentResult) }
-        val file =
-            runCatching {
+        return runCatching { format.render(result, metadata) }
+            .fold(
+                onSuccess = { body ->
+                    prepareFileShareIntent(context, exportDirectory, fileName, format.mimeType, body)
+                },
+                onFailure = {
+                    Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveInconsistentResult)
+                },
+            )
+    }
+
+    private fun prepareFileShareIntent(
+        context: Context,
+        exportDirectory: File,
+        fileName: String,
+        mimeType: String,
+        body: String,
+    ): Preparation =
+        runCatching {
+            val file =
                 exportDirectory
                     .apply {
                         check((exists() && isDirectory) || mkdirs()) { "Cannot create detection export directory" }
                     }.resolve(fileName)
                     .apply { writeText(body) }
-            }.getOrElse { return Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveStorage) }
-        val uri =
-            runCatching {
+            val uri =
                 FileProvider.getUriForFile(
                     context,
                     "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
                     file,
                 )
-            }.getOrElse { return Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveStorage) }
-        return Preparation.Ready(
-            Intent(Intent.ACTION_SEND).apply {
-                type = format.mimeType
-                putExtra(Intent.EXTRA_SUBJECT, fileName)
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            },
-        )
-    }
+            Preparation.Ready(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_SUBJECT, fileName)
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                },
+            )
+        }.getOrElse { Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveStorage) }
 
     fun renderText(
         result: DetectionCheckResult,

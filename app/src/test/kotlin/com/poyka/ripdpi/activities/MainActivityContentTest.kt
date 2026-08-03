@@ -373,6 +373,7 @@ class MainActivityContentTest {
                 ),
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
+            pcapCaptureRuntimeController = null,
         )
     }
 

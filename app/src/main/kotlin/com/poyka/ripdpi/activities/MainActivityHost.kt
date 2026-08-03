@@ -152,12 +152,7 @@ internal class DefaultMainActivityHost
 
         override fun handle(command: MainActivityHostCommand) {
             check(registered) { "MainActivityHost must be registered before use." }
-            if (
-                automationController
-                    .map { controller ->
-                        controller.interceptHostCommand(command, viewModel)
-                    }.orElse(false)
-            ) {
+            if (automationIntercepts(command)) {
                 return
             }
             when (command) {
@@ -180,15 +175,7 @@ internal class DefaultMainActivityHost
                 }
 
                 MainActivityHostCommand.SaveLogs -> {
-                    launchSaveDocument(
-                        Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
-                        },
-                        launch = logsLauncher::launch,
-                        failureMessage = activity.getString(R.string.logs_failed),
-                    )
+                    saveLogs()
                 }
 
                 MainActivityHostCommand.ShareDebugBundle -> {
@@ -244,6 +231,23 @@ internal class DefaultMainActivityHost
                     )
                 }
             }
+        }
+
+        private fun automationIntercepts(command: MainActivityHostCommand): Boolean =
+            automationController
+                .map { controller -> controller.interceptHostCommand(command, viewModel) }
+                .orElse(false)
+
+        private fun saveLogs() {
+            launchSaveDocument(
+                Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
+                },
+                launch = logsLauncher::launch,
+                failureMessage = activity.getString(R.string.logs_failed),
+            )
         }
 
         private fun handleLogsResult(uri: Uri?) {

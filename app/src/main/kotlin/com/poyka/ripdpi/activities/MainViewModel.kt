@@ -44,7 +44,7 @@ class MainViewModel
         private val mainLifecycleDependencies: MainLifecycleDependencies,
         private val stringResolver: StringResolver,
         private val activeTransportProvider: Optional<ActiveTransportProvider>,
-        private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
+        private val pcapCaptureRuntimeController: PcapCaptureRuntimeController?,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())

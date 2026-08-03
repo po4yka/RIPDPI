@@ -1849,6 +1849,7 @@ class MainViewModelTest {
                 ),
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
+            pcapCaptureRuntimeController = null,
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
