@@ -369,7 +369,7 @@ class ActiveScanRegistry
             var report: String? = null
             withTimeoutOrNull<Unit>(graceMs) {
                 while (report == null) {
-                    report = runCatching { bridge.takeReportJson() }.getOrNull()
+                    report = bridge.takeReportJson()
                     if (report == null) {
                         delay(CANCEL_POLL_INTERVAL_MS)
                     }

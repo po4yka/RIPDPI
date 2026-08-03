@@ -102,4 +102,44 @@ class DiagnosticsScanCancellationTest {
             assertEquals(1, bridgeFactory.bridge.destroyCount)
             assertFalse(services.scanController.hasActiveScan())
         }
+
+    @Test
+    fun `native partial report failure surfaces through cancellation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                    bridge.faults.enqueue(
+                        FaultSpec(
+                            target = DiagnosticsBridgeFaultTarget.TAKE_REPORT,
+                            outcome = FaultOutcome.EXCEPTION,
+                            message = "take report failed",
+                        ),
+                    )
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val started = services.scanController.startScan(ScanPathMode.RAW_PATH)
+            val sessionId = (started as DiagnosticsManualScanStartResult.Started).sessionId
+            val failure = runCatching { services.scanController.cancelActiveScan() }.exceptionOrNull()
+
+            assertTrue(failure is IOException)
+            assertEquals("take report failed", failure?.message)
+            assertEquals("failed", requireNotNull(stores.getScanSession(sessionId)).status)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+        }
 }
