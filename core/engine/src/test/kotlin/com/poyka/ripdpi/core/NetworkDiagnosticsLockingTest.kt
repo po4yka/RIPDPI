@@ -97,6 +97,17 @@ class NetworkDiagnosticsLockingTest {
         }
 
     @Test
+    fun `take report consumes native result exactly once`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings().apply { reportJson = """{\"status\":\"complete\"}""" }
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            assertEquals("""{\"status\":\"complete\"}""", diagnostics.takeReportJson())
+            assertEquals(null, diagnostics.takeReportJson())
+            assertEquals(listOf(1L, 1L), bindings.reportHandles)
+        }
+
+    @Test
     fun destroyDrainsAllInFlightPolls() =
         runTest {
             val progressStarted = CompletableDeferred<Long>()

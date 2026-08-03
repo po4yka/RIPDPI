@@ -259,6 +259,12 @@ mod tests {
         assert_eq!(report.session_id, session_id);
         assert_eq!(report.profile_id, "jni-test-profile");
         assert_eq!(report.summary, "0 completed · 0 healthy");
+
+        with_env(|env| {
+            let consumed_report = jni_take_report(env, handle.raw());
+            assert!(decode_jstring(env, consumed_report).is_none());
+            assert_no_exception(env);
+        });
     }
 
     #[test]

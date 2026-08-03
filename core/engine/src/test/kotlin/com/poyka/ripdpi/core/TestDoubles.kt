@@ -622,11 +622,13 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
         reportStartedSignal?.complete(handle)
         reportBlocker?.awaitBlocking("FakeNetworkDiagnosticsBindings.takeReport")
         faults.next(DiagnosticsBindingFaultTarget.TAKE_REPORT)?.let { fault ->
-            return fault.payloadResult() ?: reportJson
+            return fault.payloadResult().also { consumeReport() }
         }
         takeReportFailure?.let { throw it }
-        return reportJson
+        return consumeReport()
     }
+
+    private fun consumeReport(): String? = synchronized(this) { reportJson.also { reportJson = null } }
 
     override fun pollPassiveEvents(handle: Long): String? {
         passiveEventHandles += handle

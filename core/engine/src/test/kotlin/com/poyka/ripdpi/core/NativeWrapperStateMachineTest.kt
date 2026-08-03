@@ -691,8 +691,9 @@ class NativeWrapperStateMachineTest {
 
             DiagnosticsCommand.TAKE_REPORT -> {
                 val previousReports = bindings.reportHandles.size
+                val expectedPayload = bindings.reportJson
                 val payload = diagnostics.takeReportJson()
-                assertEquals(bindings.reportJson, payload)
+                assertEquals(expectedPayload, payload)
                 when (state) {
                     DiagnosticsState.UNINITIALIZED -> {
                         assertEquals(previousReports + 1, bindings.reportHandles.size)
