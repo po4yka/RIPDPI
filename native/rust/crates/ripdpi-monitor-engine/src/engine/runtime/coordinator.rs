@@ -3,10 +3,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use super::panic_recovery::{self, JoinedStageOutcome};
 use super::parallel;
 use super::plan::ExecutionPlan;
-use super::recording::{CollectedStageOutcome, record_steps};
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
 
@@ -59,46 +57,11 @@ impl ExecutionCoordinator {
                         None,
                     );
 
-                    let thread_results = std::thread::scope(|s| {
-                        let mut handles = Vec::with_capacity(parallel_runners.len());
-                        for parallel_stage in &parallel_runners {
-                            let runner = self.runners.get(parallel_stage).expect("runner present");
-                            let cancel = runtime.cancel_token();
-                            let deadline = runtime.scan_deadline();
-                            handles.push(s.spawn(move || {
-                                ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
-                                    runner.run_collecting(plan, cancel, tls_verifier)
-                                })
-                            }));
-                        }
-                        // Record panics as support-visible probe failures before
-                        // returning a terminal runner outcome. `join()` returns
-                        // `Err` only when the thread panicked.
-                        handles.into_iter().map(|h| panic_recovery::classify(h.join())).collect::<Vec<_>>()
-                    });
-
-                    let mut cancelled = false;
-                    let mut panic_message = None;
-                    for (parallel_stage, joined) in parallel_runners.iter().zip(thread_results) {
-                        parallel_done.insert(*parallel_stage);
-                        let steps = match joined {
-                            JoinedStageOutcome::Collected(CollectedStageOutcome::Completed(steps)) => steps,
-                            JoinedStageOutcome::Collected(CollectedStageOutcome::Cancelled(steps)) => {
-                                cancelled = true;
-                                steps
-                            }
-                            JoinedStageOutcome::Panicked(message) => {
-                                panic_message.get_or_insert_with(|| message.clone());
-                                panic_recovery::handle_panicked_runner(parallel_stage, &message)
-                            }
-                        };
-                        record_steps(plan, runtime, steps);
-                    }
-                    if cancelled {
-                        return RunnerOutcome::Cancelled;
-                    }
-                    if let Some(message) = panic_message {
-                        return RunnerOutcome::Failed(format!("parallel diagnostics runner panicked: {message}"));
+                    let outcome =
+                        parallel::run_connectivity_group(plan, runtime, &self.runners, &parallel_runners, tls_verifier);
+                    parallel_done.extend(parallel_runners);
+                    if !matches!(outcome, RunnerOutcome::Completed) {
+                        return outcome;
                     }
                     continue;
                 }

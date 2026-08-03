@@ -93,11 +93,7 @@ pub(super) fn qualify_pilot_candidates(
                 qualified_specs.push(spec);
                 continue;
             };
-            if execution.cancelled {
-                qualified_specs.push(spec);
-                continue;
-            }
-            if execution.summary.succeeded_targets > 0 {
+            if execution.cancelled || execution.summary.succeeded_targets > 0 {
                 qualified_specs.push(spec);
             } else {
                 let summary = eliminated_candidate_summary(

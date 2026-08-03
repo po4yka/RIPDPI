@@ -21,10 +21,8 @@ pub(super) fn select_next_candidate_batch<'a>(
 ) -> Vec<(usize, StrategyCandidateSpec)> {
     let mut batch = Vec::with_capacity(parallelism);
     while batch.len() < parallelism && !pending_tcp_specs.is_empty() {
-        let idx = next_candidate_index(pending_tcp_specs, tracker.blocked_family());
-        let spec = pending_tcp_specs.remove(idx);
-        let candidate_index = recorded_candidate_count + batch.len() + 1;
-        batch.push((candidate_index, spec));
+        let spec = pending_tcp_specs.remove(next_candidate_index(pending_tcp_specs, tracker.blocked_family()));
+        batch.push((recorded_candidate_count + batch.len() + 1, spec));
     }
     batch
 }
@@ -37,8 +35,7 @@ pub(super) fn execute_candidate_batch(
     domain_targets: &[DomainTarget],
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Vec<(usize, StrategyCandidateSpec, CandidateExecution)> {
-    let strategy_plan = plan.strategy.as_ref().expect("strategy plan");
-    let cancel_token = runtime.cancel_token();
+    let (strategy_plan, cancel_token) = (plan.strategy.as_ref().expect("strategy plan"), runtime.cancel_token());
     let deadline = ripdpi_diagnostics_contracts::util::active_scan_io_deadline();
     thread::scope(|s| {
         let handles: Vec<_> = to_execute
