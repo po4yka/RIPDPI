@@ -66,23 +66,23 @@ internal class HomeCompositeStageExecutor
             progressState: StateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
             updateRunStatus: (String, DiagnosticsHomeCompositeRunStatus) -> Unit,
         ) {
-            try {
-                cancelRunStages(runId, progressState)
-                updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
-            } catch (failure: Throwable) {
-                updateRunStatus(
-                    runId,
-                    if (
-                        failure is CancellationException &&
-                        failure.suppressed.all { it is CancellationException }
-                    ) {
-                        DiagnosticsHomeCompositeRunStatus.CANCELLED
-                    } else {
-                        DiagnosticsHomeCompositeRunStatus.FAILED
-                    },
-                )
-                throw failure
-            }
+            val failure =
+                runCatching {
+                    cancelRunStages(runId, progressState)
+                    updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
+                }.exceptionOrNull() ?: return
+            updateRunStatus(
+                runId,
+                if (
+                    failure is CancellationException &&
+                    failure.suppressed.all { it is CancellationException }
+                ) {
+                    DiagnosticsHomeCompositeRunStatus.CANCELLED
+                } else {
+                    DiagnosticsHomeCompositeRunStatus.FAILED
+                },
+            )
+            throw failure
         }
 
         private suspend fun cancelRunSession(
