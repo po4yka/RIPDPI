@@ -17,19 +17,26 @@ internal suspend fun buildCompletedStageSummary(
             ?.reportJson
             ?.takeIf(String::isNotBlank)
             ?.let { reportJson -> DiagnosticsSessionQueries.decodeScanReport(json, reportJson) }
+    val completionKind =
+        report?.completionKind
+            ?: persistedSession?.reportCompletionKind?.let { kind ->
+                runCatching { ScanCompletionKind.valueOf(kind) }.getOrNull()
+            }
+    val terminationReason =
+        report?.terminationReason
+            ?: persistedSession?.reportTerminationReason?.let { reason ->
+                runCatching { ScanTerminationReason.valueOf(reason) }.getOrNull()
+            }
     val status =
         when {
-            report?.completionKind == ScanCompletionKind.TERMINATED &&
-                report.terminationReason == ScanTerminationReason.NETWORK_UNAVAILABLE -> {
+            completionKind == ScanCompletionKind.TERMINATED &&
+                terminationReason == ScanTerminationReason.NETWORK_UNAVAILABLE -> {
                 DiagnosticsHomeCompositeStageStatus.UNAVAILABLE
             }
 
-            report?.completionKind == ScanCompletionKind.TERMINATED -> {
+            completionKind == ScanCompletionKind.TERMINATED ||
+                completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
                 DiagnosticsHomeCompositeStageStatus.FAILED
-            }
-
-            report?.completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
-                DiagnosticsHomeCompositeStageStatus.COMPLETED
             }
 
             session.status == "completed" -> {

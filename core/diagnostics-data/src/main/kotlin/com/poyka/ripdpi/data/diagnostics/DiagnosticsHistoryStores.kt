@@ -52,6 +52,15 @@ interface DiagnosticsScanRecordStore {
 
     suspend fun upsertScanSession(session: ScanSessionEntity)
 
+    /** Atomically replaces a completed scan's canonical session and probe result projection. */
+    suspend fun persistCompletedScan(
+        session: ScanSessionEntity,
+        results: List<ProbeResultEntity>,
+    ) {
+        replaceProbeResults(session.id, results)
+        upsertScanSession(session)
+    }
+
     suspend fun replaceProbeResults(
         sessionId: String,
         results: List<ProbeResultEntity>,
@@ -361,6 +370,19 @@ class RoomDiagnosticsScanRecordStore
 
         override suspend fun upsertScanSession(session: ScanSessionEntity) {
             dao.upsertScanSession(session)
+        }
+
+        override suspend fun persistCompletedScan(
+            session: ScanSessionEntity,
+            results: List<ProbeResultEntity>,
+        ) {
+            db.withTransaction {
+                dao.upsertScanSession(session)
+                dao.deleteProbeResultsForSession(session.id)
+                if (results.isNotEmpty()) {
+                    dao.insertProbeResults(results)
+                }
+            }
         }
 
         override suspend fun replaceProbeResults(

@@ -176,6 +176,7 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
+    var beforeUpsertSnapshot: suspend (NetworkSnapshotEntity) -> Unit = {}
     var afterUpsertSnapshot: suspend (NetworkSnapshotEntity) -> Unit = {}
     var afterUpsertContextSnapshot: suspend (DiagnosticContextEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
@@ -396,6 +397,15 @@ internal class FakeDiagnosticsHistoryStores :
         afterUpsertScanSession(session)
     }
 
+    override suspend fun persistCompletedScan(
+        session: ScanSessionEntity,
+        results: List<ProbeResultEntity>,
+    ) {
+        sessionsState.value = sessionsState.value.upsertById(session) { it.id }
+        probeResults[session.id] = results
+        afterUpsertScanSession(session)
+    }
+
     override suspend fun replaceProbeResults(
         sessionId: String,
         results: List<ProbeResultEntity>,
@@ -404,6 +414,7 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
+        beforeUpsertSnapshot(snapshot)
         snapshotsState.value = snapshotsState.value + snapshot
         afterUpsertSnapshot(snapshot)
     }

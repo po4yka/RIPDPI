@@ -14,6 +14,7 @@ interface DiagnosticsScanDao {
         SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
                pathMode, serviceMode, status, summary,
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
                triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
         FROM scan_sessions ORDER BY startedAt DESC LIMIT :limit
@@ -26,6 +27,7 @@ interface DiagnosticsScanDao {
         SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
                pathMode, serviceMode, status, summary,
                CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
                triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
         FROM scan_sessions WHERE id = :sessionId LIMIT 1

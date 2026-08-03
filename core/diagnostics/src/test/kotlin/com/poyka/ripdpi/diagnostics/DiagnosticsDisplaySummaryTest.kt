@@ -240,6 +240,92 @@ class DiagnosticsDisplaySummaryTest {
         }
 
     @Test
+    fun `oversized terminal reports keep their completion state for Home`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val sessionId = "oversized-terminal-session"
+            stores.upsertScanSession(
+                ScanSessionEntity(
+                    id = sessionId,
+                    profileId = "automatic-audit",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    serviceMode = "VPN",
+                    status = "completed",
+                    summary = "report stored separately",
+                    reportJson = null,
+                    reportCompletionKind = ScanCompletionKind.TERMINATED.name,
+                    reportTerminationReason = ScanTerminationReason.NETWORK_UNAVAILABLE.name,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                ),
+            )
+
+            val summary =
+                buildCompletedStageSummary(
+                    spec = HomeCompositeStageSpecs.first(),
+                    sessionId = sessionId,
+                    session =
+                        DiagnosticScanSession(
+                            id = sessionId,
+                            profileId = "automatic-audit",
+                            pathMode = ScanPathMode.RAW_PATH.name,
+                            serviceMode = "VPN",
+                            status = "completed",
+                            summary = "report stored separately",
+                            startedAt = 10L,
+                            finishedAt = 20L,
+                        ),
+                    scanRecordStore = stores,
+                    json = json,
+                )
+
+            assertEquals(DiagnosticsHomeCompositeStageStatus.UNAVAILABLE, summary.status)
+        }
+
+    @Test
+    fun `oversized partial reports are not classified as completed by Home`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val sessionId = "oversized-partial-session"
+            stores.upsertScanSession(
+                ScanSessionEntity(
+                    id = sessionId,
+                    profileId = "automatic-audit",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    serviceMode = "VPN",
+                    status = "completed",
+                    summary = "report stored separately",
+                    reportJson = null,
+                    reportCompletionKind = ScanCompletionKind.PARTIAL_RESULTS.name,
+                    reportTerminationReason = ScanTerminationReason.DEADLINE_EXCEEDED.name,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                ),
+            )
+
+            val summary =
+                buildCompletedStageSummary(
+                    spec = HomeCompositeStageSpecs.first(),
+                    sessionId = sessionId,
+                    session =
+                        DiagnosticScanSession(
+                            id = sessionId,
+                            profileId = "automatic-audit",
+                            pathMode = ScanPathMode.RAW_PATH.name,
+                            serviceMode = "VPN",
+                            status = "completed",
+                            summary = "report stored separately",
+                            startedAt = 10L,
+                            finishedAt = 20L,
+                        ),
+                    scanRecordStore = stores,
+                    json = json,
+                )
+
+            assertEquals(DiagnosticsHomeCompositeStageStatus.FAILED, summary.status)
+        }
+
+    @Test
     fun `approach summary uses partial result wording instead of raw cancelled summary`() {
         val report =
             ScanReport(

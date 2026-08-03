@@ -10,6 +10,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration5To6,
             migration6To7,
             migration7To8,
+            migration8To9,
         )
 }
 
@@ -49,5 +50,14 @@ private val migration7To8 =
                 )
                 """.trimIndent(),
             )
+        }
+    }
+
+/** v8 → v9: retain terminal report state when a large report JSON cannot be read inline. */
+private val migration8To9 =
+    object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN reportCompletionKind TEXT")
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN reportTerminationReason TEXT")
         }
     }

@@ -113,6 +113,8 @@ class DiagnosticsDatabaseMigrationTest {
 
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("DROP TABLE diagnostics_durable_state")
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
             legacyDb.execSQL("PRAGMA user_version = 7")
         }
 
@@ -133,6 +135,54 @@ class DiagnosticsDatabaseMigrationTest {
                 assertTrue(cursor.moveToFirst())
                 assertEquals(0, cursor.getInt(0))
             }
+        } finally {
+            migratedDb.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun `migration 8 to 9 adds compact terminal report metadata without destructive fallback`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v8-v9-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+
+        val seedDb =
+            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
+                context,
+                dbName,
+                allowDestructiveFallback = false,
+            )
+        try {
+            seedDb.openHelper.writableDatabase
+        } finally {
+            seedDb.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
+            legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
+            legacyDb.execSQL("PRAGMA user_version = 8")
+        }
+
+        val migratedDb =
+            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
+                context,
+                dbName,
+                allowDestructiveFallback = false,
+            )
+        try {
+            migratedDb.openHelper.writableDatabase
+                .query("PRAGMA table_info(scan_sessions)")
+                .use { cursor ->
+                    val columnNames =
+                        buildSet {
+                            val nameIndex = cursor.getColumnIndexOrThrow("name")
+                            while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+                        }
+                    assertTrue(columnNames.contains("reportCompletionKind"))
+                    assertTrue(columnNames.contains("reportTerminationReason"))
+                }
         } finally {
             migratedDb.close()
             context.deleteDatabase(dbName)

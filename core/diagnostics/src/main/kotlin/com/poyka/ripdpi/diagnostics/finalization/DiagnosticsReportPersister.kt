@@ -38,12 +38,13 @@ internal object DiagnosticsReportPersister {
         val existing = scanRecordStore.getScanSession(report.sessionId)
         val manualConflictCancellation = existing?.takeIf { it.hasAuthoritativeManualConflictCancellation() }
         val encodedReport = json.encodeToString(EngineScanReportWire.serializer(), normalizedReport)
+        val encodedReportBytes = encodedReport.toByteArray(Charsets.UTF_8).size
         val safeReportJson =
-            if (encodedReport.length <= MaxInlineReportJsonBytes) {
+            if (encodedReportBytes <= MaxInlineReportJsonBytes) {
                 encodedReport
             } else {
                 Logger.withTag("DiagnosticsReportPersister").w {
-                    "dropping oversized reportJson session=${normalizedReport.sessionId} chars=${encodedReport.length}"
+                    "dropping oversized reportJson session=${normalizedReport.sessionId} bytes=$encodedReportBytes"
                 }
                 null
             }
@@ -59,8 +60,7 @@ internal object DiagnosticsReportPersister {
                     createdAt = normalizedReport.finishedAt,
                 )
             }
-        scanRecordStore.replaceProbeResults(normalizedReport.sessionId, resultEntities)
-        scanRecordStore.upsertScanSession(
+        scanRecordStore.persistCompletedScan(
             ScanSessionEntity(
                 id = normalizedReport.sessionId,
                 profileId = normalizedReport.profileId,
@@ -74,6 +74,11 @@ internal object DiagnosticsReportPersister {
                 status = manualConflictCancellation?.status ?: "completed",
                 summary = manualConflictCancellation?.summary ?: normalizedReport.summary,
                 reportJson = safeReportJson,
+                reportCompletionKind =
+                    normalizedReport.completionKind
+                        .takeIf { it != com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind.NORMAL }
+                        ?.name,
+                reportTerminationReason = normalizedReport.terminationReason?.name,
                 startedAt = normalizedReport.startedAt,
                 finishedAt = normalizedReport.finishedAt,
                 launchOrigin = existing?.launchOrigin,
@@ -83,6 +88,7 @@ internal object DiagnosticsReportPersister {
                 triggerPreviousFingerprintHash = existing?.triggerPreviousFingerprintHash,
                 triggerCurrentFingerprintHash = existing?.triggerCurrentFingerprintHash,
             ),
+            resultEntities,
         )
         bridgeEventsToHistory(normalizedReport, artifactWriteStore)
     }
@@ -93,6 +99,12 @@ internal object DiagnosticsReportPersister {
         scanRecordStore: DiagnosticsScanRecordStore,
     ) {
         val existing = scanRecordStore.getScanSession(sessionId) ?: return
+        if (existing.status != "running") {
+            Logger.withTag("DiagnosticsReportPersister").w {
+                "ignoring failure after terminal scan persistence session=$sessionId status=${existing.status}"
+            }
+            return
+        }
         scanRecordStore.upsertScanSession(
             existing.copy(
                 status = "failed",

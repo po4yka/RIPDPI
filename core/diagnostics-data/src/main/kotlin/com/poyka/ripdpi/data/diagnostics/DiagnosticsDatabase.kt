@@ -52,7 +52,7 @@ interface DiagnosticsDao :
         NetworkEdgePreferenceEntity::class,
         DiagnosticsDurableStateEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {

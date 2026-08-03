@@ -5,6 +5,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.Serializable
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -415,6 +416,45 @@ class DiagnosticsOutcomeTaxonomyTest {
                 ),
                 sessionEvents.map { it.source },
             )
+        }
+
+    @Test
+    fun `oversized terminal report retains compact completion metadata`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val report =
+                ScanReport(
+                    sessionId = "oversized-terminal-report",
+                    profileId = "automatic-audit",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "deadline exceeded",
+                    completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                    terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED,
+                    results =
+                        listOf(
+                            ProbeResult(
+                                probeType = "http",
+                                target = "large.example",
+                                outcome = "timeout",
+                                details = listOf(ProbeDetail("payload", "x".repeat(1_500_000))),
+                            ),
+                        ),
+                ).toEngineScanReportWire()
+
+            DiagnosticsReportPersister.persistScanReport(
+                report = report,
+                scanRecordStore = stores,
+                artifactWriteStore = stores,
+                serviceStateStore = FakeServiceStateStore(),
+                json = json,
+            )
+
+            val session = requireNotNull(stores.getScanSession(report.sessionId))
+            assertNull(session.reportJson)
+            assertEquals(ScanCompletionKind.PARTIAL_RESULTS.name, session.reportCompletionKind)
+            assertEquals(ScanTerminationReason.DEADLINE_EXCEEDED.name, session.reportTerminationReason)
         }
 
     private fun reportJson(

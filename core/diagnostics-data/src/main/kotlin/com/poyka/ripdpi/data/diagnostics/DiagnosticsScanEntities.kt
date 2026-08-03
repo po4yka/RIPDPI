@@ -19,6 +19,8 @@ data class ScanSessionEntity(
     val status: String,
     val summary: String,
     val reportJson: String?,
+    val reportCompletionKind: String? = null,
+    val reportTerminationReason: String? = null,
     val startedAt: Long,
     val finishedAt: Long?,
     val launchOrigin: String? = null,

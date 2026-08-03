@@ -99,6 +99,41 @@ class DiagnosticsScanPolicyFinalizationTest {
         }
 
     @Test
+    fun `post persistence failure does not overwrite completed report`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-post-persist-failure",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            stores.beforeUpsertSnapshot = { error("injected post-persistence failure") }
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = buildResolverRecommendationBridge(prepared.sessionId)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("completed", session.status)
+            assertNotNull(session.reportJson)
+            assertEquals(1, stores.storedProbeResults(prepared.sessionId).size)
+        }
+
+    @Test
     fun `finalization applies raw path dns fallback override while service is halted and returns corrected dns path`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
