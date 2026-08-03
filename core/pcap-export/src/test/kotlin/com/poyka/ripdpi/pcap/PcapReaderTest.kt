@@ -49,6 +49,15 @@ class PcapReaderTest {
     }
 
     @Test
+    fun globalHeader_validationFailure_closesInputStream() {
+        val input = CloseTrackingInputStream(headerBytes(linktype = 1))
+
+        assertThrows(IOException::class.java) { PcapReader(input) }
+
+        assertTrue("header validation failures must close the owned stream", input.closed)
+    }
+
+    @Test
     fun readsZeroPackets_fromEmptyFileBody() {
         val bytes = headerBytes()
         val reader = PcapReader(ByteArrayInputStream(bytes))
@@ -160,6 +169,18 @@ class PcapReaderTest {
             0x00,
             0x00,
         ) + leU32(linktype)
+
+    private class CloseTrackingInputStream(
+        bytes: ByteArray,
+    ) : ByteArrayInputStream(bytes) {
+        var closed: Boolean = false
+            private set
+
+        override fun close() {
+            closed = true
+            super.close()
+        }
+    }
 
     private fun packetRecord(
         tsSec: Long,

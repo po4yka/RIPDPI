@@ -58,19 +58,30 @@ class PcapReader(
     private var nextIndex: Int = 1
 
     init {
-        val header = ByteArray(GLOBAL_HEADER_LEN)
-        if (!inputStream.readExactly(header)) {
-            throw IOException("incomplete global header")
-        }
-        val magic = leU32(header, 0)
-        if (magic != MAGIC) {
-            throw IOException("unsupported pcap magic 0x${magic.toUInt().toString(HEX_RADIX)}")
-        }
-        snaplen = leU32(header, GLOBAL_SNAPLEN_OFFSET)
-        val linktype = leU32(header, GLOBAL_LINKTYPE_OFFSET)
-        if (linktype != LINKTYPE_RAW) {
-            throw IOException("unsupported linktype $linktype, expected $LINKTYPE_RAW")
-        }
+        snaplen =
+            try {
+                val header = ByteArray(GLOBAL_HEADER_LEN)
+                if (!inputStream.readExactly(header)) {
+                    throw IOException("incomplete global header")
+                }
+                val magic = leU32(header, 0)
+                if (magic != MAGIC) {
+                    throw IOException("unsupported pcap magic 0x${magic.toUInt().toString(HEX_RADIX)}")
+                }
+                val parsedSnaplen = leU32(header, GLOBAL_SNAPLEN_OFFSET)
+                val linktype = leU32(header, GLOBAL_LINKTYPE_OFFSET)
+                if (linktype != LINKTYPE_RAW) {
+                    throw IOException("unsupported linktype $linktype, expected $LINKTYPE_RAW")
+                }
+                parsedSnaplen
+            } catch (failure: Throwable) {
+                try {
+                    inputStream.close()
+                } catch (closeFailure: Throwable) {
+                    failure.addSuppressed(closeFailure)
+                }
+                throw failure
+            }
     }
 
     /** Read every remaining record into an immutable list. */
