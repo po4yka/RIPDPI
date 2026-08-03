@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -48,6 +49,7 @@ fun DiagnosticsRoute(
     modifier: Modifier = Modifier,
     initialSection: DiagnosticsSection? = null,
     viewModel: DiagnosticsViewModel = hiltViewModel(),
+    pcapCaptureViewModel: PcapCaptureViewModel? = null,
     topBarExtraActions: @Composable () -> Unit = {},
 ) {
     LaunchedEffect(viewModel) {
@@ -56,6 +58,10 @@ fun DiagnosticsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val toolsStateFlow = remember(viewModel) { viewModel.toolsRouteStateFlow() }
     val toolsState by toolsStateFlow.collectAsStateWithLifecycle(DiagnosticsToolsRouteState())
+    val pcapRecording =
+        pcapCaptureViewModel?.let { captureViewModel ->
+            captureViewModel.recording.collectAsStateWithLifecycle().value
+        } ?: toolsState.pcapRecording
     val pagerState =
         rememberPagerState(initialPage = uiState.selectedSection.ordinal) { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -67,7 +73,7 @@ fun DiagnosticsRoute(
         uiState = uiState,
         pagerState = pagerState,
         snackbarHostState = snackbarHostState,
-        actions = rememberDiagnosticsScreenActions(viewModel, callbacks),
+        actions = rememberDiagnosticsScreenActions(viewModel, callbacks, pcapCaptureViewModel),
         dpiTools = toolsState.dpiTools,
         cidrWhitelistTool = toolsState.cidrWhitelist,
         ipv4WhitelistTool = toolsState.ipv4Whitelist,
@@ -75,7 +81,7 @@ fun DiagnosticsRoute(
         xrayProvider = toolsState.xrayProvider,
         remoteDeviceAcceptance = toolsState.remoteDeviceAcceptance,
         rootModeEnabled = toolsState.rootModeEnabled,
-        pcapRecording = toolsState.pcapRecording,
+        pcapRecording = pcapRecording,
         topBarExtraActions = topBarExtraActions,
         modifier = modifier,
     )
@@ -301,6 +307,7 @@ private fun DiagnosticsTone.toSnackbarTone(): RipDpiSnackbarTone =
 private fun rememberDiagnosticsScreenActions(
     viewModel: DiagnosticsViewModel,
     callbacks: DiagnosticsRouteCallbacks,
+    pcapCaptureViewModel: PcapCaptureViewModel?,
 ): DiagnosticsScreenActions =
     DiagnosticsScreenActions(
         onSelectSection = remember(viewModel) { viewModel::selectSection },
@@ -351,7 +358,10 @@ private fun rememberDiagnosticsScreenActions(
         onOpenOwnedStackBrowser = callbacks.onOpenOwnedStackBrowser,
         onOpenPcapCaptureList = callbacks.onOpenPcapCaptureList,
         onOpenPastReplays = callbacks.onOpenPastReplays,
-        onTogglePcapRecording = remember(viewModel) { viewModel::togglePcapRecording },
+        onTogglePcapRecording =
+            pcapCaptureViewModel?.let { captureViewModel ->
+                remember(captureViewModel) { captureViewModel::toggle }
+            } ?: remember(viewModel) { viewModel::togglePcapRecording },
         onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
         onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
         onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },

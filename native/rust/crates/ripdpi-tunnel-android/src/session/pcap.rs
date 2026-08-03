@@ -25,7 +25,9 @@ use ripdpi_pcap::rewrite_endpoints;
 use ripdpi_tunnel_core::PacketObserver;
 use ripdpi_tunnel_core::Stats;
 
-use crate::pcap::{PcapCaptureSet, WriterStopResult, enforce_global_retention, list_captures};
+use crate::pcap::{
+    PcapCaptureMetadata, PcapCaptureSet, PcapWriterFailure, WriterStopResult, enforce_global_retention, list_captures,
+};
 
 struct ActiveCapture {
     set: PcapCaptureSet,
@@ -87,15 +89,29 @@ fn stop_capture(session_handle: i64) -> Option<WriterStopResult> {
     Some(result)
 }
 
-/// Inner entry: stop the capture-set bound to the session and return
-/// JSON metadata (an array of file descriptors per `PcapCaptureMetadata`).
-/// Returns `"[]"` if no capture is bound to this handle, the registry
-/// mutex is poisoned, or JSON serialization fails.
+/// JSON contract returned from PCAP stop. `files` contains only files which
+/// were flushed, fsynced and atomically renamed from `.pcap.active`; a writer
+/// failure never turns an incomplete raw file into a completed capture.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PcapStopResponse {
+    was_active: bool,
+    files: Vec<PcapCaptureMetadata>,
+    failure: Option<PcapWriterFailure>,
+}
+
+/// Inner entry: stop the capture-set bound to the session and return a typed
+/// completion response. `wasActive` distinguishes an idle session from a
+/// completed capture with no packets. `failure` is a stable, non-sensitive
+/// writer code for UI and support diagnostics.
 pub(crate) fn pcap_stop_entry(session_handle: i64) -> String {
-    let Some(result) = stop_capture(session_handle) else { return "[]".to_string() };
-    serde_json::to_string(&result.files).unwrap_or_else(|err| {
-        log::error!("pcap_stop_entry: serialize files: {err}");
-        "[]".to_string()
+    let response = match stop_capture(session_handle) {
+        Some(result) => PcapStopResponse { was_active: true, files: result.files, failure: result.failure },
+        None => PcapStopResponse { was_active: false, files: Vec::new(), failure: None },
+    };
+    serde_json::to_string(&response).unwrap_or_else(|err| {
+        log::error!("pcap_stop_entry: serialize completion response: {err}");
+        r#"{"wasActive":false,"files":[],"failure":"serialization"}"#.to_string()
     })
 }
 
@@ -199,15 +215,19 @@ mod tests {
         let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 4);
         assert!(set_id > 0, "expected positive set id, got {set_id}");
         let json = pcap_stop_entry(handle);
-        // Must be parseable JSON array (possibly empty).
+        // Must be parseable typed completion JSON.
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("metadata must be valid json");
-        assert!(parsed.is_array(), "stop should return a JSON array, got {parsed}");
+        assert!(parsed.is_object(), "stop should return a JSON object, got {parsed}");
+        assert_eq!(parsed["wasActive"], true);
+        assert!(parsed["files"].is_array());
     }
 
     #[test]
-    fn pcap_stop_entry_unknown_session_returns_empty_array() {
+    fn pcap_stop_entry_unknown_session_reports_inactive_capture() {
         let handle = next_test_handle();
-        assert_eq!(pcap_stop_entry(handle), "[]");
+        let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle)).unwrap();
+        assert_eq!(parsed["wasActive"], false);
+        assert_eq!(parsed["failure"], serde_json::Value::Null);
     }
 
     #[test]
@@ -219,7 +239,8 @@ mod tests {
         let set_id = pcap_start_entry(handle, test_stats(), missing, 1024, 1);
         assert_eq!(set_id, 0, "expected 0 (failure) for missing dir, got {set_id}");
         // Nothing should be left in the registry.
-        assert_eq!(pcap_stop_entry(handle), "[]");
+        let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle)).unwrap();
+        assert_eq!(parsed["wasActive"], false);
     }
 
     #[test]
@@ -371,7 +392,7 @@ mod tests {
         drop(observer);
         let json = pcap_stop_entry(handle);
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("metadata json");
-        let arr = parsed.as_array().expect("array");
+        let arr = parsed["files"].as_array().expect("files array");
         let total_packets: u64 =
             arr.iter().filter_map(|f| f.get("packetCount").and_then(serde_json::Value::as_u64)).sum();
         assert!(total_packets >= 1, "expected >=1 packet captured, got {total_packets}: {json}");

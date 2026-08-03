@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,7 @@ internal class HomeDiagnosticsStateOwner(
     diagnosticsDependencies: MainDiagnosticsDependencies,
     stringResolver: StringResolver,
     requestVpnStart: () -> Unit,
+    pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
     val runtimeState: MutableStateFlow<HomeDiagnosticsRuntimeState> =
         MutableStateFlow(HomeDiagnosticsRuntimeState())
@@ -81,6 +83,7 @@ internal class HomeDiagnosticsStateOwner(
             homeDiagnosticsState = this.runtimeState,
             stringResolver = stringResolver,
             requestVpnStart = requestVpnStart,
+            pcapCaptureRuntimeController = pcapCaptureRuntimeController,
         )
 
     fun initialize() {

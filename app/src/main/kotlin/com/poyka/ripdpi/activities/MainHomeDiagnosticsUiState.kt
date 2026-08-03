@@ -308,7 +308,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         detectionFindings = detectionFindings.toImmutableList(),
         installedVpnDetectorCount = installedVpnDetectorCount,
         installedVpnDetectorTopApps = installedVpnDetectorTopApps.toImmutableList(),
-        pcapRecordingRequested = pcapRecordingRequested,
+        pcapRecordingRequested = runtime.pcapRecordingRequested,
         remediationLadder = remediationLadder,
         actionableHeadline = actionableHeadline,
         actionableNextSteps = actionableNextSteps.toImmutableList(),

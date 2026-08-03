@@ -118,6 +118,8 @@ interface Tun2SocksBridge {
     suspend fun telemetry(): NativeRuntimeSnapshot
 
     suspend fun forwardingEvidence(): TunForwardingEvidence = TunForwardingEvidence()
+
+    suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? = null
 }
 
 class NativeTun2SocksBridge
@@ -144,6 +146,8 @@ class NativeTun2SocksBridge
         override suspend fun telemetry(): NativeRuntimeSnapshot = tunnel.telemetry()
 
         override suspend fun forwardingEvidence(): TunForwardingEvidence = tunnel.forwardingEvidence()
+
+        override suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? = tunnel.withSessionHandle(block)
     }
 
 interface Tun2SocksBridgeFactory {

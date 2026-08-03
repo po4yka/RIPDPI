@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.toSettingsSections
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +57,7 @@ internal class VpnTunnelRuntime(
     private val geositeDbPath: String? = null,
     private val callbacks: VpnTunnelRuntimeCallbacks = VpnTunnelRuntimeCallbacks(),
     private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
+    private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
     private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
     @Volatile
@@ -181,6 +183,7 @@ internal class VpnTunnelRuntime(
         try {
             try {
                 try {
+                    pcapCaptureRuntimeController?.retireTunnel(previousBridge)
                     previousBridge.stop()
                 } catch (error: Exception) {
                     retiringBridge = previousBridge
@@ -323,6 +326,7 @@ internal class VpnTunnelRuntime(
             throw error
         }
         tun2SocksBridge = tunnelBridge
+        pcapCaptureRuntimeController?.bindTunnel(tunnelBridge)
         forwardingLease.set(TunnelForwardingLease(tunnelBridge))
         retiringBridge = null
         tunSession = pendingTunnel.session
@@ -347,9 +351,13 @@ internal class VpnTunnelRuntime(
 
         forwardingLease.set(null)
         try {
+            activeBridge?.let { pcapCaptureRuntimeController?.retireTunnel(it) }
             activeBridge?.stop()
         } finally {
             try {
+                if (inactiveBridge !== activeBridge) {
+                    inactiveBridge?.let { pcapCaptureRuntimeController?.retireTunnel(it) }
+                }
                 if (inactiveBridge !== activeBridge) inactiveBridge?.stop()
             } finally {
                 tun2SocksBridge = null
@@ -438,6 +446,7 @@ internal class VpnTunnelRuntime(
         var stopFailure: Throwable? = null
         for (bridge in bridges) {
             try {
+                pcapCaptureRuntimeController?.retireTunnel(bridge)
                 bridge.stop()
             } catch (error: Exception) {
                 retiringBridge = bridge

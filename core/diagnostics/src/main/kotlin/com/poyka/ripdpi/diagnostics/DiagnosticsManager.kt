@@ -347,7 +347,6 @@ data class DiagnosticsHomeCompositeOutcome(
     val detectionFindings: List<String> = emptyList(),
     val installedVpnDetectorCount: Int? = null,
     val installedVpnDetectorTopApps: List<String> = emptyList(),
-    val pcapRecordingRequested: Boolean = false,
     val actionableHeadline: String? = null,
     val actionableNextSteps: List<String> = emptyList(),
     val networkCharacter: HomeNetworkCharacterSummary? = null,
@@ -392,9 +391,7 @@ interface DiagnosticsHomeCompositeRunService {
     suspend fun evictCachedOutcome(fingerprintHash: String)
 }
 
-data class DiagnosticsHomeRunOptions(
-    val pcapRecordingRequested: Boolean = false,
-)
+class DiagnosticsHomeRunOptions
 
 @Module
 @InstallIn(SingletonComponent::class)

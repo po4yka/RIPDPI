@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
 import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
@@ -98,6 +99,7 @@ internal object VpnServiceSessionModule {
         flowAttributionBridge: FlowAttributionBridge,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
         appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore,
+        pcapCaptureRuntimeController: PcapCaptureRuntimeController,
     ): VpnTunnelRuntime =
         createVpnTunnelRuntime(
             host = host,
@@ -107,6 +109,7 @@ internal object VpnServiceSessionModule {
             flowAttributionBridge = flowAttributionBridge,
             recoveryReceiptCollector = recoveryReceiptCollector,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
+            pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             recoveryServiceInstanceId =
                 (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
                     ?.recoveryServiceInstanceId,
@@ -128,6 +131,7 @@ internal object VpnServiceSessionModule {
         recoveryGenerationProvider: () -> String? = { null },
         geositeDbPath: String? = null,
         appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
+        pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -145,6 +149,7 @@ internal object VpnServiceSessionModule {
             flowAttributionBridge = flowAttributionBridge,
             geositeDbPath = geositeDbPath,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
+            pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             callbacks =
                 VpnTunnelRuntimeCallbacks(
                     onTunnelReady = {

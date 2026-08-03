@@ -27,6 +27,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
@@ -75,6 +77,7 @@ internal class MainHomeDiagnosticsActions(
     private val homeDiagnosticsState: MutableStateFlow<HomeDiagnosticsRuntimeState>,
     private val stringResolver: StringResolver,
     private val requestVpnStart: () -> Unit,
+    private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
     private var activeRunObservation: Job? = null
 
@@ -86,6 +89,7 @@ internal class MainHomeDiagnosticsActions(
         observeVerifiedVpnConnection()
         observeBlockingPermissionWhileWaiting()
         observeServiceStatusForFingerprint()
+        observePcapCaptureState()
     }
 
     private fun observeLatestManualDiagnosticSession() {
@@ -240,7 +244,6 @@ internal class MainHomeDiagnosticsActions(
         mutations.launch {
             if (homeDiagnosticsState.value.analysisInProgress()) return@launch
             activeRunObservation?.cancel()
-            val pcapRequested = homeDiagnosticsState.value.pcapRecordingRequested
             homeDiagnosticsState.update {
                 it.copy(
                     activeRunId = null,
@@ -260,7 +263,7 @@ internal class MainHomeDiagnosticsActions(
             }
             runCatching {
                 diagnosticsHomeCompositeRunService.startHomeAnalysis(
-                    DiagnosticsHomeRunOptions(pcapRecordingRequested = pcapRequested),
+                    DiagnosticsHomeRunOptions(),
                 )
             }.onSuccess { started ->
                 homeDiagnosticsState.update {
@@ -317,7 +320,6 @@ internal class MainHomeDiagnosticsActions(
         mutations.launch {
             if (homeDiagnosticsState.value.analysisInProgress()) return@launch
             activeRunObservation?.cancel()
-            val pcapRequested = homeDiagnosticsState.value.pcapRecordingRequested
             homeDiagnosticsState.update {
                 it.copy(
                     activeRunId = null,
@@ -337,7 +339,7 @@ internal class MainHomeDiagnosticsActions(
             }
             runCatching {
                 diagnosticsHomeCompositeRunService.startQuickAnalysis(
-                    DiagnosticsHomeRunOptions(pcapRecordingRequested = pcapRequested),
+                    DiagnosticsHomeRunOptions(),
                 )
             }.onSuccess { started ->
                 homeDiagnosticsState.update {
@@ -377,8 +379,24 @@ internal class MainHomeDiagnosticsActions(
     }
 
     fun togglePcapRecording() {
-        homeDiagnosticsState.update { current ->
-            current.copy(pcapRecordingRequested = !current.pcapRecordingRequested)
+        val controller = pcapCaptureRuntimeController ?: return
+        mutations.launch {
+            if (controller.state.value is PcapCaptureRuntimeState.Recording) {
+                controller.stop()
+            } else {
+                controller.start()
+            }
+        }
+    }
+
+    private fun observePcapCaptureState() {
+        val controller = pcapCaptureRuntimeController ?: return
+        mutations.launch {
+            controller.state.collect { state ->
+                homeDiagnosticsState.update { current ->
+                    current.copy(pcapRecordingRequested = state is PcapCaptureRuntimeState.Recording)
+                }
+            }
         }
     }
 

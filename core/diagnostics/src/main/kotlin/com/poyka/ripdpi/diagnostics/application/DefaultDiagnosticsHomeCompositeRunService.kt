@@ -61,13 +61,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
-        private val runPcapRequested = ConcurrentHashMap<String, Boolean>()
         private val runJobs = HomeCompositeRunJobs(scope)
         private val activeProbeSafetyPolicy = ActiveProbeSafetyPolicy()
 
         override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
             val runId = UUID.randomUUID().toString()
-            runPcapRequested[runId] = options.pcapRecordingRequested
             progressState.update { current ->
                 current +
                     (
@@ -130,7 +128,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             options: DiagnosticsHomeRunOptions,
         ): DiagnosticsHomeCompositeRunStarted {
             val runId = UUID.randomUUID().toString()
-            runPcapRequested[runId] = options.pcapRecordingRequested
             progressState.update { current ->
                 current +
                     (
@@ -287,7 +284,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     block = block,
                 )
             if (!launched) {
-                runPcapRequested.remove(runId)
                 runDetectionResults.remove(runId)
                 progressState.update { current -> current - runId }
                 throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
@@ -298,7 +294,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             status: DiagnosticsHomeCompositeRunStatus,
         ) {
-            runPcapRequested.remove(runId)
             runDetectionResults.remove(runId)
             progressState.update { current ->
                 current.updatedRun(runId) { progress ->
@@ -624,7 +619,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             networkChanged: Boolean,
         ) {
             val detectionResult = runDetectionResults.remove(runId)
-            val pcapRequested = runPcapRequested.remove(runId) ?: false
             val previousOutcome = completedRuns.mostRecentCompletedRunBefore(runId)
             val catalogSnapshot =
                 withContext(Dispatchers.Default) {
@@ -665,7 +659,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     detectionFindings = detectionResult?.findings.orEmpty(),
                     installedVpnDetectorCount = catalogSnapshot.installedVpnDetectorCount.takeIf { it >= 0 },
                     installedVpnDetectorTopApps = catalogSnapshot.topDetectorPackages,
-                    pcapRecordingRequested = pcapRequested,
                     networkCharacter = networkCharacter,
                     strategyEffectiveness = effectivenessLedger,
                     routingSanity = routingSanity,

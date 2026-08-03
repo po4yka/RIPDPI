@@ -35,6 +35,9 @@ class PcapController
     ) {
         private val contentResolver: ContentResolver get() = context.contentResolver
 
+        internal val captureDirectory: File
+            get() = File(context.filesDir, "pcap")
+
         /**
          * Returns capture-set id on success, 0 on failure. Caller stores
          * the id to call stop later, though the single-capture-per-session
@@ -56,10 +59,10 @@ class PcapController
                 )
             }
 
-        suspend fun stop(sessionHandle: Long): List<PcapCaptureMetadata> =
+        suspend fun stop(sessionHandle: Long): PcapStopResult =
             withContext(Dispatchers.IO) {
                 val json = PcapBridge.jniPcapStop(sessionHandle)
-                decodeMetadataList(json)
+                decodeStopResult(json)
             }
 
         suspend fun listCaptures(captureDir: File): List<PcapCaptureMetadata> =
@@ -105,6 +108,25 @@ class PcapController
                     JSON.decodeFromString(json)
                 } catch (_: Throwable) {
                     emptyList()
+                }
+            }
+
+            private fun decodeStopResult(json: String?): PcapStopResult {
+                if (json == null) {
+                    return PcapStopResult(
+                        wasActive = true,
+                        files = emptyList(),
+                        failure = "native_call",
+                    )
+                }
+                return try {
+                    JSON.decodeFromString(json)
+                } catch (_: Throwable) {
+                    PcapStopResult(
+                        wasActive = true,
+                        files = emptyList(),
+                        failure = "invalid_native_response",
+                    )
                 }
             }
         }

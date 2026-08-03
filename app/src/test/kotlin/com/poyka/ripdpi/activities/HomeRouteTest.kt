@@ -14,7 +14,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -78,11 +77,9 @@ class HomeRouteTest {
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested
+        composeRule.runOnIdle {
+            assertFalse(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
         }
-
-        assertTrue(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
     }
 
     private fun createViewModel(appSettingsRepository: AppSettingsRepository): MainViewModel {

@@ -94,9 +94,20 @@ pub struct PcapCaptureSet {
 const WRITER_STOP_TIMEOUT: Duration = Duration::from_secs(2);
 const WRITER_JOIN_POLL: Duration = Duration::from_millis(10);
 
+#[derive(Debug, Clone, Copy, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PcapWriterFailure {
+    Open,
+    Write,
+    Finalize,
+    Panic,
+    Timeout,
+}
+
 #[derive(Debug, Default)]
 struct WriterResult {
     files: Vec<PcapCaptureMetadata>,
+    failure: Option<PcapWriterFailure>,
 }
 
 impl PcapCaptureSet {
@@ -157,15 +168,22 @@ impl PcapCaptureSet {
             set_id: self.set_id,
             files: Vec::new(),
             total_drops: self.drops.load(Ordering::Relaxed),
+            failure: None,
         };
-        if let Some(handle) = self.writer_thread.take()
-            && let Some(writer_result) = join_writer_bounded(handle, WRITER_STOP_TIMEOUT)
-        {
-            result.files = writer_result.files;
-            // Annotate the drops on the last file (most informative
-            // location for the UI).
-            if let Some(last) = result.files.last_mut() {
-                last.drops = result.total_drops;
+        if let Some(handle) = self.writer_thread.take() {
+            match join_writer_bounded(handle, WRITER_STOP_TIMEOUT) {
+                Ok(writer_result) => {
+                    result.files = writer_result.files;
+                    result.failure = writer_result.failure;
+                    // Annotate the drops on the last file (most informative
+                    // location for the UI).
+                    if let Some(last) = result.files.last_mut() {
+                        last.drops = result.total_drops;
+                    }
+                }
+                Err(failure) => {
+                    result.failure = Some(failure);
+                }
             }
         }
         result
@@ -205,16 +223,19 @@ impl Drop for PcapCaptureSet {
     }
 }
 
-fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> Option<WriterResult> {
+fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> Result<WriterResult, PcapWriterFailure> {
     let deadline = Instant::now() + timeout;
     while !handle.is_finished() && Instant::now() < deadline {
         thread::sleep(WRITER_JOIN_POLL.min(deadline.saturating_duration_since(Instant::now())));
     }
     if handle.is_finished() {
-        return handle.join().ok();
+        return handle.join().map_err(|_| {
+            tracing::error!("pcap writer panicked during finalization");
+            PcapWriterFailure::Panic
+        });
     }
     tracing::warn!(timeout_ms = timeout.as_millis(), "pcap writer did not stop before deadline; detaching worker");
-    None
+    Err(PcapWriterFailure::Timeout)
 }
 
 /// Independent observer that owns clone-able handles to the
@@ -259,6 +280,7 @@ pub struct WriterStopResult {
     pub set_id: u64,
     pub files: Vec<PcapCaptureMetadata>,
     pub total_drops: u64,
+    pub failure: Option<PcapWriterFailure>,
 }
 
 fn writer_loop(
@@ -282,6 +304,7 @@ fn writer_loop(
                         if let Err(err) = fs::rename(&active_path, &completed_path) {
                             tracing::warn!(error = %err, "pcap writer failed to finalize capture file");
                             let _ = fs::remove_file(&active_path);
+                            result.failure = Some(PcapWriterFailure::Finalize);
                             break;
                         }
                         result.files.push(PcapCaptureMetadata {
@@ -296,6 +319,7 @@ fn writer_loop(
                     Err(err) => {
                         tracing::warn!(error = %err, "pcap writer failed; removing incomplete capture file");
                         let _ = fs::remove_file(&active_path);
+                        result.failure = Some(PcapWriterFailure::Write);
                         break;
                     }
                 }
@@ -304,7 +328,11 @@ fn writer_loop(
                     break;
                 }
             }
-            Err(_) => break,
+            Err(err) => {
+                tracing::warn!(error = %err, "pcap writer failed to create capture file");
+                result.failure = Some(PcapWriterFailure::Open);
+                break;
+            }
         }
     }
     result
@@ -358,9 +386,8 @@ fn drain_one_file(
     let bytes = writer.bytes_written();
     // PcapWriter -> BufWriter<File> -> File chain for fsync.
     let buf_writer = writer.into_inner();
-    if let Ok(inner_file) = buf_writer.into_inner() {
-        let _ = inner_file.sync_data();
-    }
+    let inner_file = buf_writer.into_inner().map_err(std::io::IntoInnerError::into_error)?;
+    inner_file.sync_all()?;
     Ok((bytes, packets))
 }
 
@@ -514,9 +541,22 @@ mod tests {
 
         let result = join_writer_bounded(handle, Duration::from_millis(25));
 
-        assert!(result.is_none());
+        assert!(matches!(result, Err(PcapWriterFailure::Timeout)));
         assert!(started.elapsed() < Duration::from_millis(250));
         let _ = release_tx.send(());
+    }
+
+    #[test]
+    fn writer_open_failure_is_terminal_and_returns_no_capture_file() {
+        let dir = TempDir::new().unwrap();
+        let missing = dir.path().join("missing");
+        let queue = Arc::new(ArrayQueue::new(1));
+        let stop = Arc::new(AtomicBool::new(true));
+
+        let result = writer_loop(44, missing, queue, stop, 1024, 1);
+
+        assert_eq!(result.failure, Some(PcapWriterFailure::Open));
+        assert!(result.files.is_empty());
     }
 
     #[test]

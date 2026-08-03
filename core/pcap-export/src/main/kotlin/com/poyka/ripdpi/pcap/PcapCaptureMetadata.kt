@@ -20,3 +20,17 @@ data class PcapCaptureMetadata(
     @SerialName("endedAtMs") val endedAtMs: Long,
     val drops: Long,
 )
+
+/**
+ * Terminal native writer state returned when a capture is stopped.
+ *
+ * [files] includes only PCAP files that were completely flushed, synced and
+ * atomically renamed by native code. [failure] is a stable writer code rather
+ * than a filesystem error, so it is safe to surface in local diagnostics.
+ */
+@Serializable
+data class PcapStopResult(
+    @SerialName("wasActive") val wasActive: Boolean,
+    val files: List<PcapCaptureMetadata>,
+    val failure: String? = null,
+)

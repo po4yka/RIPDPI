@@ -32,6 +32,7 @@ import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -418,6 +419,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     ) { backStackEntry ->
         val route = backStackEntry.toRoute<Route.Diagnostics>()
         val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
+        val pcapCaptureViewModel: PcapCaptureViewModel = hiltViewModel()
         DiagnosticsRoute(
             callbacks =
                 diagnosticsRouteCallbacks(
@@ -428,6 +430,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 ),
             initialSection = diagnosticsInitialSection ?: DiagnosticsSection.Scan.takeIf { route.autoStartScan },
             viewModel = diagnosticsViewModel,
+            pcapCaptureViewModel = pcapCaptureViewModel,
             topBarExtraActions = {
                 StrategyTunerTopBarAction(
                     onOpen = { navController.navigate(Route.StrategyTuner) { launchSingleTop = true } },

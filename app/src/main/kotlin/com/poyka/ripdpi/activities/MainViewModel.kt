@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.failover.ActiveTransportProvider
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
@@ -43,6 +44,7 @@ class MainViewModel
         private val mainLifecycleDependencies: MainLifecycleDependencies,
         private val stringResolver: StringResolver,
         private val activeTransportProvider: Optional<ActiveTransportProvider>,
+        private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -131,6 +133,7 @@ class MainViewModel
                 requestVpnStart = {
                     permissionActions.resolvePermissionAction(PermissionAction.StartVpnMode)
                 },
+                pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             )
         }
 

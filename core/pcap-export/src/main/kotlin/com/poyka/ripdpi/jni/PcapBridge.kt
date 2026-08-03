@@ -8,10 +8,10 @@ package com.poyka.ripdpi.jni
  *  - jniPcapStart returns positive capture-set id on success, 0 on
  *    failure. The capture set is bound to the tunnel session handle;
  *    jniDestroy on the session retires the capture-set automatically.
- *  - jniPcapStop returns a JSON array of PcapCaptureMetadata (one
- *    entry per file written). Empty array if the session has no
- *    active capture. Returns null if the native call panics; callers
- *    treat null as an empty result.
+ *  - jniPcapStop returns a typed JSON completion response: whether a
+ *    capture was active, only fully finalized capture files, and an
+ *    optional stable writer-failure code. Returns null if the native
+ *    call panics; callers surface this as a terminal failure.
  *  - jniPcapListCaptures returns a JSON array of best-effort metadata
  *    (filesystem size only; packet count NOT computed - call
  *    PcapReader to count packets per file). Returns null if the

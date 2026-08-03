@@ -365,6 +365,16 @@ class Tun2SocksTunnel(
             TunnelStats.fromNative(nativeStats)
         } ?: TunnelStats()
 
+    /**
+     * Runs [block] while the native session is reserved from lifecycle teardown.
+     *
+     * This is intentionally the only way a collaborator may use the opaque
+     * native handle. In particular, a PCAP start/stop operation must not race
+     * `stop()`/`destroy()` and attach to a reused or already-destroyed session.
+     */
+    suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? =
+        reservations.withReservationOrNull({ handle }, block)
+
     suspend fun telemetry(): NativeRuntimeSnapshot =
         reservations
             .withReservationOrNull({ handle }) { currentHandle ->
