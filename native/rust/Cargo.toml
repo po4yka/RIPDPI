@@ -230,7 +230,7 @@ ripdpi-ssh = { path = "crates/ripdpi-ssh" }
 # primitives (rsa, ssh-key, ssh-cipher) remain release candidates and ship in every
 # build via the always-on SSH relay. Track the remaining upstream stabilization in
 # deny.toml [advisories] "Known RC-crypto exposure" and Eugeny/russh #697 / PR #702.
-russh = "=0.62.4"
+russh = "=0.62.5"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
