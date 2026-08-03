@@ -69,6 +69,14 @@ class CiToolPinningTest(unittest.TestCase):
             action,
         )
 
+    def test_jni_symbol_guard_uses_shared_android_rust_setup(self) -> None:
+        source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("uses: ./.github/actions/setup-android-rust", source)
+        self.assertNotIn('sdkmanager "ndk;', source)
+
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))
