@@ -971,6 +971,7 @@ app:detection_check_category_webrtc
 app:detection_check_copy
 app:detection_check_copy_diagnostics
 app:detection_check_copy_markdown
+app:detection_check_export_failed
 app:detection_check_export_format_json
 app:detection_check_export_format_markdown
 app:detection_check_recommendations
