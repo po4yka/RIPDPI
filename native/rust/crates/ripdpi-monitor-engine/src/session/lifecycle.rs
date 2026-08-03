@@ -108,8 +108,9 @@ impl MonitorSession {
 
     pub fn take_report_json(&self) -> Result<Option<String>, String> {
         self.try_join_worker();
-        let shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
-        report_to_json(shared.report.as_ref())
+        let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
+        let report = shared.report.take();
+        report_to_json(report.as_ref())
     }
 
     pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
@@ -143,9 +144,45 @@ impl MonitorSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::{ProbeResult, ScanCompletionKind, ScanPathMode, ScanReport};
+    use ripdpi_telemetry::recorder::RecorderSnapshot;
     use std::sync::mpsc;
     use std::thread;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn take_report_consumes_finished_report() {
+        let session = MonitorSession::new();
+        session.shared.lock().expect("shared state").report = Some(ScanReport {
+            session_id: "finished-session".to_string(),
+            profile_id: "default".to_string(),
+            path_mode: ScanPathMode::RawPath,
+            started_at: 10,
+            finished_at: 20,
+            summary: "Finished".to_string(),
+            completion_kind: ScanCompletionKind::Normal,
+            termination_reason: None,
+            results: vec![ProbeResult {
+                probe_type: "connectivity".to_string(),
+                target: "example.com".to_string(),
+                outcome: "reachable".to_string(),
+                details: Vec::new(),
+            }],
+            observations: Vec::new(),
+            engine_analysis_version: None,
+            diagnoses: Vec::new(),
+            classifier_version: None,
+            pack_versions: std::collections::BTreeMap::default(),
+            strategy_probe_report: None,
+            confirm_good_dpi_verdict: None,
+            metrics_summary: None::<RecorderSnapshot>,
+        });
+
+        let report = session.take_report_json().expect("take finished report");
+
+        assert!(report.is_some());
+        assert_eq!(session.take_report_json().expect("report consumed"), None);
+    }
 
     #[test]
     fn destroy_returns_without_waiting_for_blocked_worker() {
