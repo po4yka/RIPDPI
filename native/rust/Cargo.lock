@@ -42,9 +42,9 @@ dependencies = [
 
 [[package]]
 name = "aes"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1fc76eaeac4c9164506c466d4ffdd8ec9d0c5bf57ee97177c4d8eceb3a0e138"
+checksum = "f8eb277bec05f56a0e0591f155a484cbd0f4f07ff2905051a48c72f004f7ed58"
 dependencies = [
  "cipher 0.5.2",
  "cpubits",
@@ -73,7 +73,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdf011db2e21ce0d575593d749db5554b47fed37aff429e4dc50bc91ac93a028"
 dependencies = [
  "aead 0.6.1",
- "aes 0.9.1",
+ "aes 0.9.2",
  "cipher 0.5.2",
  "ctr 0.10.1",
  "ghash 0.6.0",
@@ -4557,7 +4557,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279a91971a1d8eb1260a30938eae3be9cb67b472dffecb222fbbbe2fd2dc1453"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "cbc",
  "der 0.8.0",
  "pbkdf2",
@@ -5490,7 +5490,7 @@ version = "0.1.0"
 name = "ripdpi-cli"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "libc",
  "local-network-fixture",
  "log",
@@ -5545,7 +5545,7 @@ dependencies = [
 name = "ripdpi-desync"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "golden-test-support",
  "linkme",
  "rand 0.10.2",
@@ -5562,7 +5562,7 @@ dependencies = [
 name = "ripdpi-desync-runtime"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "libc",
  "loom",
  "ring",
@@ -6022,7 +6022,7 @@ version = "0.1.0"
 name = "ripdpi-packets"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "enum-map",
  "nom 8.0.0",
  "proptest",
@@ -6090,7 +6090,7 @@ dependencies = [
 name = "ripdpi-proxy-runtime"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "base64 0.23.0",
  "ctr 0.10.1",
  "libc",
@@ -6354,7 +6354,7 @@ dependencies = [
 name = "ripdpi-runtime-policy"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
@@ -6408,7 +6408,7 @@ dependencies = [
 name = "ripdpi-shadowsocks"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "aes-gcm 0.11.0",
  "base64 0.23.0",
  "blake3",
@@ -6772,7 +6772,7 @@ dependencies = [
 name = "ripdpi-vless"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "base64 0.23.0",
  "boring",
  "foreign-types-shared",
@@ -6899,7 +6899,7 @@ dependencies = [
 name = "ripdpi-ws-tunnel"
 version = "0.1.0"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "boring",
  "bytes",
  "cipher 0.5.2",
@@ -7024,7 +7024,7 @@ version = "0.62.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8b67b5a0d8068c89dcbe9d95df986af7a851d1f3c604525274c37468e60464f"
 dependencies = [
- "aes 0.9.1",
+ "aes 0.9.2",
  "aws-lc-rs",
  "bitflags 2.13.1",
  "block-padding",
@@ -7845,7 +7845,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d801accda99469cde6d73da741422610fdf6508a72d9a69d1b55cb241c720597"
 dependencies = [
  "aead 0.6.1",
- "aes 0.9.1",
+ "aes 0.9.2",
  "aes-gcm 0.11.0",
  "chacha20 0.10.0",
  "cipher 0.5.2",
