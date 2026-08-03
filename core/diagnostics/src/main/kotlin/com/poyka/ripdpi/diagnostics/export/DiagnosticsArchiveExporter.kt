@@ -116,16 +116,15 @@ internal class DefaultDiagnosticsArchiveExporter
             failureCode: DiagnosticsArchiveFailureCode,
             block: suspend () -> T,
         ): T =
-            try {
-                block()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: DiagnosticsArchiveException) {
-                throw error
-            } catch (error: Error) {
-                throw error
-            } catch (error: Throwable) {
-                throw DiagnosticsArchiveException(failureCode, error)
+            runCatching { block() }.getOrElse { error ->
+                when (error) {
+                    is CancellationException,
+                    is DiagnosticsArchiveException,
+                    is Error,
+                    -> throw error
+
+                    else -> throw DiagnosticsArchiveException(failureCode, error)
+                }
             }
 
         private fun DiagnosticsArchiveTarget.toExportRecord(

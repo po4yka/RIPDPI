@@ -642,6 +642,13 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT,
                 (failure as DiagnosticsArchiveException).failureCode,
             )
+            assertTrue(failure.cause is IllegalArgumentException)
+            assertTrue(
+                failure.cause
+                    ?.message
+                    .orEmpty()
+                    .contains("missing-session"),
+            )
 
             assertTrue(stores.exportsState.value.isEmpty())
         }
@@ -675,8 +682,18 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                     )
                 }.exceptionOrNull()
 
-            assertNotNull(failure)
-            assertTrue(failure?.message.orEmpty().contains("missing-home-run"))
+            assertTrue(failure is DiagnosticsArchiveException)
+            assertEquals(
+                DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT,
+                (failure as DiagnosticsArchiveException).failureCode,
+            )
+            assertTrue(failure.cause is IllegalArgumentException)
+            assertTrue(
+                failure.cause
+                    ?.message
+                    .orEmpty()
+                    .contains("missing-home-run"),
+            )
             assertTrue(stores.exportsState.value.isEmpty())
             assertTrue(
                 context.cacheDir
@@ -734,8 +751,18 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                     )
                 }.exceptionOrNull()
 
-            assertNotNull(failure)
-            assertTrue(failure?.message.orEmpty().contains("caller-session"))
+            assertTrue(failure is DiagnosticsArchiveException)
+            assertEquals(
+                DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT,
+                (failure as DiagnosticsArchiveException).failureCode,
+            )
+            assertTrue(failure.cause is IllegalArgumentException)
+            assertTrue(
+                failure.cause
+                    ?.message
+                    .orEmpty()
+                    .contains("caller-session"),
+            )
             assertTrue(stores.exportsState.value.isEmpty())
         }
 
