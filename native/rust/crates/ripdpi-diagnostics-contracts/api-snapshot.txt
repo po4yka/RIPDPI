@@ -633,6 +633,8 @@ pub const ripdpi_diagnostics_contracts::util::TELEGRAM_SPEED_SAMPLE_INTERVAL: co
 pub const ripdpi_diagnostics_contracts::util::TLS_FAKE_PROFILE_GOOGLE_CHROME: &str
 pub const ripdpi_diagnostics_contracts::util::TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR: &str
 pub const ripdpi_diagnostics_contracts::util::UDP_FAKE_PROFILE_DNS_QUERY: &str
+pub fn ripdpi_diagnostics_contracts::util::active_scan_io_deadline() -> core::option::Option<std::time::Instant>
+pub fn ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(core::time::Duration) -> core::result::Result<core::time::Duration, &'static str>
 pub fn ripdpi_diagnostics_contracts::util::classify_dns_answer_overlap(&[alloc::string::String], &[alloc::string::String]) -> ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
 pub fn ripdpi_diagnostics_contracts::util::classify_probe_outcome(&str, &ripdpi_diagnostics_contracts::ScanPathMode, &str) -> ripdpi_diagnostics_contracts::util::ProbeOutcomeClassification
 pub fn ripdpi_diagnostics_contracts::util::default_diagnosis_severity() -> alloc::string::String
@@ -663,6 +665,7 @@ pub fn ripdpi_diagnostics_contracts::util::parse_content_length(&[u8]) -> core::
 pub fn ripdpi_diagnostics_contracts::util::probe_session_seed(core::option::Option<&str>, &str) -> u64
 pub fn ripdpi_diagnostics_contracts::util::ranged_probe_delay(u64, &str, &str, u64, u64) -> u64
 pub fn ripdpi_diagnostics_contracts::util::stable_probe_hash(u64, &str) -> u64
+pub fn ripdpi_diagnostics_contracts::util::with_scan_io_deadline<T>(core::option::Option<std::time::Instant>, impl core::ops::function::FnOnce() -> T) -> T
 pub mod ripdpi_diagnostics_contracts::wire
 pub struct ripdpi_diagnostics_contracts::wire::EngineProbeResultWire
 pub ripdpi_diagnostics_contracts::wire::EngineProbeResultWire::details: alloc::vec::Vec<ripdpi_diagnostics_contracts::ProbeDetail>
