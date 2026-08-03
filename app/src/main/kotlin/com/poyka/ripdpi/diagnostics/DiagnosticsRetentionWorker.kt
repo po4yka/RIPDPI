@@ -9,6 +9,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
@@ -18,6 +19,8 @@ internal suspend fun trimDiagnosticsHistory(
     retentionStore: DiagnosticsHistoryRetentionStore,
 ) = retentionStore.trimOldData(retentionDays)
 
+internal fun cleanupDiagnosticsPcapFiles(fileStore: DiagnosticsArchiveFileStore) = fileStore.cleanupPcapFiles()
+
 @HiltWorker
 class DiagnosticsRetentionWorker
     @AssistedInject
@@ -26,10 +29,12 @@ class DiagnosticsRetentionWorker
         @Assisted workerParams: WorkerParameters,
         private val settingsRepository: AppSettingsRepository,
         private val retentionStore: DiagnosticsHistoryRetentionStore,
+        private val archiveFileStore: DiagnosticsArchiveFileStore,
     ) : CoroutineWorker(appContext, workerParams) {
         override suspend fun doWork(): Result =
             runCatching {
                 trimDiagnosticsHistory(settingsRepository.snapshot().diagnosticsHistoryRetentionDays, retentionStore)
+                cleanupDiagnosticsPcapFiles(archiveFileStore)
             }.fold(
                 onSuccess = { Result.success() },
                 onFailure = { Result.retry() },

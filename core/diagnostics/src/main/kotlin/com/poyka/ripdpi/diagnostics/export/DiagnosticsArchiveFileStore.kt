@@ -8,6 +8,8 @@ fun interface DiagnosticsArchiveClock {
 }
 
 private const val PcapRetentionWindowMs = 24L * 60L * 60L * 1000L
+private const val PcapRetentionMaxFiles = 4
+private const val PcapRetentionMaxBytes = 64L * 1024L * 1024L
 
 class DiagnosticsArchiveFileStore(
     private val cacheDir: File,
@@ -77,13 +79,41 @@ class DiagnosticsArchiveFileStore(
         val pcapDir = File(cacheDir, "diagnostics")
         if (!pcapDir.exists()) return
         val now = clock.now()
-        pcapDir
-            .listFiles()
-            .orEmpty()
-            .filter { it.isFile && it.extension == "pcap" }
+        val activeSetIds = activePcapSetIds(pcapDir)
+        pcapFiles(pcapDir)
+            .filterNot { it.belongsToActivePcapSet(activeSetIds) }
             .filter { now - it.lastModified() > PcapRetentionWindowMs }
             .forEach(::deleteVerified)
+        var retainedCount = 0
+        var retainedBytes = 0L
+        pcapFiles(pcapDir)
+            .filterNot { it.belongsToActivePcapSet(activeSetIds) }
+            .sortedByDescending { it.lastModified() }
+            .forEach { file ->
+                val fileBytes = file.length()
+                if (retainedCount < PcapRetentionMaxFiles && retainedBytes <= PcapRetentionMaxBytes - fileBytes) {
+                    retainedCount += 1
+                    retainedBytes += fileBytes
+                } else {
+                    deleteVerified(file)
+                }
+            }
     }
+
+    private fun pcapFiles(directory: File): List<File> =
+        directory.listFiles().orEmpty().filter { it.isFile && it.extension == "pcap" }
+
+    private fun activePcapSetIds(directory: File): Set<String> =
+        directory
+            .listFiles()
+            .orEmpty()
+            .asSequence()
+            .filter { it.isFile && it.name.endsWith(PcapActiveFileSuffix) }
+            .map { it.name.substringBefore('-') }
+            .toSet()
+
+    private fun File.belongsToActivePcapSet(activeSetIds: Set<String>): Boolean =
+        name.substringBefore('-') in activeSetIds
 
     internal fun createTarget(): DiagnosticsArchiveTarget {
         val createdAt = clock.now()
@@ -116,6 +146,10 @@ class DiagnosticsArchiveFileStore(
         file.isFile &&
             file.name.startsWith("${DiagnosticsArchiveFormat.fileNamePrefix}.") &&
             file.name.endsWith(".tmp")
+
+    private companion object {
+        const val PcapActiveFileSuffix = ".pcap.active"
+    }
 }
 
 internal fun restrictToOwner(

@@ -97,6 +97,38 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
+    fun `pcap cleanup bounds completed captures but preserves active capture set`() {
+        val cacheDir = Files.createTempDirectory("pcap-retention").toFile()
+        val pcapDir = cacheDir.resolve("diagnostics").apply { mkdirs() }
+        repeat(5) { index ->
+            val setId = (index + 10).toString(16).padStart(16, '0')
+            pcapDir.resolve("$setId-1-00.pcap").apply {
+                writeText("completed-$index")
+                setLastModified(1_700_000_000_000L - index * 1_000L)
+            }
+        }
+        val activeSetId = "0000000000000002"
+        val activeCompleted = pcapDir.resolve("$activeSetId-1-00.pcap").apply { writeText("active-rotation") }
+        val activeCurrent = pcapDir.resolve("$activeSetId-2-01.pcap.active").apply { writeText("active-current") }
+        val fileStore =
+            DiagnosticsArchiveFileStore(
+                cacheDir = cacheDir,
+                clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
+            )
+
+        fileStore.cleanupPcapFiles()
+
+        assertTrue(activeCompleted.exists())
+        assertTrue(activeCurrent.exists())
+        val inactiveCompleted =
+            pcapDir
+                .listFiles()
+                .orEmpty()
+                .filter { it.extension == "pcap" && !it.name.startsWith(activeSetId) }
+        assertTrue("expected at most four inactive captures, got $inactiveCompleted", inactiveCompleted.size <= 4)
+    }
+
+    @Test
     fun `zip writer rejects unsafe and duplicate entry names and uses owner only permissions`() {
         val cacheDir = Files.createTempDirectory("archive-zip-security").toFile()
         val target = cacheDir.resolve("safe.zip")
