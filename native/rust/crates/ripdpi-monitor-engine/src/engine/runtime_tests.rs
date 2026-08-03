@@ -206,10 +206,10 @@ fn connectivity_parallel_plan() -> ExecutionPlan {
 }
 
 #[test]
-fn parallel_runner_panic_is_isolated_and_scan_completes_with_siblings() {
-    // One of the three parallel connectivity runners panics. The scan must NOT
-    // abort: the surviving runners' results are merged and the panicked runner
-    // is surfaced as a failed step so it stays diagnosable in the report.
+fn parallel_runner_panic_terminates_scan_after_recording_sibling_results() {
+    // One of the three parallel connectivity runners panics. Surviving results
+    // are retained for support, but normal completion would falsely imply that
+    // all requested probes ran successfully.
     let shared = Arc::new(Mutex::new(SharedState::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     let mut runtime = ExecutionRuntime::new(shared, cancel);
@@ -227,8 +227,7 @@ fn parallel_runner_panic_is_isolated_and_scan_completes_with_siblings() {
     let outcome = coordinator.run(&plan, &mut runtime, None);
     std::panic::set_hook(prev_hook);
 
-    // The scan completed rather than being cancelled by the panic.
-    assert!(matches!(outcome, RunnerOutcome::Completed));
+    assert!(matches!(outcome, RunnerOutcome::Failed(message) if message.contains("runner panicked")));
 
     // Both healthy runners' results are present.
     let outcomes: Vec<&str> = runtime.results.iter().map(|r| r.outcome.as_str()).collect();

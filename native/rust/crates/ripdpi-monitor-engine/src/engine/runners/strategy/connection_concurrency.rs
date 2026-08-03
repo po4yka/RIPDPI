@@ -79,7 +79,9 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                 levels,
                 &profiles,
                 || runtime.is_cancelled() || runtime.is_past_deadline(),
-                |profile, level| execute_cell(target, &metadata.cohort_id, address, profile, level),
+                |profile, level| {
+                    execute_cell(target, &metadata.cohort_id, address, profile, level, runtime.scan_deadline())
+                },
             );
             for cell in &target_matrix.cells {
                 record_cell(plan, runtime, cell);
@@ -204,21 +206,24 @@ fn execute_cell(
     address: SocketAddr,
     profile: &str,
     parallelism: u16,
+    deadline: Option<Instant>,
 ) -> ClassifierCell {
-    execute_cell_with(target, cohort_id, address, profile, parallelism, |host, address, profile| {
+    execute_cell_with(target, cohort_id, address, profile, parallelism, deadline, |host, address, profile| {
+        let timeout =
+            ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
         let connector = ripdpi_tls_profiles::build_connector(profile, true).map_err(|error| error.to_string())?;
-        let stream = protected_tcp_connect(address).map_err(|error| error.to_string())?;
-        stream.set_read_timeout(Some(CONNECT_TIMEOUT)).map_err(|error| error.to_string())?;
-        stream.set_write_timeout(Some(CONNECT_TIMEOUT)).map_err(|error| error.to_string())?;
+        let stream = protected_tcp_connect(address, timeout).map_err(|error| error.to_string())?;
+        stream.set_read_timeout(Some(timeout)).map_err(|error| error.to_string())?;
+        stream.set_write_timeout(Some(timeout)).map_err(|error| error.to_string())?;
         connector.connect(host, stream).map_err(|error| error.to_string())
     })
 }
 
-fn protected_tcp_connect(address: SocketAddr) -> io::Result<TcpStream> {
+fn protected_tcp_connect(address: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
     let domain = if address.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
     ripdpi_runtime_platform::vpn::protect_diagnostics_socket(&socket, None)?;
-    socket.connect_timeout(&SockAddr::from(address), CONNECT_TIMEOUT)?;
+    socket.connect_timeout(&SockAddr::from(address), timeout)?;
     Ok(socket.into())
 }
 
@@ -228,6 +233,7 @@ fn execute_cell_with<F, T>(
     address: SocketAddr,
     profile: &str,
     parallelism: u16,
+    deadline: Option<Instant>,
     connect: F,
 ) -> ClassifierCell
 where
@@ -252,25 +258,27 @@ where
             release_txs.push(release_tx);
             let connect = &connect;
             handles.push(scope.spawn(move || {
-                start_barrier.wait();
-                launch_times.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Instant::now());
-                match catch_unwind(AssertUnwindSafe(|| connect(target.host.as_str(), address, profile))) {
-                    Ok(Ok(stream)) => {
-                        let now_active = active.fetch_add(1, Ordering::AcqRel) + 1;
-                        peak.fetch_max(now_active, Ordering::AcqRel);
-                        let _ = outcome_tx.send((usize::from(index), Ok(())));
-                        let _ = release_rx.recv_timeout(CELL_RESULT_DEADLINE);
-                        drop(stream);
-                        active.fetch_sub(1, Ordering::AcqRel);
+                ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                    start_barrier.wait();
+                    launch_times.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Instant::now());
+                    match catch_unwind(AssertUnwindSafe(|| connect(target.host.as_str(), address, profile))) {
+                        Ok(Ok(stream)) => {
+                            let now_active = active.fetch_add(1, Ordering::AcqRel) + 1;
+                            peak.fetch_max(now_active, Ordering::AcqRel);
+                            let _ = outcome_tx.send((usize::from(index), Ok(())));
+                            let _ = release_rx.recv_timeout(CELL_RESULT_DEADLINE);
+                            drop(stream);
+                            active.fetch_sub(1, Ordering::AcqRel);
+                        }
+                        Ok(Err(error)) => {
+                            let signal = classify_error(&error).to_string();
+                            let _ = outcome_tx.send((usize::from(index), Err(signal)));
+                        }
+                        Err(_) => {
+                            let _ = outcome_tx.send((usize::from(index), Err("connection_freeze".to_string())));
+                        }
                     }
-                    Ok(Err(error)) => {
-                        let signal = classify_error(&error).to_string();
-                        let _ = outcome_tx.send((usize::from(index), Err(signal)));
-                    }
-                    Err(_) => {
-                        let _ = outcome_tx.send((usize::from(index), Err("connection_freeze".to_string())));
-                    }
-                }
+                });
             }));
         }
         drop(outcome_tx);
@@ -535,6 +543,7 @@ mod tests {
             "127.0.0.1:443".parse().expect("address"),
             "safari_stable",
             4,
+            None,
             |_, _, profile| {
                 if profile == "safari_stable" { Err("connection reset".to_string()) } else { Ok(()) }
             },
@@ -553,6 +562,7 @@ mod tests {
             "127.0.0.1:443".parse().expect("address"),
             "firefox_stable",
             4,
+            None,
             |_, _, _| Ok(()),
         );
         assert_eq!(cell.status, ClassifierStatus::Healthy);
@@ -569,6 +579,7 @@ mod tests {
             "127.0.0.1:443".parse().expect("address"),
             "chrome_stable",
             4,
+            None,
             |_, _, _| {
                 if calls.fetch_add(1, Ordering::AcqRel) == 0 {
                     panic!("synthetic connector panic");
@@ -618,10 +629,10 @@ mod tests {
         };
 
         for profile in ripdpi_tls_profiles::AVAILABLE_PROFILES {
-            let cell = execute_cell_with(&target, "fixture", address, profile, 2, |host, address, profile| {
+            let cell = execute_cell_with(&target, "fixture", address, profile, 2, None, |host, address, profile| {
                 let connector =
                     ripdpi_tls_profiles::build_connector(profile, false).map_err(|error| error.to_string())?;
-                let stream = protected_tcp_connect(address).map_err(|error| error.to_string())?;
+                let stream = protected_tcp_connect(address, CONNECT_TIMEOUT).map_err(|error| error.to_string())?;
                 connector.connect(host, stream).map_err(|error| error.to_string())
             });
             assert_eq!(cell.status, ClassifierStatus::Healthy, "{profile}");

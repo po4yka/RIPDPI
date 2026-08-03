@@ -36,6 +36,6 @@ pub(crate) use ripdpi_diagnostics_contracts as types;
 
 pub(crate) mod util {
     pub use ripdpi_diagnostics_contracts::util::{
-        DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL, now_ms,
+        DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL, bounded_scan_io_timeout, now_ms,
     };
 }

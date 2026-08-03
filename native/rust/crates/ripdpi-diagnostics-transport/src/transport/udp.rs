@@ -1,7 +1,7 @@
 use std::io::ErrorKind;
 use std::net::{Ipv4Addr, SocketAddr};
 
-use crate::util::IO_TIMEOUT;
+use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::address::resolve_addresses;
 use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
@@ -70,11 +70,12 @@ pub fn relay_udp_payload_observed(
 }
 
 pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), String> {
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
     let socket = super::protect::protected_udp_bind(bind_addr, server).map_err(|err| err.to_string())?;
-    socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    socket.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    socket.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     socket.send_to(payload, server).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
     let (size, _) = socket.recv_from(&mut buf).map_err(format_udp_recv_error)?;
@@ -87,5 +88,24 @@ fn format_udp_recv_error(err: std::io::Error) -> String {
         ErrorKind::TimedOut => "udp_recv_timeout".to_string(),
         ErrorKind::WouldBlock => "udp_recv_would_block".to_string(),
         kind => format!("udp_recv_{kind:?}: {err}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
+
+    use super::relay_udp_direct;
+
+    #[test]
+    fn direct_udp_rejects_io_after_scan_deadline() {
+        let server = "127.0.0.1:9".parse().expect("socket address");
+        let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
+            relay_udp_direct(server, b"probe")
+        });
+
+        assert_eq!(result, Err("scan_deadline_exceeded".to_string()));
     }
 }

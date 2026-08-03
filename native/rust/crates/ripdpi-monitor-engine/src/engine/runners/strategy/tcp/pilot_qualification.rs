@@ -59,25 +59,28 @@ pub(super) fn qualify_pilot_candidates(
             continue;
         }
         let cancel_token = runtime.cancel_token();
+        let deadline = ripdpi_diagnostics_contracts::util::active_scan_io_deadline();
         let batch_results: Vec<(StrategyCandidateSpec, Option<CandidateExecution>)> = thread::scope(|s| {
             let handles: Vec<_> = batch
                 .iter()
                 .map(|spec| {
                     let spec_clone = spec.clone();
                     s.spawn(move || {
-                        if cancel_token.load(Ordering::Acquire) {
-                            return (spec_clone, None);
-                        }
-                        let execution = runner.lane_executor.execute_tcp_candidate(
-                            &spec_clone,
-                            qualifier_targets,
-                            strategy_plan.runtime_context.as_ref(),
-                            strategy_plan.probe_seed,
-                            tls_verifier,
-                            plan.request.diagnostic_tls_keylog_path.as_deref(),
-                            cancel_token,
-                        );
-                        (spec_clone, Some(execution))
+                        ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                            if cancel_token.load(Ordering::Acquire) {
+                                return (spec_clone, None);
+                            }
+                            let execution = runner.lane_executor.execute_tcp_candidate(
+                                &spec_clone,
+                                qualifier_targets,
+                                strategy_plan.runtime_context.as_ref(),
+                                strategy_plan.probe_seed,
+                                tls_verifier,
+                                plan.request.diagnostic_tls_keylog_path.as_deref(),
+                                cancel_token,
+                            );
+                            (spec_clone, Some(execution))
+                        })
                     })
                 })
                 .collect();

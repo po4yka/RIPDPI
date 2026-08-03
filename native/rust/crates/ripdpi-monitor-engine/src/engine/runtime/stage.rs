@@ -30,6 +30,7 @@ pub(in crate::engine) enum RunnerOutcome {
     Completed,
     Cancelled,
     Finished,
+    Failed(String),
 }
 
 pub(in crate::engine) trait ExecutionStageRunner {
@@ -45,7 +46,11 @@ pub(in crate::engine) trait ExecutionStageRunner {
         runtime: &mut ExecutionRuntime,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
-        record_collected_outcome(plan, runtime, self.run_collecting(plan, runtime.cancel_token(), tls_verifier))
+        let deadline = runtime.scan_deadline();
+        let collected = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+            self.run_collecting(plan, runtime.cancel_token(), tls_verifier)
+        });
+        record_collected_outcome(plan, runtime, collected)
     }
 
     /// Run without touching `runtime`, returning all steps collected independently.

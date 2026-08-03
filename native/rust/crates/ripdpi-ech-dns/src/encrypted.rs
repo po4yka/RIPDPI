@@ -10,7 +10,7 @@ use ripdpi_dns_resolver::{
 };
 
 use crate::transport::TransportConfig;
-use crate::util::now_ms;
+use crate::util::{bounded_scan_io_timeout, now_ms};
 
 use super::wire::{DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, DNS_RECORD_TYPE_SVCB, build_dns_query_with_type};
 
@@ -174,9 +174,11 @@ fn exchange_encrypted_dns_query_with_bind(
             EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port, credentials: None }
         }
     };
-    let resolver = EncryptedDnsResolver::with_connect_hooks(
+    let timeout = bounded_scan_io_timeout(Duration::from_secs(4)).map_err(str::to_string)?;
+    let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
         endpoint,
         transport,
+        timeout,
         encrypted_dns_connect_hooks_with_bind(outbound_bind_ip),
     )
     .map_err(|err| err.to_string())?;

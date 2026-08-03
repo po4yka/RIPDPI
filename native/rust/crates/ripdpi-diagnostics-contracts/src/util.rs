@@ -1,4 +1,5 @@
 mod constants;
+mod deadline;
 mod defaults;
 mod dns_helpers;
 mod http_helpers;
@@ -15,6 +16,7 @@ pub use constants::{
     TELEGRAM_DOWNLOAD_EXPECTED_BYTES, TELEGRAM_SPEED_SAMPLE_INTERVAL, TLS_FAKE_PROFILE_GOOGLE_CHROME,
     TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR, UDP_FAKE_PROFILE_DNS_QUERY,
 };
+pub use deadline::{active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
 pub use defaults::{
     default_diagnosis_severity, default_diagnostic_profile_family, default_http_path, default_quic_port,
     default_scan_kind, default_strategy_probe_suite, default_telegram_dc_port, default_telegram_stall_timeout_ms,

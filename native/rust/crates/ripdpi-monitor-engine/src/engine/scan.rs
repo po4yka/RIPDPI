@@ -113,6 +113,44 @@ pub fn run_engine_scan(
                 plan.total_steps,
             );
         }
+        RunnerOutcome::Failed(message) => {
+            let mut report = build_report(
+                plan.session_id.clone(),
+                plan.request.clone(),
+                plan.started_at,
+                message.clone(),
+                runtime.results,
+                runtime.observations,
+                runtime.strategy.strategy_probe_report,
+                None,
+            );
+            report.completion_kind = ScanCompletionKind::Terminated;
+            report.termination_reason = Some(ScanTerminationReason::EngineError);
+            set_report(&shared, report);
+            push_event(
+                &shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
+                "engine",
+                "error",
+                format!("Diagnostics terminated: {message}"),
+            );
+            set_progress(
+                &shared,
+                ScanProgress {
+                    session_id: plan.session_id,
+                    phase: "error".to_string(),
+                    completed_steps: runtime.completed_steps,
+                    total_steps: plan.total_steps,
+                    message: "Diagnostics terminated by an internal runner failure".to_string(),
+                    is_finished: true,
+                    latest_probe_target: None,
+                    latest_probe_outcome: Some("runner_panicked".to_string()),
+                    strategy_probe_progress: None,
+                },
+            );
+        }
         RunnerOutcome::Completed => {
             let summary = match plan.request.kind {
                 ScanKind::Connectivity => connectivity_summary(&runtime.results, &plan.request.path_mode),

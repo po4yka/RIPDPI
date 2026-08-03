@@ -2,7 +2,7 @@ use std::net::{SocketAddr, UdpSocket};
 
 use socket2::{Protocol, SockAddr, Socket, Type};
 
-use crate::util::{IO_TIMEOUT, stable_probe_hash};
+use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout, stable_probe_hash};
 
 use super::RouteAttemptTracker;
 use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
@@ -56,9 +56,10 @@ fn relay_udp_bucket(
     route_identity: &str,
     bucket: usize,
 ) -> Result<(Vec<u8>, SocketAddr, SocketAddr), String> {
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let mut last_error = None;
     for destination in destinations.iter().copied() {
-        match relay_udp_direct_with_bucket(destination, payload, config, route_identity, bucket) {
+        match relay_udp_direct_with_bucket(destination, payload, config, route_identity, bucket, timeout) {
             Ok(result) => return Ok(result),
             Err(err) => last_error = Some(err),
         }
@@ -72,6 +73,7 @@ fn relay_udp_direct_with_bucket(
     config: &RouteExperimentConfig,
     route_identity: &str,
     bucket: usize,
+    timeout: std::time::Duration,
 ) -> Result<(Vec<u8>, SocketAddr, SocketAddr), String> {
     let domain = socket_domain_for(server);
     let kind_seed = stable_probe_hash(config.session_seed, route_identity);
@@ -82,8 +84,8 @@ fn relay_udp_direct_with_bucket(
     let _ = socket.set_reuse_address(true);
     socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
     let udp: UdpSocket = socket.into();
-    udp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    udp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    udp.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    udp.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     udp.send_to(payload, server).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
     let (size, _) = udp.recv_from(&mut buf).map_err(|err| err.to_string())?;

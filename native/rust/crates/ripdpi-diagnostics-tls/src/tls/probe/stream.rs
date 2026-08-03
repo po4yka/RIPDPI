@@ -9,7 +9,7 @@ use super::capture::capture_tls_handshake;
 use crate::cdn_ech::opportunistic_ech_provider_for_ip;
 use crate::platform_ttl;
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
-use crate::util::IO_TIMEOUT;
+use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 pub(crate) fn open_probe_stream_targets(
     targets: &[TargetAddress],
@@ -43,8 +43,9 @@ pub(crate) fn open_probe_stream_targets_with_key_log(
     key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<ProbeStreamResult, String> {
     let opened = open_transport_stream(targets, port, transport)?;
-    opened.stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    opened.stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+    opened.stream.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    opened.stream.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
 
     match tls_name {
         Some(name) if should_run_tls_handshake(verify_certificates, port, profile) => {

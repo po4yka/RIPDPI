@@ -64,15 +64,21 @@ impl ExecutionCoordinator {
                         for parallel_stage in &parallel_runners {
                             let runner = self.runners.get(parallel_stage).expect("runner present");
                             let cancel = runtime.cancel_token();
-                            handles.push(s.spawn(move || runner.run_collecting(plan, cancel, tls_verifier)));
+                            let deadline = runtime.scan_deadline();
+                            handles.push(s.spawn(move || {
+                                ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                                    runner.run_collecting(plan, cancel, tls_verifier)
+                                })
+                            }));
                         }
-                        // Recover from a panicking runner instead of propagating
-                        // it: a single flaky probe must not abort the whole scan.
-                        // `join()` returns `Err` only when the thread panicked.
+                        // Record panics as support-visible probe failures before
+                        // returning a terminal runner outcome. `join()` returns
+                        // `Err` only when the thread panicked.
                         handles.into_iter().map(|h| panic_recovery::classify(h.join())).collect::<Vec<_>>()
                     });
 
                     let mut cancelled = false;
+                    let mut panic_message = None;
                     for (parallel_stage, joined) in parallel_runners.iter().zip(thread_results) {
                         parallel_done.insert(*parallel_stage);
                         let steps = match joined {
@@ -82,6 +88,7 @@ impl ExecutionCoordinator {
                                 steps
                             }
                             JoinedStageOutcome::Panicked(message) => {
+                                panic_message.get_or_insert_with(|| message.clone());
                                 panic_recovery::handle_panicked_runner(parallel_stage, &message)
                             }
                         };
@@ -89,6 +96,9 @@ impl ExecutionCoordinator {
                     }
                     if cancelled {
                         return RunnerOutcome::Cancelled;
+                    }
+                    if let Some(message) = panic_message {
+                        return RunnerOutcome::Failed(format!("parallel diagnostics runner panicked: {message}"));
                     }
                     continue;
                 }
@@ -106,6 +116,7 @@ impl ExecutionCoordinator {
                 RunnerOutcome::Completed => {}
                 RunnerOutcome::Cancelled => return RunnerOutcome::Cancelled,
                 RunnerOutcome::Finished => return RunnerOutcome::Finished,
+                RunnerOutcome::Failed(message) => return RunnerOutcome::Failed(message),
             }
         }
         RunnerOutcome::Completed

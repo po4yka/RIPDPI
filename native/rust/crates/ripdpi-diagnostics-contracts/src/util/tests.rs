@@ -1,4 +1,5 @@
 use std::fs;
+use std::time::{Duration, Instant};
 
 use golden_test_support::repo_root;
 use serde::Deserialize;
@@ -6,6 +7,25 @@ use serde::Deserialize;
 use crate::types::ScanPathMode;
 
 use super::*;
+
+#[test]
+fn scan_io_timeout_is_clamped_to_the_remaining_deadline() {
+    let timeout = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(20)), || {
+        bounded_scan_io_timeout(Duration::from_secs(1)).expect("remaining timeout")
+    });
+
+    assert!(timeout <= Duration::from_millis(20));
+    assert!(!timeout.is_zero());
+}
+
+#[test]
+fn expired_scan_deadline_rejects_new_io() {
+    let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
+        bounded_scan_io_timeout(Duration::from_secs(1))
+    });
+
+    assert_eq!(result, Err("scan_deadline_exceeded"));
+}
 
 #[test]
 fn stable_probe_hash_is_deterministic() {

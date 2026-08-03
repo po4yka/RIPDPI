@@ -5,7 +5,7 @@ use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
 use ripdpi_socks5_core::{Socks5Command, SocksError, validate_udp_rsv_frag};
 
-use crate::util::IO_TIMEOUT;
+use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::tcp::connect_direct;
 use super::types::{TargetAddress, TransportConnectResult};
@@ -35,6 +35,7 @@ pub(super) fn connect_via_socks5_observed(
 }
 
 pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     proxy.set_nonblocking(true).map_err(|err| err.to_string())?;
     let target = socks5_target(target, port);
     debug_assert!(
@@ -53,7 +54,7 @@ pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> 
             socks.request(Socks5Command::TCPConnect, target).await?;
             Ok::<_, SocksError>(socks.get_socket())
         };
-        match tokio::time::timeout(IO_TIMEOUT, operation).await {
+        match tokio::time::timeout(timeout, operation).await {
             Ok(Ok(proxy)) => Ok(proxy),
             Ok(Err(error)) => Err(error.to_string()),
             Err(_) => Err("SOCKS5 negotiation timed out".to_string()),
@@ -61,8 +62,8 @@ pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> 
     })?;
     let proxy = proxy.into_std().map_err(|err| err.to_string())?;
     proxy.set_nonblocking(false).map_err(|err| err.to_string())?;
-    proxy.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    proxy.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    proxy.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    proxy.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     Ok(proxy)
 }
 
@@ -171,9 +172,10 @@ pub fn relay_udp_via_socks5(
     destination: SocketAddr,
     payload: &[u8],
 ) -> Result<(Vec<u8>, SocketAddr), String> {
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let mut control = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
-    control.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    control.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    control.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    control.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     socks5_noauth_handshake(&mut control)?;
     let relay_addr = normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?;
 
@@ -183,8 +185,8 @@ pub fn relay_udp_via_socks5(
         "[::]:0".parse().expect("valid IPv6 UDP bind")
     };
     let udp = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
-    udp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    udp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    udp.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    udp.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     udp.connect(relay_addr).map_err(|err| err.to_string())?;
     let frame = encode_socks5_udp_frame(destination, payload);
     udp.send(&frame).map_err(|err| err.to_string())?;

@@ -48,6 +48,10 @@ impl ExecutionRuntime {
         self.scan_deadline.is_some_and(|d| std::time::Instant::now() >= d)
     }
 
+    pub(in crate::engine) fn scan_deadline(&self) -> Option<std::time::Instant> {
+        self.scan_deadline
+    }
+
     pub(in crate::engine) fn finish_with_report(&mut self, report: ScanReport) {
         self.final_report = Some(report);
     }

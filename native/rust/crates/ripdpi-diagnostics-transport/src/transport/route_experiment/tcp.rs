@@ -1,8 +1,9 @@
 use std::net::{SocketAddr, TcpStream};
+use std::time::Duration;
 
 use socket2::{Protocol, SockAddr, Socket, Type};
 
-use crate::util::{CONNECT_TIMEOUT, stable_probe_hash};
+use crate::util::{CONNECT_TIMEOUT, bounded_scan_io_timeout, stable_probe_hash};
 
 use super::RouteAttemptTracker;
 use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
@@ -40,9 +41,10 @@ fn connect_addresses_with_bucket(
     route_identity: &str,
     bucket: usize,
 ) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
+    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
     let mut last_error = None;
     for address in addresses.iter().copied() {
-        match connect_bound_tcp(address, config, route_identity, bucket) {
+        match connect_bound_tcp(address, config, route_identity, bucket, timeout) {
             Ok(result) => return Ok(result),
             Err(err) => last_error = Some(err),
         }
@@ -55,6 +57,7 @@ fn connect_bound_tcp(
     config: &RouteExperimentConfig,
     route_identity: &str,
     bucket: usize,
+    timeout: Duration,
 ) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
     let domain = socket_domain_for(address);
     let seed = stable_probe_hash(config.session_seed, route_identity);
@@ -65,7 +68,7 @@ fn connect_bound_tcp(
     crate::transport::protect::protect_for_target(&socket, address).map_err(|err| err.to_string())?;
     let _ = socket.set_reuse_address(true);
     socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
-    socket.connect_timeout(&remote, CONNECT_TIMEOUT).map_err(|err| err.to_string())?;
+    socket.connect_timeout(&remote, timeout).map_err(|err| err.to_string())?;
     let stream: TcpStream = socket.into();
     let local_addr = stream.local_addr().map_err(|err| err.to_string())?;
     Ok((stream, address, local_addr))

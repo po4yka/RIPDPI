@@ -39,21 +39,24 @@ pub(super) fn execute_candidate_batch(
 ) -> Vec<(usize, StrategyCandidateSpec, CandidateExecution)> {
     let strategy_plan = plan.strategy.as_ref().expect("strategy plan");
     let cancel_token = runtime.cancel_token();
+    let deadline = ripdpi_diagnostics_contracts::util::active_scan_io_deadline();
     thread::scope(|s| {
         let handles: Vec<_> = to_execute
             .into_iter()
             .map(|(candidate_index, spec)| {
                 s.spawn(move || {
-                    let execution = runner.lane_executor.execute_tcp_candidate(
-                        &spec,
-                        domain_targets,
-                        strategy_plan.runtime_context.as_ref(),
-                        strategy_plan.probe_seed,
-                        tls_verifier,
-                        plan.request.diagnostic_tls_keylog_path.as_deref(),
-                        cancel_token,
-                    );
-                    (candidate_index, spec, execution)
+                    ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                        let execution = runner.lane_executor.execute_tcp_candidate(
+                            &spec,
+                            domain_targets,
+                            strategy_plan.runtime_context.as_ref(),
+                            strategy_plan.probe_seed,
+                            tls_verifier,
+                            plan.request.diagnostic_tls_keylog_path.as_deref(),
+                            cancel_token,
+                        );
+                        (candidate_index, spec, execution)
+                    })
                 })
             })
             .collect();
