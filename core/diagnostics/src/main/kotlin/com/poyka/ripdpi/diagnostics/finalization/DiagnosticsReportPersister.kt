@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
 import com.poyka.ripdpi.diagnostics.NativeSessionEvent
 import com.poyka.ripdpi.diagnostics.ProbeDetail
@@ -99,7 +100,10 @@ internal object DiagnosticsReportPersister {
         scanRecordStore: DiagnosticsScanRecordStore,
     ) {
         val existing = scanRecordStore.getScanSession(sessionId) ?: return
-        if (existing.status != "running") {
+        val manualConflictCancellationWasPersisted =
+            summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary &&
+                existing.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
+        if (existing.status != "running" && !manualConflictCancellationWasPersisted) {
             Logger.withTag("DiagnosticsReportPersister").w {
                 "ignoring failure after terminal scan persistence session=$sessionId status=${existing.status}"
             }
