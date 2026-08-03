@@ -107,22 +107,28 @@ class PcapCaptureRuntimeController
 
         private suspend fun stopLocked(bridge: Tun2SocksBridge): PcapCaptureRuntimeState {
             activeBridge = null
+            var failureCode: String? = null
             val result =
                 try {
                     bridge.withSessionHandle(stopCapture)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (_: Exception) {
-                    return failLocked("stop_failed")
-                } ?: return failLocked("session_unavailable")
-            if (!result.wasActive) {
-                return failLocked("capture_missing")
+                    failureCode = "stop_failed"
+                    null
+                }
+            if (failureCode == null) {
+                failureCode =
+                    when {
+                        result == null -> "session_unavailable"
+                        !result.wasActive -> "capture_missing"
+                        else -> result.failure
+                    }
             }
-            val failure = result.failure
-            return if (failure == null) {
+            return if (failureCode == null) {
                 PcapCaptureRuntimeState.Idle.also { mutableState.value = it }
             } else {
-                failLocked(failure)
+                failLocked(failureCode)
             }
         }
 
