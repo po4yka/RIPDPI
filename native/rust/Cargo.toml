@@ -328,7 +328,7 @@ ringbuf = { version = "0.5", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"
-tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
+tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
 
 [workspace.lints.clippy]
