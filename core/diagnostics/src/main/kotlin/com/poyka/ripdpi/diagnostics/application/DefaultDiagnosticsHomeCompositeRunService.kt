@@ -100,11 +100,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         override suspend fun cancelHomeRun(runId: String) {
             withContext(NonCancellable) {
                 runJobs.cancel(runId) {
-                    try {
-                        stageExecutor.cancelRunStages(runId, progressState)
-                    } finally {
-                        updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
-                    }
+                    stageExecutor.cancelRunAndSetTerminalStatus(
+                        runId = runId,
+                        progressState = progressState,
+                        updateRunStatus = ::updateRunStatus,
+                    )
                 }
             }
         }

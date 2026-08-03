@@ -36,7 +36,7 @@ internal class HomeCompositeStageExecutor
             runId: String,
             progressState: StateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
         ) {
-            var cancellationFailure: CancellationException? = null
+            var cancellationFailure: Throwable? = null
             val recordedSessionIds =
                 progressState.value[runId]
                     ?.stages
@@ -53,15 +53,42 @@ internal class HomeCompositeStageExecutor
                     }
             } finally {
                 runCatching { diagnosticsScanController.releaseSessionsOwnedBy(runId) }
-                    .onFailure { failure -> log.w(failure) { "failed to release run sessions: runId=$runId" } }
+                    .exceptionOrNull()
+                    ?.let { releaseFailure ->
+                        cancellationFailure = cancellationFailure.withSuppressed(releaseFailure)
+                    }
             }
             cancellationFailure?.let { throw it }
+        }
+
+        suspend fun cancelRunAndSetTerminalStatus(
+            runId: String,
+            progressState: StateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
+            updateRunStatus: (String, DiagnosticsHomeCompositeRunStatus) -> Unit,
+        ) {
+            try {
+                cancelRunStages(runId, progressState)
+                updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
+            } catch (failure: Throwable) {
+                updateRunStatus(
+                    runId,
+                    if (
+                        failure is CancellationException &&
+                        failure.suppressed.all { it is CancellationException }
+                    ) {
+                        DiagnosticsHomeCompositeRunStatus.CANCELLED
+                    } else {
+                        DiagnosticsHomeCompositeRunStatus.FAILED
+                    },
+                )
+                throw failure
+            }
         }
 
         private suspend fun cancelRunSession(
             runId: String,
             sessionId: String,
-        ): CancellationException? {
+        ): Throwable? {
             val failure =
                 runCatching { diagnosticsScanController.cancelScan(sessionId) }.exceptionOrNull()
             return when (failure) {
@@ -69,13 +96,9 @@ internal class HomeCompositeStageExecutor
                     null
                 }
 
-                is CancellationException -> {
-                    failure
-                }
-
                 else -> {
                     log.w(failure) { "failed to cancel run session: runId=$runId sessionId=$sessionId" }
-                    null
+                    failure
                 }
             }
         }
@@ -343,7 +366,7 @@ internal class HomeCompositeStageExecutor
         }
     }
 
-private fun CancellationException?.withSuppressed(additional: CancellationException?): CancellationException? =
+private fun Throwable?.withSuppressed(additional: Throwable?): Throwable? =
     additional?.let { next ->
         this?.apply {
             if (this !== next) addSuppressed(next)

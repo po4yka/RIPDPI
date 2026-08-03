@@ -149,7 +149,82 @@ class DiagnosticsHomeCompositeRunCancellationTest {
         }
 
     @Test
-    fun `cancelRunStages continues after a session cancellation fails`() =
+    fun `cancelHomeRun fails when partial report retrieval fails`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            val scanController =
+                object : DiagnosticsScanController {
+                    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+
+                    override suspend fun startScan(
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                    ): DiagnosticsManualScanStartResult = DiagnosticsManualScanStartResult.Started("active-session")
+
+                    override suspend fun resolveHiddenProbeConflict(
+                        requestId: String,
+                        action: HiddenProbeConflictAction,
+                    ): DiagnosticsManualScanResolution = error("unused")
+
+                    override suspend fun cancelActiveScan() =
+                        throw java.io.IOException("partial report retrieval failed")
+
+                    override suspend fun setActiveProfile(profileId: String) = Unit
+                }
+            val workflowService =
+                object : DiagnosticsHomeWorkflowService {
+                    override suspend fun currentFingerprintHash(): String = "fp-cancel-failure"
+
+                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                        error("cancelled run must not finalize")
+
+                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+                        error("unused")
+                }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val service =
+                DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
+                    diagnosticsHomeWorkflowService = workflowService,
+                    scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = serviceStateStore,
+                    probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
+                    json = diagnosticsTestJson(),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startHomeAnalysis()
+            runCurrent()
+            val failure = runCatching { service.cancelHomeRun(started.runId) }.exceptionOrNull()
+
+            assertTrue(failure is java.io.IOException)
+            assertEquals("partial report retrieval failed", failure?.message)
+            assertEquals(
+                DiagnosticsHomeCompositeRunStatus.FAILED,
+                service.observeHomeRun(started.runId).first().status,
+            )
+        }
+
+    @Test
+    fun `cancelRunStages reports a session cancellation failure after cancelling the rest`() =
         runTest {
             val cancelledSessionIds = mutableListOf<String>()
             val controller =
@@ -175,7 +250,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
 
                     override suspend fun cancelScan(sessionId: String) {
                         cancelledSessionIds += sessionId
-                        if (sessionId == "session-one") error("cancel failed")
+                        if (sessionId == "session-one") throw java.io.IOException("partial report retrieval failed")
                     }
 
                     override suspend fun setActiveProfile(profileId: String) = Unit
@@ -219,9 +294,11 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                 )
 
-            executor.cancelRunStages("parallel-run", progressState)
+            val failure = runCatching { executor.cancelRunStages("parallel-run", progressState) }.exceptionOrNull()
 
             assertEquals(listOf("session-one", "session-two"), cancelledSessionIds)
+            assertTrue(failure is java.io.IOException)
+            assertEquals("partial report retrieval failed", failure?.message)
         }
 
     @Test
