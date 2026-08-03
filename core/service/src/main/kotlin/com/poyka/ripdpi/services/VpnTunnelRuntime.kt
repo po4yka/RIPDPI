@@ -33,20 +33,24 @@ internal data class VpnTunnelRuntimeCallbacks(
     val onTunnelTelemetry: (com.poyka.ripdpi.data.NativeRuntimeSnapshot) -> Unit = {},
 )
 
+internal data class VpnTunnelRuntimeEnvironment(
+    val protectPath: String? = null,
+    /**
+     * Absolute `<filesDir>/lua` directory the native TUN egress strategy loader
+     * jails `lua`-step `script_paths` to. `null` falls back to the process CWD.
+     */
+    val luaScriptBaseDir: String? = null,
+    val rootHelperSocketPathProvider: () -> String? = { null },
+    val geositeDbPath: String? = null,
+)
+
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
     private val appSettingsRepository: AppSettingsRepository,
     private val proxyGroupRepository: ProxyGroupRepository,
     private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
-    private val protectPath: String? = null,
-    /**
-     * Absolute `<filesDir>/lua` directory the native TUN egress strategy loader
-     * jails `lua`-step `script_paths` to. `null` falls back to the process CWD
-     * (`"."`); production supplies the app's absolute lua directory.
-     */
-    private val luaScriptBaseDir: String? = null,
-    private val rootHelperSocketPathProvider: () -> String? = { null },
+    private val environment: VpnTunnelRuntimeEnvironment = VpnTunnelRuntimeEnvironment(),
     /**
      * Bridge the native tun2socks worker calls to report flow 5-tuples for per-app
      * attribution. `null` disables attribution (the tunnel still runs); passed
@@ -54,7 +58,6 @@ internal class VpnTunnelRuntime(
      */
     private val flowAttributionBridge: FlowAttributionBridge? = null,
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
-    private val geositeDbPath: String? = null,
     private val callbacks: VpnTunnelRuntimeCallbacks = VpnTunnelRuntimeCallbacks(),
     private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
@@ -240,11 +243,12 @@ internal class VpnTunnelRuntime(
                     logContext = logContext,
                     encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
                     strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
-                    protectPath = protectPath,
-                    rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
-                    luaScriptBaseDir = luaScriptBaseDir,
+                    protectPath = environment.protectPath,
+                    rootHelperSocketPath =
+                        environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
+                    luaScriptBaseDir = environment.luaScriptBaseDir,
                     uidPolicy = uidPolicy,
-                    geositeDbPath = geositeDbPath,
+                    geositeDbPath = environment.geositeDbPath,
                 )
             val tunnelSession =
                 vpnTunnelSessionProvider.establish(
@@ -351,23 +355,32 @@ internal class VpnTunnelRuntime(
 
         forwardingLease.set(null)
         try {
-            activeBridge?.let { pcapCaptureRuntimeController?.retireTunnel(it) }
-            activeBridge?.stop()
+            stopBridges(activeBridge, inactiveBridge)
         } finally {
-            try {
-                if (inactiveBridge !== activeBridge) {
-                    inactiveBridge?.let { pcapCaptureRuntimeController?.retireTunnel(it) }
-                }
-                if (inactiveBridge !== activeBridge) inactiveBridge?.stop()
-            } finally {
-                tun2SocksBridge = null
-                retiringBridge = null
-                session.close()
-                tunSession = null
-                pendingSession = null
-                flowAttributionBridge?.deactivateUidPolicy()
-            }
+            tun2SocksBridge = null
+            retiringBridge = null
+            session.close()
+            tunSession = null
+            pendingSession = null
+            flowAttributionBridge?.deactivateUidPolicy()
         }
+    }
+
+    private suspend fun stopBridges(
+        activeBridge: Tun2SocksBridge?,
+        inactiveBridge: Tun2SocksBridge?,
+    ) {
+        try {
+            retireAndStopBridge(activeBridge)
+        } finally {
+            if (inactiveBridge !== activeBridge) retireAndStopBridge(inactiveBridge)
+        }
+    }
+
+    private suspend fun retireAndStopBridge(bridge: Tun2SocksBridge?) {
+        bridge ?: return
+        pcapCaptureRuntimeController?.retireTunnel(bridge)
+        bridge.stop()
     }
 
     suspend fun pollTelemetry(): RuntimeTelemetryOutcome {

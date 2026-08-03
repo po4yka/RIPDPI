@@ -330,7 +330,10 @@ class VpnTunnelRuntimeTest {
                             events = events,
                             session = TestVpnTunnelSession(events = events),
                         ),
-                    rootHelperSocketPathProvider = { rootHelperSocketPath },
+                    environment =
+                        VpnTunnelRuntimeEnvironment(
+                            rootHelperSocketPathProvider = { rootHelperSocketPath },
+                        ),
                 )
             rootHelperSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock"
 

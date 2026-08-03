@@ -42,6 +42,7 @@ import com.poyka.ripdpi.services.VpnServiceXrayProtectController
 import com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore
 import com.poyka.ripdpi.services.VpnTunnelRuntime
 import com.poyka.ripdpi.services.VpnTunnelRuntimeCallbacks
+import com.poyka.ripdpi.services.VpnTunnelRuntimeEnvironment
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.XrayManagedTunnel
@@ -139,15 +140,18 @@ internal object VpnServiceSessionModule {
             proxyGroupRepository = dependencies.proxyGroupRepository,
             tun2SocksBridgeFactory = dependencies.tun2SocksBridgeFactory,
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
-            protectPath = protectSocketServer.socketPath,
-            // Jail the TUN egress strategy loader to the app's absolute lua dir
-            // instead of "." — both the protect socket and the lua dir live
-            // directly under <filesDir>, so derive it from the socket's parent
-            // ("lua" mirrors LuaAssetManager's target directory name).
-            luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
-            rootHelperSocketPathProvider = { rootHelperManager.socketPath },
+            environment =
+                VpnTunnelRuntimeEnvironment(
+                    protectPath = protectSocketServer.socketPath,
+                    // Jail the TUN egress strategy loader to the app's absolute lua dir
+                    // instead of "." — both the protect socket and the lua dir live
+                    // directly under <filesDir>, so derive it from the socket's parent
+                    // ("lua" mirrors LuaAssetManager's target directory name).
+                    luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
+                    rootHelperSocketPathProvider = { rootHelperManager.socketPath },
+                    geositeDbPath = geositeDbPath,
+                ),
             flowAttributionBridge = flowAttributionBridge,
-            geositeDbPath = geositeDbPath,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             callbacks =
