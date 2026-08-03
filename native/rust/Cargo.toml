@@ -252,7 +252,7 @@ anyhow = "1"
 # features, but pin it explicitly so a future default-features purge cannot silently
 # drop DNSCrypt's classic-NaCl-box cipher path. See ripdpi-dns-resolver dnscrypt::cipher.
 crypto_box = { version = "0.9", features = ["chacha20", "salsa20"] }
-etherparse = "0.20"
+etherparse = "0.21"
 pico-args = "0.5"
 pollster = "1.0"
 hex = "0.4"
