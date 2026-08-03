@@ -33,6 +33,18 @@
 -keep interface dagger.hilt.internal.GeneratedComponentManagerHolder { *; }
 -keep interface dagger.hilt.internal.TestSingletonComponent { *; }
 -keep interface dagger.hilt.internal.TestSingletonComponentManager { *; }
+-keep,allowoptimization,allowobfuscation class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory
+-keepclassmembers class androidx.hilt.work.WorkerFactoryModule_ProvideFactoryFactory { *; }
+-keep,allowoptimization,allowobfuscation class com.poyka.ripdpi.RipDpiApp_MembersInjector
+-keepclassmembers class com.poyka.ripdpi.RipDpiApp_MembersInjector { *; }
+-keep,allowoptimization,allowobfuscation class dagger.hilt.android.flags.FragmentGetContextFix$FragmentGetContextFixEntryPoint
+-keepclassmembers class dagger.hilt.android.flags.FragmentGetContextFix$FragmentGetContextFixEntryPoint { *; }
+-keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$InternalFactoryFactory
+-keepclassmembers class dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories$InternalFactoryFactory { *; }
+-keep,allowoptimization,allowobfuscation class dagger.hilt.android.internal.managers.FragmentComponentManager$FragmentComponentBuilderEntryPoint
+-keepclassmembers class dagger.hilt.android.internal.managers.FragmentComponentManager$FragmentComponentBuilderEntryPoint { *; }
+-keep,allowoptimization,allowobfuscation class dagger.hilt.components.SingletonComponent
+-keepclassmembers class dagger.hilt.components.SingletonComponent { *; }
 -keep class androidx.tracing.Trace { *; }
 -keep public class kotlin.** {
     public protected *;
