@@ -4186,4 +4186,5 @@ Origen: %2$s</string>
     <string name="diagnostics_device_gate_run">Iniciar validación</string>
     <string name="diagnostics_device_gate_rerun">Reiniciar validación</string>
     <string name="diagnostics_device_gate_share">Compartir informe censurado</string>
+    <string name="detection_check_export_failed">No se pudo exportar el diagnóstico</string>
 </resources>

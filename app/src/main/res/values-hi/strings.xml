@@ -1945,4 +1945,5 @@ fakeddisorder endhost</string>
     <string name="diagnostics_device_gate_run">स्वीकृति जाँच शुरू करें</string>
     <string name="diagnostics_device_gate_rerun">स्वीकृति जाँच फिर शुरू करें</string>
     <string name="diagnostics_device_gate_share">संपादित रिपोर्ट साझा करें</string>
+    <string name="detection_check_export_failed">डायग्नोस्टिक्स निर्यात नहीं हो सका</string>
 </resources>

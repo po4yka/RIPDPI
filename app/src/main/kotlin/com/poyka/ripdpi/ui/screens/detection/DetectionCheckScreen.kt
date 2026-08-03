@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.launchDiagnosticsExport
 import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
@@ -647,6 +648,7 @@ private fun DetectionReportActions(
     val spacing = RipDpiThemeTokens.spacing
     val diagnosticsClipLabel = stringResource(R.string.clipboard_label_detection_diagnostics)
     var exportDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var exportFailureCode by rememberSaveable { mutableStateOf<String?>(null) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -673,6 +675,12 @@ private fun DetectionReportActions(
         onDismiss = { exportDialogVisible = false },
         context = context,
         performHaptic = performHaptic,
+        onExportFailure = { code -> exportFailureCode = code },
+    )
+    DetectionExportFailureDialog(
+        supportCode = exportFailureCode,
+        context = context,
+        onDismiss = { exportFailureCode = null },
     )
     debugReportText?.let { text ->
         val diagnosticsClipLabel = stringResource(R.string.clipboard_label_detection_diagnostics)
@@ -736,6 +744,7 @@ private fun DetectionExportFormatDialog(
     onDismiss: () -> Unit,
     context: Context,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
+    onExportFailure: (String) -> Unit,
 ) {
     if (!visible) return
     RipDpiDialog(
@@ -747,7 +756,13 @@ private fun DetectionExportFormatDialog(
             text = stringResource(R.string.detection_check_export_format_markdown),
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
-                shareDetectionExport(context, result, privacyModeEnabled, DetectionExportFormat.MARKDOWN)
+                shareDetectionExport(
+                    context,
+                    result,
+                    privacyModeEnabled,
+                    DetectionExportFormat.MARKDOWN,
+                    onExportFailure,
+                )
                 onDismiss()
             },
             modifier = Modifier.fillMaxWidth(),
@@ -756,7 +771,13 @@ private fun DetectionExportFormatDialog(
             text = stringResource(R.string.detection_check_export_format_json),
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
-                shareDetectionExport(context, result, privacyModeEnabled, DetectionExportFormat.JSON)
+                shareDetectionExport(
+                    context,
+                    result,
+                    privacyModeEnabled,
+                    DetectionExportFormat.JSON,
+                    onExportFailure,
+                )
                 onDismiss()
             },
             modifier = Modifier.fillMaxWidth(),
@@ -794,15 +815,58 @@ private fun shareDetectionExport(
     result: DetectionCheckResult,
     privacyModeEnabled: Boolean,
     format: DetectionExportFormat,
+    onFailure: (String) -> Unit,
 ) {
-    val intent =
-        DetectionExportShare.createShareIntent(
-            context = context,
-            result = result,
-            privacyModeEnabled = privacyModeEnabled,
-            format = format,
+    when (
+        val preparation =
+            DetectionExportShare.prepareShareIntent(
+                context = context,
+                result = result,
+                privacyModeEnabled = privacyModeEnabled,
+                format = format,
+            )
+    ) {
+        is DetectionExportShare.Preparation.Failed -> {
+            onFailure(preparation.supportCode)
+        }
+
+        is DetectionExportShare.Preparation.Ready -> {
+            val failureCode =
+                launchDiagnosticsExport(Intent.createChooser(preparation.intent, null)) { intent ->
+                    context.startActivity(intent)
+                }
+            failureCode?.let(onFailure)
+        }
+    }
+}
+
+@Composable
+private fun DetectionExportFailureDialog(
+    supportCode: String?,
+    context: Context,
+    onDismiss: () -> Unit,
+) {
+    val code = supportCode ?: return
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.detection_check_export_failed),
+        dismissAction = RipDpiDialogAction(label = stringResource(R.string.action_dismiss), onClick = onDismiss),
+    ) {
+        Text(text = code, style = RipDpiThemeTokens.type.body)
+        RipDpiButton(
+            text = stringResource(R.string.home_diagnostics_copy_support_code),
+            onClick = {
+                context
+                    .getSystemService(ClipboardManager::class.java)
+                    ?.setPrimaryClip(
+                        ClipData.newPlainText(context.getString(R.string.clipboard_label_error), code),
+                    )
+                onDismiss()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            variant = RipDpiButtonVariant.Outline,
         )
-    context.startActivity(Intent.createChooser(intent, null))
+    }
 }
 
 @Composable

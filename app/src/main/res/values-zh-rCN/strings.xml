@@ -4174,4 +4174,5 @@ fake_burst 3</string>
     <string name="diagnostics_device_gate_run">开始验收检查</string>
     <string name="diagnostics_device_gate_rerun">重新开始验收检查</string>
     <string name="diagnostics_device_gate_share">分享已脱敏报告</string>
+    <string name="detection_check_export_failed">无法导出诊断数据</string>
 </resources>

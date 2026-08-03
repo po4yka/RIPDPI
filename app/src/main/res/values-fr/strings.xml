@@ -4186,4 +4186,5 @@ Source : %2$s</string>
     <string name="diagnostics_device_gate_run">Démarrer la validation</string>
     <string name="diagnostics_device_gate_rerun">Redémarrer la validation</string>
     <string name="diagnostics_device_gate_share">Partager le rapport expurgé</string>
+    <string name="detection_check_export_failed">Impossible d’exporter le diagnostic</string>
 </resources>

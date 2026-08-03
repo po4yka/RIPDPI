@@ -4105,4 +4105,5 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restoring_draft">Восстановление сохранённого черновика…</string>
     <string name="strategy_config_draft_save_failed_title">Черновик не сохранён</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI повторяет локальное сохранение черновика. Не закрывайте этот экран, пока предупреждение не исчезнет.</string>
+    <string name="detection_check_export_failed">Не удалось экспортировать диагностику</string>
 </resources>

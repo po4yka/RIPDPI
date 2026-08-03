@@ -4218,4 +4218,5 @@ fakeddisorder endhost</string>
     <string name="diagnostics_device_gate_run">بدء فحص القبول</string>
     <string name="diagnostics_device_gate_rerun">إعادة فحص القبول</string>
     <string name="diagnostics_device_gate_share">مشاركة التقرير المنقّح</string>
+    <string name="detection_check_export_failed">تعذر تصدير التشخيص</string>
 </resources>

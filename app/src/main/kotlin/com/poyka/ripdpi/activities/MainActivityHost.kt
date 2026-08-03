@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.activities
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -182,12 +180,14 @@ internal class DefaultMainActivityHost
                 }
 
                 MainActivityHostCommand.SaveLogs -> {
-                    logsLauncher.launch(
+                    launchSaveDocument(
                         Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
                         },
+                        launch = logsLauncher::launch,
+                        failureMessage = activity.getString(R.string.logs_failed),
                     )
                 }
 
@@ -201,23 +201,27 @@ internal class DefaultMainActivityHost
                             filePath = command.filePath,
                             fileName = command.fileName,
                         )
-                    diagnosticsArchiveLauncher.launch(
+                    launchSaveDocument(
                         Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
                             type = "application/zip"
                             putExtra(Intent.EXTRA_TITLE, command.fileName)
                         },
+                        launch = diagnosticsArchiveLauncher::launch,
+                        failureMessage = activity.getString(R.string.diagnostics_archive_save_failed),
                     )
                 }
 
                 is MainActivityHostCommand.SaveDiagnosticsArchiveRequest -> {
                     pendingDiagnosticsArchiveRequest = command.request
-                    diagnosticsArchiveLauncher.launch(
+                    launchSaveDocument(
                         Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
                             type = "application/zip"
                             putExtra(Intent.EXTRA_TITLE, "ripdpi-analysis.zip")
                         },
+                        launch = diagnosticsArchiveLauncher::launch,
+                        failureMessage = activity.getString(R.string.diagnostics_archive_save_failed),
                     )
                 }
 
@@ -231,7 +235,13 @@ internal class DefaultMainActivityHost
                             title = command.title,
                             body = command.body,
                         )
-                    activity.startActivity(Intent.createChooser(shareIntent, command.title))
+                    reportExportLaunchFailure(
+                        code =
+                            launchDiagnosticsExport(Intent.createChooser(shareIntent, command.title)) {
+                                activity.startActivity(it)
+                            },
+                        message = activity.getString(R.string.home_diagnostics_share_failed),
+                    )
                 }
             }
         }
@@ -253,7 +263,7 @@ internal class DefaultMainActivityHost
                         Logger.e(error) { "Failed to save logs" }
                         viewModel.reportSupportError(
                             activity.getString(R.string.logs_failed),
-                            ArchiveIoSupportCode,
+                            DiagnosticsExportSupportCodes.ArchiveIo,
                         )
                     },
                 )
@@ -272,7 +282,7 @@ internal class DefaultMainActivityHost
                 Logger.e(error) { "Failed to save diagnostics archive" }
                 viewModel.reportSupportError(
                     activity.getString(R.string.diagnostics_archive_save_failed),
-                    ArchiveIoSupportCode,
+                    DiagnosticsExportSupportCodes.ArchiveIo,
                 )
             }
 
@@ -327,7 +337,10 @@ internal class DefaultMainActivityHost
                     shareDiagnosticsArchive(archive.absolutePath, archive.fileName)
                 }.onFailure { error ->
                     Logger.e(error) { "Failed to prepare support bundle" }
-                    Toast.makeText(activity, R.string.debug_bundle_failed, Toast.LENGTH_SHORT).show()
+                    viewModel.reportSupportError(
+                        activity.getString(R.string.debug_bundle_failed),
+                        DiagnosticsExportSupportCodes.ArchiveIo,
+                    )
                 }
             }
         }
@@ -348,23 +361,43 @@ internal class DefaultMainActivityHost
                         archiveUri = archiveUri,
                         fileName = fileName,
                     )
-                activity.startActivity(
-                    Intent.createChooser(
-                        shareIntent,
-                        activity.getString(R.string.diagnostics_share_archive_chooser),
-                    ),
+                reportExportLaunchFailure(
+                    code =
+                        launchDiagnosticsExport(
+                            Intent.createChooser(
+                                shareIntent,
+                                activity.getString(R.string.diagnostics_share_archive_chooser),
+                            ),
+                        ) { activity.startActivity(it) },
+                    message = activity.getString(R.string.home_diagnostics_share_failed),
                 )
             }.onFailure { error ->
                 Logger.e(error) { "Failed to share diagnostics archive" }
                 viewModel.reportSupportError(
                     activity.getString(R.string.home_diagnostics_share_failed),
-                    if (error is ActivityNotFoundException) {
-                        ShareNoHandlerSupportCode
-                    } else {
-                        ArchiveIoSupportCode
-                    },
+                    DiagnosticsExportSupportCodes.ArchiveIo,
                 )
             }
+        }
+
+        private fun launchSaveDocument(
+            intent: Intent,
+            launch: (Intent) -> Unit,
+            failureMessage: String,
+        ) {
+            val failureCode = launchDiagnosticsExport(intent, launch)
+            if (failureCode != null) {
+                pendingDiagnosticsArchive = null
+                pendingDiagnosticsArchiveRequest = null
+                reportExportLaunchFailure(failureCode, failureMessage)
+            }
+        }
+
+        private fun reportExportLaunchFailure(
+            code: String?,
+            message: String,
+        ) {
+            code?.let { viewModel.reportSupportError(message, it) }
         }
 
         private data class PendingDiagnosticsArchive(
@@ -428,9 +461,6 @@ internal suspend fun writeDiagnosticsArchiveDocument(
         }
     }
 }
-
-private const val ArchiveIoSupportCode = "archive_io"
-private const val ShareNoHandlerSupportCode = "share_no_handler"
 
 @Module
 @InstallIn(ActivityComponent::class)

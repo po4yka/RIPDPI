@@ -4318,4 +4318,5 @@ Source: %2$s</string>
     <string name="diagnostics_device_gate_run">Start acceptance check</string>
     <string name="diagnostics_device_gate_rerun">Restart acceptance check</string>
     <string name="diagnostics_device_gate_share">Share redacted report</string>
+    <string name="detection_check_export_failed">Failed to export diagnostics</string>
 </resources>

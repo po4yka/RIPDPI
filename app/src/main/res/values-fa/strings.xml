@@ -4191,4 +4191,5 @@ fakeddisorder endhost</string>
     <string name="diagnostics_device_gate_run">شروع آزمون پذیرش</string>
     <string name="diagnostics_device_gate_rerun">شروع دوبارهٔ آزمون</string>
     <string name="diagnostics_device_gate_share">اشتراک‌گذاری گزارش پالایش‌شده</string>
+    <string name="detection_check_export_failed">صادر کردن عیب‌یابی ناموفق بود</string>
 </resources>

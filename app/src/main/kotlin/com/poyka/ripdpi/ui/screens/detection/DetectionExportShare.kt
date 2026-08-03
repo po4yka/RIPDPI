@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.poyka.ripdpi.BuildConfig
+import com.poyka.ripdpi.activities.DiagnosticsExportSupportCodes
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.export.DetectionExportMetadata
 import com.poyka.ripdpi.core.detection.export.DetectionJsonExportFormatter
@@ -22,13 +23,24 @@ internal enum class DetectionExportFormat(
 }
 
 internal object DetectionExportShare {
-    fun createShareIntent(
+    sealed interface Preparation {
+        data class Ready(
+            val intent: Intent,
+        ) : Preparation
+
+        data class Failed(
+            val supportCode: String,
+        ) : Preparation
+    }
+
+    fun prepareShareIntent(
         context: Context,
         result: DetectionCheckResult,
         privacyModeEnabled: Boolean,
         format: DetectionExportFormat,
         now: Instant = Instant.now(),
-    ): Intent {
+        exportDirectory: File = File(context.cacheDir, ExportDirectory),
+    ): Preparation {
         val metadata =
             DetectionExportMetadata(
                 timestamp = now.toString(),
@@ -37,24 +49,33 @@ internal object DetectionExportShare {
                 privacyMode = privacyModeEnabled,
             )
         val fileName = "ripdpi-detection-${FilenameTimestamp.format(now)}.${format.extension}"
-        val body = format.render(result, metadata)
+        val body =
+            runCatching { format.render(result, metadata) }
+                .getOrElse { return Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveInconsistentResult) }
         val file =
-            File(context.cacheDir, ExportDirectory)
-                .apply { mkdirs() }
-                .resolve(fileName)
-                .apply { writeText(body) }
+            runCatching {
+                exportDirectory
+                    .apply {
+                        check((exists() && isDirectory) || mkdirs()) { "Cannot create detection export directory" }
+                    }.resolve(fileName)
+                    .apply { writeText(body) }
+            }.getOrElse { return Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveStorage) }
         val uri =
-            FileProvider.getUriForFile(
-                context,
-                "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
-                file,
-            )
-        return Intent(Intent.ACTION_SEND).apply {
-            type = format.mimeType
-            putExtra(Intent.EXTRA_SUBJECT, fileName)
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
+            runCatching {
+                FileProvider.getUriForFile(
+                    context,
+                    "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
+                    file,
+                )
+            }.getOrElse { return Preparation.Failed(DiagnosticsExportSupportCodes.ArchiveStorage) }
+        return Preparation.Ready(
+            Intent(Intent.ACTION_SEND).apply {
+                type = format.mimeType
+                putExtra(Intent.EXTRA_SUBJECT, fileName)
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            },
+        )
     }
 
     fun renderText(

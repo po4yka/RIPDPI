@@ -4186,4 +4186,5 @@ Quelle: %2$s</string>
     <string name="diagnostics_device_gate_run">Abnahmeprüfung starten</string>
     <string name="diagnostics_device_gate_rerun">Abnahmeprüfung neu starten</string>
     <string name="diagnostics_device_gate_share">Bereinigten Bericht teilen</string>
+    <string name="detection_check_export_failed">Diagnosedaten konnten nicht exportiert werden</string>
 </resources>
