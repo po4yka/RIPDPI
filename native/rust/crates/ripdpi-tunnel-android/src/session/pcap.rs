@@ -25,7 +25,7 @@ use ripdpi_pcap::rewrite_endpoints;
 use ripdpi_tunnel_core::PacketObserver;
 use ripdpi_tunnel_core::Stats;
 
-use crate::pcap::{PcapCaptureSet, WriterStopResult, list_captures};
+use crate::pcap::{PcapCaptureSet, WriterStopResult, enforce_global_retention, list_captures};
 
 struct ActiveCapture {
     set: PcapCaptureSet,
@@ -54,6 +54,9 @@ pub(crate) fn pcap_start_entry(
         log::warn!("pcap_start_entry: session {session_handle} already has an active capture");
         return 0;
     }
+    let active_set_ids =
+        reg.values().filter(|active| active.set.dir() == capture_dir).map(|active| active.set.set_id()).collect();
+    enforce_global_retention(&capture_dir, &active_set_ids);
     let set_id = NEXT_SET_ID.fetch_add(1, Ordering::Relaxed);
     let set = match PcapCaptureSet::start(set_id, capture_dir, max_file_bytes, max_files) {
         Ok(s) => s,
@@ -69,16 +72,19 @@ pub(crate) fn pcap_start_entry(
 }
 
 fn stop_capture(session_handle: i64) -> Option<WriterStopResult> {
-    let active = match REGISTRY.lock() {
-        Ok(mut reg) => reg.remove(&session_handle),
-        Err(_) => {
-            log::error!("pcap stop: registry mutex poisoned");
-            return None;
-        }
-    }?;
+    let Ok(mut reg) = REGISTRY.lock() else {
+        log::error!("pcap stop: registry mutex poisoned");
+        return None;
+    };
+    let active = reg.remove(&session_handle)?;
     active.set.request_stop();
     active.stats.clear_packet_observer();
-    Some(active.set.stop())
+    let capture_dir = active.set.dir().to_path_buf();
+    let result = active.set.stop();
+    let active_set_ids =
+        reg.values().filter(|other| other.set.dir() == capture_dir).map(|other| other.set.set_id()).collect();
+    enforce_global_retention(&capture_dir, &active_set_ids);
+    Some(result)
 }
 
 /// Inner entry: stop the capture-set bound to the session and return
@@ -214,6 +220,32 @@ mod tests {
         assert_eq!(set_id, 0, "expected 0 (failure) for missing dir, got {set_id}");
         // Nothing should be left in the registry.
         assert_eq!(pcap_stop_entry(handle), "[]");
+    }
+
+    #[test]
+    fn pcap_start_and_stop_enforce_global_completed_capture_budget() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        for set_id in 10..=14u64 {
+            std::fs::write(dir.path().join(format!("{set_id:016x}-1-00.pcap")), b"old").unwrap();
+        }
+        let handle = next_test_handle();
+
+        assert!(pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1) > 0);
+        assert!(
+            list_captures(dir.path()).len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
+            "start must prune completed captures before creating a new set",
+        );
+
+        for set_id in 20..=24u64 {
+            std::fs::write(dir.path().join(format!("{set_id:016x}-1-00.pcap")), b"old").unwrap();
+        }
+        let _ = pcap_stop_entry(handle);
+
+        assert!(
+            list_captures(dir.path()).len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
+            "stop must prune completed captures after finalizing the set",
+        );
     }
 
     #[test]

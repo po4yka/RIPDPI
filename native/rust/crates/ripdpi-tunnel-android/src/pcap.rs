@@ -11,6 +11,7 @@
 //! module.
 #![allow(dead_code)]
 
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -27,6 +28,8 @@ use ripdpi_tunnel_core::PacketObserver;
 
 const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_FILES: u32 = 16;
+pub(crate) const GLOBAL_MAX_CAPTURE_BYTES: u64 = 64 * 1024 * 1024;
+pub(crate) const GLOBAL_MAX_CAPTURE_FILES: u32 = 4;
 
 #[cfg(test)]
 pub(crate) static LIVE_WRITER_THREADS: AtomicU64 = AtomicU64::new(0);
@@ -272,12 +275,17 @@ fn writer_loop(
     let mut file_idx: u32 = 0;
     while file_idx < max_files {
         match open_file(set_id, &dir, file_idx) {
-            Ok((path, file, started_at_ms)) => {
+            Ok((active_path, completed_path, file, started_at_ms)) => {
                 let drain = drain_one_file(&queue, &stop, file, max_file_bytes);
                 match drain {
                     Ok((bytes, packets)) => {
+                        if let Err(err) = fs::rename(&active_path, &completed_path) {
+                            tracing::warn!(error = %err, "pcap writer failed to finalize capture file");
+                            let _ = fs::remove_file(&active_path);
+                            break;
+                        }
                         result.files.push(PcapCaptureMetadata {
-                            path: path.display().to_string(),
+                            path: completed_path.display().to_string(),
                             byte_size: bytes,
                             packet_count: packets,
                             started_at_ms,
@@ -285,7 +293,11 @@ fn writer_loop(
                             drops: 0, // populated in stop()
                         });
                     }
-                    Err(_) => break,
+                    Err(err) => {
+                        tracing::warn!(error = %err, "pcap writer failed; removing incomplete capture file");
+                        let _ = fs::remove_file(&active_path);
+                        break;
+                    }
                 }
                 file_idx += 1;
                 if stop.load(Ordering::Acquire) && queue.is_empty() {
@@ -298,13 +310,14 @@ fn writer_loop(
     result
 }
 
-fn open_file(set_id: u64, dir: &Path, idx: u32) -> std::io::Result<(PathBuf, BufWriter<File>, u64)> {
+fn open_file(set_id: u64, dir: &Path, idx: u32) -> std::io::Result<(PathBuf, PathBuf, BufWriter<File>, u64)> {
     let started = now_ms();
     let filename = format!("{set_id:016x}-{started}-{idx:02}.pcap");
-    let path = dir.join(filename);
-    let file = File::create(&path)?;
+    let completed_path = dir.join(filename);
+    let active_path = completed_path.with_extension("pcap.active");
+    let file = File::create(&active_path)?;
     let writer = BufWriter::with_capacity(64 * 1024, file);
-    Ok((path, writer, started))
+    Ok((active_path, completed_path, writer, started))
 }
 
 /// Drain records into `file` until either `max_file_bytes` reached
@@ -379,6 +392,62 @@ pub fn list_captures(dir: &Path) -> Vec<PcapCaptureMetadata> {
         });
     }
     files
+}
+
+/// Prune completed captures for one storage directory to a single global
+/// budget. Active capture sets are deliberately exempt: both the current
+/// `.pcap.active` file and already-rotated `.pcap` files with an active set id
+/// remain available until that set stops.
+pub(crate) fn enforce_global_retention(dir: &Path, active_set_ids: &HashSet<u64>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut completed = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if is_active_capture(&path) {
+            if !capture_set_id(&path).is_some_and(|set_id| active_set_ids.contains(&set_id)) {
+                let _ = fs::remove_file(path);
+            }
+            continue;
+        }
+        if !is_completed_capture(&path) || capture_set_id(&path).is_some_and(|set_id| active_set_ids.contains(&set_id))
+        {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        completed.push((path, metadata.len(), metadata.modified().ok()));
+    }
+    completed.sort_by_key(|(_, _, modified)| *modified);
+
+    let mut retained_count = completed.len() as u32;
+    let mut retained_bytes: u64 = completed.iter().map(|(_, bytes, _)| *bytes).sum();
+    for (path, bytes, _) in completed {
+        if retained_count <= GLOBAL_MAX_CAPTURE_FILES && retained_bytes <= GLOBAL_MAX_CAPTURE_BYTES {
+            break;
+        }
+        if fs::remove_file(path).is_ok() {
+            retained_count -= 1;
+            retained_bytes = retained_bytes.saturating_sub(bytes);
+        }
+    }
+}
+
+fn is_completed_capture(path: &Path) -> bool {
+    path.extension().and_then(|extension| extension.to_str()) == Some("pcap")
+}
+
+fn is_active_capture(path: &Path) -> bool {
+    path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.ends_with(".pcap.active"))
+}
+
+fn capture_set_id(path: &Path) -> Option<u64> {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.split_once('-').map(|(set_id, _)| set_id))
+        .and_then(|set_id| u64::from_str_radix(set_id, 16).ok())
 }
 
 #[cfg(test)]
@@ -487,6 +556,32 @@ mod tests {
         let files = list_captures(dir.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].path.ends_with("bar.pcap"));
+    }
+
+    #[test]
+    fn global_retention_bounds_completed_files_without_deleting_active_set() {
+        let dir = TempDir::new().unwrap();
+        let active_set_id = 2u64;
+        for set_id in 10..=14u64 {
+            std::fs::write(dir.path().join(format!("{set_id:016x}-1-00.pcap")), b"old").unwrap();
+        }
+        let active_finished = dir.path().join(format!("{active_set_id:016x}-1-00.pcap"));
+        let active_current = dir.path().join(format!("{active_set_id:016x}-2-01.pcap.active"));
+        std::fs::write(&active_finished, b"active-completed-rotation").unwrap();
+        std::fs::write(&active_current, b"active-current-write").unwrap();
+
+        enforce_global_retention(dir.path(), &std::collections::HashSet::from([active_set_id]));
+
+        assert!(active_finished.exists(), "completed rotations of active captures must be preserved");
+        assert!(active_current.exists(), "currently written capture must be preserved");
+        let completed_non_active = fs::read_dir(dir.path())
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| is_completed_capture(path))
+            .filter(|path| capture_set_id(path) != Some(active_set_id))
+            .count();
+        assert!(completed_non_active <= GLOBAL_MAX_CAPTURE_FILES as usize);
     }
 
     #[test]
