@@ -239,83 +239,74 @@ internal class DefaultMainActivityHost
         private fun handleLogsResult(uri: Uri?) {
             // A null URI is the picker cancellation signal. Do not collect logs before
             // checking it: logcat collection can be expensive and must not happen for a cancelled save.
-            if (uri == null) return
-
-            activity.lifecycleScope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
+            if (uri != null) {
+                activity.launchIoOperation(
+                    operation = {
                         val logcatSnapshot =
                             logcatSnapshotCollector.capture()
                                 ?: throw IOException("Failed to capture logs")
                         activity.contentResolver.openOutputStream(uri)?.use { stream ->
                             stream.write(diagnosticsLogRedactor.redactLogcat(logcatSnapshot.content).toByteArray())
                         } ?: throw IOException("Failed to open log destination")
-                    }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    Logger.e(error) { "Failed to save logs" }
-                    viewModel.reportSupportError(
-                        message = activity.getString(R.string.logs_failed),
-                        supportCode = ArchiveIoSupportCode,
-                    )
-                }
+                    },
+                    onFailure = { error ->
+                        Logger.e(error) { "Failed to save logs" }
+                        viewModel.reportSupportError(
+                            activity.getString(R.string.logs_failed),
+                            ArchiveIoSupportCode,
+                        )
+                    },
+                )
             }
         }
 
         private fun handleDiagnosticsArchiveResult(uri: Uri?) {
             val request = pendingDiagnosticsArchiveRequest
-            if (request != null) {
-                pendingDiagnosticsArchiveRequest = null
-                if (uri == null) return
-                activity.lifecycleScope.launch {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            writeDiagnosticsArchiveDocument(
-                                destination = uri,
-                                openDestinationStream = { activity.contentResolver.openOutputStream(uri) },
-                                writeArchive = { stream -> diagnosticsShareService.writeArchive(request, stream) },
-                                deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
-                            )
-                        }
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (error: Exception) {
-                        Logger.e(error) { "Failed to save diagnostics archive" }
-                        viewModel.reportSupportError(
-                            message = activity.getString(R.string.diagnostics_archive_save_failed),
-                            supportCode = ArchiveIoSupportCode,
-                        )
-                    }
-                }
-                return
-            }
-            val archive = pendingDiagnosticsArchive ?: return
-            if (uri == null) {
+            val archive = pendingDiagnosticsArchive.takeIf { request == null }
+            if (request == null) {
                 pendingDiagnosticsArchive = null
-                return
+            } else {
+                pendingDiagnosticsArchiveRequest = null
             }
-            pendingDiagnosticsArchive = null
-            activity.lifecycleScope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
-                        writeDiagnosticsArchiveDocument(
-                            destination = uri,
-                            openDestinationStream = { activity.contentResolver.openOutputStream(uri) },
-                            writeArchive = { stream ->
-                                copyDiagnosticsArchive(source = File(archive.filePath), destination = stream)
+            val onFailure: (Throwable) -> Unit = { error ->
+                Logger.e(error) { "Failed to save diagnostics archive" }
+                viewModel.reportSupportError(
+                    activity.getString(R.string.diagnostics_archive_save_failed),
+                    ArchiveIoSupportCode,
+                )
+            }
+
+            if (uri != null) {
+                when {
+                    request != null -> {
+                        activity.launchIoOperation(
+                            operation = {
+                                writeDiagnosticsArchiveDocument(
+                                    destination = uri,
+                                    openDestinationStream = { activity.contentResolver.openOutputStream(uri) },
+                                    writeArchive = { stream -> diagnosticsShareService.writeArchive(request, stream) },
+                                    deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
+                                )
                             },
-                            deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
+                            onFailure = onFailure,
                         )
                     }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    Logger.e(error) { "Failed to save diagnostics archive" }
-                    viewModel.reportSupportError(
-                        message = activity.getString(R.string.diagnostics_archive_save_failed),
-                        supportCode = ArchiveIoSupportCode,
-                    )
+
+                    archive != null -> {
+                        activity.launchIoOperation(
+                            operation = {
+                                writeDiagnosticsArchiveDocument(
+                                    destination = uri,
+                                    openDestinationStream = { activity.contentResolver.openOutputStream(uri) },
+                                    writeArchive = { stream ->
+                                        copyDiagnosticsArchive(source = File(archive.filePath), destination = stream)
+                                    },
+                                    deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
+                                )
+                            },
+                            onFailure = onFailure,
+                        )
+                    }
                 }
             }
         }
@@ -387,6 +378,20 @@ internal class DefaultMainActivityHost
             }
         }
     }
+
+private fun AppCompatActivity.launchIoOperation(
+    operation: suspend () -> Unit,
+    onFailure: (Throwable) -> Unit,
+) {
+    lifecycleScope.launch {
+        runCatching {
+            withContext(Dispatchers.IO) { operation() }
+        }.onFailure { error ->
+            if (error is CancellationException) throw error
+            onFailure(error)
+        }
+    }
+}
 
 internal fun copyDiagnosticsArchive(
     source: File,
