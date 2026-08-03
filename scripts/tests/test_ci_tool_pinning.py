@@ -69,6 +69,14 @@ class CiToolPinningTest(unittest.TestCase):
             action,
         )
 
+    def test_jni_symbol_guard_uses_shared_android_rust_setup(self) -> None:
+        source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("uses: ./.github/actions/setup-android-rust", source)
+        self.assertNotIn('sdkmanager "ndk;', source)
+
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))
@@ -81,7 +89,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf",
+            "uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf",
             source,
         )
         self.assertIn("tool: cargo-fuzz@0.13.1", source)

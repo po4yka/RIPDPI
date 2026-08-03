@@ -52,7 +52,9 @@ fn classify_parsed_packet<'a>(
     };
 
     let udp = match transport {
-        TransportSlice::Icmpv4(_) | TransportSlice::Icmpv6(_) => return IpClass::TcpOrOther,
+        TransportSlice::Icmpv4(_) | TransportSlice::Icmpv6(_) | TransportSlice::Igmp(_) => {
+            return IpClass::TcpOrOther;
+        }
         TransportSlice::Udp(udp) => udp,
         TransportSlice::Tcp(_) => return IpClass::TcpOrOther,
     };
@@ -136,6 +138,19 @@ mod tests {
         pkt
     }
 
+    fn ipv4_igmp() -> Vec<u8> {
+        let mut pkt = vec![0u8; 28];
+        pkt[0] = 0x45;
+        pkt[2..4].copy_from_slice(&28u16.to_be_bytes());
+        pkt[8] = 64;
+        pkt[9] = 2;
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[224, 0, 0, 1]);
+        pkt[20] = 0x11;
+        pkt[21] = 0x64;
+        pkt
+    }
+
     fn ipv6_udp(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
         let udp_len = 8 + payload.len();
         let payload_len = udp_len as u16;
@@ -196,6 +211,13 @@ mod tests {
     fn tcp_is_tcp_or_other() {
         let pkt = ipv4_tcp([10, 0, 0, 1], [1, 1, 1, 1], 12345, 80);
         let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+        assert!(matches!(class, IpClass::TcpOrOther));
+    }
+
+    #[test]
+    fn igmp_is_tcp_or_other() {
+        let pkt = ipv4_igmp();
+        let class = classify_ip_packet(&pkt, None);
         assert!(matches!(class, IpClass::TcpOrOther));
     }
 

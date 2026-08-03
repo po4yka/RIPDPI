@@ -21,34 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up JDK
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: ./.github/actions/setup-android-rust
         with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
-
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
-        with:
-          toolchain: stable
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-
-      - name: Install Android NDK
-        run: |
-          sdkmanager "ndk;27.2.12479018"
-          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "${GITHUB_ENV}"
-
-      - name: Cache Rust build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/rust/target
-          key: jni-sym-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock') }}
-          restore-keys: jni-sym-${{ runner.os }}-
+          rust-components: ""
+          rust-cache-shared-key: jni-sym
+          gradle-cache-read-only: "true"
 
       # Materialize the pinned rust-toolchain.toml channel + its components
       # (clippy/rust-src/rust-analyzer/rustfmt) once, serially, before the
@@ -65,8 +42,6 @@ jobs:
 
       - name: Build native library (arm64-v8a release)
         run: ./gradlew :core:engine:buildRustNativeLibs
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
       - name: Locate libripdpi.so (arm64-v8a)
         id: locate
