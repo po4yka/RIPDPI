@@ -59,7 +59,7 @@ class PcapReader(
 
     init {
         snaplen =
-            try {
+            runCatching {
                 val header = ByteArray(GLOBAL_HEADER_LEN)
                 if (!inputStream.readExactly(header)) {
                     throw IOException("incomplete global header")
@@ -74,12 +74,10 @@ class PcapReader(
                     throw IOException("unsupported linktype $linktype, expected $LINKTYPE_RAW")
                 }
                 parsedSnaplen
-            } catch (failure: Throwable) {
-                try {
-                    inputStream.close()
-                } catch (closeFailure: Throwable) {
-                    failure.addSuppressed(closeFailure)
-                }
+            }.getOrElse { failure ->
+                runCatching { inputStream.close() }
+                    .exceptionOrNull()
+                    ?.let(failure::addSuppressed)
                 throw failure
             }
     }

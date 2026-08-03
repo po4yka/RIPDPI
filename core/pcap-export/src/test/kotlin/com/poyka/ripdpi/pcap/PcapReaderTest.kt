@@ -58,6 +58,19 @@ class PcapReaderTest {
     }
 
     @Test
+    fun globalHeader_validationFailure_preservesFailureWhenCloseFails() {
+        val input =
+            object : ByteArrayInputStream(headerBytes(linktype = 1)) {
+                override fun close(): Unit = throw IOException("close failed")
+            }
+
+        val failure = assertThrows(IOException::class.java) { PcapReader(input) }
+
+        assertTrue(failure.message.orEmpty().contains("unsupported linktype"))
+        assertEquals("close failed", failure.suppressed.single().message)
+    }
+
+    @Test
     fun readsZeroPackets_fromEmptyFileBody() {
         val bytes = headerBytes()
         val reader = PcapReader(ByteArrayInputStream(bytes))
