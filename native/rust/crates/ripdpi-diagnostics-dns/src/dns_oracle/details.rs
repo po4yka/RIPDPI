@@ -17,8 +17,17 @@ pub(super) fn detail_entries<T>(assessment: &DnsOracleAssessment<T>) -> Vec<Prob
         .filter(|attempt| attempt.error.is_some() || attempt.answers.is_empty())
         .map(|attempt| attempt.resolver_id.clone())
         .collect::<Vec<_>>();
+    let attempt_diagnostics = assessment
+        .attempts
+        .iter()
+        .map(|attempt| {
+            let code =
+                attempt.error.as_deref().unwrap_or(if attempt.answers.is_empty() { "empty_answer" } else { "ok" });
+            format!("{}:{code}:{}:{}", attempt.resolver_id, attempt.latency_ms, attempt.answers.len())
+        })
+        .collect::<Vec<_>>();
 
-    let mut details = Vec::with_capacity(8);
+    let mut details = Vec::with_capacity(9);
     push_detail(&mut details, "oracleTrust", assessment.trust.as_str().to_string());
     push_detail(&mut details, "oracleConfidenceScore", assessment.confidence_score.to_string());
     push_detail(
@@ -31,6 +40,7 @@ pub(super) fn detail_entries<T>(assessment: &DnsOracleAssessment<T>) -> Vec<Prob
     push_detail(&mut details, "oracleTriedResolvers", attempted.join("|"));
     push_detail(&mut details, "oracleSuccessfulResolvers", succeeded.join("|"));
     push_detail(&mut details, "oracleFailedResolvers", failed.join("|"));
+    push_detail(&mut details, "oracleAttemptDiagnostics", attempt_diagnostics.join("|"));
     details
 }
 

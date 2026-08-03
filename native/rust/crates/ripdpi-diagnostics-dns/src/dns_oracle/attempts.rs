@@ -47,11 +47,44 @@ where
                     is_primary,
                     latency_ms: started.elapsed().as_millis(),
                     answers: Vec::new(),
-                    error: Some(error),
+                    error: Some(classify_oracle_error(&error).to_string()),
                 });
             }
         }
     }
 
     (attempts, successes)
+}
+
+fn classify_oracle_error(error: &str) -> &'static str {
+    let normalized = error.to_ascii_lowercase();
+    if normalized.contains("timed out") || normalized.contains("timeout") {
+        "timeout"
+    } else if normalized.contains("connection refused") || normalized.contains("refused") {
+        "connection_refused"
+    } else if normalized.contains("connection reset") || normalized.contains("reset") {
+        "connection_reset"
+    } else if normalized.contains("certificate") || normalized.contains("tls") {
+        "tls_failure"
+    } else if normalized.contains("http") || normalized.contains("status") {
+        "http_error"
+    } else if normalized.contains("invalid") || normalized.contains("parse") || normalized.contains("malformed") {
+        "invalid_response"
+    } else {
+        "network_error"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::classify_oracle_error;
+
+    #[test]
+    fn oracle_error_classifier_never_retains_raw_error_text() {
+        assert_eq!(
+            classify_oracle_error("connection refused while contacting private.resolver.invalid"),
+            "connection_refused"
+        );
+        assert_eq!(classify_oracle_error("unexpected resolver payload 198.51.100.1"), "network_error");
+    }
 }

@@ -143,4 +143,26 @@ mod tests {
         assert_eq!(assessment.fallback_resolver_used(), Some("fallback-a".to_string()));
         assert!(!assessment.trust.allows_tampering_classification());
     }
+
+    #[test]
+    fn unavailable_oracle_details_keep_classified_attempt_diagnostics() {
+        let assessment = evaluate_dns_oracles(
+            endpoint("primary"),
+            &[],
+            0,
+            |_| Err("connection refused while contacting private.resolver.invalid".to_string()),
+            |answer: &StubAnswer| answer.answers.clone(),
+        );
+
+        assert_eq!(assessment.trust, DnsOracleTrust::Unavailable);
+        let details = assessment.detail_entries();
+        let attempts = details
+            .iter()
+            .find(|detail| detail.key == "oracleAttemptDiagnostics")
+            .map(|detail| detail.value.as_str())
+            .expect("safe oracle attempt diagnostics");
+        assert!(attempts.starts_with("primary:connection_refused:"));
+        assert!(attempts.ends_with(":0"));
+        assert!(!attempts.contains("private.resolver.invalid"));
+    }
 }
