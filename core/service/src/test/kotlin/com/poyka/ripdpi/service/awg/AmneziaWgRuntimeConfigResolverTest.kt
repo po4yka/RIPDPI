@@ -17,9 +17,9 @@ class AmneziaWgRuntimeConfigResolverTest {
     private fun request() =
         AwgActivationRequest(
             profileId = "awg-uuid-1",
-            privateKey = "privkey==",
-            peerPublicKey = "peerpub==",
-            presharedKey = "psk==",
+            privateKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            peerPublicKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+            presharedKey = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=",
             endpointHost = "vpn.example.org",
             endpointPort = 51820,
             interfaceAddressV4 = "10.8.0.2/32",
@@ -48,9 +48,9 @@ class AmneziaWgRuntimeConfigResolverTest {
 
         assertEquals(true, config.enabled)
         assertEquals("awg-uuid-1", config.profileId)
-        assertEquals("privkey==", config.privateKey)
-        assertEquals("peerpub==", config.peerPublicKey)
-        assertEquals("psk==", config.presharedKey)
+        assertEquals("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", config.privateKey)
+        assertEquals("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=", config.peerPublicKey)
+        assertEquals("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=", config.presharedKey)
         assertEquals("vpn.example.org", config.endpointHost)
         assertEquals(51820, config.endpointPort)
         assertEquals("10.8.0.2/32", config.interfaceAddressV4)

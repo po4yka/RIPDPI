@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
 import com.poyka.ripdpi.core.RipDpiAmneziaWgCarrierKind
 import com.poyka.ripdpi.core.RipDpiAmneziaWgObfuscationConfig
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,16 +33,8 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
     @Inject
     constructor() : AmneziaWgRuntimeConfigResolver {
         override fun resolve(request: AwgActivationRequest): ResolvedRipDpiAmneziaWgConfig {
-            request.obfuscation.requireArm64Safe()
-            require(request.privateKey.isNotBlank()) { "AmneziaWG interface private key missing" }
-            require(request.peerPublicKey.isNotBlank()) { "AmneziaWG peer public key missing" }
-            require(request.endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
-            require(request.endpointPort > 0) { "AmneziaWG endpoint port invalid" }
-            require(request.interfaceAddressV4.isNotBlank()) { "AmneziaWG interface address missing" }
+            request.requireRuntimeReady()
             val carrier = request.carrier.toCarrierKind()
-            require(carrier != RipDpiAmneziaWgCarrierKind.Ws || request.carrierWsUrl.isNotBlank()) {
-                "AmneziaWG WS carrier requires a carrier URL"
-            }
             return ResolvedRipDpiAmneziaWgConfig(
                 enabled = true,
                 profileId = request.profileId,

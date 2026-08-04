@@ -81,12 +81,12 @@ private val FAKE_BUNDLE =
         "amneziawg": [
           {
             "tag": "test-awg",
-            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
             "address": ["10.8.0.2/32"],
             "dns": ["1.1.1.1"],
             "mtu": 1330,
             "peer": {
-              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
               "endpoint": "1.2.3.4:51820",
               "allowed_ips": ["0.0.0.0/0"],
               "persistent_keepalive": 25
@@ -120,6 +120,18 @@ private val NO_AWG_BUNDLE =
     FAKE_BUNDLE.replace(
         Regex("""(?s)"amneziawg": \[\s*\{.*?\}\s*]"""),
         "\"amneziawg\": []",
+    )
+
+private val INVALID_AWG_KEY_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+        "not-a-wireguard-key",
+    )
+
+private val MISSING_AWG_ADDRESS_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "\"address\": [\"10.8.0.2/32\"]",
+        "\"address\": []",
     )
 
 private val MULTI_RELAY_BUNDLE =
@@ -161,10 +173,10 @@ private val MULTI_RELAY_BUNDLE =
         "amneziawg": [
           {
             "tag": "test-awg",
-            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
             "address": ["10.8.0.2/32"],
             "peer": {
-              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
               "endpoint": "192.0.2.40:51820",
               "allowed_ips": ["0.0.0.0/0"]
             },
@@ -461,6 +473,34 @@ class ConfigSeederTest {
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
             assertTrue(failure is IllegalStateException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle with invalid AWG key fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(INVALID_AWG_KEY_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle with missing AWG address fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(MISSING_AWG_ADDRESS_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
             assertTrue(relayProfileStore.list().isEmpty())

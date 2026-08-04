@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.subscription.toActivationRequest
@@ -117,6 +118,7 @@ open class ConfigSeeder
                         }
                     }
                     val awgRequests = result.amneziaWgProfiles.map { it.toActivationRequest() }
+                    awgRequests.forEach { it.requireRuntimeReady() }
 
                     val existingGroup = proxyGroupRepository.list().firstOrNull { it.id == groupId }
                     proxyGroupRepository.add(

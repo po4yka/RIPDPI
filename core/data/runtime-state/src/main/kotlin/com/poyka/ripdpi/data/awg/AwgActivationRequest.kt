@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.awg
 
 import com.poyka.ripdpi.data.wireguard.requireAmneziaWgArm64Safe
 import kotlinx.serialization.Serializable
+import java.util.Base64
 
 /**
  * A fully-resolved, self-contained request to activate a standalone AmneziaWG
@@ -61,6 +62,28 @@ data class AwgActivationRequest(
         const val CARRIER_WS: String = "ws"
     }
 }
+
+/** Rejects requests that cannot reach the owned AmneziaWG runtime. */
+fun AwgActivationRequest.requireRuntimeReady() {
+    obfuscation.requireArm64Safe()
+    require(privateKey.isWireGuardKey()) { "AmneziaWG interface private key is invalid" }
+    require(peerPublicKey.isWireGuardKey()) { "AmneziaWG peer public key is invalid" }
+    require(presharedKey.isBlank() || presharedKey.isWireGuardKey()) { "AmneziaWG preshared key is invalid" }
+    require(endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
+    require(endpointPort in ValidEndpointPorts) { "AmneziaWG endpoint port invalid" }
+    require(interfaceAddressV4.isNotBlank()) { "AmneziaWG interface address missing" }
+    require(carrier != AwgActivationRequest.CARRIER_WS || carrierWsUrl.isNotBlank()) {
+        "AmneziaWG WS carrier requires a carrier URL"
+    }
+}
+
+private fun String.isWireGuardKey(): Boolean =
+    listOf(Base64.getDecoder(), Base64.getUrlDecoder()).any { decoder ->
+        runCatching { decoder.decode(this) }.getOrNull()?.size == WireGuardKeyBytes
+    }
+
+private val ValidEndpointPorts = 1..65_535
+private const val WireGuardKeyBytes = 32
 
 /**
  * AmneziaWG obfuscation knobs in activation-request form. Mirrors the
