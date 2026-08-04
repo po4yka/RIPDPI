@@ -122,6 +122,12 @@ private val NO_AWG_BUNDLE =
         "\"amneziawg\": []",
     )
 
+private val INVALID_HYSTERIA_PORT_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "\"server_port\": 8443",
+        "\"server_port\": 70000",
+    )
+
 private val INVALID_AWG_KEY_BUNDLE =
     FAKE_BUNDLE.replace(
         "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
@@ -497,6 +503,20 @@ class ConfigSeederTest {
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
             assertTrue(failure is IllegalStateException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle with invalid Hysteria port fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(INVALID_HYSTERIA_PORT_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
             assertTrue(relayProfileStore.list().isEmpty())

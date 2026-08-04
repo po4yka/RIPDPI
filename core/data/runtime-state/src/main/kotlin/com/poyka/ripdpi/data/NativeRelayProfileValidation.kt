@@ -42,8 +42,14 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             true
         }
 
+        is ProxyProfile.Hysteria2 -> {
+            require(profile.server.isNotBlank()) { "Hysteria2 requires a server hostname" }
+            require(profile.serverPort in RelayPortRange) { "Hysteria2 requires a valid server port" }
+            require(profile.password.isNotBlank()) { "Hysteria2 requires an authentication password" }
+            true
+        }
+
         is ProxyProfile.AnyTls,
-        is ProxyProfile.Hysteria2,
         is ProxyProfile.Mieru,
         is ProxyProfile.Shadowsocks,
         is ProxyProfile.Ssh,
