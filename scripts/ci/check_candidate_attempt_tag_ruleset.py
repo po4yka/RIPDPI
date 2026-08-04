@@ -24,7 +24,7 @@ def validate_rulesets(payload: Any) -> None:
         raise ValueError("candidate-attempt ruleset must target tags")
     if ruleset.get("enforcement") != "active":
         raise ValueError("candidate-attempt tag ruleset must be active")
-    if ruleset.get("bypass_actors"):
+    if ruleset.get("bypass_actors") != []:
         raise ValueError("candidate-attempt tag ruleset must not have bypass actors")
     ref_condition = ruleset.get("conditions", {}).get("ref_name", {})
     if ref_condition.get("include") != [REF_PATTERN] or ref_condition.get("exclude") != []:

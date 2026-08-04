@@ -29,9 +29,14 @@ class CandidateAttemptTagRulesetTest(unittest.TestCase):
         validate_rulesets([ruleset()])
 
     def test_rejects_missing_pattern_bypass_and_missing_protection(self) -> None:
+        missing_bypass = ruleset()
+        del missing_bypass["bypass_actors"]
         cases = (
             [],
+            [missing_bypass],
             [ruleset(bypass_actors=[{"actor_id": 1}])],
+            [ruleset(bypass_actors=None)],
+            [ruleset(bypass_actors={})],
             [ruleset(target="branch")],
             [ruleset(conditions={"ref_name": {"include": ["refs/tags/v*"], "exclude": []}})],
             [ruleset(conditions={"ref_name": {"include": [REF_PATTERN], "exclude": [REF_PATTERN]}})],
