@@ -81,6 +81,15 @@ class ReleaseContractTest(unittest.TestCase):
                 "publication.trigger",
             )
 
+    def test_release_window_variables_must_match_candidate_workflow(self) -> None:
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        contract["releaseWindow"]["startShaVariable"] = "MISSING_WINDOW_SHA"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "release-contract.json"
+            path.write_text(json.dumps(contract), encoding="utf-8")
+            with self.assertRaisesRegex(ContractError, "startShaVariable"):
+                validate_contract(path)
+
 
 if __name__ == "__main__":
     unittest.main()

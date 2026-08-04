@@ -130,6 +130,13 @@ exact-SHA CI, then builds the signed outputs once:
 - `update.json`
 - `SHA256SUMS`
 
+Before that first candidate, set `RIPDPI_RELEASE_WINDOW_START_SHA` to the exact
+feature-freeze commit on `main` and `RIPDPI_RELEASE_WINDOW_STARTED_AT` to an
+ISO-8601 UTC timestamp. Candidate preflight enforces the checked-in
+`releaseWindow`: no more than 72 hours, 20 release-fix commits, or five candidate
+runs for the target tag. Late features and refactors require a new release cut;
+they cannot enter the signing environment as release fixes.
+
 The candidate is stored with a source-bound manifest, signatures, native ELF
 checks, symbols, and attestations. A matching `v*` tag then triggers
 `.github/workflows/release.yml`. That workflow downloads the candidate by its

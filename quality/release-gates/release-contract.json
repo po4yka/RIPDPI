@@ -28,6 +28,17 @@
     },
     "candidateRunVariable": "RIPDPI_RELEASE_CANDIDATE_RUN_ID"
   },
+  "releaseWindow": {
+    "startShaVariable": "RIPDPI_RELEASE_WINDOW_START_SHA",
+    "startedAtVariable": "RIPDPI_RELEASE_WINDOW_STARTED_AT",
+    "maxAgeHours": 72,
+    "maxCommits": 20,
+    "maxCandidateRuns": 5,
+    "allowedSubjectPatterns": [
+      "^(fix|test|docs|ci|build)(\\([^)]+\\))?!?: .+$",
+      "^chore\\(release\\)!?: .+$"
+    ]
+  },
   "assuranceProfiles": {
     "artifact-publish": {
       "releaseBlocking": true,

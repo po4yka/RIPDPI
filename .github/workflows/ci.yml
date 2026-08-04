@@ -169,6 +169,7 @@ jobs:
             scripts.tests.test_release_contract \
             scripts.tests.test_release_p0_contracts \
             scripts.tests.test_release_p1_contracts \
+            scripts.tests.test_release_window \
             scripts.tests.test_evidence_retention \
             scripts.tests.test_require_successful_ci_run \
             scripts.tests.test_path_filtered_pr_checks \
@@ -286,7 +287,8 @@ jobs:
         run: |
           python3 -m unittest \
             scripts.tests.test_release_p1_contracts \
-            scripts.tests.test_evidence_retention
+            scripts.tests.test_evidence_retention \
+            scripts.tests.test_release_window
 
       - name: Validate fleet release-gate policy contract
         run: python3 scripts/ci/check_fleet_release_gates.py

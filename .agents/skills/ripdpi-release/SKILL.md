@@ -71,6 +71,20 @@ nonexistent physical-evidence workflow.
 7. Commit the coupled version/identity preparation atomically, normally as
    `chore(release): prepare X.Y.Z`.
 
+## Cut a bounded release window
+
+Before the first candidate, freeze features and record the exact cut commit and
+UTC timestamp in repository variables `RIPDPI_RELEASE_WINDOW_START_SHA` and
+`RIPDPI_RELEASE_WINDOW_STARTED_AT`. The cut SHA must be on `main` and remain an
+ancestor of every candidate.
+
+The machine-readable `releaseWindow` contract allows at most 72 hours, 20
+post-cut commits, and five candidate runs for one tag. Post-cut subjects are
+limited to release-safe `fix`, `test`, `docs`, `ci`, `build`, and
+`chore(release)` commits. A feature or refactor requires abandoning the window,
+integrating normally, and starting a new cut; never relabel a commit to evade the
+policy.
+
 ## Validate and integrate
 
 Run the smallest release-specific gates first:
@@ -84,6 +98,7 @@ python3 scripts/ci/check_app_identity_review.py --report
 python3 -m unittest \
   scripts.tests.test_release_contract \
   scripts.tests.test_release_p0_contracts \
+  scripts.tests.test_release_window \
   scripts.tests.test_release_artifact_uploads
 git diff --check <base-tag>..<candidate-sha>
 ```

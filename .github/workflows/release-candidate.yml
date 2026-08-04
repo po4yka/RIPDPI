@@ -1,4 +1,5 @@
 name: Android release candidate
+run-name: Android release candidate ${{ inputs.release_tag }} @ ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -25,9 +26,12 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
       EXPECTED_RELEASE_CERT_SHA256: ${{ vars.RIPDPI_RELEASE_CERT_SHA256 }}
+      RELEASE_WINDOW_START_SHA: ${{ vars.RIPDPI_RELEASE_WINDOW_START_SHA }}
+      RELEASE_WINDOW_STARTED_AT: ${{ vars.RIPDPI_RELEASE_WINDOW_STARTED_AT }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Validate release-candidate ref and identity inputs
@@ -45,6 +49,27 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --sha "$GITHUB_SHA" \
             --contract quality/release-gates/release-contract.json
+
+      - name: Enforce short release-fix window
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_WINDOW_START_SHA"
+          test -n "$RELEASE_WINDOW_STARTED_AT"
+          gh run list \
+            --workflow release-candidate.yml \
+            --limit 100 \
+            --json displayTitle,status,conclusion,createdAt,headSha \
+            > "$RUNNER_TEMP/release-candidate-runs.json"
+          python3 scripts/ci/check_release_window.py \
+            --contract quality/release-gates/release-contract.json \
+            --release-tag "$RELEASE_TAG" \
+            --start-sha "$RELEASE_WINDOW_START_SHA" \
+            --candidate-sha "$GITHUB_SHA" \
+            --started-at "$RELEASE_WINDOW_STARTED_AT" \
+            --runs-json "$RUNNER_TEMP/release-candidate-runs.json" \
+            --report "$RUNNER_TEMP/release-window-report.json"
 
   pluggable-transport-assets:
     needs: candidate-preflight

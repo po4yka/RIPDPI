@@ -178,11 +178,43 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
         "scripts/ci/require_successful_ci_run.py",
         "--contract quality/release-gates/release-contract.json",
         "needs: candidate-preflight",
+        "scripts/ci/check_release_window.py",
+        "RIPDPI_RELEASE_WINDOW_START_SHA",
+        "RIPDPI_RELEASE_WINDOW_STARTED_AT",
     ):
         if required_fragment not in candidate_source:
             raise ContractError(
                 f"candidate workflow does not enforce required CI fragment: {required_fragment}"
             )
+
+    window = _object(contract.get("releaseWindow"), "releaseWindow")
+    if set(window) != {
+        "startShaVariable",
+        "startedAtVariable",
+        "maxAgeHours",
+        "maxCommits",
+        "maxCandidateRuns",
+        "allowedSubjectPatterns",
+    }:
+        raise ContractError("releaseWindow fields do not match the supported contract")
+    for variable_field in ("startShaVariable", "startedAtVariable"):
+        variable = _string(window.get(variable_field), f"releaseWindow.{variable_field}")
+        if variable not in candidate_source:
+            raise ContractError(
+                f"releaseWindow.{variable_field} is not consumed by candidate workflow"
+            )
+    for field, maximum in (("maxAgeHours", 168), ("maxCommits", 50), ("maxCandidateRuns", 10)):
+        value = window.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
+            raise ContractError(f"releaseWindow.{field} must be 1..{maximum}")
+    patterns = window.get("allowedSubjectPatterns")
+    if not isinstance(patterns, list) or not patterns or not all(isinstance(item, str) for item in patterns):
+        raise ContractError("releaseWindow.allowedSubjectPatterns must be a string list")
+    try:
+        for pattern in patterns:
+            re.compile(pattern)
+    except re.error as error:
+        raise ContractError("releaseWindow contains an invalid regex") from error
 
     publication_source = publication_workflow.read_text(encoding="utf-8")
     validate_workflow_trigger(
