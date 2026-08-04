@@ -58,8 +58,8 @@ def text(result: subprocess.CompletedProcess[bytes]) -> str:
     return result.stdout.decode("utf-8", errors="strict").replace("\r", "").strip()
 
 
-def package_paths(adb: str, serial: str, package: str) -> list[str]:
-    result = run(adb, serial, "shell", "pm", "path", package, check=False)
+def package_paths(adb: str, serial: str, package: str, user_id: str) -> list[str]:
+    result = run(adb, serial, "shell", "pm", "path", "--user", user_id, package, check=False)
     if result.returncode != 0:
         return []
     paths = []
@@ -71,6 +71,16 @@ def package_paths(adb: str, serial: str, package: str) -> list[str]:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require_single_user(adb: str, serial: str, current_user: str) -> None:
+    users = text(run(adb, serial, "shell", "pm", "list", "users"))
+    user_ids = re.findall(r"UserInfo\{(\d+):", users)
+    if user_ids != [current_user]:
+        raise SessionError(
+            "destructive Android runners require exactly one active user; "
+            f"current={current_user}, discovered={user_ids}"
+        )
 
 
 def capture_permissions(
@@ -121,7 +131,7 @@ def capture_app_ops(adb: str, serial: str, package: str, user_id: str) -> dict[s
 def capture_package(
     adb: str, serial: str, state_dir: Path, package: str, user_id: str
 ) -> dict[str, object]:
-    remote_paths = package_paths(adb, serial, package)
+    remote_paths = package_paths(adb, serial, package, user_id)
     record: dict[str, object] = {"name": package, "installed": bool(remote_paths)}
     if not remote_paths:
         return record
@@ -160,9 +170,15 @@ def capture(args: argparse.Namespace) -> None:
         user_id = text(run(args.adb, args.serial, "shell", "am", "get-current-user"))
         if not user_id.isdecimal():
             raise SessionError(f"could not identify the selected Android user: {user_id!r}")
+        require_single_user(args.adb, args.serial, user_id)
         settings = {}
         for namespace, key in SETTINGS:
-            value = text(run(args.adb, args.serial, "shell", "settings", "get", namespace, key))
+            setting_args = (
+                ("settings", "--user", user_id, "get", namespace, key)
+                if namespace == "secure"
+                else ("settings", "get", namespace, key)
+            )
+            value = text(run(args.adb, args.serial, "shell", *setting_args))
             settings[f"{namespace}/{key}"] = None if value in {"", "null"} else value
         manifest = {
             "version": VERSION,
@@ -189,13 +205,16 @@ def require_digest(state_dir: Path, record: dict[str, str]) -> Path:
     return path
 
 
-def restore_setting(adb: str, serial: str, identity: str, value: str | None) -> None:
+def restore_setting(
+    adb: str, serial: str, user_id: str, identity: str, value: str | None
+) -> None:
     namespace, key = identity.split("/", 1)
+    prefix = ("settings", "--user", user_id) if namespace == "secure" else ("settings",)
     if value is None:
-        run(adb, serial, "shell", "settings", "delete", namespace, key)
+        run(adb, serial, "shell", *prefix, "delete", namespace, key)
     else:
-        run(adb, serial, "shell", "settings", "put", namespace, key, value)
-    restored = text(run(adb, serial, "shell", "settings", "get", namespace, key))
+        run(adb, serial, "shell", *prefix, "put", namespace, key, value)
+    restored = text(run(adb, serial, "shell", *prefix, "get", namespace, key))
     actual = None if restored in {"", "null"} else restored
     if actual != value:
         raise SessionError(f"setting restoration mismatch for {identity}: {actual!r} != {value!r}")
@@ -244,17 +263,27 @@ def restore_package(
     package = str(record["name"])
     run(adb, serial, "shell", "am", "force-stop", package, check=False)
     if not record["installed"]:
-        run(adb, serial, "uninstall", package, check=False)
+        run(adb, serial, "uninstall", "--user", user_id, package, check=False)
         return
 
     apk_paths = [require_digest(state_dir, apk) for apk in record["apks"]]  # type: ignore[arg-type]
     # -t is harmless for normal packages and required when restoring a captured
     # instrumentation/test-only APK.
-    run(adb, serial, "install-multiple", "-r", "-d", "-t", *(str(path) for path in apk_paths))
+    run(
+        adb,
+        serial,
+        "install-multiple",
+        "--user",
+        user_id,
+        "-r",
+        "-d",
+        "-t",
+        *(str(path) for path in apk_paths),
+    )
     data_record = record["data"]
     assert isinstance(data_record, dict)
     data_path = require_digest(state_dir, data_record)  # type: ignore[arg-type]
-    run(adb, serial, "shell", "pm", "clear", package)
+    run(adb, serial, "shell", "pm", "clear", "--user", user_id, package)
     run(
         adb,
         serial,
@@ -286,11 +315,12 @@ def restore(args: argparse.Namespace) -> None:
     current_user = text(run(args.adb, args.serial, "shell", "am", "get-current-user"))
     if manifest.get("userId") != current_user:
         raise SessionError("selected Android user changed before restoration")
+    require_single_user(args.adb, args.serial, current_user)
 
     for record in reversed(manifest["packages"]):
         restore_package(args.adb, args.serial, state_dir, record, current_user)
     for identity, value in manifest["settings"].items():
-        restore_setting(args.adb, args.serial, identity, value)
+        restore_setting(args.adb, args.serial, current_user, identity, value)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
