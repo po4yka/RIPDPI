@@ -24,8 +24,18 @@ PCAP_MAGICS = {
     b"\x0a\x0d\x0d\x0a",
 }
 SENSITIVE_BINARY = re.compile(
-    rb"(?i)(?:private[_ -]?key|password|secret|auth|token|imsi|subscription)\s*[:=]\s*(?!<redacted>)[^\x00\s]{3,}"
+    rb'''(?ix)
+    ["']?(?:private[_ -]?key|password|secret|auth|token|imsi|subscription)["']?
+    \s*[:=]\s*["']?(?!<redacted>|null|false|true)[^"'\x00\s,}]{3,}
+    '''
 )
+MAX_ARCHIVE_MEMBERS = 256
+MAX_MEMBER_BYTES = 16 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
+MANIFEST_FIELDS = {
+    "version", "artifact", "retentionClass", "createdUtc", "expiresUtc",
+    "containsRawPcap", "localOnly", "sha256",
+}
 
 
 class EvidenceError(ValueError):
@@ -79,12 +89,21 @@ def _members(archive_path: Path) -> list[tuple[str, bytes]]:
     members: list[tuple[str, bytes]] = []
     try:
         with tarfile.open(archive_path, "r:gz") as archive:
-            for info in archive.getmembers():
+            archive_members = archive.getmembers()
+            if len(archive_members) > MAX_ARCHIVE_MEMBERS:
+                raise EvidenceError("archive member count limit exceeded")
+            total_size = 0
+            for info in archive_members:
                 name = PurePosixPath(info.name)
                 if name.is_absolute() or ".." in name.parts or info.issym() or info.islnk():
                     raise EvidenceError(f"unsafe archive member: {info.name}")
                 if not info.isfile():
                     continue
+                if info.size < 0 or info.size > MAX_MEMBER_BYTES:
+                    raise EvidenceError(f"archive member size limit exceeded: {info.name}")
+                total_size += info.size
+                if total_size > MAX_ARCHIVE_BYTES:
+                    raise EvidenceError("archive expanded size limit exceeded")
                 source = archive.extractfile(info)
                 if source is None:
                     raise EvidenceError(f"could not read archive member: {info.name}")
@@ -104,12 +123,16 @@ def check_archive(
     allow_pcap = classes[retention_class]["allowRawPcap"]
     for name, payload in _members(archive_path):
         suffix = PurePosixPath(name).suffix.lower()
-        if suffix in PCAP_SUFFIXES:
+        capture = suffix in PCAP_SUFFIXES or payload[:4] in PCAP_MAGICS
+        if capture:
             if not allow_pcap:
                 raise EvidenceError(f"public evidence contains raw packet capture: {name}")
             if len(payload) < 24 or payload[:4] not in PCAP_MAGICS:
                 raise EvidenceError(f"invalid PCAP evidence: {name}")
-        elif retention_class == "public-sanitized" and SENSITIVE_BINARY.search(payload):
+        elif retention_class == "public-sanitized" and (
+            SENSITIVE_BINARY.search(name.encode("utf-8", errors="replace"))
+            or SENSITIVE_BINARY.search(payload)
+        ):
             raise EvidenceError(f"public evidence contains sensitive binary payload: {name}")
 
 
@@ -121,6 +144,14 @@ def _utc(value: datetime) -> datetime:
 
 def _format(value: datetime) -> str:
     return _utc(value).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def create_manifest(
@@ -135,7 +166,10 @@ def create_manifest(
     check_archive(artifact, policy_path, retention_class)
     created_utc = _utc(created or datetime.now(UTC))
     max_age = policy["classes"][retention_class]["maxAgeHours"]
-    contains_pcap = any(PurePosixPath(name).suffix.lower() in PCAP_SUFFIXES for name, _ in _members(artifact))
+    contains_pcap = any(
+        PurePosixPath(name).suffix.lower() in PCAP_SUFFIXES or payload[:4] in PCAP_MAGICS
+        for name, payload in _members(artifact)
+    )
     return {
         "version": policy["manifestVersion"],
         "artifact": artifact.name,
@@ -144,7 +178,7 @@ def create_manifest(
         "expiresUtc": _format(created_utc + timedelta(hours=max_age)),
         "containsRawPcap": contains_pcap,
         "localOnly": policy["classes"][retention_class]["localOnly"],
-        "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+        "sha256": _sha256_file(artifact),
     }
 
 
@@ -157,25 +191,71 @@ def _parse_utc(value: Any) -> datetime:
         raise EvidenceError("expiresUtc is malformed") from error
 
 
-def purge_expired(root: Path, now: datetime | None = None, *, dry_run: bool) -> list[Path]:
+def _validate_manifest(
+    manifest: dict[str, Any], artifact: Path, policy: dict[str, Any], policy_path: Path
+) -> datetime:
+    if set(manifest) != MANIFEST_FIELDS:
+        raise EvidenceError("retention manifest fields do not match the supported schema")
+    if manifest["version"] != policy["manifestVersion"]:
+        raise EvidenceError("unknown retention manifest version")
+    if manifest["artifact"] != artifact.name:
+        raise EvidenceError("retention manifest artifact does not match its sidecar")
+    retention_class = manifest["retentionClass"]
+    classes = policy["classes"]
+    if retention_class not in classes:
+        raise EvidenceError("unknown retention class in manifest")
+    if manifest["localOnly"] is not classes[retention_class]["localOnly"]:
+        raise EvidenceError("manifest localOnly does not match retention class")
+    created = _parse_utc(manifest["createdUtc"])
+    expires = _parse_utc(manifest["expiresUtc"])
+    expected_expiry = created + timedelta(hours=classes[retention_class]["maxAgeHours"])
+    if expires != expected_expiry:
+        raise EvidenceError("manifest expiry does not match retention policy")
+    if not isinstance(manifest["containsRawPcap"], bool):
+        raise EvidenceError("manifest containsRawPcap must be boolean")
+    digest = manifest["sha256"]
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise EvidenceError("manifest digest is malformed")
+    actual_digest = _sha256_file(artifact)
+    if digest != actual_digest:
+        raise EvidenceError("managed artifact digest does not match manifest")
+    check_archive(artifact, policy_path, retention_class)
+    contains_pcap = any(
+        PurePosixPath(name).suffix.lower() in PCAP_SUFFIXES or payload[:4] in PCAP_MAGICS
+        for name, payload in _members(artifact)
+    )
+    if manifest["containsRawPcap"] is not contains_pcap:
+        raise EvidenceError("manifest PCAP declaration does not match artifact")
+    return expires
+
+
+def purge_expired(
+    root: Path,
+    now: datetime | None = None,
+    *,
+    dry_run: bool,
+    policy_path: Path = DEFAULT_POLICY,
+) -> list[Path]:
     exact_root = root.resolve(strict=True)
     if exact_root == Path(exact_root.anchor):
         raise EvidenceError("refusing to purge a filesystem root")
     now_utc = _utc(now or datetime.now(UTC))
+    policy = validate_policy(policy_path)
     removed: list[Path] = []
     for sidecar in sorted(exact_root.glob("*.retention.json")):
         if sidecar.is_symlink() or not sidecar.is_file():
             raise EvidenceError(f"unsafe retention sidecar: {sidecar}")
         manifest = _object(json.loads(sidecar.read_text(encoding="utf-8")), str(sidecar))
-        if manifest.get("version") != "ripdpi_evidence_retention_v1":
-            raise EvidenceError(f"unknown retention manifest version: {sidecar}")
         artifact_name = manifest.get("artifact")
         if not isinstance(artifact_name, str) or Path(artifact_name).name != artifact_name:
             raise EvidenceError(f"unsafe managed artifact name: {artifact_name!r}")
         artifact = exact_root / artifact_name
         if artifact.is_symlink():
             raise EvidenceError(f"refusing to purge symlinked artifact: {artifact}")
-        if _parse_utc(manifest.get("expiresUtc")) > now_utc:
+        if not artifact.is_file():
+            raise EvidenceError(f"managed artifact is missing or not regular: {artifact}")
+        expires = _validate_manifest(manifest, artifact, policy, policy_path)
+        if expires > now_utc:
             continue
         if artifact.is_file():
             removed.append(artifact)
@@ -184,6 +264,15 @@ def purge_expired(root: Path, now: datetime | None = None, *, dry_run: bool) -> 
         if not dry_run:
             sidecar.unlink()
     return removed
+
+
+def _require_policy_root(root: Path, policy_path: Path) -> Path:
+    exact_root = root.resolve(strict=True)
+    repo = policy_path.resolve().parents[1]
+    allowed = {(repo / relative).resolve() for relative in validate_policy(policy_path)["purgeRoots"]}
+    if exact_root not in allowed:
+        raise EvidenceError(f"purge root is not declared by policy: {exact_root}")
+    return exact_root
 
 
 def main() -> int:
@@ -212,7 +301,10 @@ def main() -> int:
             sidecar.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             print(sidecar)
         else:
-            for artifact in purge_expired(args.root, dry_run=args.dry_run):
+            exact_root = _require_policy_root(args.root, args.policy)
+            for artifact in purge_expired(
+                exact_root, dry_run=args.dry_run, policy_path=args.policy
+            ):
                 print(artifact)
     except (EvidenceError, json.JSONDecodeError, OSError) as error:
         parser.error(str(error))

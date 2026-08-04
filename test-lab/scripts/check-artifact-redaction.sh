@@ -24,7 +24,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 deny_pattern='\\b(token|password|auth|secret|private_key|ssid|bssid|imsi|operator|subscription)\\b[[:space:]]*[:=][[:space:]]*(?!<redacted>|null|false|true|0|\\[\\]|\\{\\}|[[:space:]]*(\\n|\\r|$))\\S+'
-archive_tmp_dir=""
 
 scan_directory() {
   local directory="$1"
@@ -49,19 +48,9 @@ scan_directory() {
   fi
 }
 
-scan_archive() {
-  local archive="$1"
-  archive_tmp_dir="$(mktemp -d)"
-  trap 'rm -rf "$archive_tmp_dir"' EXIT
-  tar -xzf "$archive" -C "$archive_tmp_dir"
-  scan_directory "$archive_tmp_dir"
-}
-
 if [[ -f "$target" ]]; then
   case "$target" in
-    *.tar.gz|*.tgz)
-      scan_archive "$target"
-      ;;
+    *.tar.gz|*.tgz) ;;
     *)
       echo "Unsupported artifact file type: $target" >&2
       exit 2

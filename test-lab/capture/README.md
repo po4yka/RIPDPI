@@ -15,4 +15,7 @@ Raw captures are private network evidence, never part of the default public
 lab archive. Include them only with
 `archive-artifacts.sh --retention-class private-raw-pcap`; that class is
 local-only and expires after seven days. Use `purge-evidence.sh` to preview or
-execute policy-managed cleanup.
+execute policy-managed cleanup. After the private archive passes redaction and
+retention-manifest validation, the source `.pcap` and `.pcapng` files in this
+directory are deleted; copy them to a separately governed private store first
+only when a distinct retention requirement applies.

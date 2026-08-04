@@ -10,6 +10,7 @@ work_dir="$(mktemp -d)"
 stage_dir="$work_dir/$bundle_name"
 adb_bin="${ADB:-adb}"
 retention_class="public-sanitized"
+raw_capture_sources=()
 
 usage() {
   cat <<USAGE
@@ -99,6 +100,7 @@ done
 if [[ "$retention_class" == "private-raw-pcap" ]]; then
   for capture_file in "$lab_root"/capture/*.pcap "$lab_root"/capture/*.pcapng; do
     copy_if_exists "$capture_file" "$stage_dir/capture"
+    raw_capture_sources+=("$capture_file")
   done
 fi
 for capture_file in "$lab_root"/capture/*.log; do
@@ -162,3 +164,6 @@ python3 "$repo_root/scripts/ci/evidence_retention.py" \
   write-manifest \
   --retention-class "$retention_class" \
   "$archive_path"
+if [[ "$retention_class" == "private-raw-pcap" && "${#raw_capture_sources[@]}" -gt 0 ]]; then
+  rm -f -- "${raw_capture_sources[@]}"
+fi

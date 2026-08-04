@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -68,6 +69,43 @@ class EvidenceRetentionTest(unittest.TestCase):
             with self.assertRaisesRegex(EvidenceError, "sensitive binary payload"):
                 check_archive(binary, POLICY, "public-sanitized")
 
+            disguised = root / "disguised.tar.gz"
+            write_archive(disguised, {"bundle/capture/raw.bin": b"\xd4\xc3\xb2\xa1" + b"\0" * 20})
+            with self.assertRaisesRegex(EvidenceError, "raw packet capture"):
+                check_archive(disguised, POLICY, "public-sanitized")
+
+            quoted = root / "quoted.tar.gz"
+            write_archive(quoted, {"bundle/report.json": b'{"token":"abc123"}'})
+            with self.assertRaisesRegex(EvidenceError, "sensitive binary payload"):
+                check_archive(quoted, POLICY, "public-sanitized")
+
+            sensitive_name = root / "sensitive-name.tar.gz"
+            write_archive(sensitive_name, {"bundle/token=abc123.txt": b"safe"})
+            with self.assertRaisesRegex(EvidenceError, "sensitive binary payload"):
+                check_archive(sensitive_name, POLICY, "public-sanitized")
+
+    def test_archive_rejects_unsafe_members_and_resource_exhaustion(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            for name in ("../escape", "/absolute"):
+                archive = root / (name.replace("/", "_") + ".tar.gz")
+                write_archive(archive, {name: b"payload"})
+                with self.assertRaisesRegex(EvidenceError, "unsafe archive member"):
+                    check_archive(archive, POLICY, "public-sanitized")
+            symlink = root / "symlink.tar.gz"
+            with tarfile.open(symlink, "w:gz") as archive:
+                info = tarfile.TarInfo("bundle/link")
+                info.type = tarfile.SYMTYPE
+                info.linkname = "../../escape"
+                archive.addfile(info)
+            with self.assertRaisesRegex(EvidenceError, "unsafe archive member"):
+                check_archive(symlink, POLICY, "public-sanitized")
+
+            oversized = root / "oversized.tar.gz"
+            write_archive(oversized, {"bundle/large.bin": b"x" * (17 * 1024 * 1024)})
+            with self.assertRaisesRegex(EvidenceError, "member size limit"):
+                check_archive(oversized, POLICY, "public-sanitized")
+
     def test_private_pcap_requires_valid_header_and_expiring_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -95,25 +133,21 @@ class EvidenceRetentionTest(unittest.TestCase):
             fresh = root / "fresh.tar.gz"
             unmanaged = root / "unmanaged.tar.gz"
             for path in (expired, fresh, unmanaged):
-                path.write_bytes(b"artifact")
+                write_archive(path, {"bundle/report.txt": b"safe"})
+            expired_manifest = create_manifest(
+                POLICY, "public-sanitized", expired,
+                datetime(2026, 7, 1, tzinfo=UTC),
+            )
             (root / "expired.tar.gz.retention.json").write_text(
-                json.dumps(
-                    {
-                        "version": "ripdpi_evidence_retention_v1",
-                        "artifact": expired.name,
-                        "expiresUtc": "2026-08-03T00:00:00Z",
-                    }
-                ),
+                json.dumps(expired_manifest),
                 encoding="utf-8",
             )
+            fresh_manifest = create_manifest(
+                POLICY, "public-sanitized", fresh,
+                datetime(2026, 8, 1, tzinfo=UTC),
+            )
             (root / "fresh.tar.gz.retention.json").write_text(
-                json.dumps(
-                    {
-                        "version": "ripdpi_evidence_retention_v1",
-                        "artifact": fresh.name,
-                        "expiresUtc": "2026-08-05T00:00:00Z",
-                    }
-                ),
+                json.dumps(fresh_manifest),
                 encoding="utf-8",
             )
             removed = purge_expired(root, datetime(2026, 8, 4, tzinfo=UTC), dry_run=False)
@@ -121,6 +155,61 @@ class EvidenceRetentionTest(unittest.TestCase):
             self.assertFalse(expired.exists())
             self.assertTrue(fresh.exists())
             self.assertTrue(unmanaged.exists())
+
+    def test_purge_rejects_forged_or_stale_sidecars(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw).resolve()
+            artifact = root / "managed.tar.gz"
+            write_archive(artifact, {"bundle/report.txt": b"safe"})
+            manifest = create_manifest(
+                POLICY, "public-sanitized", artifact,
+                datetime(2026, 7, 1, tzinfo=UTC),
+            )
+            sidecar = root / "managed.tar.gz.retention.json"
+            for field, value, message in (
+                ("sha256", "0" * 64, "digest"),
+                ("retentionClass", "private-raw-pcap", "localOnly"),
+                ("expiresUtc", "2026-08-31T00:00:00Z", "retention"),
+            ):
+                forged = dict(manifest)
+                forged[field] = value
+                sidecar.write_text(json.dumps(forged), encoding="utf-8")
+                with self.subTest(field=field), self.assertRaisesRegex(EvidenceError, message):
+                    purge_expired(root, datetime(2026, 9, 1, tzinfo=UTC), dry_run=False)
+                self.assertTrue(artifact.exists())
+
+    def test_shell_scanner_validates_archive_before_any_extraction(self) -> None:
+        source = (ROOT / "test-lab/scripts/check-artifact-redaction.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("tar -x", source)
+
+    def test_destructive_cli_rejects_root_outside_checked_in_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            result = subprocess.run(
+                [
+                    "python3", str(ROOT / "scripts/ci/evidence_retention.py"),
+                    "--policy", str(POLICY), "purge", raw,
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("not declared by policy", result.stderr)
+
+    def test_private_archive_removes_source_captures_after_verified_manifest(self) -> None:
+        source = (ROOT / "test-lab/scripts/archive-artifacts.sh").read_text(encoding="utf-8")
+        self.assertIn("raw_capture_sources", source)
+        self.assertLess(source.index("write-manifest"), source.index('rm -f -- "${raw_capture_sources[@]}"'))
+
+    def test_transient_download_helper_cleans_its_managed_directory(self) -> None:
+        helper = ROOT / "scripts/ci/with-transient-release-downloads.sh"
+        source = helper.read_text(encoding="utf-8")
+        self.assertIn("mktemp -d", source)
+        self.assertIn("trap cleanup EXIT", source)
+        self.assertIn("RIPDPI_RELEASE_DOWNLOAD_DIR", source)
 
 
 if __name__ == "__main__":

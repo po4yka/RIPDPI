@@ -169,9 +169,11 @@ failure; prepare a new patch version when source bytes must change.
 ## Final verification
 
 Require a successful tag workflow, a non-draft/non-prerelease GitHub Release, and
-the exact asset inventory declared by the live workflow. Download into a fresh
-temporary directory, verify `SHA256SUMS`, attestations, `update.json`, version,
-package identity, URLs, and signer continuity. Apply the approved curated notes
+the exact asset inventory declared by the live workflow. Wrap download and
+verification commands with `scripts/ci/with-transient-release-downloads.sh` and
+write only below its `RIPDPI_RELEASE_DOWNLOAD_DIR`; the helper removes that exact
+managed directory on exit. Verify `SHA256SUMS`, attestations, `update.json`,
+version, package identity, URLs, and signer continuity. Apply the approved curated notes
 without adding unsupported claims, then re-read the live release.
 
 Report source/tag proof, local gates, exact-SHA main CI, candidate run, selected
