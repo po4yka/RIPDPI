@@ -158,7 +158,10 @@ def _commands(
                 "--max-workers=1",
             ],
         ),
-        ("release-output", ["bash", "scripts/ci/verify-local-release-preflight-output.sh"]),
+        (
+            "release-output",
+            ["bash", "scripts/ci/verify-local-release-preflight-output.sh", host_abi],
+        ),
         ("source-diff", ["git", "diff", "--check", f"{base_tag}..{source_sha}"]),
     ]
 

@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+[[ "$#" -eq 1 ]] || {
+  echo "Usage: $0 <expected-host-abi>" >&2
+  exit 2
+}
+expected_abi="$1"
+case "$expected_abi" in
+  arm64-v8a | x86_64) ;;
+  *)
+    echo "Unsupported local preflight host ABI: $expected_abi" >&2
+    exit 2
+    ;;
+esac
+
+repo_root="${RIPDPI_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+cd "$repo_root"
+
 for variant in fdroidFull fdroidSimple githubFull githubSimple playFull playSimple; do
   variant_dir="app/build/outputs/apk/$variant/release"
   apks=()
@@ -37,12 +53,20 @@ lib_dir="app/build/intermediates/merged_native_libs/githubFullRelease/mergeGithu
   exit 1
 }
 native_abis=()
-while IFS= read -r path; do
-  native_abis+=("$(basename "$(dirname "$path")")")
-done < <(find "$lib_dir" -mindepth 2 -maxdepth 2 -type f -name 'libripdpi.so' | sort)
-[[ "${#native_abis[@]}" -eq 1 ]] || {
-  echo "Expected exactly one host ABI with libripdpi.so, found ${#native_abis[@]}" >&2
+shopt -s nullglob
+for abi_dir in "$lib_dir"/*; do
+  [[ -d "$abi_dir" ]] || continue
+  owned_libraries=("$abi_dir"/libripdpi*.so)
+  [[ "${#owned_libraries[@]}" -gt 0 ]] || continue
+  native_abis+=("$(basename "$abi_dir")")
+done
+[[ "${#native_abis[@]}" -eq 1 && "${native_abis[0]}" == "$expected_abi" ]] || {
+  echo "Repo-owned native ABI set must be exactly [$expected_abi], found [${native_abis[*]-}]" >&2
   exit 1
 }
-python3 scripts/ci/verify_native_elfs.py --lib-dir "$lib_dir" --abis "${native_abis[0]}"
+[[ -f "$lib_dir/$expected_abi/libripdpi.so" ]] || {
+  echo "Missing libripdpi.so for expected host ABI: $expected_abi" >&2
+  exit 1
+}
+python3 scripts/ci/verify_native_elfs.py --lib-dir "$lib_dir" --abis "$expected_abi"
 python3 scripts/ci/verify_jni_readiness_mapping.py

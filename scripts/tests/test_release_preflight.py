@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import unittest
@@ -80,6 +81,10 @@ class ReleasePreflightTest(unittest.TestCase):
             flattened = "\n".join(" ".join(command) for command in observed)
             self.assertIn(":app:assembleGithubFullReleaseAndroidTest", flattened)
             self.assertRegex(flattened, r"ripdpi\.nativeAbisOverride=(arm64-v8a|x86_64)")
+            self.assertRegex(
+                flattened,
+                r"verify-local-release-preflight-output\.sh (arm64-v8a|x86_64)",
+            )
             for task in (
                 ":app:assembleFdroidFullRelease",
                 ":app:assembleFdroidSimpleRelease",
@@ -167,8 +172,78 @@ class ReleasePreflightTest(unittest.TestCase):
             source,
         )
         self.assertNotIn("*githubfullrelease*/out/lib", source)
-        self.assertIn("-name 'libripdpi.so'", source)
-        self.assertIn('--abis "${native_abis[0]}"', source)
+        self.assertIn('owned_libraries=("$abi_dir"/libripdpi*.so)', source)
+        self.assertNotIn("xargs", source)
+        self.assertIn('--abis "$expected_abi"', source)
+
+    def make_release_output_fixture(self, root: Path, native_abis: dict[str, list[str]]) -> None:
+        for variant in (
+            "fdroidFull",
+            "fdroidSimple",
+            "githubFull",
+            "githubSimple",
+            "playFull",
+            "playSimple",
+        ):
+            output = root / "app/build/outputs/apk" / variant / "release" / f"{variant}.apk"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.touch()
+        bundle = root / "app/build/outputs/bundle/playFullRelease/app.aab"
+        bundle.parent.mkdir(parents=True, exist_ok=True)
+        bundle.touch()
+        test_apk = root / "app/build/outputs/apk/androidTest/github-full-release-test.apk"
+        test_apk.parent.mkdir(parents=True, exist_ok=True)
+        test_apk.touch()
+        lib_root = (
+            root
+            / "app/build/intermediates/merged_native_libs/githubFullRelease/"
+            "mergeGithubFullReleaseNativeLibs/out/lib"
+        )
+        for abi, libraries in native_abis.items():
+            for library in libraries:
+                output = lib_root / abi / library
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.touch()
+        scripts = root / "scripts/ci"
+        scripts.mkdir(parents=True)
+        for name in ("verify_native_elfs.py", "verify_jni_readiness_mapping.py"):
+            (scripts / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
+
+    def run_output_verifier(self, root: Path, expected_abi: str) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment["RIPDPI_REPO_ROOT"] = str(root)
+        return subprocess.run(
+            [
+                "bash",
+                str(ROOT / "scripts/ci/verify-local-release-preflight-output.sh"),
+                expected_abi,
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+            env=environment,
+        )
+
+    def test_output_verifier_accepts_exact_host_native_abi(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            self.make_release_output_fixture(root, {"arm64-v8a": ["libripdpi.so"]})
+            self.assertEqual(0, self.run_output_verifier(root, "arm64-v8a").returncode)
+
+    def test_output_verifier_rejects_wrong_extra_and_missing_host_native_abi(self) -> None:
+        cases = {
+            "wrong": {"x86_64": ["libripdpi.so"]},
+            "extra-partial": {
+                "arm64-v8a": ["libripdpi.so"],
+                "x86_64": ["libripdpi-relay.so"],
+            },
+            "missing-main": {"arm64-v8a": ["libripdpi-relay.so"]},
+        }
+        for label, native_abis in cases.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                self.make_release_output_fixture(root, native_abis)
+                self.assertNotEqual(0, self.run_output_verifier(root, "arm64-v8a").returncode)
 
 
 if __name__ == "__main__":
