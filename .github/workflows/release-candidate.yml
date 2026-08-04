@@ -57,10 +57,18 @@ jobs:
           set -euo pipefail
           test -n "$RELEASE_WINDOW_START_SHA"
           test -n "$RELEASE_WINDOW_STARTED_AT"
-          gh run list \
-            --workflow release-candidate.yml \
-            --limit 100 \
-            --json displayTitle,status,conclusion,createdAt,headSha \
+          gh api --paginate --slurp \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/release-candidate.yml/runs?event=workflow_dispatch&per_page=100" \
+            > "$RUNNER_TEMP/release-candidate-run-pages.json"
+          jq '[.[] | .workflow_runs[] | {
+            displayTitle: .display_title,
+            status: .status,
+            conclusion: .conclusion,
+            createdAt: .created_at,
+            headSha: .head_sha
+          }]' \
+            "$RUNNER_TEMP/release-candidate-run-pages.json" \
             > "$RUNNER_TEMP/release-candidate-runs.json"
           python3 scripts/ci/check_release_window.py \
             --contract quality/release-gates/release-contract.json \

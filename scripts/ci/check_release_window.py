@@ -73,6 +73,8 @@ def evaluate_release_window(
     if TAG.fullmatch(release_tag) is None:
         raise WindowError(f"invalid release tag: {release_tag}")
     window = _window(contract_path)
+    if started_at.tzinfo is None or now.tzinfo is None:
+        raise WindowError("timestamp must include a timezone")
     started = started_at.astimezone(UTC)
     current = now.astimezone(UTC)
     age_hours = (current - started).total_seconds() / 3600
@@ -105,6 +107,28 @@ def evaluate_release_window(
         raise WindowError(
             f"candidate run limit exceeded: {len(candidate_runs)} > {window['maxCandidateRuns']}"
         )
+    for run in candidate_runs:
+        head_sha = run.get("headSha")
+        created_at = run.get("createdAt")
+        if not isinstance(head_sha, str) or not head_sha:
+            raise WindowError("candidate run is missing headSha")
+        if not isinstance(created_at, str):
+            raise WindowError("candidate run is missing createdAt")
+        try:
+            run_created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise WindowError("candidate run createdAt is malformed") from error
+        if run_created.tzinfo is None:
+            raise WindowError("candidate run createdAt must include a timezone")
+        if started > run_created.astimezone(UTC):
+            raise WindowError("release window started after a prior candidate")
+        prior_sha = _git(repo, "rev-parse", "--verify", f"{head_sha}^{{commit}}")
+        if subprocess.run(
+            ["git", "merge-base", "--is-ancestor", start, prior_sha],
+            cwd=repo,
+            check=False,
+        ).returncode != 0:
+            raise WindowError("release window start is not an ancestor of prior candidate")
     return {
         "version": "ripdpi_release_window_v1",
         "releaseTag": release_tag,

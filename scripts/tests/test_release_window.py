@@ -48,7 +48,11 @@ class ReleaseWindowTest(unittest.TestCase):
                 candidate_sha=candidate,
                 started_at=datetime(2026, 8, 3, tzinfo=UTC),
                 now=datetime(2026, 8, 4, tzinfo=UTC),
-                runs=[{"displayTitle": "Android release candidate v0.1.5 @ abc"}],
+                runs=[{
+                    "displayTitle": "Android release candidate v0.1.5 @ abc",
+                    "headSha": candidate,
+                    "createdAt": "2026-08-03T12:00:00Z",
+                }],
             )
             self.assertEqual(1, report["commitCount"])
             self.assertEqual(1, report["candidateRunCount"])
@@ -73,13 +77,35 @@ class ReleaseWindowTest(unittest.TestCase):
                     repo, CONTRACT, "v0.1.5", start, candidate,
                     datetime(2026, 7, 1, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC), []
                 )
+
+    def test_window_rejects_naive_timestamps_and_recut_after_first_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo, start = self.make_repo(Path(raw))
+            first = self.commit(repo, "fix: first candidate")
+            feature = self.commit(repo, "feat: late feature")
+            runs = [{
+                "displayTitle": "Android release candidate v0.1.5 @ first",
+                "headSha": first,
+                "createdAt": "2026-08-03T12:00:00Z",
+            }]
+            with self.assertRaisesRegex(WindowError, "start is not an ancestor of prior candidate"):
+                evaluate_release_window(
+                    repo, CONTRACT, "v0.1.5", feature, feature,
+                    datetime(2026, 8, 3, 11, tzinfo=UTC),
+                    datetime(2026, 8, 4, tzinfo=UTC), runs,
+                )
+            with self.assertRaisesRegex(WindowError, "timestamp must include a timezone"):
+                evaluate_release_window(
+                    repo, CONTRACT, "v0.1.5", start, first,
+                    datetime(2026, 8, 3), datetime(2026, 8, 4, tzinfo=UTC), [],
+                )
             noisy_runs = [
                 {"displayTitle": f"Android release candidate v0.1.5 @ {index}"}
                 for index in range(6)
             ]
             with self.assertRaisesRegex(WindowError, "candidate run limit"):
                 evaluate_release_window(
-                    repo, CONTRACT, "v0.1.5", start, candidate,
+                    repo, CONTRACT, "v0.1.5", start, first,
                     datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC), noisy_runs
                 )
 
@@ -92,6 +118,7 @@ class ReleaseWindowTest(unittest.TestCase):
         self.assertIn("RIPDPI_RELEASE_WINDOW_START_SHA", source)
         self.assertIn("RIPDPI_RELEASE_WINDOW_STARTED_AT", source)
         self.assertIn("scripts/ci/check_release_window.py", source)
+        self.assertIn("gh api --paginate --slurp", source)
         self.assertLess(
             source.index("scripts/ci/check_release_window.py"),
             source.index("environment: release-signing"),
