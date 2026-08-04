@@ -156,10 +156,13 @@ cleanup() {
             --serial "$android_serial" \
             --state-dir "$device_state_dir"; then
             echo "SO_BIND physical E2E: failed to restore pre-test Android device state" >&2
+            echo "SO_BIND physical E2E: recovery backup retained at $device_state_dir" >&2
             status=1
         fi
     fi
-    rm -rf "$temp_dir"
+    if [[ $status -eq 0 ]]; then
+        rm -rf "$temp_dir"
+    fi
     exit "$status"
 }
 trap cleanup EXIT

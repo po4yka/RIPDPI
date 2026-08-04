@@ -4,7 +4,7 @@ set -euo pipefail
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 repo_root="$lab_root/.."
 adb_bin="${ADB:-adb}"
-serial="${ANDROID_SERIAL:-emulator-5554}"
+serial="${ANDROID_SERIAL:-}"
 netem_dev="${RIPDPI_NETEM_DEV:-wlan0}"
 delay="${RIPDPI_NETEM_DELAY:-200ms}"
 jitter="${RIPDPI_NETEM_JITTER:-40ms}"
@@ -22,7 +22,7 @@ Runs emulator diagnostics before and during on-device Linux tc netem shaping.
 The target must be a rooted emulator with Magisk su access.
 
 Options:
-  --serial SERIAL       adb serial, default ANDROID_SERIAL or emulator-5554
+  --serial SERIAL       required adb emulator serial (or ANDROID_SERIAL)
   --netem-dev DEV      device interface to shape, default RIPDPI_NETEM_DEV or wlan0
   --delay VALUE        netem delay, default RIPDPI_NETEM_DELAY or 200ms
   --jitter VALUE       netem jitter, default RIPDPI_NETEM_JITTER or 40ms
@@ -85,6 +85,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "$serial" ]]; then
+  echo "A target serial is required via --serial or ANDROID_SERIAL; this runner never auto-selects a target." >&2
+  exit 2
+fi
+
 case "$serial" in
   emulator-*) ;;
   *)
@@ -101,6 +106,9 @@ case "$netem_dev" in
 esac
 
 mkdir -p "$out_dir"
+device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-rooted-netem-device.XXXXXX")"
+device_state_dir="$device_state_root/state"
+device_state_captured=false
 
 adb_cmd() {
   "$adb_bin" -s "$serial" "$@"
@@ -115,13 +123,32 @@ clear_netem() {
 }
 
 cleanup_netem() {
+  local status=${1:-0}
   clear_netem
   if [[ -d "$out_dir" ]]; then
     root_shell "tc qdisc show dev '$netem_dev'" >"$out_dir/qdisc-after-cleanup.txt" 2>/dev/null || true
   fi
+  if [[ "$device_state_captured" == "true" ]]; then
+    if ! python3 "$lab_root/scripts/android-device-session.py" restore \
+      --adb "$adb_bin" --serial "$serial" --state-dir "$device_state_dir"; then
+      echo "Failed to restore Android state; recovery backup retained at: $device_state_dir" >&2
+      return 1
+    fi
+  fi
+  if [[ $status -eq 0 ]]; then
+    rm -rf "$device_state_root"
+  fi
 }
 
-trap cleanup_netem EXIT
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if ! cleanup_netem "$status"; then
+    status=1
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
 
 require_root() {
   local root_id
@@ -157,6 +184,11 @@ run_probe() {
   assert_probe_ok "$probe_dir/probe-emulator-diagnostics.json"
 }
 
+python3 "$lab_root/scripts/android-device-session.py" capture \
+  --adb "$adb_bin" --serial "$serial" --state-dir "$device_state_dir" \
+  --package com.poyka.ripdpi --package com.poyka.ripdpi.test
+device_state_captured=true
+
 if [[ "$skip_start" != "true" ]]; then
   ANDROID_SERIAL="$serial" "$lab_root/scripts/restart-lab.sh" --profile emulator | tee "$out_dir/restart-lab.log"
 fi
@@ -185,7 +217,8 @@ root_shell "tc qdisc show dev '$netem_dev'" >"$out_dir/qdisc-netem.txt"
 
 run_probe netem-delay-loss
 
-cleanup_netem
+cleanup_netem 0
+device_state_captured=false
 trap - EXIT
 
 {

@@ -7,7 +7,7 @@ repo_root="$lab_root/.."
 source "$lab_root/scripts/python.sh"
 
 adb_bin="${ADB:-adb}"
-serial="${ANDROID_SERIAL:-emulator-5554}"
+serial="${ANDROID_SERIAL:-}"
 profile="${RIPDPI_LAB_PROFILE:-emulator}"
 timeout_ms="${RIPDPI_PROBE_TIMEOUT_MS:-3000}"
 config_path="${RIPDPI_RELAY_MATRIX_CONFIG:-$lab_root/relay/provider-matrix.example.json}"
@@ -25,7 +25,7 @@ Runs the local mock-relay slice of the relay matrix against the debug network pr
 This is a controlled local harness and does not replace provider-backed relay evidence.
 
 Options:
-  --serial SERIAL       adb serial, default ANDROID_SERIAL or emulator-5554
+  --serial SERIAL       required adb serial (or ANDROID_SERIAL)
   --profile PROFILE     probe profile, default RIPDPI_LAB_PROFILE or emulator
   --timeout-ms VALUE    debug probe timeout, default RIPDPI_PROBE_TIMEOUT_MS or 3000
   --config PATH         relay matrix manifest, default RIPDPI_RELAY_MATRIX_CONFIG or example
@@ -78,6 +78,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "$serial" ]]; then
+  echo "A target serial is required via --serial or ANDROID_SERIAL; this runner never auto-selects a target." >&2
+  exit 2
+fi
+
 case "$profile" in
   emulator|device|physical) ;;
   *)
@@ -88,11 +93,28 @@ esac
 
 mkdir -p "$out_dir"
 python_bin="$(ripdpi_resolve_python "mock relay matrix")"
+device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-relay-matrix-device.XXXXXX")"
+device_state_dir="$device_state_root/state"
+device_state_captured=false
 
 cleanup() {
+  local status=$?
+  trap - EXIT
+  set +e
   for pid in "${fault_pids[@]}"; do
     kill "$pid" >/dev/null 2>&1 || true
   done
+  if [[ "$device_state_captured" == "true" ]]; then
+    if ! python3 "$lab_root/scripts/android-device-session.py" restore \
+      --adb "$adb_bin" --serial "$serial" --state-dir "$device_state_dir"; then
+      echo "Failed to restore Android state; recovery backup retained at: $device_state_dir" >&2
+      status=1
+    fi
+  fi
+  if [[ $status -eq 0 ]]; then
+    rm -rf "$device_state_root"
+  fi
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -215,6 +237,11 @@ run_probe() {
 }
 
 "$lab_root/scripts/check-relay-matrix-config.sh" --config "$config_path" >"$out_dir/config-validation.txt"
+
+python3 "$lab_root/scripts/android-device-session.py" capture \
+  --adb "$adb_bin" --serial "$serial" --state-dir "$device_state_dir" \
+  --package com.poyka.ripdpi --package com.poyka.ripdpi.test
+device_state_captured=true
 
 if [[ "$skip_start" != "true" ]]; then
   ANDROID_SERIAL="$serial" "$lab_root/scripts/restart-lab.sh" --profile "$profile" | tee "$out_dir/restart-lab.log"

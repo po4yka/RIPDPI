@@ -6,19 +6,25 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 
-VERSION = "ripdpi_android_device_session_v1"
+VERSION = "ripdpi_android_device_session_v2"
 SETTINGS = (
     ("secure", "always_on_vpn_app"),
     ("secure", "always_on_vpn_lockdown"),
     ("global", "stay_on_while_plugged_in"),
 )
-NOTIFICATION_PERMISSION = "android.permission.POST_NOTIFICATIONS"
+PERMISSION_RE = re.compile(
+    r"^\s+(?P<name>[A-Za-z0-9_.]+): granted=(?P<granted>true|false)(?:, flags=\[(?P<flags>[^]]*)\])?"
+)
+APP_OP_RE = re.compile(
+    r"^\s*(?P<name>[A-Z0-9_]+):\s*(?P<mode>allow|ignore|deny|default|foreground|ask)(?:;|$)"
+)
 
 
 class SessionError(RuntimeError):
@@ -67,6 +73,30 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def capture_permissions(adb: str, serial: str, package: str) -> list[dict[str, object]]:
+    dump = text(run(adb, serial, "shell", "dumpsys", "package", package))
+    permissions: dict[str, dict[str, object]] = {}
+    for line in dump.splitlines():
+        match = PERMISSION_RE.match(line)
+        if match:
+            permissions[match["name"]] = {
+                "name": match["name"],
+                "granted": match["granted"] == "true",
+                "flags": sorted(flag.strip() for flag in (match["flags"] or "").split("|") if flag.strip()),
+            }
+    return [permissions[name] for name in sorted(permissions)]
+
+
+def capture_app_ops(adb: str, serial: str, package: str) -> dict[str, str]:
+    output = text(run(adb, serial, "shell", "cmd", "appops", "get", "--user", "0", package))
+    operations: dict[str, str] = {}
+    for line in output.splitlines():
+        match = APP_OP_RE.match(line)
+        if match:
+            operations[match["name"]] = match["mode"]
+    return dict(sorted(operations.items()))
+
+
 def capture_package(adb: str, serial: str, state_dir: Path, package: str) -> dict[str, object]:
     remote_paths = package_paths(adb, serial, package)
     record: dict[str, object] = {"name": package, "installed": bool(remote_paths)}
@@ -86,23 +116,11 @@ def capture_package(adb: str, serial: str, state_dir: Path, package: str) -> dic
         raise SessionError(f"refusing to replace {package}: run-as data backup was empty")
     data_path = package_dir / "data.tar"
     data_path.write_bytes(data.stdout)
-    permission = text(
-        run(
-            adb,
-            serial,
-            "shell",
-            "cmd",
-            "package",
-            "check-permission",
-            NOTIFICATION_PERMISSION,
-            package,
-            check=False,
-        )
-    )
     record.update(
         apks=apks,
         data={"file": str(data_path.relative_to(state_dir)), "sha256": sha256(data_path)},
-        notificationPermissionGranted=permission == "granted",
+        permissions=capture_permissions(adb, serial, package),
+        appOps=capture_app_ops(adb, serial, package),
     )
     return record
 
@@ -150,13 +168,48 @@ def restore_setting(adb: str, serial: str, identity: str, value: str | None) -> 
         run(adb, serial, "shell", "settings", "delete", namespace, key)
     else:
         run(adb, serial, "shell", "settings", "put", namespace, key, value)
+    restored = text(run(adb, serial, "shell", "settings", "get", namespace, key))
+    actual = None if restored in {"", "null"} else restored
+    if actual != value:
+        raise SessionError(f"setting restoration mismatch for {identity}: {actual!r} != {value!r}")
+
+
+def restore_permissions(
+    adb: str, serial: str, package: str, expected: list[dict[str, object]]
+) -> None:
+    # Replacing an installed package preserves permission flags. Restore every
+    # runtime grant explicitly, then verify both grants and flags from dumpsys.
+    for permission in expected:
+        run(
+            adb,
+            serial,
+            "shell",
+            "pm",
+            "grant" if permission["granted"] else "revoke",
+            "--user",
+            "0",
+            package,
+            str(permission["name"]),
+        )
+    actual = capture_permissions(adb, serial, package)
+    if actual != expected:
+        raise SessionError(f"runtime permission restoration mismatch for {package}")
+
+
+def restore_app_ops(adb: str, serial: str, package: str, expected: dict[str, str]) -> None:
+    run(adb, serial, "shell", "cmd", "appops", "reset", "--user", "0", package)
+    for operation, mode in expected.items():
+        run(adb, serial, "shell", "cmd", "appops", "set", "--user", "0", package, operation, mode)
+    actual = capture_app_ops(adb, serial, package)
+    if actual != expected:
+        raise SessionError(f"app-op restoration mismatch for {package}")
 
 
 def restore_package(adb: str, serial: str, state_dir: Path, record: dict[str, object]) -> None:
     package = str(record["name"])
     run(adb, serial, "shell", "am", "force-stop", package, check=False)
-    run(adb, serial, "uninstall", package, check=False)
     if not record["installed"]:
+        run(adb, serial, "uninstall", package, check=False)
         return
 
     apk_paths = [require_digest(state_dir, apk) for apk in record["apks"]]  # type: ignore[arg-type]
@@ -178,17 +231,8 @@ def restore_package(adb: str, serial: str, state_dir: Path, record: dict[str, ob
         "-",
         input_bytes=data_path.read_bytes(),
     )
-    permission_action = "grant" if record.get("notificationPermissionGranted") else "revoke"
-    run(
-        adb,
-        serial,
-        "shell",
-        "pm",
-        permission_action,
-        package,
-        NOTIFICATION_PERMISSION,
-        check=False,
-    )
+    restore_permissions(adb, serial, package, record["permissions"])  # type: ignore[arg-type]
+    restore_app_ops(adb, serial, package, record["appOps"])  # type: ignore[arg-type]
     run(adb, serial, "shell", "am", "force-stop", package, check=False)
 
 

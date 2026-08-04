@@ -39,8 +39,12 @@ elif command[:1] == ['pull']:
     pathlib.Path(command[-1]).write_bytes(b'original-apk')
 elif command[:2] == ['exec-out', 'run-as']:
     sys.stdout.buffer.write(b'original-data')
-elif command[:4] == ['shell', 'cmd', 'package', 'check-permission']:
-    print('granted')
+elif command[:3] == ['shell', 'dumpsys', 'package']:
+    print('''runtime permissions:
+      android.permission.ACCESS_FINE_LOCATION: granted=true, flags=[ USER_SET ]
+      android.permission.CAMERA: granted=false, flags=[ USER_FIXED|USER_SET ]''')
+elif command[:5] == ['shell', 'cmd', 'appops', 'get', '--user']:
+    print('FINE_LOCATION: foreground; time=+1h\\nCAMERA: ignore')
 elif command[:1] == ['install-multiple']:
     for candidate in command[3:]:
         if not pathlib.Path(candidate).is_file():
@@ -106,7 +110,10 @@ raise SystemExit(0)
             self.assertIn("-s pixel-8 install-multiple -r -d", calls)
             self.assertIn("settings put secure always_on_vpn_app com.example.vpn", calls)
             self.assertIn("settings delete global stay_on_while_plugged_in", calls)
-            self.assertIn("pm grant com.poyka.ripdpi android.permission.POST_NOTIFICATIONS", calls)
+            self.assertIn("pm grant --user 0 com.poyka.ripdpi android.permission.ACCESS_FINE_LOCATION", calls)
+            self.assertIn("pm revoke --user 0 com.poyka.ripdpi android.permission.CAMERA", calls)
+            self.assertIn("cmd appops reset --user 0 com.poyka.ripdpi", calls)
+            self.assertIn("cmd appops set --user 0 com.poyka.ripdpi CAMERA ignore", calls)
 
     def test_rejects_restore_on_different_serial(self) -> None:
         with tempfile.TemporaryDirectory() as directory_raw:
@@ -115,7 +122,7 @@ raise SystemExit(0)
             state = directory / "state"
             state.mkdir()
             (state / "manifest.json").write_text(
-                json.dumps({"version": "ripdpi_android_device_session_v1", "serial": "pixel-7"})
+                json.dumps({"version": "ripdpi_android_device_session_v2", "serial": "pixel-7"})
             )
             result = self.invoke(
                 adb,
@@ -154,6 +161,8 @@ raise SystemExit(0)
             ROOT / "test-lab/scripts/run-vpn-e2e.sh": '"$script_dir/adb-install-debug.sh"',
             ROOT / "test-lab/scripts/run-proxy-e2e.sh": '"$script_dir/adb-install-debug.sh"',
             ROOT / "scripts/ci/run-android-so-bind-physical-e2e.sh": 'install_and_verify_apk "$app_apk"',
+            ROOT / "test-lab/scripts/run-rooted-emulator-netem.sh": '"$lab_root/scripts/adb-install-debug.sh"',
+            ROOT / "test-lab/scripts/run-mock-relay-matrix.sh": '"$lab_root/scripts/adb-install-debug.sh"',
         }
         for path, mutation_marker in transactional.items():
             with self.subTest(path=path.name):
@@ -164,6 +173,7 @@ raise SystemExit(0)
                     source.index("android-device-session.py\" capture"),
                     source.index(mutation_marker),
                 )
+                self.assertIn("recovery backup retained", source.lower())
 
         for path in (
             ROOT / "test-lab/scripts/run-host-fault-matrix.sh",

@@ -209,10 +209,13 @@ cleanup() {
       --serial "$android_serial" \
       --state-dir "$device_state_dir"; then
       echo "Failed to restore the pre-test Android device state." >&2
+      echo "Recovery backup retained at: $device_state_dir" >&2
       status=1
     fi
   fi
-  rm -rf "$device_state_root"
+  if [[ $status -eq 0 ]]; then
+    rm -rf "$device_state_root"
+  fi
 
   exit "$status"
 }
