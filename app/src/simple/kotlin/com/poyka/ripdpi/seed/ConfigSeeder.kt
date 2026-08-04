@@ -24,7 +24,7 @@ internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
 internal const val SEED_KEY_VERSION = "config_seed_version"
 internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
-private const val CURRENT_SEED_VERSION = 4
+private const val CURRENT_SEED_VERSION = 5
 
 /**
  * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
@@ -60,18 +60,18 @@ internal fun seedRelayProfileId(
 }
 
 /**
- * First-launch seeder for the `simple` product flavor.
+ * Required configuration reconciler for the `simple` product flavor.
  *
  * Reads a compiled-in sing-box bundle from [SIMPLE_RELAY_BUNDLE_ASSET_NAME] in assets, parses it
  * with [SingBoxSubscriptionParser], and persists each profile via the shared
  * reuse points ([ProxyGroupRepository], [RelayProfileActivator],
- * [AwgProfileRepository]). A version in [SEED_PREFS_NAME] guards the diagnostic
- * profile import, while every launch re-pins the first embedded VLESS+Reality
- * profile as the normal VPN runtime.
+ * [AwgProfileRepository]). Every launch reconciles the bundled profiles by their
+ * stable ids and re-pins the first embedded VLESS+Reality profile as the normal
+ * VPN runtime. The version in [SEED_PREFS_NAME] records the last completed seed.
  *
- * Missing asset — the flag is NOT set so dropping the file in later still
- * triggers a seed. Parse error — same: flag not set so a corrected bundle
- * seeds on the next launch.
+ * A missing or invalid required profile fails startup before any repository is
+ * mutated. Deterministic ids make a retry safe if a storage failure interrupts
+ * the reconciliation after writes have started.
  */
 @Singleton
 open class ConfigSeeder
@@ -88,34 +88,35 @@ open class ConfigSeeder
         }
 
         override suspend fun seed() {
-            val json = readBundle() ?: return
+            val json = checkNotNull(readBundle()) { "Required embedded relay bundle is unavailable" }
 
             val groupId = SIMPLE_SEED_GROUP_ID
             val result = SingBoxSubscriptionParser.parse(json, groupId)
 
             when (result) {
                 is SingBoxParseResult.Error -> {
-                    Logger.w { "ConfigSeeder: parse error — ${result.message}" }
-                    return
+                    error("Required embedded relay bundle is invalid")
                 }
 
                 is SingBoxParseResult.Success -> {
+                    check(result.skipped.isEmpty()) {
+                        "Required embedded relay bundle contains unsupported relay profiles"
+                    }
                     val primaryReality =
                         result.profiles.filterIsInstance<ProxyProfile.VlessReality>().firstOrNull()
-                            ?: run {
-                                Logger.w { "ConfigSeeder: embedded bundle has no VLESS+Reality primary; refusing seed" }
-                                return
-                            }
-                    if (!validateNativeRelayProfile(primaryReality)) {
-                        Logger.w { "ConfigSeeder: embedded VLESS+Reality primary is invalid; refusing seed" }
-                        return
+                            ?: error("Required embedded relay bundle has no VLESS+Reality primary")
+                    check(result.profiles.any { it is ProxyProfile.Hysteria2 }) {
+                        "Required embedded relay bundle has no Hysteria2 reserve"
                     }
-
-                    if (prefs.getInt(SEED_KEY_VERSION, 0) >= CURRENT_SEED_VERSION) {
-                        pinPrimaryRuntime(primaryReality)
-                        Logger.i { "ConfigSeeder: restored embedded VLESS+Reality primary" }
-                        return
+                    check(result.amneziaWgProfiles.isNotEmpty()) {
+                        "Required embedded relay bundle has no AWG reserve"
                     }
+                    result.profiles.forEach { profile ->
+                        check(validateNativeRelayProfile(profile)) {
+                            "Embedded relay profile ${profile::class.simpleName} is invalid"
+                        }
+                    }
+                    val awgRequests = result.amneziaWgProfiles.map { it.toActivationRequest() }
 
                     val existingGroup = proxyGroupRepository.list().firstOrNull { it.id == groupId }
                     proxyGroupRepository.add(
@@ -144,8 +145,6 @@ open class ConfigSeeder
                                 occurrencesByKind[kind] = occurrence + 1
                                 profile to seedRelayProfileId(profile, occurrence)
                             }.asReversed()
-                    var activatedCount = 0
-                    var skippedCount = 0
                     for ((profile, profileId) in orderedProfiles) {
                         val applied =
                             relayProfileActivator.activate(
@@ -156,39 +155,35 @@ open class ConfigSeeder
                                         profile is ProxyProfile.Hysteria2
                                     },
                             )
-                        if (applied) {
-                            activatedCount++
-                        } else {
-                            skippedCount++
-                            Logger.i {
-                                "ConfigSeeder: profile kind ${profile::class.simpleName} not relay-activatable, skipped"
-                            }
+                        check(applied) {
+                            "Embedded relay profile ${profile::class.simpleName} is not relay-activatable"
                         }
                     }
-                    Logger.i {
-                        "ConfigSeeder: activated $activatedCount relay profile(s), skipped $skippedCount"
-                    }
+                    Logger.i { "ConfigSeeder: activated ${orderedProfiles.size} relay profile(s)" }
 
-                    result.amneziaWgProfiles.forEachIndexed { index, awgProfile ->
-                        val profileId = seedAwgProfileId(index)
-                        val request = awgProfile.toActivationRequest()
-                        awgProfileRepository.save(
-                            name = awgProfile.displayName,
-                            request = request,
-                            existingId = profileId,
-                        )
-                    }
+                    result.amneziaWgProfiles
+                        .zip(awgRequests)
+                        .forEachIndexed { index, (awgProfile, request) ->
+                            val profileId = seedAwgProfileId(index)
+                            awgProfileRepository.save(
+                                name = awgProfile.displayName,
+                                request = request,
+                                existingId = profileId,
+                            )
+                        }
                     Logger.i {
                         "ConfigSeeder: saved ${result.amneziaWgProfiles.size} AWG profile(s)"
                     }
 
                     pinPrimaryRuntime(primaryReality)
 
-                    prefs
-                        .edit()
-                        .putBoolean(SEED_KEY_SEEDED, true)
-                        .putInt(SEED_KEY_VERSION, CURRENT_SEED_VERSION)
-                        .apply()
+                    check(
+                        prefs
+                            .edit()
+                            .putBoolean(SEED_KEY_SEEDED, true)
+                            .putInt(SEED_KEY_VERSION, CURRENT_SEED_VERSION)
+                            .commit(),
+                    ) { "Failed to persist simple seed state" }
                     Logger.i { "ConfigSeeder: seed complete" }
                 }
             }
@@ -209,7 +204,7 @@ open class ConfigSeeder
 
         /**
          * Reads the embedded bundle JSON. Returns `null` when the asset is
-         * absent or blank — no flag is set so a later drop-in triggers a seed.
+         * absent or blank; [seed] treats that as a required startup failure.
          * Protected open so unit tests can inject an in-memory string.
          */
         protected open fun readBundle(): String? =

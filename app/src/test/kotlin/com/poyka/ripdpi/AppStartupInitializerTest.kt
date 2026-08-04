@@ -21,6 +21,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.seed.SimpleFlavorSeeder
+import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.seed.SimpleFlavorStartupHooks
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -127,7 +129,7 @@ class AppStartupInitializerTest {
                     compatibilityResetter = compatibilityResetter,
                     strategyPackService = strategyPackService,
                     diagnosticsBootstrapper = diagnosticsBootstrapper,
-                    profileMutations = profileMutations,
+                    startupOverrides = StartupTestOverrides(profileMutations = profileMutations),
                     scope = backgroundScope,
                 )
 
@@ -160,10 +162,13 @@ class AppStartupInitializerTest {
                     compatibilityResetter = compatibilityResetter,
                     strategyPackService = strategyPackService,
                     diagnosticsBootstrapper = diagnosticsBootstrapper,
-                    profileMutations =
-                        object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
-                            override suspend fun recover() = error("synthetic recovery failure")
-                        },
+                    startupOverrides =
+                        StartupTestOverrides(
+                            profileMutations =
+                                object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+                                    override suspend fun recover() = error("synthetic recovery failure")
+                                },
+                        ),
                     scope = backgroundScope,
                 )
 
@@ -198,7 +203,7 @@ class AppStartupInitializerTest {
                     compatibilityResetter = compatibilityResetter,
                     strategyPackService = RecordingStrategyPackService(),
                     diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
-                    profileMutations = profileMutations,
+                    startupOverrides = StartupTestOverrides(profileMutations = profileMutations),
                     scope = backgroundScope,
                 )
 
@@ -537,6 +542,44 @@ class AppStartupInitializerFailureTest {
     }
 
     @Test
+    fun `simple seed failure keeps startup gated and skips session watcher`() =
+        runTest {
+            var watcherBindCalls = 0
+            val hooks =
+                SimpleFlavorStartupHooks(
+                    Optional.of(
+                        object : SimpleFlavorSeeder {
+                            override suspend fun seed() {
+                                error("required-seed-failed")
+                            }
+                        },
+                    ),
+                    Optional.of(
+                        object : SimpleFlavorSessionWatcher {
+                            override fun bind(scope: CoroutineScope) {
+                                watcherBindCalls++
+                            }
+                        },
+                    ),
+                )
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it != AppStartupReadinessState.Pending }
+            runCurrent()
+
+            assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
+            assertEquals(0, watcherBindCalls)
+        }
+
+    @Test
     fun `detection observation failure is swallowed after successful subsystem initialization`() =
         runTest {
             val compatibilityResetter = RecordingAppCompatibilityResetter()
@@ -774,6 +817,12 @@ class AppStartupInitializerFailureTest {
         }
 }
 
+private data class StartupTestOverrides(
+    val profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
+    val simpleFlavorStartupHooks: SimpleFlavorStartupHooks =
+        SimpleFlavorStartupHooks(Optional.empty(), Optional.empty()),
+)
+
 private fun createInitializer(
     compatibilityResetter: AppCompatibilityResetter,
     strategyPackService: StrategyPackService,
@@ -789,12 +838,12 @@ private fun createInitializer(
     memoryProfilingRegistrar: MemoryProfilingRegistrar = NoOpMemoryProfilingRegistrar,
     remoteDeviceAcceptanceStartupReconciler: RemoteDeviceAcceptanceStartupReconciler =
         NoOpRemoteDeviceAcceptanceStartupReconciler,
-    profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
+    startupOverrides: StartupTestOverrides = StartupTestOverrides(),
     scope: CoroutineScope,
 ): AppStartupInitializer =
     AppStartupInitializer(
         context = application,
-        startupDataRecovery = StartupDataRecovery(compatibilityResetter, profileMutations),
+        startupDataRecovery = StartupDataRecovery(compatibilityResetter, startupOverrides.profileMutations),
         diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
         detectionObservationStarter = detectionObservationStarter,
         strategyPackService = strategyPackService,
@@ -809,7 +858,7 @@ private fun createInitializer(
                 memoryProfilingRegistrar = memoryProfilingRegistrar,
                 remoteDeviceAcceptanceStartupReconciler = remoteDeviceAcceptanceStartupReconciler,
             ),
-        simpleFlavorStartupHooks = SimpleFlavorStartupHooks(Optional.empty(), Optional.empty()),
+        simpleFlavorStartupHooks = startupOverrides.simpleFlavorStartupHooks,
         appShortcutsPublisher =
             AppShortcutsPublisher(
                 context = application,

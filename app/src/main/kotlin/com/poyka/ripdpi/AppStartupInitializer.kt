@@ -116,6 +116,11 @@ class AppStartupInitializer
                     } catch (cancellation: CancellationException) {
                         startupRunning.set(false)
                         throw cancellation
+                    } catch (error: IllegalStateException) {
+                        startupRunning.set(false)
+                        readinessState.value = AppStartupReadinessState.Failed
+                        Logger.e(error) { "Required startup subsystem failed; startup remains gated" }
+                        return@launch
                     }
                 readinessState.value = AppStartupReadinessState.Ready
                 try {
@@ -249,6 +254,9 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.SimpleConfigSeed) {
                     simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
                 }
+            check(simpleConfigSeed.status == AppStartupSubsystemStatus.Succeeded) {
+                "Required simple configuration seed failed"
+            }
             return AppStartupReport(
                 profileMutationRecovery = startupRecovery.profileMutationRecovery,
                 resetEventConsume = resetEventConsume,

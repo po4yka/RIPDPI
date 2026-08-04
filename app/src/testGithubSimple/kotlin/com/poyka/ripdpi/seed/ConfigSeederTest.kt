@@ -109,6 +109,19 @@ private val FAKE_BUNDLE =
     }
     """.trimIndent()
 
+private val UPDATED_FAKE_BUNDLE =
+    FAKE_BUNDLE
+        .replace("\"server_port\": 8443", "\"server_port\": 9443")
+        .replace("\"password\": \"fakepwd\"", "\"password\": \"updated-fakepwd\"")
+        .replace("\"private_key\": \"BBBB", "\"private_key\": \"DDDD")
+        .replace("\"endpoint\": \"1.2.3.4:51820\"", "\"endpoint\": \"5.6.7.8:51821\"")
+
+private val NO_AWG_BUNDLE =
+    FAKE_BUNDLE.replace(
+        Regex("""(?s)"amneziawg": \[\s*\{.*?\}\s*]"""),
+        "\"amneziawg\": []",
+    )
+
 private val MULTI_RELAY_BUNDLE =
     """
     {
@@ -142,7 +155,24 @@ private val MULTI_RELAY_BUNDLE =
         { "type": "urltest", "tag": "auto",
           "outbounds": ["reality-primary", "reality-fallback", "xhttp", "hysteria"],
           "url": "https://probe.example/generate_204" }
-      ]
+      ],
+      "ripdpi": {
+        "schema_version": 1,
+        "amneziawg": [
+          {
+            "tag": "test-awg",
+            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            "address": ["10.8.0.2/32"],
+            "peer": {
+              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+              "endpoint": "192.0.2.40:51820",
+              "allowed_ips": ["0.0.0.0/0"]
+            },
+            "jc": 4, "jmin": 40, "jmax": 70,
+            "s1": 0, "s2": 0, "h1": 1, "h2": 2, "h3": 3, "h4": 4
+          }
+        ]
+      }
     }
     """.trimIndent()
 
@@ -166,6 +196,7 @@ class ConfigSeederTest {
     private lateinit var application: Application
     private lateinit var proxyGroupRepository: RecordingProxyGroupRepository
     private lateinit var relayProfileStore: FakeRelayProfileStore
+    private lateinit var relayCredentialStore: FakeRelayCredentialStore
     private lateinit var relaySettings: FakeAppSettingsRepository
     private lateinit var relayProfileActivator: RelayProfileActivator
     private lateinit var awgProfileRepository: AwgProfileRepository
@@ -182,11 +213,12 @@ class ConfigSeederTest {
             .commit()
         proxyGroupRepository = RecordingProxyGroupRepository()
         relayProfileStore = FakeRelayProfileStore()
+        relayCredentialStore = FakeRelayCredentialStore()
         relaySettings = FakeAppSettingsRepository()
         relayProfileActivator =
             RelayProfileActivator(
                 relayProfileStore = relayProfileStore,
-                relayCredentialStore = FakeRelayCredentialStore(),
+                relayCredentialStore = relayCredentialStore,
                 settingsRepository = relaySettings,
             )
         awgDao = InMemoryAwgProfileDao()
@@ -318,6 +350,22 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `subsequent startup refreshes bundled Hysteria and AWG reserves`() =
+        runTest {
+            makeSeeder(FAKE_BUNDLE).seed()
+
+            makeSeeder(UPDATED_FAKE_BUNDLE).seed()
+
+            val hysteria = relayProfileStore.list().single { it.kind == RelayKindHysteria2 }
+            assertEquals(9443, hysteria.serverPort)
+            assertEquals("updated-fakepwd", relayCredentialStore.load(hysteria.id)?.hysteriaPassword)
+            val awg = requireNotNull(awgProfileRepository.load(SIMPLE_SEED_AWG_PROFILE_ID)).request
+            assertEquals("5.6.7.8", awg.endpointHost)
+            assertEquals(51821, awg.endpointPort)
+            assertTrue(awg.privateKey.startsWith("DDDD"))
+        }
+
+    @Test
     fun `legacy seeded flag reruns migration without duplicating AWG`() =
         runTest {
             val seeder = makeSeeder(FAKE_BUNDLE)
@@ -393,14 +441,29 @@ class ConfigSeederTest {
         }
 
     @Test
-    fun `missing asset does not set the seeded flag`() =
+    fun `missing asset fails seed without mutating storage`() =
         runTest {
             val seeder = makeSeeder(bundleJson = null)
 
-            seeder.seed()
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
+            assertTrue(failure is IllegalStateException)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle without required AWG reserve fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(NO_AWG_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
             assertTrue(awgDao.rows.value.isEmpty())
         }
 
@@ -409,8 +472,9 @@ class ConfigSeederTest {
         runTest {
             val seeder = makeSeeder(HYSTERIA_ONLY_BUNDLE)
 
-            seeder.seed()
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
+            assertTrue(failure is IllegalStateException)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
             assertTrue(relayProfileStore.list().isEmpty())
@@ -420,8 +484,8 @@ class ConfigSeederTest {
     @Test
     fun `missing asset followed by present asset seeds successfully`() =
         runTest {
-            // First call: asset absent — flag not set
-            makeSeeder(bundleJson = null).seed()
+            // First call: asset absent — seed fails and the marker remains clear.
+            assertTrue(runCatching { makeSeeder(bundleJson = null).seed() }.isFailure)
 
             // Second call with same shared prefs: asset now present — seeds
             val seeder = makeSeeder(FAKE_BUNDLE)
