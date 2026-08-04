@@ -39,6 +39,18 @@ ANDROID_PREFIXES: Final = (
     "core/service/",
 )
 
+ANDROID_FILES: Final = frozenset(
+    {
+        "scripts/ci/run-android-so-bind-physical-e2e.sh",
+        "scripts/tests/test_android_device_session.py",
+        "test-lab/scripts/android-device-session.py",
+        "test-lab/scripts/run-mock-relay-matrix.sh",
+        "test-lab/scripts/run-proxy-e2e.sh",
+        "test-lab/scripts/run-rooted-emulator-netem.sh",
+        "test-lab/scripts/run-vpn-e2e.sh",
+    }
+)
+
 RELEASE_BUILD_LOGIC_PREFIXES: Final = (
     ".github/actions/setup-android-rust/",
     "build-logic/",
@@ -94,6 +106,7 @@ WORKFLOW_FILES: Final = frozenset(
         "scripts/tests/test_release_artifact_uploads.py",
         "scripts/tests/test_release_candidate_manifest.py",
         "scripts/tests/test_release_p0_contracts.py",
+        "scripts/tests/test_release_p1_contracts.py",
         "scripts/tests/test_resolve_change_routing.py",
         "scripts/tests/test_path_filtered_pr_checks.py",
     }
@@ -104,6 +117,7 @@ FAST_FIXTURE_PREFIXES: Final = ("core/data/src/test/resources/fleet-fixtures/",)
 FAST_FIXTURE_FILES: Final = frozenset(
     {
         "contract-fixtures/phase16_lab_matrix.json",
+        "scripts/tests/test_netem_transaction.py",
     }
 )
 
@@ -119,7 +133,11 @@ def is_documentation_only(paths: list[str]) -> bool:
 
 
 def is_fixture_path(path: str) -> bool:
-    return path in FAST_FIXTURE_FILES or path.startswith(FAST_FIXTURE_PREFIXES)
+    return (
+        path in FAST_FIXTURE_FILES
+        or path.startswith(FAST_FIXTURE_PREFIXES)
+        or path.startswith("test-lab/chaos/netem/")
+    )
 
 
 def is_workflow_configuration_path(path: str) -> bool:
@@ -148,7 +166,7 @@ def route_for_path(path: str) -> str | None:
         return ROUTE_RELEASE_BUILD_LOGIC
     if path.startswith("native/rust/"):
         return ROUTE_RUST_NATIVE
-    if path.startswith(ANDROID_PREFIXES):
+    if path in ANDROID_FILES or path.startswith(ANDROID_PREFIXES):
         return ROUTE_ANDROID
     if path in WORKFLOW_FILES:
         return ROUTE_WORKFLOW

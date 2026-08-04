@@ -58,10 +58,16 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             ROUTE_ANDROID: [
                 "app/src/main/kotlin/com/poyka/ripdpi/MainActivity.kt",
                 "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnService.kt",
+                "test-lab/scripts/android-device-session.py",
+                "scripts/tests/test_android_device_session.py",
             ],
             ROUTE_RUST_NATIVE: ["native/rust/crates/ripdpi-packets/src/lib.rs"],
             ROUTE_RELEASE_BUILD_LOGIC: ["build-logic/convention/build.gradle.kts"],
-            ROUTE_FIXTURES: ["contract-fixtures/phase16_lab_matrix.json"],
+            ROUTE_FIXTURES: [
+                "contract-fixtures/phase16_lab_matrix.json",
+                "test-lab/chaos/netem/clear.sh",
+                "scripts/tests/test_netem_transaction.py",
+            ],
             ROUTE_WORKFLOW: [".github/workflows/codeql.yml"],
         }
         for expected, paths in cases.items():
@@ -225,6 +231,9 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("fixture-contracts:", source)
         self.assertIn("actionlint .github/workflows/*.yml", source)
         self.assertIn("pinact run --fix=false --no-api", source)
+        self.assertIn("scripts.tests.test_release_p1_contracts", source)
+        self.assertIn("scripts.tests.test_android_device_session", source)
+        self.assertIn("scripts.tests.test_netem_transaction", source)
         self.assertIn(
             "run_android_ci: ${{ steps.resolve.outputs.run_android_ci }}", source
         )

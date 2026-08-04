@@ -168,6 +168,7 @@ jobs:
             scripts.tests.test_release_candidate_manifest \
             scripts.tests.test_release_contract \
             scripts.tests.test_release_p0_contracts \
+            scripts.tests.test_release_p1_contracts \
             scripts.tests.test_require_successful_ci_run \
             scripts.tests.test_path_filtered_pr_checks \
             scripts.tests.test_scheduled_workflow_offsets \
@@ -185,6 +186,7 @@ jobs:
         run: |
           python3 -m unittest \
             scripts.tests.test_fleet_fixtures \
+            scripts.tests.test_netem_transaction \
             scripts.tests.test_phase16_matrix \
             scripts.tests.test_protocol_fixture_versions
 
@@ -197,6 +199,7 @@ jobs:
         run: |
           python3 -m unittest \
             scripts.tests.test_validate_android_junit_results \
+            scripts.tests.test_android_device_session \
             scripts.tests.test_run_android_e2e_emulator \
             scripts.tests.test_start_local_network_fixture
 
