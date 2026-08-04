@@ -10,15 +10,15 @@ from collections.abc import Mapping
 
 ALLOWED_RESULTS = frozenset({"success", "skipped"})
 ALWAYS_REQUIRED = frozenset({"change-routing", "android-e2e-result-contracts"})
-NON_SCHEDULE_REQUIRED = frozenset(
+SOURCE_REQUIRED = frozenset(
     {
         "design-md-lint",
         "architecture-health",
         "release-gates",
-        "cargo-deny",
-        "gradle-static-analysis",
     }
 )
+ANDROID_REQUIRED = frozenset({"gradle-static-analysis"})
+RUST_REQUIRED = frozenset({"cargo-deny"})
 
 
 def required_jobs(
@@ -26,14 +26,22 @@ def required_jobs(
     event_name: str,
     route: str,
     run_full_ci: bool,
+    run_android_ci: bool,
+    run_rust_native_ci: bool,
     run_fixtures_ci: bool,
     run_workflow_ci: bool,
 ) -> set[str]:
     required = set(ALWAYS_REQUIRED)
     if route == "documentation":
         required.add("docs-only-gate")
-    elif event_name != "schedule" and run_full_ci:
-        required.update(NON_SCHEDULE_REQUIRED)
+    elif event_name != "schedule" and (
+        run_full_ci or run_android_ci or run_rust_native_ci
+    ):
+        required.update(SOURCE_REQUIRED)
+        if run_full_ci or run_android_ci:
+            required.update(ANDROID_REQUIRED)
+        if run_full_ci or run_rust_native_ci:
+            required.update(RUST_REQUIRED)
     if run_fixtures_ci:
         required.add("fixture-contracts")
     if run_workflow_ci:
@@ -47,10 +55,14 @@ def preflight_errors(
     event_name: str,
     route: str,
     run_full_ci: bool,
+    run_android_ci: bool,
+    run_rust_native_ci: bool,
     run_fixtures_ci: bool,
     run_workflow_ci: bool,
 ) -> list[str]:
-    results = {job: str(detail.get("result", "missing")) for job, detail in needs.items()}
+    results = {
+        job: str(detail.get("result", "missing")) for job, detail in needs.items()
+    }
     errors = [
         f"unexpected result: {job}={result}"
         for job, result in sorted(results.items())
@@ -61,12 +73,16 @@ def preflight_errors(
             event_name=event_name,
             route=route,
             run_full_ci=run_full_ci,
+            run_android_ci=run_android_ci,
+            run_rust_native_ci=run_rust_native_ci,
             run_fixtures_ci=run_fixtures_ci,
             run_workflow_ci=run_workflow_ci,
         )
     ):
         if results.get(job) != "success":
-            errors.append(f"required gate did not succeed: {job}={results.get(job, 'missing')}")
+            errors.append(
+                f"required gate did not succeed: {job}={results.get(job, 'missing')}"
+            )
     return errors
 
 
@@ -81,6 +97,8 @@ def main() -> int:
         event_name=os.environ["EVENT_NAME"],
         route=os.environ["ROUTE"],
         run_full_ci=env_bool("RUN_FULL_CI"),
+        run_android_ci=env_bool("RUN_ANDROID_CI"),
+        run_rust_native_ci=env_bool("RUN_RUST_NATIVE_CI"),
         run_fixtures_ci=env_bool("RUN_FIXTURES_CI"),
         run_workflow_ci=env_bool("RUN_WORKFLOW_CI"),
     )

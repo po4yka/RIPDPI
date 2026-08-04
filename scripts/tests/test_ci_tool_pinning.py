@@ -51,9 +51,9 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("workspaces: native/rust -> target", source)
 
     def test_android_native_toolchain_installs_pinned_cmake(self) -> None:
-        action = (
-            ROOT / ".github/actions/setup-android-rust/action.yml"
-        ).read_text(encoding="utf-8")
+        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
+            encoding="utf-8"
+        )
         properties = (ROOT / "gradle.properties").read_text(encoding="utf-8")
 
         self.assertIn("ripdpi.nativeCmakeVersion=3.31.6", properties)
@@ -109,7 +109,9 @@ class CiToolPinningTest(unittest.TestCase):
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))
         for path in sources:
-            self.assertNotIn("dtolnay/rust-toolchain@master", path.read_text(encoding="utf-8"), path)
+            self.assertNotIn(
+                "dtolnay/rust-toolchain@master", path.read_text(encoding="utf-8"), path
+            )
 
     def test_fuzz_nightly_uses_prebuilt_pinned_cargo_fuzz(self) -> None:
         source = (ROOT / ".github/workflows/fuzz-nightly.yml").read_text(
@@ -124,9 +126,11 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("install cargo-fuzz", source)
 
     def test_android_cli_uses_versioned_digest_verified_binary(self) -> None:
-        source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(encoding="utf-8")
-        self.assertIn("android_cli_version=\"1.0.15857036\"", source)
-        self.assertIn("android_cli_sha256=\"e5b6930e", source)
+        source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('android_cli_version="1.0.15857036"', source)
+        self.assertIn('android_cli_sha256="e5b6930e', source)
         self.assertIn("linux_x86_64/android-cli", source)
         self.assertIn("sha256sum --check --strict", source)
         self.assertIn('version_output="$(android --no-metrics --version 2>&1)"', source)
@@ -135,28 +139,35 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("android update", source)
         self.assertNotIn("android init", source)
 
-    def test_kotlin_coverage_is_the_only_gradle_build_cache_writer(self) -> None:
+    def test_gradle_build_cache_writers_are_trusted_main_only(self) -> None:
         action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
             encoding="utf-8"
         )
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         workflows = sorted((ROOT / ".github/workflows").glob("*.yml"))
 
-        self.assertIn('gradle-cache-read-only:\n    description:', action)
+        self.assertIn("gradle-cache-read-only:\n    description:", action)
         self.assertIn('default: "true"', action)
         self.assertNotIn(
             "gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}",
             ci,
         )
 
-        writer = re.search(
-            r"(?ms)^  kotlin-coverage:\n.*?(?=^  [\w-]+:\n|\Z)", ci
-        )
+        writer = re.search(r"(?ms)^  kotlin-coverage:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
         self.assertIsNotNone(writer)
         assert writer is not None
         self.assertIn(
             "gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}",
             writer.group(0),
+        )
+        pt_writer = re.search(
+            r"(?ms)^  pluggable-transport-assets:\n.*?(?=^  [\w-]+:\n|\Z)", ci
+        )
+        self.assertIsNotNone(pt_writer)
+        assert pt_writer is not None
+        self.assertIn(
+            "gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}",
+            pt_writer.group(0),
         )
 
         writable = []
@@ -168,7 +179,13 @@ class CiToolPinningTest(unittest.TestCase):
                 if value != '"true"':
                     writable.append((workflow.name, value))
         self.assertEqual(
-            [("ci.yml", "${{ github.ref != 'refs/heads/main' }}")],
+            [
+                (
+                    "ci.yml",
+                    "${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}",
+                ),
+                ("ci.yml", "${{ github.ref != 'refs/heads/main' }}"),
+            ],
             writable,
         )
 

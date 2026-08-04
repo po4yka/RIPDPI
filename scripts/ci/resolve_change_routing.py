@@ -99,9 +99,7 @@ WORKFLOW_FILES: Final = frozenset(
     }
 )
 
-FAST_FIXTURE_PREFIXES: Final = (
-    "core/data/src/test/resources/fleet-fixtures/",
-)
+FAST_FIXTURE_PREFIXES: Final = ("core/data/src/test/resources/fleet-fixtures/",)
 
 FAST_FIXTURE_FILES: Final = frozenset(
     {
@@ -111,7 +109,9 @@ FAST_FIXTURE_FILES: Final = frozenset(
 
 
 def is_documentation_path(path: str) -> bool:
-    return path.startswith("docs/") or (path.startswith("README") and path.endswith(".md") and "/" not in path)
+    return path.startswith("docs/") or (
+        path.startswith("README") and path.endswith(".md") and "/" not in path
+    )
 
 
 def is_documentation_only(paths: list[str]) -> bool:
@@ -135,6 +135,8 @@ def route_for_path(path: str) -> str | None:
         return ROUTE_DOCUMENTATION
     if is_fixture_path(path):
         return ROUTE_FIXTURES
+    if {"fixture", "fixtures", "golden", "goldens"}.intersection(candidate.parts):
+        return None
     if path in FIXTURE_WORKFLOW_FILES:
         return ROUTE_FIXTURES
     if (
@@ -171,11 +173,13 @@ def classify_change_paths(paths: list[str]) -> str:
 def routing_outputs(paths: list[str]) -> dict[str, str]:
     """Map a fail-closed route to the GitHub Actions job switches."""
     route = classify_change_paths(paths)
-    # Workflow and fixture routes are explicit allowlists with dedicated
-    # contract gates. Android, Rust, release/build-logic, mixed, empty, and
-    # unknown changes remain fail-closed on the complete CI graph.
+    # Workflow and fixture routes have dedicated contract gates. Source-only
+    # Android and Rust routes use their owned lanes; mixed, release/build-logic,
+    # empty, and unknown changes remain fail-closed on the complete CI graph.
     run_full_ci = route not in {
         ROUTE_DOCUMENTATION,
+        ROUTE_ANDROID,
+        ROUTE_RUST_NATIVE,
         ROUTE_FIXTURES,
         ROUTE_WORKFLOW,
     }
@@ -208,12 +212,18 @@ def routing_outputs(paths: list[str]) -> dict[str, str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Resolve conservative CI change-routing outputs.")
+    parser = argparse.ArgumentParser(
+        description="Resolve conservative CI change-routing outputs."
+    )
     parser.add_argument("--paths-file", type=Path, required=True)
     parser.add_argument("--github-output", type=Path, required=True)
     args = parser.parse_args()
 
-    paths = [line.strip() for line in args.paths_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    paths = [
+        line.strip()
+        for line in args.paths_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     outputs = routing_outputs(paths)
     args.github_output.write_text(
         "".join(f"{name}={value}\n" for name, value in outputs.items()),

@@ -161,8 +161,15 @@ class ResolveChangeRoutingTest(unittest.TestCase):
     def test_targeted_switches_are_exclusive(self) -> None:
         outputs = routing_outputs(["native/rust/Cargo.toml"])
         self.assertEqual("true", outputs["run_rust_native_ci"])
-        self.assertEqual("true", outputs["run_full_ci"])
+        self.assertEqual("false", outputs["run_full_ci"])
         self.assertEqual("false", outputs["run_android_ci"])
+
+        android = routing_outputs(
+            ["app/src/main/kotlin/com/poyka/ripdpi/MainActivity.kt"]
+        )
+        self.assertEqual("false", android["run_full_ci"])
+        self.assertEqual("true", android["run_android_ci"])
+        self.assertEqual("false", android["run_rust_native_ci"])
 
     def test_coverage_switches_follow_source_ownership(self) -> None:
         cases = {
@@ -178,11 +185,9 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                 self.assertEqual(expected[0], outputs["run_kotlin_coverage"])
                 self.assertEqual(expected[1], outputs["run_rust_coverage"])
 
-    def test_pr_labels_do_not_trigger_the_main_ci_workflow(self) -> None:
+    def test_pr_labels_trigger_opt_in_heavy_lanes(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("types: [opened, synchronize, reopened]", source)
-        self.assertNotIn("types: [opened, synchronize, reopened, labeled]", source)
-        self.assertNotIn("github.event.action == 'labeled'", source)
+        self.assertIn("types: [opened, synchronize, reopened, labeled]", source)
 
     def test_manual_dispatch_stays_within_github_input_limit(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
@@ -210,16 +215,30 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         source = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("PUSH_BEFORE_SHA: ${{ github.event.before }}", source)
         self.assertIn(
+            'merge_base="$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA")"', source
+        )
+        self.assertIn('git diff --name-only "$merge_base" "$PR_HEAD_SHA"', source)
+        self.assertIn(
             'git diff --name-only "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA"', source
         )
         self.assertIn("workflow-only-contracts:", source)
         self.assertIn("fixture-contracts:", source)
         self.assertIn("actionlint .github/workflows/*.yml", source)
         self.assertIn("pinact run --fix=false --no-api", source)
-        self.assertIn("run_android_ci: ${{ steps.resolve.outputs.run_android_ci }}", source)
-        self.assertIn("run_rust_native_ci: ${{ steps.resolve.outputs.run_rust_native_ci }}", source)
-        self.assertIn("run_kotlin_coverage: ${{ steps.resolve.outputs.run_kotlin_coverage }}", source)
-        self.assertIn("run_rust_coverage: ${{ steps.resolve.outputs.run_rust_coverage }}", source)
+        self.assertIn(
+            "run_android_ci: ${{ steps.resolve.outputs.run_android_ci }}", source
+        )
+        self.assertIn(
+            "run_rust_native_ci: ${{ steps.resolve.outputs.run_rust_native_ci }}",
+            source,
+        )
+        self.assertIn(
+            "run_kotlin_coverage: ${{ steps.resolve.outputs.run_kotlin_coverage }}",
+            source,
+        )
+        self.assertIn(
+            "run_rust_coverage: ${{ steps.resolve.outputs.run_rust_coverage }}", source
+        )
 
     def test_ci_required_aggregates_every_other_job_and_handles_skips(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
@@ -240,9 +259,27 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("RUN_RUST_COVERAGE", aggregate)
         self.assertIn("RUN_NIGHTLY_COVERAGE", aggregate)
         self.assertIn(
-            'elif event_name != "schedule" and os.environ["RUN_FULL_CI"] == "true":',
+            'elif event_name != "schedule" and (run_full_ci or run_android_ci or run_rust_native_ci):',
             aggregate,
         )
+
+    def test_targeted_routes_drive_owned_and_cross_toolchain_jobs(self) -> None:
+        android_job = ci_job_source("build-android-debug")
+        self.assertIn("run_android_ci == 'true'", android_job)
+        self.assertNotIn("run_rust_native_ci == 'true'", android_job)
+
+        rust_job = ci_job_source("rust-workspace-tests")
+        self.assertIn("run_rust_native_ci == 'true'", rust_job)
+        self.assertNotIn("run_android_ci == 'true'", rust_job)
+
+        cross_job = ci_job_source("release-verification")
+        self.assertIn("run_android_ci == 'true'", cross_job)
+        self.assertIn("run_rust_native_ci == 'true'", cross_job)
+
+        pt_job = ci_job_source("pluggable-transport-assets")
+        trusted_main = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+        self.assertIn(f"rust-cache-save: ${{{{ {trusted_main} }}}}", pt_job)
+        self.assertIn("gradle-cache-read-only: ${{ github.event_name != 'push'", pt_job)
 
     def test_full_android_jobs_run_past_skipped_routing_ancestors(self) -> None:
         for job in (

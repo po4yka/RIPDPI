@@ -20,11 +20,15 @@ COMMON_SUCCESS = {
 
 
 class CheckCiPreflightTest(unittest.TestCase):
-    def errors(self, needs: dict[str, dict[str, str]], **overrides: object) -> list[str]:
+    def errors(
+        self, needs: dict[str, dict[str, str]], **overrides: object
+    ) -> list[str]:
         inputs: dict[str, object] = {
             "event_name": "pull_request",
             "route": "full",
             "run_full_ci": True,
+            "run_android_ci": False,
+            "run_rust_native_ci": False,
             "run_fixtures_ci": False,
             "run_workflow_ci": False,
         }
@@ -68,6 +72,30 @@ class CheckCiPreflightTest(unittest.TestCase):
         ):
             scheduled[job]["result"] = "skipped"
         self.assertEqual([], self.errors(scheduled, event_name="schedule"))
+
+    def test_targeted_routes_require_only_owned_static_gates(self) -> None:
+        android = {name: dict(detail) for name, detail in COMMON_SUCCESS.items()}
+        android["cargo-deny"]["result"] = "skipped"
+        self.assertEqual(
+            [],
+            self.errors(
+                android,
+                route="android",
+                run_full_ci=False,
+                run_android_ci=True,
+            ),
+        )
+        rust = {name: dict(detail) for name, detail in COMMON_SUCCESS.items()}
+        rust["gradle-static-analysis"]["result"] = "skipped"
+        self.assertEqual(
+            [],
+            self.errors(
+                rust,
+                route="rust-native",
+                run_full_ci=False,
+                run_rust_native_ci=True,
+            ),
+        )
 
     def test_fixture_and_workflow_routes_require_their_contract_gates(self) -> None:
         fixtures = {name: dict(detail) for name, detail in COMMON_SUCCESS.items()}
