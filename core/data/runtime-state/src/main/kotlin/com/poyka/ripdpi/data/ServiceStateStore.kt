@@ -32,6 +32,9 @@ sealed class ServiceEvent {
     data class Failed(
         val sender: Sender,
         val reason: FailureReason,
+        /** Coarse runtime state captured synchronously when the failure was published. */
+        val statusAtFailure: AppStatus? = null,
+        val modeAtFailure: Mode? = null,
     ) : ServiceEvent()
 
     data class PermissionRevoked(
@@ -235,35 +238,43 @@ class DefaultServiceStateStore
             sender: Sender,
             reason: FailureReason,
         ) {
-            synchronized(lock) {
-                val now = System.currentTimeMillis()
-                val currentTelemetry = _telemetry.value
-                _telemetry.value =
-                    currentTelemetry.copy(
-                        runtimeFieldTelemetry =
-                            deriveRuntimeFieldTelemetry(
-                                telemetryNetworkFingerprintHash =
-                                    currentTelemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
-                                winningTcpStrategyFamily =
-                                    currentTelemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
-                                winningQuicStrategyFamily =
-                                    currentTelemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
-                                winningDnsStrategyFamily =
-                                    currentTelemetry.runtimeFieldTelemetry.winningDnsStrategyFamily,
-                                proxyTelemetry = currentTelemetry.proxyTelemetry,
-                                relayTelemetry = currentTelemetry.relayTelemetry,
-                                warpTelemetry = currentTelemetry.warpTelemetry,
-                                tunnelTelemetry = currentTelemetry.tunnelTelemetry,
-                                tunnelRecoveryRetryCount =
-                                    currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
-                                failureReason = reason,
-                            ),
-                        lastFailureSender = sender,
-                        lastFailureAt = now,
-                        updatedAt = now,
+            val event =
+                synchronized(lock) {
+                    val now = System.currentTimeMillis()
+                    val (statusAtFailure, modeAtFailure) = _status.value
+                    val currentTelemetry = _telemetry.value
+                    _telemetry.value =
+                        currentTelemetry.copy(
+                            runtimeFieldTelemetry =
+                                deriveRuntimeFieldTelemetry(
+                                    telemetryNetworkFingerprintHash =
+                                        currentTelemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                                    winningTcpStrategyFamily =
+                                        currentTelemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
+                                    winningQuicStrategyFamily =
+                                        currentTelemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
+                                    winningDnsStrategyFamily =
+                                        currentTelemetry.runtimeFieldTelemetry.winningDnsStrategyFamily,
+                                    proxyTelemetry = currentTelemetry.proxyTelemetry,
+                                    relayTelemetry = currentTelemetry.relayTelemetry,
+                                    warpTelemetry = currentTelemetry.warpTelemetry,
+                                    tunnelTelemetry = currentTelemetry.tunnelTelemetry,
+                                    tunnelRecoveryRetryCount =
+                                        currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+                                    failureReason = reason,
+                                ),
+                            lastFailureSender = sender,
+                            lastFailureAt = now,
+                            updatedAt = now,
+                        )
+                    ServiceEvent.Failed(
+                        sender = sender,
+                        reason = reason,
+                        statusAtFailure = statusAtFailure,
+                        modeAtFailure = modeAtFailure,
                     )
-            }
-            check(eventIngress.trySend(ServiceEvent.Failed(sender, reason)).isSuccess) {
+                }
+            check(eventIngress.trySend(event).isSuccess) {
                 "Service event ingress is unavailable"
             }
         }

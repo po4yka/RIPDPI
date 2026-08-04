@@ -320,6 +320,6 @@ internal abstract class SimpleInitialRelayRaceModule {
     @Binds
     abstract fun bindBundleSource(source: AssetSimpleRelayBundleSource): SimpleRelayBundleSource
 
-    @Binds
-    abstract fun bindInitialRelayRacePolicy(policy: SimpleInitialRelayRacePolicy): InitialRelayRacePolicy
+    // No startup race: VLESS Reality always gets the first attempt. The session watcher owns the
+    // single Hysteria2 retry only after VLESS fails before readiness.
 }

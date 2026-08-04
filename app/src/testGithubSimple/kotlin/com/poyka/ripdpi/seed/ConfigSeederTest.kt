@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -144,6 +145,21 @@ private val MULTI_RELAY_BUNDLE =
     }
     """.trimIndent()
 
+private val HYSTERIA_ONLY_BUNDLE =
+    """
+    {
+      "outbounds": [
+        {
+          "type": "hysteria2",
+          "tag": "diagnostic-only",
+          "server": "192.0.2.30",
+          "server_port": 443,
+          "password": "fixture-value"
+        }
+      ]
+    }
+    """.trimIndent()
+
 @RunWith(RobolectricTestRunner::class)
 class ConfigSeederTest {
     private lateinit var application: Application
@@ -183,6 +199,7 @@ class ConfigSeederTest {
             proxyGroupRepository = proxyGroupRepository,
             relayProfileActivator = relayProfileActivator,
             awgProfileRepository = awgProfileRepository,
+            settingsRepository = relaySettings,
             bundleJson = bundleJson,
         )
 
@@ -265,15 +282,32 @@ class ConfigSeederTest {
         }
 
     @Test
-    fun `second seed call is a complete no-op`() =
+    fun `subsequent startup restores primary reality without duplicating diagnostic profiles`() =
         runTest {
             val seeder = makeSeeder(FAKE_BUNDLE)
 
             seeder.seed()
+            relaySettings.update {
+                setRelayEnabled(false)
+                setRelayKind(RelayKindHysteria2)
+                setRelayProfileId("diagnostic-hysteria")
+                setSimpleFailoverAwgProfileId("diagnostic-awg")
+                setRipdpiMode(Mode.Proxy.preferenceValue)
+            }
             seeder.seed()
 
             assertEquals(1, proxyGroupRepository.addedGroups.size)
             assertEquals(1, awgDao.rows.value.size)
+            assertEquals(2, relayProfileStore.list().size)
+            val settings = relaySettings.snapshot()
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayKindVlessReality, settings.relayKind)
+            assertEquals(
+                relayProfileStore.list().single { it.kind == RelayKindVlessReality }.id,
+                settings.relayProfileId,
+            )
+            assertEquals("", settings.simpleFailoverAwgProfileId)
+            assertEquals(Mode.VPN.preferenceValue, settings.ripdpiMode)
         }
 
     @Test
@@ -339,6 +373,19 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `bundle without VLESS Reality does not seed a diagnostic transport as runtime`() =
+        runTest {
+            val seeder = makeSeeder(HYSTERIA_ONLY_BUNDLE)
+
+            seeder.seed()
+
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertFalse(relaySettings.snapshot().relayEnabled)
+        }
+
+    @Test
     fun `missing asset followed by present asset seeds successfully`() =
         runTest {
             // First call: asset absent — flag not set
@@ -362,8 +409,9 @@ private class TestableConfigSeeder(
     proxyGroupRepository: ProxyGroupRepository,
     relayProfileActivator: RelayProfileActivator,
     awgProfileRepository: AwgProfileRepository,
+    settingsRepository: AppSettingsRepository,
     private val bundleJson: String?,
-) : ConfigSeeder(context, proxyGroupRepository, relayProfileActivator, awgProfileRepository) {
+) : ConfigSeeder(context, proxyGroupRepository, relayProfileActivator, awgProfileRepository, settingsRepository) {
     override fun readBundle(): String? = bundleJson
 
     fun isSeeded(): Boolean =

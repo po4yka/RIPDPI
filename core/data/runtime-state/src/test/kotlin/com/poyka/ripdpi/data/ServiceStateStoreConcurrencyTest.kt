@@ -100,4 +100,23 @@ class ServiceStateStoreConcurrencyTest {
                 failures.last().reason,
             )
         }
+
+    @Test
+    fun `Failed event preserves runtime state from publication time`() =
+        runTest {
+            val store = DefaultServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            store.emitFailed(Sender.VPN, FailureReason.NativeError("relay failed"))
+            store.setStatus(AppStatus.Halted, Mode.VPN)
+
+            val failure =
+                store.events
+                    .take(1)
+                    .toList()
+                    .single() as ServiceEvent.Failed
+
+            assertEquals(AppStatus.Running, failure.statusAtFailure)
+            assertEquals(Mode.VPN, failure.modeAtFailure)
+            assertEquals(AppStatus.Halted to Mode.VPN, store.status.value)
+        }
 }

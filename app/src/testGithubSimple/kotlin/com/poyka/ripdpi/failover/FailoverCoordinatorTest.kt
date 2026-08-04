@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.XudpTelemetrySnapshot
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
@@ -1989,6 +1990,25 @@ class FailoverCoordinatorTest {
             assertEquals("AWG profile id must be rehydrated from repository", "awg-settings", selectedAwg?.profileId)
 
             coordinator.stopObserving()
+        }
+
+    @Test
+    fun `resolved startup fallback request is exposed to connection policy`() =
+        runTest {
+            val fixture = buildCoordinator()
+            val request =
+                AwgActivationRequest(
+                    profileId = "awg-startup",
+                    privateKey = "private",
+                    peerPublicKey = "peer",
+                    endpointHost = "198.51.100.10",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                )
+
+            fixture.awgSelection.select(request)
+
+            assertEquals(request, fixture.awgSelection.selectedAwgEgress())
         }
 
     /**

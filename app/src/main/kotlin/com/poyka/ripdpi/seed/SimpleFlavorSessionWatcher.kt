@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 
 /**
  * Session lifecycle watcher contract. Only the `simple` product-flavor source set
- * supplies a real implementation ([FailoverCoordinator]); every other flavor leaves
+ * supplies a real implementation; every other flavor leaves
  * the [Optional] empty so the startup subsystem is a no-op.
  */
 interface SimpleFlavorSessionWatcher {

@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Exposes privacy-safe details about the currently active transport for display on the UI.
  *
- * Only the `simple` product-flavor source set supplies a real implementation
- * (via [FailoverCoordinator]); every other flavor leaves the [java.util.Optional] empty
+ * Only the `simple` product-flavor source set supplies a real implementation;
+ * every other flavor leaves the [java.util.Optional] empty
  * so the label is absent from the UI.
  *
  * The descriptor contains protocol identifiers only. It never contains a server address,

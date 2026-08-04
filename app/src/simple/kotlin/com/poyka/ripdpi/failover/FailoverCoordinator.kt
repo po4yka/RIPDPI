@@ -928,12 +928,14 @@ object FailoverCoordinatorModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class FailoverCoordinatorBindsModule {
+internal abstract class FailoverCoordinatorBindsModule {
+    // User traffic in the simple flavor is fixed to the embedded VLESS+Reality profile.
+    // Multi-transport failover remains available to explicit diagnostic code only.
     @Binds
-    abstract fun bindSimpleFlavorSessionWatcher(coordinator: FailoverCoordinator): SimpleFlavorSessionWatcher
+    abstract fun bindSimpleFlavorSessionWatcher(monitor: SimpleVlessRuntimeMonitor): SimpleFlavorSessionWatcher
 
     @Binds
-    abstract fun bindActiveTransportProvider(coordinator: FailoverCoordinator): ActiveTransportProvider
+    abstract fun bindActiveTransportProvider(monitor: SimpleVlessRuntimeMonitor): ActiveTransportProvider
 
     @Binds
     @Singleton

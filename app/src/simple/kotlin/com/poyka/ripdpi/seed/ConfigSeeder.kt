@@ -2,6 +2,8 @@ package com.poyka.ripdpi.seed
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -11,6 +13,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.subscription.toActivationRequest
+import com.poyka.ripdpi.data.validateNativeRelayProfile
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
@@ -55,8 +58,9 @@ internal fun seedRelayProfileId(
  * Reads a compiled-in sing-box bundle from [SIMPLE_RELAY_BUNDLE_ASSET_NAME] in assets, parses it
  * with [SingBoxSubscriptionParser], and persists each profile via the shared
  * reuse points ([ProxyGroupRepository], [RelayProfileActivator],
- * [AwgProfileRepository]). A boolean flag in [SEED_PREFS_NAME] guards against
- * re-seeding on subsequent launches.
+ * [AwgProfileRepository]). A version in [SEED_PREFS_NAME] guards the diagnostic
+ * profile import, while every launch re-pins the first embedded VLESS+Reality
+ * profile as the normal VPN runtime.
  *
  * Missing asset — the flag is NOT set so dropping the file in later still
  * triggers a seed. Parse error — same: flag not set so a corrected bundle
@@ -70,17 +74,13 @@ open class ConfigSeeder
         private val proxyGroupRepository: ProxyGroupRepository,
         private val relayProfileActivator: RelayProfileActivator,
         private val awgProfileRepository: AwgProfileRepository,
+        private val settingsRepository: AppSettingsRepository,
     ) : SimpleFlavorSeeder {
         private val prefs by lazy {
             context.getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
         }
 
         override suspend fun seed() {
-            if (prefs.getInt(SEED_KEY_VERSION, 0) >= CURRENT_SEED_VERSION) {
-                Logger.i { "ConfigSeeder: already seeded, skipping" }
-                return
-            }
-
             val json = readBundle() ?: return
 
             val groupId = SIMPLE_SEED_GROUP_ID
@@ -93,6 +93,23 @@ open class ConfigSeeder
                 }
 
                 is SingBoxParseResult.Success -> {
+                    val primaryReality =
+                        result.profiles.filterIsInstance<ProxyProfile.VlessReality>().firstOrNull()
+                            ?: run {
+                                Logger.w { "ConfigSeeder: embedded bundle has no VLESS+Reality primary; refusing seed" }
+                                return
+                            }
+                    if (!validateNativeRelayProfile(primaryReality)) {
+                        Logger.w { "ConfigSeeder: embedded VLESS+Reality primary is invalid; refusing seed" }
+                        return
+                    }
+
+                    if (prefs.getInt(SEED_KEY_VERSION, 0) >= CURRENT_SEED_VERSION) {
+                        pinPrimaryRuntime(primaryReality)
+                        Logger.i { "ConfigSeeder: restored embedded VLESS+Reality primary" }
+                        return
+                    }
+
                     val existingGroup = proxyGroupRepository.list().firstOrNull { it.id == groupId }
                     proxyGroupRepository.add(
                         (
@@ -108,9 +125,9 @@ open class ConfigSeeder
                         ).copy(packageRoutingRules = result.packageRoutingRules),
                     )
 
-                    // Assign ids in declaration order before reversing activation. Reversing
-                    // makes the bundle's first concrete relay the final selected transport,
-                    // while every later candidate remains persisted for failover.
+                    // Persist every bundled transport so diagnostics can exercise them. Assign
+                    // ids in declaration order before reversing activation; the explicit pin
+                    // below makes the first VLESS+Reality profile the normal runtime selection.
                     val occurrencesByKind = mutableMapOf<String, Int>()
                     val orderedProfiles =
                         result.profiles
@@ -162,6 +179,8 @@ open class ConfigSeeder
                         "ConfigSeeder: saved ${result.amneziaWgProfiles.size} AWG profile(s)"
                     }
 
+                    pinPrimaryRuntime(primaryReality)
+
                     prefs
                         .edit()
                         .putBoolean(SEED_KEY_SEEDED, true)
@@ -169,6 +188,19 @@ open class ConfigSeeder
                         .apply()
                     Logger.i { "ConfigSeeder: seed complete" }
                 }
+            }
+        }
+
+        private suspend fun pinPrimaryRuntime(primaryReality: ProxyProfile.VlessReality) {
+            check(
+                relayProfileActivator.activate(
+                    profile = primaryReality,
+                    profileId = seedRelayProfileId(primaryReality),
+                ),
+            ) { "Embedded VLESS+Reality primary is not relay-activatable" }
+            settingsRepository.update {
+                setRipdpiMode(Mode.VPN.preferenceValue)
+                setSimpleFailoverAwgProfileId("")
             }
         }
 
