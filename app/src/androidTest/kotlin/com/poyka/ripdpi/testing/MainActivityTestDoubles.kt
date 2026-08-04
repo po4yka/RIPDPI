@@ -69,6 +69,9 @@ import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.StartupFallbackController
+import com.poyka.ripdpi.services.StartupFallbackDispatchResult
+import com.poyka.ripdpi.services.StartupFallbackLease
 import com.poyka.ripdpi.services.VpnAppRoutingPlan
 import com.poyka.ripdpi.services.VpnTunnelBuilderHost
 import com.poyka.ripdpi.services.VpnTunnelNetworkParameters
@@ -107,7 +110,9 @@ class FakeInstrumentedAppSettingsRepository(
     }
 }
 
-class RecordingInstrumentedServiceController : ServiceController {
+class RecordingInstrumentedServiceController :
+    ServiceController,
+    StartupFallbackController {
     val startedModes = CopyOnWriteArrayList<Mode>()
     var stopCount: Int = 0
         private set
@@ -120,6 +125,9 @@ class RecordingInstrumentedServiceController : ServiceController {
     override fun stop() {
         stopCount += 1
     }
+
+    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
+        StartupFallbackDispatchResult.Dispatched(start(Mode.VPN))
 }
 
 class MutablePermissionStatusProvider(
