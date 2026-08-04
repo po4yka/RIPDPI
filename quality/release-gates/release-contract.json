@@ -39,6 +39,16 @@
       "^chore\\(release\\)!?: .+$"
     ]
   },
+  "localPreflight": {
+    "runner": "scripts/ci/release_preflight.py",
+    "recipe": "release-preflight",
+    "reportVersion": "ripdpi_release_preflight_v1",
+    "limitations": [
+      "does-not-sign-artifacts",
+      "does-not-replace-exact-sha-hosted-ci",
+      "host-abi-only"
+    ]
+  },
   "assuranceProfiles": {
     "artifact-publish": {
       "releaseBlocking": true,

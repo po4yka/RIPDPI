@@ -216,6 +216,26 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
     except re.error as error:
         raise ContractError("releaseWindow contains an invalid regex") from error
 
+    local = _object(contract.get("localPreflight"), "localPreflight")
+    if set(local) != {"runner", "recipe", "reportVersion", "limitations"}:
+        raise ContractError("localPreflight fields do not match the supported contract")
+    runner = _repo_path(root, local.get("runner"), "localPreflight.runner")
+    recipe = _string(local.get("recipe"), "localPreflight.recipe")
+    if recipe != "release-preflight" or recipe not in (root / "justfile").read_text(encoding="utf-8"):
+        raise ContractError("localPreflight recipe is not declared in justfile")
+    if local.get("reportVersion") != "ripdpi_release_preflight_v1":
+        raise ContractError("localPreflight reportVersion is unsupported")
+    limitations = local.get("limitations")
+    expected_limits = [
+        "does-not-sign-artifacts",
+        "does-not-replace-exact-sha-hosted-ci",
+        "host-abi-only",
+    ]
+    if limitations != expected_limits:
+        raise ContractError("localPreflight limitations must preserve evidence boundaries")
+    if str(runner.relative_to(root)) not in (root / "justfile").read_text(encoding="utf-8"):
+        raise ContractError("localPreflight runner is not used by justfile")
+
     publication_source = publication_workflow.read_text(encoding="utf-8")
     validate_workflow_trigger(
         publication_source,

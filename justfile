@@ -227,6 +227,16 @@ bench-android-bless:
 
 # ─── CI ───────────────────────────────────────────────────────────
 
+# Run the full secret-free local release readiness mirror. The receipt records
+# that this host-ABI check is not signing or hosted exact-SHA CI evidence.
+[group('release')]
+release-preflight tag window_start started_at:
+    python3 scripts/ci/release_preflight.py \
+      --release-tag "{{tag}}" \
+      --window-start-sha "{{window_start}}" \
+      --window-started-at "{{started_at}}" \
+      --report build/reports/release/preflight.json
+
 # Run full local CI mirror (lint + test for both Kotlin and Rust)
 [group('ci')]
 ci: lint lint-rust test test-rust

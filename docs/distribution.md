@@ -137,6 +137,19 @@ ISO-8601 UTC timestamp. Candidate preflight enforces the checked-in
 runs for the target tag. Late features and refactors require a new release cut;
 they cannot enter the signing environment as release fixes.
 
+Run the corresponding full local, secret-free mirror before integration:
+
+```bash
+just release-preflight vX.Y.Z <window-start-sha> <window-started-at-utc>
+```
+
+The command emits `build/reports/release/preflight.json` only after release
+contract, window, identity, architecture, locked Cargo metadata, TLS snapshot,
+GithubFullRelease, release AndroidTest, native ELF, and mapping checks pass. The
+receipt is deliberately bounded: it is host-ABI evidence, does not sign release
+artifacts, and does not replace successful hosted `ci-required` for the exact
+candidate SHA.
+
 The candidate is stored with a source-bound manifest, signatures, native ELF
 checks, symbols, and attestations. A matching `v*` tag then triggers
 `.github/workflows/release.yml`. That workflow downloads the candidate by its

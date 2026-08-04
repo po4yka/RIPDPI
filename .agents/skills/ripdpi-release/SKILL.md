@@ -103,6 +103,17 @@ python3 -m unittest \
 git diff --check <base-tag>..<candidate-sha>
 ```
 
+The canonical local mirror is:
+
+```bash
+just release-preflight vX.Y.Z <window-start-sha> <window-started-at-utc>
+```
+
+It must complete the secret-free GithubFullRelease and release AndroidTest build
+and write `build/reports/release/preflight.json`. Its PASS is host-ABI evidence
+only: the receipt explicitly says it did not sign artifacts and does not replace
+hosted exact-SHA CI. Never call a partial manual subset the local preflight.
+
 Run the applicable broader CI, architecture, Cargo-lock, and release-verification
 gates. Do not use `-Pripdpi.skipNativeBuild=true` as production artifact evidence.
 Review the final diff for unintended files, generated drift, sensitive material,
