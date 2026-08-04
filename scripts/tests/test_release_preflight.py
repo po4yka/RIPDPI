@@ -157,6 +157,19 @@ class ReleasePreflightTest(unittest.TestCase):
         self.assertIn('"git", "ls-remote", "--refs", "--tags", "origin"', source)
         self.assertNotIn("candidate_runs=[]", source)
 
+    def test_output_verifier_selects_production_native_libs_exactly(self) -> None:
+        source = (ROOT / "scripts/ci/verify-local-release-preflight-output.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            'lib_dir="app/build/intermediates/merged_native_libs/'
+            'githubFullRelease/mergeGithubFullReleaseNativeLibs/out/lib"',
+            source,
+        )
+        self.assertNotIn("*githubfullrelease*/out/lib", source)
+        self.assertIn("-name 'libripdpi.so'", source)
+        self.assertIn('--abis "${native_abis[0]}"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

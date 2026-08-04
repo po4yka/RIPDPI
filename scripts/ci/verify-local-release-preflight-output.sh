@@ -31,16 +31,18 @@ done < <(find app/build/outputs/apk/androidTest -type f -iname '*github*full*rel
   exit 1
 }
 
-lib_dirs=()
-while IFS= read -r path; do
-  lib_dirs+=("$path")
-done < <(
-  find app/build/intermediates/merged_native_libs \
-    -ipath '*githubfullrelease*/out/lib' -type d | sort -u
-)
-[[ "${#lib_dirs[@]}" -eq 1 ]] || {
-  echo "Expected exactly one GithubFullRelease native lib directory, found ${#lib_dirs[@]}" >&2
+lib_dir="app/build/intermediates/merged_native_libs/githubFullRelease/mergeGithubFullReleaseNativeLibs/out/lib"
+[[ -d "$lib_dir" ]] || {
+  echo "Missing GithubFullRelease native lib directory: $lib_dir" >&2
   exit 1
 }
-python3 scripts/ci/verify_native_elfs.py --lib-dir "${lib_dirs[0]}"
+native_abis=()
+while IFS= read -r path; do
+  native_abis+=("$(basename "$(dirname "$path")")")
+done < <(find "$lib_dir" -mindepth 2 -maxdepth 2 -type f -name 'libripdpi.so' | sort)
+[[ "${#native_abis[@]}" -eq 1 ]] || {
+  echo "Expected exactly one host ABI with libripdpi.so, found ${#native_abis[@]}" >&2
+  exit 1
+}
+python3 scripts/ci/verify_native_elfs.py --lib-dir "$lib_dir" --abis "${native_abis[0]}"
 python3 scripts/ci/verify_jni_readiness_mapping.py
