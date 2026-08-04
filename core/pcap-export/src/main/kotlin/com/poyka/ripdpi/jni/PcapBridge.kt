@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.jni
 
+import com.poyka.ripdpi.core.Tun2SocksNativeLoader
+
 /**
  * JNI bindings for the libpcap capture pipeline exposed by
  * libripdpi-tunnel.so (Rust crate ripdpi-tunnel-android).
@@ -30,6 +32,10 @@ package com.poyka.ripdpi.jni
  * detachFd ownership contract at its single call site.
  */
 internal object PcapBridge {
+    init {
+        Tun2SocksNativeLoader.ensureLoaded()
+    }
+
     external fun jniPcapStart(
         sessionHandle: Long,
         captureDir: String,

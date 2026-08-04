@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# check-jni-symbols.sh — Diff JNI exports of libripdpi.so against baseline.
+# check-jni-symbols.sh — Diff a native library's JNI exports against its baseline.
 #
 # Usage:
-#   check-jni-symbols.sh <path-to-libripdpi.so> [<path-to-baseline>]
+#   check-jni-symbols.sh <path-to-library.so> [<path-to-baseline>]
 #
 # Exit codes:
 #   0  symbol surface matches baseline

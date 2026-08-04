@@ -77,6 +77,34 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn("uses: ./.github/actions/setup-android-rust", source)
         self.assertNotIn('sdkmanager "ndk;', source)
 
+    def test_jni_symbol_guard_covers_every_android_cdylib(self) -> None:
+        source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
+            encoding="utf-8"
+        )
+
+        libraries = {
+            "ripdpi": "ripdpi-android",
+            "ripdpi-tunnel": "ripdpi-tunnel-android",
+            "ripdpi-relay": "ripdpi-relay-android",
+            "ripdpi-warp": "ripdpi-warp-android",
+            "ripdpi-amneziawg": "ripdpi-amneziawg-android",
+        }
+        for library, crate in libraries.items():
+            with self.subTest(library=library):
+                self.assertIn(f"{library} {crate}", source)
+                self.assertIn(f'"native/rust/crates/{crate}/**"', source)
+                self.assertTrue(
+                    (
+                        ROOT
+                        / "native"
+                        / "rust"
+                        / "crates"
+                        / crate
+                        / "jni-symbols.baseline"
+                    ).is_file(),
+                    f"missing JNI symbol baseline for {library}",
+                )
+
     def test_github_actions_do_not_execute_floating_rust_toolchain_action(self) -> None:
         sources = [ROOT / ".github/actions/setup-android-rust/action.yml"]
         sources.extend(sorted((ROOT / ".github/workflows").glob("*.yml")))

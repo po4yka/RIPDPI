@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "native/rust/crates/ripdpi-android/**"
+      - "native/rust/crates/ripdpi-tunnel-android/**"
+      - "native/rust/crates/ripdpi-relay-android/**"
+      - "native/rust/crates/ripdpi-warp-android/**"
+      - "native/rust/crates/ripdpi-amneziawg-android/**"
       - ".github/workflows/jni-symbol-diff.yml"
       - ".github/scripts/check-jni-symbols.sh"
   workflow_dispatch:
@@ -43,18 +47,28 @@ jobs:
       - name: Build native library (arm64-v8a release)
         run: ./gradlew :core:engine:buildRustNativeLibs
 
-      - name: Locate libripdpi.so (arm64-v8a)
+      - name: Locate native libraries (arm64-v8a)
         id: locate
         run: |
-          LIB="$(find . -path "*/jniLibs/arm64-v8a/libripdpi.so" -print -quit 2>/dev/null)"
-          if [[ -z "${LIB}" ]]; then
-            LIB="$(find native/rust/target -name "libripdpi.so" -print -quit 2>/dev/null)"
-          fi
-          if [[ -z "${LIB}" ]]; then
-            echo "error: could not locate libripdpi.so after build" >&2
+          JNI_LIB_DIR="$(find . -type d -path "*/jniLibs/arm64-v8a" -print -quit 2>/dev/null)"
+          if [[ -z "${JNI_LIB_DIR}" ]]; then
+            echo "error: could not locate arm64-v8a JNI library directory after build" >&2
             exit 1
           fi
-          echo "lib=${LIB}" >> "${GITHUB_OUTPUT}"
+          echo "dir=${JNI_LIB_DIR}" >> "${GITHUB_OUTPUT}"
 
-      - name: Check JNI symbols against baseline
-        run: bash .github/scripts/check-jni-symbols.sh "${{ steps.locate.outputs.lib }}"
+      - name: Check every JNI symbol surface against its baseline
+        env:
+          JNI_LIB_DIR: ${{ steps.locate.outputs.dir }}
+        run: |
+          while read -r library crate; do
+            bash .github/scripts/check-jni-symbols.sh \
+              "${JNI_LIB_DIR}/lib${library}.so" \
+              "native/rust/crates/${crate}/jni-symbols.baseline"
+          done <<'EOF'
+          ripdpi ripdpi-android
+          ripdpi-tunnel ripdpi-tunnel-android
+          ripdpi-relay ripdpi-relay-android
+          ripdpi-warp ripdpi-warp-android
+          ripdpi-amneziawg ripdpi-amneziawg-android
+          EOF
