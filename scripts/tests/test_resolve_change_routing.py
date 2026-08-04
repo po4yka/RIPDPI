@@ -235,6 +235,10 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("scripts.tests.test_android_device_session", source)
         self.assertIn("scripts.tests.test_netem_transaction", source)
         self.assertIn(
+            "scripts.tests.test_release_p1_contracts",
+            ci_job_source("release-gates"),
+        )
+        self.assertIn(
             "run_android_ci: ${{ steps.resolve.outputs.run_android_ci }}", source
         )
         self.assertIn(

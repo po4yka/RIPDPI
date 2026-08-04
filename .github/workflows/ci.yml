@@ -281,6 +281,9 @@ jobs:
       - name: Run app identity review unit tests
         run: python3 -m unittest scripts.tests.test_app_identity_review
 
+      - name: Run immutable release publication contract tests
+        run: python3 -m unittest scripts.tests.test_release_p1_contracts
+
       - name: Validate fleet release-gate policy contract
         run: python3 scripts/ci/check_fleet_release_gates.py
 
