@@ -2,7 +2,7 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (24)
+## Doing (21)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -53,7 +53,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 |---|---|---|---|---|
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | unassigned | 2026-06-11 |
 
-## Backlog (15)
+## Backlog (16)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -68,7 +68,8 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | low | relay | [Guard RelayBackend manual match arms against silently-omitted QUIC variants](issues/guard-relaybackend-quic-snapshot-exhaustiveness.md) | unassigned | 2026-06-10 |
 | low | rust-native | [Add upstream HTTP and SOCKS5 proxy override for diagnostic probes](issues/add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes.md) | unassigned | 2026-06-05 |
 | low | rust-native | [Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates](issues/reduce-pub-surface-monitor-engine-and-config.md) | unassigned | 2026-06-10 |
+| low | rust-native | [Replace unmaintained bincode transitive dependency](issues/replace-unmaintained-bincode-transitive-dependency.md) | Native security maintainer | 2026-08-04 |
 | low | rust-native | [Replace unmaintained daemonize CLI dependency](issues/replace-unmaintained-daemonize-cli-dependency.md) | Native security maintainer | 2026-07-13 |
 | low | rust-native | [Replace unmaintained paste proc-macro dependency](issues/replace-unmaintained-paste-proc-macro.md) | Native security maintainer | 2026-07-13 |
 | low | rust-native | [Triage undocumented orphan crates and document NATIVE_RUST.md prune candidates](issues/triage-undocumented-orphan-diagnostics-crates.md) | unassigned | 2026-06-10 |
-| low | rust-native | [Unpin russh after rsa advisory fix](issues/unpin-russh-after-rsa-advisory-fix.md) | Native security maintainer | 2026-07-26 |
+| low | rust-native | [Unpin russh after rsa advisory fix](issues/unpin-russh-after-rsa-advisory-fix.md) | Native security maintainer | 2026-08-04 |

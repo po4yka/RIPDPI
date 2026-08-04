@@ -9,17 +9,17 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-12
-updated: 2026-07-26
+updated: 2026-08-04
 source_wiki_pages: []
 linked_task: null
 ---
 
 ## Motivation
 
-`native/rust/Cargo.toml` pins russh at exactly `=0.62.4` and `native/rust/deny.toml` suppresses RUSTSEC-2023-0071 (rsa Marvin timing sidechannel) with the justification that:
+`native/rust/Cargo.toml` pins russh at exactly `=0.62.5` and `native/rust/deny.toml` suppresses RUSTSEC-2023-0071 (rsa Marvin timing sidechannel) with the justification that:
 
 1. rsa 0.9.10 enters via Arti 0.44.0 → ssh-key-fork-arti — RIPDPI uses Arti only as a Tor client backend and does not expose RSA private-key service operations.
-2. the pre-release rsa line enters via the current russh 0.62.4 pin (ripdpi-ssh SSH outbound engine) — SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable.
+2. the pre-release rsa line enters via the current russh 0.62.5 pin (ripdpi-ssh SSH outbound engine) — SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable.
 
 No safe upgrade existed on either path at the time of pinning. The suppression is a placeholder, not a permanent decision.
 
@@ -37,7 +37,7 @@ Check periodically: https://github.com/Eugeny/russh/releases
 
 ## Proposed change
 
-1. Bump `russh` in `native/rust/Cargo.toml` from the current `=0.62.4` pin to the new safe version (remove the exact pin or update it).
+1. Bump `russh` in `native/rust/Cargo.toml` from the current `=0.62.5` pin to the new safe version (remove the exact pin or update it).
 2. Remove the `RUSTSEC-2023-0071` suppression entry from `native/rust/deny.toml`.
 3. Run `cargo deny check advisories` and confirm it passes without the suppression.
 4. If russh still transitively pulls rsa but via Arti, and Arti has also updated, remove the Arti path suppression too.
@@ -48,12 +48,12 @@ Check periodically: https://github.com/Eugeny/russh/releases
 - [ ] `cargo deny check advisories` exits 0 with the RUSTSEC-2023-0071 suppression removed from deny.toml.
 - [ ] `cargo nextest run -p ripdpi-ssh --locked` green.
 - [ ] `cargo nextest run --workspace --locked` green.
-- [ ] The `=0.62.4` exact pin is removed or updated in Cargo.toml.
+- [ ] The `=0.62.5` exact pin is removed or updated in Cargo.toml.
 - [ ] Commit message references the russh release that resolved the rsa dependency.
 
 ## References
 
 - `native/rust/deny.toml` lines 10-14 — current suppression with full rationale.
-- `native/rust/Cargo.toml` — `russh = "=0.62.4"` exact pin at this review.
+- `native/rust/Cargo.toml` — `russh = "=0.62.5"` exact pin at this review.
 - RUSTSEC-2023-0071: https://rustsec.org/advisories/RUSTSEC-2023-0071.html
 - russh releases: https://github.com/Eugeny/russh/releases

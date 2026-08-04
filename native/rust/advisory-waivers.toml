@@ -21,3 +21,10 @@ owner = "Native security maintainer"
 reason = "current Arti and russh paths have no safe upgrade and do not expose attacker-chosen RSA private-key operations"
 expires = "2026-08-12"
 tracking = "docs/tasks/issues/unpin-russh-after-rsa-advisory-fix.md"
+
+[[waivers]]
+id = "RUSTSEC-2025-0141"
+owner = "Native security maintainer"
+reason = "bincode is transitive through Arti and has no maintained compatible replacement"
+expires = "2026-11-02"
+tracking = "docs/tasks/issues/replace-unmaintained-bincode-transitive-dependency.md"

@@ -6,11 +6,12 @@
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is a compile-time proc-macro pulled through netlink-packet-core; it has no runtime path and no maintained compatible replacement is published." },
     { id = "RUSTSEC-2025-0069", reason = "daemonize 0.5.0 is isolated behind ripdpi-cli's daemonize feature and excluded from the Android runtime graph; no maintained compatible replacement is published." },
-    { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.44.0 -> ssh-key-fork-arti (rsa 0.9.10) and russh 0.62.1 (rsa 0.10.0-rc.18); RIPDPI exposes no RSA private-key service and SSH publickey auth signs the session transcript hash, not attacker-chosen plaintext. No safe upgrade exists on either path." },
+    { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.44.0 -> ssh-key-fork-arti (rsa 0.9.10) and russh 0.62.5 (rsa 0.10.0-rc.18); RIPDPI exposes no RSA private-key service and SSH publickey auth signs the session transcript hash, not attacker-chosen plaintext. No safe upgrade exists on either path." },
+    { id = "RUSTSEC-2025-0141", reason = "bincode 2.0.1 is an unmaintained transitive serialization dependency of Arti's typed-index-collections path; RIPDPI does not call it directly and no maintained compatible replacement is published." },
 ]
 
 # Known RC-crypto exposure -- tracked, documentation only (no advisory ID to ignore).
-# russh =0.62.1 (the pinned release as of 2026-07) exact-pins ('==')
+# russh =0.62.5 (the pinned release as of 2026-08) exact-pins ('==')
 # release-candidate RustCrypto primitives and pulls them transitively into the shipped
 # cdylib via ripdpi-ssh -> ripdpi-relay-tls-transports -> ripdpi-relay-core ->
 # ripdpi-relay-android. The SSH relay is an always-on transport (ripdpi-ssh is a
