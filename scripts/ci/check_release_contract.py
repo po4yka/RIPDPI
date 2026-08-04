@@ -93,6 +93,18 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
     required_ref = _string(candidate.get("requiredRef"), "candidate.requiredRef")
     if required_ref not in candidate_source:
         raise ContractError("candidate workflow does not enforce candidate.requiredRef")
+    for required_fragment in (
+        "candidate-preflight:",
+        "scripts/ci/require_successful_ci_run.py",
+        f"--workflow-path {required_ci['workflow']}",
+        f"--event {required_ci['event']}",
+        f"--aggregate-job {required_ci['aggregateJob']}",
+        "needs: candidate-preflight",
+    ):
+        if required_fragment not in candidate_source:
+            raise ContractError(
+                f"candidate workflow does not enforce required CI fragment: {required_fragment}"
+            )
 
     if publication.get("trigger") != "tag_push":
         raise ContractError("publication.trigger must be tag_push")

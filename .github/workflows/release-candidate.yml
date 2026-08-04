@@ -16,7 +16,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  candidate-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      EXPECTED_RELEASE_CERT_SHA256: ${{ vars.RIPDPI_RELEASE_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate release-candidate ref and identity inputs
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$EXPECTED_RELEASE_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+
+      - name: Require successful exact-SHA main CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/ci/require_successful_ci_run.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --workflow ci.yml \
+            --workflow-path .github/workflows/ci.yml \
+            --event push \
+            --branch main \
+            --aggregate-job ci-required
+
   pluggable-transport-assets:
+    needs: candidate-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: release-signing
@@ -78,13 +113,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Validate release-candidate ref and identity inputs
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          [[ "$EXPECTED_RELEASE_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]
 
       - uses: ./.github/actions/setup-android-rust
         with:

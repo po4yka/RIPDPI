@@ -167,6 +167,7 @@ jobs:
             scripts.tests.test_release_candidate_manifest \
             scripts.tests.test_release_contract \
             scripts.tests.test_release_p0_contracts \
+            scripts.tests.test_require_successful_ci_run \
             scripts.tests.test_path_filtered_pr_checks \
             scripts.tests.test_scheduled_workflow_offsets \
             scripts.tests.test_resolve_change_routing

@@ -25,6 +25,23 @@ def job(source: str, name: str) -> str:
 
 
 class ReleaseP0ContractsTest(unittest.TestCase):
+    def test_candidate_requires_exact_sha_main_ci_before_expensive_jobs(self) -> None:
+        source = workflow("release-candidate.yml")
+        preflight = job(source, "candidate-preflight")
+        producer = job(source, "pluggable-transport-assets")
+        signing = job(source, "build-signed-candidate")
+
+        self.assertIn("actions: read", preflight)
+        self.assertNotIn("environment: release-signing", preflight)
+        self.assertIn('test "$GITHUB_REF" = refs/heads/main', preflight)
+        self.assertIn("scripts/ci/require_successful_ci_run.py", preflight)
+        self.assertIn('--workflow-path .github/workflows/ci.yml', preflight)
+        self.assertIn('--event push', preflight)
+        self.assertIn('--branch main', preflight)
+        self.assertIn('--aggregate-job ci-required', preflight)
+        self.assertIn("needs: candidate-preflight", producer)
+        self.assertIn("needs: pluggable-transport-assets", signing)
+
     def test_candidate_is_built_once_inside_signing_environment(self) -> None:
         source = workflow("release-candidate.yml")
         signing = job(source, "build-signed-candidate")
