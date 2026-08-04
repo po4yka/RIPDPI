@@ -22,6 +22,7 @@ except ModuleNotFoundError:  # Direct execution sets sys.path to scripts/ci.
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONTRACT = ROOT / "quality/release-gates/release-contract.json"
 CommandRunner = Callable[[list[str], Path], None]
+RemoteTagChecker = Callable[[Path, str], None]
 
 
 class PreflightError(RuntimeError):
@@ -88,6 +89,23 @@ def _latest_stable_tag(repo: Path) -> str:
     raise PreflightError("no reachable stable release tag found")
 
 
+def _ensure_remote_tag_absent(repo: Path, release_tag: str) -> None:
+    result = subprocess.run(
+        [
+            "git", "ls-remote", "--exit-code", "--tags", "origin",
+            f"refs/tags/{release_tag}", f"refs/tags/{release_tag}^{{}}",
+        ],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        raise PreflightError(f"target release tag already exists remotely: {release_tag}")
+    if result.returncode != 2:
+        raise PreflightError("could not verify remote target tag absence")
+
+
 def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[str, list[str]]]:
     python = sys.executable
     return [
@@ -129,7 +147,13 @@ def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[st
             [
                 "./gradlew",
                 ":app:clean",
+                ":app:assembleFdroidFullRelease",
+                ":app:assembleFdroidSimpleRelease",
                 ":app:assembleGithubFullRelease",
+                ":app:assembleGithubSimpleRelease",
+                ":app:assemblePlayFullRelease",
+                ":app:assemblePlaySimpleRelease",
+                ":app:bundlePlayFullRelease",
                 ":app:assembleGithubFullReleaseAndroidTest",
                 "-Pripdpi.testBuildType=release",
                 "-Pripdpi.localNativeAbis=host",
@@ -151,6 +175,7 @@ def run_preflight(
     now: datetime,
     command_runner: CommandRunner = _default_runner,
     candidate_runs: list[dict[str, Any]] | None = None,
+    remote_tag_checker: RemoteTagChecker = _ensure_remote_tag_absent,
 ) -> dict[str, Any]:
     exact_repo = repo.resolve()
     dirty = _git(exact_repo, "status", "--porcelain=v1")
@@ -166,6 +191,7 @@ def run_preflight(
         raise PreflightError(f"target release tag already exists locally: {release_tag}")
     if tag_check.returncode not in (0, 1):
         raise PreflightError("could not verify local target tag absence")
+    remote_tag_checker(exact_repo, release_tag)
     base_tag = _latest_stable_tag(exact_repo)
     runs = _candidate_runs(exact_repo) if candidate_runs is None else candidate_runs
     window = evaluate_release_window(

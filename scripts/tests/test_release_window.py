@@ -44,7 +44,7 @@ class ReleaseWindowTest(unittest.TestCase):
                 repo=repo,
                 contract_path=CONTRACT,
                 release_tag="v0.1.5",
-                start_sha=start,
+                start_sha=candidate,
                 candidate_sha=candidate,
                 started_at=datetime(2026, 8, 3, tzinfo=UTC),
                 now=datetime(2026, 8, 4, tzinfo=UTC),
@@ -54,7 +54,7 @@ class ReleaseWindowTest(unittest.TestCase):
                     "createdAt": "2026-08-03T12:00:00Z",
                 }],
             )
-            self.assertEqual(1, report["commitCount"])
+            self.assertEqual(0, report["commitCount"])
             self.assertEqual(1, report["candidateRunCount"])
 
     def test_window_rejects_features_expiry_commit_overflow_and_candidate_churn(self) -> None:
@@ -81,19 +81,26 @@ class ReleaseWindowTest(unittest.TestCase):
     def test_window_rejects_naive_timestamps_and_recut_after_first_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo, start = self.make_repo(Path(raw))
+            moved_cut = self.commit(repo, "fix: pre-candidate correction")
             first = self.commit(repo, "fix: first candidate")
-            feature = self.commit(repo, "feat: late feature")
+            later = self.commit(repo, "fix: later candidate")
             runs = [{
                 "displayTitle": "Android release candidate v0.1.5 @ first",
                 "headSha": first,
                 "createdAt": "2026-08-03T12:00:00Z",
             }]
-            with self.assertRaisesRegex(WindowError, "start is not an ancestor of prior candidate"):
+            with self.assertRaisesRegex(WindowError, "start must equal the first candidate SHA"):
                 evaluate_release_window(
-                    repo, CONTRACT, "v0.1.5", feature, feature,
+                    repo, CONTRACT, "v0.1.5", moved_cut, later,
                     datetime(2026, 8, 3, 11, tzinfo=UTC),
                     datetime(2026, 8, 4, tzinfo=UTC), runs,
                 )
+            report = evaluate_release_window(
+                repo, CONTRACT, "v0.1.5", first, later,
+                datetime(2026, 1, 1, tzinfo=UTC),
+                datetime(2026, 8, 4, tzinfo=UTC), runs,
+            )
+            self.assertEqual("2026-08-03T12:00:00Z", report["startedAt"])
             with self.assertRaisesRegex(WindowError, "timestamp must include a timezone"):
                 evaluate_release_window(
                     repo, CONTRACT, "v0.1.5", start, first,

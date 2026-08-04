@@ -8,7 +8,11 @@ import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts.ci.release_preflight import PreflightError, run_preflight
+from scripts.ci.release_preflight import (
+    PreflightError,
+    _ensure_remote_tag_absent,
+    run_preflight,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,9 +56,10 @@ class ReleasePreflightTest(unittest.TestCase):
                 command_runner=successful,
                 candidate_runs=[{
                     "displayTitle": "Android release candidate v0.1.5 @ prior",
-                    "headSha": candidate,
+                    "headSha": start,
                     "createdAt": "2026-08-03T12:00:00Z",
                 }],
+                remote_tag_checker=lambda repo, tag: None,
             )
             self.assertEqual("pass", receipt["status"])
             self.assertEqual(candidate, receipt["sourceSha"])
@@ -62,6 +67,16 @@ class ReleasePreflightTest(unittest.TestCase):
             self.assertGreaterEqual(len(observed), 7)
             flattened = "\n".join(" ".join(command) for command in observed)
             self.assertIn(":app:assembleGithubFullReleaseAndroidTest", flattened)
+            for task in (
+                ":app:assembleFdroidFullRelease",
+                ":app:assembleFdroidSimpleRelease",
+                ":app:assembleGithubFullRelease",
+                ":app:assembleGithubSimpleRelease",
+                ":app:assemblePlayFullRelease",
+                ":app:assemblePlaySimpleRelease",
+                ":app:bundlePlayFullRelease",
+            ):
+                self.assertIn(task, flattened)
             self.assertIn("check_release_contract.py", flattened)
             self.assertIn("test_release_artifact_uploads", flattened)
             self.assertIn("test_release_candidate_manifest", flattened)
@@ -86,7 +101,8 @@ class ReleasePreflightTest(unittest.TestCase):
             with self.assertRaisesRegex(PreflightError, "failed"):
                 run_preflight(
                     repo, CONTRACT, "v0.1.5", start,
-                    datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC), failing, []
+                    datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC),
+                    failing, [], lambda repo, tag: None,
                 )
 
     def test_existing_target_tag_fails_before_any_check_runs(self) -> None:
@@ -109,6 +125,19 @@ class ReleasePreflightTest(unittest.TestCase):
         self.assertIn("scripts/ci/release_preflight.py", justfile)
         self.assertNotIn("skip_build", justfile)
         self.assertIn("scripts.tests.test_release_preflight", ci)
+
+    def test_remote_only_target_tag_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            repo, _, _ = self.make_repo(root)
+            remote = root / "remote.git"
+            subprocess.run(["git", "init", "-q", "--bare", remote], check=True)
+            subprocess.run(["git", "remote", "add", "origin", str(remote)], cwd=repo, check=True)
+            subprocess.run(["git", "tag", "v0.1.5"], cwd=repo, check=True)
+            subprocess.run(["git", "push", "-q", "origin", "v0.1.5"], cwd=repo, check=True)
+            subprocess.run(["git", "tag", "-d", "v0.1.5"], cwd=repo, check=True, capture_output=True)
+            with self.assertRaisesRegex(PreflightError, "already exists remotely"):
+                _ensure_remote_tag_absent(repo, "v0.1.5")
 
     def test_default_preflight_loads_complete_remote_candidate_history(self) -> None:
         source = (ROOT / "scripts/ci/release_preflight.py").read_text(encoding="utf-8")

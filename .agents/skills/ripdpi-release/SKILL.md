@@ -73,10 +73,11 @@ nonexistent physical-evidence workflow.
 
 ## Cut a bounded release window
 
-Before the first candidate, freeze features and record the exact cut commit and
-UTC timestamp in repository variables `RIPDPI_RELEASE_WINDOW_START_SHA` and
-`RIPDPI_RELEASE_WINDOW_STARTED_AT`. The cut SHA must be on `main` and remain an
-ancestor of every candidate.
+Before the first candidate, freeze features and set
+`RIPDPI_RELEASE_WINDOW_START_SHA` to that exact candidate SHA on `main`, with an
+initial UTC timestamp in `RIPDPI_RELEASE_WINDOW_STARTED_AT`. Once the first run
+exists, its immutable `headSha` and GitHub `createdAt` become the canonical cut;
+later runs require exact SHA equality and calculate age from that timestamp.
 
 The machine-readable `releaseWindow` contract allows at most 72 hours, 20
 post-cut commits, and five candidate runs for one tag. Post-cut subjects are
@@ -109,8 +110,9 @@ The canonical local mirror is:
 just release-preflight vX.Y.Z <window-start-sha> <window-started-at-utc>
 ```
 
-It must complete the secret-free GithubFullRelease and release AndroidTest build
-and write `build/reports/release/preflight.json`. Its PASS is host-ABI evidence
+It must complete all six secret-free full/simple release APK variants, the Play
+Full bundle, the release AndroidTest build, and write
+`build/reports/release/preflight.json`. Its PASS is host-ABI evidence
 only: the receipt explicitly says it did not sign artifacts and does not replace
 hosted exact-SHA CI. Never call a partial manual subset the local preflight.
 

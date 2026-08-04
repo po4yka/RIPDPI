@@ -130,9 +130,11 @@ exact-SHA CI, then builds the signed outputs once:
 - `update.json`
 - `SHA256SUMS`
 
-Before that first candidate, set `RIPDPI_RELEASE_WINDOW_START_SHA` to the exact
-feature-freeze commit on `main` and `RIPDPI_RELEASE_WINDOW_STARTED_AT` to an
-ISO-8601 UTC timestamp. Candidate preflight enforces the checked-in
+Before that first candidate, set `RIPDPI_RELEASE_WINDOW_START_SHA` to its exact
+candidate SHA on `main` and `RIPDPI_RELEASE_WINDOW_STARTED_AT` to an ISO-8601 UTC
+timestamp. Once the first run exists, its immutable `headSha` and GitHub
+`createdAt` become the canonical cut; later runs cannot move either boundary.
+Candidate preflight enforces the checked-in
 `releaseWindow`: no more than 72 hours, 20 release-fix commits, or five candidate
 runs for the target tag. Late features and refactors require a new release cut;
 they cannot enter the signing environment as release fixes.
@@ -145,7 +147,8 @@ just release-preflight vX.Y.Z <window-start-sha> <window-started-at-utc>
 
 The command emits `build/reports/release/preflight.json` only after release
 contract, window, identity, architecture, locked Cargo metadata, TLS snapshot,
-GithubFullRelease, release AndroidTest, native ELF, and mapping checks pass. The
+all six full/simple release APK variants, the Play Full bundle, release
+AndroidTest, native ELF, and mapping checks pass. The
 receipt is deliberately bounded: it is host-ABI evidence, does not sign release
 artifacts, and does not replace successful hosted `ci-required` for the exact
 candidate SHA. It requires authenticated GitHub access to count the complete
