@@ -139,9 +139,12 @@ from Git history and rejects any later record edit, even if old Actions runs are
 deleted. Candidate preflight enforces the checked-in
 `releaseWindow`: no more than 72 hours, 20 release-fix commits, or five candidate
 runs for the target tag. Late features and refactors require a new release cut;
-they cannot enter the signing environment as release fixes. Each dispatch
-reserves a durable release-candidates/vX.Y.Z/run-ID tag before signing, so
-deleting an Actions run does not restore its attempt budget.
+they cannot enter the signing environment as release fixes. Each identity-valid
+dispatch first requires the active
+`immutable-release-candidate-attempt-tags` repository ruleset with no bypass
+actors, then reserves a protected release-candidates/vX.Y.Z/run-ID tag before
+the remaining preflight gates. Deleting an Actions run does not restore its
+attempt budget.
 
 Run the corresponding full local, secret-free mirror before integration:
 

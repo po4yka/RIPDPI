@@ -36,6 +36,14 @@ class ReleaseCandidateAttemptTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "different identity"):
             attempt.reserve("o/r", "v0.1.5", "a" * 40, 42)
 
+    @patch.object(attempt.time, "sleep")
+    @patch.object(attempt, "_gh")
+    def test_missing_reserved_ref_after_bounded_retry_fails_closed(self, gh, sleep) -> None:
+        gh.side_effect = [result(1), result(0, {})] + [result(0, [[]])] * 3
+        with self.assertRaisesRegex(RuntimeError, "absent from durable"):
+            attempt.reserve("o/r", "v0.1.5", "a" * 40, 42)
+        self.assertEqual(2, sleep.call_count)
+
 
 if __name__ == "__main__":
     unittest.main()

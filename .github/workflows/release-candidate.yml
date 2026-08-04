@@ -41,6 +41,24 @@ jobs:
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "$EXPECTED_RELEASE_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]
 
+      - name: Require immutable candidate-attempt tag protection
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python3 scripts/ci/check_candidate_attempt_tag_ruleset.py
+          --repository "$GITHUB_REPOSITORY"
+
+      - name: Reserve durable candidate attempt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/ci/reserve_release_candidate_attempt.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-tag "$RELEASE_TAG" \
+            --source-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --output "$RUNNER_TEMP/release-candidate-runs.json"
+
       - name: Require successful exact-SHA main CI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,12 +75,6 @@ jobs:
           set -euo pipefail
           test -n "$RELEASE_WINDOW_START_SHA"
           test -n "$RELEASE_WINDOW_STARTED_AT"
-          python3 scripts/ci/reserve_release_candidate_attempt.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --release-tag "$RELEASE_TAG" \
-            --source-sha "$GITHUB_SHA" \
-            --run-id "$GITHUB_RUN_ID" \
-            --output "$RUNNER_TEMP/release-candidate-runs.json"
           python3 scripts/ci/check_release_window.py \
             --contract quality/release-gates/release-contract.json \
             --release-tag "$RELEASE_TAG" \

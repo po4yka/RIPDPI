@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import subprocess
+import time
 from pathlib import Path
 
 
@@ -38,15 +39,21 @@ def reserve(repository: str, release_tag: str, source_sha: str, run_id: int) -> 
             "--method", "POST", f"repos/{repository}/git/refs",
             "-f", f"ref={full_ref}", "-f", f"sha={source_sha}",
         ])
-    pages = json.loads(_gh([
-        "--paginate", "--slurp",
-        f"repos/{repository}/git/matching-refs/tags/release-candidates/{release_tag}/run-",
-    ]).stdout)
-    return [
-        {"ref": item["ref"], "sha": item["object"]["sha"]}
-        for page in pages
-        for item in page
-    ]
+    for retry in range(3):
+        pages = json.loads(_gh([
+            "--paginate", "--slurp",
+            f"repos/{repository}/git/matching-refs/tags/release-candidates/{release_tag}/run-",
+        ]).stdout)
+        attempts = [
+            {"ref": item["ref"], "sha": item["object"]["sha"]}
+            for page in pages
+            for item in page
+        ]
+        if {"ref": full_ref, "sha": source_sha} in attempts:
+            return attempts
+        if retry < 2:
+            time.sleep(1)
+    raise RuntimeError("reserved candidate attempt ref is absent from durable attempt set")
 
 
 def main() -> int:

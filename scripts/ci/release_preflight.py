@@ -115,6 +115,7 @@ def _commands(
                 "scripts.tests.test_release_artifact_uploads",
                 "scripts.tests.test_release_candidate_manifest",
                 "scripts.tests.test_release_candidate_attempt",
+                "scripts.tests.test_candidate_attempt_tag_ruleset",
                 "scripts.tests.test_release_p0_contracts",
                 "scripts.tests.test_release_p1_contracts",
                 "scripts.tests.test_release_window",
