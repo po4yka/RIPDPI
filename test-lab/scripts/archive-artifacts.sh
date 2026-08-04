@@ -52,7 +52,15 @@ case "$retention_class" in
   *) echo "Unsupported lab archive retention class: $retention_class" >&2; exit 2 ;;
 esac
 
-mkdir -p "$archive_dir" "$stage_dir"
+allowed_archive_dir="$lab_root/artifacts"
+mkdir -p "$allowed_archive_dir"
+if [[ -L "$archive_dir" ]] || \
+   [[ "$(cd "$archive_dir" 2>/dev/null && pwd -P)" != "$(cd "$allowed_archive_dir" && pwd -P)" ]]; then
+  echo "Archive output must be the policy-managed root: $allowed_archive_dir" >&2
+  exit 2
+fi
+archive_dir="$allowed_archive_dir"
+mkdir -p "$stage_dir"
 trap 'rm -rf "$work_dir"' EXIT
 
 copy_if_exists() {

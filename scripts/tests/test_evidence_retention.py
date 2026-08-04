@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+import struct
 import tarfile
 import tempfile
 import unittest
@@ -30,6 +31,10 @@ def write_archive(path: Path, files: dict[str, bytes]) -> None:
             info = tarfile.TarInfo(name)
             info.size = len(payload)
             archive.addfile(info, io.BytesIO(payload))
+
+
+def classic_pcap() -> bytes:
+    return b"\xd4\xc3\xb2\xa1" + struct.pack("<HHiiII", 2, 4, 0, 0, 65535, 1)
 
 
 class EvidenceRetentionTest(unittest.TestCase):
@@ -60,7 +65,7 @@ class EvidenceRetentionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             pcap = root / "pcap.tar.gz"
-            write_archive(pcap, {"bundle/capture/raw.pcap": b"\xd4\xc3\xb2\xa1" + b"\0" * 20})
+            write_archive(pcap, {"bundle/capture/raw.pcap": classic_pcap()})
             with self.assertRaisesRegex(EvidenceError, "raw packet capture"):
                 check_archive(pcap, POLICY, "public-sanitized")
 
@@ -70,7 +75,7 @@ class EvidenceRetentionTest(unittest.TestCase):
                 check_archive(binary, POLICY, "public-sanitized")
 
             disguised = root / "disguised.tar.gz"
-            write_archive(disguised, {"bundle/capture/raw.bin": b"\xd4\xc3\xb2\xa1" + b"\0" * 20})
+            write_archive(disguised, {"bundle/capture/raw.bin": classic_pcap()})
             with self.assertRaisesRegex(EvidenceError, "raw packet capture"):
                 check_archive(disguised, POLICY, "public-sanitized")
 
@@ -83,6 +88,11 @@ class EvidenceRetentionTest(unittest.TestCase):
             write_archive(sensitive_name, {"bundle/token=abc123.txt": b"safe"})
             with self.assertRaisesRegex(EvidenceError, "sensitive binary payload"):
                 check_archive(sensitive_name, POLICY, "public-sanitized")
+
+            ssid = root / "ssid.tar.gz"
+            write_archive(ssid, {"bundle/report.json": b'{"ssid":"home"}'})
+            with self.assertRaisesRegex(EvidenceError, "sensitive binary payload"):
+                check_archive(ssid, POLICY, "public-sanitized")
 
     def test_archive_rejects_unsafe_members_and_resource_exhaustion(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -110,7 +120,7 @@ class EvidenceRetentionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             archive = root / "private.tar.gz"
-            write_archive(archive, {"bundle/capture/raw.pcap": b"\xd4\xc3\xb2\xa1" + b"\0" * 20})
+            write_archive(archive, {"bundle/capture/raw.pcap": classic_pcap()})
             check_archive(archive, POLICY, "private-raw-pcap")
             manifest = create_manifest(
                 POLICY,
@@ -125,6 +135,16 @@ class EvidenceRetentionTest(unittest.TestCase):
             write_archive(invalid, {"bundle/capture/raw.pcap": b"not-a-pcap"})
             with self.assertRaisesRegex(EvidenceError, "invalid PCAP"):
                 check_archive(invalid, POLICY, "private-raw-pcap")
+
+            corrupt = root / "corrupt.tar.gz"
+            write_archive(
+                corrupt,
+                {"bundle/capture/raw.pcap": b"\xd4\xc3\xb2\xa1" + struct.pack(
+                    "<HHiiII", 0, 0, 0, 0, 0, 1
+                )},
+            )
+            with self.assertRaisesRegex(EvidenceError, "invalid PCAP"):
+                check_archive(corrupt, POLICY, "private-raw-pcap")
 
     def test_purge_deletes_only_expired_managed_evidence_under_exact_root(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -198,6 +218,44 @@ class EvidenceRetentionTest(unittest.TestCase):
             )
             self.assertNotEqual(0, result.returncode)
             self.assertIn("not declared by policy", result.stderr)
+
+    def test_policy_purge_root_rejects_symlink_redirect(self) -> None:
+        managed = ROOT / "build/release-candidate-downloads"
+        if managed.exists():
+            self.skipTest("managed root already exists")
+        with tempfile.TemporaryDirectory() as raw:
+            managed.parent.mkdir(parents=True, exist_ok=True)
+            managed.symlink_to(Path(raw), target_is_directory=True)
+            try:
+                result = subprocess.run(
+                    [
+                        "python3", str(ROOT / "scripts/ci/evidence_retention.py"),
+                        "--policy", str(POLICY), "purge", str(managed),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("contains a symlink", result.stderr)
+            finally:
+                managed.unlink()
+
+    def test_archive_rejects_custom_unmanaged_output(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            result = subprocess.run(
+                [
+                    "bash", str(ROOT / "test-lab/scripts/archive-artifacts.sh"),
+                    "--output", raw,
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("policy-managed", result.stderr)
 
     def test_private_archive_removes_source_captures_after_verified_manifest(self) -> None:
         source = (ROOT / "test-lab/scripts/archive-artifacts.sh").read_text(encoding="utf-8")

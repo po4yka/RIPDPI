@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import struct
 import tarfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
@@ -25,7 +27,7 @@ PCAP_MAGICS = {
 }
 SENSITIVE_BINARY = re.compile(
     rb'''(?ix)
-    ["']?(?:private[_ -]?key|password|secret|auth|token|imsi|subscription)["']?
+    ["']?(?:private[_ -]?key|password|secret|auth|token|ssid|bssid|imsi|operator|subscription)["']?
     \s*[:=]\s*["']?(?!<redacted>|null|false|true)[^"'\x00\s,}]{3,}
     '''
 )
@@ -127,13 +129,91 @@ def check_archive(
         if capture:
             if not allow_pcap:
                 raise EvidenceError(f"public evidence contains raw packet capture: {name}")
-            if len(payload) < 24 or payload[:4] not in PCAP_MAGICS:
+            if not _valid_capture(payload):
                 raise EvidenceError(f"invalid PCAP evidence: {name}")
         elif retention_class == "public-sanitized" and (
             SENSITIVE_BINARY.search(name.encode("utf-8", errors="replace"))
             or SENSITIVE_BINARY.search(payload)
         ):
             raise EvidenceError(f"public evidence contains sensitive binary payload: {name}")
+
+
+def _valid_capture(payload: bytes) -> bool:
+    magic = payload[:4]
+    if magic == b"\x0a\x0d\x0d\x0a":
+        if len(payload) < 28 or payload[8:12] not in {
+            b"\x1a\x2b\x3c\x4d", b"\x4d\x3c\x2b\x1a"
+        }:
+            return False
+        endian = ">" if payload[8:12] == b"\x1a\x2b\x3c\x4d" else "<"
+        block_length = struct.unpack(f"{endian}I", payload[4:8])[0]
+        return (
+            block_length >= 28
+            and block_length % 4 == 0
+            and block_length <= len(payload)
+            and struct.unpack(f"{endian}I", payload[block_length - 4:block_length])[0]
+            == block_length
+        )
+    endian = {
+        b"\xd4\xc3\xb2\xa1": "<",
+        b"\x4d\x3c\xb2\xa1": "<",
+        b"\xa1\xb2\xc3\xd4": ">",
+        b"\xa1\xb2\x3c\x4d": ">",
+    }.get(magic)
+    if endian is None or len(payload) < 24:
+        return False
+    major, minor, _zone, _accuracy, snaplen, _network = struct.unpack(
+        f"{endian}HHiiII", payload[4:24]
+    )
+    return (major, minor) == (2, 4) and 1 <= snaplen <= MAX_MEMBER_BYTES
+
+
+def check_directory(
+    directory: Path,
+    policy_path: Path = DEFAULT_POLICY,
+    retention_class: str = "public-sanitized",
+) -> None:
+    policy = validate_policy(policy_path)
+    if retention_class not in policy["classes"]:
+        raise EvidenceError(f"unknown retention class: {retention_class}")
+    exact = directory.resolve(strict=True)
+    if not exact.is_dir():
+        raise EvidenceError(f"evidence directory does not exist: {directory}")
+    file_count = 0
+    total_size = 0
+    for current, directories, files in os.walk(exact, followlinks=False):
+        current_path = Path(current)
+        for name in directories:
+            if (current_path / name).is_symlink():
+                raise EvidenceError(f"unsafe evidence directory symlink: {current_path / name}")
+        for name in files:
+            path = current_path / name
+            if path.is_symlink() or not path.is_file():
+                raise EvidenceError(f"unsafe evidence file: {path}")
+            file_count += 1
+            if file_count > MAX_ARCHIVE_MEMBERS:
+                raise EvidenceError("evidence file count limit exceeded")
+            if path.name.endswith((".tar.gz", ".tgz")):
+                check_archive(path, policy_path, retention_class)
+                continue
+            size = path.stat().st_size
+            if size > MAX_MEMBER_BYTES:
+                raise EvidenceError(f"evidence file size limit exceeded: {path}")
+            total_size += size
+            if total_size > MAX_ARCHIVE_BYTES:
+                raise EvidenceError("evidence expanded size limit exceeded")
+            payload = path.read_bytes()
+            suffix = path.suffix.lower()
+            capture = suffix in PCAP_SUFFIXES or payload[:4] in PCAP_MAGICS
+            if capture and not policy["classes"][retention_class]["allowRawPcap"]:
+                raise EvidenceError(f"public evidence contains raw packet capture: {path}")
+            if capture and not _valid_capture(payload):
+                raise EvidenceError(f"invalid PCAP evidence: {path}")
+            relative = str(path.relative_to(exact)).encode("utf-8", errors="replace")
+            if retention_class == "public-sanitized" and (
+                SENSITIVE_BINARY.search(relative) or SENSITIVE_BINARY.search(payload)
+            ):
+                raise EvidenceError(f"public evidence contains sensitive binary payload: {path}")
 
 
 def _utc(value: datetime) -> datetime:
@@ -267,11 +347,20 @@ def purge_expired(
 
 
 def _require_policy_root(root: Path, policy_path: Path) -> Path:
-    exact_root = root.resolve(strict=True)
     repo = policy_path.resolve().parents[1]
-    allowed = {(repo / relative).resolve() for relative in validate_policy(policy_path)["purgeRoots"]}
-    if exact_root not in allowed:
-        raise EvidenceError(f"purge root is not declared by policy: {exact_root}")
+    requested = Path(os.path.abspath(root))
+    allowed = {repo / relative for relative in validate_policy(policy_path)["purgeRoots"]}
+    if requested not in allowed:
+        raise EvidenceError(f"purge root is not declared by policy: {requested}")
+    relative = requested.relative_to(repo)
+    current = repo
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise EvidenceError(f"purge root contains a symlink: {current}")
+    exact_root = requested.resolve(strict=True)
+    if not exact_root.is_relative_to(repo.resolve()):
+        raise EvidenceError("purge root escapes the repository")
     return exact_root
 
 
@@ -283,6 +372,9 @@ def main() -> int:
     check = subparsers.add_parser("check-archive")
     check.add_argument("archive", type=Path)
     check.add_argument("--retention-class", required=True)
+    directory = subparsers.add_parser("check-directory")
+    directory.add_argument("directory", type=Path)
+    directory.add_argument("--retention-class", required=True)
     manifest = subparsers.add_parser("write-manifest")
     manifest.add_argument("archive", type=Path)
     manifest.add_argument("--retention-class", required=True)
@@ -295,6 +387,8 @@ def main() -> int:
             validate_policy(args.policy)
         elif args.command == "check-archive":
             check_archive(args.archive, args.policy, args.retention_class)
+        elif args.command == "check-directory":
+            check_directory(args.directory, args.policy, args.retention_class)
         elif args.command == "write-manifest":
             payload = create_manifest(args.policy, args.retention_class, args.archive)
             sidecar = args.archive.with_name(args.archive.name + ".retention.json")
