@@ -140,6 +140,43 @@ class NetemTransactionTest(unittest.TestCase):
             self.assertNotEqual(0, wrong_owner.returncode)
             self.assertIn("different device or run", wrong_owner.stderr)
 
+    def test_cleanup_attempts_every_restore_and_retains_state_after_firewall_error(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            bin_dir, log = self.make_tools(root)
+            env = self.environment(root, bin_dir, log)
+            subprocess.run(
+                ["bash", str(NETEM / "apply-mtu-blackhole.sh")],
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            firewall = bin_dir / "iptables"
+            firewall.write_text(
+                """#!/usr/bin/env bash
+printf 'iptables %s\n' "$*" >> "$COMMAND_LOG"
+[[ " $* " == *' -C '* ]] && exit 0
+[[ " $* " == *' -D '* ]] && exit 9
+exit 0
+""",
+                encoding="utf-8",
+            )
+            firewall.chmod(0o755)
+            failed = subprocess.run(
+                ["bash", str(NETEM / "clear.sh")],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(0, failed.returncode)
+            commands = log.read_text(encoding="utf-8")
+            self.assertIn("tc qdisc replace dev eth0 root fq_codel limit 10240p", commands)
+            self.assertIn("ip link set dev eth0 mtu 1500", commands)
+            self.assertIn("sysctl -w net.ipv4.ip_forward=0", commands)
+            self.assertTrue((root / "state").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -281,7 +281,7 @@ The mock relay on port `10080` exposes a minimal JSON handshake for readiness, a
 Run the controlled mock-relay fault matrix with:
 
 ```bash
-./test-lab/scripts/run-mock-relay-matrix.sh --profile emulator
+./test-lab/scripts/run-mock-relay-matrix.sh --serial emulator-5554 --profile emulator
 ```
 
 The matrix writes `summary.tsv` plus one probe JSON per scenario and covers ready, invalid credentials, malformed response, server reset, and timeout. The failure scenarios are expected to exit non-zero and prove the debug diagnostics contract reports relay failures without breaking DNS, HTTP, HTTPS, TCP, or UDP probes.
