@@ -10,12 +10,12 @@
 #   2  missing tool or argument
 #
 # Regen procedure:
-#   Build libripdpi.so for a known-good commit, then run:
-#     nm --dynamic --defined-only --extern-only <lib> \
+#   Build the target .so for a known-good commit, then run:
+#     nm --dynamic --defined-only --extern-only <library.so> \
 #       | awk '{print $NF}' \
 #       | grep -E '^(Java_|JNI_)' \
 #       | LC_ALL=C sort \
-#       > native/rust/crates/ripdpi-android/jni-symbols.baseline
+#       > <path-to-baseline>
 #   Commit the updated baseline alongside the source change.
 #   NOTE: --dynamic reads the .dynsym table, so this works on the optimized
 #   (stripped) release .so too; the regular symbol table is empty there.
@@ -28,7 +28,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BASELINE="${2:-${REPO_ROOT}/native/rust/crates/ripdpi-android/jni-symbols.baseline}"
 
 if [[ -z "${LIB}" ]]; then
-    echo "error: usage: $0 <path-to-libripdpi.so> [<path-to-baseline>]" >&2
+    echo "error: usage: $0 <path-to-library.so> [<path-to-baseline>]" >&2
     exit 2
 fi
 
@@ -74,10 +74,10 @@ else
     echo "  actual   : extracted from ${LIB}"
     echo ""
     echo "If this change is intentional, regenerate the baseline:"
-    echo "  nm --dynamic --defined-only --extern-only <lib> \\"
+    echo "  nm --dynamic --defined-only --extern-only ${LIB} \\"
     echo "    | awk '{print \$NF}' \\"
     echo "    | grep -E '^(Java_|JNI_)' \\"
     echo "    | LC_ALL=C sort \\"
-    echo "    > native/rust/crates/ripdpi-android/jni-symbols.baseline"
+    echo "    > ${BASELINE}"
     exit 1
 fi
