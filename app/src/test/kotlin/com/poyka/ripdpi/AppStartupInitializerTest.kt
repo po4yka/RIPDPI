@@ -580,6 +580,55 @@ class AppStartupInitializerFailureTest {
         }
 
     @Test
+    fun `simple seed retry does not duplicate one-time startup registrations`() =
+        runTest {
+            var seedAttempts = 0
+            var watcherBindCalls = 0
+            val bootSessionRecorder = RecordingBootSessionRecorder()
+            val dnsPathPreferenceInvalidator = RecordingDnsPathPreferenceInvalidator(application)
+            val hooks =
+                SimpleFlavorStartupHooks(
+                    Optional.of(
+                        object : SimpleFlavorSeeder {
+                            override suspend fun seed() {
+                                seedAttempts++
+                                if (seedAttempts == 1) error("transient-seed-failure")
+                            }
+                        },
+                    ),
+                    Optional.of(
+                        object : SimpleFlavorSessionWatcher {
+                            override fun bind(scope: CoroutineScope) {
+                                watcherBindCalls++
+                            }
+                        },
+                    ),
+                )
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
+                    bootSessionRecorder = bootSessionRecorder,
+                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Failed }
+
+            initializer.retryRecovery()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(2, seedAttempts)
+            assertEquals(1, dnsPathPreferenceInvalidator.registerCalls)
+            assertEquals(1, bootSessionRecorder.registerCalls)
+            assertEquals(1, watcherBindCalls)
+        }
+
+    @Test
     fun `detection observation failure is swallowed after successful subsystem initialization`() =
         runTest {
             val compatibilityResetter = RecordingAppCompatibilityResetter()

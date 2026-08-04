@@ -205,6 +205,13 @@ class AppStartupInitializer
             }
 
         private suspend fun initializeSubsystemsAfterRecovery(startupRecovery: AppStartupRecovery): AppStartupReport {
+            val simpleConfigSeed =
+                runSubsystem(AppStartupSubsystem.SimpleConfigSeed) {
+                    simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
+                }
+            check(simpleConfigSeed.status == AppStartupSubsystemStatus.Succeeded) {
+                "Required simple configuration seed failed"
+            }
             val resetEventConsume =
                 runSubsystem(AppStartupSubsystem.ResetEventConsume) {
                     // The reset wipe recorded this BEFORE deleting everything; it
@@ -250,13 +257,6 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.BootSessionRecorderRegistration) {
                     bootSessionRecorder.register()
                 }
-            val simpleConfigSeed =
-                runSubsystem(AppStartupSubsystem.SimpleConfigSeed) {
-                    simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
-                }
-            check(simpleConfigSeed.status == AppStartupSubsystemStatus.Succeeded) {
-                "Required simple configuration seed failed"
-            }
             return AppStartupReport(
                 profileMutationRecovery = startupRecovery.profileMutationRecovery,
                 resetEventConsume = resetEventConsume,
