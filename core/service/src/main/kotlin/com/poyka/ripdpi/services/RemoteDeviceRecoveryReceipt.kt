@@ -237,6 +237,7 @@ internal fun classifyRecoveryStartOrigin(action: String?): String =
         com.poyka.ripdpi.data.startAction -> "explicit_user"
         diagnosticsStartAction -> "diagnostics_resume"
         transportFailoverRestartAction -> "transport_failover"
+        startupFallbackStartAction -> "startup_fallback"
         else -> UnknownReceiptValue
     }
 
@@ -248,7 +249,8 @@ internal fun isRecoveryReceiptStartAction(action: String?): Boolean =
         action == processDeathRecoveryStartAction ||
         action == com.poyka.ripdpi.data.startAction ||
         action == diagnosticsStartAction ||
-        action == transportFailoverRestartAction
+        action == transportFailoverRestartAction ||
+        action == startupFallbackStartAction
 
 internal fun RemoteDeviceRecoveryReceipt.privacySafe(): RemoteDeviceRecoveryReceipt =
     copy(
@@ -323,6 +325,7 @@ private val StartOriginValues =
         "explicit_user",
         "diagnostics_resume",
         "transport_failover",
+        "startup_fallback",
     )
 private val DeviceStateValues = setOf("enabled", "disabled", UnknownReceiptValue)
 private val ElapsedBucketValues =

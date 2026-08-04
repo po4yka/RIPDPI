@@ -20,6 +20,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.EgressRequirements
+import com.poyka.ripdpi.services.ExplicitUserStartPreparer
 import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayTransportClass
 import com.poyka.ripdpi.services.ServiceController
@@ -936,6 +937,9 @@ internal abstract class FailoverCoordinatorBindsModule {
 
     @Binds
     abstract fun bindActiveTransportProvider(monitor: SimpleVlessRuntimeMonitor): ActiveTransportProvider
+
+    @Binds
+    abstract fun bindExplicitUserStartPreparer(monitor: SimpleVlessRuntimeMonitor): ExplicitUserStartPreparer
 
     @Binds
     @Singleton

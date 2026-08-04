@@ -53,6 +53,30 @@ interface ServiceController {
     fun refreshHardKillSwitchState() = Unit
 }
 
+interface StartupFallbackController {
+    /** Capture the user-intent generation that owns a potential startup fallback. */
+    fun captureStartupFallbackLease(): StartupFallbackLease = UntrackedStartupFallbackLease
+
+    /** Start a fallback only while no newer explicit Start or Stop supersedes [lease]. */
+    fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult
+}
+
+interface StartupFallbackLease
+
+sealed interface StartupFallbackDispatchResult {
+    data object Superseded : StartupFallbackDispatchResult
+
+    data class Dispatched(
+        val startResult: ServiceStartResult,
+    ) : StartupFallbackDispatchResult
+}
+
+private data object UntrackedStartupFallbackLease : StartupFallbackLease
+
+private data class UserIntentStartupFallbackLease(
+    val generation: Long,
+) : StartupFallbackLease
+
 internal const val hardKillSwitchRefreshBroadcastAction =
     "com.poyka.ripdpi.action.REFRESH_HARD_KILL_SWITCH"
 
@@ -93,6 +117,7 @@ class ServiceIntentArbiter
     constructor() {
         private val lock = ReentrantLock()
         private var explicitUserIntentRecorded = false
+        private var explicitUserIntentGeneration = 0L
 
         fun <T> serialize(block: () -> T): T = lock.withLock(block)
 
@@ -102,16 +127,30 @@ class ServiceIntentArbiter
         ): T =
             lock.withLock {
                 action().also { result ->
-                    if (isAccepted(result)) explicitUserIntentRecorded = true
+                    if (isAccepted(result)) {
+                        explicitUserIntentRecorded = true
+                        explicitUserIntentGeneration += 1
+                    }
                 }
             }
 
         fun userStop(action: () -> Unit) {
             lock.withLock {
                 explicitUserIntentRecorded = true
+                explicitUserIntentGeneration += 1
                 action()
             }
         }
+
+        fun captureExplicitUserIntentGeneration(): Long = lock.withLock { explicitUserIntentGeneration }
+
+        fun <T> runIfExplicitUserIntentCurrent(
+            generation: Long,
+            action: () -> T,
+        ): T? =
+            lock.withLock {
+                if (generation == explicitUserIntentGeneration) action() else null
+            }
 
         fun <T> recovery(action: () -> T): T? =
             lock.withLock {
@@ -159,7 +198,8 @@ class DefaultServiceController
         private val bootSessionStateStore: BootSessionStateStore,
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceIntentArbiter: ServiceIntentArbiter,
-    ) : ServiceController {
+    ) : ServiceController,
+        StartupFallbackController {
         internal constructor(
             context: Context,
             serviceStateStore: ServiceStateStore,
@@ -269,6 +309,20 @@ class DefaultServiceController
         override fun restartVpnForTransportFailover(): ServiceStartResult =
             startInternal(Mode.VPN, transportFailoverRestartAction)
 
+        override fun captureStartupFallbackLease(): StartupFallbackLease =
+            UserIntentStartupFallbackLease(serviceIntentArbiter.captureExplicitUserIntentGeneration())
+
+        override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+            val generation =
+                (lease as? UserIntentStartupFallbackLease)?.generation
+                    ?: return StartupFallbackDispatchResult.Superseded
+            return serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
+                StartupFallbackDispatchResult.Dispatched(
+                    startInternal(Mode.VPN, startupFallbackStartAction),
+                )
+            } ?: StartupFallbackDispatchResult.Superseded
+        }
+
         override fun stopForDiagnostics() {
             stopInternal(action = diagnosticsStopAction)
         }
@@ -329,6 +383,10 @@ abstract class ServiceControllerModule {
     @Binds
     @Singleton
     abstract fun bindServiceController(serviceController: DefaultServiceController): ServiceController
+
+    @Binds
+    @Singleton
+    abstract fun bindStartupFallbackController(serviceController: DefaultServiceController): StartupFallbackController
 }
 
 @Module

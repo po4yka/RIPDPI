@@ -175,6 +175,78 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
+    fun startupFallbackUsesInternalVpnStartAction() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
+            )
+
+        val fallbackLease = controller.captureStartupFallbackLease()
+        val result = controller.startVpnForStartupFallback(fallbackLease)
+
+        assertEquals(
+            StartupFallbackDispatchResult.Dispatched(ServiceStartResult.Accepted(Mode.VPN)),
+            result,
+        )
+        assertEquals(startupFallbackStartAction, starter.lastIntent?.action)
+        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+    }
+
+    @Test
+    fun newerUserStartSupersedesCapturedStartupFallback() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+        val fallbackLease = controller.captureStartupFallbackLease()
+
+        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
+        val result = controller.startVpnForStartupFallback(fallbackLease)
+
+        assertEquals(StartupFallbackDispatchResult.Superseded, result)
+        assertEquals(1, starter.startCount)
+    }
+
+    @Test
+    fun newerUserStopSupersedesCapturedStartupFallback() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+        val fallbackLease = controller.captureStartupFallbackLease()
+
+        controller.stop()
+        val result = controller.startVpnForStartupFallback(fallbackLease)
+
+        assertEquals(StartupFallbackDispatchResult.Superseded, result)
+        assertEquals(1, starter.startCount)
+        assertEquals(stopAction, starter.lastIntent?.action)
+    }
+
+    @Test
     fun bootAndProcessDeathRecoveryUseDistinctInternalActions() {
         ShadowServiceControllerVpnPrepareService.prepareIntent = null
         val starter = RecordingForegroundServiceStarter()

@@ -13,6 +13,9 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.StartupFallbackController
+import com.poyka.ripdpi.services.StartupFallbackDispatchResult
+import com.poyka.ripdpi.services.StartupFallbackLease
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -22,6 +25,63 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SimpleVlessRuntimeMonitorTest {
+    @Test
+    fun `next explicit VPN attempt restores seeded VLESS after AWG fallback`() =
+        runTest {
+            val stateStore = DefaultServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val controller = RecordingServiceController()
+            val awgRequest = sampleAwgRequest()
+            val awgSelection = RecordingAwgFallbackSelection(awgRequest)
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(SeededVlessProfileId)
+            }
+            val monitor =
+                buildMonitor(
+                    stateStore = stateStore,
+                    settings = settings,
+                    profiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = SeededHysteriaProfileId,
+                                kind = RelayKindHysteria2,
+                            ),
+                        ),
+                    awgSelection = awgSelection,
+                    controller = controller,
+                )
+            monitor.bind(backgroundScope)
+            runCurrent()
+
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
+            runCurrent()
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("Hysteria2 readiness failed"))
+            runCurrent()
+
+            assertEquals(false, settings.snapshot().relayEnabled)
+            assertEquals(awgRequest.profileId, settings.snapshot().simpleFailoverAwgProfileId)
+            assertEquals(listOf(Mode.VPN, Mode.VPN), controller.startupFallbackStartCalls)
+            assertEquals(emptyList<Mode>(), controller.userStartCalls)
+            assertEquals(emptyList<Mode>(), controller.failoverRestartCalls)
+
+            monitor.prepare(Mode.VPN)
+
+            val prepared = settings.snapshot()
+            assertEquals(true, prepared.relayEnabled)
+            assertEquals(RelayKindVlessReality, prepared.relayKind)
+            assertEquals(SeededVlessProfileId, prepared.relayProfileId)
+            assertEquals("", prepared.simpleFailoverAwgProfileId)
+            assertEquals(1, awgSelection.clearCalls)
+
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("next VLESS readiness failed"))
+            runCurrent()
+
+            assertEquals(RelayKindHysteria2, settings.snapshot().relayKind)
+            assertEquals(listOf(Mode.VPN, Mode.VPN, Mode.VPN), controller.startupFallbackStartCalls)
+        }
+
     @Test
     fun `publishes only VLESS Reality for a running VPN session`() =
         runTest {
@@ -120,7 +180,7 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
 
             val recovered = settings.snapshot()
-            assertEquals(listOf(Mode.VPN), controller.startCalls)
+            assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
             assertEquals(RelayKindHysteria2, recovered.relayKind)
             assertEquals(SeededHysteriaProfileId, recovered.relayProfileId)
             assertEquals("", recovered.simpleFailoverAwgProfileId)
@@ -132,7 +192,7 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("fallback failed"))
             stateStore.setStatus(AppStatus.Halted, Mode.VPN)
             runCurrent()
-            assertEquals(listOf(Mode.VPN), controller.startCalls)
+            assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
         }
 
     @Test
@@ -171,7 +231,7 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
 
             val recovered = settings.snapshot()
-            assertEquals(listOf(Mode.VPN, Mode.VPN), controller.startCalls)
+            assertEquals(listOf(Mode.VPN, Mode.VPN), controller.startupFallbackStartCalls)
             assertEquals(false, recovered.relayEnabled)
             assertEquals(awgRequest.profileId, recovered.simpleFailoverAwgProfileId)
             assertEquals(listOf(awgRequest), awgSelection.selectedRequests)
@@ -183,7 +243,7 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.setStatus(AppStatus.Halted, Mode.VPN)
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("AWG readiness failed"))
             runCurrent()
-            assertEquals(listOf(Mode.VPN, Mode.VPN), controller.startCalls)
+            assertEquals(listOf(Mode.VPN, Mode.VPN), controller.startupFallbackStartCalls)
         }
 
     @Test
@@ -218,7 +278,7 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("Hysteria2 readiness failed"))
             runCurrent()
 
-            assertEquals(listOf(Mode.VPN), controller.startCalls)
+            assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
             assertEquals(true, settings.snapshot().relayEnabled)
             assertEquals(RelayKindHysteria2, settings.snapshot().relayKind)
         }
@@ -256,7 +316,7 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.setStatus(AppStatus.Halted, Mode.VPN)
             runCurrent()
 
-            assertEquals(emptyList<Mode>(), controller.startCalls)
+            assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
             assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
         }
 
@@ -278,8 +338,115 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.emitFailed(Sender.VPN, FailureReason.TunnelEstablishmentFailed)
             runCurrent()
 
-            assertEquals(emptyList<Mode>(), controller.startCalls)
+            assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
             assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
+        }
+
+    @Test
+    fun `manual start while fallback waits invalidates the stale recovery`() =
+        runTest {
+            val stateStore = DefaultServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val controller = RecordingServiceController()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(SeededVlessProfileId)
+            }
+            val monitor =
+                buildMonitor(
+                    stateStore = stateStore,
+                    settings = settings,
+                    profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
+                    controller = controller,
+                )
+            monitor.bind(backgroundScope)
+            stateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+            runCurrent()
+
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("old VLESS readiness failed"))
+            runCurrent()
+            controller.acceptUserStart()
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
+            monitor.prepare(Mode.VPN)
+            assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
+        }
+
+    @Test
+    fun `manual stop while fallback waits prevents an automatic restart`() =
+        runTest {
+            val stateStore = DefaultServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val controller = RecordingServiceController()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(SeededVlessProfileId)
+            }
+            val monitor =
+                buildMonitor(
+                    stateStore = stateStore,
+                    settings = settings,
+                    profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
+                    controller = controller,
+                )
+            monitor.bind(backgroundScope)
+            stateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+            runCurrent()
+
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
+            runCurrent()
+            controller.acceptUserStop()
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
+            assertEquals(true, settings.snapshot().relayEnabled)
+            assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
+            assertEquals(SeededVlessProfileId, settings.snapshot().relayProfileId)
+        }
+
+    @Test
+    fun `manual stop rolls back a stale AWG selection before suppressing restart`() =
+        runTest {
+            val stateStore = DefaultServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val controller = RecordingServiceController()
+            val awgSelection = RecordingAwgFallbackSelection(sampleAwgRequest())
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(SeededVlessProfileId)
+            }
+            val monitor =
+                buildMonitor(
+                    stateStore = stateStore,
+                    settings = settings,
+                    profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
+                    awgSelection = awgSelection,
+                    controller = controller,
+                )
+            monitor.bind(backgroundScope)
+            runCurrent()
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
+            runCurrent()
+            stateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("Hysteria2 readiness failed"))
+            runCurrent()
+
+            controller.acceptUserStop()
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
+            assertEquals(true, settings.snapshot().relayEnabled)
+            assertEquals(RelayKindHysteria2, settings.snapshot().relayKind)
+            assertEquals(SeededHysteriaProfileId, settings.snapshot().relayProfileId)
+            assertEquals("", settings.snapshot().simpleFailoverAwgProfileId)
+            assertNull(awgSelection.currentRequest)
         }
 
     private fun buildMonitor(
@@ -294,7 +461,7 @@ class SimpleVlessRuntimeMonitorTest {
             settingsRepository = settings,
             relayProfileStore = MonitorRelayProfileStore(profiles),
             awgFallbackSelection = awgSelection,
-            serviceController = controller,
+            startupFallbackController = controller,
         )
 
     private fun sampleAwgRequest(): AwgActivationRequest =
@@ -317,11 +484,20 @@ private class RecordingAwgFallbackSelection(
     private val request: AwgActivationRequest? = null,
 ) : SimpleAwgFallbackSelection {
     val selectedRequests = mutableListOf<AwgActivationRequest>()
+    var clearCalls = 0
+    var currentRequest: AwgActivationRequest? = null
+        private set
 
     override suspend fun firstAvailable(): AwgActivationRequest? = request
 
     override fun select(request: AwgActivationRequest) {
         selectedRequests += request
+        currentRequest = request
+    }
+
+    override fun clear() {
+        clearCalls += 1
+        currentRequest = null
     }
 }
 
@@ -343,13 +519,46 @@ private class MonitorRelayProfileStore(
     }
 }
 
-private class RecordingServiceController : ServiceController {
-    val startCalls = mutableListOf<Mode>()
+private class RecordingServiceController :
+    ServiceController,
+    StartupFallbackController {
+    val userStartCalls = mutableListOf<Mode>()
+    val startupFallbackStartCalls = mutableListOf<Mode>()
+    val failoverRestartCalls = mutableListOf<Mode>()
+    private var userIntentGeneration = 0L
 
     override fun start(mode: Mode): ServiceStartResult {
-        startCalls += mode
+        userStartCalls += mode
         return ServiceStartResult.Accepted(mode)
+    }
+
+    override fun restartVpnForTransportFailover(): ServiceStartResult {
+        failoverRestartCalls += Mode.VPN
+        return ServiceStartResult.Accepted(Mode.VPN)
+    }
+
+    override fun captureStartupFallbackLease(): StartupFallbackLease =
+        RecordingStartupFallbackLease(userIntentGeneration)
+
+    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+        if ((lease as RecordingStartupFallbackLease).generation != userIntentGeneration) {
+            return StartupFallbackDispatchResult.Superseded
+        }
+        startupFallbackStartCalls += Mode.VPN
+        return StartupFallbackDispatchResult.Dispatched(ServiceStartResult.Accepted(Mode.VPN))
+    }
+
+    fun acceptUserStart() {
+        userIntentGeneration += 1
+    }
+
+    fun acceptUserStop() {
+        userIntentGeneration += 1
     }
 
     override fun stop() = Unit
 }
+
+private data class RecordingStartupFallbackLease(
+    val generation: Long,
+) : StartupFallbackLease

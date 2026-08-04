@@ -97,6 +97,7 @@ class RipDpiProxyService :
                 serviceScope = lifecycleScope,
                 serviceLabel = "proxy",
                 onStart = coordinator::start,
+                onStartWithId = { _, startId -> coordinator.start(stopSelfStartId = startId) },
                 onStop = coordinator::stop,
                 onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
                 onAcceptedStop = acceptedUserStopRecorder::record,

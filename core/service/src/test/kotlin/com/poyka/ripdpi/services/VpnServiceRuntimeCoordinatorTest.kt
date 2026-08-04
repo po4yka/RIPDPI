@@ -415,6 +415,36 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun failedStartupCanBeStartedAgainWithReplacementPolicy() =
+        runTest {
+            var runtimeCount = 0
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "failed-primary"),
+                            sampleResolution(mode = Mode.VPN, policySignature = "startup-fallback"),
+                        ),
+                    runtimeFactory = { events ->
+                        runtimeCount += 1
+                        TestProxyRuntime(events).apply {
+                            if (runtimeCount == 1) startFailure = IOException("primary startup failed")
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(2, env.factory.runtimes.size)
+        }
+
+    @Test
     fun dnsRefreshReusesCurrentProxyEndpointAndCredentials() =
         runTest {
             val env =

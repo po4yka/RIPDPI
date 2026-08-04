@@ -84,7 +84,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
         }
     }
 
-    suspend fun start() = startStopOrchestrator.start()
+    suspend fun start(stopSelfStartId: Int? = null) = startStopOrchestrator.start(stopSelfStartId = stopSelfStartId)
 
     suspend fun stop(
         stopSelfStartId: Int? = null,

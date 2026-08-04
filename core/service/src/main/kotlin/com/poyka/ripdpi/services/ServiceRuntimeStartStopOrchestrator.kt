@@ -16,7 +16,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     private val dependencies: ServiceRuntimeStartStopDependencies<TSession>,
     private val callbacks: ServiceRuntimeStartStopCallbacks<TSession>,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
-    suspend fun start() {
+    suspend fun start(stopSelfStartId: Int? = null) {
         Logger.i { "Starting ${dependencies.serviceLabel()}" }
 
         var matchedRememberedPolicy: RememberedNetworkPolicyEntity? = null
@@ -56,7 +56,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         }
         val failureReason = callbacks.classifyStartupFailure(classifiedError)
         callbacks.updateStatus(ServiceStatus.Failed, failureReason)
-        stop()
+        stop(stopSelfStartId = stopSelfStartId)
     }
 
     suspend fun stop(

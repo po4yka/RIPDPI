@@ -19,6 +19,8 @@ interface SimpleAwgFallbackSelection {
     suspend fun firstAvailable(): AwgActivationRequest?
 
     fun select(request: AwgActivationRequest)
+
+    fun clear()
 }
 
 @Singleton
@@ -44,7 +46,7 @@ class SimpleAwgEgressSelection
             selectedRequest.value = request
         }
 
-        fun clear() {
+        override fun clear() {
             selectedProfileId.value = null
             selectedRequest.value = null
         }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -20,6 +21,7 @@ internal class VpnServiceSessionLifecycle(
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
+    private val beforeUserStart: suspend () -> Unit = {},
     private val recoverProfileMutations: suspend () -> Unit = {},
     private val awaitRecoveryUnderlay: suspend () -> Unit = {},
     private val hardKillSwitchRefreshBroadcastLifecycle: HardKillSwitchRefreshLifecycle =
@@ -60,15 +62,23 @@ internal class VpnServiceSessionLifecycle(
                 serviceScope = service.serviceScope,
                 serviceLabel = "vpn",
                 onStart = runtimeCoordinator::start,
-                onRecoveryStart = {
-                    recoverProfileMutationsAndAwaitUnderlayThenStart(
-                        recoverProfileMutations = recoverProfileMutations,
-                        awaitRecoveryUnderlay = awaitRecoveryUnderlay,
-                        startRuntime = runtimeCoordinator::start,
-                    )
+                onStartWithId = { action, startId ->
+                    if (isServiceRecoveryStartAction(action)) {
+                        recoverProfileMutationsAndAwaitUnderlayThenStart(
+                            recoverProfileMutations = recoverProfileMutations,
+                            awaitRecoveryUnderlay = awaitRecoveryUnderlay,
+                            startRuntime = { runtimeCoordinator.start(stopSelfStartId = startId) },
+                        )
+                    } else {
+                        runtimeCoordinator.start(stopSelfStartId = startId)
+                    }
                 },
                 onStop = runtimeCoordinator::stop,
                 onTransportFailoverRestart = runtimeCoordinator::restartAfterTransportFailover,
+                beforeUserStart = beforeUserStart,
+                shouldPrepareUserStart = {
+                    serviceStateStore.status.value.first != AppStatus.Running
+                },
                 isStopAllowed = service::isUserStopAllowed,
                 onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
                 onAcceptedStop = acceptedUserStopRecorder::record,

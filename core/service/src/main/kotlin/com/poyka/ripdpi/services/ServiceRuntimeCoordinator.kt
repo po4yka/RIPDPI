@@ -119,7 +119,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         )
     }
 
-    suspend fun start() = sessionLifecycle.start()
+    suspend fun start(stopSelfStartId: Int? = null) = sessionLifecycle.start(stopSelfStartId = stopSelfStartId)
 
     suspend fun stop(
         stopSelfStartId: Int? = null,

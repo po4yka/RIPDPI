@@ -213,6 +213,7 @@ class RemoteDeviceRecoveryReceiptTest {
                 com.poyka.ripdpi.data.startAction to "explicit_user",
                 diagnosticsStartAction to "diagnostics_resume",
                 transportFailoverRestartAction to "transport_failover",
+                startupFallbackStartAction to "startup_fallback",
             )
 
         cases.forEach { (action, expected) ->

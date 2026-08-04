@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.Flow
+import java.util.Optional
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Provider
@@ -76,6 +77,9 @@ class RipDpiVpnService :
     lateinit var profileMutationCoordinator: ProfileMutationCoordinator
 
     @Inject
+    lateinit var explicitUserStartPreparer: Optional<ExplicitUserStartPreparer>
+
+    @Inject
     internal lateinit var recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector
 
     @Inject
@@ -119,6 +123,9 @@ class RipDpiVpnService :
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
+                beforeUserStart = {
+                    explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN)
+                },
                 recoverProfileMutations = profileMutationCoordinator::recover,
                 awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,
             )

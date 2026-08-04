@@ -18,6 +18,182 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServiceShellDelegateTest {
     @Test
+    fun `explicit user start prepares selection before runtime start`() =
+        runTest {
+            val operations = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { operations += "start" },
+                    onStop = {},
+                    beforeUserStart = { operations += "prepare" },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startAction, 1)
+            runCurrent()
+
+            assertEquals(listOf("prepare", "start"), operations)
+        }
+
+    @Test
+    fun `transport failover restart preserves prepared fallback selection`() =
+        runTest {
+            val operations = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { operations += "start" },
+                    onStop = {},
+                    onTransportFailoverRestart = { operations += "fallback-restart" },
+                    beforeUserStart = { operations += "prepare" },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(transportFailoverRestartAction, 1)
+            runCurrent()
+
+            assertEquals(listOf("fallback-restart"), operations)
+        }
+
+    @Test
+    fun `startup fallback start bypasses explicit user preparation`() =
+        runTest {
+            val operations = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { operations += "start" },
+                    onStop = {},
+                    beforeUserStart = { operations += "prepare" },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startupFallbackStartAction, 1)
+            runCurrent()
+
+            assertEquals(listOf("start"), operations)
+        }
+
+    @Test
+    fun `start commands forward their ids to protected runtime cleanup`() =
+        runTest {
+            val startIds = mutableListOf<Int>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStartWithId = { _, startId -> startIds += startId },
+                    onStop = {},
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startAction, 7)
+            delegate.onStartCommand(startupFallbackStartAction, 8)
+            runCurrent()
+
+            assertEquals(listOf(7, 8), startIds)
+        }
+
+    @Test
+    fun `fallback queued during failed cleanup survives the older stop request`() =
+        runTest {
+            var latestStartId = 0
+            var serviceStopped = false
+            var replacementRunning = false
+            lateinit var delegate: ServiceShellDelegate
+            delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStartWithId = { _, startId ->
+                        if (startId == 1) {
+                            latestStartId = 2
+                            delegate.onStartCommand(startupFallbackStartAction, latestStartId)
+                            requestStopSelfWithFallback(
+                                stopSelfStartId = startId,
+                                stopSelfResult = { stoppingStartId ->
+                                    if (stoppingStartId == latestStartId) serviceStopped = true
+                                    stoppingStartId == latestStartId
+                                },
+                                stopSelf = { serviceStopped = true },
+                            )
+                        } else {
+                            replacementRunning = true
+                        }
+                    },
+                    onStop = {},
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            latestStartId = 1
+            delegate.onStartCommand(startAction, latestStartId)
+            runCurrent()
+
+            assertFalse(serviceStopped)
+            assertTrue(replacementRunning)
+        }
+
+    @Test
+    fun `duplicate explicit start does not reprepare a running runtime`() =
+        runTest {
+            var running = false
+            val operations = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {
+                        operations += "start"
+                        running = true
+                    },
+                    onStop = {},
+                    beforeUserStart = { operations += "prepare" },
+                    shouldPrepareUserStart = { !running },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startAction, 1)
+            runCurrent()
+            delegate.onStartCommand(startAction, 2)
+            runCurrent()
+
+            assertEquals(listOf("prepare", "start", "start"), operations)
+        }
+
+    @Test
+    fun `manual start received while halted keeps VLESS preparation behind a queued fallback`() =
+        runTest {
+            var running = false
+            val operations = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStartWithId = { action, _ ->
+                        operations += if (action == startupFallbackStartAction) "fallback" else "manual"
+                        running = true
+                    },
+                    onStop = {},
+                    beforeUserStart = { operations += "prepare-vless" },
+                    shouldPrepareUserStart = { !running },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startupFallbackStartAction, 1)
+            delegate.onStartCommand(startAction, 2)
+            runCurrent()
+
+            assertEquals(listOf("fallback", "prepare-vless", "manual"), operations)
+        }
+
+    @Test
     fun `service lifecycle commands execute in accepted intent order`() =
         runTest {
             val releaseStart = CompletableDeferred<Unit>()
@@ -338,7 +514,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { events += "user-start" },
-                    onRecoveryStart = {
+                    onStartWithId = { _, _ ->
                         events += "recover"
                         events += "runtime-start"
                     },
@@ -362,7 +538,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { error("recovery must not use the user-start path") },
-                    onRecoveryStart = { recoveredActions += "recovered" },
+                    onStartWithId = { _, _ -> recoveredActions += "recovered" },
                     onStop = {},
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )

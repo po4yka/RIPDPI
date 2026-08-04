@@ -57,6 +57,17 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun failedStartStopsOnlyItsOriginatingServiceStart() =
+        runTest {
+            val env = newEnv().also { it.coordinator.failOnStart = true }
+
+            env.coordinator.start(stopSelfStartId = 41)
+            runCurrent()
+
+            assertEquals(listOf(41), env.host.stopRequests)
+        }
+
+    @Test
     fun stopFinalizationUnregistersRuntimeAndRequestsStopSelfOnce() =
         runTest {
             val env = newEnv()
