@@ -2,20 +2,25 @@
 set -euo pipefail
 
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$lab_root/.."
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 archive_dir="$lab_root/artifacts"
 bundle_name="test-lab-artifacts-$timestamp"
 work_dir="$(mktemp -d)"
 stage_dir="$work_dir/$bundle_name"
 adb_bin="${ADB:-adb}"
+retention_class="public-sanitized"
 
 usage() {
   cat <<USAGE
-Usage: $0 [--output DIR]
+Usage: $0 [--output DIR] [--retention-class CLASS]
 
 Collects probe JSON, lab environment, Docker Compose service state/logs,
 optional packet captures, and adb logcat/dumpsys output when adb is available.
 The resulting archive is written to test-lab/artifacts/*.tar.gz by default.
+CLASS defaults to public-sanitized, which excludes packet captures. Use
+--retention-class private-raw-pcap explicitly for local-only captures retained
+for at most seven days.
 USAGE
 }
 
@@ -23,6 +28,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --output)
       archive_dir="${2:?missing --output value}"
+      shift 2
+      ;;
+    --retention-class)
+      retention_class="${2:?missing --retention-class value}"
       shift 2
       ;;
     -h|--help)
@@ -36,6 +45,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+case "$retention_class" in
+  public-sanitized|private-raw-pcap) ;;
+  *) echo "Unsupported lab archive retention class: $retention_class" >&2; exit 2 ;;
+esac
 
 mkdir -p "$archive_dir" "$stage_dir"
 trap 'rm -rf "$work_dir"' EXIT
@@ -82,7 +96,12 @@ for probe_json in "$lab_root"/artifacts/probe*.json "$lab_root"/artifacts/*probe
   copy_if_exists "$probe_json" "$stage_dir/artifacts"
 done
 
-for capture_file in "$lab_root"/capture/*.pcap "$lab_root"/capture/*.pcapng "$lab_root"/capture/*.log; do
+if [[ "$retention_class" == "private-raw-pcap" ]]; then
+  for capture_file in "$lab_root"/capture/*.pcap "$lab_root"/capture/*.pcapng; do
+    copy_if_exists "$capture_file" "$stage_dir/capture"
+  done
+fi
+for capture_file in "$lab_root"/capture/*.log; do
   copy_if_exists "$capture_file" "$stage_dir/capture"
 done
 shopt -u nullglob
@@ -135,4 +154,11 @@ archive_path="$archive_dir/$bundle_name.tar.gz"
 tar -C "$work_dir" -czf "$archive_path" "$bundle_name"
 
 echo "Created artifact archive: $archive_path"
-"$lab_root/scripts/check-artifact-redaction.sh" "$archive_path"
+"$lab_root/scripts/check-artifact-redaction.sh" \
+  --retention-class "$retention_class" \
+  "$archive_path"
+python3 "$repo_root/scripts/ci/evidence_retention.py" \
+  --policy "$repo_root/quality/evidence-retention.json" \
+  write-manifest \
+  --retention-class "$retention_class" \
+  "$archive_path"

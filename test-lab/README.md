@@ -302,4 +302,15 @@ Bundle the current lab state for handoff or CI triage:
 ./test-lab/scripts/archive-artifacts.sh
 ```
 
-The archive is written to `test-lab/artifacts/test-lab-artifacts-*.tar.gz` and excludes generated TLS private keys.
+The default `public-sanitized` archive is written to
+`test-lab/artifacts/test-lab-artifacts-*.tar.gz`. It excludes generated TLS
+private keys and all raw PCAP/PCAPNG files. Raw captures require an explicit,
+local-only seven-day class:
+
+```bash
+./test-lab/scripts/archive-artifacts.sh --retention-class private-raw-pcap
+```
+
+Every archive gets a policy sidecar ending in `.retention.json`. Preview
+expired managed evidence with `./test-lab/scripts/purge-evidence.sh`; add
+`--execute` to delete only the listed expired artifact and its sidecar.

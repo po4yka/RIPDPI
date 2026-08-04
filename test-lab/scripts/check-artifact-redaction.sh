@@ -3,22 +3,25 @@ set -euo pipefail
 
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="${1:-$lab_root/artifacts}"
+retention_class="public-sanitized"
 
 usage() {
   cat <<USAGE
-Usage: $0 [PATH]
+Usage: $0 [--retention-class CLASS] [PATH]
 
 Scans a lab artifact directory or tar.gz archive for secret-looking keys that
 must not appear in exported diagnostic handoff material.
 USAGE
 }
 
-case "${1:-}" in
-  -h|--help)
-    usage
-    exit 0
-    ;;
-esac
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --retention-class) retention_class="${2:?missing retention class}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    -*) echo "Unknown argument: $1" >&2; exit 2 ;;
+    *) target="$1"; shift ;;
+  esac
+done
 
 deny_pattern='\\b(token|password|auth|secret|private_key|ssid|bssid|imsi|operator|subscription)\\b[[:space:]]*[:=][[:space:]]*(?!<redacted>|null|false|true|0|\\[\\]|\\{\\}|[[:space:]]*(\\n|\\r|$))\\S+'
 archive_tmp_dir=""
@@ -37,7 +40,7 @@ scan_directory() {
         my $line = 1 + ($prefix =~ tr/\n//);
         print "$ARGV:$line:$&\n";
       }
-    ' $(find "$directory" -type f ! -name '*.key' ! -name 'lab.key' ! -name '*.tar.gz' ! -name '*.tgz' ! -path '*/.git/*' -print)
+    ' $(find "$directory" -type f ! -name '*.key' ! -name 'lab.key' ! -name '*.pcap' ! -name '*.pcapng' ! -name '*.tar.gz' ! -name '*.tgz' ! -path '*/.git/*' -print)
   )"
   if [[ -n "$matches" ]]; then
     printf '%s\n' "$matches"
@@ -69,6 +72,14 @@ elif [[ -d "$target" ]]; then
 else
   echo "Path not found: $target" >&2
   exit 2
+fi
+
+if [[ -f "$target" ]]; then
+  python3 "$lab_root/../scripts/ci/evidence_retention.py" \
+    --policy "$lab_root/../quality/evidence-retention.json" \
+    check-archive \
+    --retention-class "$retention_class" \
+    "$target"
 fi
 
 echo "Artifact redaction check passed: $target"

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "ripdpi_evidence_retention_v1",
+  "classes": {
+    "public-sanitized": {
+      "maxAgeHours": 720,
+      "allowRawPcap": false,
+      "localOnly": false
+    },
+    "private-raw-pcap": {
+      "maxAgeHours": 168,
+      "allowRawPcap": true,
+      "localOnly": true
+    },
+    "transient-candidate-download": {
+      "maxAgeHours": 24,
+      "allowRawPcap": false,
+      "localOnly": true
+    }
+  },
+  "purgeRoots": [
+    "test-lab/artifacts",
+    "build/release-candidate-downloads"
+  ]
+}
