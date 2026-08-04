@@ -253,14 +253,25 @@ jobs:
           test "${#test_apks[@]}" -eq 1
           cp "${test_apks[0]}" "$candidate/app-github-release-androidTest.apk"
           cp update.json github-apk-size-report.md fdroid-apk-size-report.md "$candidate/"
+          version_name="$(jq -er '.versionName' app/build/reports/app-identity/release-identity.json)"
+          version_code="$(jq -er '.versionCode' app/build/reports/app-identity/release-identity.json)"
           python3 scripts/ci/release_candidate_manifest.py create \
             --directory "$candidate" \
             --source-sha "$GITHUB_SHA" \
+            --release-tag "$RELEASE_TAG" \
+            --version-name "$version_name" \
+            --version-code "$version_code" \
+            --signer-certificate-sha256 "$EXPECTED_RELEASE_CERT_SHA256" \
+            --pluggable-transport-manifest-sha256 "${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            --candidate-run-id "$GITHUB_RUN_ID" \
             --output "$candidate/candidate-manifest.json"
           python3 scripts/ci/release_candidate_manifest.py verify \
             --directory "$candidate" \
             --manifest "$candidate/candidate-manifest.json" \
-            --expected-source-sha "$GITHUB_SHA"
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-release-tag "$RELEASE_TAG" \
+            --expected-candidate-run-id "$GITHUB_RUN_ID" \
+            --expected-signer-certificate-sha256 "$EXPECTED_RELEASE_CERT_SHA256"
 
       - name: Verify release signatures and signer continuity
         run: |
@@ -388,12 +399,41 @@ jobs:
           python3 scripts/ci/release_candidate_manifest.py verify \
             --directory "$RUNNER_TEMP/release-candidate" \
             --manifest "$RUNNER_TEMP/release-candidate/candidate-manifest.json" \
-            --expected-source-sha "$GITHUB_SHA"
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-release-tag "${{ inputs.release_tag }}" \
+            --expected-candidate-run-id "$GITHUB_RUN_ID"
 
       - name: Attest exact candidate build provenance
+        id: attest
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: |
             ${{ runner.temp }}/release-candidate/*.apk
             ${{ runner.temp }}/release-candidate/*.aab
             ${{ runner.temp }}/release-candidate/candidate-manifest.json
+
+      - name: Record candidate attestation identity
+        env:
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          set -euo pipefail
+          test -n "$ATTESTATION_ID"
+          [[ "$ATTESTATION_URL" == https://github.com/* ]]
+          mkdir -p "$RUNNER_TEMP/candidate-attestation"
+          jq -n \
+            --arg version ripdpi_candidate_attestation_v1 \
+            --arg sourceSha "$GITHUB_SHA" \
+            --argjson candidateRunId "$GITHUB_RUN_ID" \
+            --arg attestationId "$ATTESTATION_ID" \
+            --arg attestationUrl "$ATTESTATION_URL" \
+            '{version: $version, sourceSha: $sourceSha, candidateRunId: $candidateRunId, attestationId: $attestationId, attestationUrl: $attestationUrl}' \
+            > "$RUNNER_TEMP/candidate-attestation/candidate-attestation.json"
+
+      - name: Upload candidate attestation receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate-attestation
+          path: ${{ runner.temp }}/candidate-attestation/candidate-attestation.json
+          if-no-files-found: error
+          retention-days: 90

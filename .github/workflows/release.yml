@@ -20,6 +20,8 @@ jobs:
       contents: read
     env:
       CANDIDATE_RUN_ID: ${{ vars.RIPDPI_RELEASE_CANDIDATE_RUN_ID }}
+      RELEASE_ASSURANCE_PROFILE: ${{ vars.RIPDPI_RELEASE_ASSURANCE_PROFILE || 'artifact-publish' }}
+      RELEASE_WAIVERS: ${{ vars.RIPDPI_RELEASE_WAIVERS || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,9 +36,15 @@ jobs:
             17
 
       - name: Verify immutable release tag and version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          python3 scripts/ci/verify_remote_release_tag.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$GITHUB_REF_NAME" \
+            --expected-sha "$GITHUB_SHA"
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           ./gradlew :app:verifyReleaseVersion -Pripdpi.skipNativeBuild=true
 
@@ -80,13 +88,23 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ env.CANDIDATE_RUN_ID }}
 
+      - name: Download candidate attestation receipt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate-attestation
+          path: ${{ runner.temp }}/candidate-attestation
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ env.CANDIDATE_RUN_ID }}
+
       - name: Verify immutable candidate bytes
         run: |
           candidate="$RUNNER_TEMP/release-candidate"
           python3 scripts/ci/release_candidate_manifest.py verify \
             --directory "$candidate" \
             --manifest "$candidate/candidate-manifest.json" \
-            --expected-source-sha "$GITHUB_SHA"
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-release-tag "$GITHUB_REF_NAME" \
+            --expected-candidate-run-id "$CANDIDATE_RUN_ID"
 
       - name: Install pinned Syft
         run: |
@@ -111,6 +129,8 @@ jobs:
             --output "cyclonedx-json=$RUNNER_TEMP/rust-bom.json"
 
       - name: Stage and verify flat release bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           candidate="$RUNNER_TEMP/release-candidate"
@@ -130,20 +150,31 @@ jobs:
                   shutil.copy2(candidate / name, publish / name)
           PY
           cp "$RUNNER_TEMP/android-bom.json" "$RUNNER_TEMP/rust-bom.json" "$publish/"
-          python3 - "$publish/release-receipt.json" <<'PY'
-          import json
-          import os
-          import sys
-
-          receipt = {
-              "candidateRunId": int(os.environ["CANDIDATE_RUN_ID"]),
-              "sourceSha": os.environ["GITHUB_SHA"],
-              "version": "ripdpi_release_receipt_v1",
-          }
-          with open(sys.argv[1], "w", encoding="utf-8") as handle:
-              json.dump(receipt, handle, indent=2, sort_keys=True)
-              handle.write("\n")
-          PY
+          cp "$candidate/candidate-manifest.json" "$publish/"
+          cp "$RUNNER_TEMP/candidate-attestation/candidate-attestation.json" "$publish/"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$GITHUB_REF_NAME" \
+            -f target_commitish="$GITHUB_SHA" \
+            --jq .body > "$publish/release-notes.md"
+          test -s "$publish/release-notes.md"
+          waiver_args=()
+          if [[ -n "$RELEASE_WAIVERS" ]]; then
+            IFS=',' read -r -a waiver_values <<< "$RELEASE_WAIVERS"
+            for waiver in "${waiver_values[@]}"; do
+              [[ "$waiver" =~ ^[A-Za-z0-9_.:-]+$ ]]
+              waiver_args+=(--waiver "$waiver")
+            done
+          fi
+          python3 scripts/ci/release_dossier.py \
+            --publish-directory "$publish" \
+            --candidate-manifest "$candidate/candidate-manifest.json" \
+            --attestation-receipt "$RUNNER_TEMP/candidate-attestation/candidate-attestation.json" \
+            --release-notes "$publish/release-notes.md" \
+            --publish-run-id "$GITHUB_RUN_ID" \
+            --assurance-profile "$RELEASE_ASSURANCE_PROFILE" \
+            "${waiver_args[@]}" \
+            --output "$publish/release-manifest.json"
           checksums="$RUNNER_TEMP/SHA256SUMS"
           (
             cd "$publish"
@@ -174,24 +205,45 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Download verified release publish bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-publish-bundle
           path: publish
 
-      - name: Reverify publish bundle and require a fresh tag
+      - id: publication-mode
+        name: Reverify bundle, remote tag, and resumable draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           (cd publish && sha256sum -c SHA256SUMS)
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "release already exists and immutable versions must never be overwritten" >&2
-            exit 1
+          python3 scripts/ci/verify_remote_release_tag.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$GITHUB_REF_NAME" \
+            --expected-sha "$GITHUB_SHA"
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,body > "$RUNNER_TEMP/release.json" 2>/dev/null; then
+            mkdir -p "$RUNNER_TEMP/existing-release"
+            gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+              --dir "$RUNNER_TEMP/existing-release"
+            python3 scripts/ci/verify_release_draft.py \
+              --metadata "$RUNNER_TEMP/release.json" \
+              --expected-directory publish \
+              --actual-directory "$RUNNER_TEMP/existing-release" \
+              --release-notes publish/release-notes.md \
+              --tag "$GITHUB_REF_NAME"
+            echo "create=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "create=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create draft GitHub Release from exact candidate bytes
+        if: steps.publication-mode.outputs.create == 'true'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ github.ref_name }}
@@ -199,9 +251,42 @@ jobs:
           overwrite_files: false
           fail_on_unmatched_files: true
           files: publish/*
-          generate_release_notes: true
+          body_path: publish/release-notes.md
+
+      - name: Verify complete draft and recheck remote tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/verify_remote_release_tag.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$GITHUB_REF_NAME" \
+            --expected-sha "$GITHUB_SHA"
+          rm -rf "$RUNNER_TEMP/verified-release"
+          mkdir -p "$RUNNER_TEMP/verified-release"
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,body > "$RUNNER_TEMP/release.json"
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --dir "$RUNNER_TEMP/verified-release"
+          python3 scripts/ci/verify_release_draft.py \
+            --metadata "$RUNNER_TEMP/release.json" \
+            --expected-directory publish \
+            --actual-directory "$RUNNER_TEMP/verified-release" \
+            --release-notes publish/release-notes.md \
+            --tag "$GITHUB_REF_NAME"
 
       - name: Publish the fully uploaded draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+      - name: Verify published release remains tag-bound
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/verify_remote_release_tag.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$GITHUB_REF_NAME" \
+            --expected-sha "$GITHUB_SHA"
+          test "$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = false
