@@ -17,9 +17,9 @@ class AmneziaWgRuntimeConfigResolverTest {
     private fun request() =
         AwgActivationRequest(
             profileId = "awg-uuid-1",
-            privateKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-            peerPublicKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
-            presharedKey = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=",
+            privateKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
+            peerPublicKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCA=",
+            presharedKey = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDA=",
             endpointHost = "vpn.example.org",
             endpointPort = 51820,
             interfaceAddressV4 = "10.8.0.2/32",
@@ -48,9 +48,9 @@ class AmneziaWgRuntimeConfigResolverTest {
 
         assertEquals(true, config.enabled)
         assertEquals("awg-uuid-1", config.profileId)
-        assertEquals("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", config.privateKey)
-        assertEquals("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=", config.peerPublicKey)
-        assertEquals("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=", config.presharedKey)
+        assertEquals("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=", config.privateKey)
+        assertEquals("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCA=", config.peerPublicKey)
+        assertEquals("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDA=", config.presharedKey)
         assertEquals("vpn.example.org", config.endpointHost)
         assertEquals(51820, config.endpointPort)
         assertEquals("10.8.0.2/32", config.interfaceAddressV4)
@@ -95,6 +95,27 @@ class AmneziaWgRuntimeConfigResolverTest {
     fun `a URL-safe-only private key is rejected`() {
         assertThrows(IllegalArgumentException::class.java) {
             resolver.resolve(request().copy(privateKey = "_".repeat(42) + "8="))
+        }
+    }
+
+    @Test
+    fun `an unpadded private key is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(privateKey = request().privateKey.dropLast(1)))
+        }
+    }
+
+    @Test
+    fun `a noncanonical private key is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(privateKey = "B".repeat(43) + "="))
+        }
+    }
+
+    @Test
+    fun `a whitespace preshared key is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(presharedKey = "   "))
         }
     }
 

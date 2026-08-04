@@ -81,12 +81,12 @@ private val FAKE_BUNDLE =
         "amneziawg": [
           {
             "tag": "test-awg",
-            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
             "address": ["10.8.0.2/32"],
             "dns": ["1.1.1.1"],
             "mtu": 1330,
             "peer": {
-              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCA=",
               "endpoint": "1.2.3.4:51820",
               "allowed_ips": ["0.0.0.0/0"],
               "persistent_keepalive": 25
@@ -124,14 +124,26 @@ private val NO_AWG_BUNDLE =
 
 private val INVALID_AWG_KEY_BUNDLE =
     FAKE_BUNDLE.replace(
-        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
         "not-a-wireguard-key",
     )
 
 private val URL_SAFE_AWG_KEY_BUNDLE =
     FAKE_BUNDLE.replace(
-        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
         "_".repeat(42) + "8=",
+    )
+
+private val UNPADDED_AWG_KEY_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA",
+    )
+
+private val NONCANONICAL_AWG_KEY_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
     )
 
 private val MISSING_AWG_ADDRESS_BUNDLE =
@@ -185,10 +197,10 @@ private val MULTI_RELAY_BUNDLE =
         "amneziawg": [
           {
             "tag": "test-awg",
-            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
             "address": ["10.8.0.2/32"],
             "peer": {
-              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCA=",
               "endpoint": "192.0.2.40:51820",
               "allowed_ips": ["0.0.0.0/0"]
             },
@@ -509,6 +521,34 @@ class ConfigSeederTest {
     fun `bundle with URL-safe-only AWG key fails before mutation`() =
         runTest {
             val seeder = makeSeeder(URL_SAFE_AWG_KEY_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle with unpadded AWG key fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(UNPADDED_AWG_KEY_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle with noncanonical AWG key fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(NONCANONICAL_AWG_KEY_BUNDLE)
 
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
