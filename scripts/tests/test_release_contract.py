@@ -50,6 +50,14 @@ class ReleaseContractTest(unittest.TestCase):
                 "on:\n  workflow_dispatch:\n    inputs:\n      release_tag:\n        required: true\n        type: string\n  push:\n",
                 "events must be exactly",
             ),
+            (
+                "on:\n  workflow_dispatch:\n    inputs:\n      release_tag:\n        required: true\n        type: string\n      extra: {required: true, type: string}\n",
+                "inputs must be exactly",
+            ),
+            (
+                "on:\n  workflow_dispatch:\n    inputs:\n      release_tag:\n        required: true\n        type: string\n  push: {}\n",
+                "events must be exactly",
+            ),
         ):
             with self.subTest(message=message):
                 with self.assertRaisesRegex(ContractError, message):
@@ -58,6 +66,15 @@ class ReleaseContractTest(unittest.TestCase):
     def test_tag_publication_rejects_extra_trigger(self) -> None:
         source = 'on:\n  push:\n    tags: ["v*"]\n  workflow_dispatch:\n'
         with self.assertRaisesRegex(ContractError, "events must be exactly"):
+            validate_workflow_trigger(
+                source,
+                {"event": "push", "tags": ["v*"]},
+                "publication.trigger",
+            )
+
+    def test_tag_publication_rejects_extra_push_filter(self) -> None:
+        source = 'on:\n  push:\n    tags: ["v*"]\n    branches: ["main"]\n'
+        with self.assertRaisesRegex(ContractError, "push keys must be exactly"):
             validate_workflow_trigger(
                 source,
                 {"event": "push", "tags": ["v*"]},

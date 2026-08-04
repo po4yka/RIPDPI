@@ -48,54 +48,84 @@ def _require_pattern(source: str, pattern: str, message: str) -> None:
         raise ContractError(message)
 
 
-def validate_workflow_trigger(source: str, expected: dict[str, Any], field: str) -> None:
+def _trigger_entries(source: str, field: str) -> list[tuple[int, str, str]]:
     block_match = re.search(r"(?ms)^on:\s*\n(.*?)(?=^[A-Za-z][\w-]*:|\Z)", source)
     if block_match is None:
         raise ContractError(f"{field} workflow is missing an on block")
-    block = block_match.group(1)
-    events = set(re.findall(r"(?m)^  ([\w-]+):\s*$", block))
+    entries: list[tuple[int, str, str]] = []
+    for raw_line in block_match.group(1).splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        if "\t" in raw_line:
+            raise ContractError(f"{field} trigger must not use tabs")
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        key, separator, value = raw_line.strip().partition(":")
+        if not separator or re.fullmatch(r"[A-Za-z_][\w-]*", key) is None:
+            raise ContractError(f"{field} contains unsupported YAML: {raw_line.strip()}")
+        entries.append((indent, key, value.strip()))
+    return entries
+
+
+def validate_workflow_trigger(source: str, expected: dict[str, Any], field: str) -> None:
+    entries = _trigger_entries(source, field)
     event = _string(expected.get("event"), f"{field}.event")
-    if events != {event}:
-        raise ContractError(f"{field} events must be exactly [{event}], found {sorted(events)}")
+    events = [(key, value) for indent, key, value in entries if indent == 2]
+    if events != [(event, "")]:
+        raise ContractError(f"{field} events must be exactly [{event}], found {events}")
 
     if event == "workflow_dispatch":
         inputs = _object(expected.get("inputs"), f"{field}.inputs")
-        input_names = set(re.findall(r"(?m)^      ([\w-]+):\s*$", block))
-        if input_names != set(inputs):
+        level_four = [(key, value) for indent, key, value in entries if indent == 4]
+        if level_four != [("inputs", "")]:
             raise ContractError(
-                f"{field} inputs must be exactly {sorted(inputs)}, found {sorted(input_names)}"
+                f"{field} workflow_dispatch keys must be exactly [inputs], found {level_four}"
             )
-        for name, value in inputs.items():
-            input_contract = _object(value, f"{field}.inputs.{name}")
-            input_match = re.search(
-                rf"(?ms)^      {re.escape(name)}:\s*\n(.*?)(?=^      [\w-]+:|\Z)",
-                block,
+        input_entries = [(key, value) for indent, key, value in entries if indent == 6]
+        input_names = [key for key, _ in input_entries]
+        if input_names != list(inputs) or any(value for _, value in input_entries):
+            raise ContractError(
+                f"{field} inputs must be exactly {list(inputs)}, found {input_entries}"
             )
-            if input_match is None:
-                raise ContractError(f"{field} input {name} is missing")
-            input_block = input_match.group(1)
+        properties: dict[str, dict[str, str]] = {name: {} for name in input_names}
+        current_input: str | None = None
+        for indent, key, value in entries:
+            if indent == 6:
+                current_input = key
+            elif indent == 8:
+                if current_input is None:
+                    raise ContractError(f"{field} input property has no parent input")
+                if key in properties[current_input]:
+                    raise ContractError(f"{field} input {current_input} repeats property {key}")
+                properties[current_input][key] = value
+            elif indent not in (2, 4):
+                raise ContractError(f"{field} contains unsupported indentation {indent}")
+        for name, contract_value in inputs.items():
+            input_contract = _object(contract_value, f"{field}.inputs.{name}")
             required = input_contract.get("required")
             input_type = _string(input_contract.get("type"), f"{field}.inputs.{name}.type")
             if required is not True:
                 raise ContractError(f"{field}.inputs.{name}.required must be true")
-            _require_pattern(
-                input_block,
-                r"^        required: true\s*$",
-                f"{field} input {name} must be required",
-            )
-            _require_pattern(
-                input_block,
-                rf"^        type: {re.escape(input_type)}\s*$",
-                f"{field} input {name} type does not match",
-            )
+            actual = properties[name]
+            unexpected = set(actual) - {"description", "required", "type"}
+            if unexpected:
+                raise ContractError(f"{field} input {name} has unexpected properties {sorted(unexpected)}")
+            if actual.get("required") != "true":
+                raise ContractError(f"{field} input {name} must be required")
+            if actual.get("type") != input_type:
+                raise ContractError(f"{field} input {name} type does not match")
     elif event == "push":
         tags = expected.get("tags")
         if not isinstance(tags, list) or not tags or not all(isinstance(tag, str) for tag in tags):
             raise ContractError(f"{field}.tags must be a non-empty string list")
-        tags_match = re.search(r"(?m)^    tags: \[(.*?)\]\s*$", block)
-        if tags_match is None:
-            raise ContractError(f"{field} push trigger is missing tags")
-        actual_tags = re.findall(r'"([^"]+)"', tags_match.group(1))
+        children = [(key, value) for indent, key, value in entries if indent == 4]
+        if len(children) != 1 or children[0][0] != "tags":
+            raise ContractError(f"{field} push keys must be exactly [tags], found {children}")
+        if any(indent not in (2, 4) for indent, _, _ in entries):
+            raise ContractError(f"{field} push trigger contains unsupported nested keys")
+        try:
+            actual_tags = json.loads(children[0][1])
+        except json.JSONDecodeError as error:
+            raise ContractError(f"{field} tags must use a JSON-compatible inline list") from error
         if actual_tags != tags:
             raise ContractError(f"{field} tags must be exactly {tags}, found {actual_tags}")
     else:
