@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-dev="${NETEM_DEV:-eth0}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=test-lab/chaos/netem/lib.sh
+source "$script_dir/lib.sh"
+netem_init_session
+dev="$netem_dev"
 delay="${1:-200ms}"
 loss="${2:-0%}"
-sudo_cmd=(sudo)
-if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-  sudo_cmd=()
-fi
-
-"${sudo_cmd[@]}" tc qdisc replace dev "$dev" root netem delay "$delay" loss "$loss"
+"${netem_sudo[@]}" tc qdisc replace dev "$dev" root netem delay "$delay" loss "$loss"

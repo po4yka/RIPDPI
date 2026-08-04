@@ -223,9 +223,11 @@ The helper targets `http://127.0.0.1:8474` by default. Set `TOXIPROXY_API_URL` o
 Packet loss and QUIC drop scenarios use Linux `tc`/netem and must run inside a Linux VM or router namespace that carries the Android/device traffic:
 
 ```bash
-NETEM_DEV=eth0 ./test-lab/chaos/netem/apply-loss.sh 10%
-NETEM_DEV=eth0 ./test-lab/chaos/netem/apply-quic-drop.sh
-NETEM_DEV=eth0 ./test-lab/chaos/netem/clear.sh
+export NETEM_DEV=eth0 NETEM_RUN_ID=manual-$(date +%s)
+export NETEM_STATE_DIR=/var/tmp/ripdpi-netem-$NETEM_RUN_ID
+./test-lab/chaos/netem/apply-loss.sh 10%
+./test-lab/chaos/netem/apply-quic-drop.sh
+./test-lab/chaos/netem/clear.sh
 ```
 
 ## Debug Probe

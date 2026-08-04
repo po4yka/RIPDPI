@@ -39,7 +39,11 @@ class StartLocalNetworkFixtureTest(unittest.TestCase):
             self.bin_dir / "cargo",
             """\
             #!/usr/bin/env python3
+            import os
             import time
+
+            if os.environ.get("FAKE_CARGO_PID"):
+                open(os.environ["FAKE_CARGO_PID"], "w", encoding="utf-8").write(str(os.getpid()))
 
             while True:
                 time.sleep(1)
@@ -136,6 +140,48 @@ class StartLocalNetworkFixtureTest(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("must be a positive integer", completed.stderr)
         self.assertFalse(self.pid_file.exists())
+
+    def test_timeout_stops_only_the_owned_fixture_and_removes_identity(self) -> None:
+        counter = self.runner_temp / "curl-count"
+        observed_pid = self.runner_temp / "cargo.pid"
+        env = os.environ.copy()
+        env.update(
+            {
+                "FAKE_CURL_COUNTER": str(counter),
+                "FAKE_CARGO_PID": str(observed_pid),
+                "PATH": f"{self.bin_dir}:{env['PATH']}",
+                "RIPDPI_FIXTURE_STARTUP_TIMEOUT_SECONDS": "2",
+            }
+        )
+        (self.bin_dir / "curl").write_text(
+            "#!/usr/bin/env bash\nexit 22\n", encoding="utf-8"
+        )
+        (self.bin_dir / "curl").chmod(0o755)
+
+        completed = subprocess.run(
+            [
+                "bash",
+                "scripts/ci/start-local-network-fixture.sh",
+                str(self.runner_temp / "fixture.log"),
+                str(self.runner_temp / "fixture-manifest.json"),
+                str(self.pid_file),
+            ],
+            cwd=self.repo,
+            capture_output=True,
+            check=False,
+            env=env,
+            text=True,
+            timeout=5,
+        )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("Timed out", completed.stderr)
+        self.assertTrue(observed_pid.exists())
+        fixture_pid = int(observed_pid.read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(fixture_pid, 0)
+        self.assertFalse(self.pid_file.exists())
+        self.assertFalse(Path(f"{self.pid_file}.identity").exists())
 
 
 if __name__ == "__main__":

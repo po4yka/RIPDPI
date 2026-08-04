@@ -16,6 +16,7 @@ runner_required="${PHASE16_RUNNER_REQUIRED:-lab}"
 evidence_tier="${PHASE16_EVIDENCE_TIER:-synthetic-lab}"
 carrier_namespace="${PHASE16_CARRIER_NAMESPACE:-}"
 prepare_hook="${RIPDPI_PHASE16_PREPARE_HOOK:-}"
+cleanup_hook="${RIPDPI_PHASE16_CLEANUP_HOOK:-}"
 real_provider_config="${RIPDPI_PHASE16_REAL_PROVIDER_CONFIG:-}"
 l7_dryrun_script="${RIPDPI_PHASE16_L7_ADVERSARIAL_DRYRUN_SCRIPT:-${RIPDPI_PHASE16_TSPU_DRYRUN_SCRIPT:-$repo_root/scripts/ci/run-l7-adversarial-dryrun.sh}}"
 l7_artifact_dir="$artifact_root/l7-adversarial"
@@ -33,6 +34,11 @@ real_provider_pcap_scrub_required="false"
 prepare_hook_configured="false"
 prepare_hook_executed="false"
 prepare_hook_status_path="$artifact_root/phase16-prepare-hook.json"
+cleanup_hook_configured="false"
+cleanup_hook_executed="false"
+cleanup_hook_status="not-run"
+cleanup_hook_exit_code=0
+cleanup_hook_status_path="$artifact_root/phase16-cleanup-hook.json"
 
 runner_unavailable() {
   status="runner_unavailable"
@@ -74,6 +80,12 @@ payload = {
         "configured": os.environ.get("PHASE16_PREPARE_HOOK_CONFIGURED") == "true",
         "executed": os.environ.get("PHASE16_PREPARE_HOOK_EXECUTED") == "true",
     },
+    "cleanupHook": {
+        "configured": os.environ.get("PHASE16_CLEANUP_HOOK_CONFIGURED") == "true",
+        "executed": os.environ.get("PHASE16_CLEANUP_HOOK_EXECUTED") == "true",
+        "status": os.environ.get("PHASE16_CLEANUP_HOOK_STATUS", "not-run"),
+        "exitCode": int(os.environ.get("PHASE16_CLEANUP_HOOK_EXIT_CODE", "0")),
+    },
     "status": os.environ["PHASE16_RUN_STATUS"],
     "failureMessage": os.environ.get("PHASE16_FAILURE_MESSAGE", ""),
     "artifactRoot": os.environ["RIPDPI_PHASE16_ARTIFACT_DIR"],
@@ -88,9 +100,49 @@ PY
 
 on_exit() {
   local exit_code=$?
+  trap - EXIT
+  set +e
   mkdir -p "$artifact_root"
   if [[ "$exit_code" -ne 0 && "$status" == "success" ]]; then
     status="failure"
+  fi
+  if [[ "$prepare_hook_executed" == "true" ]]; then
+    cleanup_hook_executed="true"
+    export RIPDPI_PHASE16_RUN_EXIT_CODE="$exit_code"
+    "$cleanup_hook" \
+      "$entry_id" "$transport" "$ip_family" "$rooted" "$mode" \
+      "$artifact_root" "$network_condition" "$runner_required" \
+      "$evidence_tier" "$carrier_namespace" "$exit_code" >/dev/null 2>&1
+    cleanup_hook_exit_code=$?
+    if [[ "$cleanup_hook_exit_code" -eq 0 ]]; then
+      cleanup_hook_status="success"
+    else
+      cleanup_hook_status="failed"
+      status="failure"
+      failure_message="${failure_message:+$failure_message; }Phase 16 cleanup hook failed with exit code $cleanup_hook_exit_code"
+      if [[ "$exit_code" -eq 0 ]]; then
+        exit_code="$cleanup_hook_exit_code"
+      fi
+    fi
+    python3 - "$cleanup_hook_status_path" "$cleanup_hook_status" "$cleanup_hook_exit_code" <<'PY' || true
+import json
+import os
+import sys
+
+path, hook_status, hook_exit_code = sys.argv[1:4]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "entryId": os.environ["PHASE16_ENTRY_ID"],
+            "status": hook_status,
+            "exitCode": int(hook_exit_code),
+        },
+        handle,
+        indent=2,
+        sort_keys=True,
+    )
+    handle.write("\n")
+PY
   fi
   export PHASE16_RUN_STATUS="$status"
   export PHASE16_FAILURE_MESSAGE="$failure_message"
@@ -102,6 +154,10 @@ on_exit() {
   export PHASE16_REAL_PROVIDER_PCAP_SCRUB_REQUIRED="$real_provider_pcap_scrub_required"
   export PHASE16_PREPARE_HOOK_CONFIGURED="$prepare_hook_configured"
   export PHASE16_PREPARE_HOOK_EXECUTED="$prepare_hook_executed"
+  export PHASE16_CLEANUP_HOOK_CONFIGURED="$cleanup_hook_configured"
+  export PHASE16_CLEANUP_HOOK_EXECUTED="$cleanup_hook_executed"
+  export PHASE16_CLEANUP_HOOK_STATUS="$cleanup_hook_status"
+  export PHASE16_CLEANUP_HOOK_EXIT_CODE="$cleanup_hook_exit_code"
   export RIPDPI_PHASE16_ARTIFACT_DIR="$artifact_root"
   write_manifest || true
   if [[ -d "$artifact_root" ]]; then
@@ -204,7 +260,13 @@ if [[ -n "$prepare_hook" ]]; then
     echo "$failure_message" >&2
     exit 1
   fi
+  if [[ -z "$cleanup_hook" || ! -x "$cleanup_hook" ]]; then
+    failure_message="an executable RIPDPI_PHASE16_CLEANUP_HOOK is required with every prepare hook"
+    echo "$failure_message" >&2
+    exit 1
+  fi
   prepare_hook_configured="true"
+  cleanup_hook_configured="true"
   if [[ "$runner_required" == "real-provider" ]]; then
     run_real_provider_prepare_hook
   else

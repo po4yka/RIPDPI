@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      cleanup_hook:
+        description: Paired executable hook that restores the self-hosted runner network state
+        required: false
+        default: ""
+        type: string
       include_real_provider:
         description: Include real-provider SIM rows; requires matching self-hosted carrier runners
         required: false
@@ -69,6 +74,7 @@ jobs:
       PHASE16_EVIDENCE_TIER: ${{ matrix.evidenceTier }}
       PHASE16_CARRIER_NAMESPACE: ${{ matrix.carrierNamespace }}
       RIPDPI_PHASE16_PREPARE_HOOK: ${{ inputs.prepare_hook || '' }}
+      RIPDPI_PHASE16_CLEANUP_HOOK: ${{ inputs.cleanup_hook || '' }}
       ANDROID_SERIAL: ${{ inputs.android_serial || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

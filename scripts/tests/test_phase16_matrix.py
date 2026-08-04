@@ -224,6 +224,8 @@ class Phase16MatrixTest(unittest.TestCase):
             selected_namespace_path = temp_root / "selected-namespace.txt"
             config_path = temp_root / "real-provider-config.json"
             hook_path = temp_root / "prepare-hook.sh"
+            cleanup_hook_path = temp_root / "cleanup-hook.sh"
+            cleanup_marker = temp_root / "cleanup-marker.txt"
             config_path.write_text(
                 json.dumps(
                     {
@@ -250,6 +252,18 @@ class Phase16MatrixTest(unittest.TestCase):
                 encoding="utf-8",
             )
             hook_path.chmod(0o700)
+            cleanup_hook_path.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        f'printf "%s\\n" "${{11}}" > "{cleanup_marker}"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            cleanup_hook_path.chmod(0o700)
             env = os.environ.copy()
             env.update(
                 {
@@ -268,6 +282,7 @@ class Phase16MatrixTest(unittest.TestCase):
                     "RIPDPI_PHASE16_ARTIFACT_DIR": str(artifact_root),
                     "RIPDPI_PHASE16_REAL_PROVIDER_CONFIG": str(config_path),
                     "RIPDPI_PHASE16_PREPARE_HOOK": str(hook_path),
+                    "RIPDPI_PHASE16_CLEANUP_HOOK": str(cleanup_hook_path),
                 }
             )
             result = subprocess.run(
@@ -280,6 +295,7 @@ class Phase16MatrixTest(unittest.TestCase):
             )
             self.assertNotEqual(0, result.returncode)
             self.assertEqual("ns-mts\n", selected_namespace_path.read_text(encoding="utf-8"))
+            self.assertEqual("1\n", cleanup_marker.read_text(encoding="utf-8"))
             self.assertNotIn(secret, result.stdout)
             self.assertNotIn(secret, result.stderr)
             manifest = json.loads((artifact_root / "phase16-run.json").read_text(encoding="utf-8"))
@@ -294,6 +310,10 @@ class Phase16MatrixTest(unittest.TestCase):
                 manifest["realProvider"],
             )
             self.assertEqual({"configured": True, "executed": True}, manifest["prepareHook"])
+            self.assertEqual(
+                {"configured": True, "executed": True, "status": "success", "exitCode": 0},
+                manifest["cleanupHook"],
+            )
             prepare_status = json.loads((artifact_root / "phase16-prepare-hook.json").read_text(encoding="utf-8"))
             self.assertEqual("failed", prepare_status["status"])
             self.assertEqual(42, prepare_status["exitCode"])
@@ -372,6 +392,70 @@ class Phase16MatrixTest(unittest.TestCase):
             self.assertEqual("fail", summary["l7Adversarial"]["gateVerdict"])
             self.assertEqual(1, summary["l7Adversarial"]["failedCellCount"])
             self.assertEqual("l7-adversarial/verdict-report.json", summary["linkedArtifacts"]["l7VerdictReport"])
+
+    def test_successful_row_fails_when_paired_cleanup_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            artifacts = root / "artifacts"
+            prepare = root / "prepare.sh"
+            cleanup = root / "cleanup.sh"
+            dryrun = root / "dryrun.sh"
+            prepare.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            cleanup.write_text("#!/usr/bin/env bash\nexit 23\n", encoding="utf-8")
+            dryrun.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        'mkdir -p "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR"',
+                        'cat > "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR/verdict-report.json" <<\'JSON\'',
+                        json.dumps(
+                            {
+                                "cells": [
+                                    {"desync_mode_id": "split", "pattern_id": "pass", "verdict": "bypassed"}
+                                ]
+                            }
+                        ),
+                        "JSON",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            for hook in (prepare, cleanup, dryrun):
+                hook.chmod(0o700)
+            env = os.environ.copy()
+            env.update(
+                {
+                    "PHASE16_ENTRY_ID": "cleanup_contract",
+                    "PHASE16_EXECUTION_KIND": "l7_adversarial_emulator",
+                    "PHASE16_TRANSPORT": "wifi",
+                    "PHASE16_IP_FAMILY": "ipv4",
+                    "PHASE16_ROOTED": "false",
+                    "PHASE16_MODE": "vpn",
+                    "PHASE16_NETWORK_CONDITION": "l7_adversarial_emulator",
+                    "PHASE16_RUNNER_REQUIRED": "lab",
+                    "PHASE16_EVIDENCE_TIER": "synthetic-adversarial",
+                    "RIPDPI_PHASE16_ARTIFACT_DIR": str(artifacts),
+                    "RIPDPI_PHASE16_PREPARE_HOOK": str(prepare),
+                    "RIPDPI_PHASE16_CLEANUP_HOOK": str(cleanup),
+                    "RIPDPI_PHASE16_L7_ADVERSARIAL_DRYRUN_SCRIPT": str(dryrun),
+                }
+            )
+            result = subprocess.run(
+                ["bash", str(REPO_ROOT / "scripts/ci/run-phase16-matrix-entry.sh")],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(23, result.returncode)
+            manifest = json.loads((artifacts / "phase16-run.json").read_text(encoding="utf-8"))
+            self.assertEqual("failure", manifest["status"])
+            self.assertEqual(
+                {"configured": True, "executed": True, "status": "failed", "exitCode": 23},
+                manifest["cleanupHook"],
+            )
+            self.assertIn("cleanup hook failed", manifest["failureMessage"])
 
 
 class Phase16PcapSummaryTest(unittest.TestCase):

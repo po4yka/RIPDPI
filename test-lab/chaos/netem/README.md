@@ -33,7 +33,10 @@ test-lab/scripts/check-feature-gap-readiness.sh
 
    ```bash
    cd /path/to/RIPDPI
-   NETEM_DEV=eth0 test-lab/chaos/netem/apply-loss.sh 10%
+   export NETEM_DEV=eth0
+   export NETEM_RUN_ID=manual-loss-$(date +%s)
+   export NETEM_STATE_DIR=/var/tmp/ripdpi-netem-$NETEM_RUN_ID
+   test-lab/chaos/netem/apply-loss.sh 10%
    tc qdisc show dev eth0
    ```
 
@@ -56,7 +59,7 @@ test-lab/scripts/check-feature-gap-readiness.sh
 4. Clear the network fault and capture the cleared state from the Linux VM:
 
    ```bash
-   NETEM_DEV=eth0 test-lab/chaos/netem/clear.sh
+   test-lab/chaos/netem/clear.sh
    tc qdisc show dev eth0
    ```
 
@@ -64,10 +67,11 @@ test-lab/scripts/check-feature-gap-readiness.sh
 
 ## QUIC-Drop Scenario
 
-Use this when validating UDP/QUIC failure handling. This scenario is fixed to lab port `9443`: `clear.sh` removes only the matching `9443` rules.
+Use this when validating UDP/QUIC failure handling. Keep the same `NETEM_RUN_ID` and `NETEM_STATE_DIR` for apply and cleanup; firewall rules carry that run identifier and cleanup reads the captured port.
 
 ```bash
-NETEM_DEV=eth0 test-lab/chaos/netem/apply-quic-drop.sh 9443
+export NETEM_DEV=eth0 NETEM_RUN_ID=manual-quic NETEM_STATE_DIR=/var/tmp/ripdpi-netem-manual-quic
+test-lab/chaos/netem/apply-quic-drop.sh 9443
 iptables -S | grep 9443
 
 test-lab/scripts/adb-run-probe.sh \
@@ -76,25 +80,25 @@ test-lab/scripts/adb-run-probe.sh \
   --timeout-ms 7000 \
   --out-dir test-lab/artifacts/netem-quic-drop-$(date +%Y%m%d-%H%M%S)
 
-NETEM_DEV=eth0 test-lab/chaos/netem/clear.sh
+test-lab/chaos/netem/clear.sh
 ```
 
 ## Phase 16 fault profiles
 
-The Phase 16 matrix uses named `networkCondition` values so release rows cannot silently pass as ordinary baseline runs. Non-baseline entries require a runner-side `RIPDPI_PHASE16_PREPARE_HOOK`; the hook receives `entry_id transport ip_family rooted mode artifact_root network_condition` and should apply one of these profiles before the packet-smoke scenario starts:
+The Phase 16 matrix uses named `networkCondition` values so release rows cannot silently pass as ordinary baseline runs. Every `RIPDPI_PHASE16_PREPARE_HOOK` requires a paired executable `RIPDPI_PHASE16_CLEANUP_HOOK`. Both receive the full matrix row; cleanup receives the original run exit code as argument 11 and runs even when prepare or the test fails.
 
 ```bash
 case "$7" in
   pmtud_blackhole)
-    NETEM_DEV=eth0 test-lab/chaos/netem/apply-mtu-blackhole.sh 1280
+    NETEM_DEV=eth0 NETEM_RUN_ID="$1" NETEM_STATE_DIR="/var/tmp/ripdpi-netem-$1" test-lab/chaos/netem/apply-mtu-blackhole.sh 1280
     ;;
   ipv6_extension_blackhole)
-    test-lab/chaos/netem/apply-ipv6-ext-blackhole.sh
+    NETEM_DEV=eth0 NETEM_RUN_ID="$1" NETEM_STATE_DIR="/var/tmp/ripdpi-netem-$1" test-lab/chaos/netem/apply-ipv6-ext-blackhole.sh
     ;;
   carrier_nat_reorder)
-    NETEM_DEV=eth0 NETEM_NAT_SUBNET=192.0.2.0/24 test-lab/chaos/netem/apply-carrier-nat-reorder.sh
+    NETEM_DEV=eth0 NETEM_RUN_ID="$1" NETEM_STATE_DIR="/var/tmp/ripdpi-netem-$1" NETEM_NAT_SUBNET=192.0.2.0/24 test-lab/chaos/netem/apply-carrier-nat-reorder.sh
     ;;
 esac
 ```
 
-Always call `test-lab/chaos/netem/clear.sh` from the hook's cleanup path. It removes qdisc state, PMTUD ICMP drops, IPv6 extension-header drops, the optional NAT rule when `NETEM_NAT_SUBNET` is set, and restores the interface MTU saved by `apply-mtu-blackhole.sh`.
+The cleanup hook must export the same three `NETEM_*` identity variables and call `clear.sh`. Cleanup removes only run-owned firewall/NAT rules, restores the captured MTU and IPv4 forwarding value, verifies the root qdisc kind, and fails the matrix row if restoration is incomplete.

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-dev="${NETEM_DEV:-eth0}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=test-lab/chaos/netem/lib.sh
+source "$script_dir/lib.sh"
+netem_init_session
 port="${1:-9443}"
-sudo_cmd=(sudo)
-if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-  sudo_cmd=()
-fi
-
-"${sudo_cmd[@]}" iptables -I INPUT -p udp --dport "$port" -j DROP
-"${sudo_cmd[@]}" iptables -I OUTPUT -p udp --sport "$port" -j DROP
+printf '%s\n' "$port" >"$netem_state_dir/quic.port"
+netem_add_rule iptables INPUT -p udp --dport "$port" -j DROP
+netem_add_rule iptables OUTPUT -p udp --sport "$port" -j DROP
