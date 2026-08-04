@@ -2,8 +2,15 @@
   "schemaVersion": 1,
   "candidate": {
     "workflow": ".github/workflows/release-candidate.yml",
-    "trigger": "workflow_dispatch",
-    "requiredInput": "release_tag",
+    "trigger": {
+      "event": "workflow_dispatch",
+      "inputs": {
+        "release_tag": {
+          "required": true,
+          "type": "string"
+        }
+      }
+    },
     "requiredRef": "refs/heads/main",
     "requiredCi": {
       "workflow": ".github/workflows/ci.yml",
@@ -13,8 +20,12 @@
   },
   "publication": {
     "workflow": ".github/workflows/release.yml",
-    "trigger": "tag_push",
-    "tagPattern": "v*",
+    "trigger": {
+      "event": "push",
+      "tags": [
+        "v*"
+      ]
+    },
     "candidateRunVariable": "RIPDPI_RELEASE_CANDIDATE_RUN_ID"
   },
   "assuranceProfiles": {

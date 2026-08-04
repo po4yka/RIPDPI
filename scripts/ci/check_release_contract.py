@@ -48,6 +48,60 @@ def _require_pattern(source: str, pattern: str, message: str) -> None:
         raise ContractError(message)
 
 
+def validate_workflow_trigger(source: str, expected: dict[str, Any], field: str) -> None:
+    block_match = re.search(r"(?ms)^on:\s*\n(.*?)(?=^[A-Za-z][\w-]*:|\Z)", source)
+    if block_match is None:
+        raise ContractError(f"{field} workflow is missing an on block")
+    block = block_match.group(1)
+    events = set(re.findall(r"(?m)^  ([\w-]+):\s*$", block))
+    event = _string(expected.get("event"), f"{field}.event")
+    if events != {event}:
+        raise ContractError(f"{field} events must be exactly [{event}], found {sorted(events)}")
+
+    if event == "workflow_dispatch":
+        inputs = _object(expected.get("inputs"), f"{field}.inputs")
+        input_names = set(re.findall(r"(?m)^      ([\w-]+):\s*$", block))
+        if input_names != set(inputs):
+            raise ContractError(
+                f"{field} inputs must be exactly {sorted(inputs)}, found {sorted(input_names)}"
+            )
+        for name, value in inputs.items():
+            input_contract = _object(value, f"{field}.inputs.{name}")
+            input_match = re.search(
+                rf"(?ms)^      {re.escape(name)}:\s*\n(.*?)(?=^      [\w-]+:|\Z)",
+                block,
+            )
+            if input_match is None:
+                raise ContractError(f"{field} input {name} is missing")
+            input_block = input_match.group(1)
+            required = input_contract.get("required")
+            input_type = _string(input_contract.get("type"), f"{field}.inputs.{name}.type")
+            if required is not True:
+                raise ContractError(f"{field}.inputs.{name}.required must be true")
+            _require_pattern(
+                input_block,
+                r"^        required: true\s*$",
+                f"{field} input {name} must be required",
+            )
+            _require_pattern(
+                input_block,
+                rf"^        type: {re.escape(input_type)}\s*$",
+                f"{field} input {name} type does not match",
+            )
+    elif event == "push":
+        tags = expected.get("tags")
+        if not isinstance(tags, list) or not tags or not all(isinstance(tag, str) for tag in tags):
+            raise ContractError(f"{field}.tags must be a non-empty string list")
+        tags_match = re.search(r"(?m)^    tags: \[(.*?)\]\s*$", block)
+        if tags_match is None:
+            raise ContractError(f"{field} push trigger is missing tags")
+        actual_tags = re.findall(r'"([^"]+)"', tags_match.group(1))
+        if actual_tags != tags:
+            raise ContractError(f"{field} tags must be exactly {tags}, found {actual_tags}")
+    else:
+        raise ContractError(f"unsupported {field} event: {event}")
+
+
 def _validate_guidance_references(root: Path, guidance: list[Any]) -> None:
     for index, value in enumerate(guidance):
         path = _repo_path(root, value, f"guidance[{index}]")
@@ -80,15 +134,11 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
     )
     ci_workflow = _repo_path(root, required_ci.get("workflow"), "candidate.requiredCi.workflow")
 
-    if candidate.get("trigger") != "workflow_dispatch":
-        raise ContractError("candidate.trigger must be workflow_dispatch")
     candidate_source = candidate_workflow.read_text(encoding="utf-8")
-    _require_pattern(candidate_source, r"^  workflow_dispatch:\s*$", "candidate workflow must use workflow_dispatch")
-    required_input = re.escape(_string(candidate.get("requiredInput"), "candidate.requiredInput"))
-    _require_pattern(
+    validate_workflow_trigger(
         candidate_source,
-        rf"^      {required_input}:\s*$",
-        "candidate workflow is missing its required input",
+        _object(candidate.get("trigger"), "candidate.trigger"),
+        "candidate.trigger",
     )
     required_ref = _string(candidate.get("requiredRef"), "candidate.requiredRef")
     if required_ref not in candidate_source:
@@ -96,9 +146,7 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
     for required_fragment in (
         "candidate-preflight:",
         "scripts/ci/require_successful_ci_run.py",
-        f"--workflow-path {required_ci['workflow']}",
-        f"--event {required_ci['event']}",
-        f"--aggregate-job {required_ci['aggregateJob']}",
+        "--contract quality/release-gates/release-contract.json",
         "needs: candidate-preflight",
     ):
         if required_fragment not in candidate_source:
@@ -106,11 +154,12 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
                 f"candidate workflow does not enforce required CI fragment: {required_fragment}"
             )
 
-    if publication.get("trigger") != "tag_push":
-        raise ContractError("publication.trigger must be tag_push")
     publication_source = publication_workflow.read_text(encoding="utf-8")
-    tag_pattern = re.escape(_string(publication.get("tagPattern"), "publication.tagPattern"))
-    _require_pattern(publication_source, rf'^    tags: \["{tag_pattern}"\]\s*$', "publication workflow tag trigger does not match the contract")
+    validate_workflow_trigger(
+        publication_source,
+        _object(publication.get("trigger"), "publication.trigger"),
+        "publication.trigger",
+    )
     candidate_variable = _string(
         publication.get("candidateRunVariable"), "publication.candidateRunVariable"
     )
