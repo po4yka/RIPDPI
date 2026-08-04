@@ -106,6 +106,14 @@ class EvidenceRetentionTest(unittest.TestCase):
                 ):
                     check_archive(prefixed, POLICY, "public-sanitized")
 
+            safe = root / "safe-values.tar.gz"
+            safe_payload = b"\n".join(
+                f"token={value}".encode()
+                for value in ("<redacted>", "null", "false", "true", "0", "[]", "{}")
+            ) + b'\n{"token":"{}"}'
+            write_archive(safe, {"bundle/report.txt": safe_payload})
+            check_archive(safe, POLICY, "public-sanitized")
+
     def test_archive_rejects_unsafe_members_and_resource_exhaustion(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -274,6 +282,9 @@ class EvidenceRetentionTest(unittest.TestCase):
         self.assertIn("raw_capture_sources", source)
         self.assertLess(source.index("write-manifest"), source.index('rm -f -- "${raw_capture_sources[@]}"'))
         self.assertIn('published=false', source)
+        self.assertIn('reservation="$(mktemp', source)
+        self.assertIn('staged_archive="$work_dir/$archive_name"', source)
+        self.assertLess(source.index('write-manifest'), source.index('mv -- "$staged_archive" "$archive_path"'))
         self.assertIn('rm -f -- "$archive_path" "$archive_path.retention.json"', source)
         self.assertLess(source.index("write-manifest"), source.index("published=true"))
 

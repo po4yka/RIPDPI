@@ -65,9 +65,8 @@ class ReleaseWindowTest(unittest.TestCase):
                 started_at=datetime(2026, 8, 3, tzinfo=UTC),
                 now=datetime(2026, 8, 4, tzinfo=UTC),
                 runs=[{
-                    "displayTitle": "Android release candidate v0.1.5 @ abc",
-                    "headSha": candidate,
-                    "createdAt": "2026-08-03T12:00:00Z",
+                    "ref": "refs/tags/release-candidates/v0.1.5/run-123",
+                    "sha": candidate,
                 }],
             )
             self.assertEqual(1, report["commitCount"])
@@ -101,9 +100,8 @@ class ReleaseWindowTest(unittest.TestCase):
             first = self.commit(repo, "fix: first candidate")
             later = self.commit(repo, "fix: later candidate")
             runs = [{
-                "displayTitle": "Android release candidate v0.1.5 @ first",
-                "headSha": first,
-                "createdAt": "2026-08-03T12:00:00Z",
+                "ref": "refs/tags/release-candidates/v0.1.5/run-123",
+                "sha": first,
             }]
             with self.assertRaisesRegex(WindowError, "start does not match checked-in cut record"):
                 evaluate_release_window(
@@ -140,7 +138,10 @@ class ReleaseWindowTest(unittest.TestCase):
                     datetime(2026, 8, 4, tzinfo=UTC), [],
                 )
             noisy_runs = [
-                {"displayTitle": f"Android release candidate v0.1.5 @ {index}"}
+                {
+                    "ref": f"refs/tags/release-candidates/v0.1.5/run-{index + 1}",
+                    "sha": first,
+                }
                 for index in range(6)
             ]
             with self.assertRaisesRegex(WindowError, "candidate run limit"):
@@ -158,7 +159,7 @@ class ReleaseWindowTest(unittest.TestCase):
         self.assertIn("RIPDPI_RELEASE_WINDOW_START_SHA", source)
         self.assertIn("RIPDPI_RELEASE_WINDOW_STARTED_AT", source)
         self.assertIn("scripts/ci/check_release_window.py", source)
-        self.assertIn("gh api --paginate --slurp", source)
+        self.assertIn("reserve_release_candidate_attempt.py", source)
         self.assertIn("release-candidate-${{ inputs.release_tag }}", source)
         self.assertLess(
             source.index("scripts/ci/check_release_window.py"),

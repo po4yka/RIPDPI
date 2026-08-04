@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import re
 import subprocess
 import sys
@@ -42,43 +43,26 @@ def _default_runner(command: list[str], cwd: Path) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
-def _candidate_runs(repo: Path) -> list[dict[str, Any]]:
-    repository = subprocess.run(
-        ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-        cwd=repo,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if repository.returncode != 0 or not repository.stdout.strip():
-        raise PreflightError("could not resolve GitHub repository for candidate-run audit")
-    endpoint = (
-        f"repos/{repository.stdout.strip()}/actions/workflows/"
-        "release-candidate.yml/runs?event=workflow_dispatch&per_page=100"
-    )
+def _candidate_runs(repo: Path, release_tag: str) -> list[dict[str, Any]]:
     result = subprocess.run(
-        ["gh", "api", "--paginate", "--slurp", endpoint],
+        [
+            "git", "ls-remote", "--refs", "--tags", "origin",
+            f"refs/tags/release-candidates/{release_tag}/run-*",
+        ],
         cwd=repo,
         text=True,
         capture_output=True,
         check=False,
     )
     if result.returncode != 0:
-        raise PreflightError("could not retrieve complete release-candidate run history")
-    try:
-        pages = json.loads(result.stdout)
-        runs = [
-            {
-                "displayTitle": run["display_title"],
-                "createdAt": run["created_at"],
-                "headSha": run["head_sha"],
-            }
-            for page in pages
-            for run in page["workflow_runs"]
-        ]
-    except (json.JSONDecodeError, KeyError, TypeError) as error:
-        raise PreflightError("candidate-run history response is malformed") from error
-    return runs
+        raise PreflightError("could not retrieve durable release-candidate attempt refs")
+    attempts = []
+    for line in result.stdout.splitlines():
+        fields = line.split("\t")
+        if len(fields) != 2:
+            raise PreflightError("candidate-attempt ref response is malformed")
+        attempts.append({"sha": fields[0], "ref": fields[1]})
+    return attempts
 
 
 def _latest_stable_tag(repo: Path) -> str:
@@ -106,7 +90,18 @@ def _ensure_remote_tag_absent(repo: Path, release_tag: str) -> None:
         raise PreflightError("could not verify remote target tag absence")
 
 
-def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[str, list[str]]]:
+def _host_android_abi() -> str:
+    machine = platform.machine().lower()
+    if machine in {"arm64", "aarch64"}:
+        return "arm64-v8a"
+    if machine in {"x86_64", "amd64"}:
+        return "x86_64"
+    raise PreflightError(f"unsupported local release-preflight architecture: {machine}")
+
+
+def _commands(
+    release_tag: str, base_tag: str, source_sha: str, host_abi: str
+) -> list[tuple[str, list[str]]]:
     python = sys.executable
     return [
         ("release-contract", [python, "scripts/ci/check_release_contract.py"]),
@@ -119,6 +114,7 @@ def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[st
                 "scripts.tests.test_release_contract",
                 "scripts.tests.test_release_artifact_uploads",
                 "scripts.tests.test_release_candidate_manifest",
+                "scripts.tests.test_release_candidate_attempt",
                 "scripts.tests.test_release_p0_contracts",
                 "scripts.tests.test_release_p1_contracts",
                 "scripts.tests.test_release_window",
@@ -156,7 +152,7 @@ def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[st
                 ":app:bundlePlayFullRelease",
                 ":app:assembleGithubFullReleaseAndroidTest",
                 "-Pripdpi.testBuildType=release",
-                "-Pripdpi.localNativeAbis=host",
+                f"-Pripdpi.nativeAbisOverride={host_abi}",
                 "-Pripdpi.enableAbiSplits=false",
                 "--max-workers=1",
             ],
@@ -193,7 +189,7 @@ def run_preflight(
         raise PreflightError("could not verify local target tag absence")
     remote_tag_checker(exact_repo, release_tag)
     base_tag = _latest_stable_tag(exact_repo)
-    runs = _candidate_runs(exact_repo) if candidate_runs is None else candidate_runs
+    runs = _candidate_runs(exact_repo, release_tag) if candidate_runs is None else candidate_runs
     window = evaluate_release_window(
         exact_repo,
         contract_path,
@@ -205,7 +201,7 @@ def run_preflight(
         runs,
     )
     checks: list[dict[str, Any]] = []
-    for name, command in _commands(release_tag, base_tag, source_sha):
+    for name, command in _commands(release_tag, base_tag, source_sha, _host_android_abi()):
         started = time.monotonic()
         try:
             command_runner(command, exact_repo)

@@ -86,7 +86,9 @@ post-cut commits, and five candidate runs for one tag. Post-cut subjects are
 limited to release-safe `fix`, `test`, `docs`, `ci`, `build`, and
 `chore(release)` commits. A feature or refactor requires abandoning the window,
 integrating normally, and starting a new cut; never relabel a commit to evade the
-policy.
+policy. Each dispatch reserves a durable
+release-candidates/vX.Y.Z/run-ID tag before signing; deleting an Actions run
+does not restore its attempt budget.
 
 ## Validate and integrate
 

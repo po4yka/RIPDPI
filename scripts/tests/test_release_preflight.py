@@ -68,9 +68,8 @@ class ReleasePreflightTest(unittest.TestCase):
                 now=datetime(2026, 8, 4, tzinfo=UTC),
                 command_runner=successful,
                 candidate_runs=[{
-                    "displayTitle": "Android release candidate v0.1.5 @ prior",
-                    "headSha": start,
-                    "createdAt": "2026-08-03T12:00:00Z",
+                    "ref": "refs/tags/release-candidates/v0.1.5/run-123",
+                    "sha": start,
                 }],
                 remote_tag_checker=lambda repo, tag: None,
             )
@@ -80,6 +79,7 @@ class ReleasePreflightTest(unittest.TestCase):
             self.assertGreaterEqual(len(observed), 7)
             flattened = "\n".join(" ".join(command) for command in observed)
             self.assertIn(":app:assembleGithubFullReleaseAndroidTest", flattened)
+            self.assertRegex(flattened, r"ripdpi\.nativeAbisOverride=(arm64-v8a|x86_64)")
             for task in (
                 ":app:assembleFdroidFullRelease",
                 ":app:assembleFdroidSimpleRelease",
@@ -154,7 +154,7 @@ class ReleasePreflightTest(unittest.TestCase):
 
     def test_default_preflight_loads_complete_remote_candidate_history(self) -> None:
         source = (ROOT / "scripts/ci/release_preflight.py").read_text(encoding="utf-8")
-        self.assertIn('"gh", "api", "--paginate", "--slurp"', source)
+        self.assertIn('"git", "ls-remote", "--refs", "--tags", "origin"', source)
         self.assertNotIn("candidate_runs=[]", source)
 
 

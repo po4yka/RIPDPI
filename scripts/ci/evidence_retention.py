@@ -28,7 +28,7 @@ PCAP_MAGICS = {
 SENSITIVE_BINARY = re.compile(
     rb'''(?ix)
     ["']?(?:private[_ -]?key|password|secret|auth|token|ssid|bssid|imsi|operator|subscription)["']?
-    \s*[:=]\s*(?P<value>["']?[^\x00\s,}]+)
+    \s*[:=]\s*(?P<value>\{\}|\[\]|["'][^"'\x00\r\n]*["']|[^\x00\s,}]+)
     '''
 )
 SAFE_VALUES = {b"<redacted>", b"null", b"false", b"true", b"0", b"[]", b"{}"}

@@ -105,8 +105,8 @@ def evaluate_release_window(
     if TAG.fullmatch(release_tag) is None:
         raise WindowError(f"invalid release tag: {release_tag}")
     window = _window(contract_path)
-    title_prefix = f"Android release candidate {release_tag} @ "
-    candidate_runs = [run for run in runs if run.get("displayTitle", "").startswith(title_prefix)]
+    ref_prefix = f"refs/tags/release-candidates/{release_tag}/run-"
+    candidate_runs = [run for run in runs if run.get("ref", "").startswith(ref_prefix)]
     if len(candidate_runs) > window["maxCandidateRuns"]:
         raise WindowError(
             f"candidate run limit exceeded: {len(candidate_runs)} > {window['maxCandidateRuns']}"
@@ -145,25 +145,21 @@ def evaluate_release_window(
         raise WindowError("commit is not release-window safe: " + "; ".join(unsafe))
 
     for run in candidate_runs:
-        head_sha = run.get("headSha")
-        created_at = run.get("createdAt")
+        head_sha = run.get("sha")
+        attempt_ref = run.get("ref")
         if not isinstance(head_sha, str) or not head_sha:
-            raise WindowError("candidate run is missing headSha")
-        if not isinstance(created_at, str):
-            raise WindowError("candidate run is missing createdAt")
-        try:
-            run_created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-        except ValueError as error:
-            raise WindowError("candidate run createdAt is malformed") from error
-        if run_created.tzinfo is None:
-            raise WindowError("candidate run createdAt must include a timezone")
+            raise WindowError("candidate attempt is missing SHA")
+        if not isinstance(attempt_ref, str) or re.fullmatch(
+            re.escape(ref_prefix) + r"\d+", attempt_ref
+        ) is None:
+            raise WindowError("candidate attempt ref is malformed")
         prior_sha = _git(repo, "rev-parse", "--verify", f"{head_sha}^{{commit}}")
         if subprocess.run(
             ["git", "merge-base", "--is-ancestor", start, prior_sha],
             cwd=repo,
             check=False,
         ).returncode != 0:
-            raise WindowError("release window start is not an ancestor of prior candidate")
+            raise WindowError("release window start is not an ancestor of candidate attempt")
     return {
         "version": "ripdpi_release_window_v1",
         "releaseTag": release_tag,

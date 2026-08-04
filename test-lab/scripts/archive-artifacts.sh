@@ -12,10 +12,12 @@ adb_bin="${ADB:-adb}"
 retention_class="public-sanitized"
 raw_capture_sources=()
 archive_path=""
+reservation=""
 published=false
 
 cleanup() {
   rm -rf -- "$work_dir"
+  [[ -z "$reservation" ]] || rm -f -- "$reservation"
   if [[ "$published" != "true" && -n "$archive_path" ]]; then
     rm -f -- "$archive_path" "$archive_path.retention.json"
   fi
@@ -71,6 +73,11 @@ if [[ -L "$archive_dir" ]] || \
 fi
 archive_dir="$allowed_archive_dir"
 mkdir -p "$stage_dir"
+reservation="$(mktemp "$archive_dir/.archive-reservation.XXXXXX")"
+unique_suffix="${reservation##*.}"
+archive_name="$bundle_name-$unique_suffix.tar.gz"
+archive_path="$archive_dir/$archive_name"
+staged_archive="$work_dir/$archive_name"
 
 copy_if_exists() {
   local source="$1"
@@ -169,19 +176,20 @@ find "$stage_dir" \( \
   -path '*/tls/certs/*' \
 \) -type f -delete
 
-archive_path="$archive_dir/$bundle_name.tar.gz"
-tar -C "$work_dir" -czf "$archive_path" "$bundle_name"
+tar -C "$work_dir" -czf "$staged_archive" "$bundle_name"
 
-echo "Created artifact archive: $archive_path"
 "$lab_root/scripts/check-artifact-redaction.sh" \
   --retention-class "$retention_class" \
-  "$archive_path"
+  "$staged_archive"
 python3 "$repo_root/scripts/ci/evidence_retention.py" \
   --policy "$repo_root/quality/evidence-retention.json" \
   write-manifest \
   --retention-class "$retention_class" \
-  "$archive_path"
+  "$staged_archive"
+mv -- "$staged_archive" "$archive_path"
+mv -- "$staged_archive.retention.json" "$archive_path.retention.json"
 published=true
+echo "Created artifact archive: $archive_path"
 if [[ "$retention_class" == "private-raw-pcap" && "${#raw_capture_sources[@]}" -gt 0 ]]; then
   rm -f -- "${raw_capture_sources[@]}"
 fi

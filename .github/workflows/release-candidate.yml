@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       actions: read
-      contents: read
+      contents: write
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
       EXPECTED_RELEASE_CERT_SHA256: ${{ vars.RIPDPI_RELEASE_CERT_SHA256 }}
@@ -57,19 +57,12 @@ jobs:
           set -euo pipefail
           test -n "$RELEASE_WINDOW_START_SHA"
           test -n "$RELEASE_WINDOW_STARTED_AT"
-          gh api --paginate --slurp \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/$GITHUB_REPOSITORY/actions/workflows/release-candidate.yml/runs?event=workflow_dispatch&per_page=100" \
-            > "$RUNNER_TEMP/release-candidate-run-pages.json"
-          jq '[.[] | .workflow_runs[] | {
-            displayTitle: .display_title,
-            status: .status,
-            conclusion: .conclusion,
-            createdAt: .created_at,
-            headSha: .head_sha
-          }]' \
-            "$RUNNER_TEMP/release-candidate-run-pages.json" \
-            > "$RUNNER_TEMP/release-candidate-runs.json"
+          python3 scripts/ci/reserve_release_candidate_attempt.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-tag "$RELEASE_TAG" \
+            --source-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --output "$RUNNER_TEMP/release-candidate-runs.json"
           python3 scripts/ci/check_release_window.py \
             --contract quality/release-gates/release-contract.json \
             --release-tag "$RELEASE_TAG" \

@@ -139,7 +139,9 @@ from Git history and rejects any later record edit, even if old Actions runs are
 deleted. Candidate preflight enforces the checked-in
 `releaseWindow`: no more than 72 hours, 20 release-fix commits, or five candidate
 runs for the target tag. Late features and refactors require a new release cut;
-they cannot enter the signing environment as release fixes.
+they cannot enter the signing environment as release fixes. Each dispatch
+reserves a durable release-candidates/vX.Y.Z/run-ID tag before signing, so
+deleting an Actions run does not restore its attempt budget.
 
 Run the corresponding full local, secret-free mirror before integration:
 
@@ -153,8 +155,8 @@ all six full/simple release APK variants, the Play Full bundle, release
 AndroidTest, native ELF, and mapping checks pass. The
 receipt is deliberately bounded: it is host-ABI evidence, does not sign release
 artifacts, and does not replace successful hosted `ci-required` for the exact
-candidate SHA. It requires authenticated GitHub access to count the complete
-release-candidate run history; it fails rather than reporting an unverified zero.
+candidate SHA. It requires remote Git access to count durable candidate-attempt
+refs; it fails rather than reporting an unverified zero.
 
 For manual candidate or publication downloads, wrap the complete download and
 verification command with `scripts/ci/with-transient-release-downloads.sh` and
