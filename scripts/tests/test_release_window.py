@@ -26,6 +26,22 @@ class ReleaseWindowTest(unittest.TestCase):
         (repo / "state.txt").write_text("base\n", encoding="utf-8")
         subprocess.run(["git", "add", "state.txt"], cwd=repo, check=True)
         subprocess.run(["git", "commit", "-q", "-m", "chore(release): cut window"], cwd=repo, check=True)
+        record = repo / "quality/release-gates/release-windows/v0.1.5.json"
+        record.parent.mkdir(parents=True)
+        record.write_text(
+            json.dumps({
+                "version": "ripdpi_release_window_cut_v1",
+                "releaseTag": "v0.1.5",
+                "startedAt": "2026-08-03T00:00:00Z",
+            }, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "add", str(record.relative_to(repo))], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "chore(release): record v0.1.5 cut"],
+            cwd=repo,
+            check=True,
+        )
         start = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
         return repo, start
 
@@ -44,7 +60,7 @@ class ReleaseWindowTest(unittest.TestCase):
                 repo=repo,
                 contract_path=CONTRACT,
                 release_tag="v0.1.5",
-                start_sha=candidate,
+                start_sha=start,
                 candidate_sha=candidate,
                 started_at=datetime(2026, 8, 3, tzinfo=UTC),
                 now=datetime(2026, 8, 4, tzinfo=UTC),
@@ -54,7 +70,7 @@ class ReleaseWindowTest(unittest.TestCase):
                     "createdAt": "2026-08-03T12:00:00Z",
                 }],
             )
-            self.assertEqual(0, report["commitCount"])
+            self.assertEqual(1, report["commitCount"])
             self.assertEqual(1, report["candidateRunCount"])
 
     def test_window_rejects_features_expiry_commit_overflow_and_candidate_churn(self) -> None:
@@ -75,7 +91,7 @@ class ReleaseWindowTest(unittest.TestCase):
             with self.assertRaisesRegex(WindowError, "expired"):
                 evaluate_release_window(
                     repo, CONTRACT, "v0.1.5", start, candidate,
-                    datetime(2026, 7, 1, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC), []
+                    datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 9, 4, tzinfo=UTC), []
                 )
 
     def test_window_rejects_naive_timestamps_and_recut_after_first_candidate(self) -> None:
@@ -89,22 +105,39 @@ class ReleaseWindowTest(unittest.TestCase):
                 "headSha": first,
                 "createdAt": "2026-08-03T12:00:00Z",
             }]
-            with self.assertRaisesRegex(WindowError, "start must equal the first candidate SHA"):
+            with self.assertRaisesRegex(WindowError, "start does not match checked-in cut record"):
                 evaluate_release_window(
                     repo, CONTRACT, "v0.1.5", moved_cut, later,
-                    datetime(2026, 8, 3, 11, tzinfo=UTC),
+                    datetime(2026, 8, 3, tzinfo=UTC),
                     datetime(2026, 8, 4, tzinfo=UTC), runs,
                 )
             report = evaluate_release_window(
-                repo, CONTRACT, "v0.1.5", first, later,
-                datetime(2026, 1, 1, tzinfo=UTC),
+                repo, CONTRACT, "v0.1.5", start, later,
+                datetime(2026, 8, 3, tzinfo=UTC),
                 datetime(2026, 8, 4, tzinfo=UTC), runs,
             )
-            self.assertEqual("2026-08-03T12:00:00Z", report["startedAt"])
+            self.assertEqual("2026-08-03T00:00:00Z", report["startedAt"])
             with self.assertRaisesRegex(WindowError, "timestamp must include a timezone"):
                 evaluate_release_window(
                     repo, CONTRACT, "v0.1.5", start, first,
                     datetime(2026, 8, 3), datetime(2026, 8, 4, tzinfo=UTC), [],
+                )
+
+            record = repo / "quality/release-gates/release-windows/v0.1.5.json"
+            payload = json.loads(record.read_text(encoding="utf-8"))
+            payload["startedAt"] = "2026-08-03T01:00:00Z"
+            record.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            subprocess.run(["git", "add", str(record.relative_to(repo))], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-q", "-m", "chore(release): move cut"],
+                cwd=repo,
+                check=True,
+            )
+            with self.assertRaisesRegex(WindowError, "changed after its introduction"):
+                evaluate_release_window(
+                    repo, CONTRACT, "v0.1.5", start, "HEAD",
+                    datetime(2026, 8, 3, 1, tzinfo=UTC),
+                    datetime(2026, 8, 4, tzinfo=UTC), [],
                 )
             noisy_runs = [
                 {"displayTitle": f"Android release candidate v0.1.5 @ {index}"}
@@ -126,6 +159,7 @@ class ReleaseWindowTest(unittest.TestCase):
         self.assertIn("RIPDPI_RELEASE_WINDOW_STARTED_AT", source)
         self.assertIn("scripts/ci/check_release_window.py", source)
         self.assertIn("gh api --paginate --slurp", source)
+        self.assertIn("release-candidate-${{ inputs.release_tag }}", source)
         self.assertLess(
             source.index("scripts/ci/check_release_window.py"),
             source.index("environment: release-signing"),

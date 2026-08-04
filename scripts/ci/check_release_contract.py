@@ -191,6 +191,7 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
     if set(window) != {
         "startShaVariable",
         "startedAtVariable",
+        "recordDirectory",
         "maxAgeHours",
         "maxCommits",
         "maxCandidateRuns",
@@ -215,6 +216,11 @@ def validate_contract(contract_path: Path = DEFAULT_CONTRACT, root: Path = ROOT)
             re.compile(pattern)
     except re.error as error:
         raise ContractError("releaseWindow contains an invalid regex") from error
+    record_directory = _repo_path(
+        root, window.get("recordDirectory"), "releaseWindow.recordDirectory"
+    )
+    if not record_directory.is_dir():
+        raise ContractError("releaseWindow.recordDirectory must be a checked-in directory")
 
     local = _object(contract.get("localPreflight"), "localPreflight")
     if set(local) != {"runner", "recipe", "reportVersion", "limitations"}:

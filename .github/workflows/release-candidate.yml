@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-candidate-${{ github.sha }}
+  group: release-candidate-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:

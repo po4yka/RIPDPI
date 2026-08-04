@@ -28,9 +28,10 @@ PCAP_MAGICS = {
 SENSITIVE_BINARY = re.compile(
     rb'''(?ix)
     ["']?(?:private[_ -]?key|password|secret|auth|token|ssid|bssid|imsi|operator|subscription)["']?
-    \s*[:=]\s*["']?(?!<redacted>|null|false|true)[^"'\x00\s,}]{3,}
+    \s*[:=]\s*(?P<value>["']?[^\x00\s,}]+)
     '''
 )
+SAFE_VALUES = {b"<redacted>", b"null", b"false", b"true", b"0", b"[]", b"{}"}
 MAX_ARCHIVE_MEMBERS = 256
 MAX_MEMBER_BYTES = 16 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
@@ -42,6 +43,16 @@ MANIFEST_FIELDS = {
 
 class EvidenceError(ValueError):
     pass
+
+
+def _contains_sensitive(payload: bytes) -> bool:
+    for match in SENSITIVE_BINARY.finditer(payload):
+        value = match.group("value")
+        if len(value) >= 2 and value[:1] == value[-1:] and value[:1] in {b'"', b"'"}:
+            value = value[1:-1]
+        if value.lower() not in SAFE_VALUES:
+            return True
+    return False
 
 
 def _object(value: Any, field: str) -> dict[str, Any]:
@@ -132,8 +143,8 @@ def check_archive(
             if not _valid_capture(payload):
                 raise EvidenceError(f"invalid PCAP evidence: {name}")
         elif retention_class == "public-sanitized" and (
-            SENSITIVE_BINARY.search(name.encode("utf-8", errors="replace"))
-            or SENSITIVE_BINARY.search(payload)
+            _contains_sensitive(name.encode("utf-8", errors="replace"))
+            or _contains_sensitive(payload)
         ):
             raise EvidenceError(f"public evidence contains sensitive binary payload: {name}")
 
@@ -211,7 +222,7 @@ def check_directory(
                 raise EvidenceError(f"invalid PCAP evidence: {path}")
             relative = str(path.relative_to(exact)).encode("utf-8", errors="replace")
             if retention_class == "public-sanitized" and (
-                SENSITIVE_BINARY.search(relative) or SENSITIVE_BINARY.search(payload)
+                _contains_sensitive(relative) or _contains_sensitive(payload)
             ):
                 raise EvidenceError(f"public evidence contains sensitive binary payload: {path}")
 

@@ -11,6 +11,16 @@ stage_dir="$work_dir/$bundle_name"
 adb_bin="${ADB:-adb}"
 retention_class="public-sanitized"
 raw_capture_sources=()
+archive_path=""
+published=false
+
+cleanup() {
+  rm -rf -- "$work_dir"
+  if [[ "$published" != "true" && -n "$archive_path" ]]; then
+    rm -f -- "$archive_path" "$archive_path.retention.json"
+  fi
+}
+trap cleanup EXIT
 
 usage() {
   cat <<USAGE
@@ -61,7 +71,6 @@ if [[ -L "$archive_dir" ]] || \
 fi
 archive_dir="$allowed_archive_dir"
 mkdir -p "$stage_dir"
-trap 'rm -rf "$work_dir"' EXIT
 
 copy_if_exists() {
   local source="$1"
@@ -172,6 +181,7 @@ python3 "$repo_root/scripts/ci/evidence_retention.py" \
   write-manifest \
   --retention-class "$retention_class" \
   "$archive_path"
+published=true
 if [[ "$retention_class" == "private-raw-pcap" && "${#raw_capture_sources[@]}" -gt 0 ]]; then
   rm -f -- "${raw_capture_sources[@]}"
 fi

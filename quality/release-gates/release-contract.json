@@ -31,6 +31,7 @@
   "releaseWindow": {
     "startShaVariable": "RIPDPI_RELEASE_WINDOW_START_SHA",
     "startedAtVariable": "RIPDPI_RELEASE_WINDOW_STARTED_AT",
+    "recordDirectory": "quality/release-gates/release-windows",
     "maxAgeHours": 72,
     "maxCommits": 20,
     "maxCandidateRuns": 5,

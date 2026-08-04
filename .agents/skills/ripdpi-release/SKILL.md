@@ -73,11 +73,13 @@ nonexistent physical-evidence workflow.
 
 ## Cut a bounded release window
 
-Before the first candidate, freeze features and set
-`RIPDPI_RELEASE_WINDOW_START_SHA` to that exact candidate SHA on `main`, with an
-initial UTC timestamp in `RIPDPI_RELEASE_WINDOW_STARTED_AT`. Once the first run
-exists, its immutable `headSha` and GitHub `createdAt` become the canonical cut;
-later runs require exact SHA equality and calculate age from that timestamp.
+Before the first candidate, add `vX.Y.Z.json` under
+`quality/release-gates/release-windows/` with the exact tag and UTC start time,
+commit it on `main`, and freeze features. Set
+`RIPDPI_RELEASE_WINDOW_START_SHA` to the commit that introduced that file and
+`RIPDPI_RELEASE_WINDOW_STARTED_AT` to its timestamp. The gate derives the cut
+from Git history and rejects any later edit to the record, even if old Actions
+runs have been deleted.
 
 The machine-readable `releaseWindow` contract allows at most 72 hours, 20
 post-cut commits, and five candidate runs for one tag. Post-cut subjects are

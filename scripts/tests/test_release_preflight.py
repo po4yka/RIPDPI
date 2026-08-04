@@ -30,6 +30,19 @@ class ReleasePreflightTest(unittest.TestCase):
         subprocess.run(["git", "add", "state.txt"], cwd=repo, check=True)
         subprocess.run(["git", "commit", "-q", "-m", "chore(release): cut window"], cwd=repo, check=True)
         subprocess.run(["git", "tag", "v0.1.4"], cwd=repo, check=True)
+        record = repo / "quality/release-gates/release-windows/v0.1.5.json"
+        record.parent.mkdir(parents=True)
+        record.write_text(
+            '{\n  "version": "ripdpi_release_window_cut_v1",\n'
+            '  "releaseTag": "v0.1.5",\n  "startedAt": "2026-08-03T00:00:00Z"\n}\n',
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "add", str(record.relative_to(repo))], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "chore(release): record v0.1.5 cut"],
+            cwd=repo,
+            check=True,
+        )
         start = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
         (repo / "state.txt").write_text("base\nfix\n", encoding="utf-8")
         subprocess.run(["git", "add", "state.txt"], cwd=repo, check=True)

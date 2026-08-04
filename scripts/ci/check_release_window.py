@@ -38,6 +38,7 @@ def _window(contract_path: Path) -> dict[str, Any]:
     required = {
         "startShaVariable",
         "startedAtVariable",
+        "recordDirectory",
         "maxAgeHours",
         "maxCommits",
         "maxCandidateRuns",
@@ -58,6 +59,37 @@ def _window(contract_path: Path) -> dict[str, Any]:
     except re.error as error:
         raise WindowError("releaseWindow contains an invalid subject pattern") from error
     return window
+
+
+def _cut_record(
+    repo: Path, window: dict[str, Any], release_tag: str
+) -> tuple[str, datetime]:
+    record = Path(window["recordDirectory"]) / f"{release_tag}.json"
+    record_path = repo / record
+    if not record_path.is_file() or record_path.is_symlink():
+        raise WindowError(f"checked-in release window record is missing: {record}")
+    try:
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        raise WindowError("release window record is malformed") from error
+    if not isinstance(payload, dict) or set(payload) != {"version", "releaseTag", "startedAt"}:
+        raise WindowError("release window record fields are invalid")
+    if payload["version"] != "ripdpi_release_window_cut_v1" or payload["releaseTag"] != release_tag:
+        raise WindowError("release window record identity does not match candidate")
+    try:
+        record_started = datetime.fromisoformat(str(payload["startedAt"]).replace("Z", "+00:00"))
+    except ValueError as error:
+        raise WindowError("release window record startedAt is malformed") from error
+    if record_started.tzinfo is None:
+        raise WindowError("release window record startedAt must include a timezone")
+    additions = _git(repo, "log", "--diff-filter=A", "--format=%H", "--", str(record)).splitlines()
+    if len(additions) != 1:
+        raise WindowError("release window record must have exactly one introduction commit")
+    cut_sha = additions[0]
+    historical = _git(repo, "show", f"{cut_sha}:{record}")
+    if historical + "\n" != record_path.read_text(encoding="utf-8"):
+        raise WindowError("release window record changed after its introduction")
+    return cut_sha, record_started.astimezone(UTC)
 
 
 def evaluate_release_window(
@@ -81,7 +113,10 @@ def evaluate_release_window(
         )
     if started_at.tzinfo is None or now.tzinfo is None:
         raise WindowError("timestamp must include a timezone")
+    cut_sha, record_started = _cut_record(repo, window, release_tag)
     started = started_at.astimezone(UTC)
+    if started != record_started:
+        raise WindowError("release window timestamp does not match checked-in cut record")
     current = now.astimezone(UTC)
     age_hours = (current - started).total_seconds() / 3600
     if not candidate_runs and age_hours < 0:
@@ -92,6 +127,8 @@ def evaluate_release_window(
         )
 
     start = _git(repo, "rev-parse", "--verify", f"{start_sha}^{{commit}}")
+    if start != cut_sha:
+        raise WindowError("release window start does not match checked-in cut record")
     candidate = _git(repo, "rev-parse", "--verify", f"{candidate_sha}^{{commit}}")
     if subprocess.run(
         ["git", "merge-base", "--is-ancestor", start, candidate], cwd=repo, check=False
@@ -107,7 +144,6 @@ def evaluate_release_window(
     if unsafe:
         raise WindowError("commit is not release-window safe: " + "; ".join(unsafe))
 
-    parsed_runs: list[tuple[dict[str, Any], datetime]] = []
     for run in candidate_runs:
         head_sha = run.get("headSha")
         created_at = run.get("createdAt")
@@ -121,7 +157,6 @@ def evaluate_release_window(
             raise WindowError("candidate run createdAt is malformed") from error
         if run_created.tzinfo is None:
             raise WindowError("candidate run createdAt must include a timezone")
-        parsed_runs.append((run, run_created.astimezone(UTC)))
         prior_sha = _git(repo, "rev-parse", "--verify", f"{head_sha}^{{commit}}")
         if subprocess.run(
             ["git", "merge-base", "--is-ancestor", start, prior_sha],
@@ -129,19 +164,6 @@ def evaluate_release_window(
             check=False,
         ).returncode != 0:
             raise WindowError("release window start is not an ancestor of prior candidate")
-    if parsed_runs:
-        first_run, first_created = min(parsed_runs, key=lambda item: item[1])
-        first_sha = _git(repo, "rev-parse", "--verify", f"{first_run['headSha']}^{{commit}}")
-        if start != first_sha:
-            raise WindowError("release window start must equal the first candidate SHA")
-        started = first_created
-        age_hours = (current - started).total_seconds() / 3600
-        if age_hours < 0:
-            raise WindowError("first candidate starts in the future")
-        if age_hours > window["maxAgeHours"]:
-            raise WindowError(
-                f"release window expired: {age_hours:.1f}h > {window['maxAgeHours']}h"
-            )
     return {
         "version": "ripdpi_release_window_v1",
         "releaseTag": release_tag,

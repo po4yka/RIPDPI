@@ -94,6 +94,18 @@ class EvidenceRetentionTest(unittest.TestCase):
             with self.assertRaisesRegex(EvidenceError, "sensitive binary payload"):
                 check_archive(ssid, POLICY, "public-sanitized")
 
+            for index, payload in enumerate((
+                b"token=<redacted>abc123",
+                b"token=nullabc123",
+                b"token=falseSecret",
+            )):
+                prefixed = root / f"prefixed-{index}.tar.gz"
+                write_archive(prefixed, {"bundle/report.txt": payload})
+                with self.subTest(payload=payload), self.assertRaisesRegex(
+                    EvidenceError, "sensitive binary payload"
+                ):
+                    check_archive(prefixed, POLICY, "public-sanitized")
+
     def test_archive_rejects_unsafe_members_and_resource_exhaustion(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -261,6 +273,9 @@ class EvidenceRetentionTest(unittest.TestCase):
         source = (ROOT / "test-lab/scripts/archive-artifacts.sh").read_text(encoding="utf-8")
         self.assertIn("raw_capture_sources", source)
         self.assertLess(source.index("write-manifest"), source.index('rm -f -- "${raw_capture_sources[@]}"'))
+        self.assertIn('published=false', source)
+        self.assertIn('rm -f -- "$archive_path" "$archive_path.retention.json"', source)
+        self.assertLess(source.index("write-manifest"), source.index("published=true"))
 
     def test_transient_download_helper_cleans_its_managed_directory(self) -> None:
         helper = ROOT / "scripts/ci/with-transient-release-downloads.sh"

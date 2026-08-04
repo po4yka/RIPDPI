@@ -130,11 +130,13 @@ exact-SHA CI, then builds the signed outputs once:
 - `update.json`
 - `SHA256SUMS`
 
-Before that first candidate, set `RIPDPI_RELEASE_WINDOW_START_SHA` to its exact
-candidate SHA on `main` and `RIPDPI_RELEASE_WINDOW_STARTED_AT` to an ISO-8601 UTC
-timestamp. Once the first run exists, its immutable `headSha` and GitHub
-`createdAt` become the canonical cut; later runs cannot move either boundary.
-Candidate preflight enforces the checked-in
+Before that first candidate, add `vX.Y.Z.json` under
+`quality/release-gates/release-windows/` with the exact tag and an ISO-8601 UTC
+start time, then commit it on `main`. Set
+`RIPDPI_RELEASE_WINDOW_START_SHA` to that file's introduction commit and
+`RIPDPI_RELEASE_WINDOW_STARTED_AT` to its timestamp. The gate derives the cut
+from Git history and rejects any later record edit, even if old Actions runs are
+deleted. Candidate preflight enforces the checked-in
 `releaseWindow`: no more than 72 hours, 20 release-fix commits, or five candidate
 runs for the target tag. Late features and refactors require a new release cut;
 they cannot enter the signing environment as release fixes.
