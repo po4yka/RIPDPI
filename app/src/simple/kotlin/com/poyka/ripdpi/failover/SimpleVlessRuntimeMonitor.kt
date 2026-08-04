@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.ExplicitUserStartPreparer
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,6 +59,7 @@ internal class SimpleVlessRuntimeMonitor
         private var startupFallbackStage = StartupFallbackStage.Vless
         private var activeHysteriaProfileId: String? = null
         private var activeAwgProfileId: String? = null
+        private var recoveryEpoch = 0L
         private var startupFallbackLease: StartupFallbackLease =
             startupFallbackController.captureStartupFallbackLease()
 
@@ -75,6 +78,7 @@ internal class SimpleVlessRuntimeMonitor
                 startupFallbackStage = StartupFallbackStage.Vless
                 activeHysteriaProfileId = null
                 activeAwgProfileId = null
+                recoveryEpoch += 1
                 startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
                 Logger.i { "SimpleVlessRuntimeMonitor: explicit VPN attempt restored embedded VLESS+Reality" }
             }
@@ -106,9 +110,13 @@ internal class SimpleVlessRuntimeMonitor
                             ActiveTransportDescriptor(protocolKind = relayKind)
                         }
                     if (runningRelayKind == RelayKindVlessReality) {
-                        startupFallbackStage = StartupFallbackStage.Vless
-                        activeHysteriaProfileId = null
-                        activeAwgProfileId = null
+                        fallbackMutex.withLock {
+                            startupFallbackStage = StartupFallbackStage.Vless
+                            activeHysteriaProfileId = null
+                            activeAwgProfileId = null
+                            recoveryEpoch += 1
+                            startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
+                        }
                     }
                 }
             }
@@ -133,16 +141,44 @@ internal class SimpleVlessRuntimeMonitor
             ) {
                 return
             }
+            val pendingRecovery =
+                fallbackMutex.withLock {
+                    when (startupFallbackStage) {
+                        StartupFallbackStage.Vless,
+                        StartupFallbackStage.Hysteria2,
+                        -> PendingRecovery(startupFallbackStage, recoveryEpoch, startupFallbackLease)
+
+                        StartupFallbackStage.Awg -> null
+                    }
+                } ?: return
+            val halted =
+                withTimeoutOrNull(STARTUP_HALT_WAIT_TIMEOUT_MILLIS) {
+                    serviceStateStore.status.first { (status, mode) ->
+                        status == AppStatus.Halted && mode == Mode.VPN
+                    }
+                    true
+                } == true
+            if (!halted) {
+                Logger.w { "SimpleVlessRuntimeMonitor: timed out waiting for failed VPN to halt" }
+                return
+            }
             fallbackMutex.withLock {
-                when (startupFallbackStage) {
-                    StartupFallbackStage.Vless -> recoverVlessWithHysteria2()
-                    StartupFallbackStage.Hysteria2 -> recoverHysteria2WithAwg()
+                if (
+                    startupFallbackStage != pendingRecovery.stage ||
+                    recoveryEpoch != pendingRecovery.epoch
+                ) {
+                    Logger.i { "SimpleVlessRuntimeMonitor: stale startup recovery was superseded" }
+                    return@withLock
+                }
+                when (pendingRecovery.stage) {
+                    StartupFallbackStage.Vless -> recoverVlessWithHysteria2(pendingRecovery.lease)
+                    StartupFallbackStage.Hysteria2 -> recoverHysteria2WithAwg(pendingRecovery.lease)
                     StartupFallbackStage.Awg -> Unit
                 }
             }
         }
 
-        private suspend fun recoverVlessWithHysteria2() {
+        private suspend fun recoverVlessWithHysteria2(lease: StartupFallbackLease) {
             val settingsAtFailure = settingsRepository.snapshot()
             if (
                 !settingsAtFailure.relayEnabled ||
@@ -152,10 +188,6 @@ internal class SimpleVlessRuntimeMonitor
                 return
             }
 
-            startupFallbackStage = StartupFallbackStage.Hysteria2
-            serviceStateStore.status.first { (status, mode) ->
-                status == AppStatus.Halted && mode == Mode.VPN
-            }
             val currentSettings = settingsRepository.snapshot()
             if (
                 !currentSettings.relayEnabled ||
@@ -179,39 +211,31 @@ internal class SimpleVlessRuntimeMonitor
             }
             activeHysteriaProfileId = fallback.id
             Logger.i { "SimpleVlessRuntimeMonitor: VLESS startup failed; retrying with embedded Hysteria2" }
-            when (val result = startupFallbackController.startVpnForStartupFallback(startupFallbackLease)) {
+            when (val result = startupFallbackController.startVpnForStartupFallback(lease)) {
                 StartupFallbackDispatchResult.Superseded -> {
-                    val persistedFallback = settingsRepository.snapshot()
-                    if (
-                        persistedFallback.relayEnabled &&
-                        persistedFallback.relayKind == RelayKindHysteria2 &&
-                        persistedFallback.relayProfileId == fallback.id
-                    ) {
-                        settingsRepository.update {
-                            setRelayEnabled(settingsAtFailure.relayEnabled)
-                            setRelayKind(settingsAtFailure.relayKind)
-                            setRelayProfileId(settingsAtFailure.relayProfileId)
-                            setSimpleFailoverAwgProfileId(settingsAtFailure.simpleFailoverAwgProfileId)
-                        }
-                    }
-                    startupFallbackStage = StartupFallbackStage.Vless
-                    activeHysteriaProfileId = null
+                    rollbackHysteria2Selection(settingsAtFailure, fallback.id)
                     Logger.i { "SimpleVlessRuntimeMonitor: newer user intent superseded Hysteria2 recovery" }
                 }
 
                 is StartupFallbackDispatchResult.Dispatched -> {
-                    val rejected = result.startResult as? ServiceStartResult.Rejected
-                    if (rejected != null) {
-                        Logger.w {
-                            "SimpleVlessRuntimeMonitor: Hysteria2 startup recovery rejected — " +
-                                rejected.reason
+                    when (val startResult = result.startResult) {
+                        is ServiceStartResult.Accepted -> {
+                            startupFallbackStage = StartupFallbackStage.Hysteria2
+                        }
+
+                        is ServiceStartResult.Rejected -> {
+                            rollbackHysteria2Selection(settingsAtFailure, fallback.id)
+                            Logger.w {
+                                "SimpleVlessRuntimeMonitor: Hysteria2 startup recovery rejected — " +
+                                    startResult.reason
+                            }
                         }
                     }
                 }
             }
         }
 
-        private suspend fun recoverHysteria2WithAwg() {
+        private suspend fun recoverHysteria2WithAwg(lease: StartupFallbackLease) {
             val settingsAtFailure = settingsRepository.snapshot()
             if (
                 !settingsAtFailure.relayEnabled ||
@@ -221,10 +245,6 @@ internal class SimpleVlessRuntimeMonitor
                 return
             }
 
-            startupFallbackStage = StartupFallbackStage.Awg
-            serviceStateStore.status.first { (status, mode) ->
-                status == AppStatus.Halted && mode == Mode.VPN
-            }
             val currentSettings = settingsRepository.snapshot()
             if (
                 !currentSettings.relayEnabled ||
@@ -247,34 +267,67 @@ internal class SimpleVlessRuntimeMonitor
             awgFallbackSelection.select(awgRequest)
             activeAwgProfileId = awgRequest.profileId
             Logger.i { "SimpleVlessRuntimeMonitor: Hysteria2 startup failed; retrying with amneziawg" }
-            when (val result = startupFallbackController.startVpnForStartupFallback(startupFallbackLease)) {
+            when (val result = startupFallbackController.startVpnForStartupFallback(lease)) {
                 StartupFallbackDispatchResult.Superseded -> {
-                    val persistedFallback = settingsRepository.snapshot()
-                    if (
-                        !persistedFallback.relayEnabled &&
-                        persistedFallback.simpleFailoverAwgProfileId == awgRequest.profileId
-                    ) {
-                        settingsRepository.update {
-                            setRelayEnabled(settingsAtFailure.relayEnabled)
-                            setRelayKind(settingsAtFailure.relayKind)
-                            setRelayProfileId(settingsAtFailure.relayProfileId)
-                            setSimpleFailoverAwgProfileId(settingsAtFailure.simpleFailoverAwgProfileId)
-                        }
-                        awgFallbackSelection.clear()
-                    }
-                    startupFallbackStage = StartupFallbackStage.Hysteria2
-                    activeAwgProfileId = null
+                    rollbackAwgSelection(settingsAtFailure, awgRequest.profileId)
                     Logger.i { "SimpleVlessRuntimeMonitor: newer user intent superseded AWG recovery" }
                 }
 
                 is StartupFallbackDispatchResult.Dispatched -> {
-                    val rejected = result.startResult as? ServiceStartResult.Rejected
-                    if (rejected != null) {
-                        Logger.w {
-                            "SimpleVlessRuntimeMonitor: AWG startup recovery rejected — ${rejected.reason}"
+                    when (val startResult = result.startResult) {
+                        is ServiceStartResult.Accepted -> {
+                            startupFallbackStage = StartupFallbackStage.Awg
+                        }
+
+                        is ServiceStartResult.Rejected -> {
+                            rollbackAwgSelection(settingsAtFailure, awgRequest.profileId)
+                            Logger.w {
+                                "SimpleVlessRuntimeMonitor: AWG startup recovery rejected — ${startResult.reason}"
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        private suspend fun rollbackHysteria2Selection(
+            settingsBeforeFallback: AppSettings,
+            fallbackProfileId: String,
+        ) {
+            val persistedFallback = settingsRepository.snapshot()
+            if (
+                persistedFallback.relayEnabled &&
+                persistedFallback.relayKind == RelayKindHysteria2 &&
+                persistedFallback.relayProfileId == fallbackProfileId
+            ) {
+                restoreSettings(settingsBeforeFallback)
+            }
+            startupFallbackStage = StartupFallbackStage.Vless
+            activeHysteriaProfileId = null
+        }
+
+        private suspend fun rollbackAwgSelection(
+            settingsBeforeFallback: AppSettings,
+            fallbackProfileId: String,
+        ) {
+            val persistedFallback = settingsRepository.snapshot()
+            if (
+                !persistedFallback.relayEnabled &&
+                persistedFallback.simpleFailoverAwgProfileId == fallbackProfileId
+            ) {
+                restoreSettings(settingsBeforeFallback)
+                awgFallbackSelection.clear()
+            }
+            startupFallbackStage = StartupFallbackStage.Hysteria2
+            activeAwgProfileId = null
+        }
+
+        private suspend fun restoreSettings(settings: AppSettings) {
+            settingsRepository.update {
+                setRelayEnabled(settings.relayEnabled)
+                setRelayKind(settings.relayKind)
+                setRelayProfileId(settings.relayProfileId)
+                setSimpleFailoverAwgProfileId(settings.simpleFailoverAwgProfileId)
             }
         }
 
@@ -330,7 +383,14 @@ internal class SimpleVlessRuntimeMonitor
             const val AMNEZIA_WG_KIND = "amneziawg"
             const val SEEDED_VLESS_REALITY_PROFILE_ID = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
             const val SEEDED_HYSTERIA2_PROFILE_ID = "${SEED_RELAY_PROFILE_ID_PREFIX}Hysteria2"
+            const val STARTUP_HALT_WAIT_TIMEOUT_MILLIS = 5_000L
         }
+
+        private data class PendingRecovery(
+            val stage: StartupFallbackStage,
+            val epoch: Long,
+            val lease: StartupFallbackLease,
+        )
 
         private enum class StartupFallbackStage {
             Vless,
