@@ -51,6 +51,43 @@ netem_init_session() {
     echo "Refusing to layer a RIPDPI session over an existing netem qdisc" >&2
     return 1
   fi
+  local qdisc_lines root_line kind handle qdisc_option index
+  local -a qdisc_tokens
+  qdisc_lines="$(grep -c '^qdisc ' "$netem_state_dir/qdisc.before" || true)"
+  root_line="$(grep -E '^qdisc .* root([[:space:]]|$)' "$netem_state_dir/qdisc.before" || true)"
+  if [[ "$qdisc_lines" != "1" || -z "$root_line" ]]; then
+    rm -f "$netem_state_dir/qdisc.before"
+    echo "Refusing netem over a qdisc hierarchy that cannot be restored exactly" >&2
+    return 1
+  fi
+  read -r -a qdisc_tokens <<<"$root_line"
+  kind="${qdisc_tokens[1]:-}"
+  handle="${qdisc_tokens[2]:-}"
+  if [[ ! "$kind" =~ ^[A-Za-z0-9_-]+$ || ! "$handle" =~ ^[A-Fa-f0-9]+:$ ]]; then
+    echo "Unsupported root qdisc identity: $root_line" >&2
+    return 1
+  fi
+  : >"$netem_state_dir/qdisc.restore.args"
+  if [[ "$kind" != "noqueue" ]]; then
+    if [[ "$handle" != "0:" ]]; then
+      printf '%s\n' handle "$handle" >>"$netem_state_dir/qdisc.restore.args"
+    fi
+    printf '%s\n' "$kind" >>"$netem_state_dir/qdisc.restore.args"
+    index=4
+    while (( index < ${#qdisc_tokens[@]} )); do
+      qdisc_option="${qdisc_tokens[index]}"
+      if [[ "$qdisc_option" == "refcnt" ]]; then
+        ((index += 2))
+        continue
+      fi
+      if [[ ! "$qdisc_option" =~ ^[A-Za-z0-9_.:/%+-]+$ ]]; then
+        echo "Unsupported root qdisc option; refusing a lossy restore: $qdisc_option" >&2
+        return 1
+      fi
+      printf '%s\n' "$qdisc_option" >>"$netem_state_dir/qdisc.restore.args"
+      ((index += 1))
+    done
+  fi
   cat >"$metadata" <<EOF
 NETEM_CAPTURED_DEV=$netem_dev
 NETEM_CAPTURED_RUN_ID=$NETEM_RUN_ID
@@ -61,12 +98,21 @@ EOF
   NETEM_CAPTURED_RUN_ID="$NETEM_RUN_ID"
   NETEM_CAPTURED_MTU="$mtu"
   NETEM_CAPTURED_IP_FORWARD="$ip_forward"
+  : >"$netem_state_dir/rules.applied"
+}
+
+netem_mark_rule() {
+  local rule_id="$1"
+  grep -Fqx "$rule_id" "$netem_state_dir/rules.applied" 2>/dev/null ||
+    printf '%s\n' "$rule_id" >>"$netem_state_dir/rules.applied"
 }
 
 netem_add_rule() {
-  local family="$1"
-  shift
+  local rule_id="$1"
+  local family="$2"
+  shift 2
   if ! "${netem_sudo[@]}" "$family" -C "$@" -m comment --comment "$netem_comment" 2>/dev/null; then
     "${netem_sudo[@]}" "$family" -I "$@" -m comment --comment "$netem_comment"
   fi
+  netem_mark_rule "$rule_id"
 }

@@ -109,6 +109,7 @@ mkdir -p "$out_dir"
 device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-rooted-netem-device.XXXXXX")"
 device_state_dir="$device_state_root/state"
 device_state_captured=false
+qdisc_baseline_captured=false
 
 adb_cmd() {
   "$adb_bin" -s "$serial" "$@"
@@ -124,9 +125,19 @@ clear_netem() {
 
 cleanup_netem() {
   local status=${1:-0}
-  clear_netem
-  if [[ -d "$out_dir" ]]; then
-    root_shell "tc qdisc show dev '$netem_dev'" >"$out_dir/qdisc-after-cleanup.txt" 2>/dev/null || true
+  if [[ "$qdisc_baseline_captured" == "true" ]]; then
+    clear_netem
+    if ! root_shell "tc qdisc show dev '$netem_dev'" >"$out_dir/qdisc-after-cleanup.txt" 2>/dev/null; then
+      echo "Could not verify rooted-emulator qdisc cleanup" >&2
+      status=1
+    else
+      sed -E 's/ refcnt [0-9]+//' "$out_dir/qdisc-before.txt" >"$out_dir/qdisc-before.normalized"
+      sed -E 's/ refcnt [0-9]+//' "$out_dir/qdisc-after-cleanup.txt" >"$out_dir/qdisc-after.normalized"
+      if ! cmp -s "$out_dir/qdisc-before.normalized" "$out_dir/qdisc-after.normalized"; then
+        echo "Rooted-emulator qdisc was not restored exactly; artifacts retained at $out_dir" >&2
+        status=1
+      fi
+    fi
   fi
   if [[ "$device_state_captured" == "true" ]]; then
     if ! python3 "$lab_root/scripts/android-device-session.py" restore \
@@ -138,6 +149,7 @@ cleanup_netem() {
   if [[ $status -eq 0 ]]; then
     rm -rf "$device_state_root"
   fi
+  return "$status"
 }
 
 cleanup() {
@@ -201,9 +213,14 @@ if [[ "$skip_install" != "true" ]]; then
 fi
 
 require_root
-clear_netem
 root_shell "ip route" >"$out_dir/ip-route.txt"
 root_shell "tc qdisc show dev '$netem_dev'" >"$out_dir/qdisc-before.txt"
+if ! grep -Eq '^qdisc noqueue 0: root( refcnt [0-9]+)?$' "$out_dir/qdisc-before.txt" ||
+  [[ "$(wc -l <"$out_dir/qdisc-before.txt" | tr -d ' ')" != "1" ]]; then
+  echo "Refusing rooted-emulator netem over a qdisc that cannot be restored exactly" >&2
+  exit 1
+fi
+qdisc_baseline_captured=true
 
 run_probe baseline
 
@@ -219,6 +236,7 @@ run_probe netem-delay-loss
 
 cleanup_netem 0
 device_state_captured=false
+qdisc_baseline_captured=false
 trap - EXIT
 
 {

@@ -22,4 +22,5 @@ if [[ -n "$nat_subnet" ]]; then
   if ! "${netem_sudo[@]}" iptables -t nat -C POSTROUTING -s "$nat_subnet" -o "$nat_out_dev" -j MASQUERADE -m comment --comment "$netem_comment" 2>/dev/null; then
     "${netem_sudo[@]}" iptables -t nat -A POSTROUTING -s "$nat_subnet" -o "$nat_out_dev" -j MASQUERADE -m comment --comment "$netem_comment"
   fi
+  netem_mark_rule carrier-nat
 fi

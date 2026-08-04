@@ -92,8 +92,32 @@ class NetemTransactionTest(unittest.TestCase):
             self.assertIn("--comment ripdpi-netem-phase16-row-1", commands)
             self.assertIn("sysctl -w net.ipv4.ip_forward=0", commands)
             self.assertIn("ip link set dev eth0 mtu 1500", commands)
-            self.assertIn("tc qdisc del dev eth0 root", commands)
+            self.assertIn("tc qdisc replace dev eth0 root fq_codel limit 10240p", commands)
             self.assertFalse((root / "state").exists())
+
+    def test_refuses_qdisc_hierarchy_that_cannot_be_replayed_exactly(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            bin_dir, log = self.make_tools(root)
+            tc = bin_dir / "tc"
+            tc.write_text(
+                tc.read_text().replace(
+                    "echo 'qdisc fq_codel 0: root refcnt 2 limit 10240p'",
+                    "echo 'qdisc mq 0: root'\n                  echo 'qdisc fq_codel 0: parent :1 limit 10240p'",
+                ),
+                encoding="utf-8",
+            )
+            env = self.environment(root, bin_dir, log)
+            result = subprocess.run(
+                ["bash", str(NETEM / "apply-delay.sh")],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("cannot be restored exactly", result.stderr)
+            self.assertNotIn("qdisc replace", log.read_text(encoding="utf-8"))
 
     def test_refuses_untracked_or_cross_run_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
