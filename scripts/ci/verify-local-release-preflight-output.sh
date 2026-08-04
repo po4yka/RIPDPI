@@ -6,10 +6,13 @@ set -euo pipefail
   exit 2
 }
 expected_abi="$1"
-[[ "$expected_abi" =~ ^[A-Za-z0-9_-]+$ ]] || {
-  echo "Invalid local preflight host ABI: $expected_abi" >&2
-  exit 2
-}
+case "$expected_abi" in
+  arm64-v8a | x86_64) ;;
+  *)
+    echo "Unsupported local preflight host ABI: $expected_abi" >&2
+    exit 2
+    ;;
+esac
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$repo_root"

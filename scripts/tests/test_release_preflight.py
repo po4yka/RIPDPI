@@ -233,18 +233,22 @@ class ReleasePreflightTest(unittest.TestCase):
 
     def test_output_verifier_rejects_wrong_extra_and_missing_host_native_abi(self) -> None:
         cases = {
-            "wrong": {"x86_64": ["libripdpi.so"]},
-            "extra-partial": {
-                "arm64-v8a": ["libripdpi.so"],
-                "x86_64": ["libripdpi-relay.so"],
-            },
-            "missing-main": {"arm64-v8a": ["libripdpi-relay.so"]},
+            "wrong": ({"x86_64": ["libripdpi.so"]}, "arm64-v8a"),
+            "extra-partial": (
+                {
+                    "arm64-v8a": ["libripdpi.so"],
+                    "x86_64": ["libripdpi-relay.so"],
+                },
+                "arm64-v8a",
+            ),
+            "missing-main": ({"arm64-v8a": ["libripdpi-relay.so"]}, "arm64-v8a"),
+            "unsupported": ({"armeabi-v7a": ["libripdpi.so"]}, "armeabi-v7a"),
         }
-        for label, native_abis in cases.items():
+        for label, (native_abis, expected_abi) in cases.items():
             with self.subTest(label=label), tempfile.TemporaryDirectory() as raw:
                 root = Path(raw)
                 self.make_release_output_fixture(root, native_abis)
-                self.assertNotEqual(0, self.run_output_verifier(root, "arm64-v8a").returncode)
+                self.assertNotEqual(0, self.run_output_verifier(root, expected_abi).returncode)
 
 
 if __name__ == "__main__":
