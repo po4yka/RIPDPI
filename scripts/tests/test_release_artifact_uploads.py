@@ -88,18 +88,17 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
     def test_ci_builds_release_instrumentation_without_signing_secrets(self) -> None:
         source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         job = release_verification_job(source)
-        step = re.search(
-            r"(?ms)^      - name: Verify GitHub Full release instrumentation APK without signing secrets\n.*?(?=^      - name:|^      - uses:|\Z)",
+        build_step = re.search(
+            r"(?ms)^      - name: Verify \$\{\{ matrix\.shard\.id \}\} release shard with prebuilt natives\n.*?(?=^      - name:|^      - uses:|\Z)",
             job,
         )
-        self.assertIsNotNone(step)
-        assert step is not None
-        release_test = step.group(0)
-        self.assertIn("if: matrix.shard.id == 'github'", release_test)
+        self.assertIsNotNone(build_step)
+        assert build_step is not None
+        release_test = build_step.group(0)
+        self.assertIn('if [[ "${{ matrix.shard.id }}" == github ]]', release_test)
         self.assertIn(":app:assembleGithubFullReleaseAndroidTest", release_test)
         self.assertIn("-Pripdpi.testBuildType=release", release_test)
-        self.assertIn("-Pripdpi.prebuiltJniLibsDir", release_test)
-        self.assertIn("-Pripdpi.prebuiltPluggableTransportAssetsDir", release_test)
+        self.assertEqual(2, release_test.count('"${common_args[@]}"'))
         self.assertIn("test \"${#test_apks[@]}\" -eq 1", release_test)
         self.assertNotIn("RIPDPI_SIGNING_", release_test)
         self.assertNotIn("KEYSTORE_", release_test)
