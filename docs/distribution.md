@@ -53,7 +53,7 @@ The GitHub updater verifies package name, version code, version name, APK file-n
 
 ## Application Identity Review
 
-Every app release has a blocking package-identity review in `quality/release-gates/app-identity-review.json`. The review covers every resolved `release` variant, including the non-published `simple` variants, and separately records the `full` variants built by `.github/workflows/release.yml`. `:app:writeReleaseIdentityManifest` obtains final application IDs from the Android Components API, so the gate does not infer them by parsing Gradle source.
+Every app release has a blocking package-identity review in `quality/release-gates/app-identity-review.json`. The review covers every resolved `release` variant, including the non-published `simple` variants, and separately records the published `full` variants built by `.github/workflows/release-candidate.yml`. `:app:writeReleaseIdentityManifest` obtains final application IDs from the Android Components API, so the gate does not infer them by parsing Gradle source.
 
 The current `com.poyka.ripdpi` identity is not an exact match in the reviewed circumvention-tool catalog, but it is not hidden: `ripdpi` and `dpi` are recognizable tokens, and an Android 11+ detector can make the package visible by naming the exact ID in `<queries>`. The accepted baseline therefore classifies the identity as `elevated` and `self-identifying`, not opaque. Changing the application ID would create a different Android app and break in-place Play, F-Droid, and GitHub update continuity even if signing keys remain unchanged.
 
@@ -119,7 +119,10 @@ The GitHub flavor is the only flavor that declares `android.permission.REQUEST_I
 
 ## Release Automation
 
-`.github/workflows/release.yml` builds all three release outputs in one run:
+The release flow is defined by
+`quality/release-gates/release-contract.json`. A manual dispatch of
+`.github/workflows/release-candidate.yml` on `main` first requires successful
+exact-SHA CI, then builds the signed outputs once:
 
 - `bundlePlayFullRelease`
 - `assembleFdroidFullRelease`
@@ -127,4 +130,21 @@ The GitHub flavor is the only flavor that declares `android.permission.REQUEST_I
 - `update.json`
 - `SHA256SUMS`
 
-The release workflow uploads all artifacts and attaches them to GitHub Releases when the workflow creates a release.
+The candidate is stored with a source-bound manifest, signatures, native ELF
+checks, symbols, and attestations. A matching `v*` tag then triggers
+`.github/workflows/release.yml`. That workflow downloads the candidate by its
+exact run ID, reverifies the source SHA and inventory, creates SBOMs and the
+publish bundle, and attaches those existing bytes to the GitHub Release. It does
+not rebuild application binaries.
+
+Run `python3 scripts/ci/check_release_contract.py` after changing either workflow
+or release guidance. The validator rejects trigger, input, workflow-path, and
+maintained-documentation drift.
+
+Release assurance is reported separately:
+
+- `artifact-publish` is the automated release-blocking profile;
+- `device-qualified` adds separately recorded emulator, physical-device, or
+  owner-lab evidence;
+- `owner-accepted` records an explicit owner acceptance of named evidence gaps
+  without converting missing or failing checks into PASS.

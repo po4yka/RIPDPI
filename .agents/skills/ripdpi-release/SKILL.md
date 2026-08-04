@@ -1,187 +1,155 @@
 ---
 name: ripdpi-release
-description: Prepare, gate, publish, and verify an exact-SHA RIPDPI Android app release through the repository's GitHub Actions flow. Use only when the user explicitly asks to prepare or create a specific RIPDPI version, including the planned 0.1.4 release. Coordinates versioning, identity review, changelog approval, CI, physical DNS/IPv6/kill-switch evidence, signed artifacts, tag creation, GitHub Release notes, checksums, and attestations. Never invoke implicitly and never publish without the release checkpoints in this skill.
+description: Prepare, build, publish, and verify one exact-SHA RIPDPI Android release through the repository release contract. Use only when the user explicitly asks to prepare or publish a specific version. Never invoke implicitly and never expose signing secrets.
 ---
 
 # RIPDPI Release
 
-Release one exact commit through the live repository workflow. Prefer a stopped, reviewable state over an ambiguous or partially verified release.
+Release one exact commit through the workflows declared in
+`quality/release-gates/release-contract.json`. Run
+`python3 scripts/ci/check_release_contract.py` before trusting this guidance; stop
+if the contract and current source disagree.
 
-## Current planned release
+## Resolve the release identity
 
-Use these defaults only while the repository still has `v0.1.3`, `ripdpiVersionName = "0.1.3"`, and `ripdpiVersionCode = 11`:
+Never carry a version snapshot in this skill. Derive and record:
 
-- target version: `0.1.4`;
-- target tag: `v0.1.4`;
-- target version code: `12`;
-- changelog base: `v0.1.3`.
+- the user-requested target version and `vX.Y.Z` tag;
+- the latest reachable stable tag as the changelog base;
+- `ripdpiVersionName` and `ripdpiVersionCode` from `app/build.gradle.kts`;
+- the exact `origin/main` and candidate SHAs;
+- live remote tag, release, workflow, and asset state.
 
-If any default is stale, stop and ask for the exact target version. Never downgrade or reuse a version code. If the user supplies a different version, derive the base tag and next version code from live source and published release data.
+The target tag must match the requested version, and a Play version code must
+increase. Stop on ambiguity, divergence, or an existing target tag/release.
 
 ## Authority boundary
 
-Treat these as separate operations:
+Treat these as separate external operations:
 
-1. **Inspect** — read-only; safe when the skill is invoked.
-2. **Prepare** — create a dedicated worktree, edit version/review files, validate, and commit locally.
-3. **Integrate candidate** — rebase/fast-forward into `main` and push `main`; require explicit user confirmation under the repository worktree policy.
-4. **Publish release** — create and push the tag, then edit the GitHub Release notes; require a second explicit confirmation showing the exact SHA, tag, evidence run, preflight run, and approved notes path.
+1. **Inspect and prepare** — create a dedicated worktree, update source, validate,
+   and commit locally.
+2. **Integrate candidate** — rebase, fast-forward `main`, and push `main`; require
+   explicit authorization under `AGENTS.md`.
+3. **Produce candidate** — dispatch `.github/workflows/release-candidate.yml` for
+   the exact remote `main` SHA and requested `release_tag`.
+4. **Publish** — bind the successful candidate run, create and push the immutable
+   tag, and verify the resulting release; require explicit authorization showing
+   the exact SHA, tag, candidate run, assurance profile, and notes path.
 
-The user's request to “prepare” does not authorize steps 3 or 4. A request to “release `0.1.4`” starts the workflow but still pauses at both irreversible/external checkpoints.
+A request to prepare does not authorize steps 2–4. Never print, copy, decode, or
+inspect signing secret values; they are consumed only by the signing environment.
 
-Never print, copy, decode, or inspect signing secret values. Use configured GitHub secrets only through the workflow.
+## Assurance profiles
 
-## Phase 1: Inspect live state
+Use the profile names and meanings from the release contract:
 
-1. Read `AGENTS.md`, `.github/workflows/release.yml`, `.github/workflows/dns-ipv6-killswitch-evidence.yml`, `docs/distribution.md`, and `quality/release-gates/app-identity-review.json` from the current candidate tree.
-2. Confirm the supplied checkout, branch/worktree, and dirty state. Preserve unrelated changes.
-3. Fetch `origin` and tags. Resolve `origin/main`, the base tag, and the candidate to full SHAs.
-4. Query live GitHub state:
-   - the target tag must not exist remotely;
-   - the target GitHub Release must not exist;
-   - no conflicting release workflow may be running;
-   - the latest stable release and its assets must match the assumed base.
-5. Confirm `gh auth status` without exposing tokens.
-6. Check whether repository variables `RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS` and `DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID` exist. Report presence only; do not print or change their values.
-7. Read the current ordinary-results status in `docs/testing.md` and `docs/tasks/issues/produce-android-ordinary-release-gate-results.md`. The dual-vantage evidence bundle and the 11 ordinary-results gates are separate inputs.
-8. Record the exact expected artifact and gate contract from the live workflow. Do not rely on this skill's snapshot when source differs.
+- `artifact-publish` is the automated release-blocking profile: exact-SHA main CI,
+  secret-free release verification, immutable signed candidate, manifest,
+  signatures, ELF checks, attestations, and tag-bound promotion;
+- `device-qualified` adds separately recorded emulator, physical-device, or
+  owner-lab evidence without silently changing artifact-publish results;
+- `owner-accepted` records an explicit owner decision accepting named evidence
+  gaps. It never turns FAIL, skipped, or missing evidence into PASS.
 
-Stop on a pre-existing remote target tag/release, a non-ancestor base, an unknown version-code history, a source/workflow conflict, or an ordinary-results producer that can only emit fail-closed/NO-SHIP output. Never hand-author PASS results or weaken the checker to unblock a release.
+State the selected profile in the release handoff. Do not require a deleted or
+nonexistent physical-evidence workflow.
 
-## Phase 2: Prepare the candidate locally
+## Prepare in a worktree
 
-Create a dedicated worktree from current `origin/main`. Do not edit the `main` checkout.
+1. Read `AGENTS.md`, `quality/release-gates/release-contract.json`, both declared
+   workflows, `docs/distribution.md`, and
+   `quality/release-gates/app-identity-review.json` from the candidate tree.
+2. Create a dedicated worktree from current `origin/main`; preserve unrelated
+   changes in every other checkout.
+3. Update `ripdpiVersionName` and `ripdpiVersionCode` in `app/build.gradle.kts`.
+4. Refresh the application identity review from its recorded sources and resolved
+   variants. Do not rubber-stamp only version/date fields.
+5. Run `$release-changelog` over the immutable base-tag-to-candidate range and
+   keep drafts outside tracked source unless the repository adopts a notes path.
+6. Obtain approval for the curated notes before publication.
+7. Commit the coupled version/identity preparation atomically, normally as
+   `chore(release): prepare X.Y.Z`.
 
-1. Update only `ripdpiVersionName` and `ripdpiVersionCode` in `app/build.gradle.kts`.
-2. Refresh `quality/release-gates/app-identity-review.json` exactly as required by `docs/distribution.md`:
-   - re-read all three recorded sources;
-   - update source revisions, blob hashes, and review dates from verified content;
-   - refresh the catalog and derived matches;
-   - review every resolved release variant;
-   - record the explicit identity decision and current risk.
-3. Do not rubber-stamp the old identity review by changing only version/date fields.
-4. Run `$release-changelog` against the base tag and the candidate SHA. Store its evidence pack and draft under a temporary directory, outside tracked source.
-5. Curate the GitHub Release notes and optional store notes. Include the exact compare range and version code. Obtain user approval for the final notes before publication.
-6. Commit the coupled version/identity preparation as one atomic Conventional Commit, normally `chore(release): prepare 0.1.4`. Do not commit temporary notes unless the repository has established a tracked release-note convention.
+## Validate and integrate
 
-## Phase 3: Validate the local candidate
-
-Run the smallest release-specific gates first, then the broader repository gates required by the current workflow:
+Run the smallest release-specific gates first:
 
 ```bash
+python3 scripts/ci/check_release_contract.py
 ./gradlew :app:writeReleaseIdentityManifest
 python3 -m unittest scripts.tests.test_app_identity_review
 python3 scripts/ci/check_app_identity_review.py --report
-./gradlew :app:verifyReleaseVersion -Pripdpi.releaseRefName=v0.1.4
-python3 scripts/tests/test_release_artifact_uploads.py
-python3 scripts/tests/test_dns_ipv6_killswitch_gates.py
+./gradlew :app:verifyReleaseVersion -Pripdpi.releaseRefName=vX.Y.Z
+python3 -m unittest \
+  scripts.tests.test_release_contract \
+  scripts.tests.test_release_p0_contracts \
+  scripts.tests.test_release_artifact_uploads
 git diff --check <base-tag>..<candidate-sha>
 ```
 
-Use the actual requested tag instead of `v0.1.4` when different. Run the applicable static analysis, unit tests, Rust gates, release-verification build, and architecture checks defined by current CI. Do not use `-Pripdpi.skipNativeBuild=true` as production artifact evidence.
+Run the applicable broader CI, architecture, Cargo-lock, and release-verification
+gates. Do not use `-Pripdpi.skipNativeBuild=true` as production artifact evidence.
+Review the final diff for unintended files, generated drift, sensitive material,
+changed release tasks, and inaccurate notes.
 
-Review the final diff for unintended files, stale generated outputs, secret material, changed release tasks, and inaccurate notes.
+After authorized rebase and fast-forward integration, push `main`, verify remote
+SHA equality, and wait for successful `ci-required` on that exact SHA.
 
-## Checkpoint A: integrate and push the candidate
+## Produce the immutable candidate
 
-Present:
+Dispatch `.github/workflows/release-candidate.yml` on `main` with:
 
-- worktree branch and commit list;
-- base tag and candidate SHA;
-- version name/code;
-- exact validation results and gaps;
-- draft notes path;
-- current CI/release-gate risks.
+- `release_tag=vX.Y.Z`;
+- the workflow ref resolving to the exact candidate SHA.
 
-Ask explicitly for permission to rebase onto current `origin/main`, run combined-tree collision gates, fast-forward `main`, and push `main`. Do none of those actions before approval.
+The workflow must pass its exact-SHA CI preflight before entering expensive
+producer/signing jobs. Select the run by workflow path, event, ref, creation time,
+and `headSha`; never select an arbitrary newest run. Require successful candidate
+manifest verification, signer continuity, APK/AAB signature verification, native
+ELF verification, and attestations. Record the run ID and source SHA.
 
-After approval, follow the canonical worktree integration sequence in `AGENTS.md`. Re-run combined-tree architecture, Cargo lock, identity, and release-version gates on the rebased candidate before fast-forwarding. Push `main`, then verify that the remote `main` SHA equals the local release-candidate SHA and required CI completes successfully for that exact SHA.
+Additional device/lab evidence is collected and reported only when the selected
+assurance profile calls for it. Never substitute debug or different-SHA evidence
+for the signed candidate.
 
-## Phase 4: collect exact-SHA physical evidence
+## Publish the tag-bound candidate
 
-Dispatch `.github/workflows/dns-ipv6-killswitch-evidence.yml` on the remote branch containing the candidate SHA. Select the resulting run by workflow, event, branch, creation time, and exact `headSha`; never take an arbitrary newest run.
-
-Wait for completion and require:
-
-- conclusion `success`;
-- exact candidate `headSha`;
-- a physical, non-emulator Android runner;
-- the uploaded `dns-ipv6-killswitch-release-evidence` artifact;
-- a manifest that validates for `android-client-release` and the run ID/attempt.
-
-Record the evidence run ID and attempt. Never substitute an older scheduled run, emulator result, debug-only static check, or evidence from a different SHA.
-
-Separately require a real exact-SHA ordinary-results file for all gates assigned to `ordinary-results`. It must be derived by the checked-in, reviewed raw-artifact verifier described in `docs/testing.md`; a structured all-FAIL placeholder is not release evidence. Confirm that the release workflow can access the file at the path represented by `RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS` after downloading its evidence artifact. Do not set or change that repository variable without separate explicit authorization, and never point it at a local-only or missing path.
-
-## Phase 5: run a no-publish release preflight
-
-Dispatch `.github/workflows/release.yml` on the same remote candidate ref with:
-
-- `create_release=false`;
-- `gate_evidence_run_id=<exact evidence run ID>`.
-
-Wait for completion. Require a successful run whose `headSha` equals the candidate. Inspect job logs and artifacts, not only the aggregate conclusion. Confirm that the workflow built signed Play/F-Droid/GitHub artifacts, metadata, SBOMs, checksums, mappings, native symbols, and attestations as currently configured.
-
-If the preflight fails, fix the candidate through a new commit, repeat local/CI/evidence/preflight validation for the new SHA, and regenerate the changelog range if material behavior changed.
-
-## Checkpoint B: publish the immutable tag
-
-Present a compact release manifest:
+Before publishing, present:
 
 | Field | Required value |
 |---|---|
 | Version / versionCode | exact reviewed values |
-| Candidate SHA | remote `main` and local SHA |
-| Tag | absent locally and remotely before creation |
-| Main CI | success for candidate SHA |
-| Physical evidence | successful run ID + attempt for candidate SHA |
-| Ordinary results | real approved exact-SHA file + source-owned verifier |
-| Repository variables | present and proven usable by preflight |
-| Release preflight | successful no-publish run ID for candidate SHA |
-| Release notes | approved file path + digest |
+| Candidate SHA | local and remote `main` SHA |
+| Tag | absent locally and remotely |
+| Main CI | successful `ci-required` for candidate SHA |
+| Candidate | successful run ID for candidate SHA |
+| Assurance profile | contract-defined name and evidence gaps |
+| Release notes | approved file path and digest |
 
-Ask for explicit confirmation to create annotated tag `vX.Y.Z` at that exact SHA and push only that tag. Do not combine this approval with unrelated pushes or deployment actions.
+After explicit authorization:
 
-After approval:
+1. Bind repository variable `RIPDPI_RELEASE_CANDIDATE_RUN_ID` to the exact
+   successful candidate run if changing it is within the granted authority.
+2. Re-resolve every manifest value and stop on drift.
+3. Create annotated tag `vX.Y.Z` at the candidate SHA and verify its peeled commit.
+4. Push only that tag and reverify the remote peeled SHA.
+5. Identify the tag-triggered `.github/workflows/release.yml` run by path, event,
+   tag, and exact `headSha`.
 
-1. Re-resolve every manifest value and stop on drift.
-2. Create an annotated tag with message `Release vX.Y.Z` at the candidate SHA.
-3. Verify the tag object and peeled commit locally.
-4. Push only `refs/tags/vX.Y.Z`.
-5. Verify the remote peeled tag still resolves to the candidate SHA.
-6. Identify the tag-triggered Release run by workflow, `event=push`, tag, and exact `headSha`.
+Never move, recreate, or force-push a published release tag. Preserve evidence on
+failure; prepare a new patch version when source bytes must change.
 
-Never force-push, delete, move, or recreate a published release tag. If the tag-triggered workflow fails, preserve the tag and release evidence. Rerun only when the failure is transient and the source SHA remains valid; otherwise prepare a new patch version and report the failed release honestly.
+## Final verification
 
-## Phase 6: finalize and verify GitHub Release
+Require a successful tag workflow, a non-draft/non-prerelease GitHub Release, and
+the exact asset inventory declared by the live workflow. Download into a fresh
+temporary directory, verify `SHA256SUMS`, attestations, `update.json`, version,
+package identity, URLs, and signer continuity. Apply the approved curated notes
+without adding unsupported claims, then re-read the live release.
 
-Wait for the tag-triggered workflow to succeed. Then:
-
-1. Verify the GitHub Release is non-draft, non-prerelease, and bound to the exact tag.
-2. Compare attached asset names against the live `Create GitHub Release` workflow inputs.
-3. Require the Play AAB, all expected F-Droid/GitHub APKs, `update.json`, `SHA256SUMS`, Android/Rust SBOMs, and size reports.
-4. Download assets to a new temporary directory.
-5. Recompute SHA-256 values and compare them with `SHA256SUMS`, accounting for workflow paths by basename.
-6. Run `gh attestation verify <artifact> --repo po4yka/RIPDPI` for each published binary and metadata artifact covered by provenance.
-7. Inspect `update.json` for version `X.Y.Z`, version code, package ID, safe filenames, hashes, and release URLs.
-8. Replace the auto-generated body with the already approved curated notes using `gh release edit --notes-file`; do not improvise new claims after publication.
-9. Re-read the live release and verify title, body, compare link, assets, and latest-release status.
-10. Smoke-test the downloaded signed GitHub APK on the required physical device when the release acceptance bar calls for it. Report Play upload/publication separately; the GitHub workflow only produces the AAB.
-
-## Final report
-
-Report separately:
-
-- source commit and tag proof;
-- local gates;
-- remote main CI;
-- physical exact-SHA evidence;
-- no-publish preflight;
-- tag-triggered release run;
-- GitHub Release URL and verified assets;
-- checksum and attestation results;
-- physical-device smoke evidence;
-- Play/F-Droid publication status;
-- any remaining blocker or unverified assumption.
-
-Never call a local build, debug APK, emulator run, or generated changelog proof that the release shipped.
+Report source/tag proof, local gates, exact-SHA main CI, candidate run, selected
+assurance profile, publish run, release URL/assets, checksums/attestations,
+device/lab evidence when requested, store publication status, and every remaining
+gap. Never call a local build, debug APK, emulator run, or changelog proof that a
+release shipped.

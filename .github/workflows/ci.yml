@@ -165,6 +165,7 @@ jobs:
             scripts.tests.test_nightly_coverage_selection \
             scripts.tests.test_release_artifact_uploads \
             scripts.tests.test_release_candidate_manifest \
+            scripts.tests.test_release_contract \
             scripts.tests.test_release_p0_contracts \
             scripts.tests.test_path_filtered_pr_checks \
             scripts.tests.test_scheduled_workflow_offsets \

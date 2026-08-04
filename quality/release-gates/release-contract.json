@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "candidate": {
+    "workflow": ".github/workflows/release-candidate.yml",
+    "trigger": "workflow_dispatch",
+    "requiredInput": "release_tag",
+    "requiredRef": "refs/heads/main",
+    "requiredCi": {
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "aggregateJob": "ci-required"
+    }
+  },
+  "publication": {
+    "workflow": ".github/workflows/release.yml",
+    "trigger": "tag_push",
+    "tagPattern": "v*",
+    "candidateRunVariable": "RIPDPI_RELEASE_CANDIDATE_RUN_ID"
+  },
+  "assuranceProfiles": {
+    "artifact-publish": {
+      "releaseBlocking": true,
+      "description": "Exact-SHA CI, signed immutable candidate, manifest, signatures, native ELF verification, attestations, and tag-bound publication."
+    },
+    "device-qualified": {
+      "releaseBlocking": false,
+      "description": "Artifact-publish plus separately recorded emulator, physical-device, or owner-lab evidence."
+    },
+    "owner-accepted": {
+      "releaseBlocking": false,
+      "description": "An explicit owner decision accepting named evidence gaps; it never fabricates or relabels test results."
+    }
+  },
+  "guidance": [
+    ".agents/skills/ripdpi-release/SKILL.md",
+    ".agents/skills/release-signing/SKILL.md",
+    ".agents/skills/release-changelog/SKILL.md",
+    "docs/distribution.md",
+    "docs/testing.md"
+  ]
+}

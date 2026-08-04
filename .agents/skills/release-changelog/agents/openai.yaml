@@ -1,6 +1,6 @@
 interface:
   display_name: "Release Changelog"
   short_description: "Collect verified evidence for RIPDPI release notes"
-  default_prompt: "Use $release-changelog to collect a read-only evidence pack and draft release notes for RIPDPI 0.1.4."
+  default_prompt: "Use $release-changelog to collect an exact-range evidence pack and draft notes for the requested RIPDPI release."
 policy:
   allow_implicit_invocation: true

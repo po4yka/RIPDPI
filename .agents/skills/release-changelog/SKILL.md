@@ -15,15 +15,18 @@ Build release notes from verifiable repository evidence. Treat commit subjects a
 4. Require the base commit to be an ancestor of the target. Stop on a divergent range.
 5. Record both IDs in every draft so later edits cannot silently change scope.
 
-For the planned `0.1.4` release, use `v0.1.3` as the base and the eventual release-candidate SHA as the target. Do not assume `HEAD` is still that candidate after a resume.
+Use the latest stable tag that is an ancestor of the candidate as the base, unless
+the user explicitly selects another compatible stable tag. Use the immutable
+release-candidate SHA as the target; do not assume `HEAD` is still that candidate
+after a resume.
 
 Generate the local evidence pack:
 
 ```bash
 python3 .agents/skills/release-changelog/scripts/collect_release_changes.py \
-  --base v0.1.3 \
+  --base <base-tag> \
   --target <candidate-sha> \
-  --output <temporary-directory>/v0.1.4-evidence.md
+  --output <temporary-directory>/vX.Y.Z-evidence.md
 ```
 
 The script only reads Git data. It reports the exact range, commit taxonomy, changed components, diff totals, changelog candidates, and the complete commit inventory. Run without `--base` only when the latest reachable stable tag is the intended base.
@@ -54,17 +57,20 @@ For every proposed highlight:
 Check these sources when relevant:
 
 - `app/build.gradle.kts` for version name/code and variants;
-- `.github/workflows/release.yml` for published artifacts and gates;
+- `quality/release-gates/release-contract.json` for the current candidate and publication workflows;
+- `.github/workflows/release-candidate.yml` for built artifacts and candidate gates;
+- `.github/workflows/release.yml` for tag-bound promotion;
 - `docs/distribution.md` for channel and identity contracts;
 - `docs/architecture/` plus current Kotlin/Rust registries for protocol claims;
 - tests and golden fixtures for behavioral proof;
 - `git diff --check <base>..<target>` and the evidence pack for scope.
 
-Never infer release readiness from the changelog. CI, exact-SHA network evidence, signed artifacts, physical-device checks, and a successful release run are separate claims.
+Never infer release readiness from the changelog. Exact-SHA CI, signed artifacts,
+the selected assurance profile, and a successful release run are separate claims.
 
 ## Curate the GitHub Release description
 
-Follow the style established by `v0.1.0` through `v0.1.3`:
+Follow the style established by recent stable RIPDPI releases:
 
 - lead with the release theme and user impact;
 - place 4–8 strongest verified changes in `Highlights`;

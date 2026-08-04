@@ -7,7 +7,9 @@ description: Release APK/AAB signing, keystores, R8/ProGuard, version bumps, and
 
 End-to-end release pipeline: signing config, R8/ProGuard, versioning, artifact naming.
 
-**Release trigger:** Tag push matching `v*` or manual dispatch via `.github/workflows/release.yml`.
+**Release flow:** manually dispatch `.github/workflows/release-candidate.yml` for
+an exact `main` SHA, then push the matching `v*` tag to trigger
+`.github/workflows/release.yml`, which promotes the immutable candidate.
 
 ## Signing Configuration
 
@@ -75,8 +77,8 @@ When adding a new JNI binding class, add a keep rule to the module's `consumer-r
 
 | Property | Location | Current |
 |----------|----------|---------|
-| `versionCode` | `app/build.gradle.kts` | read `ripdpiVersionCode` live (11 at this review) |
-| `versionName` | `app/build.gradle.kts` | read `ripdpiVersionName` live (`0.1.3` at this review) |
+| `versionCode` | `app/build.gradle.kts` | read `ripdpiVersionCode` live |
+| `versionName` | `app/build.gradle.kts` | read `ripdpiVersionName` live |
 
 **Artifact naming pattern** (from `ripdpi.android.application.gradle.kts`):
 
@@ -93,7 +95,7 @@ Version bumping checklist:
 
 ## Release Artifacts
 
-The release workflow uploads (90-day retention):
+The release-candidate workflow builds and uploads:
 
 | Artifact | Path |
 |----------|------|
@@ -104,7 +106,9 @@ The release workflow uploads (90-day retention):
 | Compose Mapping | Compose stability report |
 | Native Symbols | packaged `release-native-symbols/manifest.json` and `release-native-symbols.zip` |
 
-A GitHub Release uses the exact pinned `softprops/action-gh-release` SHA currently annotated as v3.0.1, and runs only for a tag or a manual dispatch with `create_release=true`.
+The tag-triggered publication workflow downloads the candidate by its exact run
+ID, reverifies its manifest and SHA, stages checksums and SBOMs, and uses the
+pinned `softprops/action-gh-release` action without rebuilding app binaries.
 
 ## Release Verification in CI
 
@@ -126,5 +130,7 @@ The `release-verification` job in `ci.yml` builds a minified release APK on **ev
 
 ## See Also
 
-- `.github/skills/ci-workflow-authoring/SKILL.md` -- CI pipeline that includes release verification
-- `.github/workflows/release.yml` -- Full release workflow
+- `.agents/skills/ci-workflow-authoring/SKILL.md` -- CI pipeline guidance
+- `quality/release-gates/release-contract.json` -- machine-readable release flow
+- `.github/workflows/release-candidate.yml` -- signed candidate production
+- `.github/workflows/release.yml` -- tag-bound candidate promotion

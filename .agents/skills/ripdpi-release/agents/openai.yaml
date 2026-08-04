@@ -1,6 +1,6 @@
 interface:
   display_name: "RIPDPI Release"
   short_description: "Prepare and publish a verified RIPDPI app release"
-  default_prompt: "Use $ripdpi-release to prepare and, only after explicit confirmation, publish RIPDPI 0.1.4."
+  default_prompt: "Use $ripdpi-release to prepare the requested RIPDPI version and publish it only after the required explicit confirmations."
 policy:
   allow_implicit_invocation: false
