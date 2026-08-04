@@ -20,17 +20,19 @@ def validate_rulesets(payload: Any) -> None:
     if len(matches) != 1:
         raise ValueError(f"required ruleset is missing: {RULESET_NAME}")
     ruleset = matches[0]
+    if ruleset.get("target") != "tag":
+        raise ValueError("candidate-attempt ruleset must target tags")
     if ruleset.get("enforcement") != "active":
         raise ValueError("candidate-attempt tag ruleset must be active")
     if ruleset.get("bypass_actors"):
         raise ValueError("candidate-attempt tag ruleset must not have bypass actors")
-    includes = ruleset.get("conditions", {}).get("ref_name", {}).get("include", [])
-    if REF_PATTERN not in includes:
-        raise ValueError("candidate-attempt tag ruleset does not cover durable refs")
+    ref_condition = ruleset.get("conditions", {}).get("ref_name", {})
+    if ref_condition.get("include") != [REF_PATTERN] or ref_condition.get("exclude") != []:
+        raise ValueError("candidate-attempt tag ruleset ref condition must be exact")
     rule_types = {
         rule.get("type") for rule in ruleset.get("rules", []) if isinstance(rule, dict)
     }
-    if not {"deletion", "non_fast_forward"}.issubset(rule_types):
+    if not {"deletion", "update"}.issubset(rule_types):
         raise ValueError("candidate-attempt tag ruleset must block deletion and updates")
 
 

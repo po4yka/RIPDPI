@@ -14,10 +14,11 @@ from scripts.ci.check_candidate_attempt_tag_ruleset import (
 def ruleset(**overrides):
     value = {
         "name": RULESET_NAME,
+        "target": "tag",
         "enforcement": "active",
         "bypass_actors": [],
-        "conditions": {"ref_name": {"include": [REF_PATTERN]}},
-        "rules": [{"type": "deletion"}, {"type": "non_fast_forward"}],
+        "conditions": {"ref_name": {"include": [REF_PATTERN], "exclude": []}},
+        "rules": [{"type": "deletion"}, {"type": "update"}],
     }
     value.update(overrides)
     return value
@@ -31,8 +32,11 @@ class CandidateAttemptTagRulesetTest(unittest.TestCase):
         cases = (
             [],
             [ruleset(bypass_actors=[{"actor_id": 1}])],
-            [ruleset(conditions={"ref_name": {"include": ["refs/tags/v*"]}})],
+            [ruleset(target="branch")],
+            [ruleset(conditions={"ref_name": {"include": ["refs/tags/v*"], "exclude": []}})],
+            [ruleset(conditions={"ref_name": {"include": [REF_PATTERN], "exclude": [REF_PATTERN]}})],
             [ruleset(rules=[{"type": "deletion"}])],
+            [ruleset(rules=[{"type": "deletion"}, {"type": "non_fast_forward"}])],
         )
         for payload in cases:
             with self.subTest(payload=payload), self.assertRaises(ValueError):
