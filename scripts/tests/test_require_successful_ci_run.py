@@ -7,7 +7,9 @@ import unittest
 from unittest.mock import patch
 
 from scripts.ci.require_successful_ci_run import (
+    DEFAULT_CONTRACT,
     ProvenanceError,
+    load_ci_requirement,
     require_successful_ci_run,
 )
 
@@ -30,6 +32,16 @@ def run_payload(**overrides: object) -> dict[str, object]:
 
 
 class RequireSuccessfulCiRunTest(unittest.TestCase):
+    def require(self, **overrides: object) -> dict[str, object]:
+        arguments: dict[str, object] = {
+            "repository": "po4yka/RIPDPI",
+            "sha": SHA,
+            "token": "token",
+            **load_ci_requirement(DEFAULT_CONTRACT),
+        }
+        arguments.update(overrides)
+        return require_successful_ci_run(**arguments)
+
     @patch("scripts.ci.require_successful_ci_run.fetch_json")
     def test_requires_exact_workflow_run_and_successful_aggregate(self, fetch: object) -> None:
         fetch.side_effect = [
@@ -37,11 +49,7 @@ class RequireSuccessfulCiRunTest(unittest.TestCase):
             {"jobs": [{"name": "ci-required", "conclusion": "success"}]},
         ]
 
-        result = require_successful_ci_run(
-            repository="po4yka/RIPDPI",
-            sha=SHA,
-            token="token",
-        )
+        result = self.require()
 
         self.assertEqual(123, result["runId"])
         self.assertEqual(SHA, result["headSha"])
@@ -57,11 +65,7 @@ class RequireSuccessfulCiRunTest(unittest.TestCase):
         }
 
         with self.assertRaisesRegex(ProvenanceError, "no successful"):
-            require_successful_ci_run(
-                repository="po4yka/RIPDPI",
-                sha=SHA,
-                token="token",
-            )
+            self.require()
 
     @patch("scripts.ci.require_successful_ci_run.fetch_json")
     def test_rejects_missing_or_failed_aggregate(self, fetch: object) -> None:
@@ -75,11 +79,7 @@ class RequireSuccessfulCiRunTest(unittest.TestCase):
                     {"jobs": jobs},
                 ]
                 with self.assertRaisesRegex(ProvenanceError, expected):
-                    require_successful_ci_run(
-                        repository="po4yka/RIPDPI",
-                        sha=SHA,
-                        token="token",
-                    )
+                    self.require()
 
     def test_rejects_invalid_identity_inputs_without_api_call(self) -> None:
         for repository, sha, token in (
@@ -89,11 +89,7 @@ class RequireSuccessfulCiRunTest(unittest.TestCase):
         ):
             with self.subTest(repository=repository, sha=sha, token=bool(token)):
                 with self.assertRaises(ProvenanceError):
-                    require_successful_ci_run(
-                        repository=repository,
-                        sha=sha,
-                        token=token,
-                    )
+                    self.require(repository=repository, sha=sha, token=token)
 
 
 if __name__ == "__main__":

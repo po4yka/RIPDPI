@@ -10,11 +10,14 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CONTRACT = ROOT / "quality/release-gates/release-contract.json"
 
 
 class ProvenanceError(ValueError):
@@ -40,17 +43,47 @@ def fetch_json(url: str, token: str) -> dict[str, Any]:
     return payload
 
 
+def load_ci_requirement(path: Path) -> dict[str, str]:
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8"))
+        candidate = contract["candidate"]
+        required_ci = candidate["requiredCi"]
+        required_ref = candidate["requiredRef"]
+        workflow_path = required_ci["workflow"]
+        event = required_ci["event"]
+        aggregate_job = required_ci["aggregateJob"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        raise ProvenanceError(f"invalid release contract: {error}") from error
+    head_prefix = "refs/heads/"
+    if not isinstance(required_ref, str) or not required_ref.startswith(head_prefix):
+        raise ProvenanceError("candidate.requiredRef must identify a branch")
+    for field, value in (
+        ("workflow", workflow_path),
+        ("event", event),
+        ("aggregateJob", aggregate_job),
+    ):
+        if not isinstance(value, str) or not value:
+            raise ProvenanceError(f"candidate.requiredCi.{field} must be a string")
+    return {
+        "aggregate_job": aggregate_job,
+        "branch": required_ref.removeprefix(head_prefix),
+        "event": event,
+        "workflow": Path(workflow_path).name,
+        "workflow_path": workflow_path,
+    }
+
+
 def require_successful_ci_run(
     *,
     repository: str,
     sha: str,
     token: str,
     api_url: str = "https://api.github.com",
-    workflow: str = "ci.yml",
-    workflow_path: str = ".github/workflows/ci.yml",
-    event: str = "push",
-    branch: str = "main",
-    aggregate_job: str = "ci-required",
+    workflow: str,
+    workflow_path: str,
+    event: str,
+    branch: str,
+    aggregate_job: str,
 ) -> dict[str, Any]:
     if REPOSITORY.fullmatch(repository) is None:
         raise ProvenanceError("repository must use owner/name syntax")
@@ -141,23 +174,16 @@ def main() -> int:
     parser.add_argument("--sha", required=True)
     parser.add_argument("--token-env", default="GH_TOKEN")
     parser.add_argument("--api-url", default=os.environ.get("GITHUB_API_URL", "https://api.github.com"))
-    parser.add_argument("--workflow", default="ci.yml")
-    parser.add_argument("--workflow-path", default=".github/workflows/ci.yml")
-    parser.add_argument("--event", default="push")
-    parser.add_argument("--branch", default="main")
-    parser.add_argument("--aggregate-job", default="ci-required")
+    parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
     args = parser.parse_args()
     try:
+        requirement = load_ci_requirement(args.contract)
         result = require_successful_ci_run(
             repository=args.repository,
             sha=args.sha,
             token=os.environ.get(args.token_env, ""),
             api_url=args.api_url,
-            workflow=args.workflow,
-            workflow_path=args.workflow_path,
-            event=args.event,
-            branch=args.branch,
-            aggregate_job=args.aggregate_job,
+            **requirement,
         )
     except ProvenanceError as error:
         parser.error(str(error))

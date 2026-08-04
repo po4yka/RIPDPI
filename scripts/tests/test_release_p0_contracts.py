@@ -35,10 +35,9 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertNotIn("environment: release-signing", preflight)
         self.assertIn('test "$GITHUB_REF" = refs/heads/main', preflight)
         self.assertIn("scripts/ci/require_successful_ci_run.py", preflight)
-        self.assertIn('--workflow-path .github/workflows/ci.yml', preflight)
-        self.assertIn('--event push', preflight)
-        self.assertIn('--branch main', preflight)
-        self.assertIn('--aggregate-job ci-required', preflight)
+        self.assertIn(
+            '--contract quality/release-gates/release-contract.json', preflight
+        )
         self.assertIn("needs: candidate-preflight", producer)
         self.assertIn("needs: pluggable-transport-assets", signing)
 

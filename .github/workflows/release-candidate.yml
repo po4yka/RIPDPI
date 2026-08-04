@@ -44,11 +44,7 @@ jobs:
           python3 scripts/ci/require_successful_ci_run.py \
             --repository "$GITHUB_REPOSITORY" \
             --sha "$GITHUB_SHA" \
-            --workflow ci.yml \
-            --workflow-path .github/workflows/ci.yml \
-            --event push \
-            --branch main \
-            --aggregate-job ci-required
+            --contract quality/release-gates/release-contract.json
 
   pluggable-transport-assets:
     needs: candidate-preflight
