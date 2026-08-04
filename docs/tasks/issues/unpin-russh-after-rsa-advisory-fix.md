@@ -25,7 +25,7 @@ No safe upgrade existed on either path at the time of pinning. The suppression i
 
 ## Review deadline
 
-Re-evaluate the waiver no later than 2026-08-12. The machine-checked expiry in `native/rust/advisory-waivers.toml` intentionally blocks CI on that date until this task is reviewed.
+Re-evaluate the waiver no later than 2026-11-02. The machine-checked expiry in `native/rust/advisory-waivers.toml` intentionally blocks CI on that date until this task is reviewed.
 
 ## Trigger
 

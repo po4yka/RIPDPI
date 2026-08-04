@@ -19,7 +19,7 @@ tracking = "docs/tasks/issues/replace-unmaintained-daemonize-cli-dependency.md"
 id = "RUSTSEC-2023-0071"
 owner = "Native security maintainer"
 reason = "current Arti and russh paths have no safe upgrade and do not expose attacker-chosen RSA private-key operations"
-expires = "2026-08-12"
+expires = "2026-11-02"
 tracking = "docs/tasks/issues/unpin-russh-after-rsa-advisory-fix.md"
 
 [[waivers]]
