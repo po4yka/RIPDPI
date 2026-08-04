@@ -120,6 +120,14 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn('EVIDENCE_TEST = "app-github-release-androidTest.apk"', manifest_source)
         self.assertIn("PUBLISH_FILES = EXPECTED_FILES - {EVIDENCE_TEST}", manifest_source)
 
+    def test_release_instrumentation_is_checked_before_signing_candidate(self) -> None:
+        ci_source = workflow("ci.yml")
+        candidate_source = workflow("release-candidate.yml")
+        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", ci_source)
+        self.assertIn("-Pripdpi.testBuildType=release", ci_source)
+        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", candidate_source)
+        self.assertIn("-Pripdpi.testBuildType=release", candidate_source)
+
     def test_release_signature_fingerprint_accepts_tool_output_variants(self) -> None:
         expected = "ab" * 32
         colon_delimited = ":".join(["AB"] * 32)

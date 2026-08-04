@@ -54,7 +54,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             ":app:assemblePlayFullRelease",
             ":app:assemblePlaySimpleRelease",
         ):
-            self.assertEqual(1, job.count(task))
+            self.assertEqual(1, len(re.findall(rf"{re.escape(task)}(?![A-Za-z])", job)))
         self.assertIn("IFS=',' read -r -a release_tasks", job)
         self.assertIn('for task in "${release_tasks[@]}"', job)
         self.assertIn("printf '### %s release build", job)
@@ -84,6 +84,25 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             tls_job.group(0),
         )
         self.assertIn('skip-android-sdk-ndk: "true"', tls_job.group(0))
+
+    def test_ci_builds_release_instrumentation_without_signing_secrets(self) -> None:
+        source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        job = release_verification_job(source)
+        step = re.search(
+            r"(?ms)^      - name: Verify GitHub Full release instrumentation APK without signing secrets\n.*?(?=^      - name:|^      - uses:|\Z)",
+            job,
+        )
+        self.assertIsNotNone(step)
+        assert step is not None
+        release_test = step.group(0)
+        self.assertIn("if: matrix.shard.id == 'github'", release_test)
+        self.assertIn(":app:assembleGithubFullReleaseAndroidTest", release_test)
+        self.assertIn("-Pripdpi.testBuildType=release", release_test)
+        self.assertIn("-Pripdpi.prebuiltJniLibsDir", release_test)
+        self.assertIn("-Pripdpi.prebuiltPluggableTransportAssetsDir", release_test)
+        self.assertIn("test \"${#test_apks[@]}\" -eq 1", release_test)
+        self.assertNotIn("RIPDPI_SIGNING_", release_test)
+        self.assertNotIn("KEYSTORE_", release_test)
 
     def test_retrace_uploads_are_variant_aware_and_fail_closed(self) -> None:
         for workflow in WORKFLOWS:

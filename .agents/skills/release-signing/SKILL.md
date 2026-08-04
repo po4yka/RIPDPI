@@ -112,10 +112,15 @@ pinned `softprops/action-gh-release` action without rebuilding app binaries.
 
 ## Release Verification in CI
 
-The `release-verification` job in `ci.yml` builds a minified release APK on **every PR** to catch R8 issues early -- before they reach the release pipeline. This catches:
+The `release-verification` job in `ci.yml` builds all minified release variants
+and, on the GitHub shard, assembles the `GithubFullReleaseAndroidTest` APK with
+`testBuildType=release`. It uses prebuilt native inputs and no signing secrets, so
+release-only Hilt, test ownership, and shrinker problems fail in ordinary CI
+before the signed-candidate environment. This catches:
 - Missing keep rules for JNI classes
 - R8 stripping classes accessed via reflection
 - ProGuard rule conflicts
+- Release-only instrumentation/Hilt compilation failures
 
 ## Common Mistakes
 

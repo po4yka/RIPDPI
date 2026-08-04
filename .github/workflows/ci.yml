@@ -948,6 +948,27 @@ jobs:
             ./gradlew --stop
           done
 
+      - name: Verify GitHub Full release instrumentation APK without signing secrets
+        if: matrix.shard.id == 'github'
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleGithubFullReleaseAndroidTest \
+            --max-workers=1 \
+            -Pripdpi.testBuildType=release \
+            -Pripdpi.enableAbiSplits=false \
+            -Pripdpi.nativeAbiParallelism=1 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
+            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            --profile
+          mapfile -t test_apks < <(find app/build/outputs/apk/androidTest -type f -name "*.apk")
+          test "${#test_apks[@]}" -eq 1
+          printf "### GitHub Full release instrumentation APK\n\nBuilt: %s\n" \
+            "${test_apks[0]}" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: ./.github/actions/upload-build-observability
         if: always()
         with:
