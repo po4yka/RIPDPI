@@ -281,8 +281,10 @@ class UpstreamRelaySupervisorTest {
     fun `single compatible hysteria candidate passes initial preflight`() =
         runTest {
             val relayFactory = raceRelayFactory()
+            var observedRequirements: EgressRequirements? = null
             val supervisor =
-                raceSupervisor(relayFactory) { _, _, _ ->
+                raceSupervisor(relayFactory) { _, _, requirements ->
+                    observedRequirements = requirements
                     RelayActiveProbeResult(true, statusCode = 204, latencyMs = 30L)
                 }
             val plan =
@@ -297,11 +299,13 @@ class UpstreamRelaySupervisorTest {
                             ),
                         ),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
+                    readinessProbeRequirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 )
 
             val promoted = supervisor.startRace(plan, onUnexpectedExit = {})
 
             assertEquals(RelayKindHysteria2, promoted.result.selectedCandidate.relayKind)
+            assertEquals(EgressRequirements(tcpConnect = true, udpAssociate = false), observedRequirements)
             assertEquals(1, relayFactory.runtimes.size)
             supervisor.stop()
         }

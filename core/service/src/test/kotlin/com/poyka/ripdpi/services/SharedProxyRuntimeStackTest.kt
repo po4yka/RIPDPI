@@ -121,6 +121,41 @@ class SharedProxyRuntimeStackTest {
         }
 
     @Test
+    fun singleFailedRelayPreflightRejectsBeforeProxyStartup() =
+        runTest {
+            val fixture = createFixture()
+            val plan =
+                InitialRelayRacePlan(
+                    probeUrl = "https://probe.example/generate_204",
+                    candidates =
+                        listOf(
+                            InitialRelayCandidate(
+                                InitialRelayTransportClass.TlsMimicry,
+                                RealityProfileId,
+                                RelayKindVlessReality,
+                            ),
+                        ),
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                )
+
+            val error =
+                runCatching {
+                    fixture.stack.start(
+                        proxyPreferences = rememberedJsonPreferences(),
+                        onRelayExit = {},
+                        onWarpExit = {},
+                        onAwgExit = {},
+                        onProxyExit = {},
+                        initialRelayRacePlan = plan,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
+            assertEquals(1, fixture.relayFactory.lastRuntime.stopCount)
+            assertTrue(fixture.proxyFactory.runtimes.isEmpty())
+        }
+
+    @Test
     fun udpRequirementRejectsTcpOnlyRelayBeforeRelayAndProxyStartup() =
         runTest {
             val fixture = createFixture()

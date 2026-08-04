@@ -3,6 +3,7 @@ package com.poyka.ripdpi.failover
 import android.content.Context
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
+import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -289,6 +290,127 @@ internal class SimpleInitialRelayRacePolicy
         }
     }
 
+/**
+ * Gates the simple flavor's connected state on real egress through the configured relay.
+ *
+ * The shared relay runtime becomes ready when its local SOCKS listener is bound. A one-candidate
+ * preflight keeps the configured VLESS -> Hysteria2 order while requiring an HTTP request through
+ * that listener before the VPN tunnel can be published as running.
+ */
+@Singleton
+internal class SimpleRelayEgressReadinessPolicy
+    @Inject
+    constructor(
+        private val bundleSource: SimpleRelayBundleSource,
+        private val relayProfileStore: RelayProfileStore,
+        private val serviceStateStore: ServiceStateStore,
+    ) : InitialRelayRacePolicy {
+        internal suspend fun plan(
+            configuredRelayProfileId: String?,
+            configuredRelayKind: String?,
+            networkScopeKey: String?,
+        ): InitialRelayRacePlan? =
+            plan(
+                configuredRelayProfileId = configuredRelayProfileId,
+                configuredRelayKind = configuredRelayKind,
+                networkScopeKey = networkScopeKey,
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+            )
+
+        override suspend fun plan(
+            configuredRelayProfileId: String?,
+            configuredRelayKind: String?,
+            networkScopeKey: String?,
+            requirements: EgressRequirements,
+        ): InitialRelayRacePlan? {
+            val profileId = configuredRelayProfileId
+            val relayKind = configuredRelayKind
+            if (
+                profileId.isNullOrBlank() ||
+                !profileId.startsWith(SEED_RELAY_PROFILE_ID_PREFIX) ||
+                relayKind !in SeededRelayKinds
+            ) {
+                publishDisabledSnapshot()
+                return null
+            }
+            val activeRelayKind = requireNotNull(relayKind)
+
+            val stored =
+                relayProfileStore.load(profileId)
+                    ?: rejectReadiness("Configured embedded relay profile is unavailable")
+            if (
+                stored.kind != activeRelayKind ||
+                relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) != true ||
+                (
+                    requirements.udpAssociate &&
+                        !relayProfileSupportsUdpAssociation(
+                            kindId = stored.kind,
+                            udpEnabled = stored.udpEnabled,
+                            vlessTransport = stored.vlessTransport,
+                            vlessFlow = stored.vlessFlow,
+                        )
+                )
+            ) {
+                rejectReadiness("Configured embedded relay cannot satisfy the active egress probe")
+            }
+
+            val imported =
+                bundleSource.read()?.let { payload ->
+                    SelectorUrltestGroupImport.import(payload, SIMPLE_SEED_GROUP_ID)
+                } as? SelectorUrltestImportResult.Success
+            val probeUrl =
+                (imported?.failoverPolicy as? FailoverPolicy.Urltest)
+                    ?.probeUrl
+                    ?.normalizeHttpProbeUrl()
+                    ?: rejectReadiness("Embedded relay bundle has no valid HTTP egress probe")
+            val transportClass =
+                when (activeRelayKind) {
+                    RelayKindVlessReality -> InitialRelayTransportClass.TlsMimicry
+                    RelayKindHysteria2 -> InitialRelayTransportClass.UdpObfuscation
+                    else -> error("unreachable")
+                }
+            return InitialRelayRacePlan(
+                probeUrl = probeUrl,
+                candidates =
+                    listOf(
+                        InitialRelayCandidate(
+                            transportClass = transportClass,
+                            profileId = profileId,
+                            relayKind = activeRelayKind,
+                        ),
+                    ),
+                requirements = requirements,
+                readinessProbeRequirements =
+                    EgressRequirements(
+                        tcpConnect = true,
+                        udpAssociate = false,
+                    ),
+            )
+        }
+
+        override fun onStateChanged(state: InitialTransportRaceSnapshot) {
+            serviceStateStore.updateTelemetry(
+                serviceStateStore.telemetry.value.copy(initialTransportRaceSnapshot = state),
+            )
+        }
+
+        override fun onSelected(result: InitialRelayRaceResult) = Unit
+
+        private fun publishDisabledSnapshot() {
+            onStateChanged(InitialTransportRaceSnapshot(state = RaceStateDisabled))
+        }
+
+        private fun rejectReadiness(message: String): Nothing {
+            publishDisabledSnapshot()
+            throw InitialTransportSelectionException(message)
+        }
+
+        private companion object {
+            const val RaceStateDisabled = "disabled"
+            val SeededRelayKinds = setOf(RelayKindVlessReality, RelayKindHysteria2)
+        }
+    }
+
 private fun String.normalizeHttpProbeUrl(): String? =
     runCatching {
         val parsed = URI(trim()).normalize()
@@ -320,6 +442,6 @@ internal abstract class SimpleInitialRelayRaceModule {
     @Binds
     abstract fun bindBundleSource(source: AssetSimpleRelayBundleSource): SimpleRelayBundleSource
 
-    // No startup race: VLESS Reality always gets the first attempt. The session watcher owns the
-    // single Hysteria2 retry only after VLESS fails before readiness.
+    @Binds
+    abstract fun bindInitialRelayRacePolicy(policy: SimpleRelayEgressReadinessPolicy): InitialRelayRacePolicy
 }

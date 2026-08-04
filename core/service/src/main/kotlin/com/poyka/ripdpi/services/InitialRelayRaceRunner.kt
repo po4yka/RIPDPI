@@ -136,7 +136,7 @@ internal class InitialRelayRaceRunner(
             val slot = startCandidate(candidate)
             slots[candidate.profileId] = slot
             val endpoint = requireNotNull(slot.endpoint)
-            val result = relayActiveProbe.probe(endpoint, plan.probeUrl, plan.requirements)
+            val result = relayActiveProbe.probe(endpoint, plan.probeUrl, plan.readinessProbeRequirements)
             val outcome = result.failure ?: if (result.succeeded) RaceOutcomeSucceeded else RaceOutcomeFailed
             outcomes[candidate.profileId] = candidate.toSnapshot(outcome, result.latencyMs)
             attempts.send(RelayRaceAttempt(candidate, slot, result))
@@ -191,6 +191,12 @@ internal class InitialRelayRaceRunner(
                 .size == plan.candidates.size,
         ) {
             "Initial relay race candidates must use distinct transport classes"
+        }
+        require(!plan.readinessProbeRequirements.tcpConnect || plan.requirements.tcpConnect) {
+            "Initial relay readiness probe cannot require unsupported TCP egress"
+        }
+        require(!plan.readinessProbeRequirements.udpAssociate || plan.requirements.udpAssociate) {
+            "Initial relay readiness probe cannot require unsupported UDP egress"
         }
     }
 

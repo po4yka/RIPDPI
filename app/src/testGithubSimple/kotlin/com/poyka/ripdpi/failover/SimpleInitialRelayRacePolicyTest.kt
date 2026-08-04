@@ -3,6 +3,7 @@ package com.poyka.ripdpi.failover
 import android.app.Application
 import android.content.Context
 import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -55,6 +56,83 @@ class SimpleInitialRelayRacePolicyTest {
                 egressHealthCache = healthCache,
             )
     }
+
+    @Test
+    fun `startup readiness preflights only configured VLESS`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val plan = readinessPolicy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
+
+            assertEquals(listOf(RelayKindVlessReality), plan?.candidates?.map { it.relayKind })
+            assertEquals(RealityProfileId, plan?.candidates?.single()?.profileId)
+            assertNull(plan?.cachedFallbackProfileId)
+        }
+
+    @Test
+    fun `startup readiness keeps runtime UDP requirement but probes web egress only`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(realityUdpEnabled = true),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+            val requirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
+
+            val plan =
+                readinessPolicy.plan(
+                    RealityProfileId,
+                    RelayKindVlessReality,
+                    "network-a",
+                    requirements,
+                )
+
+            assertEquals(requirements, plan?.requirements)
+            assertEquals(
+                EgressRequirements(tcpConnect = true, udpAssociate = false),
+                plan?.readinessProbeRequirements,
+            )
+        }
+
+    @Test
+    fun `fallback readiness preflights only configured Hysteria2`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val plan = readinessPolicy.plan(HysteriaProfileId, RelayKindHysteria2, "network-a")
+
+            assertEquals(listOf(RelayKindHysteria2), plan?.candidates?.map { it.relayKind })
+            assertEquals(HysteriaProfileId, plan?.candidates?.single()?.profileId)
+        }
+
+    @Test
+    fun `seeded relay startup rejects missing active probe`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle("file:///not-http") },
+                    relayProfileStore = seededProfileStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val error =
+                runCatching {
+                    readinessPolicy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
+        }
 
     @Test
     fun `winner cache is network scoped and expires without cached fallback refresh`() =

@@ -30,6 +30,7 @@ data class InitialRelayRacePlan(
     val probeUrl: String,
     val candidates: List<InitialRelayCandidate>,
     val requirements: EgressRequirements,
+    val readinessProbeRequirements: EgressRequirements = requirements,
     val cachedFallbackProfileId: String? = null,
 )
 
