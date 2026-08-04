@@ -92,9 +92,23 @@ class AmneziaWgRuntimeConfigResolverTest {
     }
 
     @Test
+    fun `a URL-safe-only private key is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(privateKey = "_".repeat(42) + "8="))
+        }
+    }
+
+    @Test
     fun `a blank interface address is rejected`() {
         assertThrows(IllegalArgumentException::class.java) {
             resolver.resolve(request().copy(interfaceAddressV4 = ""))
+        }
+    }
+
+    @Test
+    fun `an invalid interface CIDR is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(interfaceAddressV4 = "not-a-cidr"))
         }
     }
 

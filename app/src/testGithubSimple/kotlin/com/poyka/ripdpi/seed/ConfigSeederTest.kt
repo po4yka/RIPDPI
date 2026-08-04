@@ -128,10 +128,22 @@ private val INVALID_AWG_KEY_BUNDLE =
         "not-a-wireguard-key",
     )
 
+private val URL_SAFE_AWG_KEY_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+        "_".repeat(42) + "8=",
+    )
+
 private val MISSING_AWG_ADDRESS_BUNDLE =
     FAKE_BUNDLE.replace(
         "\"address\": [\"10.8.0.2/32\"]",
         "\"address\": []",
+    )
+
+private val INVALID_AWG_ADDRESS_BUNDLE =
+    FAKE_BUNDLE.replace(
+        "10.8.0.2/32",
+        "not-a-cidr",
     )
 
 private val MULTI_RELAY_BUNDLE =
@@ -494,9 +506,37 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `bundle with URL-safe-only AWG key fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(URL_SAFE_AWG_KEY_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
     fun `bundle with missing AWG address fails before mutation`() =
         runTest {
             val seeder = makeSeeder(MISSING_AWG_ADDRESS_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle with invalid AWG address fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(INVALID_AWG_ADDRESS_BUNDLE)
 
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 

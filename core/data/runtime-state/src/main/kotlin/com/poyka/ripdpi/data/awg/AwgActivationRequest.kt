@@ -71,19 +71,36 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(presharedKey.isBlank() || presharedKey.isWireGuardKey()) { "AmneziaWG preshared key is invalid" }
     require(endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
     require(endpointPort in ValidEndpointPorts) { "AmneziaWG endpoint port invalid" }
-    require(interfaceAddressV4.isNotBlank()) { "AmneziaWG interface address missing" }
+    require(interfaceAddressV4.isIpv4Cidr()) { "AmneziaWG interface address must be an IPv4 CIDR" }
     require(carrier != AwgActivationRequest.CARRIER_WS || carrierWsUrl.isNotBlank()) {
         "AmneziaWG WS carrier requires a carrier URL"
     }
 }
 
 private fun String.isWireGuardKey(): Boolean =
-    listOf(Base64.getDecoder(), Base64.getUrlDecoder()).any { decoder ->
-        runCatching { decoder.decode(this) }.getOrNull()?.size == WireGuardKeyBytes
-    }
+    runCatching { Base64.getDecoder().decode(this) }.getOrNull()?.size == WireGuardKeyBytes
+
+private fun String.isIpv4Cidr(): Boolean {
+    val parts = split('/')
+    if (parts.size != Ipv4CidrPartCount) return false
+    val prefix = parts[1].toIntOrNull() ?: return false
+    if (prefix !in Ipv4PrefixRange) return false
+    val octets = parts[0].split('.')
+    return octets.size == Ipv4OctetCount &&
+        octets.all { octet ->
+            octet.isNotEmpty() &&
+                octet.all(Char::isDigit) &&
+                (octet == "0" || !octet.startsWith('0')) &&
+                octet.toIntOrNull()?.let { it in Ipv4OctetRange } == true
+        }
+}
 
 private val ValidEndpointPorts = 1..65_535
+private val Ipv4PrefixRange = 0..32
+private val Ipv4OctetRange = 0..255
 private const val WireGuardKeyBytes = 32
+private const val Ipv4CidrPartCount = 2
+private const val Ipv4OctetCount = 4
 
 /**
  * AmneziaWG obfuscation knobs in activation-request form. Mirrors the
