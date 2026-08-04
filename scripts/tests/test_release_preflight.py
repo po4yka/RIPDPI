@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -208,20 +208,21 @@ class ReleasePreflightTest(unittest.TestCase):
         scripts.mkdir(parents=True)
         for name in ("verify_native_elfs.py", "verify_jni_readiness_mapping.py"):
             (scripts / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
+        shutil.copy2(
+            ROOT / "scripts/ci/verify-local-release-preflight-output.sh",
+            scripts / "verify-local-release-preflight-output.sh",
+        )
 
     def run_output_verifier(self, root: Path, expected_abi: str) -> subprocess.CompletedProcess[str]:
-        environment = os.environ.copy()
-        environment["RIPDPI_REPO_ROOT"] = str(root)
         return subprocess.run(
             [
                 "bash",
-                str(ROOT / "scripts/ci/verify-local-release-preflight-output.sh"),
+                str(root / "scripts/ci/verify-local-release-preflight-output.sh"),
                 expected_abi,
             ],
             text=True,
             capture_output=True,
             check=False,
-            env=environment,
         )
 
     def test_output_verifier_accepts_exact_host_native_abi(self) -> None:

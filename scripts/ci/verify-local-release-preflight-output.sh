@@ -6,15 +6,12 @@ set -euo pipefail
   exit 2
 }
 expected_abi="$1"
-case "$expected_abi" in
-  arm64-v8a | x86_64) ;;
-  *)
-    echo "Unsupported local preflight host ABI: $expected_abi" >&2
-    exit 2
-    ;;
-esac
+[[ "$expected_abi" =~ ^[A-Za-z0-9_-]+$ ]] || {
+  echo "Invalid local preflight host ABI: $expected_abi" >&2
+  exit 2
+}
 
-repo_root="${RIPDPI_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$repo_root"
 
 for variant in fdroidFull fdroidSimple githubFull githubSimple playFull playSimple; do
