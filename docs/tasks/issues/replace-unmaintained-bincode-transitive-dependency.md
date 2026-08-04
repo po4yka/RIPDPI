@@ -22,7 +22,7 @@ Re-evaluate the waiver no later than 2026-11-02. The machine-checked expiry in `
 
 ## Acceptance criteria
 
-- `cargo tree --manifest-path native/rust/Cargo.toml -i bincode` no longer reports `bincode 2.0.1`.
+- `cargo metadata --locked --format-version 1 --manifest-path native/rust/Cargo.toml | jq -e '[.packages[] | select(.name == "bincode" and .version == "2.0.1")] | length == 0'` passes.
 - The Tor relay retains equivalent directory and typed-index behavior after the upstream dependency change.
 - `RUSTSEC-2025-0141` is removed from `native/rust/deny.toml` and `native/rust/advisory-waivers.toml`.
-- `cargo deny --manifest-path native/rust/Cargo.toml check advisories` and `python3 scripts/ci/check_rust_advisory_waivers.py` pass.
+- `cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories` and `python3 scripts/ci/check_rust_advisory_waivers.py` pass.
