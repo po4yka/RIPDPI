@@ -22,6 +22,7 @@ internal class VpnServiceSessionLifecycle(
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
     private val beforeUserStart: suspend () -> Unit = {},
+    private val awaitStartupReadiness: suspend () -> Boolean = { true },
     private val recoverProfileMutations: suspend () -> Unit = {},
     private val awaitRecoveryUnderlay: suspend () -> Unit = {},
     private val hardKillSwitchRefreshBroadcastLifecycle: HardKillSwitchRefreshLifecycle =
@@ -65,6 +66,10 @@ internal class VpnServiceSessionLifecycle(
                 onStartWithId = { action, startId ->
                     if (isServiceRecoveryStartAction(action)) {
                         recoverProfileMutationsAndAwaitUnderlayThenStart(
+                            awaitStartupReadiness = awaitStartupReadiness,
+                            onStartupNotReady = {
+                                runtimeCoordinator.stop(stopSelfStartId = startId)
+                            },
                             recoverProfileMutations = recoverProfileMutations,
                             awaitRecoveryUnderlay = awaitRecoveryUnderlay,
                             startRuntime = { runtimeCoordinator.start(stopSelfStartId = startId) },
@@ -152,12 +157,18 @@ internal class VpnServiceSessionLifecycle(
     }
 }
 
-internal suspend inline fun recoverProfileMutationsAndAwaitUnderlayThenStart(
-    crossinline recoverProfileMutations: suspend () -> Unit,
-    crossinline awaitRecoveryUnderlay: suspend () -> Unit,
-    crossinline startRuntime: suspend () -> Unit,
+internal suspend fun recoverProfileMutationsAndAwaitUnderlayThenStart(
+    awaitStartupReadiness: suspend () -> Boolean = { true },
+    onStartupNotReady: suspend () -> Unit = {},
+    recoverProfileMutations: suspend () -> Unit,
+    awaitRecoveryUnderlay: suspend () -> Unit,
+    startRuntime: suspend () -> Unit,
     underlayTimeoutMillis: Long = RecoveryUnderlayTimeoutMs,
 ) {
+    if (!awaitStartupReadiness()) {
+        onStartupNotReady()
+        return
+    }
     recoverProfileMutations()
     withTimeoutOrNull(underlayTimeoutMillis) { awaitRecoveryUnderlay() }
     startRuntime()

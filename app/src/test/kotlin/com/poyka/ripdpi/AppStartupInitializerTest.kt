@@ -92,6 +92,8 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.subscriptionWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.bootSessionRecorderRegistration.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.simpleConfigSeed.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.simpleSessionWatcherBind.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
@@ -104,7 +106,7 @@ class AppStartupInitializerTest {
                     "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
                     "subscription_auto_update_worker_enqueue=succeeded, " +
                     "boot_session_recorder_registration=succeeded, " +
-                    "simple_config_seed=succeeded",
+                    "simple_config_seed=succeeded, simple_session_watcher_bind=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -577,6 +579,75 @@ class AppStartupInitializerFailureTest {
 
             assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
             assertEquals(0, watcherBindCalls)
+        }
+
+    @Test
+    fun `simple session watcher binds before startup readiness is published`() =
+        runTest {
+            var readinessAtBind: AppStartupReadinessState? = null
+            lateinit var initializer: AppStartupInitializer
+            val hooks =
+                SimpleFlavorStartupHooks(
+                    Optional.of(
+                        object : SimpleFlavorSeeder {
+                            override suspend fun seed() = Unit
+                        },
+                    ),
+                    Optional.of(
+                        object : SimpleFlavorSessionWatcher {
+                            override fun bind(scope: CoroutineScope) {
+                                readinessAtBind = initializer.readiness.value
+                            }
+                        },
+                    ),
+                )
+            initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+
+            assertEquals(AppStartupReadinessState.Pending, readinessAtBind)
+        }
+
+    @Test
+    fun `simple session watcher failure keeps startup gated`() =
+        runTest {
+            val hooks =
+                SimpleFlavorStartupHooks(
+                    Optional.of(
+                        object : SimpleFlavorSeeder {
+                            override suspend fun seed() = Unit
+                        },
+                    ),
+                    Optional.of(
+                        object : SimpleFlavorSessionWatcher {
+                            override fun bind(scope: CoroutineScope) {
+                                error("required-watcher-bind-failed")
+                            }
+                        },
+                    ),
+                )
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    startupOverrides = StartupTestOverrides(simpleFlavorStartupHooks = hooks),
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it != AppStartupReadinessState.Pending }
+            runCurrent()
+
+            assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
         }
 
     @Test

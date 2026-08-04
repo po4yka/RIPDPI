@@ -20,6 +20,7 @@ import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -80,7 +81,7 @@ internal class SimpleVlessRuntimeMonitor
         }
 
         override fun bind(scope: CoroutineScope) {
-            scope.launch {
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 serviceStateStore.status.collect { (status, mode) ->
                     val settings = settingsRepository.snapshot()
                     val runningRelayKind =
@@ -111,7 +112,7 @@ internal class SimpleVlessRuntimeMonitor
                     }
                 }
             }
-            scope.launch {
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 serviceStateStore.events
                     .filterIsInstance<ServiceEvent.Failed>()
                     .collect(::recoverStartupFailure)

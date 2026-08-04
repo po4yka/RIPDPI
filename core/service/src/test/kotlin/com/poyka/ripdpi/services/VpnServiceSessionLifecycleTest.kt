@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,6 +34,7 @@ import org.junit.Test
  * No Robolectric and no new test dependency are required — the seams and the two
  * collaborators are directly constructible.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class VpnServiceSessionLifecycleTest {
     private sealed interface Event {
         data object ServerStart : Event
@@ -49,9 +54,60 @@ class VpnServiceSessionLifecycleTest {
         data object UnderlayReady : Event
 
         data object RuntimeStart : Event
+
+        data object StartupReady : Event
+
+        data object StartupRejected : Event
     }
 
     private val events = mutableListOf<Event>()
+
+    @Test
+    fun `sticky recovery waits for app startup before reading persisted profiles`() =
+        runTest {
+            val releaseStartup = CompletableDeferred<Unit>()
+            val recovery =
+                launch {
+                    recoverProfileMutationsAndAwaitUnderlayThenStart(
+                        awaitStartupReadiness = {
+                            events += Event.StartupReady
+                            releaseStartup.await()
+                            true
+                        },
+                        onStartupNotReady = { events += Event.StartupRejected },
+                        recoverProfileMutations = { events += Event.ProfileRecover },
+                        awaitRecoveryUnderlay = { events += Event.UnderlayReady },
+                        startRuntime = { events += Event.RuntimeStart },
+                    )
+                }
+
+            runCurrent()
+            assertEquals(listOf(Event.StartupReady), events)
+
+            releaseStartup.complete(Unit)
+            recovery.join()
+            assertEquals(
+                listOf(Event.StartupReady, Event.ProfileRecover, Event.UnderlayReady, Event.RuntimeStart),
+                events,
+            )
+        }
+
+    @Test
+    fun `failed app startup rejects sticky runtime start`() =
+        runTest {
+            recoverProfileMutationsAndAwaitUnderlayThenStart(
+                awaitStartupReadiness = {
+                    events += Event.StartupReady
+                    false
+                },
+                onStartupNotReady = { events += Event.StartupRejected },
+                recoverProfileMutations = { events += Event.ProfileRecover },
+                awaitRecoveryUnderlay = { events += Event.UnderlayReady },
+                startRuntime = { events += Event.RuntimeStart },
+            )
+
+            assertEquals(listOf(Event.StartupReady, Event.StartupRejected), events)
+        }
 
     @Test
     fun `recovery start waits for profile recovery and underlay before runtime`() =

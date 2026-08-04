@@ -80,6 +80,9 @@ class RipDpiVpnService :
     lateinit var explicitUserStartPreparer: Optional<ExplicitUserStartPreparer>
 
     @Inject
+    lateinit var serviceRecoveryStartGate: Optional<ServiceRecoveryStartGate>
+
+    @Inject
     internal lateinit var recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector
 
     @Inject
@@ -125,6 +128,9 @@ class RipDpiVpnService :
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
                 beforeUserStart = {
                     explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN)
+                },
+                awaitStartupReadiness = {
+                    serviceRecoveryStartGate.orElse(null)?.awaitReady() ?: true
                 },
                 recoverProfileMutations = profileMutationCoordinator::recover,
                 awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,

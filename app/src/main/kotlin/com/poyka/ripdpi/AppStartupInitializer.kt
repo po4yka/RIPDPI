@@ -144,8 +144,6 @@ class AppStartupInitializer
                 .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
-            runCatching { simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope) }
-                .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
             Logger.i { report.toLogMessage() }
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
             // API 37). A captured heap dump is delivered to our result callback.
@@ -212,6 +210,13 @@ class AppStartupInitializer
             check(simpleConfigSeed.status == AppStartupSubsystemStatus.Succeeded) {
                 "Required simple configuration seed failed"
             }
+            val simpleSessionWatcherBind =
+                runSubsystem(AppStartupSubsystem.SimpleSessionWatcherBind) {
+                    simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope)
+                }
+            check(simpleSessionWatcherBind.status == AppStartupSubsystemStatus.Succeeded) {
+                "Required simple session watcher failed to bind"
+            }
             val resetEventConsume =
                 runSubsystem(AppStartupSubsystem.ResetEventConsume) {
                     // The reset wipe recorded this BEFORE deleting everything; it
@@ -270,6 +275,7 @@ class AppStartupInitializer
                 subscriptionWorkerEnqueue = subscriptionWorkerEnqueue,
                 bootSessionRecorderRegistration = bootSessionRecorderRegistration,
                 simpleConfigSeed = simpleConfigSeed,
+                simpleSessionWatcherBind = simpleSessionWatcherBind,
             )
         }
 
@@ -325,6 +331,7 @@ internal data class AppStartupReport(
     val subscriptionWorkerEnqueue: AppStartupSubsystemResult,
     val bootSessionRecorderRegistration: AppStartupSubsystemResult,
     val simpleConfigSeed: AppStartupSubsystemResult,
+    val simpleSessionWatcherBind: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -341,6 +348,7 @@ internal data class AppStartupReport(
                 subscriptionWorkerEnqueue,
                 bootSessionRecorderRegistration,
                 simpleConfigSeed,
+                simpleSessionWatcherBind,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -376,6 +384,7 @@ internal enum class AppStartupSubsystem(
     SubscriptionAutoUpdateWorkerEnqueue("subscription_auto_update_worker_enqueue"),
     BootSessionRecorderRegistration("boot_session_recorder_registration"),
     SimpleConfigSeed("simple_config_seed"),
+    SimpleSessionWatcherBind("simple_session_watcher_bind"),
 }
 
 internal enum class AppStartupSubsystemStatus {

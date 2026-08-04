@@ -10,6 +10,9 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
@@ -17,6 +20,12 @@ import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -25,6 +34,33 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SimpleVlessRuntimeMonitorTest {
+    @Test
+    fun `bind activates failure subscription before returning`() =
+        runTest {
+            val stateStore = SubscriptionAwareServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val controller = RecordingServiceController()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(SeededVlessProfileId)
+            }
+            val monitor =
+                buildMonitor(
+                    stateStore = stateStore,
+                    settings = settings,
+                    profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
+                    controller = controller,
+                )
+
+            monitor.bind(backgroundScope)
+
+            assertEquals(1, stateStore.eventSubscriberCount)
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("immediate startup failure"))
+            runCurrent()
+            assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
+        }
+
     @Test
     fun `next explicit VPN attempt restores seeded VLESS after AWG fallback`() =
         runTest {
@@ -450,7 +486,7 @@ class SimpleVlessRuntimeMonitorTest {
         }
 
     private fun buildMonitor(
-        stateStore: DefaultServiceStateStore,
+        stateStore: ServiceStateStore,
         settings: FakeAppSettingsRepository,
         profiles: List<RelayProfileRecord> = emptyList(),
         awgSelection: RecordingAwgFallbackSelection = RecordingAwgFallbackSelection(),
@@ -477,6 +513,43 @@ class SimpleVlessRuntimeMonitorTest {
     private companion object {
         const val SeededVlessProfileId = "simple-seed-VlessReality"
         const val SeededHysteriaProfileId = "simple-seed-Hysteria2"
+    }
+}
+
+private class SubscriptionAwareServiceStateStore : ServiceStateStore {
+    private val statusState = MutableStateFlow(AppStatus.Halted to Mode.VPN)
+    private val eventState = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
+
+    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
+    override val events: SharedFlow<ServiceEvent> = eventState.asSharedFlow()
+    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
+    val eventSubscriberCount: Int
+        get() = eventState.subscriptionCount.value
+
+    override fun setStatus(
+        status: AppStatus,
+        mode: Mode,
+    ) {
+        statusState.value = status to mode
+    }
+
+    override fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
+        eventState.tryEmit(
+            ServiceEvent.Failed(
+                sender = sender,
+                reason = reason,
+                statusAtFailure = status.value.first,
+                modeAtFailure = status.value.second,
+            ),
+        )
+    }
+
+    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
+        telemetryState.value = snapshot
     }
 }
 
