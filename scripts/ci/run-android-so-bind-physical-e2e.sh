@@ -141,11 +141,26 @@ adb_device() {
 }
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
+device_state_dir="$temp_dir/device-state"
+device_state_captured=false
 cleanup() {
+    local status=$?
+    trap - EXIT
+    set +e
     adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     adb_device shell am force-stop com.poyka.ripdpi >/dev/null 2>&1 || true
     adb_device shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 || true
+    if [[ "$device_state_captured" == "true" ]]; then
+        if ! python3 "$source_root/test-lab/scripts/android-device-session.py" restore \
+            --adb "$adb_bin" \
+            --serial "$android_serial" \
+            --state-dir "$device_state_dir"; then
+            echo "SO_BIND physical E2E: failed to restore pre-test Android device state" >&2
+            status=1
+        fi
+    fi
     rm -rf "$temp_dir"
+    exit "$status"
 }
 trap cleanup EXIT
 
@@ -201,6 +216,15 @@ so_bind_physical_is_underlay_interface "$ipv6_interface" ||
     fail_infra IPV6_UNDERLAY_REQUIRED "IPv6 route does not select a physical Android underlay interface"
 so_bind_physical_normalize_routed_ipv6 "$ipv6_source" >/dev/null ||
     fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route does not select a routed unicast source address"
+
+python3 "$source_root/test-lab/scripts/android-device-session.py" capture \
+    --adb "$adb_bin" \
+    --serial "$android_serial" \
+    --state-dir "$device_state_dir" \
+    --package com.poyka.ripdpi \
+    --package com.poyka.ripdpi.test ||
+    fail "could not capture the pre-test Android package and VPN state"
+device_state_captured=true
 
 install_and_verify_apk "$app_apk" "com.poyka.ripdpi" "app"
 install_and_verify_apk "$test_apk" "com.poyka.ripdpi.test" "test"

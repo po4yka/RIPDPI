@@ -99,25 +99,6 @@ detect_lab_host() {
   '
 }
 
-detect_serial() {
-  if [[ -n "$serial" ]]; then
-    printf '%s' "$serial"
-    return 0
-  fi
-  "$adb_bin" devices -l | awk -v profile="$profile" '
-    $2 == "device" {
-      if (profile == "emulator" && $1 ~ /^emulator-/) {
-        print $1
-        exit 0
-      }
-      if (profile != "emulator" && $1 !~ /^emulator-/) {
-        print $1
-        exit 0
-      }
-    }
-  '
-}
-
 free_udp_port() {
   "$python_bin" - <<'PY'
 import socket
@@ -314,9 +295,8 @@ run_scenario() {
 
 mkdir -p "$out_dir"
 lab_host="$(detect_lab_host)"
-serial="$(detect_serial)"
 if [[ -z "$serial" ]]; then
-  echo "No adb device found for profile $profile. Set ANDROID_SERIAL or pass --serial." >&2
+  echo "ANDROID_SERIAL or --serial is required; the fault matrix never auto-selects a target." >&2
   exit 2
 fi
 

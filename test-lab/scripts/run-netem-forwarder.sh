@@ -29,7 +29,7 @@ DNS and UDP remain on host helpers because Docker Desktop UDP publication is not
 
 Options:
   --profile device|physical|emulator  Probe profile, default RIPDPI_LAB_PROFILE or device
-  --serial SERIAL                      ADB serial, default ANDROID_SERIAL or first matching target
+  --serial SERIAL                      ADB serial, default ANDROID_SERIAL; required
   --timeout-ms VALUE                   Debug probe timeout, default RIPDPI_PROBE_TIMEOUT_MS or 12000
   --delay VALUE                        Netem delay, default RIPDPI_NETEM_DELAY or 200ms
   --jitter VALUE                       Netem jitter, default RIPDPI_NETEM_JITTER or 40ms
@@ -99,25 +99,6 @@ detect_lab_host() {
     profile == "emulator" && $1 == "EMULATOR_LAB_HOST" { print $2; found=1 }
     profile != "emulator" && $1 == "DEVICE_LAB_HOST" { print $2; found=1 }
     END { if (!found) exit 1 }
-  '
-}
-
-detect_serial() {
-  if [[ -n "$serial" ]]; then
-    printf '%s' "$serial"
-    return 0
-  fi
-  "$adb_bin" devices -l | awk -v profile="$profile" '
-    $2 == "device" {
-      if (profile == "emulator" && $1 ~ /^emulator-/) {
-        print $1
-        exit 0
-      }
-      if (profile != "emulator" && $1 !~ /^emulator-/) {
-        print $1
-        exit 0
-      }
-    }
   '
 }
 
@@ -280,9 +261,8 @@ if [[ "$skip_start" != "true" ]]; then
 fi
 
 lab_host="$(detect_lab_host)"
-serial="$(detect_serial)"
 if [[ -z "$serial" ]]; then
-  echo "No adb device found for profile $profile. Set ANDROID_SERIAL or pass --serial." >&2
+  echo "ANDROID_SERIAL or --serial is required; the netem runner never auto-selects a target." >&2
   exit 2
 fi
 

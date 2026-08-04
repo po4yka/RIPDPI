@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+"""Capture and restore RIPDPI-owned state around destructive Android tests."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+VERSION = "ripdpi_android_device_session_v1"
+SETTINGS = (
+    ("secure", "always_on_vpn_app"),
+    ("secure", "always_on_vpn_lockdown"),
+    ("global", "stay_on_while_plugged_in"),
+)
+NOTIFICATION_PERMISSION = "android.permission.POST_NOTIFICATIONS"
+
+
+class SessionError(RuntimeError):
+    pass
+
+
+def adb_command(adb: str, serial: str, *args: str) -> list[str]:
+    return [adb, "-s", serial, *args]
+
+
+def run(
+    adb: str,
+    serial: str,
+    *args: str,
+    check: bool = True,
+    input_bytes: bytes | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    result = subprocess.run(
+        adb_command(adb, serial, *args),
+        input=input_bytes,
+        capture_output=True,
+        check=False,
+    )
+    if check and result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise SessionError(f"adb {' '.join(args)} failed: {stderr or result.returncode}")
+    return result
+
+
+def text(result: subprocess.CompletedProcess[bytes]) -> str:
+    return result.stdout.decode("utf-8", errors="strict").replace("\r", "").strip()
+
+
+def package_paths(adb: str, serial: str, package: str) -> list[str]:
+    result = run(adb, serial, "shell", "pm", "path", package, check=False)
+    if result.returncode != 0:
+        return []
+    paths = []
+    for line in text(result).splitlines():
+        if line.startswith("package:"):
+            paths.append(line.removeprefix("package:"))
+    return paths
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def capture_package(adb: str, serial: str, state_dir: Path, package: str) -> dict[str, object]:
+    remote_paths = package_paths(adb, serial, package)
+    record: dict[str, object] = {"name": package, "installed": bool(remote_paths)}
+    if not remote_paths:
+        return record
+
+    package_dir = state_dir / "packages" / package
+    package_dir.mkdir(parents=True)
+    apks: list[dict[str, str]] = []
+    for index, remote_path in enumerate(remote_paths):
+        local_path = package_dir / f"{index:02d}-{Path(remote_path).name}"
+        run(adb, serial, "pull", remote_path, str(local_path))
+        apks.append({"file": str(local_path.relative_to(state_dir)), "sha256": sha256(local_path)})
+
+    data = run(adb, serial, "exec-out", "run-as", package, "tar", "-C", ".", "-cf", "-", ".")
+    if not data.stdout:
+        raise SessionError(f"refusing to replace {package}: run-as data backup was empty")
+    data_path = package_dir / "data.tar"
+    data_path.write_bytes(data.stdout)
+    permission = text(
+        run(
+            adb,
+            serial,
+            "shell",
+            "cmd",
+            "package",
+            "check-permission",
+            NOTIFICATION_PERMISSION,
+            package,
+            check=False,
+        )
+    )
+    record.update(
+        apks=apks,
+        data={"file": str(data_path.relative_to(state_dir)), "sha256": sha256(data_path)},
+        notificationPermissionGranted=permission == "granted",
+    )
+    return record
+
+
+def capture(args: argparse.Namespace) -> None:
+    state_dir = args.state_dir.resolve()
+    if state_dir.exists():
+        raise SessionError(f"state directory already exists: {state_dir}")
+    state_dir.mkdir(parents=True)
+    try:
+        device_serial = text(run(args.adb, args.serial, "get-serialno"))
+        if device_serial != args.serial:
+            raise SessionError(f"selected device mismatch: expected {args.serial}, got {device_serial}")
+        settings = {}
+        for namespace, key in SETTINGS:
+            value = text(run(args.adb, args.serial, "shell", "settings", "get", namespace, key))
+            settings[f"{namespace}/{key}"] = None if value in {"", "null"} else value
+        manifest = {
+            "version": VERSION,
+            "serial": args.serial,
+            "settings": settings,
+            "packages": [
+                capture_package(args.adb, args.serial, state_dir, package)
+                for package in args.package
+            ],
+        }
+        (state_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    except BaseException:
+        shutil.rmtree(state_dir, ignore_errors=True)
+        raise
+
+
+def require_digest(state_dir: Path, record: dict[str, str]) -> Path:
+    path = state_dir / record["file"]
+    if not path.is_file() or sha256(path) != record["sha256"]:
+        raise SessionError(f"device-session backup is missing or corrupt: {path}")
+    return path
+
+
+def restore_setting(adb: str, serial: str, identity: str, value: str | None) -> None:
+    namespace, key = identity.split("/", 1)
+    if value is None:
+        run(adb, serial, "shell", "settings", "delete", namespace, key)
+    else:
+        run(adb, serial, "shell", "settings", "put", namespace, key, value)
+
+
+def restore_package(adb: str, serial: str, state_dir: Path, record: dict[str, object]) -> None:
+    package = str(record["name"])
+    run(adb, serial, "shell", "am", "force-stop", package, check=False)
+    run(adb, serial, "uninstall", package, check=False)
+    if not record["installed"]:
+        return
+
+    apk_paths = [require_digest(state_dir, apk) for apk in record["apks"]]  # type: ignore[arg-type]
+    run(adb, serial, "install-multiple", "-r", "-d", *(str(path) for path in apk_paths))
+    data_record = record["data"]
+    assert isinstance(data_record, dict)
+    data_path = require_digest(state_dir, data_record)  # type: ignore[arg-type]
+    run(adb, serial, "shell", "pm", "clear", package)
+    run(
+        adb,
+        serial,
+        "shell",
+        "run-as",
+        package,
+        "tar",
+        "-C",
+        ".",
+        "-xf",
+        "-",
+        input_bytes=data_path.read_bytes(),
+    )
+    permission_action = "grant" if record.get("notificationPermissionGranted") else "revoke"
+    run(
+        adb,
+        serial,
+        "shell",
+        "pm",
+        permission_action,
+        package,
+        NOTIFICATION_PERMISSION,
+        check=False,
+    )
+    run(adb, serial, "shell", "am", "force-stop", package, check=False)
+
+
+def restore(args: argparse.Namespace) -> None:
+    state_dir = args.state_dir.resolve()
+    manifest_path = state_dir / "manifest.json"
+    if not manifest_path.is_file():
+        raise SessionError(f"device-session manifest is missing: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("version") != VERSION or manifest.get("serial") != args.serial:
+        raise SessionError("device-session manifest does not match the selected device")
+    if text(run(args.adb, args.serial, "get-serialno")) != args.serial:
+        raise SessionError("selected device changed before restoration")
+
+    for record in reversed(manifest["packages"]):
+        restore_package(args.adb, args.serial, state_dir, record)
+    for identity, value in manifest["settings"].items():
+        restore_setting(args.adb, args.serial, identity, value)
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", choices=("capture", "restore"))
+    parser.add_argument("--adb", default="adb")
+    parser.add_argument("--serial", required=True)
+    parser.add_argument("--state-dir", required=True, type=Path)
+    parser.add_argument("--package", action="append", default=[])
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    try:
+        if args.command == "capture":
+            if not args.package:
+                raise SessionError("capture requires at least one --package")
+            capture(args)
+        else:
+            restore(args)
+    except (OSError, ValueError, KeyError, TypeError, SessionError) as error:
+        print(f"Android device session: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

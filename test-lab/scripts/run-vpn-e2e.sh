@@ -11,6 +11,8 @@ skip_start=false
 keep_lab=false
 skip_maestro=false
 maestro_bin=""
+android_serial="${ANDROID_SERIAL:-}"
+device_state_captured=false
 
 usage() {
   cat <<USAGE
@@ -78,14 +80,20 @@ case "$profile" in
     ;;
 esac
 
+if [[ -z "$android_serial" ]]; then
+  echo "ANDROID_SERIAL is required; destructive device tests never auto-select a target." >&2
+  exit 2
+fi
+
 if [[ -z "$out_dir" ]]; then
   out_dir="$lab_root/artifacts/vpn-e2e-$(date +%Y%m%d-%H%M%S)"
 fi
 mkdir -p "$out_dir"
+device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-vpn-device-state.XXXXXX")"
+device_state_dir="$device_state_root/session"
 
 maestro_ran=false
 lab_started=false
-failure=false
 archive_path=""
 
 resolve_maestro() {
@@ -182,8 +190,9 @@ collect_failure_artifacts() {
 
 cleanup() {
   local status=$?
+  trap - EXIT
+  set +e
   if [[ $status -ne 0 ]]; then
-    failure=true
     collect_failure_artifacts "$status"
   fi
 
@@ -200,11 +209,26 @@ cleanup() {
     "$script_dir/stop-lab.sh" >/dev/null 2>&1 || true
   fi
 
-  if [[ "$failure" == "true" ]]; then
-    exit "$status"
+  if [[ "$device_state_captured" == "true" ]]; then
+    if ! python3 "$script_dir/android-device-session.py" restore \
+      --serial "$android_serial" \
+      --state-dir "$device_state_dir"; then
+      echo "Failed to restore the pre-test Android device state." >&2
+      status=1
+    fi
   fi
+  rm -rf "$device_state_root"
+
+  exit "$status"
 }
 trap cleanup EXIT
+
+python3 "$script_dir/android-device-session.py" capture \
+  --serial "$android_serial" \
+  --state-dir "$device_state_dir" \
+  --package com.poyka.ripdpi \
+  --package com.poyka.ripdpi.test
+device_state_captured=true
 
 if [[ "$skip_start" != "true" ]]; then
   "$script_dir/restart-lab.sh" --profile "$profile"
