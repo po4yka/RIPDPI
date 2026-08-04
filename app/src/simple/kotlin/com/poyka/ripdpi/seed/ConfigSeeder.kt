@@ -25,7 +25,7 @@ internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
 internal const val SEED_KEY_VERSION = "config_seed_version"
 internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
-private const val CURRENT_SEED_VERSION = 5
+private const val CURRENT_SEED_VERSION = 6
 
 /**
  * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
@@ -106,6 +106,13 @@ open class ConfigSeeder
                     val primaryReality =
                         result.profiles.filterIsInstance<ProxyProfile.VlessReality>().firstOrNull()
                             ?: error("Required embedded relay bundle has no VLESS+Reality primary")
+                    check(
+                        result.profiles
+                            .filterIsInstance<ProxyProfile.Vless>()
+                            .any { profile -> profile.xhttpPath != null },
+                    ) {
+                        "Required embedded relay bundle has no TCP-diverse VLESS/xHTTP reserve"
+                    }
                     check(result.profiles.any { it is ProxyProfile.Hysteria2 }) {
                         "Required embedded relay bundle has no Hysteria2 reserve"
                     }

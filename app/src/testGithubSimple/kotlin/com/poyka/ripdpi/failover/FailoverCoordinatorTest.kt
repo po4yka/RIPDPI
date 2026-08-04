@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessFlowVision
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
@@ -31,6 +32,9 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.StartupFallbackController
+import com.poyka.ripdpi.services.StartupFallbackDispatchResult
+import com.poyka.ripdpi.services.StartupFallbackLease
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -73,7 +77,17 @@ private class FakeServiceStateStore(
     }
 
     fun emitFailure(reason: FailureReason) {
-        check(_events.tryEmit(ServiceEvent.Failed(Sender.VPN, reason)))
+        val (status, mode) = _status.value
+        check(
+            _events.tryEmit(
+                ServiceEvent.Failed(
+                    sender = Sender.VPN,
+                    reason = reason,
+                    statusAtFailure = status,
+                    modeAtFailure = mode,
+                ),
+            ),
+        )
     }
 
     override fun setStatus(
@@ -95,7 +109,8 @@ private class FakeServiceStateStore(
 
 private class FakeServiceController(
     private val stateStore: FakeServiceStateStore? = null,
-) : ServiceController {
+) : ServiceController,
+    StartupFallbackController {
     val startCalls = mutableListOf<Mode>()
     val transportRestartCalls = mutableListOf<Mode>()
     val stopCalls = mutableListOf<Unit>()
@@ -119,7 +134,14 @@ private class FakeServiceController(
         startCalls += Mode.VPN
         return ServiceStartResult.Accepted(Mode.VPN)
     }
+
+    override fun captureStartupFallbackLease(): StartupFallbackLease = FakeStartupFallbackLease
+
+    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
+        StartupFallbackDispatchResult.Dispatched(start(Mode.VPN))
 }
+
+private data object FakeStartupFallbackLease : StartupFallbackLease
 
 private class FakeRelayProfileStore(
     profiles: List<RelayProfileRecord> = emptyList(),
@@ -307,6 +329,7 @@ private fun buildCoordinator(
         FailoverCoordinator(
             serviceStateStore = stateStore,
             serviceController = controller,
+            startupFallbackController = controller,
             relayProfileStore = FakeRelayProfileStore(relayProfiles),
             settingsRepository = settings,
             awgEgressSelection = awgSelection,
@@ -380,6 +403,129 @@ private data class CoordinatorFixture(
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FailoverCoordinatorTest {
+    @Test
+    fun `production bindings use the health probing coordinator`() {
+        val bindings =
+            FailoverCoordinatorBindsModule::class.java.declaredMethods.associate { method ->
+                method.returnType to method.parameterTypes.single()
+            }
+
+        assertEquals(
+            FailoverCoordinator::class.java,
+            bindings[com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher::class.java],
+        )
+        assertEquals(FailoverCoordinator::class.java, bindings[ActiveTransportProvider::class.java])
+        assertEquals(
+            FailoverCoordinator::class.java,
+            bindings[com.poyka.ripdpi.services.ExplicitUserStartPreparer::class.java],
+        )
+    }
+
+    @Test
+    fun `explicit VPN start restores embedded Reality after automatic fallback`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(false)
+                setRelayKind(RelayKindHysteria2)
+                setRelayProfileId("simple-seed-Hysteria2")
+                setSimpleFailoverAwgProfileId(SIMPLE_SEED_AWG_PROFILE_ID)
+            }
+            val (coordinator, _, _) = buildCoordinator(settings = settings)
+
+            coordinator.prepare(Mode.VPN)
+
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVlessReality, settings.relayKind())
+            assertEquals("simple-seed-VlessReality", settings.relayProfileId())
+            assertEquals("", settings.simpleFailoverAwgProfileId())
+            assertNull(coordinator.activeCandidate.value)
+        }
+
+    @Test
+    fun `UDP blocked session falls back to TCP xHTTP before UDP transports`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = true)
+            val primaryId = "simple-seed-VlessReality"
+            val xhttpId = "simple-seed-Vless"
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(primaryId)
+            }
+            val probedRequirements = mutableListOf<com.poyka.ripdpi.services.EgressRequirements>()
+            val awg =
+                AwgProfileEntity(
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
+                    name = "UDP fallback",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = primaryId,
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                                vlessTransport = RelayVlessTransportRealityTcp,
+                                vlessFlow = RelayVlessFlowVision,
+                            ),
+                            RelayProfileRecord(
+                                id = xhttpId,
+                                kind = RelayKindVless,
+                                vlessTransport = RelayVlessTransportXhttp,
+                            ),
+                            RelayProfileRecord(
+                                id = "simple-seed-Hysteria2",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
+                    awgProfiles = listOf(awg),
+                    egressProbe =
+                        FailoverEgressProbe { _, requirements ->
+                            probedRequirements += requirements
+                            FailoverEgressProbeResult(succeeded = !requirements.udpAssociate)
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            val fallback = coordinator.activeCandidate.value
+            check(fallback is FailoverCandidate.Relay)
+            assertEquals(RelayKindVless, fallback.relayKind)
+            assertEquals(xhttpId, fallback.profileId)
+            assertEquals(1, controller.transportRestartCalls.size)
+
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "failed",
+                    relayProtocolKind = RelayKindVless,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertTrue(probedRequirements.any { it.udpAssociate })
+            assertFalse(probedRequirements.last().udpAssociate)
+            assertEquals("Healthy TCP reserve must stop the failover chain", 1, controller.transportRestartCalls.size)
+
+            coordinator.stopObserving()
+        }
+
     /**
      * Sustained relay failure >= FAILOVER_DEBOUNCE_MS triggers exactly ONE switch.
      *
@@ -1125,7 +1271,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun `default UDP requirement starts hysteria and fails over to AWG`() =
+    fun `default UDP requirement keeps TCP primary ahead of UDP reserves`() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 0L)
@@ -1150,14 +1296,16 @@ class FailoverCoordinatorTest {
 
             val initial = coordinator.activeCandidate.value
             check(initial is FailoverCandidate.Relay)
-            assertEquals(RelayKindHysteria2, initial.relayKind)
+            assertEquals(RelayKindVlessReality, initial.relayKind)
 
             stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
             clock.advance(21_000L)
             stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
             advanceUntilIdle()
 
-            assertTrue(coordinator.activeCandidate.value is FailoverCandidate.Awg)
+            val fallback = coordinator.activeCandidate.value
+            check(fallback is FailoverCandidate.Relay)
+            assertEquals(RelayKindHysteria2, fallback.relayKind)
             assertEquals(1, controller.startCalls.size)
             coordinator.stopObserving()
         }
@@ -1280,7 +1428,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun `UDP requirement with no compatible candidate remains fail closed`() =
+    fun `UDP requirement retains a TCP-only degraded candidate`() =
         runTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
             val (coordinator, controller, _) =
@@ -1292,7 +1440,10 @@ class FailoverCoordinatorTest {
 
             coordinator.startObserving(observeScope)
 
-            assertNull(coordinator.activeCandidate.value)
+            val active = coordinator.activeCandidate.value
+            check(active is FailoverCandidate.Relay)
+            assertEquals("reality-only", active.profileId)
+            assertFalse(active.supportsUdpAssociation)
             assertTrue(controller.startCalls.isEmpty())
             coordinator.stopObserving()
         }
@@ -1803,7 +1954,6 @@ class FailoverCoordinatorTest {
 
             coordinator.bind(observeScope)
             stateStore.emitFailure(FailureReason.NativeError("transport readiness timed out"))
-            advanceUntilIdle()
             assertEquals("Retry must wait until failed startup is fully halted", 0, controller.startCalls.size)
 
             stateStore.setStatus(AppStatus.Halted, Mode.VPN)
@@ -1823,7 +1973,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun `initial relay selection failure advances directly to AWG`() =
+    fun `initial relay readiness failure advances to TCP xHTTP before UDP fallbacks`() =
         runTest {
             val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Reconnecting)
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
@@ -1843,6 +1993,20 @@ class FailoverCoordinatorTest {
                 buildCoordinator(
                     stateStore = stateStore,
                     settings = settings,
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(id = "reality-1", kind = RelayKindVlessReality),
+                            RelayProfileRecord(
+                                id = "simple-seed-Vless",
+                                kind = RelayKindVless,
+                                vlessTransport = RelayVlessTransportXhttp,
+                            ),
+                            RelayProfileRecord(
+                                id = "simple-seed-Hysteria2",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
                     awgProfiles = listOf(awg),
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
@@ -1853,8 +2017,10 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
 
             assertEquals(listOf(Mode.VPN), controller.startCalls)
-            assertFalse(settings.relayEnabled())
-            assertEquals(awg.id, settings.simpleFailoverAwgProfileId())
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVless, settings.relayKind())
+            assertEquals("simple-seed-Vless", settings.relayProfileId())
+            assertEquals("", settings.simpleFailoverAwgProfileId())
         }
 
     /**

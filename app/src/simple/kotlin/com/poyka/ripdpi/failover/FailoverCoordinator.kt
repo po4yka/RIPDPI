@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
@@ -25,6 +26,9 @@ import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayTransportClass
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.StartupFallbackController
+import com.poyka.ripdpi.services.StartupFallbackDispatchResult
+import com.poyka.ripdpi.services.StartupFallbackLease
 import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
@@ -42,6 +46,9 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -118,6 +125,7 @@ sealed interface FailoverCandidate {
         val profileId: String,
         val relayKind: String,
         val vlessTransport: String? = null,
+        val supportsUdpAssociation: Boolean = false,
     ) : FailoverCandidate
 
     /** AmneziaWG egress candidate. */
@@ -150,6 +158,7 @@ class FailoverCoordinator
     internal constructor(
         private val serviceStateStore: ServiceStateStore,
         private val serviceController: ServiceController,
+        private val startupFallbackController: StartupFallbackController,
         private val relayProfileStore: RelayProfileStore,
         private val settingsRepository: AppSettingsRepository,
         private val awgEgressSelection: SimpleAwgEgressSelection,
@@ -158,6 +167,7 @@ class FailoverCoordinator
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
         ActiveTransportProvider,
+        ExplicitUserStartPreparer,
         InitialRaceFailoverCoordinator {
         // ── Public state ────────────────────────────────────────────────────
 
@@ -226,6 +236,9 @@ class FailoverCoordinator
 
         private var initialRaceSelection: FailoverCandidate.Relay? = null
 
+        private val startupRecoveryMutex = Mutex()
+        private var startupRecoveryEpoch = 0L
+
         // ── Public API ──────────────────────────────────────────────────────
 
         /**
@@ -236,6 +249,34 @@ class FailoverCoordinator
          */
         fun setAutoFailoverEnabled(enabled: Boolean) {
             autoFailoverEnabled.value = enabled
+        }
+
+        /**
+         * Every explicit VPN attempt starts from the embedded VLESS+Reality primary. Automatic
+         * replacements remain scoped to that attempt and cannot become the next manual default.
+         *
+         * // NOT cancel-safe: persists the primary selection before the service reads settings.
+         * Cancellation leaves the fail-closed VLESS primary selected for the next attempt.
+         */
+        override suspend fun prepare(mode: Mode) {
+            if (mode != Mode.VPN) return
+            startupRecoveryMutex.withLock {
+                startupRecoveryEpoch++
+                stopObserving()
+                settingsRepository.update {
+                    setRelayEnabled(true)
+                    setRelayKind(RelayKindVlessReality)
+                    setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
+                    setSimpleFailoverAwgProfileId("")
+                }
+                awgEgressSelection.clear()
+                startupFailureSwitchesInCycle = 0
+                startupFailureCandidates = emptyList()
+                startupFailureStartedOutsideCandidates = false
+                initialRaceSelection = null
+                skipNextInitialRelayRace = false
+                Logger.i { "FailoverCoordinator: explicit VPN attempt restored embedded VLESS+Reality" }
+            }
         }
 
         override fun shouldSkipInitialRelayRace(): Boolean =
@@ -367,7 +408,12 @@ class FailoverCoordinator
                 serviceStateStore.events
                     .filterIsInstance<ServiceEvent.Failed>()
                     .collect { event ->
-                        if (event.sender == Sender.VPN && event.reason.isRecoverableTransportFailure()) {
+                        if (
+                            event.sender == Sender.VPN &&
+                            event.modeAtFailure == Mode.VPN &&
+                            event.statusAtFailure != AppStatus.Running &&
+                            event.reason.isRecoverableTransportFailure()
+                        ) {
                             recoverFromStartupFailure(
                                 initialRaceFailed = event.reason is FailureReason.InitialTransportSelectionFailed,
                             )
@@ -389,29 +435,45 @@ class FailoverCoordinator
                 Logger.i { "FailoverCoordinator: diagnostic AWG startup failure remains manual" }
                 return
             }
-            serviceStateStore.status.first { (status, mode) ->
-                status == AppStatus.Halted && mode == Mode.VPN
+            val pendingEpoch = startupRecoveryMutex.withLock { startupRecoveryEpoch }
+            val lease = startupFallbackController.captureStartupFallbackLease()
+            val halted =
+                withTimeoutOrNull(STARTUP_HALT_WAIT_TIMEOUT_MILLIS) {
+                    serviceStateStore.status.first { (status, mode) ->
+                        status == AppStatus.Halted && mode == Mode.VPN
+                    }
+                    true
+                } == true
+            if (!halted) {
+                Logger.w { "FailoverCoordinator: timed out waiting for failed VPN to halt" }
+                return
             }
+            startupRecoveryMutex.withLock {
+                if (startupRecoveryEpoch != pendingEpoch) {
+                    Logger.i { "FailoverCoordinator: stale startup recovery was superseded" }
+                    return@withLock
+                }
+                recoverHaltedStartup(initialRaceFailed, lease)
+            }
+        }
 
+        /**
+         * Persists and dispatches the next candidate after the failed service is fully halted.
+         *
+         * // NOT cancel-safe: candidate persistence precedes dispatch. Cancellation leaves that
+         * candidate selected so a later recovery start remains fail-closed on the VPN path.
+         */
+        private suspend fun recoverHaltedStartup(
+            initialRaceFailed: Boolean,
+            lease: StartupFallbackLease,
+        ) {
             val rebuilt = buildCandidates()
             if (rebuilt.isEmpty()) {
                 Logger.w { "FailoverCoordinator: no compatible startup fallback, remaining fail-closed" }
                 return
             }
+            val settingsBeforeSwitch = settingsRepository.snapshot()
             val persistedIndex = findPersistedCandidateIndex(rebuilt)
-            val exhaustedRaceFallbackIndex =
-                if (initialRaceFailed) {
-                    rebuilt
-                        .indexOfFirst {
-                            it is FailoverCandidate.Awg
-                        }.takeIf { it >= 0 }
-                } else {
-                    null
-                }
-            if (initialRaceFailed && exhaustedRaceFallbackIndex == null) {
-                Logger.w { "FailoverCoordinator: initial relay preflight exhausted without AWG fallback" }
-                return
-            }
             if (rebuilt != startupFailureCandidates) {
                 startupFailureCandidates = rebuilt
                 startupFailureSwitchesInCycle = 0
@@ -419,31 +481,68 @@ class FailoverCoordinator
             }
             candidates = rebuilt
             activeCandidateIndex = persistedIndex ?: 0
-            val availableReplacements =
-                candidates.size - if (startupFailureStartedOutsideCandidates) 0 else 1
+            val availableReplacements = candidates.size - if (startupFailureStartedOutsideCandidates) 0 else 1
             if (startupFailureSwitchesInCycle >= availableReplacements) {
                 Logger.w { "FailoverCoordinator: startup candidates exhausted, remaining fail-closed" }
                 return
             }
 
-            val nextIndex =
-                exhaustedRaceFallbackIndex
-                    ?: if (persistedIndex == null) 0 else (activeCandidateIndex + 1) % candidates.size
+            val previousCandidate = candidates.getOrNull(activeCandidateIndex)
+            val nextIndex = if (persistedIndex == null) 0 else (activeCandidateIndex + 1) % candidates.size
             val nextCandidate = candidates[nextIndex]
             Logger.i {
                 "FailoverCoordinator: startup transport failed; selecting candidate " +
-                    "${nextIndex + 1}/${candidates.size} kind=${nextCandidate.transportKind()}"
+                    "${nextIndex + 1}/${candidates.size} kind=${nextCandidate.transportKind()}" +
+                    if (initialRaceFailed) " after readiness failure" else ""
             }
             writeConfig(nextCandidate)
             activeCandidateIndex = nextIndex
             startupFailureSwitchesInCycle++
             setActiveCandidate(nextCandidate)
             skipNextInitialRelayRace = true
-            val result = serviceController.start(Mode.VPN)
-            if (result is ServiceStartResult.Rejected) {
-                skipNextInitialRelayRace = false
-                Logger.w { "FailoverCoordinator: startup recovery rejected — ${result.reason}" }
+            when (val dispatch = startupFallbackController.startVpnForStartupFallback(lease)) {
+                StartupFallbackDispatchResult.Superseded -> {
+                    rollbackStartupSwitch(settingsBeforeSwitch, previousCandidate)
+                    Logger.i { "FailoverCoordinator: newer user intent superseded startup recovery" }
+                }
+
+                is StartupFallbackDispatchResult.Dispatched -> {
+                    val result = dispatch.startResult
+                    if (result is ServiceStartResult.Rejected) {
+                        rollbackStartupSwitch(settingsBeforeSwitch, previousCandidate)
+                        Logger.w { "FailoverCoordinator: startup recovery rejected — ${result.reason}" }
+                    }
+                }
             }
+        }
+
+        /**
+         * Restores the candidate that owned the failed attempt.
+         *
+         * // NOT cancel-safe: settings are restored before the in-memory selector. A process
+         * restart rehydrates the same persisted candidate if cancellation lands in between.
+         */
+        private suspend fun rollbackStartupSwitch(
+            settings: AppSettings,
+            previousCandidate: FailoverCandidate?,
+        ) {
+            settingsRepository.update {
+                setRelayEnabled(settings.relayEnabled)
+                setRelayKind(settings.relayKind)
+                setRelayProfileId(settings.relayProfileId)
+                setSimpleFailoverAwgProfileId(settings.simpleFailoverAwgProfileId)
+            }
+            if (settings.relayEnabled || settings.simpleFailoverAwgProfileId.isBlank()) {
+                awgEgressSelection.clear()
+            } else {
+                awgEgressSelection.select(settings.simpleFailoverAwgProfileId)
+            }
+            startupFailureSwitchesInCycle = (startupFailureSwitchesInCycle - 1).coerceAtLeast(0)
+            previousCandidate?.let { previous ->
+                activeCandidateIndex = candidates.indexOf(previous).takeIf { it >= 0 } ?: 0
+            }
+            setActiveCandidate(previousCandidate)
+            skipNextInitialRelayRace = false
         }
 
         // ── Internal logic ──────────────────────────────────────────────────
@@ -585,13 +684,15 @@ class FailoverCoordinator
                 XUDP_FAILURE_STREAK_THRESHOLD
 
         private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): Boolean {
-            if (candidates.getOrNull(activeCandidateIndex) !is FailoverCandidate.Relay) {
-                return false
-            }
+            val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return false
             val endpoint = parseFailoverProxyEndpoint(snapshot.relayTelemetry.listenerAddress) ?: return false
+            val probeRequirements =
+                activeRequirements.copy(
+                    udpAssociate = activeRequirements.udpAssociate && active.supportsUdpAssociation,
+                )
             val result =
                 try {
-                    egressProbe.probe(endpoint, activeRequirements)
+                    egressProbe.probe(endpoint, probeRequirements)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
@@ -758,9 +859,10 @@ class FailoverCoordinator
         /**
          * Builds the ordered candidate list from what is actually persisted in the stores.
          *
-         * Priority order is VLESS+Reality, VLESS/XHTTP, Hysteria2, then AWG. When UDP ASSOCIATE
-         * is required, the same ordering is filtered by each persisted profile's effective
-         * capability, so XUDP-enabled Reality precedes Hysteria2 while xHTTP remains excluded.
+         * Priority order is VLESS+Reality, VLESS/XHTTP, Hysteria2, then AWG. TCP-only relays stay
+         * eligible even when UDP ASSOCIATE is requested: they are a deliberately degraded but
+         * transport-diverse reserve for networks where UDP itself is blocked. Health confirmation
+         * probes only the capabilities that the active candidate can provide.
          *
          * A candidate is only added when its backing data exists. The list is sorted by
          * [FailoverCandidate.priority] so priority 0 is always index 0.
@@ -778,7 +880,6 @@ class FailoverCoordinator
                 )
             activeRequirements = requirements
 
-            val proof = EgressProof.from(requirements)
             val networkScopeKey =
                 serviceStateStore.telemetry.value.runtimeFieldTelemetry.telemetryNetworkFingerprintHash
             val relayProfiles = relayProfileStore.list()
@@ -786,16 +887,7 @@ class FailoverCoordinator
             relayProfiles
                 .filter { profile ->
                     profile.kind in supportedRelayKinds &&
-                        relayTransportCapabilities(profile.kind)?.satisfies(requirements) == true &&
-                        (
-                            !requirements.udpAssociate ||
-                                relayProfileSupportsUdpAssociation(
-                                    kindId = profile.kind,
-                                    udpEnabled = profile.udpEnabled,
-                                    vlessTransport = profile.vlessTransport,
-                                    vlessFlow = profile.vlessFlow,
-                                )
-                        )
+                        relayTransportCapabilities(profile.kind)?.tcpConnect == true
                 }.sortedWith(
                     compareBy(
                         { relayKindPriority.getValue(it.kind) },
@@ -803,6 +895,17 @@ class FailoverCoordinator
                         { it.id },
                     ),
                 ).forEach { profile ->
+                    val supportsUdpAssociation =
+                        relayProfileSupportsUdpAssociation(
+                            kindId = profile.kind,
+                            udpEnabled = profile.udpEnabled,
+                            vlessTransport = profile.vlessTransport,
+                            vlessFlow = profile.vlessFlow,
+                        )
+                    val candidateRequirements =
+                        requirements.copy(
+                            udpAssociate = requirements.udpAssociate && supportsUdpAssociation,
+                        )
                     val initialCandidate =
                         InitialRelayCandidate(
                             transportClass =
@@ -814,13 +917,20 @@ class FailoverCoordinator
                             profileId = profile.id,
                             relayKind = profile.kind,
                         )
-                    if (!egressHealthCache.isCoolingDown(networkScopeKey, proof, initialCandidate)) {
+                    if (
+                        !egressHealthCache.isCoolingDown(
+                            networkScopeKey,
+                            EgressProof.from(candidateRequirements),
+                            initialCandidate,
+                        )
+                    ) {
                         result.add(
                             FailoverCandidate.Relay(
                                 priority = result.size,
                                 profileId = profile.id,
                                 relayKind = profile.kind,
                                 vlessTransport = profile.vlessTransport.takeIf { profile.kind == RelayKindVless },
+                                supportsUdpAssociation = supportsUdpAssociation,
                             ),
                         )
                     }
@@ -866,6 +976,8 @@ class FailoverCoordinator
 
         private companion object {
             const val XUDP_FAILURE_STREAK_THRESHOLD = 3L
+            const val SEEDED_VLESS_REALITY_PROFILE_ID = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
+            const val STARTUP_HALT_WAIT_TIMEOUT_MILLIS = 5_000L
             val relayKindPriority =
                 mapOf(
                     RelayKindVlessReality to 0,
@@ -948,16 +1060,14 @@ object FailoverCoordinatorModule {
 @Module
 @InstallIn(SingletonComponent::class)
 internal abstract class FailoverCoordinatorBindsModule {
-    // User traffic in the simple flavor is fixed to the embedded VLESS+Reality profile.
-    // Multi-transport failover remains available to explicit diagnostic code only.
     @Binds
-    abstract fun bindSimpleFlavorSessionWatcher(monitor: SimpleVlessRuntimeMonitor): SimpleFlavorSessionWatcher
+    abstract fun bindSimpleFlavorSessionWatcher(coordinator: FailoverCoordinator): SimpleFlavorSessionWatcher
 
     @Binds
-    abstract fun bindActiveTransportProvider(monitor: SimpleVlessRuntimeMonitor): ActiveTransportProvider
+    abstract fun bindActiveTransportProvider(coordinator: FailoverCoordinator): ActiveTransportProvider
 
     @Binds
-    abstract fun bindExplicitUserStartPreparer(monitor: SimpleVlessRuntimeMonitor): ExplicitUserStartPreparer
+    abstract fun bindExplicitUserStartPreparer(coordinator: FailoverCoordinator): ExplicitUserStartPreparer
 
     @Binds
     @Singleton

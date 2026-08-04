@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -43,7 +44,7 @@ import org.robolectric.RuntimeEnvironment
 
 /**
  * Synthetic RIPDPI sing-box bundle with fake values only.
- * Contains one VLESS-REALITY outbound and one ripdpi.amneziawg entry.
+ * Contains VLESS-REALITY, VLESS/xHTTP, Hysteria2, and one ripdpi.amneziawg entry.
  * No real keys, UUIDs, or server addresses.
  */
 private val FAKE_BUNDLE =
@@ -67,6 +68,15 @@ private val FAKE_BUNDLE =
               "short_id": "deadbeef"
             }
           }
+        },
+        {
+          "type": "vless",
+          "tag": "test-xhttp",
+          "server": "1.2.3.5",
+          "server_port": 443,
+          "uuid": "00000000-0000-0000-0000-000000000002",
+          "tls": { "enabled": true, "server_name": "xhttp.example.com" },
+          "transport": { "type": "xhttp", "path": "/fixture", "host": "xhttp.example.com" }
         },
         {
           "type": "hysteria2",
@@ -120,6 +130,12 @@ private val NO_AWG_BUNDLE =
     FAKE_BUNDLE.replace(
         Regex("""(?s)"amneziawg": \[\s*\{.*?\}\s*]"""),
         "\"amneziawg\": []",
+    )
+
+private val NO_XHTTP_BUNDLE =
+    FAKE_BUNDLE.replace(
+        Regex("""(?s)\s*\{\s*"type": "vless",\s*"tag": "test-xhttp".*?\},(?=\s*\{\s*"type": "hysteria2")"""),
+        "",
     )
 
 private val INVALID_HYSTERIA_PORT_BUNDLE =
@@ -296,8 +312,8 @@ class ConfigSeederTest {
                     .single()
                     .action,
             )
-            // Both relay profiles were persisted (VLESS+REALITY and Hysteria2)
-            assertEquals(2, relayProfileStore.list().size)
+            // All required transport classes were persisted.
+            assertEquals(3, relayProfileStore.list().size)
             assertEquals(
                 TlsFingerprintProfileFirefoxStable,
                 relayProfileStore.list().single { it.kind == RelayKindHysteria2 }.vlessFingerprint,
@@ -321,7 +337,7 @@ class ConfigSeederTest {
         }
 
     @Test
-    fun `both relay profiles survive seeding under distinct ids`() =
+    fun `all relay profiles survive seeding under distinct ids`() =
         runTest {
             val seeder = makeSeeder(FAKE_BUNDLE)
 
@@ -329,14 +345,14 @@ class ConfigSeederTest {
 
             // RelayProfileActivator defaults to a single shared "default" store slot; the
             // seeder overrides it with a per-kind id so VLESS+REALITY is NOT overwritten by
-            // Hysteria2 (both are relay-activatable). Both must coexist for 3-way failover.
+            // Hysteria2 and xHTTP are relay-activatable too. All must coexist for failover.
             val relayProfiles = relayProfileStore.list()
-            assertEquals("Both relay kinds must persist", 2, relayProfiles.size)
+            assertEquals("All relay kinds must persist", 3, relayProfiles.size)
             assertEquals(
-                setOf(RelayKindVlessReality, RelayKindHysteria2),
+                setOf(RelayKindVlessReality, RelayKindVless, RelayKindHysteria2),
                 relayProfiles.map { it.kind }.toSet(),
             )
-            assertEquals("Store ids must be distinct", 2, relayProfiles.map { it.id }.toSet().size)
+            assertEquals("Store ids must be distinct", 3, relayProfiles.map { it.id }.toSet().size)
             // VLESS+REALITY is activated last so it is the initial active transport (priority 0).
             assertEquals(RelayKindVlessReality, relaySettings.snapshot().relayKind)
             assertTrue(seeder.isSeeded())
@@ -379,7 +395,7 @@ class ConfigSeederTest {
 
             assertEquals(1, proxyGroupRepository.addedGroups.size)
             assertEquals(1, awgDao.rows.value.size)
-            assertEquals(2, relayProfileStore.list().size)
+            assertEquals(3, relayProfileStore.list().size)
             val settings = relaySettings.snapshot()
             assertTrue(settings.relayEnabled)
             assertEquals(RelayKindVlessReality, settings.relayKind)
@@ -421,7 +437,7 @@ class ConfigSeederTest {
 
             seeder.seed()
 
-            assertEquals(2, relayProfileStore.list().size)
+            assertEquals(3, relayProfileStore.list().size)
             assertEquals(1, awgDao.rows.value.size)
             assertTrue(
                 application
@@ -499,6 +515,20 @@ class ConfigSeederTest {
     fun `bundle without required AWG reserve fails before mutation`() =
         runTest {
             val seeder = makeSeeder(NO_AWG_BUNDLE)
+
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `bundle without TCP-diverse xHTTP reserve fails before mutation`() =
+        runTest {
+            val seeder = makeSeeder(NO_XHTTP_BUNDLE)
 
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
