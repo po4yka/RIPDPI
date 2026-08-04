@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -40,6 +41,53 @@ def _default_runner(command: list[str], cwd: Path) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
+def _candidate_runs(repo: Path) -> list[dict[str, Any]]:
+    repository = subprocess.run(
+        ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if repository.returncode != 0 or not repository.stdout.strip():
+        raise PreflightError("could not resolve GitHub repository for candidate-run audit")
+    endpoint = (
+        f"repos/{repository.stdout.strip()}/actions/workflows/"
+        "release-candidate.yml/runs?event=workflow_dispatch&per_page=100"
+    )
+    result = subprocess.run(
+        ["gh", "api", "--paginate", "--slurp", endpoint],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise PreflightError("could not retrieve complete release-candidate run history")
+    try:
+        pages = json.loads(result.stdout)
+        runs = [
+            {
+                "displayTitle": run["display_title"],
+                "createdAt": run["created_at"],
+                "headSha": run["head_sha"],
+            }
+            for page in pages
+            for run in page["workflow_runs"]
+        ]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise PreflightError("candidate-run history response is malformed") from error
+    return runs
+
+
+def _latest_stable_tag(repo: Path) -> str:
+    tags = _git(repo, "tag", "--merged", "HEAD", "--list", "v[0-9]*", "--sort=-version:refname")
+    for tag in tags.splitlines():
+        if re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+            return tag
+    raise PreflightError("no reachable stable release tag found")
+
+
 def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[str, list[str]]]:
     python = sys.executable
     return [
@@ -51,10 +99,13 @@ def _commands(release_tag: str, base_tag: str, source_sha: str) -> list[tuple[st
                 "-m",
                 "unittest",
                 "scripts.tests.test_release_contract",
+                "scripts.tests.test_release_artifact_uploads",
+                "scripts.tests.test_release_candidate_manifest",
                 "scripts.tests.test_release_p0_contracts",
                 "scripts.tests.test_release_p1_contracts",
                 "scripts.tests.test_release_window",
                 "scripts.tests.test_release_preflight",
+                "scripts.tests.test_evidence_retention",
             ],
         ),
         ("architecture-health", [python, "scripts/ci/check_architecture_health.py", "--check"]),
@@ -99,6 +150,7 @@ def run_preflight(
     window_started_at: datetime,
     now: datetime,
     command_runner: CommandRunner = _default_runner,
+    candidate_runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     exact_repo = repo.resolve()
     dirty = _git(exact_repo, "status", "--porcelain=v1")
@@ -114,7 +166,8 @@ def run_preflight(
         raise PreflightError(f"target release tag already exists locally: {release_tag}")
     if tag_check.returncode not in (0, 1):
         raise PreflightError("could not verify local target tag absence")
-    base_tag = _git(exact_repo, "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*")
+    base_tag = _latest_stable_tag(exact_repo)
+    runs = _candidate_runs(exact_repo) if candidate_runs is None else candidate_runs
     window = evaluate_release_window(
         exact_repo,
         contract_path,
@@ -123,7 +176,7 @@ def run_preflight(
         source_sha,
         window_started_at,
         now,
-        [],
+        runs,
     )
     checks: list[dict[str, Any]] = []
     for name, command in _commands(release_tag, base_tag, source_sha):
@@ -140,6 +193,8 @@ def run_preflight(
                 "command": command,
             }
         )
+    if _git(exact_repo, "status", "--porcelain=v1"):
+        raise PreflightError("release preflight checks changed the committed worktree")
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
     local_contract = contract["localPreflight"]
     return {
@@ -186,6 +241,7 @@ def main() -> int:
             args.window_start_sha,
             args.window_started_at,
             datetime.now(UTC),
+            candidate_runs=None,
         )
     except (PreflightError, ValueError, KeyError, json.JSONDecodeError) as error:
         parser.error(str(error))

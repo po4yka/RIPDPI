@@ -50,6 +50,11 @@ class ReleasePreflightTest(unittest.TestCase):
                 window_started_at=datetime(2026, 8, 3, tzinfo=UTC),
                 now=datetime(2026, 8, 4, tzinfo=UTC),
                 command_runner=successful,
+                candidate_runs=[{
+                    "displayTitle": "Android release candidate v0.1.5 @ prior",
+                    "headSha": candidate,
+                    "createdAt": "2026-08-03T12:00:00Z",
+                }],
             )
             self.assertEqual("pass", receipt["status"])
             self.assertEqual(candidate, receipt["sourceSha"])
@@ -58,6 +63,10 @@ class ReleasePreflightTest(unittest.TestCase):
             flattened = "\n".join(" ".join(command) for command in observed)
             self.assertIn(":app:assembleGithubFullReleaseAndroidTest", flattened)
             self.assertIn("check_release_contract.py", flattened)
+            self.assertIn("test_release_artifact_uploads", flattened)
+            self.assertIn("test_release_candidate_manifest", flattened)
+            self.assertIn("test_evidence_retention", flattened)
+            self.assertEqual(1, receipt["window"]["candidateRunCount"])
             self.assertEqual(
                 [
                     "does-not-sign-artifacts",
@@ -77,7 +86,7 @@ class ReleasePreflightTest(unittest.TestCase):
             with self.assertRaisesRegex(PreflightError, "failed"):
                 run_preflight(
                     repo, CONTRACT, "v0.1.5", start,
-                    datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC), failing
+                    datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC), failing, []
                 )
 
     def test_existing_target_tag_fails_before_any_check_runs(self) -> None:
@@ -89,7 +98,7 @@ class ReleasePreflightTest(unittest.TestCase):
                 run_preflight(
                     repo, CONTRACT, "v0.1.5", start,
                     datetime(2026, 8, 3, tzinfo=UTC), datetime(2026, 8, 4, tzinfo=UTC),
-                    lambda command, cwd: observed.append(command),
+                    lambda command, cwd: observed.append(command), [],
                 )
             self.assertEqual([], observed)
 
@@ -100,6 +109,11 @@ class ReleasePreflightTest(unittest.TestCase):
         self.assertIn("scripts/ci/release_preflight.py", justfile)
         self.assertNotIn("skip_build", justfile)
         self.assertIn("scripts.tests.test_release_preflight", ci)
+
+    def test_default_preflight_loads_complete_remote_candidate_history(self) -> None:
+        source = (ROOT / "scripts/ci/release_preflight.py").read_text(encoding="utf-8")
+        self.assertIn('"gh", "api", "--paginate", "--slurp"', source)
+        self.assertNotIn("candidate_runs=[]", source)
 
 
 if __name__ == "__main__":

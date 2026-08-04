@@ -148,7 +148,13 @@ contract, window, identity, architecture, locked Cargo metadata, TLS snapshot,
 GithubFullRelease, release AndroidTest, native ELF, and mapping checks pass. The
 receipt is deliberately bounded: it is host-ABI evidence, does not sign release
 artifacts, and does not replace successful hosted `ci-required` for the exact
-candidate SHA.
+candidate SHA. It requires authenticated GitHub access to count the complete
+release-candidate run history; it fails rather than reporting an unverified zero.
+
+For manual candidate or publication downloads, wrap the complete download and
+verification command with `scripts/ci/with-transient-release-downloads.sh` and
+write only below its `RIPDPI_RELEASE_DOWNLOAD_DIR`. The helper removes that exact
+managed download directory on exit, including failure paths.
 
 The candidate is stored with a source-bound manifest, signatures, native ELF
 checks, symbols, and attestations. A matching `v*` tag then triggers
