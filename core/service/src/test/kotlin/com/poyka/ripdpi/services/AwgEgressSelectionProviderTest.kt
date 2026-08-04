@@ -7,7 +7,7 @@ import org.junit.Test
 
 class AwgEgressSelectionProviderTest {
     @Test
-    fun `provider selects first available source by priority`() =
+    fun `provider selects active simple fallback before saved standalone selection`() =
         runTest {
             val standalone = sampleRequest("standalone")
             val simpleFailover = sampleRequest("simple")
@@ -15,12 +15,12 @@ class AwgEgressSelectionProviderTest {
                 DefaultAwgEgressSelectionProvider(
                     sources =
                         setOf(
-                            StaticAwgEgressSelectionSource(selectionPriority = 10, request = simpleFailover),
-                            StaticAwgEgressSelectionSource(selectionPriority = 0, request = standalone),
+                            StaticAwgEgressSelectionSource(selectionPriority = 10, request = standalone),
+                            StaticAwgEgressSelectionSource(selectionPriority = 0, request = simpleFailover),
                         ),
                 )
 
-            assertEquals(standalone, provider.selectedAwgEgress())
+            assertEquals(simpleFailover, provider.selectedAwgEgress())
         }
 
     @Test

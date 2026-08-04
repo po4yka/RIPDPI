@@ -2011,6 +2011,14 @@ class FailoverCoordinatorTest {
             assertEquals(request, fixture.awgSelection.selectedAwgEgress())
         }
 
+    @Test
+    fun `simple AWG fallback has runtime override priority`() =
+        runTest {
+            val fixture = buildCoordinator()
+
+            assertEquals(0, fixture.awgSelection.selectionPriority)
+        }
+
     /**
      * Cold-start regression: relayEnabled=false alone is ambiguous because a default install also
      * has relay disabled. When the explicit AWG selector is present, the coordinator must resume on

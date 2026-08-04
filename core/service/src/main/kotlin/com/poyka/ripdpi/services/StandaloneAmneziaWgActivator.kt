@@ -51,7 +51,8 @@ internal class DefaultStandaloneAmneziaWgActivator
             loadProfile: suspend (String) -> AwgActivationRequest?,
         ) : this(serviceController, bootSessionStateStore, AwgProfileLoader(loadProfile))
 
-        override val selectionPriority: Int = 0
+        // A session-selected fallback must override this persisted standalone selection.
+        override val selectionPriority: Int = 10
 
         private val lifecycleLock = Mutex()
         private var selectedRequest: AwgActivationRequest? = null

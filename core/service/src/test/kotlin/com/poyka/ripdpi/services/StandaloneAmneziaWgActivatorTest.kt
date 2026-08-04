@@ -19,6 +19,18 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class StandaloneAmneziaWgActivatorTest {
     @Test
+    fun `saved standalone selection yields to an active runtime fallback`() {
+        val activator =
+            DefaultStandaloneAmneziaWgActivator(
+                serviceController = RecordingServiceController(),
+                bootSessionStateStore = RecordingBootSessionStateStore(),
+                loadProfile = { null },
+            )
+
+        assertEquals(10, activator.selectionPriority)
+    }
+
+    @Test
     fun `activate selects request and starts vpn service`() =
         runTest {
             val serviceController = RecordingServiceController()
