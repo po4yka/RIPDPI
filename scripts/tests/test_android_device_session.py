@@ -29,6 +29,8 @@ pathlib.Path(os.environ['ADB_LOG']).open('a').write(' '.join(args) + '\\n')
 command = args[2:]
 if command == ['get-serialno']:
     print(args[1])
+elif command == ['shell', 'am', 'get-current-user']:
+    print('10')
 elif command[:3] == ['shell', 'settings', 'get']:
     key = command[-1]
     print({'always_on_vpn_app': 'com.example.vpn', 'always_on_vpn_lockdown': '1'}.get(key, 'null'))
@@ -40,13 +42,19 @@ elif command[:1] == ['pull']:
 elif command[:2] == ['exec-out', 'run-as']:
     sys.stdout.buffer.write(b'original-data')
 elif command[:3] == ['shell', 'dumpsys', 'package']:
-    print('''runtime permissions:
-      android.permission.ACCESS_FINE_LOCATION: granted=true, flags=[ USER_SET ]
-      android.permission.CAMERA: granted=false, flags=[ USER_FIXED|USER_SET ]''')
+    print('''install permissions:
+      android.permission.INTERNET: granted=true
+    User 0:
+      runtime permissions:
+        android.permission.CAMERA: granted=true, flags=[ USER_SET ]
+    User 10:
+      runtime permissions:
+        android.permission.ACCESS_FINE_LOCATION: granted=true, flags=[ USER_SET ]
+        android.permission.CAMERA: granted=false, flags=[ USER_FIXED|USER_SET ]''')
 elif command[:5] == ['shell', 'cmd', 'appops', 'get', '--user']:
     print('FINE_LOCATION: foreground; time=+1h\\nCAMERA: ignore')
 elif command[:1] == ['install-multiple']:
-    for candidate in command[3:]:
+    for candidate in command[4:]:
         if not pathlib.Path(candidate).is_file():
             raise SystemExit(4)
 elif command[:3] == ['shell', 'run-as', 'com.poyka.ripdpi']:
@@ -93,6 +101,7 @@ raise SystemExit(0)
             self.assertEqual(0, capture.returncode, capture.stderr)
             manifest = json.loads((state / "manifest.json").read_text())
             self.assertEqual("pixel-8", manifest["serial"])
+            self.assertEqual("10", manifest["userId"])
             self.assertTrue(manifest["packages"][0]["installed"])
             self.assertFalse(manifest["packages"][1]["installed"])
 
@@ -107,13 +116,14 @@ raise SystemExit(0)
             )
             self.assertEqual(0, restore.returncode, restore.stderr)
             calls = log.read_text()
-            self.assertIn("-s pixel-8 install-multiple -r -d", calls)
+            self.assertIn("-s pixel-8 install-multiple -r -d -t", calls)
             self.assertIn("settings put secure always_on_vpn_app com.example.vpn", calls)
             self.assertIn("settings delete global stay_on_while_plugged_in", calls)
-            self.assertIn("pm grant --user 0 com.poyka.ripdpi android.permission.ACCESS_FINE_LOCATION", calls)
-            self.assertIn("pm revoke --user 0 com.poyka.ripdpi android.permission.CAMERA", calls)
-            self.assertIn("cmd appops reset --user 0 com.poyka.ripdpi", calls)
-            self.assertIn("cmd appops set --user 0 com.poyka.ripdpi CAMERA ignore", calls)
+            self.assertIn("pm grant --user 10 com.poyka.ripdpi android.permission.ACCESS_FINE_LOCATION", calls)
+            self.assertIn("pm revoke --user 10 com.poyka.ripdpi android.permission.CAMERA", calls)
+            self.assertNotIn("pm grant --user 10 com.poyka.ripdpi android.permission.INTERNET", calls)
+            self.assertIn("cmd appops reset --user 10 com.poyka.ripdpi", calls)
+            self.assertIn("cmd appops set --user 10 com.poyka.ripdpi CAMERA ignore", calls)
 
     def test_rejects_restore_on_different_serial(self) -> None:
         with tempfile.TemporaryDirectory() as directory_raw:

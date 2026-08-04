@@ -73,10 +73,31 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def capture_permissions(adb: str, serial: str, package: str) -> list[dict[str, object]]:
+def capture_permissions(
+    adb: str, serial: str, package: str, user_id: str
+) -> list[dict[str, object]]:
     dump = text(run(adb, serial, "shell", "dumpsys", "package", package))
     permissions: dict[str, dict[str, object]] = {}
+    runtime_indent: int | None = None
+    selected_user = False
     for line in dump.splitlines():
+        stripped = line.strip()
+        user_match = re.fullmatch(r"User (\d+):", stripped)
+        if user_match:
+            selected_user = user_match.group(1) == user_id
+            runtime_indent = None
+            continue
+        if not selected_user:
+            continue
+        indent = len(line) - len(line.lstrip())
+        if stripped == "runtime permissions:":
+            runtime_indent = indent
+            continue
+        if runtime_indent is None:
+            continue
+        if line.strip() and indent <= runtime_indent:
+            runtime_indent = None
+            continue
         match = PERMISSION_RE.match(line)
         if match:
             permissions[match["name"]] = {
@@ -87,8 +108,8 @@ def capture_permissions(adb: str, serial: str, package: str) -> list[dict[str, o
     return [permissions[name] for name in sorted(permissions)]
 
 
-def capture_app_ops(adb: str, serial: str, package: str) -> dict[str, str]:
-    output = text(run(adb, serial, "shell", "cmd", "appops", "get", "--user", "0", package))
+def capture_app_ops(adb: str, serial: str, package: str, user_id: str) -> dict[str, str]:
+    output = text(run(adb, serial, "shell", "cmd", "appops", "get", "--user", user_id, package))
     operations: dict[str, str] = {}
     for line in output.splitlines():
         match = APP_OP_RE.match(line)
@@ -97,7 +118,9 @@ def capture_app_ops(adb: str, serial: str, package: str) -> dict[str, str]:
     return dict(sorted(operations.items()))
 
 
-def capture_package(adb: str, serial: str, state_dir: Path, package: str) -> dict[str, object]:
+def capture_package(
+    adb: str, serial: str, state_dir: Path, package: str, user_id: str
+) -> dict[str, object]:
     remote_paths = package_paths(adb, serial, package)
     record: dict[str, object] = {"name": package, "installed": bool(remote_paths)}
     if not remote_paths:
@@ -119,8 +142,8 @@ def capture_package(adb: str, serial: str, state_dir: Path, package: str) -> dic
     record.update(
         apks=apks,
         data={"file": str(data_path.relative_to(state_dir)), "sha256": sha256(data_path)},
-        permissions=capture_permissions(adb, serial, package),
-        appOps=capture_app_ops(adb, serial, package),
+        permissions=capture_permissions(adb, serial, package, user_id),
+        appOps=capture_app_ops(adb, serial, package, user_id),
     )
     return record
 
@@ -134,6 +157,9 @@ def capture(args: argparse.Namespace) -> None:
         device_serial = text(run(args.adb, args.serial, "get-serialno"))
         if device_serial != args.serial:
             raise SessionError(f"selected device mismatch: expected {args.serial}, got {device_serial}")
+        user_id = text(run(args.adb, args.serial, "shell", "am", "get-current-user"))
+        if not user_id.isdecimal():
+            raise SessionError(f"could not identify the selected Android user: {user_id!r}")
         settings = {}
         for namespace, key in SETTINGS:
             value = text(run(args.adb, args.serial, "shell", "settings", "get", namespace, key))
@@ -141,9 +167,10 @@ def capture(args: argparse.Namespace) -> None:
         manifest = {
             "version": VERSION,
             "serial": args.serial,
+            "userId": user_id,
             "settings": settings,
             "packages": [
-                capture_package(args.adb, args.serial, state_dir, package)
+                capture_package(args.adb, args.serial, state_dir, package, user_id)
                 for package in args.package
             ],
         }
@@ -175,7 +202,11 @@ def restore_setting(adb: str, serial: str, identity: str, value: str | None) -> 
 
 
 def restore_permissions(
-    adb: str, serial: str, package: str, expected: list[dict[str, object]]
+    adb: str,
+    serial: str,
+    package: str,
+    user_id: str,
+    expected: list[dict[str, object]],
 ) -> None:
     # Replacing an installed package preserves permission flags. Restore every
     # runtime grant explicitly, then verify both grants and flags from dumpsys.
@@ -187,25 +218,29 @@ def restore_permissions(
             "pm",
             "grant" if permission["granted"] else "revoke",
             "--user",
-            "0",
+            user_id,
             package,
             str(permission["name"]),
         )
-    actual = capture_permissions(adb, serial, package)
+    actual = capture_permissions(adb, serial, package, user_id)
     if actual != expected:
         raise SessionError(f"runtime permission restoration mismatch for {package}")
 
 
-def restore_app_ops(adb: str, serial: str, package: str, expected: dict[str, str]) -> None:
-    run(adb, serial, "shell", "cmd", "appops", "reset", "--user", "0", package)
+def restore_app_ops(
+    adb: str, serial: str, package: str, user_id: str, expected: dict[str, str]
+) -> None:
+    run(adb, serial, "shell", "cmd", "appops", "reset", "--user", user_id, package)
     for operation, mode in expected.items():
-        run(adb, serial, "shell", "cmd", "appops", "set", "--user", "0", package, operation, mode)
-    actual = capture_app_ops(adb, serial, package)
+        run(adb, serial, "shell", "cmd", "appops", "set", "--user", user_id, package, operation, mode)
+    actual = capture_app_ops(adb, serial, package, user_id)
     if actual != expected:
         raise SessionError(f"app-op restoration mismatch for {package}")
 
 
-def restore_package(adb: str, serial: str, state_dir: Path, record: dict[str, object]) -> None:
+def restore_package(
+    adb: str, serial: str, state_dir: Path, record: dict[str, object], user_id: str
+) -> None:
     package = str(record["name"])
     run(adb, serial, "shell", "am", "force-stop", package, check=False)
     if not record["installed"]:
@@ -213,7 +248,9 @@ def restore_package(adb: str, serial: str, state_dir: Path, record: dict[str, ob
         return
 
     apk_paths = [require_digest(state_dir, apk) for apk in record["apks"]]  # type: ignore[arg-type]
-    run(adb, serial, "install-multiple", "-r", "-d", *(str(path) for path in apk_paths))
+    # -t is harmless for normal packages and required when restoring a captured
+    # instrumentation/test-only APK.
+    run(adb, serial, "install-multiple", "-r", "-d", "-t", *(str(path) for path in apk_paths))
     data_record = record["data"]
     assert isinstance(data_record, dict)
     data_path = require_digest(state_dir, data_record)  # type: ignore[arg-type]
@@ -231,8 +268,8 @@ def restore_package(adb: str, serial: str, state_dir: Path, record: dict[str, ob
         "-",
         input_bytes=data_path.read_bytes(),
     )
-    restore_permissions(adb, serial, package, record["permissions"])  # type: ignore[arg-type]
-    restore_app_ops(adb, serial, package, record["appOps"])  # type: ignore[arg-type]
+    restore_permissions(adb, serial, package, user_id, record["permissions"])  # type: ignore[arg-type]
+    restore_app_ops(adb, serial, package, user_id, record["appOps"])  # type: ignore[arg-type]
     run(adb, serial, "shell", "am", "force-stop", package, check=False)
 
 
@@ -246,9 +283,12 @@ def restore(args: argparse.Namespace) -> None:
         raise SessionError("device-session manifest does not match the selected device")
     if text(run(args.adb, args.serial, "get-serialno")) != args.serial:
         raise SessionError("selected device changed before restoration")
+    current_user = text(run(args.adb, args.serial, "shell", "am", "get-current-user"))
+    if manifest.get("userId") != current_user:
+        raise SessionError("selected Android user changed before restoration")
 
     for record in reversed(manifest["packages"]):
-        restore_package(args.adb, args.serial, state_dir, record)
+        restore_package(args.adb, args.serial, state_dir, record, current_user)
     for identity, value in manifest["settings"].items():
         restore_setting(args.adb, args.serial, identity, value)
 
