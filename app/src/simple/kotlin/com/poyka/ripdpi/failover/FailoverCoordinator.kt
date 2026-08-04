@@ -16,8 +16,8 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
+import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.ExplicitUserStartPreparer
@@ -151,7 +151,6 @@ class FailoverCoordinator
         private val serviceStateStore: ServiceStateStore,
         private val serviceController: ServiceController,
         private val relayProfileStore: RelayProfileStore,
-        private val awgProfileRepository: AwgProfileRepository,
         private val settingsRepository: AppSettingsRepository,
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val egressProbe: FailoverEgressProbe,
@@ -272,6 +271,13 @@ class FailoverCoordinator
             scope
                 .launch {
                     val rebuilt = buildCandidates()
+                    val diagnosticAwg = resumeOnlyDiagnosticAwg()
+                    if (diagnosticAwg != null) {
+                        candidates = emptyList()
+                        setActiveCandidate(diagnosticAwg)
+                        Logger.i { "FailoverCoordinator: diagnostic AWG resumed without automatic failover" }
+                        return@launch
+                    }
                     if (rebuilt.isEmpty()) {
                         candidates = emptyList()
                         Logger.w { "FailoverCoordinator: no transport satisfies required egress capabilities" }
@@ -379,6 +385,10 @@ class FailoverCoordinator
          */
         private suspend fun recoverFromStartupFailure(initialRaceFailed: Boolean) {
             if (!autoFailoverEnabled.value) return
+            if (resumeOnlyDiagnosticAwg() != null) {
+                Logger.i { "FailoverCoordinator: diagnostic AWG startup failure remains manual" }
+                return
+            }
             serviceStateStore.status.first { (status, mode) ->
                 status == AppStatus.Halted && mode == Mode.VPN
             }
@@ -816,13 +826,21 @@ class FailoverCoordinator
                     }
                 }
 
-            // One-shot read: take the first emission from the profiles flow.
-            val awgProfiles = awgProfileRepository.observeProfiles().first()
-            awgProfiles.firstOrNull()?.let { savedProfile ->
-                result.add(FailoverCandidate.Awg(priority = result.size, awgProfileId = savedProfile.id))
+            // Automatic failover always targets the bundled AWG profile, never the DAO's
+            // newest-updated row. Explicit diagnostic AWG profiles are resume-only and are
+            // intentionally excluded from this automatic candidate chain.
+            val automaticAwg = awgEgressSelection.firstAvailable()
+            automaticAwg?.let { request ->
+                result.add(FailoverCandidate.Awg(priority = result.size, awgProfileId = request.profileId))
             }
 
             return result.sortedBy { it.priority }
+        }
+
+        private suspend fun resumeOnlyDiagnosticAwg(): FailoverCandidate.Awg? {
+            val selected = awgEgressSelection.selectedAwgEgress() ?: return null
+            if (selected.profileId == SIMPLE_SEED_AWG_PROFILE_ID) return null
+            return FailoverCandidate.Awg(priority = Int.MAX_VALUE, awgProfileId = selected.profileId)
         }
 
         private fun seededOccurrence(

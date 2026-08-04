@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.CompletableDeferred
@@ -307,7 +308,6 @@ private fun buildCoordinator(
             serviceStateStore = stateStore,
             serviceController = controller,
             relayProfileStore = FakeRelayProfileStore(relayProfiles),
-            awgProfileRepository = awgRepo,
             settingsRepository = settings,
             awgEgressSelection = awgSelection,
             egressProbe = egressProbe,
@@ -1132,7 +1132,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
             val awg =
                 AwgProfileEntity(
-                    id = "awg-udp-fallback",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "UDP fallback",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1170,7 +1170,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
             val awg =
                 AwgProfileEntity(
-                    id = "awg-after-xudp",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "XUDP fallback",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1223,7 +1223,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
             val awg =
                 AwgProfileEntity(
-                    id = "awg-only",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Only AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1250,7 +1250,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
             val awg =
                 AwgProfileEntity(
-                    id = "awg-only-recovery",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Only startup fallback",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1335,7 +1335,7 @@ class FailoverCoordinatorTest {
             val clock = FakeFailoverClock(now = 0L)
             val awgEntity =
                 AwgProfileEntity(
-                    id = "awg-test",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Test AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1471,7 +1471,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository()
             val awgEntity =
                 AwgProfileEntity(
-                    id = "awg-resume",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Resume AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1513,7 +1513,7 @@ class FailoverCoordinatorTest {
             check(afterSwitch is FailoverCandidate.Awg) {
                 "Expected AWG candidate after switch from Hysteria2, got $afterSwitch"
             }
-            assertEquals("AWG profile id must match", "awg-resume", afterSwitch.awgProfileId)
+            assertEquals("AWG profile id must match", SIMPLE_SEED_AWG_PROFILE_ID, afterSwitch.awgProfileId)
 
             coordinator.stopObserving()
         }
@@ -1621,7 +1621,7 @@ class FailoverCoordinatorTest {
             val clock = FakeFailoverClock(now = 0L)
             val awgEntity =
                 AwgProfileEntity(
-                    id = "awg-budget",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Budget AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1784,7 +1784,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository()
             val awgEntity =
                 AwgProfileEntity(
-                    id = "awg-startup-failure",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Startup failure AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1829,7 +1829,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
             val awg =
                 AwgProfileEntity(
-                    id = "awg-after-hysteria",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "AWG after Hysteria",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1927,7 +1927,7 @@ class FailoverCoordinatorTest {
             val settings = FakeAppSettingsRepository()
             val awgEntity =
                 AwgProfileEntity(
-                    id = "awg-settings",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Settings AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
@@ -1982,12 +1982,16 @@ class FailoverCoordinatorTest {
             assertFalse("relayEnabled must be false after AWG switch", settings.relayEnabled())
             assertEquals(
                 "AWG switch must persist the AWG failover selector",
-                "awg-settings",
+                SIMPLE_SEED_AWG_PROFILE_ID,
                 settings.simpleFailoverAwgProfileId(),
             )
             val selectedAwg = awgSelection.selectedAwgEgress()
             assertNotNull("AWG switch must expose a selected AWG egress", selectedAwg)
-            assertEquals("AWG profile id must be rehydrated from repository", "awg-settings", selectedAwg?.profileId)
+            assertEquals(
+                "AWG profile id must be rehydrated from repository",
+                SIMPLE_SEED_AWG_PROFILE_ID,
+                selectedAwg?.profileId,
+            )
 
             coordinator.stopObserving()
         }
@@ -2012,6 +2016,63 @@ class FailoverCoordinatorTest {
         }
 
     @Test
+    fun `automatic AWG fallback selects seeded profile instead of last modified profile`() =
+        runTest {
+            val lastModified =
+                AwgProfileEntity(
+                    id = "awg-user-last-modified",
+                    name = "User AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 2L,
+                )
+            val seeded =
+                AwgProfileEntity(
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
+                    name = "Bundled AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val fixture =
+                buildCoordinator(
+                    relayProfiles = emptyList(),
+                    awgProfiles = listOf(lastModified, seeded),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+
+            assertEquals(SIMPLE_SEED_AWG_PROFILE_ID, fixture.awgSelection.firstAvailable()?.profileId)
+            val active = fixture.coordinator.activeCandidate.value
+            check(active is FailoverCandidate.Awg)
+            assertEquals(SIMPLE_SEED_AWG_PROFILE_ID, active.awgProfileId)
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `automatic AWG fallback does not substitute a user profile when seed is missing`() =
+        runTest {
+            val userProfile =
+                AwgProfileEntity(
+                    id = "awg-user-only",
+                    name = "User AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 2L,
+                )
+            val fixture =
+                buildCoordinator(
+                    relayProfiles = emptyList(),
+                    awgProfiles = listOf(userProfile),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+
+            assertNull(fixture.awgSelection.firstAvailable())
+            assertNull(fixture.coordinator.activeCandidate.value)
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
     fun `simple AWG fallback has runtime override priority`() =
         runTest {
             val fixture = buildCoordinator()
@@ -2028,6 +2089,7 @@ class FailoverCoordinatorTest {
     @Test
     fun `persisted awg selector resumes awg after cold start`() =
         runTest {
+            val stateStore = FakeServiceStateStore()
             val settings = FakeAppSettingsRepository()
             settings.update {
                 setRelayEnabled(false)
@@ -2040,9 +2102,17 @@ class FailoverCoordinatorTest {
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
                 )
-            val (coordinator, _, _, awgSelection) =
+            val seededAwg =
+                AwgProfileEntity(
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
+                    name = "Bundled AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 2L,
+                )
+            val (coordinator, controller, _, awgSelection) =
                 buildCoordinator(
-                    awgProfiles = listOf(awgEntity),
+                    stateStore = stateStore,
+                    awgProfiles = listOf(seededAwg, awgEntity),
                     settings = settings,
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
@@ -2060,7 +2130,44 @@ class FailoverCoordinatorTest {
             assertNotNull("durable AWG selector must rehydrate a request", selectedAwg)
             assertEquals("awg-cold", selectedAwg?.profileId)
 
+            stateStore.emitTelemetry(runningTelemetry(awgHealth = "failed"))
+            advanceUntilIdle()
+            assertTrue(controller.transportRestartCalls.isEmpty())
+
             coordinator.stopObserving()
+        }
+
+    @Test
+    fun `explicit diagnostic AWG startup failure remains manual when seed is missing`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Reconnecting)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(false)
+                setSimpleFailoverAwgProfileId("awg-diagnostic")
+            }
+            val diagnosticAwg =
+                AwgProfileEntity(
+                    id = "awg-diagnostic",
+                    name = "Diagnostic AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    awgProfiles = listOf(diagnosticAwg),
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.bind(observeScope)
+            stateStore.emitFailure(FailureReason.NativeError("diagnostic startup failed"))
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertTrue(controller.startCalls.isEmpty())
+            assertEquals("awg-diagnostic", settings.simpleFailoverAwgProfileId())
         }
 
     /** A genuine user stop resets the budget retained by in-session transport failover. */
@@ -2232,7 +2339,7 @@ class FailoverCoordinatorTest {
             val clock = FakeFailoverClock(now = 0L)
             val awgEntity =
                 AwgProfileEntity(
-                    id = "awg-backoff-reset",
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
                     name = "Backoff Reset AWG",
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,

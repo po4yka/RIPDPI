@@ -16,7 +16,6 @@ import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.validateNativeRelayProfile
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.first
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,7 +24,7 @@ internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
 internal const val SEED_KEY_VERSION = "config_seed_version"
 internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
-private const val CURRENT_SEED_VERSION = 3
+private const val CURRENT_SEED_VERSION = 4
 
 /**
  * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
@@ -42,6 +41,14 @@ internal const val SIMPLE_SEED_GROUP_ID = "00000000-0000-4000-8000-simpleflavor1
  * REALITY endpoints (for example 443 plus 2053) from overwriting each other.
  */
 internal const val SEED_RELAY_PROFILE_ID_PREFIX = "simple-seed-"
+
+/** Stable id of the bundled AWG profile used by automatic simple-flavor failover. */
+internal const val SIMPLE_SEED_AWG_PROFILE_ID = "simple-seed-awg"
+
+internal fun seedAwgProfileId(index: Int): String {
+    require(index >= 0)
+    return if (index == 0) SIMPLE_SEED_AWG_PROFILE_ID else "$SIMPLE_SEED_AWG_PROFILE_ID-${index + 1}"
+}
 
 internal fun seedRelayProfileId(
     profile: ProxyProfile,
@@ -162,17 +169,13 @@ open class ConfigSeeder
                         "ConfigSeeder: activated $activatedCount relay profile(s), skipped $skippedCount"
                     }
 
-                    val existingAwgByName =
-                        awgProfileRepository
-                            .observeProfiles()
-                            .first()
-                            .associateBy { it.name }
-                    for (awgProfile in result.amneziaWgProfiles) {
+                    result.amneziaWgProfiles.forEachIndexed { index, awgProfile ->
+                        val profileId = seedAwgProfileId(index)
                         val request = awgProfile.toActivationRequest()
                         awgProfileRepository.save(
                             name = awgProfile.displayName,
                             request = request,
-                            existingId = existingAwgByName[awgProfile.displayName]?.id,
+                            existingId = profileId,
                         )
                     }
                     Logger.i {

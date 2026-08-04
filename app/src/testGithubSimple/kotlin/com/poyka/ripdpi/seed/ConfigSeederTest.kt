@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -230,6 +231,12 @@ class ConfigSeederTest {
             // AWG profile was saved
             assertEquals(1, awgDao.rows.value.size)
             assertEquals(
+                SIMPLE_SEED_AWG_PROFILE_ID,
+                awgDao.rows.value
+                    .single()
+                    .id,
+            )
+            assertEquals(
                 "test-awg",
                 awgDao.rows.value
                     .single()
@@ -331,6 +338,31 @@ class ConfigSeederTest {
                     .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
                     .getInt(SEED_KEY_VERSION, 0) > 0,
             )
+        }
+
+    @Test
+    fun `version three seed adds stable fallback without deleting legacy AWG`() =
+        runTest {
+            val seeder = makeSeeder(FAKE_BUNDLE)
+            seeder.seed()
+            val seededRequest = requireNotNull(awgProfileRepository.load(SIMPLE_SEED_AWG_PROFILE_ID)).request
+            awgProfileRepository.delete(SIMPLE_SEED_AWG_PROFILE_ID)
+            awgProfileRepository.save(
+                name = "test-awg",
+                request = seededRequest,
+                existingId = "awg-legacy-random-id",
+            )
+            application
+                .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(SEED_KEY_VERSION, 3)
+                .commit()
+
+            seeder.seed()
+
+            assertEquals(2, awgDao.rows.value.size)
+            assertTrue(awgDao.rows.value.any { it.id == SIMPLE_SEED_AWG_PROFILE_ID })
+            assertNotNull(awgProfileRepository.load("awg-legacy-random-id"))
         }
 
     @Test

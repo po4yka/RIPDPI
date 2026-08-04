@@ -3,6 +3,7 @@ package com.poyka.ripdpi.failover
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.services.AwgEgressSelectionSource
 import dagger.Binds
 import dagger.Module
@@ -10,7 +11,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -54,9 +54,7 @@ class SimpleAwgEgressSelection
 
         override suspend fun firstAvailable(): AwgActivationRequest? =
             awgProfileRepository
-                .observeProfiles()
-                .first()
-                .firstOrNull()
+                .load(SIMPLE_SEED_AWG_PROFILE_ID)
                 ?.request
 
         override suspend fun selectedAwgEgress(): AwgActivationRequest? {
