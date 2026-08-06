@@ -17,6 +17,7 @@ import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SIMPLE_RELAY_BUNDLE_ASSET_NAME
 import com.poyka.ripdpi.seed.SIMPLE_SEED_GROUP_ID
 import com.poyka.ripdpi.seed.seedRelayProfileId
+import com.poyka.ripdpi.seed.seedRelayProfileStableName
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayRacePlan
@@ -114,7 +115,7 @@ internal class SimpleInitialRelayRacePolicy
             val occurrencesByKind = mutableMapOf<String, Int>()
             val seededMembers =
                 members.map { profile ->
-                    val kind = requireNotNull(profile::class.simpleName)
+                    val kind = seedRelayProfileStableName(profile)
                     val occurrence = occurrencesByKind.getOrDefault(kind, 0)
                     occurrencesByKind[kind] = occurrence + 1
                     profile to seedRelayProfileId(profile, occurrence)

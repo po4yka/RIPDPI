@@ -56,9 +56,28 @@ internal fun seedRelayProfileId(
     kindOccurrence: Int = 0,
 ): String {
     require(kindOccurrence >= 0)
-    val base = "$SEED_RELAY_PROFILE_ID_PREFIX${profile::class.simpleName}"
+    val base = "$SEED_RELAY_PROFILE_ID_PREFIX${seedRelayProfileStableName(profile)}"
     return if (kindOccurrence == 0) base else "$base-${kindOccurrence + 1}"
 }
+
+/**
+ * Stable persisted discriminator for bundled relay profiles.
+ *
+ * These values intentionally match the legacy source-level class names, but do not derive from
+ * runtime class metadata: R8 is free to obfuscate [ProxyProfile] implementations in release APKs.
+ */
+internal fun seedRelayProfileStableName(profile: ProxyProfile): String =
+    when (profile) {
+        is ProxyProfile.Vless -> "Vless"
+        is ProxyProfile.VlessReality -> "VlessReality"
+        is ProxyProfile.Shadowsocks -> "Shadowsocks"
+        is ProxyProfile.Trojan -> "Trojan"
+        is ProxyProfile.Hysteria2 -> "Hysteria2"
+        is ProxyProfile.AnyTls -> "AnyTls"
+        is ProxyProfile.Mieru -> "Mieru"
+        is ProxyProfile.Ssh -> "Ssh"
+        is ProxyProfile.RawConfig -> "RawConfig"
+    }
 
 /**
  * Required configuration reconciler for the `simple` product flavor.
@@ -149,7 +168,7 @@ open class ConfigSeeder
                     val orderedProfiles =
                         result.profiles
                             .map { profile ->
-                                val kind = requireNotNull(profile::class.simpleName)
+                                val kind = seedRelayProfileStableName(profile)
                                 val occurrence = occurrencesByKind.getOrDefault(kind, 0)
                                 occurrencesByKind[kind] = occurrence + 1
                                 profile to seedRelayProfileId(profile, occurrence)

@@ -356,7 +356,15 @@ class ConfigSeederTest {
                 setOf(RelayKindVlessReality, RelayKindVless, RelayKindHysteria2),
                 relayProfiles.map { it.kind }.toSet(),
             )
-            assertEquals("Store ids must be distinct", 3, relayProfiles.map { it.id }.toSet().size)
+            assertEquals(
+                "Store ids must be stable across release obfuscation",
+                setOf(
+                    "simple-seed-VlessReality",
+                    "simple-seed-Vless",
+                    "simple-seed-Hysteria2",
+                ),
+                relayProfiles.map { it.id }.toSet(),
+            )
             // VLESS+REALITY is activated last so it is the initial active transport (priority 0).
             assertEquals(RelayKindVlessReality, relaySettings.snapshot().relayKind)
             assertTrue(seeder.isSeeded())
@@ -369,7 +377,15 @@ class ConfigSeederTest {
 
             val relayProfiles = relayProfileStore.list()
             assertEquals(4, relayProfiles.size)
-            assertEquals(4, relayProfiles.map(RelayProfileRecord::id).toSet().size)
+            assertEquals(
+                setOf(
+                    "simple-seed-VlessReality",
+                    "simple-seed-VlessReality-2",
+                    "simple-seed-Vless",
+                    "simple-seed-Hysteria2",
+                ),
+                relayProfiles.map(RelayProfileRecord::id).toSet(),
+            )
             assertEquals(
                 listOf(443, 2053),
                 relayProfiles
