@@ -12,8 +12,26 @@ internal class RuntimeLifecycleRunner(
     private val setStopping: (Boolean) -> Unit,
 ) {
     @Suppress("detekt.TooGenericExceptionCaught")
-    suspend fun start(startBlock: suspend () -> Unit): Throwable? =
+    suspend fun start(
+        shouldRecoverRunning: () -> Boolean = { false },
+        recoverRunningBlock: suspend () -> Unit = {},
+        startBlock: suspend () -> Unit,
+    ): Throwable? =
         mutex.withLock {
+            if (lifecycleState.state == ServiceLifecycleStateMachine.State.RUNNING && shouldRecoverRunning()) {
+                Logger.i { "Recovering failed ${serviceLabel()} runtime before start" }
+                lifecycleState.beginStop()
+                setStopping(true)
+                try {
+                    recoverRunningBlock()
+                } catch (failure: Exception) {
+                    return@withLock failure
+                } finally {
+                    lifecycleState.markStopped()
+                    setStopping(false)
+                }
+            }
+
             if (!lifecycleState.tryBeginStart()) {
                 Logger.d {
                     "Ignoring ${serviceLabel()} start while lifecycle state is ${lifecycleState.state}"
@@ -49,9 +67,9 @@ internal class RuntimeLifecycleRunner(
             setStopping(true)
             try {
                 stopBlock()
-                lifecycleState.markStopped()
                 true
             } finally {
+                lifecycleState.markStopped()
                 setStopping(false)
             }
         }

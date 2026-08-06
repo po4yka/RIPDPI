@@ -61,6 +61,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
                 ),
             callbacks =
                 ServiceRuntimeStartStopCallbacks(
+                    currentStatus = dependencies.state.currentStatus,
                     currentSession = dependencies.state.currentSession,
                     setRuntimeSession = dependencies.state.setRuntimeSession,
                     createRuntimeSession = hooks.startHooks.createRuntimeSession,

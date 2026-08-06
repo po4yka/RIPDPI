@@ -1543,6 +1543,38 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
         }
 
+    @Test
+    fun failedRuntimeStartClosesRetainedTunAndCreatesFreshSession() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val failedSession = TestVpnTunnelSession(tunFd = 8, events = env.events)
+            env.tunnelProvider.session = failedSession
+            env.bridgeFactory.bridge.startFailure = IllegalStateException("replacement tunnel failed")
+            env.resolver.enqueue(plainDnsResolution())
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertFalse(failedSession.closed)
+
+            val recoveredSession = TestVpnTunnelSession(tunFd = 9, events = env.events)
+            env.tunnelProvider.session = recoveredSession
+            env.bridgeFactory.bridge.startFailure = null
+            env.resolver.enqueue(sampleResolution(mode = Mode.VPN, policySignature = "recovered"))
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertTrue(failedSession.closed)
+            assertFalse(recoveredSession.closed)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+        }
+
     private fun plainDnsResolution(): ConnectionPolicyResolution {
         val settings =
             AppSettingsSerializer.defaultValue

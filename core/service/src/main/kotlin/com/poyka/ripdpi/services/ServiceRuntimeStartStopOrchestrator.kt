@@ -20,9 +20,19 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         Logger.i { "Starting ${dependencies.serviceLabel()}" }
 
         var matchedRememberedPolicy: RememberedNetworkPolicyEntity? = null
-        val session = callbacks.createRuntimeSession()
         val failure =
-            dependencies.lifecycleRunner.start {
+            dependencies.lifecycleRunner.start(
+                shouldRecoverRunning = { callbacks.currentStatus() == ServiceStatus.Failed },
+                recoverRunningBlock = {
+                    dependencies.handoverProcessor.cancel()
+                    finalizeRuntimeStop(
+                        skipRuntimeShutdown = false,
+                        stopSelfStartId = null,
+                        requestServiceStop = false,
+                    )
+                },
+            ) {
+                val session = callbacks.createRuntimeSession()
                 session.networkHandoverState = null
                 val resolution = callbacks.resolveInitialConnectionPolicy()
                 matchedRememberedPolicy = resolution.matchedNetworkPolicy
@@ -68,34 +78,64 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
 
         var terminalTelemetryCancellation: CancellationException? = null
         dependencies.lifecycleRunner.stop {
-            dependencies.loopOwner.cancelPermissionWatchdog()
-            try {
-                captureFinalTelemetryWithRetry()
-            } catch (failure: CancellationException) {
-                terminalTelemetryCancellation = failure
-            }
-            withContext(NonCancellable) {
-                runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
-                    .onFailure { failure ->
-                        Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
-                    }
+            terminalTelemetryCancellation =
+                finalizeRuntimeStop(
+                    skipRuntimeShutdown = skipRuntimeShutdown,
+                    stopSelfStartId = stopSelfStartId,
+                    requestServiceStop = true,
+                )
+        }
+        terminalTelemetryCancellation?.let { throw it }
+    }
 
-                val session = callbacks.currentSession()
-                callbacks.updateStatus(ServiceStatus.Disconnected, null)
-                dependencies.loopOwner.cancelTelemetry()
-                callbacks.onAfterStopCleanup(session)
-                session?.clearActiveConnectionPolicy()
-                session?.let {
+    private suspend fun finalizeRuntimeStop(
+        skipRuntimeShutdown: Boolean,
+        stopSelfStartId: Int?,
+        requestServiceStop: Boolean,
+    ): CancellationException? {
+        dependencies.loopOwner.cancelPermissionWatchdog()
+        var terminalTelemetryCancellation: CancellationException? = null
+        try {
+            captureFinalTelemetryWithRetry()
+        } catch (failure: CancellationException) {
+            terminalTelemetryCancellation = failure
+        }
+        withContext(NonCancellable) {
+            runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
+                .onFailure { failure ->
+                    Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
+                }
+
+            val session = callbacks.currentSession()
+            runCatching { callbacks.updateStatus(ServiceStatus.Disconnected, null) }
+                .onFailure { failure ->
+                    Logger.e(failure) { "Failed to publish stopped ${dependencies.serviceLabel()} status" }
+                }
+            dependencies.loopOwner.cancelTelemetry()
+            runCatching { callbacks.onAfterStopCleanup(session) }
+                .onFailure { failure ->
+                    Logger.e(failure) { "Failed to clean up stopped ${dependencies.serviceLabel()} runtime" }
+                }
+            runCatching { session?.clearActiveConnectionPolicy() }
+                .onFailure { failure ->
+                    Logger.e(failure) { "Failed to clear stopped ${dependencies.serviceLabel()} policy" }
+                }
+            session?.let { activeSession ->
+                runCatching {
                     dependencies.serviceRuntimeRegistry.unregister(
                         mode = dependencies.mode,
-                        runtimeId = it.runtimeId,
+                        runtimeId = activeSession.runtimeId,
                     )
+                }.onFailure { failure ->
+                    Logger.e(failure) { "Failed to unregister stopped ${dependencies.serviceLabel()} runtime" }
                 }
-                callbacks.setRuntimeSession(null)
+            }
+            callbacks.setRuntimeSession(null)
+            if (requestServiceStop) {
                 dependencies.host.requestStopSelf(stopSelfStartId)
             }
         }
-        terminalTelemetryCancellation?.let { throw it }
+        return terminalTelemetryCancellation
     }
 
     private suspend fun captureFinalTelemetryWithRetry() {
@@ -171,6 +211,7 @@ internal class ServiceRuntimeStartStopDependencies<TSession>(
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
 
 internal class ServiceRuntimeStartStopCallbacks<TSession>(
+    val currentStatus: () -> ServiceStatus,
     val currentSession: () -> TSession?,
     val setRuntimeSession: (TSession?) -> Unit,
     val createRuntimeSession: () -> TSession,
