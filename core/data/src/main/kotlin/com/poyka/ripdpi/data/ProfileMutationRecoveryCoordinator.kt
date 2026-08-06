@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
@@ -38,6 +39,7 @@ class ProfileMutationStores
         val xrayMetadata: XrayProfileMetadataStore,
         val xraySecrets: XrayProfileSecretStore,
         val xraySelection: XrayProviderSelectionStore,
+        val bootSession: BootSessionStateStore,
     )
 
 interface ProfileMutationCoordinator {
@@ -153,11 +155,21 @@ class ProfileMutationRecoveryCoordinator
             data: BackupPrivateDataV1,
             rollbackData: BackupPrivateDataV1?,
         ) {
-            val target = PrivateBackupReplaceIntent(data)
+            val target = PrivateBackupReplaceIntent(data = data, activeAwgProfileId = null)
             if (rollbackData == null) {
                 execute(target)
             } else {
-                executeWithCompensation(target, PrivateBackupReplaceIntent(rollbackData))
+                val rollbackAwgProfileId =
+                    stores.bootSession
+                        .activeAwgProfileId()
+                        ?.takeIf { profileId -> rollbackData.awgProfiles.any { it.id == profileId } }
+                executeWithCompensation(
+                    target,
+                    PrivateBackupReplaceIntent(
+                        data = rollbackData,
+                        activeAwgProfileId = rollbackAwgProfileId,
+                    ),
+                )
             }
         }
 
@@ -220,6 +232,9 @@ class ProfileMutationRecoveryCoordinator
                 }
 
                 is AwgDeleteIntent -> {
+                    if (stores.bootSession.activeAwgProfileId() == intent.profileId) {
+                        stores.bootSession.setActiveAwgProfileId(null)
+                    }
                     awgCredentials.clear(intent.profileId)
                     awgProfiles.getProfile(intent.profileId)?.let { awgProfiles.deleteProfile(it) }
                 }
@@ -249,12 +264,14 @@ class ProfileMutationRecoveryCoordinator
                 }
 
                 is PrivateBackupReplaceIntent -> {
-                    replayPrivateBackup(intent.data)
+                    replayPrivateBackup(intent)
                 }
             }
         }
 
-        private suspend fun replayPrivateBackup(data: BackupPrivateDataV1) {
+        private suspend fun replayPrivateBackup(intent: PrivateBackupReplaceIntent) {
+            val data = intent.data
+            stores.bootSession.setActiveAwgProfileId(null)
             stores.warpProfiles.setActiveProfileId(null)
             stores.xraySelection.update(XrayProviderSelectionRecord())
 
@@ -282,6 +299,10 @@ class ProfileMutationRecoveryCoordinator
             data.xraySecrets.forEach { stores.xraySecrets.save(it) }
             data.xrayMetadata.forEach { stores.xrayMetadata.save(it) }
             stores.xraySelection.update(data.xraySelection)
+
+            intent.activeAwgProfileId
+                ?.takeIf { profileId -> data.awgProfiles.any { it.id == profileId } }
+                ?.let(stores.bootSession::setActiveAwgProfileId)
         }
 
         private suspend fun replayWarpUpsert(intent: WarpUpsertIntent) {
@@ -360,6 +381,7 @@ private data class RelayUpsertIntent(
 @SerialName("private_backup_replace")
 private data class PrivateBackupReplaceIntent(
     val data: BackupPrivateDataV1,
+    val activeAwgProfileId: String? = null,
 ) : ProfileMutationIntent {
     override val family: ProfileMutationFamily = ProfileMutationFamily.Backup
 }

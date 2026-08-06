@@ -4,7 +4,10 @@ import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
+import com.poyka.ripdpi.data.boot.BootSessionPointer
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
@@ -27,6 +30,44 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileMutationRecoveryCoordinatorTest {
+    @Test
+    fun `deleting active AWG profile clears its boot pointer`() =
+        runTest {
+            val fixture = Fixture()
+            val profile = AwgProfileEntity(id = "awg-active", name = "AWG", requestJson = "{}", updatedAt = 1L)
+            fixture.awgProfiles.upsertProfile(profile)
+            fixture.awgCredentials.save(profile.id, AwgSecrets(privateKey = "private"))
+            fixture.bootSession.setActiveAwgProfileId(profile.id)
+
+            fixture.coordinator().deleteAwg(profile.id)
+
+            assertNull(fixture.bootSession.activeAwgProfileId())
+        }
+
+    @Test
+    fun `deleting another AWG profile preserves the active boot pointer`() =
+        runTest {
+            val fixture = Fixture()
+            val profile = AwgProfileEntity(id = "awg-unused", name = "AWG", requestJson = "{}", updatedAt = 1L)
+            fixture.awgProfiles.upsertProfile(profile)
+            fixture.bootSession.setActiveAwgProfileId("awg-active")
+
+            fixture.coordinator().deleteAwg(profile.id)
+
+            assertEquals("awg-active", fixture.bootSession.activeAwgProfileId())
+        }
+
+    @Test
+    fun `FULL private backup replacement clears stale AWG boot pointer`() =
+        runTest {
+            val fixture = Fixture()
+            fixture.bootSession.setActiveAwgProfileId("awg-before-restore")
+
+            fixture.coordinator().replacePrivateBackup(BackupPrivateDataV1())
+
+            assertNull(fixture.bootSession.activeAwgProfileId())
+        }
+
     @Test
     fun `awg secrets and metadata converge after interrupted upsert`() =
         runTest {
@@ -209,12 +250,22 @@ class ProfileMutationRecoveryCoordinatorTest {
             val fixture = Fixture()
             val originalProfile = RelayProfileRecord(id = "relay-old", server = "old.example")
             val originalCredentials = RelayCredentialRecord(profileId = originalProfile.id, vlessUuid = "old-uuid")
+            val originalAwg =
+                AwgBackupProfile(
+                    id = "awg-old",
+                    name = "Old AWG",
+                    requestJson = "{}",
+                    updatedAt = 1L,
+                )
             fixture.relayProfiles.save(originalProfile)
             fixture.relayCredentials.save(originalCredentials)
+            fixture.awgProfiles.upsertProfile(originalAwg.toEntity())
+            fixture.bootSession.setActiveAwgProfileId(originalAwg.id)
             val preimage =
                 BackupPrivateDataV1(
                     relayProfiles = listOf(originalProfile),
                     relayCredentials = listOf(originalCredentials),
+                    awgProfiles = listOf(originalAwg),
                 )
             val targetProfile = RelayProfileRecord(id = "relay-new", server = "new.example")
             val targetCredentials = RelayCredentialRecord(profileId = targetProfile.id, vlessUuid = "new-uuid")
@@ -239,6 +290,7 @@ class ProfileMutationRecoveryCoordinatorTest {
             assertEquals(originalProfile, fixture.relayProfiles.load(originalProfile.id))
             assertEquals(originalCredentials, fixture.relayCredentials.load(originalProfile.id))
             assertNull(fixture.relayProfiles.load(targetProfile.id))
+            assertEquals(originalAwg.id, fixture.bootSession.activeAwgProfileId())
             assertNull(fixture.journal.pending())
         }
 
@@ -288,6 +340,7 @@ class ProfileMutationRecoveryCoordinatorTest {
         val xraySecrets = InMemoryXraySecretStore()
         val xraySelection = InMemoryXraySelectionStore()
         val journal = InMemoryProfileMutationJournal()
+        val bootSession = InMemoryBootSessionStateStore()
 
         fun coordinator() =
             ProfileMutationRecoveryCoordinator(
@@ -302,12 +355,36 @@ class ProfileMutationRecoveryCoordinatorTest {
                         xrayMetadata = xrayMetadata,
                         xraySecrets = xraySecrets,
                         xraySelection = xraySelection,
+                        bootSession = bootSession,
                     ),
                 awgProfiles = awgProfiles,
                 awgCredentials = awgCredentials,
                 journal = journal,
             )
     }
+}
+
+private class InMemoryBootSessionStateStore : BootSessionStateStore {
+    private var activeAwgProfileId: String? = null
+
+    override fun lastSession(): BootSessionPointer? = null
+
+    override fun recordSession(
+        profileId: String,
+        mode: Mode,
+    ) = Unit
+
+    override fun activeAwgProfileId(): String? = activeAwgProfileId
+
+    override fun setActiveAwgProfileId(profileId: String?) {
+        activeAwgProfileId = profileId
+    }
+
+    override fun clear() = Unit
+
+    override fun wasRunningAtUpdate(): Boolean = false
+
+    override fun setWasRunningAtUpdate(value: Boolean) = Unit
 }
 
 private class InMemoryProfileMutationJournal : ProfileMutationJournal {

@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore
 import com.poyka.ripdpi.data.backup.consistentBackupSnapshot
+import com.poyka.ripdpi.data.boot.BootSessionPointer
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
@@ -58,6 +60,7 @@ class BackupPrivateDataStoreTest {
                         xrayMetadata = xrayMetadata,
                         xraySecrets = xraySecrets,
                         xraySelection = xraySelection,
+                        bootSession = BackupBootSessionStateStore(),
                     ),
                 awgProfiles = database.awgProfileDao(),
                 awgCredentials = awgCredentials,
@@ -143,6 +146,21 @@ class BackupPrivateDataStoreTest {
             assertEquals("concurrent-profile", snapshot.warpProfiles.single().id)
             assertEquals("concurrent-profile", snapshot.warpActiveProfileId)
         }
+}
+
+private class BackupBootSessionStateStore : BootSessionStateStore {
+    override fun lastSession(): BootSessionPointer? = null
+
+    override fun recordSession(
+        profileId: String,
+        mode: Mode,
+    ) = Unit
+
+    override fun clear() = Unit
+
+    override fun wasRunningAtUpdate(): Boolean = false
+
+    override fun setWasRunningAtUpdate(value: Boolean) = Unit
 }
 
 private class BackupRelayCredentialStore : RelayCredentialStore {
