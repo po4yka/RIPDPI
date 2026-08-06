@@ -6,11 +6,15 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import java.nio.BufferUnderflowException
+import java.security.GeneralSecurityException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,8 +48,16 @@ interface ProfileMutationJournal {
 
     suspend fun complete(mutationId: String)
 
+    /** Removes an unreadable marker after recovery has observed the same corruption twice. */
+    suspend fun discardCorruptPending()
+
     suspend fun clearForReset()
 }
+
+class ProfileMutationJournalCorruptionException(
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
 
 /** AndroidKeyStore-backed journal whose marker changes use checked synchronous commits on IO. */
 @Singleton
@@ -76,8 +88,22 @@ class EncryptedProfileMutationJournal
         override suspend fun pending(): PendingProfileMutation? =
             mutex.withLock {
                 withContext(Dispatchers.IO) {
-                    blobStore.getStringStrict(PendingEntryKey)?.let {
-                        json.decodeFromString(PendingProfileMutation.serializer(), it)
+                    try {
+                        blobStore.getStringStrict(PendingEntryKey)?.let {
+                            json.decodeFromString(PendingProfileMutation.serializer(), it)
+                        }
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: SerializationException) {
+                        throw unreadableMarker(error)
+                    } catch (error: GeneralSecurityException) {
+                        throw unreadableMarker(error)
+                    } catch (error: BufferUnderflowException) {
+                        throw unreadableMarker(error)
+                    } catch (error: NegativeArraySizeException) {
+                        throw unreadableMarker(error)
+                    } catch (error: IllegalArgumentException) {
+                        throw unreadableMarker(error)
                     }
                 }
             }
@@ -111,6 +137,11 @@ class EncryptedProfileMutationJournal
                 }
             }
 
+        override suspend fun discardCorruptPending() =
+            mutex.withLock {
+                withContext(Dispatchers.IO) { blobStore.remove(PendingEntryKey) }
+            }
+
         override suspend fun clearForReset() =
             mutex.withLock {
                 withContext(Dispatchers.IO) { blobStore.clear() }
@@ -122,6 +153,12 @@ class EncryptedProfileMutationJournal
             const val PendingEntryKey = "pending"
         }
     }
+
+private fun unreadableMarker(cause: Exception) =
+    ProfileMutationJournalCorruptionException(
+        message = "Profile mutation journal marker is unreadable",
+        cause = cause,
+    )
 
 private const val CurrentProfileMutationSchemaVersion = 1
 

@@ -259,6 +259,10 @@ private class BackupProfileMutationJournal : ProfileMutationJournal {
         value = null
     }
 
+    override suspend fun discardCorruptPending() {
+        value = null
+    }
+
     override suspend fun clearForReset() {
         value = null
     }

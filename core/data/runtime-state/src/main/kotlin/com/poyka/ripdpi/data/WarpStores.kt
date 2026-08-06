@@ -427,6 +427,9 @@ internal class KeystoreEncryptedPreferences(
         val bytes = Base64.decode(value, Base64.NO_WRAP)
         val buffer = ByteBuffer.wrap(bytes)
         val ivLength = buffer.int
+        require(ivLength > 0 && ivLength <= buffer.remaining() - GcmTagLengthBytes) {
+            "Encrypted preferences payload framing is invalid"
+        }
         val iv = ByteArray(ivLength)
         buffer.get(iv)
         val ciphertext = ByteArray(buffer.remaining())
@@ -465,6 +468,7 @@ internal class KeystoreEncryptedPreferences(
         const val KeystoreProvider = "AndroidKeyStore"
         const val AesTransformation = "AES/GCM/NoPadding"
         const val GcmTagLengthBits = 128
+        const val GcmTagLengthBytes = GcmTagLengthBits / Byte.SIZE_BITS
         const val AesKeySizeBits = 256
     }
 }

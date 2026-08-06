@@ -93,6 +93,7 @@ class ProfileMutationRecoveryCoordinator
     ) : ProfileMutationCoordinator {
         private val mutex = Mutex()
         private val json = RipDpiContractJson
+        private val recoveryReader = ProfileMutationJournalRecoveryReader(journal)
 
         override suspend fun recover() = mutex.withLock { recoverLocked() }
 
@@ -205,14 +206,10 @@ class ProfileMutationRecoveryCoordinator
             )
 
         private suspend fun recoverLocked() {
-            val pending = journal.pending() ?: return
-            check(
-                pending.schemaVersion == ProfileMutationIntentSchemaVersion,
-            ) { "Unsupported profile mutation journal" }
-            val intent = json.decodeFromString(ProfileMutationIntent.serializer(), pending.payload)
-            check(intent.family == pending.family) { "Profile mutation journal family mismatch" }
-            replay(intent)
-            journal.complete(pending.mutationId)
+            recoveryReader.read()?.let { recovered ->
+                replay(recovered.intent)
+                journal.complete(recovered.pending.mutationId)
+            }
         }
 
         private suspend fun replay(intent: ProfileMutationIntent) {
@@ -318,10 +315,10 @@ class ProfileMutationRecoveryCoordinator
         }
     }
 
-private const val ProfileMutationIntentSchemaVersion = 1
+internal const val ProfileMutationIntentSchemaVersion = 1
 
 @Serializable
-private sealed interface ProfileMutationIntent {
+internal sealed interface ProfileMutationIntent {
     val family: ProfileMutationFamily
 }
 

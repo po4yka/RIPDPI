@@ -148,15 +148,59 @@ class ProfileMutationRecoveryCoordinatorTest {
         }
 
     @Test
-    fun `corrupt pending intent fails closed without clearing marker`() =
+    fun `corrupt pending intent fails once then allows startup recovery retry`() =
         runTest {
             val fixture = Fixture()
+            val coordinator = fixture.coordinator()
             fixture.journal.prepare(PendingProfileMutation(family = ProfileMutationFamily.Relay, payload = "not-json"))
 
-            val failure = runCatching { fixture.coordinator().recover() }.exceptionOrNull()
+            val failure = runCatching { coordinator.recover() }.exceptionOrNull()
 
-            assertTrue(failure != null)
+            assertTrue(failure is ProfileMutationJournalCorruptionException)
             assertTrue(fixture.journal.pending() != null)
+            coordinator.recover()
+            assertNull(fixture.journal.pending())
+        }
+
+    @Test
+    fun `unreadable journal marker is discarded only by startup recovery retry`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            fixture.journal.pendingCorruptionFailuresRemaining = 2
+
+            val failure = runCatching { coordinator.recover() }.exceptionOrNull()
+
+            assertTrue(failure is ProfileMutationJournalCorruptionException)
+            assertEquals(0, fixture.journal.discardCount)
+
+            coordinator.recover()
+
+            assertEquals(1, fixture.journal.discardCount)
+        }
+
+    @Test
+    fun `transient unreadable journal marker is preserved when retry can read it`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val profile = RelayProfileRecord(id = "relay-transient", server = "relay.example")
+            val credentials = RelayCredentialRecord(profileId = profile.id, vlessUuid = "uuid")
+            fixture.relayCredentials.failNextSave = true
+            val interruptedMutation =
+                runCatching {
+                    coordinator.upsertRelay(profile, credentials, enabled = true, select = true)
+                }.exceptionOrNull()
+            assertTrue(interruptedMutation != null)
+            fixture.journal.pendingCorruptionFailuresRemaining = 1
+
+            val failure = runCatching { coordinator.recover() }.exceptionOrNull()
+
+            assertTrue(failure is ProfileMutationJournalCorruptionException)
+            coordinator.recover()
+            assertEquals(0, fixture.journal.discardCount)
+            assertEquals(credentials, fixture.relayCredentials.load(profile.id))
+            assertNull(fixture.journal.pending())
         }
 
     @Test
@@ -268,13 +312,21 @@ class ProfileMutationRecoveryCoordinatorTest {
 
 private class InMemoryProfileMutationJournal : ProfileMutationJournal {
     private var value: PendingProfileMutation? = null
+    var pendingCorruptionFailuresRemaining = 0
+    var discardCount = 0
 
     override suspend fun prepare(mutation: PendingProfileMutation) {
         check(value == null)
         value = mutation
     }
 
-    override suspend fun pending(): PendingProfileMutation? = value
+    override suspend fun pending(): PendingProfileMutation? {
+        if (pendingCorruptionFailuresRemaining > 0) {
+            pendingCorruptionFailuresRemaining -= 1
+            throw ProfileMutationJournalCorruptionException("corrupt marker")
+        }
+        return value
+    }
 
     override suspend fun replace(
         expectedMutationId: String,
@@ -286,6 +338,12 @@ private class InMemoryProfileMutationJournal : ProfileMutationJournal {
 
     override suspend fun complete(mutationId: String) {
         check(value?.mutationId == mutationId)
+        value = null
+    }
+
+    override suspend fun discardCorruptPending() {
+        discardCount += 1
+        pendingCorruptionFailuresRemaining = 0
         value = null
     }
 
