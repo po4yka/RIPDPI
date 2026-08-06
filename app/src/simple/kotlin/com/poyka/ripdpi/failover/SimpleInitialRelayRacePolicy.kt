@@ -7,8 +7,10 @@ import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.subscription.FailoverPolicy
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
@@ -341,6 +343,10 @@ internal class SimpleRelayEgressReadinessPolicy
                     ?: rejectReadiness("Configured embedded relay profile is unavailable")
             if (
                 stored.kind != activeRelayKind ||
+                (
+                    activeRelayKind == RelayKindVless &&
+                        stored.vlessTransport != RelayVlessTransportXhttp
+                ) ||
                 relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) != true ||
                 (
                     requirements.udpAssociate &&
@@ -366,8 +372,12 @@ internal class SimpleRelayEgressReadinessPolicy
                     ?: rejectReadiness("Embedded relay bundle has no valid HTTP egress probe")
             val transportClass =
                 when (activeRelayKind) {
-                    RelayKindVlessReality -> InitialRelayTransportClass.TlsMimicry
+                    RelayKindVlessReality,
+                    RelayKindVless,
+                    -> InitialRelayTransportClass.TlsMimicry
+
                     RelayKindHysteria2 -> InitialRelayTransportClass.UdpObfuscation
+
                     else -> error("unreachable")
                 }
             return InitialRelayRacePlan(
@@ -408,7 +418,7 @@ internal class SimpleRelayEgressReadinessPolicy
 
         private companion object {
             const val RaceStateDisabled = "disabled"
-            val SeededRelayKinds = setOf(RelayKindVlessReality, RelayKindHysteria2)
+            val SeededRelayKinds = setOf(RelayKindVlessReality, RelayKindVless, RelayKindHysteria2)
         }
     }
 

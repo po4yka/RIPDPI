@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -114,6 +115,51 @@ class SimpleInitialRelayRacePolicyTest {
 
             assertEquals(listOf(RelayKindHysteria2), plan?.candidates?.map { it.relayKind })
             assertEquals(HysteriaProfileId, plan?.candidates?.single()?.profileId)
+        }
+
+    @Test
+    fun `fallback readiness preflights configured VLESS xHTTP`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val plan = readinessPolicy.plan(XhttpProfileId, RelayKindVless, "network-a")
+
+            assertEquals(listOf(RelayKindVless), plan?.candidates?.map { it.relayKind })
+            assertEquals(XhttpProfileId, plan?.candidates?.single()?.profileId)
+            assertEquals(
+                EgressRequirements(tcpConnect = true, udpAssociate = false),
+                plan?.readinessProbeRequirements,
+            )
+        }
+
+    @Test
+    fun `fallback readiness rejects seeded VLESS without xHTTP transport`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore =
+                        InMemoryRelayProfileStore(
+                            RelayProfileRecord(
+                                id = XhttpProfileId,
+                                kind = RelayKindVless,
+                                vlessTransport = RelayVlessTransportRealityTcp,
+                            ),
+                        ),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val error =
+                runCatching {
+                    readinessPolicy.plan(XhttpProfileId, RelayKindVless, "network-a")
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
         }
 
     @Test
@@ -534,6 +580,11 @@ class SimpleInitialRelayRacePolicyTest {
                 vlessFlow = realityFlow,
             ),
             RelayProfileRecord(id = FallbackRealityProfileId, kind = RelayKindVlessReality),
+            RelayProfileRecord(
+                id = XhttpProfileId,
+                kind = RelayKindVless,
+                vlessTransport = RelayVlessTransportXhttp,
+            ),
             RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2, udpEnabled = true),
         )
 
@@ -616,6 +667,7 @@ class SimpleInitialRelayRacePolicyTest {
     private companion object {
         const val RealityProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
         const val FallbackRealityProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality-2"
+        const val XhttpProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}Vless"
         const val HysteriaProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}Hysteria2"
         const val HourMillis = 60L * 60L * 1_000L
     }
