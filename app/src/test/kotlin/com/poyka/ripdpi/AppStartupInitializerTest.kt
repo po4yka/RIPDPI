@@ -490,14 +490,20 @@ class AppStartupInitializerTest {
         }
 
     @Test
-    fun `process exit scan cancellation stops later startup probes`() =
+    fun `process exit scan cancellation fails startup instead of leaving it pending`() =
         runTest {
-            val reconciliationStarted = CompletableDeferred<Unit>()
+            var inspectionCalls = 0
+            val inspectionStarted = CompletableDeferred<Unit>()
             val lastExitInspector =
-                RecordingLastExitInspector(
-                    failure = CancellationException("secret-process-exit-canary"),
-                    started = reconciliationStarted,
-                )
+                object : LastExitInspector {
+                    override suspend fun recordRecentProcessExits() {
+                        inspectionCalls += 1
+                        if (inspectionCalls == 1) {
+                            inspectionStarted.complete(Unit)
+                            throw CancellationException("secret-process-exit-canary")
+                        }
+                    }
+                }
             val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
             val detectionObservationStarter = RecordingDetectionObservationStarter()
             val initializer =
@@ -511,13 +517,58 @@ class AppStartupInitializerTest {
                 )
 
             initializer.initialize()
+            inspectionStarted.await()
+            runCurrent()
+
+            assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
+            assertEquals(1, inspectionCalls)
+            assertEquals(0, diagnosticsBootstrapper.calls)
+            assertEquals(0, detectionObservationStarter.startCalls)
+
+            initializer.retryRecovery()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(2, inspectionCalls)
+            assertEquals(1, diagnosticsBootstrapper.calls)
+            assertEquals(1, detectionObservationStarter.startCalls)
+        }
+
+    @Test
+    fun `unexpected recovery exception fails startup and remains retryable`() =
+        runTest {
+            var reconciliationCalls = 0
+            val reconciliationStarted = CompletableDeferred<Unit>()
+            val reconciler =
+                object : RemoteDeviceAcceptanceStartupReconciler {
+                    override suspend fun reconcilePendingRun() {
+                        reconciliationCalls += 1
+                        if (reconciliationCalls == 1) {
+                            reconciliationStarted.complete(Unit)
+                            throw UnsupportedOperationException("synthetic unexpected recovery failure")
+                        }
+                    }
+                }
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    remoteDeviceAcceptanceStartupReconciler = reconciler,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
             reconciliationStarted.await()
             runCurrent()
 
-            assertEquals(AppStartupReadinessState.Pending, initializer.readiness.value)
-            assertEquals(1, lastExitInspector.calls)
-            assertEquals(0, diagnosticsBootstrapper.calls)
-            assertEquals(0, detectionObservationStarter.startCalls)
+            assertEquals(AppStartupReadinessState.Failed, initializer.readiness.value)
+
+            initializer.retryRecovery()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(2, reconciliationCalls)
         }
 }
 

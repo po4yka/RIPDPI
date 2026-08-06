@@ -100,27 +100,31 @@ class AppStartupInitializer
                         reconcileRemoteAcceptanceBeforeReadiness()
                         recovered
                     } catch (cancellation: CancellationException) {
-                        startupRunning.set(false)
-                        throw cancellation
-                    } catch (error: IllegalStateException) {
-                        // Release the single-flight guard before publishing Failed so
-                        // an immediate UI retry cannot lose the retry launch.
-                        startupRunning.set(false)
-                        readinessState.value = AppStartupReadinessState.Failed
-                        Logger.e(error) { "Pre-readiness recovery failed; startup remains gated" }
+                        failStartupAndRethrow(cancellation, "Pre-readiness recovery failed; startup remains gated")
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") error: Exception,
+                    ) {
+                        failStartup(error, "Pre-readiness recovery failed; startup remains gated")
                         return@launch
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") error: Error,
+                    ) {
+                        failStartupAndRethrow(error, "Pre-readiness recovery failed; startup remains gated")
                     }
                 val report =
                     try {
                         initializeSubsystemsAfterRecovery(startupRecovery)
                     } catch (cancellation: CancellationException) {
-                        startupRunning.set(false)
-                        throw cancellation
-                    } catch (error: IllegalStateException) {
-                        startupRunning.set(false)
-                        readinessState.value = AppStartupReadinessState.Failed
-                        Logger.e(error) { "Required startup subsystem failed; startup remains gated" }
+                        failStartupAndRethrow(cancellation, "Required startup subsystem failed; startup remains gated")
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") error: Exception,
+                    ) {
+                        failStartup(error, "Required startup subsystem failed; startup remains gated")
                         return@launch
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") error: Error,
+                    ) {
+                        failStartupAndRethrow(error, "Required startup subsystem failed; startup remains gated")
                     }
                 readinessState.value = AppStartupReadinessState.Ready
                 try {
@@ -129,6 +133,29 @@ class AppStartupInitializer
                     startupRunning.set(false)
                 }
             }
+        }
+
+        private fun failStartup(
+            error: Throwable,
+            message: String,
+        ) {
+            // Release the single-flight guard before publishing Failed so an
+            // immediate UI retry cannot lose the retry launch.
+            startupRunning.set(false)
+            readinessState.value = AppStartupReadinessState.Failed
+            if (error is CancellationException) {
+                Logger.w { "$message: cancelled" }
+            } else {
+                Logger.e(error) { message }
+            }
+        }
+
+        private fun failStartupAndRethrow(
+            error: Throwable,
+            message: String,
+        ): Nothing {
+            failStartup(error, message)
+            throw error
         }
 
         private suspend fun recoverBeforeReadiness(): AppStartupRecovery =
