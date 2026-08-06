@@ -2182,6 +2182,15 @@ class FailoverCoordinatorTest {
         }
 
     @Test
+    fun `simple selection suppresses standalone AWG while primary relay is active`() =
+        runTest {
+            val fixture = buildCoordinator()
+
+            assertTrue(fixture.awgSelection.suppressesLowerPrioritySelections)
+            assertNull(fixture.awgSelection.selectedAwgEgress())
+        }
+
+    @Test
     fun `automatic AWG fallback selects seeded profile instead of last modified profile`() =
         runTest {
             val lastModified =

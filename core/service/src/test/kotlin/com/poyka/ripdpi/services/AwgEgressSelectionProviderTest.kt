@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AwgEgressSelectionProviderTest {
@@ -39,9 +40,30 @@ class AwgEgressSelectionProviderTest {
             assertEquals(simpleFailover, provider.selectedAwgEgress())
         }
 
+    @Test
+    fun `authoritative empty simple source suppresses saved standalone selection`() =
+        runTest {
+            val standalone = sampleRequest("standalone")
+            val provider =
+                DefaultAwgEgressSelectionProvider(
+                    sources =
+                        setOf(
+                            StaticAwgEgressSelectionSource(
+                                selectionPriority = 0,
+                                request = null,
+                                suppressesLowerPrioritySelections = true,
+                            ),
+                            StaticAwgEgressSelectionSource(selectionPriority = 10, request = standalone),
+                        ),
+                )
+
+            assertNull(provider.selectedAwgEgress())
+        }
+
     private class StaticAwgEgressSelectionSource(
         override val selectionPriority: Int,
         private val request: AwgActivationRequest?,
+        override val suppressesLowerPrioritySelections: Boolean = false,
     ) : AwgEgressSelectionSource {
         override suspend fun selectedAwgEgress(): AwgActivationRequest? = request
     }

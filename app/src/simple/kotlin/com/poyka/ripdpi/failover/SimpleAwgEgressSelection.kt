@@ -31,8 +31,9 @@ class SimpleAwgEgressSelection
         private val settingsRepository: AppSettingsRepository,
     ) : AwgEgressSelectionSource,
         SimpleAwgFallbackSelection {
-        // The active simple fallback is the session authority, ahead of saved standalone AWG state.
+        // Simple owns the session: a selected fallback wins; an empty selection keeps the relay primary.
         override val selectionPriority: Int = 0
+        override val suppressesLowerPrioritySelections: Boolean = true
 
         private val selectedProfileId = MutableStateFlow<String?>(null)
         private val selectedRequest = MutableStateFlow<AwgActivationRequest?>(null)

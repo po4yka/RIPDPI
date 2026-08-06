@@ -24,6 +24,9 @@ interface AwgEgressSelectionProvider {
 interface AwgEgressSelectionSource {
     val selectionPriority: Int get() = 100
 
+    /** Whether an empty selection must prevent lower-priority sources from taking over. */
+    val suppressesLowerPrioritySelections: Boolean get() = false
+
     suspend fun selectedAwgEgress(): AwgActivationRequest?
 }
 
@@ -34,12 +37,12 @@ internal class DefaultAwgEgressSelectionProvider
         private val sources: Set<@JvmSuppressWildcards AwgEgressSelectionSource>,
     ) : AwgEgressSelectionProvider {
         override suspend fun selectedAwgEgress(): AwgActivationRequest? {
-            sources
-                .sortedBy(AwgEgressSelectionSource::selectionPriority)
-                .forEach { source ->
-                    source.selectedAwgEgress()?.let { return it }
-                }
-            return null
+            var selected: AwgActivationRequest? = null
+            for (source in sources.sortedBy(AwgEgressSelectionSource::selectionPriority)) {
+                selected = source.selectedAwgEgress()
+                if (selected != null || source.suppressesLowerPrioritySelections) break
+            }
+            return selected
         }
     }
 
