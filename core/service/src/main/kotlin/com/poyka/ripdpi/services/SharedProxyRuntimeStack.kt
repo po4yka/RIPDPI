@@ -26,6 +26,8 @@ internal class SharedProxyRuntimeStack(
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    private val awgEgressReadinessVerifier: AwgEgressReadinessVerifier =
+        AwgEgressReadinessVerifier(amneziaWgRuntimeSupervisor),
     // Clears the sticky "foreign relay failed" signal. Invoked on every relay (re)start
     // and on stop so a clean session never inherits a previous session's Degraded state.
     private val clearForeignRelayFailed: () -> Unit = {},
@@ -59,6 +61,14 @@ internal class SharedProxyRuntimeStack(
             // AWG is the egress: start the AWG supervisor and point the proxy
             // upstream at the AWG loopback port. WARP is not started — AWG wins.
             amneziaWgRuntimeSupervisor.start(awgRequest, onAwgExit)
+            initialRelayRacePlan?.let { plan ->
+                awgEgressReadinessVerifier.verify(
+                    requestProfileId = awgRequest.profileId,
+                    plan = plan,
+                    onState = onInitialRelayRaceState,
+                    onSelected = onInitialRelaySelected,
+                )
+            }
             effectivePreferences = proxyPreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
         } else {
             val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()

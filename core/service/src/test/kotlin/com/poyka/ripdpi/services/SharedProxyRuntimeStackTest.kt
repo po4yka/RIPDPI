@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -22,6 +23,68 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SharedProxyRuntimeStackTest {
+    @Test
+    fun awgHandshakeWithoutEgressRejectsBeforeProxyStartup() =
+        runTest {
+            val fixture = createFixture()
+            val states = mutableListOf<String>()
+
+            val error =
+                runCatching {
+                    fixture.stack.start(
+                        proxyPreferences = awgPreferences(),
+                        onRelayExit = {},
+                        onWarpExit = {},
+                        onAwgExit = {},
+                        onProxyExit = {},
+                        initialRelayRacePlan = awgPlan(),
+                        onInitialRelayRaceState = { states += it.state },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
+            assertTrue(fixture.proxyFactory.runtimes.isEmpty())
+            assertEquals(1, fixture.awgFactory.lastRuntime.stopCount)
+            assertEquals("exhausted", states.last())
+        }
+
+    @Test
+    fun awgInternetEgressAllowsProxyStartup() =
+        runTest {
+            var probedEndpoint: LocalProxyEndpoint? = null
+            var probedUrl: String? = null
+            var probedRequirements: EgressRequirements? = null
+            val fixture =
+                createFixture(
+                    awgActiveProbe =
+                        RelayActiveProbe { endpoint, url, requirements ->
+                            probedEndpoint = endpoint
+                            probedUrl = url
+                            probedRequirements = requirements
+                            RelayActiveProbeResult(true, statusCode = 204, latencyMs = 12L)
+                        },
+                )
+            val selected = mutableListOf<InitialRelayRaceResult>()
+
+            fixture.stack.start(
+                proxyPreferences = awgPreferences(),
+                onRelayExit = {},
+                onWarpExit = {},
+                onAwgExit = {},
+                onProxyExit = {},
+                initialRelayRacePlan = awgPlan(),
+                onInitialRelaySelected = selected::add,
+            )
+
+            assertEquals(1, fixture.proxyFactory.runtimes.size)
+            assertEquals(0, fixture.awgFactory.lastRuntime.stopCount)
+            assertEquals(AwgProfileId, selected.single().selectedCandidate.profileId)
+            assertEquals(LocalProxyEndpoint("127.0.0.1", 10_808), probedEndpoint)
+            assertEquals("https://probe.example/generate_204", probedUrl)
+            assertEquals(EgressRequirements(tcpConnect = true, udpAssociate = false), probedRequirements)
+            fixture.stack.stop(skipRuntimeShutdown = false)
+        }
+
     @Test
     fun rememberedJsonUsesPromotedRelayEndpointBeforeProxyStartup() =
         runTest {
@@ -207,6 +270,10 @@ class SharedProxyRuntimeStackTest {
         }
 
     private fun TestScope.createFixture(
+        awgActiveProbe: RelayActiveProbe =
+            RelayActiveProbe { _, _, _ ->
+                RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
+            },
         renderer: (RipDpiProxyPreferences, RipDpiRelayConfig, String, Int) -> RipDpiProxyPreferences =
             { preferences, selection, host, port ->
                 preferences.withRelayRuntimeSelection(selection, host, port)
@@ -252,6 +319,14 @@ class SharedProxyRuntimeStackTest {
                     },
             )
         val proxyFactory = TestRipDpiProxyFactory()
+        val awgFactory = TestRipDpiAmneziaWgFactory()
+        val awgSupervisor =
+            AmneziaWgRuntimeSupervisor(
+                scope = backgroundScope,
+                dispatcher = dispatcher,
+                amneziaWgFactory = awgFactory,
+                runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+            )
         val stack =
             SharedProxyRuntimeStack(
                 upstreamRelaySupervisor = upstreamRelaySupervisor,
@@ -262,13 +337,7 @@ class SharedProxyRuntimeStackTest {
                         warpFactory = TestRipDpiWarpFactory(),
                         runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                     ),
-                amneziaWgRuntimeSupervisor =
-                    AmneziaWgRuntimeSupervisor(
-                        scope = backgroundScope,
-                        dispatcher = dispatcher,
-                        amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
-                        runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
-                    ),
+                amneziaWgRuntimeSupervisor = awgSupervisor,
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,
@@ -276,9 +345,10 @@ class SharedProxyRuntimeStackTest {
                         ripDpiProxyFactory = proxyFactory,
                         networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                     ),
+                awgEgressReadinessVerifier = AwgEgressReadinessVerifier(awgSupervisor, awgActiveProbe),
                 relayRuntimeSelectionRenderer = renderer,
             )
-        return Fixture(stack, proxyFactory, relayFactory)
+        return Fixture(stack, proxyFactory, relayFactory, awgFactory)
     }
 
     private fun rememberedJsonPreferences(): RipDpiProxyJsonPreferences =
@@ -297,6 +367,34 @@ class SharedProxyRuntimeStackTest {
                 ).toNativeConfigJson(),
             localListenPortOverride = 0,
             localAuthToken = TestLocalProxyAuth,
+        )
+
+    private fun awgPreferences(): RipDpiProxyUIPreferences =
+        RipDpiProxyUIPreferences(
+            protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
+            awg =
+                AwgActivationRequest(
+                    profileId = AwgProfileId,
+                    privateKey = "privkey==",
+                    peerPublicKey = "peerpub==",
+                    endpointHost = "vpn.example.org",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                ),
+        )
+
+    private fun awgPlan(): InitialRelayRacePlan =
+        InitialRelayRacePlan(
+            probeUrl = "https://probe.example/generate_204",
+            candidates =
+                listOf(
+                    InitialRelayCandidate(
+                        InitialRelayTransportClass.UdpObfuscation,
+                        AwgProfileId,
+                        AmneziaWgEgressKind,
+                    ),
+                ),
+            requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
         )
 
     private fun racePlan(): InitialRelayRacePlan =
@@ -322,6 +420,7 @@ class SharedProxyRuntimeStackTest {
         val stack: SharedProxyRuntimeStack,
         val proxyFactory: TestRipDpiProxyFactory,
         val relayFactory: TestRipDpiRelayFactory,
+        val awgFactory: TestRipDpiAmneziaWgFactory,
     )
 
     private companion object {
@@ -331,5 +430,6 @@ class SharedProxyRuntimeStackTest {
         const val RealityRacePort = 19_001
         const val HysteriaRacePort = 19_002
         const val TestLocalProxyAuth = "alpha-123"
+        const val AwgProfileId = "simple-seed-awg"
     }
 }

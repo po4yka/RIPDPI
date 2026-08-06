@@ -7,6 +7,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import java.net.InetSocketAddress
 
+const val AmneziaWgEgressKind = "amneziawg"
+
 enum class InitialRelayTransportClass(
     val wireValue: String,
 ) {

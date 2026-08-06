@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiLogContext
+import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
 import java.util.UUID
@@ -195,6 +196,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 .toString()
                 .replace("-", "")
         val configuredRelay = resolution.proxyPreferences.relayConfigOrNull()
+        val configuredAwg = resolution.proxyPreferences.awgConfigOrNull()
         val requirements =
             EgressRequirements(
                 tcpConnect = true,
@@ -202,8 +204,8 @@ internal class VpnRuntimeCompositionCoordinator(
             )
         val racePlan =
             initialRelayRacePolicy?.plan(
-                configuredRelayProfileId = configuredRelay?.profileId,
-                configuredRelayKind = configuredRelay?.kind,
+                configuredRelayProfileId = configuredRelay?.profileId ?: configuredAwg?.profileId,
+                configuredRelayKind = configuredRelay?.kind ?: configuredAwg?.let { AmneziaWgEgressKind },
                 networkScopeKey = resolution.networkScopeKey,
                 requirements = requirements,
             )

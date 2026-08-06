@@ -17,9 +17,11 @@ import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SIMPLE_RELAY_BUNDLE_ASSET_NAME
+import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.seed.SIMPLE_SEED_GROUP_ID
 import com.poyka.ripdpi.seed.seedRelayProfileId
 import com.poyka.ripdpi.seed.seedRelayProfileStableName
+import com.poyka.ripdpi.services.AmneziaWgEgressKind
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayRacePlan
@@ -294,11 +296,11 @@ internal class SimpleInitialRelayRacePolicy
     }
 
 /**
- * Gates the simple flavor's connected state on real egress through the configured relay.
+ * Gates the simple flavor's connected state on real egress through the configured relay or AWG.
  *
- * The shared relay runtime becomes ready when its local SOCKS listener is bound. A one-candidate
- * preflight keeps the configured VLESS -> Hysteria2 order while requiring an HTTP request through
- * that listener before the VPN tunnel can be published as running.
+ * Relay readiness proves only a bound listener and AWG readiness proves only a peer handshake.
+ * A one-candidate preflight requires an HTTP request through the selected local SOCKS listener
+ * before the VPN tunnel can be published as running.
  */
 @Singleton
 internal class SimpleRelayEgressReadinessPolicy
@@ -328,37 +330,44 @@ internal class SimpleRelayEgressReadinessPolicy
         ): InitialRelayRacePlan? {
             val profileId = configuredRelayProfileId
             val relayKind = configuredRelayKind
+            val seededAwg =
+                relayKind == AmneziaWgEgressKind &&
+                    profileId?.startsWith(SIMPLE_SEED_AWG_PROFILE_ID) == true
+            val seededRelay =
+                relayKind in SeededRelayKinds &&
+                    profileId?.startsWith(SEED_RELAY_PROFILE_ID_PREFIX) == true
             if (
                 profileId.isNullOrBlank() ||
-                !profileId.startsWith(SEED_RELAY_PROFILE_ID_PREFIX) ||
-                relayKind !in SeededRelayKinds
+                (!seededRelay && !seededAwg)
             ) {
                 publishDisabledSnapshot()
                 return null
             }
             val activeRelayKind = requireNotNull(relayKind)
 
-            val stored =
-                relayProfileStore.load(profileId)
-                    ?: rejectReadiness("Configured embedded relay profile is unavailable")
-            if (
-                stored.kind != activeRelayKind ||
-                (
-                    activeRelayKind == RelayKindVless &&
-                        stored.vlessTransport != RelayVlessTransportXhttp
-                ) ||
-                relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) != true ||
-                (
-                    requirements.udpAssociate &&
-                        !relayProfileSupportsUdpAssociation(
-                            kindId = stored.kind,
-                            udpEnabled = stored.udpEnabled,
-                            vlessTransport = stored.vlessTransport,
-                            vlessFlow = stored.vlessFlow,
-                        )
-                )
-            ) {
-                rejectReadiness("Configured embedded relay cannot satisfy the active egress probe")
+            if (!seededAwg) {
+                val stored =
+                    relayProfileStore.load(profileId)
+                        ?: rejectReadiness("Configured embedded relay profile is unavailable")
+                if (
+                    stored.kind != activeRelayKind ||
+                    (
+                        activeRelayKind == RelayKindVless &&
+                            stored.vlessTransport != RelayVlessTransportXhttp
+                    ) ||
+                    relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) != true ||
+                    (
+                        requirements.udpAssociate &&
+                            !relayProfileSupportsUdpAssociation(
+                                kindId = stored.kind,
+                                udpEnabled = stored.udpEnabled,
+                                vlessTransport = stored.vlessTransport,
+                                vlessFlow = stored.vlessFlow,
+                            )
+                    )
+                ) {
+                    rejectReadiness("Configured embedded relay cannot satisfy the active egress probe")
+                }
             }
 
             val imported =
@@ -377,6 +386,8 @@ internal class SimpleRelayEgressReadinessPolicy
                     -> InitialRelayTransportClass.TlsMimicry
 
                     RelayKindHysteria2 -> InitialRelayTransportClass.UdpObfuscation
+
+                    AmneziaWgEgressKind -> InitialRelayTransportClass.UdpObfuscation
 
                     else -> error("unreachable")
                 }

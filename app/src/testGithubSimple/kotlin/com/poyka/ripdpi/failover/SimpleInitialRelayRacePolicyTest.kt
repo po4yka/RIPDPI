@@ -15,6 +15,8 @@ import com.poyka.ripdpi.data.RelayVlessFlowVision
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
+import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
+import com.poyka.ripdpi.services.AmneziaWgEgressKind
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayRaceResult
 import kotlinx.coroutines.test.runTest
@@ -135,6 +137,44 @@ class SimpleInitialRelayRacePolicyTest {
                 EgressRequirements(tcpConnect = true, udpAssociate = false),
                 plan?.readinessProbeRequirements,
             )
+        }
+
+    @Test
+    fun `fallback readiness preflights seeded AWG internet egress`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val plan = readinessPolicy.plan(SIMPLE_SEED_AWG_PROFILE_ID, AmneziaWgEgressKind, "network-a")
+
+            assertEquals(listOf(AmneziaWgEgressKind), plan?.candidates?.map { it.relayKind })
+            assertEquals(SIMPLE_SEED_AWG_PROFILE_ID, plan?.candidates?.single()?.profileId)
+            assertEquals(
+                EgressRequirements(tcpConnect = true, udpAssociate = false),
+                plan?.readinessProbeRequirements,
+            )
+        }
+
+    @Test
+    fun `seeded AWG readiness rejects missing active probe`() =
+        runTest {
+            val readinessPolicy =
+                SimpleRelayEgressReadinessPolicy(
+                    bundleSource = SimpleRelayBundleSource { validBundle("file:///not-http") },
+                    relayProfileStore = seededProfileStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                )
+
+            val error =
+                runCatching {
+                    readinessPolicy.plan(SIMPLE_SEED_AWG_PROFILE_ID, AmneziaWgEgressKind, "network-a")
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
         }
 
     @Test
