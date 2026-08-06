@@ -63,6 +63,22 @@ abstract class VerifyReleaseVersionTask : DefaultTask() {
     }
 }
 
+abstract class VerifyEmbeddedRelayBundleTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val bundleFiles: ConfigurableFileCollection
+
+    @TaskAction
+    fun verify() {
+        val bundleFile = bundleFiles.singleFile
+        if (!bundleFile.isFile || bundleFile.length() == 0L) {
+            throw GradleException(
+                "Simple variants require a non-empty src/simple/assets/embedded-relay-bundle.json",
+            )
+        }
+    }
+}
+
 abstract class WriteReleaseIdentityManifestTask : DefaultTask() {
     @get:Input
     abstract val versionName: Property<String>
@@ -435,6 +451,13 @@ tasks.register<VerifyEngineBoundaryClasspathTask>("verifyEngineBoundaryClasspath
 }
 
 plugins.withId("com.android.application") {
+    val verifyEmbeddedRelayBundle =
+        tasks.register<VerifyEmbeddedRelayBundleTask>("verifyEmbeddedRelayBundle") {
+            group = "verification"
+            description = "Fails simple builds when the required embedded relay bundle is missing or empty."
+            bundleFiles.from(layout.projectDirectory.file("src/simple/assets/embedded-relay-bundle.json"))
+        }
+
     tasks.register<VerifyReleaseVersionTask>("verifyReleaseVersion") {
         group = "verification"
         description = "Fails release builds when refs/tags/v* does not match :app versionName."
@@ -458,6 +481,17 @@ plugins.withId("com.android.application") {
         }
 
     extensions.configure<ApplicationAndroidComponentsExtension> {
+        onVariants(selector().all()) { variant ->
+            if (variant.productFlavors.toMap()["experience"] == "simple") {
+                val mergeAssetsTaskName = variant.computeTaskName("merge", "Assets")
+                tasks.configureEach {
+                    if (name == mergeAssetsTaskName) {
+                        dependsOn(verifyEmbeddedRelayBundle)
+                    }
+                }
+            }
+        }
+
         onVariants(selector().withBuildType("release")) { variant ->
             val flavors = variant.productFlavors.toMap()
             writeReleaseIdentityManifest.configure {
