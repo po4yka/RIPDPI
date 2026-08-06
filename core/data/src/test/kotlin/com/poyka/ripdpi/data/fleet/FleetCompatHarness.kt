@@ -149,11 +149,9 @@ object FleetCompatHarness {
                     parsed.profiles
                 }
             }
-        // The deployer's bundle carries `direct`/`block`/`dns` boilerplate
-        // outbounds; the sing-box parser round-trips those as RawConfig. They
-        // are not fleet transport profiles, so they are excluded from the
-        // golden comparison (a documented allowed delta).
-        val importedProfiles = rawProfiles.filterNot { it.isBoilerplateOutbound() }
+        // The production parser excludes selector/urltest/direct/block/dns
+        // metadata before returning concrete remote profiles.
+        val importedProfiles = rawProfiles
         val actualProfileShape = importedProfiles.map { it.toStableShape() }
         val expectedProfileShape = parseExpectedProfiles(fixture.expectedProfilesJson)
         if (actualProfileShape != expectedProfileShape) {
@@ -277,18 +275,6 @@ object FleetCompatHarness {
     }
 
     private val BOILERPLATE_TYPES = setOf("selector", "urltest", "direct", "block", "dns")
-
-    /**
-     * True when [this] is a [ProxyProfile.RawConfig] round-tripped from a
-     * sing-box `direct` / `block` / `dns` boilerplate outbound — those are not
-     * fleet transport profiles.
-     */
-    @Suppress("ReturnCount")
-    private fun ProxyProfile.isBoilerplateOutbound(): Boolean {
-        if (this !is ProxyProfile.RawConfig) return false
-        val obj = runCatching { json.parseToJsonElement(config) as? JsonObject }.getOrNull() ?: return false
-        return obj.str("type") in BOILERPLATE_TYPES
-    }
 
     private fun ProxyProfile.toNodeTupleOrNull(): String? =
         when (this) {

@@ -146,7 +146,7 @@ class SingBoxSubscriptionParserTest {
     }
 
     @Test
-    fun `selector and urltest entries are skipped by the base parser`() {
+    fun `group and service outbounds are skipped by the base parser`() {
         val json =
             """
             {
@@ -155,7 +155,10 @@ class SingBoxSubscriptionParserTest {
                   "server_port": 443, "uuid": "11111111-1111-1111-1111-111111111111" },
                 { "type": "selector", "tag": "select", "outbounds": ["p0", "auto"], "default": "auto" },
                 { "type": "urltest", "tag": "auto", "outbounds": ["p0"],
-                  "url": "https://www.gstatic.com/generate_204" }
+                  "url": "https://www.gstatic.com/generate_204" },
+                { "type": "direct", "tag": "direct" },
+                { "type": "block", "tag": "block" },
+                { "type": "dns", "tag": "dns-out" }
               ]
             }
             """.trimIndent()

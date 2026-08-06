@@ -44,7 +44,8 @@ import org.robolectric.RuntimeEnvironment
 
 /**
  * Synthetic RIPDPI sing-box bundle with fake values only.
- * Contains VLESS-REALITY, VLESS/xHTTP, Hysteria2, and one ripdpi.amneziawg entry.
+ * Contains VLESS-REALITY, VLESS/xHTTP, Hysteria2, standard service outbounds,
+ * and one ripdpi.amneziawg entry.
  * No real keys, UUIDs, or server addresses.
  */
 private val FAKE_BUNDLE =
@@ -84,7 +85,10 @@ private val FAKE_BUNDLE =
           "server": "1.2.3.4",
           "server_port": 8443,
           "password": "fakepwd"
-        }
+        },
+        { "type": "direct", "tag": "direct" },
+        { "type": "block", "tag": "block" },
+        { "type": "dns", "tag": "dns-out" }
       ],
       "ripdpi": {
         "schema_version": 1,
@@ -495,6 +499,18 @@ class ConfigSeederTest {
             assertEquals("Existing Simple", stored.name)
             assertEquals(7, stored.order)
             assertEquals("com.simple.bypass", stored.packageRoutingRules.single().packageName)
+            assertEquals(1, awgDao.rows.value.size)
+        }
+
+    @Test
+    fun `service outbounds in required bundle do not block seed`() =
+        runTest {
+            val seeder = makeSeeder(FAKE_BUNDLE)
+
+            seeder.seed()
+
+            assertTrue(seeder.isSeeded())
+            assertEquals(3, relayProfileStore.list().size)
             assertEquals(1, awgDao.rows.value.size)
         }
 

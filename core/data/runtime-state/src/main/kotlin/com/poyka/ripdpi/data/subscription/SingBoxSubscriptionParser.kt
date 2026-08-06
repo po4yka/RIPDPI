@@ -103,15 +103,16 @@ data class RipdpiTopology(
  * otherwise a lone outbound object is wrapped as a one-element list. Known
  * `type:` values map to first-class [ProxyProfile] subtypes; every other type
  * round-trips as [ProxyProfile.RawConfig] holding the raw JSON fragment.
- * `selector` / `urltest` entries are group metadata, not profiles, and are
- * skipped here (see [SelectorUrltestGroupImport]). Supported Android
+ * `selector` / `urltest` group entries and `direct` / `block` / `dns` service
+ * outbounds are routing metadata, not remote profiles, and are skipped here
+ * (see [SelectorUrltestGroupImport]). Supported Android
  * `route.rules[].package_name` entries are returned with subscription
  * provenance. `inbounds`, `dns` and `experimental` sections are ignored. Malformed JSON yields
  * [SingBoxParseResult.Error].
  */
 object SingBoxSubscriptionParser {
-    /** Outbound `type:` values that are group metadata rather than concrete nodes. */
-    val GROUP_OUTBOUND_TYPES: Set<String> = setOf("selector", "urltest")
+    /** Outbound `type:` values that configure routing/group behavior rather than remote nodes. */
+    val NON_PROFILE_OUTBOUND_TYPES: Set<String> = setOf("selector", "urltest", "direct", "block", "dns")
 
     /**
      * The only `ripdpi.schema_version` this parser understands. Post-1 fields
@@ -186,7 +187,7 @@ object SingBoxSubscriptionParser {
                     extracted.entries.mapIndexedNotNull { index, element ->
                         val obj = element as? JsonObject ?: return@mapIndexedNotNull null
                         val type = obj.string("type") ?: return@mapIndexedNotNull null
-                        if (type.lowercase() in GROUP_OUTBOUND_TYPES) return@mapIndexedNotNull null
+                        if (type.lowercase() in NON_PROFILE_OUTBOUND_TYPES) return@mapIndexedNotNull null
                         unsupportedNode(obj, type, index)?.let {
                             skipped += it
                             return@mapIndexedNotNull null
