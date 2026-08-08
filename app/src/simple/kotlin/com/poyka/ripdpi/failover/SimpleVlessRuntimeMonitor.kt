@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -48,7 +47,7 @@ internal class SimpleVlessRuntimeMonitor
     constructor(
         private val serviceStateStore: ServiceStateStore,
         private val settingsRepository: AppSettingsRepository,
-        private val relayProfileStore: RelayProfileStore,
+        private val relayCatalog: SimpleFailoverRelayCatalog,
         private val awgFallbackSelection: SimpleAwgFallbackSelection,
         private val startupFallbackController: StartupFallbackController,
     ) : SimpleFlavorSessionWatcher,
@@ -198,7 +197,10 @@ internal class SimpleVlessRuntimeMonitor
                 return
             }
 
-            val fallback = relayProfileStore.list().firstSeededHysteria2OrNull()
+            val fallback =
+                relayCatalog
+                    .loadManagedProfiles()
+                    .firstHysteria2OrNull()
             if (fallback == null) {
                 Logger.w { "SimpleVlessRuntimeMonitor: embedded Hysteria2 fallback unavailable; remaining halted" }
                 return
@@ -331,6 +333,32 @@ internal class SimpleVlessRuntimeMonitor
             }
         }
 
+        private fun List<RelayProfileRecord>.firstHysteria2OrNull(): RelayProfileRecord? =
+            asSequence()
+                .filter { profile -> profile.kind == RelayKindHysteria2 }
+                .minWithOrNull(
+                    compareBy(
+                        { profile -> seededHysteriaOccurrence(profile.id) },
+                        RelayProfileRecord::id,
+                    ),
+                )
+
+        private fun seededHysteriaOccurrence(profileId: String): Int =
+            when {
+                profileId == SEEDED_HYSTERIA2_PROFILE_ID -> {
+                    0
+                }
+
+                profileId.startsWith("$SEEDED_HYSTERIA2_PROFILE_ID-") -> {
+                    profileId.removePrefix("$SEEDED_HYSTERIA2_PROFILE_ID-").toIntOrNull()?.minus(1)
+                        ?: Int.MAX_VALUE
+                }
+
+                else -> {
+                    Int.MAX_VALUE
+                }
+            }
+
         private fun FailureReason.isRecoverableStartupFailure(): Boolean =
             when (this) {
                 is FailureReason.NativeError,
@@ -346,37 +374,6 @@ internal class SimpleVlessRuntimeMonitor
                 is FailureReason.WarpProvisioningFailed,
                 is FailureReason.WarpRuntimeFailed,
                 -> false
-            }
-
-        private fun List<RelayProfileRecord>.firstSeededHysteria2OrNull(): RelayProfileRecord? =
-            asSequence()
-                .filter { profile ->
-                    profile.kind == RelayKindHysteria2 &&
-                        (
-                            profile.id == SEEDED_HYSTERIA2_PROFILE_ID ||
-                                profile.id.startsWith("$SEEDED_HYSTERIA2_PROFILE_ID-")
-                        )
-                }.minWithOrNull(
-                    compareBy(
-                        { profile -> seededOccurrence(profile.id) },
-                        RelayProfileRecord::id,
-                    ),
-                )
-
-        private fun seededOccurrence(profileId: String): Int =
-            when {
-                profileId == SEEDED_HYSTERIA2_PROFILE_ID -> {
-                    0
-                }
-
-                profileId.startsWith("$SEEDED_HYSTERIA2_PROFILE_ID-") -> {
-                    profileId.removePrefix("$SEEDED_HYSTERIA2_PROFILE_ID-").toIntOrNull()?.minus(1)
-                        ?: Int.MAX_VALUE
-                }
-
-                else -> {
-                    Int.MAX_VALUE
-                }
             }
 
         private companion object {

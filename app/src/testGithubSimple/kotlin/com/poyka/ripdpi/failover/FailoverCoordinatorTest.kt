@@ -12,7 +12,6 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessFlowVision
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
@@ -173,24 +172,6 @@ private class FakeServiceController(
 }
 
 private data object FakeStartupFallbackLease : StartupFallbackLease
-
-private class FakeRelayProfileStore(
-    profiles: List<RelayProfileRecord> = emptyList(),
-) : RelayProfileStore {
-    private val store = profiles.associateBy { it.id }.toMutableMap()
-
-    override suspend fun load(profileId: String): RelayProfileRecord? = store[profileId]
-
-    override suspend fun list(): List<RelayProfileRecord> = store.values.toList()
-
-    override suspend fun save(profile: RelayProfileRecord) {
-        store[profile.id] = profile
-    }
-
-    override suspend fun clear(profileId: String) {
-        store.remove(profileId)
-    }
-}
 
 private class FakeAppSettingsRepository(
     udpAssociateEnabled: Boolean? = false,
@@ -366,7 +347,7 @@ private fun buildCoordinator(
             serviceStateStore = stateStore,
             serviceController = controller,
             startupFallbackController = controller,
-            relayProfileStore = FakeRelayProfileStore(relayProfiles),
+            relayCatalog = SimpleFailoverRelayCatalog { relayProfiles },
             settingsRepository = settings,
             awgEgressSelection = awgSelection,
             egressProbe = egressProbe,

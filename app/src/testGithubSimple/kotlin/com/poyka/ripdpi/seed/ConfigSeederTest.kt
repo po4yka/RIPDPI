@@ -24,6 +24,8 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.failover.EmbeddedSimpleFailoverRelayCatalog
+import com.poyka.ripdpi.failover.SimpleRelayBundleSource
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import kotlinx.coroutines.flow.Flow
@@ -368,6 +370,35 @@ class ConfigSeederTest {
             // VLESS+REALITY is activated last so it is the initial active transport (priority 0).
             assertEquals(RelayKindVlessReality, relaySettings.snapshot().relayKind)
             assertTrue(seeder.isSeeded())
+        }
+
+    @Test
+    fun `automatic catalog loads only embedded ids without enumerating saved relays`() =
+        runTest {
+            makeSeeder(FAKE_BUNDLE).seed()
+            relayProfileStore.save(
+                RelayProfileRecord(
+                    id = "user-reality",
+                    kind = RelayKindVlessReality,
+                ),
+            )
+            relayProfileStore.rejectEnumeration = true
+            relayProfileStore.loadedProfileIds.clear()
+
+            val profiles =
+                EmbeddedSimpleFailoverRelayCatalog(
+                    bundleSource = SimpleRelayBundleSource { FAKE_BUNDLE },
+                    relayProfileStore = relayProfileStore,
+                ).loadManagedProfiles()
+
+            val expectedIds =
+                listOf(
+                    "simple-seed-VlessReality",
+                    "simple-seed-Vless",
+                    "simple-seed-Hysteria2",
+                )
+            assertEquals(expectedIds, profiles.map(RelayProfileRecord::id))
+            assertEquals(expectedIds, relayProfileStore.loadedProfileIds)
         }
 
     @Test
@@ -741,10 +772,18 @@ private class RecordingProxyGroupRepository : ProxyGroupRepository {
 
 private class FakeRelayProfileStore : RelayProfileStore {
     private val profiles = mutableMapOf<String, RelayProfileRecord>()
+    val loadedProfileIds = mutableListOf<String>()
+    var rejectEnumeration: Boolean = false
 
-    override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
+    override suspend fun load(profileId: String): RelayProfileRecord? {
+        loadedProfileIds += profileId
+        return profiles[profileId]
+    }
 
-    override suspend fun list(): List<RelayProfileRecord> = profiles.values.toList()
+    override suspend fun list(): List<RelayProfileRecord> {
+        check(!rejectEnumeration) { "Automatic failover must not enumerate user relay profiles" }
+        return profiles.values.toList()
+    }
 
     override suspend fun save(profile: RelayProfileRecord) {
         profiles[profile.id] = profile

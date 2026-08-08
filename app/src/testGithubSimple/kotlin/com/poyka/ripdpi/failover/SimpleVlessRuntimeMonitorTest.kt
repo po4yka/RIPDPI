@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -158,7 +157,8 @@ class SimpleVlessRuntimeMonitorTest {
             val stateStore = DefaultServiceStateStore()
             val settings = FakeAppSettingsRepository()
             val controller = RecordingServiceController()
-            val profileStore = MonitorRelayProfileStore(emptyList())
+            val profiles = mutableListOf<RelayProfileRecord>()
+            val relayCatalog = SimpleFailoverRelayCatalog { profiles.toList() }
             settings.update {
                 setRelayEnabled(true)
                 setRelayKind(RelayKindVlessReality)
@@ -168,7 +168,7 @@ class SimpleVlessRuntimeMonitorTest {
                 buildMonitor(
                     stateStore = stateStore,
                     settings = settings,
-                    profileStore = profileStore,
+                    relayCatalog = relayCatalog,
                     controller = controller,
                 )
             monitor.bind(backgroundScope)
@@ -178,7 +178,7 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
             assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
 
-            profileStore.save(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2))
+            profiles += RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS retry failed"))
             runCurrent()
 
@@ -733,14 +733,14 @@ class SimpleVlessRuntimeMonitorTest {
         stateStore: ServiceStateStore,
         settings: FakeAppSettingsRepository,
         profiles: List<RelayProfileRecord> = emptyList(),
-        profileStore: RelayProfileStore = MonitorRelayProfileStore(profiles),
+        relayCatalog: SimpleFailoverRelayCatalog = SimpleFailoverRelayCatalog { profiles },
         awgSelection: RecordingAwgFallbackSelection = RecordingAwgFallbackSelection(),
         controller: RecordingServiceController = RecordingServiceController(),
     ): SimpleVlessRuntimeMonitor =
         SimpleVlessRuntimeMonitor(
             serviceStateStore = stateStore,
             settingsRepository = settings,
-            relayProfileStore = profileStore,
+            relayCatalog = relayCatalog,
             awgFallbackSelection = awgSelection,
             startupFallbackController = controller,
         )
@@ -816,24 +816,6 @@ private class RecordingAwgFallbackSelection(
     override fun clear() {
         clearCalls += 1
         currentRequest = null
-    }
-}
-
-private class MonitorRelayProfileStore(
-    profiles: List<RelayProfileRecord>,
-) : RelayProfileStore {
-    private val records = profiles.associateBy(RelayProfileRecord::id).toMutableMap()
-
-    override suspend fun load(profileId: String): RelayProfileRecord? = records[profileId]
-
-    override suspend fun list(): List<RelayProfileRecord> = records.values.toList()
-
-    override suspend fun save(profile: RelayProfileRecord) {
-        records[profile.id] = profile
-    }
-
-    override suspend fun clear(profileId: String) {
-        records.remove(profileId)
     }
 }
 

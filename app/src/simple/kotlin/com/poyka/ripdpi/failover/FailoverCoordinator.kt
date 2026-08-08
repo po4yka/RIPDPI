@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -167,7 +166,7 @@ class FailoverCoordinator
         private val serviceStateStore: ServiceStateStore,
         private val serviceController: ServiceController,
         private val startupFallbackController: StartupFallbackController,
-        private val relayProfileStore: RelayProfileStore,
+        private val relayCatalog: SimpleFailoverRelayCatalog,
         private val settingsRepository: AppSettingsRepository,
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val egressProbe: FailoverEgressProbe,
@@ -989,7 +988,7 @@ class FailoverCoordinator
         }
 
         /**
-         * Builds the ordered candidate list from what is actually persisted in the stores.
+         * Builds the ordered candidate list from embedded profiles that are actually persisted.
          *
          * Priority order is VLESS+Reality, VLESS/XHTTP, Hysteria2, then AWG. TCP-only relays stay
          * eligible even when UDP ASSOCIATE is requested: they are a deliberately degraded but
@@ -1014,7 +1013,7 @@ class FailoverCoordinator
 
             val networkScopeKey =
                 serviceStateStore.telemetry.value.runtimeFieldTelemetry.telemetryNetworkFingerprintHash
-            val relayProfiles = relayProfileStore.list()
+            val relayProfiles = relayCatalog.loadManagedProfiles()
 
             relayProfiles
                 .filter { profile ->
