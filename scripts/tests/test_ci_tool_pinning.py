@@ -69,6 +69,32 @@ class CiToolPinningTest(unittest.TestCase):
             action,
         )
 
+    def test_ci_materializes_private_bundle_for_every_simple_variant_gate(self) -> None:
+        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
+            encoding="utf-8"
+        )
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("embedded-relay-bundle-base64:\n    description:", action)
+        self.assertIn("base64 --decode > \"$bundle_path\"", action)
+        self.assertIn('test -s "$bundle_path"', action)
+
+        for job_name in (
+            "build-android-tests",
+            "verify-roborazzi",
+            "release-verification",
+            "android-instrumented-tests",
+        ):
+            with self.subTest(job_name=job_name):
+                job = re.search(rf"(?ms)^  {job_name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
+                self.assertIsNotNone(job)
+                assert job is not None
+                self.assertIn(
+                    "embedded-relay-bundle-base64: "
+                    "${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}",
+                    job.group(0),
+                )
+
     def test_jni_symbol_guard_uses_shared_android_rust_setup(self) -> None:
         source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
             encoding="utf-8"

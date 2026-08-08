@@ -54,6 +54,10 @@ inputs:
     description: Whether to install the Android NDK when Android SDK setup is enabled
     required: false
     default: "true"
+  embedded-relay-bundle-base64:
+    description: Base64-encoded private embedded relay bundle for simple Android variants
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -185,6 +189,18 @@ runs:
           }
         }
         GRADLE
+
+    - name: Materialize embedded relay bundle
+      if: inputs.embedded-relay-bundle-base64 != ''
+      shell: bash
+      env:
+        EMBEDDED_RELAY_BUNDLE_BASE64: ${{ inputs.embedded-relay-bundle-base64 }}
+      run: |
+        set -euo pipefail
+        bundle_path="app/src/simple/assets/embedded-relay-bundle.json"
+        install -d "$(dirname "$bundle_path")"
+        printf '%s' "$EMBEDDED_RELAY_BUNDLE_BASE64" | base64 --decode > "$bundle_path"
+        test -s "$bundle_path"
 
     - name: Restore shared Gradle build cache (read-only)
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only == 'true'
