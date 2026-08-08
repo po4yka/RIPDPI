@@ -1743,6 +1743,12 @@ Source : %2$s</string>
     <string name="diagnostics_action_cancel">Annuler l\'analyse active</string>
     <string name="diagnostics_action_start_probe">Démarrer le sondage automatique</string>
     <string name="diagnostics_archive_save_failed">Échec de l\'enregistrement de l\'archive de diagnostic</string>
+    <string name="diagnostics_archive_destination_open_failed">Impossible d’ouvrir l’emplacement sélectionné. Choisissez Téléchargements ou le stockage de l’appareil, puis réessayez.</string>
+    <string name="diagnostics_archive_destination_write_failed">L’emplacement sélectionné n’a pas accepté toute l’archive. Vérifiez l’espace libre ou choisissez Téléchargements, puis réessayez.</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI n’a pas pu préparer l’archive dans le stockage privé. Libérez de l’espace sur l’appareil, puis réessayez.</string>
+    <string name="diagnostics_archive_database_failed">Les enregistrements de diagnostic n’ont pas pu être lus pour l’exportation. Relancez le diagnostic, puis enregistrez le nouveau résultat.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">Le résultat du diagnostic a changé avant la fin de l’exportation. Relancez le diagnostic, puis enregistrez le nouveau résultat.</string>
+    <string name="diagnostics_support_details_copied">Détails de l’erreur de diagnostic copiés</string>
     <string name="diagnostics_audit_candidate_signature_title">Configuration candidate</string>
     <string name="diagnostics_audit_low_confidence_title">Résultat d\'audit à faible confiance</string>
     <string name="diagnostics_audit_progress_title">Audit réseau en cours</string>

@@ -7,6 +7,8 @@ internal object DiagnosticsExportSupportCodes {
     const val ArchiveStorage = "archive_storage"
     const val ArchiveIo = "archive_io"
     const val ArchiveInconsistentResult = "archive_inconsistent_result"
+    const val ArchiveDestinationOpen = "archive_destination_open"
+    const val ArchiveDestinationWrite = "archive_destination_write"
     const val ShareNoHandler = "share_no_handler"
 }
 

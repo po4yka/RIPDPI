@@ -1743,6 +1743,12 @@ Quelle: %2$s</string>
     <string name="diagnostics_action_cancel">Aktiven Scan abbrechen</string>
     <string name="diagnostics_action_start_probe">Automatische Probe starten</string>
     <string name="diagnostics_archive_save_failed">Diagnose-Archiv konnte nicht gespeichert werden</string>
+    <string name="diagnostics_archive_destination_open_failed">Der ausgewählte Speicherort konnte nicht geöffnet werden. Wähle Downloads oder den Gerätespeicher und versuche es erneut.</string>
+    <string name="diagnostics_archive_destination_write_failed">Der ausgewählte Speicherort hat das Archiv nicht vollständig angenommen. Prüfe den freien Speicher oder wähle Downloads und versuche es erneut.</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI konnte das Archiv nicht im privaten Speicher vorbereiten. Gib Gerätespeicher frei und versuche es erneut.</string>
+    <string name="diagnostics_archive_database_failed">Die Diagnoseeinträge konnten nicht für den Export gelesen werden. Führe die Diagnose erneut aus und speichere das neue Ergebnis.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">Das Diagnoseergebnis hat sich vor Abschluss des Exports geändert. Führe die Diagnose erneut aus und speichere das neue Ergebnis.</string>
+    <string name="diagnostics_support_details_copied">Diagnosefehlerdetails kopiert</string>
     <string name="diagnostics_audit_candidate_signature_title">Kandidatenkonfiguration</string>
     <string name="diagnostics_audit_low_confidence_title">Audit-Ergebnis mit geringer Zuverlässigkeit</string>
     <string name="diagnostics_audit_progress_title">Netzwerk-Audit läuft</string>

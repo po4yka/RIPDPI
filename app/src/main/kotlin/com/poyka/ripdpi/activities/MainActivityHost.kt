@@ -284,9 +284,11 @@ internal class DefaultMainActivityHost
             }
             val onFailure: (Throwable) -> Unit = { error ->
                 Logger.e(error) { "Failed to save diagnostics archive" }
+                val feedback = diagnosticsArchiveSaveFeedback(error)
                 viewModel.reportSupportError(
-                    activity.getString(R.string.diagnostics_archive_save_failed),
-                    DiagnosticsExportSupportCodes.ArchiveIo,
+                    activity.getString(feedback.messageRes),
+                    feedback.supportCode,
+                    feedback.supportPayload,
                 )
             }
 
@@ -409,11 +411,10 @@ internal class DefaultMainActivityHost
             val fileName: String,
         )
 
-        private fun deletePartialDiagnosticsArchiveDocument(uri: Uri) {
+        private fun deletePartialDiagnosticsArchiveDocument(uri: Uri): Boolean =
             runCatching {
                 android.provider.DocumentsContract.deleteDocument(activity.contentResolver, uri)
-            }
-        }
+            }.getOrDefault(false)
     }
 
 private fun AppCompatActivity.launchIoOperation(
@@ -450,21 +451,47 @@ internal suspend fun writeDiagnosticsArchiveDocument(
     destination: Uri,
     openDestinationStream: () -> OutputStream?,
     writeArchive: suspend (OutputStream) -> Unit,
-    deleteDocument: (Uri) -> Unit,
+    deleteDocument: (Uri) -> Boolean,
 ) {
-    var completed = false
     try {
         val stream =
-            openDestinationStream()
-                ?: throw IOException("Failed to open diagnostics archive destination")
-        stream.use { output -> writeArchive(output) }
-        completed = true
-    } finally {
-        if (!completed) {
-            runCatching { deleteDocument(destination) }
+            try {
+                openDestinationStream()
+                    ?: throw IOException("Failed to open diagnostics archive destination")
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (error is Error) throw error
+                throw DiagnosticsDocumentStageException(DiagnosticsDocumentExportStage.DESTINATION_OPEN, error)
+            }
+        try {
+            stream.use { output -> writeArchive(output) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            if (error is Error) throw error
+            throw DiagnosticsDocumentStageException(DiagnosticsDocumentExportStage.ARCHIVE_WRITE, error)
         }
+    } catch (error: CancellationException) {
+        runCatching { deleteDocument(destination) }
+        throw error
+    } catch (error: Error) {
+        runCatching { deleteDocument(destination) }
+        throw error
+    } catch (error: DiagnosticsDocumentStageException) {
+        val partialDocumentDeleted = runCatching { deleteDocument(destination) }.getOrDefault(false)
+        throw DiagnosticsDocumentExportException(
+            stage = error.stage,
+            partialDocumentDeleted = partialDocumentDeleted,
+            cause = error.cause ?: error,
+        )
     }
 }
+
+private class DiagnosticsDocumentStageException(
+    val stage: DiagnosticsDocumentExportStage,
+    cause: Throwable,
+) : IOException("Diagnostics document stage failed at ${stage.supportValue}", cause)
 
 @Module
 @InstallIn(ActivityComponent::class)

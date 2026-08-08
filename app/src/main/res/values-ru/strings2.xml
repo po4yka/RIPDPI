@@ -48,4 +48,10 @@
     <string name="unsaved_changes_body">Изменения ещё не сохранены. Отменить их и покинуть этот экран?</string>
     <string name="unsaved_changes_discard">Отменить изменения</string>
     <string name="unsaved_changes_keep_editing">Продолжить редактирование</string>
+    <string name="diagnostics_archive_destination_open_failed">Не удалось открыть выбранное место. Выберите «Загрузки» или память устройства и повторите попытку.</string>
+    <string name="diagnostics_archive_destination_write_failed">Выбранное место перестало принимать архив. Проверьте свободное место или выберите «Загрузки», затем повторите попытку.</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI не удалось подготовить архив во внутренней памяти. Освободите место на устройстве и повторите попытку.</string>
+    <string name="diagnostics_archive_database_failed">Не удалось прочитать записи диагностики для экспорта. Запустите диагностику заново и сохраните новый результат.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">Результат диагностики изменился до завершения экспорта. Запустите диагностику заново и сохраните новый результат.</string>
+    <string name="diagnostics_support_details_copied">Сведения об ошибке диагностики скопированы</string>
 </resources>

@@ -400,6 +400,12 @@
     <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data, runtime configuration, provenance, completeness, integrity metadata, and app-scoped logcat when available. Packet captures are not embedded; export them separately from packet capture tools.</string>
     <string name="diagnostics_save_archive_action">Save archive</string>
     <string name="diagnostics_archive_save_failed">Failed to save diagnostics archive</string>
+    <string name="diagnostics_archive_destination_open_failed">Could not open the selected location. Choose Downloads or device storage, then try again.</string>
+    <string name="diagnostics_archive_destination_write_failed">The selected location stopped accepting the archive. Check free space or choose Downloads, then try again.</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI could not prepare the archive in private storage. Free some device storage, then try again.</string>
+    <string name="diagnostics_archive_database_failed">Diagnostic records could not be read for export. Run the diagnostic again, then save the new result.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">The diagnostic result changed before export finished. Run the diagnostic again, then save the new result.</string>
+    <string name="diagnostics_support_details_copied">Diagnostic error details copied</string>
     <string name="diagnostics_save_logs_title">Save local logs</string>
     <string name="diagnostics_save_logs_body">Export the same app-scoped logcat snapshot as a plain-text file when you need just the local app trace; this file is created only after you choose where to save it.</string>
     <string name="home_status_section">Connection</string>

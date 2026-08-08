@@ -280,8 +280,18 @@ class MainViewModel
 
         fun onToggleHomePcapRecording() = homeDiagnostics.actions.togglePcapRecording()
 
-        internal val reportSupportError: (String, String) -> Unit = { message, supportCode ->
-            mutations.trySend(MainEffect.ShowError(message = message, supportCode = supportCode))
+        internal fun reportSupportError(
+            message: String,
+            supportCode: String,
+            supportPayload: String? = null,
+        ) {
+            mutations.trySend(
+                MainEffect.ShowError(
+                    message = message,
+                    supportCode = supportCode,
+                    supportPayload = supportPayload,
+                ),
+            )
         }
 
         fun applySavedStrategyConfig(): StrategyConfigApplyResult = strategyConfigActions.applySavedStrategyConfig()

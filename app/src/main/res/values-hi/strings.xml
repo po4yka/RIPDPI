@@ -390,6 +390,12 @@
     <string name="diagnostics_save_archive_body">%1$s को स्थानीय रूप से सहेजें। संग्रह में अपरिष्कृत रिपोर्ट डेटा, रनटाइम कॉन्फ़िगरेशन, उत्पत्ति संबंधी जानकारी, पूर्णता और अखंडता मेटाडेटा तथा उपलब्ध होने पर ऐप तक सीमित logcat रहता है। पैकेट कैप्चर इसमें एम्बेड नहीं किए जाते; उन्हें पैकेट कैप्चर टूल से अलग निर्यात करें।</string>
     <string name="diagnostics_save_archive_action">आर्काइव सहेजें</string>
     <string name="diagnostics_archive_save_failed">डायग्नोस्टिक्स आर्काइव सहेजने में विफल</string>
+    <string name="diagnostics_archive_destination_open_failed">चुनी गई जगह नहीं खुल सकी। डाउनलोड या डिवाइस स्टोरेज चुनें, फिर दोबारा कोशिश करें।</string>
+    <string name="diagnostics_archive_destination_write_failed">चुनी गई जगह ने पूरा आर्काइव स्वीकार नहीं किया। खाली स्थान जाँचें या डाउनलोड चुनें, फिर दोबारा कोशिश करें।</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI निजी स्टोरेज में आर्काइव तैयार नहीं कर सका। डिवाइस में कुछ जगह खाली करें, फिर दोबारा कोशिश करें।</string>
+    <string name="diagnostics_archive_database_failed">एक्सपोर्ट के लिए डायग्नोस्टिक रिकॉर्ड नहीं पढ़े जा सके। डायग्नोस्टिक दोबारा चलाएँ और नया परिणाम सहेजें।</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">एक्सपोर्ट पूरा होने से पहले डायग्नोस्टिक परिणाम बदल गया। डायग्नोस्टिक दोबारा चलाएँ और नया परिणाम सहेजें।</string>
+    <string name="diagnostics_support_details_copied">डायग्नोस्टिक त्रुटि विवरण कॉपी किया गया</string>
     <string name="diagnostics_save_logs_title">स्थानीय लॉग सहेजें</string>
     <string name="diagnostics_save_logs_body">जब आपको सिर्फ़ स्थानीय ऐप ट्रेस चाहिए हो तो उसी ऐप-स्कोप वाले logcat स्नैपशॉट को एक सादा-पाठ फ़ाइल के रूप में निर्यात करें; यह फ़ाइल आपके सहेजने का स्थान चुनने के बाद ही बनती है।</string>
     <string name="home_status_section">कनेक्शन</string>

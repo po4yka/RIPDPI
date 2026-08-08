@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -26,7 +27,10 @@ class DiagnosticsArchiveDocumentWriteTest {
                 destination = destination,
                 openDestinationStream = { output },
                 writeArchive = { it.write("archive".toByteArray()) },
-                deleteDocument = { deleted = true },
+                deleteDocument = {
+                    deleted = true
+                    true
+                },
             )
 
             assertArrayEquals("archive".toByteArray(), output.toByteArray())
@@ -43,11 +47,15 @@ class DiagnosticsArchiveDocumentWriteTest {
                     destination = destination,
                     openDestinationStream = { null },
                     writeArchive = { error("Archive writer must not run without a stream") },
-                    deleteDocument = { deletedUri = it },
+                    deleteDocument = {
+                        deletedUri = it
+                        true
+                    },
                 )
                 throw AssertionError("Expected a missing stream to fail the export")
-            } catch (_: IOException) {
-                Unit
+            } catch (failure: DiagnosticsDocumentExportException) {
+                assertEquals(DiagnosticsDocumentExportStage.DESTINATION_OPEN, failure.stage)
+                assertTrue(failure.partialDocumentDeleted)
             }
 
             assertEquals(destination, deletedUri)
@@ -63,11 +71,16 @@ class DiagnosticsArchiveDocumentWriteTest {
                     destination = destination,
                     openDestinationStream = { ByteArrayOutputStream() },
                     writeArchive = { throw IOException("provider refused write") },
-                    deleteDocument = { deletedUri = it },
+                    deleteDocument = {
+                        deletedUri = it
+                        true
+                    },
                 )
                 throw AssertionError("Expected a failed write to fail the export")
-            } catch (_: IOException) {
-                Unit
+            } catch (failure: DiagnosticsDocumentExportException) {
+                assertEquals(DiagnosticsDocumentExportStage.ARCHIVE_WRITE, failure.stage)
+                assertTrue(failure.partialDocumentDeleted)
+                assertEquals("provider refused write", failure.cause?.message)
             }
 
             assertEquals(destination, deletedUri)
@@ -83,11 +96,14 @@ class DiagnosticsArchiveDocumentWriteTest {
                     destination = destination,
                     openDestinationStream = { ByteArrayOutputStream() },
                     writeArchive = { throw CancellationException("user cancelled") },
-                    deleteDocument = { deletedUri = it },
+                    deleteDocument = {
+                        deletedUri = it
+                        true
+                    },
                 )
                 throw AssertionError("Expected cancellation to propagate")
             } catch (_: CancellationException) {
-                Unit
+                // Expected: cancellation remains cancellation after best-effort cleanup.
             }
 
             assertEquals(destination, deletedUri)
@@ -109,8 +125,10 @@ class DiagnosticsArchiveDocumentWriteTest {
                     },
                 )
                 throw AssertionError("Expected the archive write failure to propagate")
-            } catch (failure: IOException) {
-                assertEquals("provider refused write", failure.message)
+            } catch (failure: DiagnosticsDocumentExportException) {
+                assertEquals(DiagnosticsDocumentExportStage.ARCHIVE_WRITE, failure.stage)
+                assertFalse(failure.partialDocumentDeleted)
+                assertEquals("provider refused write", failure.cause?.message)
             }
 
             assertEquals(1, deleteAttempts)

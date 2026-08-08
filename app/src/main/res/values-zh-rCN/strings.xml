@@ -390,6 +390,12 @@
     <string name="diagnostics_save_archive_body">将 %1$s 保存到本地。归档会保留原始报告数据、运行时配置、溯源信息、完备性和完整性元数据，以及可用时仅限本应用的 logcat。数据包捕获不会嵌入其中；请通过数据包捕获工具单独导出。</string>
     <string name="diagnostics_save_archive_action">保存存档</string>
     <string name="diagnostics_archive_save_failed">保存诊断存档失败</string>
+    <string name="diagnostics_archive_destination_open_failed">无法打开所选位置。请选择“下载”或设备存储空间，然后重试。</string>
+    <string name="diagnostics_archive_destination_write_failed">所选位置未能完整接收存档。请检查可用空间或选择“下载”，然后重试。</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI 无法在私有存储中准备存档。请释放一些设备空间，然后重试。</string>
+    <string name="diagnostics_archive_database_failed">无法读取用于导出的诊断记录。请重新运行诊断，然后保存新结果。</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">诊断结果在导出完成前发生了变化。请重新运行诊断，然后保存新结果。</string>
+    <string name="diagnostics_support_details_copied">已复制诊断错误详情</string>
     <string name="diagnostics_save_logs_title">保存本地日志</string>
     <string name="diagnostics_save_logs_body">Export the same app-scoped logcat snapshot as a plain-text file when you need just the local app trace; this file is created only after you choose where to save it.</string>
     <string name="home_status_section">连接</string>

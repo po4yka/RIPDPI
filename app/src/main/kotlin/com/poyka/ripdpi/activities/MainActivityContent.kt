@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarDuration
@@ -177,15 +178,21 @@ private fun MainActivityEffects(
                     snackbarHostState.showRipDpiSnackbar(
                         message = event.message.withSupportCode(event.supportCode),
                         tone = RipDpiSnackbarTone.Error,
-                        actionLabel = event.supportCode?.let { copyActionLabel },
-                        duration = SnackbarDuration.Short,
+                        actionLabel = event.supportText?.let { copyActionLabel },
+                        duration =
+                            if (event.supportText != null) {
+                                SnackbarDuration.Long
+                            } else {
+                                SnackbarDuration.Short
+                            },
                         testTag = RipDpiTestTags.MainErrorSnackbar,
                     )
                 if (result == SnackbarResult.ActionPerformed) {
-                    event.supportCode?.let { supportCode ->
+                    event.supportText?.let { supportText ->
                         context
                             .getSystemService(ClipboardManager::class.java)
-                            ?.setPrimaryClip(ClipData.newPlainText(clipboardLabel, supportCode))
+                            ?.setPrimaryClip(ClipData.newPlainText(clipboardLabel, supportText))
+                        Toast.makeText(context, R.string.diagnostics_support_details_copied, Toast.LENGTH_SHORT).show()
                     }
                 }
             }

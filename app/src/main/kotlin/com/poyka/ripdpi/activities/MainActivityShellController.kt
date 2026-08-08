@@ -31,7 +31,11 @@ internal sealed interface MainActivityUiEvent {
     data class ShowErrorSnackbar(
         val message: String,
         val supportCode: String? = null,
-    ) : MainActivityUiEvent
+        val supportPayload: String? = null,
+    ) : MainActivityUiEvent {
+        val supportText: String?
+            get() = supportPayload ?: supportCode
+    }
 }
 
 internal class MainActivityShellController(
@@ -129,6 +133,7 @@ internal class MainActivityShellController(
                     MainActivityUiEvent.ShowErrorSnackbar(
                         message = effect.message,
                         supportCode = effect.supportCode,
+                        supportPayload = effect.supportPayload,
                     ),
                 )
             }

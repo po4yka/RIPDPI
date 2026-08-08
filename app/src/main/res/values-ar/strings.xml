@@ -387,6 +387,12 @@
     <string name="diagnostics_save_archive_body">احفظ %1$s محلياً. يحتفظ الأرشيف ببيانات التقرير الخام، وتكوين وقت التشغيل، وبيانات المصدر، ومعلومات الاكتمال، وبيانات السلامة، وlogcat الخاص بالتطبيق عند توفره. لا يتم تضمين التقاطات الحزم؛ صدّرها بشكل منفصل من أدوات التقاط الحزم.</string>
     <string name="diagnostics_save_archive_action">حفظ الأرشيف</string>
     <string name="diagnostics_archive_save_failed">فشل حفظ أرشيف التشخيصات</string>
+    <string name="diagnostics_archive_destination_open_failed">تعذر فتح الموقع المحدد. اختر التنزيلات أو مساحة تخزين الجهاز، ثم أعد المحاولة.</string>
+    <string name="diagnostics_archive_destination_write_failed">توقف الموقع المحدد عن قبول الأرشيف. تحقق من المساحة المتاحة أو اختر التنزيلات، ثم أعد المحاولة.</string>
+    <string name="diagnostics_archive_storage_failed">تعذر على RIPDPI إعداد الأرشيف في مساحة التخزين الخاصة. حرر بعض مساحة الجهاز، ثم أعد المحاولة.</string>
+    <string name="diagnostics_archive_database_failed">تعذرت قراءة سجلات التشخيص للتصدير. شغّل التشخيص مجددًا، ثم احفظ النتيجة الجديدة.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">تغيرت نتيجة التشخيص قبل اكتمال التصدير. شغّل التشخيص مجددًا، ثم احفظ النتيجة الجديدة.</string>
+    <string name="diagnostics_support_details_copied">تم نسخ تفاصيل خطأ التشخيص</string>
     <string name="diagnostics_save_logs_title">حفظ السجلات المحلية</string>
     <string name="diagnostics_save_logs_body">تصدير لقطة logcat المقيدة بالتطبيق كملف نص عادي عند الحاجة إلى أثر التطبيق المحلي فقط؛ يُنشأ هذا الملف بعد اختيار موقع الحفظ.</string>
     <string name="home_status_section">الاتصال</string>

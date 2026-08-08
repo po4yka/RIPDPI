@@ -391,6 +391,12 @@
     <string name="diagnostics_save_archive_body">%1$s را به‌صورت محلی ذخیره کنید. آرشیو داده‌های خام گزارش، پیکربندی زمان اجرا، منشأ، کامل‌بودن، فرادادهٔ یکپارچگی، و در صورت موجود بودن logcat محدود به برنامه را نگه می‌دارد. ضبط‌های بسته در آن قرار نمی‌گیرند؛ آن‌ها را جداگانه از ابزارهای ضبط بسته صادر کنید.</string>
     <string name="diagnostics_save_archive_action">ذخیرهٔ بایگانی</string>
     <string name="diagnostics_archive_save_failed">ذخیرهٔ بایگانی تشخیص ناموفق بود</string>
+    <string name="diagnostics_archive_destination_open_failed">مکان انتخاب‌شده باز نشد. «بارگیری‌ها» یا حافظهٔ دستگاه را انتخاب کنید و دوباره تلاش کنید.</string>
+    <string name="diagnostics_archive_destination_write_failed">مکان انتخاب‌شده بایگانی را کامل نپذیرفت. فضای خالی را بررسی کنید یا «بارگیری‌ها» را انتخاب کنید و دوباره تلاش کنید.</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI نتوانست بایگانی را در حافظهٔ خصوصی آماده کند. مقداری از فضای دستگاه را آزاد کنید و دوباره تلاش کنید.</string>
+    <string name="diagnostics_archive_database_failed">رکوردهای تشخیص برای برون‌بری خوانده نشدند. تشخیص را دوباره اجرا کنید و نتیجهٔ جدید را ذخیره کنید.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">نتیجهٔ تشخیص پیش از پایان برون‌بری تغییر کرد. تشخیص را دوباره اجرا کنید و نتیجهٔ جدید را ذخیره کنید.</string>
+    <string name="diagnostics_support_details_copied">جزئیات خطای تشخیص کپی شد</string>
     <string name="diagnostics_save_logs_title">ذخیرهٔ گزارش‌های محلی</string>
     <string name="diagnostics_save_logs_body">Export the same app-scoped logcat snapshot as a plain-text file when you need just the local app trace; this file is created only after you choose where to save it.</string>
     <string name="home_status_section">اتصال</string>

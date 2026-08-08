@@ -1743,6 +1743,12 @@ Origen: %2$s</string>
     <string name="diagnostics_action_cancel">Cancelar escaneo activo</string>
     <string name="diagnostics_action_start_probe">Iniciar sondeo automático</string>
     <string name="diagnostics_archive_save_failed">No se pudo guardar el archivo de diagnóstico</string>
+    <string name="diagnostics_archive_destination_open_failed">No se pudo abrir la ubicación seleccionada. Elige Descargas o el almacenamiento del dispositivo y vuelve a intentarlo.</string>
+    <string name="diagnostics_archive_destination_write_failed">La ubicación seleccionada dejó de aceptar el archivo. Comprueba el espacio libre o elige Descargas y vuelve a intentarlo.</string>
+    <string name="diagnostics_archive_storage_failed">RIPDPI no pudo preparar el archivo en el almacenamiento privado. Libera espacio en el dispositivo y vuelve a intentarlo.</string>
+    <string name="diagnostics_archive_database_failed">No se pudieron leer los registros de diagnóstico para exportarlos. Ejecuta de nuevo el diagnóstico y guarda el resultado nuevo.</string>
+    <string name="diagnostics_archive_inconsistent_result_failed">El resultado del diagnóstico cambió antes de terminar la exportación. Ejecuta de nuevo el diagnóstico y guarda el resultado nuevo.</string>
+    <string name="diagnostics_support_details_copied">Detalles del error de diagnóstico copiados</string>
     <string name="diagnostics_audit_candidate_signature_title">Configuración candidata</string>
     <string name="diagnostics_audit_low_confidence_title">Resultado de auditoría de baja confianza</string>
     <string name="diagnostics_audit_progress_title">Ejecutando auditoría de red</string>

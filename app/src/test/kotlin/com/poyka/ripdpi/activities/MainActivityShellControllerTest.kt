@@ -177,16 +177,20 @@ class MainActivityShellControllerTest {
                     MainEffect.ShowError(
                         message = "Archive failed",
                         supportCode = "archive_storage",
+                        supportPayload = "code=archive_storage\nstage=archive_prepare",
                     ),
                 )
 
+                val event = awaitItem() as MainActivityUiEvent.ShowErrorSnackbar
                 assertEquals(
                     MainActivityUiEvent.ShowErrorSnackbar(
                         message = "Archive failed",
                         supportCode = "archive_storage",
+                        supportPayload = "code=archive_storage\nstage=archive_prepare",
                     ),
-                    awaitItem(),
+                    event,
                 )
+                assertEquals("code=archive_storage\nstage=archive_prepare", event.supportText)
                 cancelAndIgnoreRemainingEvents()
             }
         }
