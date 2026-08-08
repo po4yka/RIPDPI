@@ -1029,6 +1029,7 @@ fn h2_only_doh_server_is_supported() {
 #[test]
 fn error_kind_maps_common_failures() {
     assert_eq!(EncryptedDnsError::MissingBootstrapIps.kind(), EncryptedDnsErrorKind::Bootstrap);
+    assert_eq!(EncryptedDnsError::NoAnswer.kind(), EncryptedDnsErrorKind::NoAnswer);
     assert_eq!(EncryptedDnsError::Tls("handshake failed".to_string()).kind(), EncryptedDnsErrorKind::Tls,);
     assert_eq!(EncryptedDnsError::DnsCryptDecrypt("bad nonce".to_string()).kind(), EncryptedDnsErrorKind::DnsCrypt,);
     assert_eq!(EncryptedDnsError::DnsParse("bad packet".to_string()).kind(), EncryptedDnsErrorKind::Decode,);

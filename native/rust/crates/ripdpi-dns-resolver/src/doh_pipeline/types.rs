@@ -11,6 +11,8 @@ pub enum DohBatchRecordType {
 
 impl DohBatchRecordType {
     pub(super) const ALL: [Self; 5] = [Self::A, Self::Aaaa, Self::Cname, Self::Https, Self::Svcb];
+    pub(super) const ADDRESS: [Self; 2] = [Self::A, Self::Aaaa];
+    pub(super) const OPTIONAL: [Self; 3] = [Self::Cname, Self::Https, Self::Svcb];
 
     pub(super) fn record_type(self) -> RecordType {
         match self {

@@ -37,6 +37,8 @@ pub enum EncryptedDnsError {
     HttpStatus(reqwest::StatusCode),
     #[error("DNS response parse failed: {0}")]
     DnsParse(String),
+    #[error("encrypted DNS returned no usable IP addresses")]
+    NoAnswer,
     #[error("DNS message is too large for {transport} framing: {size} bytes exceeds {max}")]
     DnsMessageTooLarge { transport: &'static str, size: usize, max: usize },
     #[error("TLS handshake failed: {0}")]
@@ -65,6 +67,7 @@ impl EncryptedDnsError {
             | EncryptedDnsError::MissingDnsCryptProviderName
             | EncryptedDnsError::DnsParse(_)
             | EncryptedDnsError::DnsMessageTooLarge { .. } => EncryptedDnsErrorKind::Decode,
+            EncryptedDnsError::NoAnswer => EncryptedDnsErrorKind::NoAnswer,
             EncryptedDnsError::ClientBuild(_) | EncryptedDnsError::Socks5(_) | EncryptedDnsError::TaskJoin(_) => {
                 EncryptedDnsErrorKind::Connect
             }
