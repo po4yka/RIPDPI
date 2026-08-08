@@ -9,6 +9,7 @@ import android.service.quicksettings.TileService
 import android.widget.Toast
 import androidx.core.service.quicksettings.PendingIntentActivityWrapper
 import androidx.core.service.quicksettings.TileServiceCompat
+import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -28,6 +29,9 @@ class QuickTileService :
     lateinit var appSettingsRepository: AppSettingsRepository
 
     @Inject
+    lateinit var appStartupReadiness: AppStartupReadiness
+
+    @Inject
     lateinit var serviceController: ServiceController
 
     @Inject
@@ -36,6 +40,7 @@ class QuickTileService :
     private var scope: CoroutineScope? = null
     private val controller by lazy {
         QuickTileController(
+            appStartupReadiness = appStartupReadiness,
             appSettingsRepository = appSettingsRepository,
             serviceController = serviceController,
             serviceStateStore = serviceStateStore,

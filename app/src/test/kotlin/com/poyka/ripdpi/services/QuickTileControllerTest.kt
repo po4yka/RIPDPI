@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.AppStartupReadinessState
+import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceController
 import com.poyka.ripdpi.activities.FakeServiceStateStore
@@ -9,6 +12,8 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -25,6 +30,7 @@ class QuickTileControllerTest {
             val serviceStateStore = FakeServiceStateStore()
             val controller =
                 QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = FakeServiceController(),
                     serviceStateStore = serviceStateStore,
@@ -49,6 +55,7 @@ class QuickTileControllerTest {
             val serviceStateStore = FakeServiceStateStore()
             val controller =
                 QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = FakeServiceController(),
                     serviceStateStore = serviceStateStore,
@@ -70,6 +77,7 @@ class QuickTileControllerTest {
         runTest {
             val controller =
                 QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = FakeServiceController(),
                     serviceStateStore = FakeServiceStateStore(),
@@ -108,6 +116,7 @@ class QuickTileControllerTest {
             val serviceController = FakeServiceController()
             val controller =
                 QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
@@ -137,6 +146,7 @@ class QuickTileControllerTest {
                 }
             val controller =
                 QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
@@ -172,6 +182,7 @@ class QuickTileControllerTest {
                     .build()
             val controller =
                 QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
@@ -194,6 +205,7 @@ class QuickTileControllerTest {
             val serviceController = FakeServiceController()
             val controller =
                 QuickTileController(
+                    appStartupReadiness = MutableAppStartupReadiness(AppStartupReadinessState.Failed),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
@@ -209,6 +221,62 @@ class QuickTileControllerTest {
             assertEquals(1, serviceController.stopCount)
             assertTrue(serviceController.startedModes.isEmpty())
         }
+
+    @Test
+    fun `click routes pending startup through readiness gated activity`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val controller =
+                QuickTileController(
+                    appStartupReadiness = MutableAppStartupReadiness(AppStartupReadinessState.Pending),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    serviceController = serviceController,
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+            val host = FakeQuickTileHost()
+            val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
+
+            controller.onStartListening(host = host, scope = listeningScope)
+            listeningScope.advanceUntilIdle()
+            controller.onClick(host)
+            listeningScope.advanceUntilIdle()
+
+            assertTrue(serviceController.startedModes.isEmpty())
+            assertEquals(1, host.launchResolutionCount)
+            assertEquals(QuickTileVisualState.Inactive, host.renderedStates.last())
+        }
+
+    @Test
+    fun `click routes failed startup through recovery activity`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val controller =
+                QuickTileController(
+                    appStartupReadiness = MutableAppStartupReadiness(AppStartupReadinessState.Failed),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    serviceController = serviceController,
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+            val host = FakeQuickTileHost()
+            val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
+
+            controller.onStartListening(host = host, scope = listeningScope)
+            listeningScope.advanceUntilIdle()
+            controller.onClick(host)
+            listeningScope.advanceUntilIdle()
+
+            assertTrue(serviceController.startedModes.isEmpty())
+            assertEquals(1, host.launchResolutionCount)
+            assertEquals(QuickTileVisualState.Inactive, host.renderedStates.last())
+        }
+
+    private class MutableAppStartupReadiness(
+        initial: AppStartupReadinessState,
+    ) : AppStartupReadiness {
+        override val readiness: StateFlow<AppStartupReadinessState> = MutableStateFlow(initial)
+
+        override fun retryRecovery() = Unit
+    }
 
     private class FakeQuickTileHost(
         private val vpnPermissionRequired: Boolean = false,

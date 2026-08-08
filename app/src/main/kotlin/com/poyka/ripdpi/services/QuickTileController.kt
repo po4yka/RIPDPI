@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -30,6 +32,7 @@ internal interface QuickTileHost {
 }
 
 internal class QuickTileController(
+    private val appStartupReadiness: AppStartupReadiness,
     private val appSettingsRepository: AppSettingsRepository,
     private val serviceController: ServiceController,
     private val serviceStateStore: ServiceStateStore,
@@ -87,6 +90,12 @@ internal class QuickTileController(
             AppStatus.Halted -> {
                 val scope = listeningScope ?: return
                 scope.launch {
+                    if (appStartupReadiness.readiness.value != AppStartupReadinessState.Ready) {
+                        updateStatus(host)
+                        host.launchStartResolution()
+                        return@launch
+                    }
+
                     val settings = appSettingsRepository.snapshot()
                     val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
 
