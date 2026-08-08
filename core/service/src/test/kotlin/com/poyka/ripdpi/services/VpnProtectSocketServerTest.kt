@@ -17,6 +17,28 @@ import kotlin.concurrent.thread
 
 class VpnProtectSocketServerTest {
     @Test
+    fun `handle client session rejects handshake without ancillary fd`() {
+        val monitor = RecordingVpnProtectFailureMonitor()
+        val server = createServer(monitor = monitor)
+        val session = FakeProtectSocketClientSession(ancillaryFileDescriptors = null)
+
+        try {
+            server.handleClientSession(session)
+
+            assertArrayEquals(byteArrayOf(1), session.ackBytes())
+            assertEquals(1, monitor.reportedEvents.size)
+            assertEquals(-1, monitor.reportedEvents.single().fd)
+            assertTrue(monitor.reportedEvents.single().reason is FailureReason.NativeError)
+            assertEquals(
+                "protect request did not include an SCM_RIGHTS file descriptor",
+                monitor.reportedEvents.single().detail,
+            )
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `handle client session waits for stalled read before writing ack`() {
         val gate = HarnessStallGate()
         val server = createServer()
@@ -294,7 +316,9 @@ class VpnProtectSocketServerTest {
     private fun createServer(
         monitor: VpnProtectFailureMonitor = RecordingVpnProtectFailureMonitor(),
         fileDescriptorIntExtractor: ProtectSocketFileDescriptorIntExtractor =
-            ReflectiveProtectSocketFileDescriptorIntExtractor,
+            ProtectSocketFileDescriptorIntExtractor {
+                ProtectSocketFdExtractionResult.Extracted(42)
+            },
         fdProtector: (Int) -> Boolean = { true },
         handlerConcurrency: Int = 1,
         maxPendingSessions: Int = 0,
@@ -312,7 +336,7 @@ class VpnProtectSocketServerTest {
 }
 
 private class FakeProtectSocketClientSession(
-    override val ancillaryFileDescriptors: Array<FileDescriptor>? = null,
+    override val ancillaryFileDescriptors: Array<FileDescriptor>? = arrayOf(FileDescriptor()),
     private val beforeRead: () -> Unit = {},
 ) : ProtectSocketClientSession {
     private val output = ByteArrayOutputStream()

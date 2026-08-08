@@ -13,11 +13,20 @@ internal class ProtectSocketFdProtector(
 ) {
     private companion object {
         private val log = Logger.withTag("ProtectSocket")
+        private const val MISSING_ANCILLARY_FD_DETAIL =
+            "protect request did not include an SCM_RIGHTS file descriptor"
     }
 
     fun protectAncillaryFds(session: ProtectSocketClientSession): Boolean {
         val fds = session.ancillaryFileDescriptors.orEmpty()
-        if (fds.isEmpty()) return true
+        if (fds.isEmpty()) {
+            reportProtectFailure(
+                fd = -1,
+                reason = FailureReason.NativeError(MISSING_ANCILLARY_FD_DETAIL),
+                detail = MISSING_ANCILLARY_FD_DETAIL,
+            )
+            return false
+        }
 
         beforeProtectAncillaryFds()
 
