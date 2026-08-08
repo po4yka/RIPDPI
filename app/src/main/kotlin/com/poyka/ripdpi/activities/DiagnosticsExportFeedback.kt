@@ -68,17 +68,43 @@ internal fun diagnosticsArchiveSaveFeedback(
     context: DiagnosticsExportSupportContext = DiagnosticsExportSupportContext.current(),
 ): DiagnosticsExportFeedback {
     val documentFailure = error as? DiagnosticsDocumentExportException
-    val archiveFailure = error.causeSequence().filterIsInstance<DiagnosticsArchiveException>().firstOrNull()
-    val failureCode = archiveFailure?.failureCode
-    val supportCode = failureCode?.supportCode ?: documentFailure?.stage.toSupportCode()
-    val messageRes = archiveSaveMessage(failureCode, documentFailure?.stage)
-    val stage = documentFailure?.stage?.supportValue ?: "archive_prepare"
-    val cleanup =
-        when (documentFailure?.partialDocumentDeleted) {
-            true -> "removed"
-            false -> "not_removed"
-            null -> "not_applicable"
-        }
+    val failureCode = error.archiveFailureCode()
+    return buildDiagnosticsExportFeedback(
+        error = error,
+        context = context,
+        operation = "diagnostics_archive_save",
+        stage = documentFailure?.stage?.supportValue ?: "archive_prepare",
+        cleanup = documentFailure.cleanupSupportValue(),
+        messageRes = archiveSaveMessage(failureCode, documentFailure?.stage),
+        fallbackSupportCode = documentFailure?.stage.toSupportCode(),
+    )
+}
+
+internal fun diagnosticsArchiveShareFeedback(
+    error: Throwable,
+    context: DiagnosticsExportSupportContext = DiagnosticsExportSupportContext.current(),
+): DiagnosticsExportFeedback =
+    buildDiagnosticsExportFeedback(
+        error = error,
+        context = context,
+        operation = "diagnostics_archive_share",
+        stage = "archive_prepare",
+        cleanup = "not_applicable",
+        messageRes = R.string.home_diagnostics_share_failed,
+        fallbackSupportCode = DiagnosticsExportSupportCodes.ArchiveIo,
+    )
+
+private fun buildDiagnosticsExportFeedback(
+    error: Throwable,
+    context: DiagnosticsExportSupportContext,
+    operation: String,
+    stage: String,
+    cleanup: String,
+    @StringRes messageRes: Int,
+    fallbackSupportCode: String,
+): DiagnosticsExportFeedback {
+    val failureCode = error.archiveFailureCode()
+    val supportCode = failureCode?.supportCode ?: fallbackSupportCode
     val exceptionChain =
         error
             .causeSequence()
@@ -94,7 +120,7 @@ internal fun diagnosticsArchiveSaveFeedback(
                 appendLine("RIPDPI diagnostics export error")
                 appendLine("format_version=$SupportPayloadFormatVersion")
                 appendLine("support_code=${supportCode.safeSupportValue()}")
-                appendLine("operation=diagnostics_archive_save")
+                appendLine("operation=$operation")
                 appendLine("stage=$stage")
                 appendLine("archive_failure=$archiveFailureName")
                 appendLine("partial_document_cleanup=$cleanup")
@@ -115,6 +141,16 @@ internal fun diagnosticsArchiveSaveFeedback(
             },
     )
 }
+
+private fun DiagnosticsDocumentExportException?.cleanupSupportValue(): String =
+    when (this?.partialDocumentDeleted) {
+        true -> "removed"
+        false -> "not_removed"
+        null -> "not_applicable"
+    }
+
+private fun Throwable.archiveFailureCode(): DiagnosticsArchiveFailureCode? =
+    causeSequence().filterIsInstance<DiagnosticsArchiveException>().firstOrNull()?.failureCode
 
 @StringRes
 private fun archiveSaveMessage(

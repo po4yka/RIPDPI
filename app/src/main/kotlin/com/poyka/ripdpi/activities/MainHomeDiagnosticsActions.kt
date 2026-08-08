@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -410,14 +409,12 @@ internal class MainHomeDiagnosticsActions(
                     "Failed to create home analysis archive"
                 }
                 homeDiagnosticsState.update { it.copy(shareBusy = false) }
+                val feedback = diagnosticsArchiveShareFeedback(error)
                 mutations.emit(
                     MainEffect.ShowError(
-                        stringResolver.getString(R.string.home_diagnostics_share_failed),
-                        supportCode =
-                            (error as? DiagnosticsArchiveException)
-                                ?.failureCode
-                                ?.supportCode
-                                ?: ArchiveIoSupportCode,
+                        stringResolver.getString(feedback.messageRes),
+                        supportCode = feedback.supportCode,
+                        supportPayload = feedback.supportPayload,
                     ),
                 )
             }
@@ -529,8 +526,6 @@ internal class MainHomeDiagnosticsActions(
         latestDirectModeOutcomeStore.publish(snapshot)
     }
 }
-
-private const val ArchiveIoSupportCode = "archive_io"
 
 private fun blockedPermissionVerificationOutcome(
     issue: PermissionIssueUiState,

@@ -913,7 +913,7 @@ class MainHomeDiagnosticsShareFailureTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `share failure exposes only its stable support code`() =
+    fun `share failure exposes complete safe support diagnostics`() =
         runTest {
             val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val shareService =
@@ -941,10 +941,15 @@ class MainHomeDiagnosticsShareFailureTest {
             runCurrent()
             advanceUntilIdle()
 
-            assertEquals(
-                "archive_database",
-                (effects.replayCache.single() as MainEffect.ShowError).supportCode,
-            )
+            val effect = effects.replayCache.single() as MainEffect.ShowError
+            val supportPayload = requireNotNull(effect.supportPayload)
+
+            assertEquals("archive_database", effect.supportCode)
+            assertTrue(supportPayload.contains("operation=diagnostics_archive_share"))
+            assertTrue(supportPayload.contains("stage=archive_prepare"))
+            assertTrue(supportPayload.contains("archive_failure=database"))
+            assertTrue(supportPayload.contains("exception_chain=DiagnosticsArchiveException > IllegalStateException"))
+            assertFalse(supportPayload.contains("sensitive database detail"))
         }
 }
 
