@@ -149,8 +149,17 @@ private fun DiagnosticsDocumentExportException?.cleanupSupportValue(): String =
         null -> "not_applicable"
     }
 
-private fun Throwable.archiveFailureCode(): DiagnosticsArchiveFailureCode? =
-    causeSequence().filterIsInstance<DiagnosticsArchiveException>().firstOrNull()?.failureCode
+private fun Throwable.archiveFailureCode(): DiagnosticsArchiveFailureCode? {
+    val archiveFailure = causeSequence().filterIsInstance<DiagnosticsArchiveException>().firstOrNull() ?: return null
+    return if (
+        archiveFailure.failureCode == DiagnosticsArchiveFailureCode.IO &&
+        archiveFailure.cause !is IOException
+    ) {
+        DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT
+    } else {
+        archiveFailure.failureCode
+    }
+}
 
 @StringRes
 private fun archiveSaveMessage(

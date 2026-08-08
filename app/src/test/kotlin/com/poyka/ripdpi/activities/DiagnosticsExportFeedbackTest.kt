@@ -118,4 +118,27 @@ class DiagnosticsExportFeedbackTest {
         assertEquals(R.string.diagnostics_archive_destination_write_failed, feedback.messageRes)
         assertFalse(feedback.supportPayload.contains("provider path"))
     }
+
+    @Test
+    fun `internal archive rendering failure gets rerun guidance instead of blaming destination`() {
+        val failure =
+            DiagnosticsDocumentExportException(
+                stage = DiagnosticsDocumentExportStage.ARCHIVE_WRITE,
+                partialDocumentDeleted = true,
+                cause =
+                    DiagnosticsArchiveException(
+                        DiagnosticsArchiveFailureCode.IO,
+                        IllegalArgumentException("structured report shape mismatch"),
+                    ),
+            )
+
+        val feedback = diagnosticsArchiveSaveFeedback(failure, context)
+
+        assertEquals(DiagnosticsExportSupportCodes.ArchiveInconsistentResult, feedback.supportCode)
+        assertEquals(R.string.diagnostics_archive_inconsistent_result_failed, feedback.messageRes)
+        assertTrue(feedback.supportPayload.contains("stage=archive_write"))
+        assertTrue(feedback.supportPayload.contains("archive_failure=inconsistent_result"))
+        assertTrue(feedback.supportPayload.contains("partial_document_cleanup=removed"))
+        assertFalse(feedback.supportPayload.contains("structured report shape mismatch"))
+    }
 }
