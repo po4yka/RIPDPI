@@ -159,7 +159,7 @@ class MainViewModelTest {
     @Test
     fun `primary connection action resolves from ui state`() {
         assertEquals(
-            MainPrimaryConnectionAction.NONE,
+            MainPrimaryConnectionAction.STOP,
             resolvePrimaryConnectionAction(
                 connectionState = ConnectionState.Connecting,
                 appStatus = AppStatus.Running,
@@ -1287,6 +1287,32 @@ class MainViewModelTest {
             viewModel.onStopRequested()
 
             assertEquals(1, serviceController.stopCount)
+        }
+
+    @Test
+    fun `stop request cancels accepted start before service status leaves halted`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onToggleVpn(enabled = true)
+            runCurrent()
+            assertEquals(ConnectionState.Connecting, viewModel.uiState.value.connectionState)
+
+            viewModel.onStopRequested()
+
+            assertEquals(1, serviceController.stopCount)
+            assertEquals(ConnectionState.Disconnected, viewModel.uiState.value.connectionState)
+            collector.cancel()
         }
 
     @Test

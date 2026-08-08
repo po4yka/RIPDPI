@@ -54,7 +54,7 @@ internal fun resolvePrimaryConnectionAction(
 ): MainPrimaryConnectionAction =
     when (connectionState) {
         ConnectionState.Connecting -> {
-            MainPrimaryConnectionAction.NONE
+            MainPrimaryConnectionAction.STOP
         }
 
         ConnectionState.Connected -> {
@@ -70,8 +70,8 @@ internal fun resolvePrimaryConnectionAction(
                 // Grouped with Running for exhaustiveness / as a defensive default.
                 // Not reached while appStatus == Reconnecting in practice:
                 // resolveEffectiveConnectionState maps Reconnecting to Connecting
-                // (-> NONE) above, so the button shows the same wait state as any
-                // connect-in-progress; aborting goes through the stop sinks.
+                // (-> STOP) above, so the same actuator cancels both startup and
+                // transport failover.
                 AppStatus.Reconnecting,
                 AppStatus.Running,
                 -> MainPrimaryConnectionAction.STOP
@@ -459,9 +459,8 @@ private fun actuatorActionLabel(
 
         HomeConnectionActuatorStatus.Locked,
         HomeConnectionActuatorStatus.Degraded,
+        HomeConnectionActuatorStatus.Engaging,
         -> stringResolver.getString(R.string.home_connection_actuator_action_deactivate)
-
-        HomeConnectionActuatorStatus.Engaging -> stringResolver.getString(R.string.home_connection_actuator_action_wait)
     }
 
 private fun HomeConnectionActuatorStage.label(stringResolver: StringResolver): String =

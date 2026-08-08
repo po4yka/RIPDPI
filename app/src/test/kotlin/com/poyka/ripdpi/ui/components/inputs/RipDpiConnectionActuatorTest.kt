@@ -102,7 +102,7 @@ class RipDpiConnectionActuatorTest {
     }
 
     @Test
-    fun `connecting actuator ignores activation and deactivation gestures`() {
+    fun `connecting actuator accepts deactivation but not activation gestures`() {
         var activated = false
         var deactivated = false
         setActuator(
@@ -120,7 +120,7 @@ class RipDpiConnectionActuatorTest {
 
         composeRule.runOnIdle {
             assertFalse(activated)
-            assertFalse(deactivated)
+            assertTrue(deactivated)
         }
     }
 
@@ -167,7 +167,7 @@ class RipDpiConnectionActuatorTest {
                 ActuatorSemanticsCase(
                     HomeConnectionActuatorStatus.Engaging,
                     ToggleableState.Indeterminate,
-                    clickable = false,
+                    clickable = true,
                 ),
                 ActuatorSemanticsCase(HomeConnectionActuatorStatus.Locked, ToggleableState.On, clickable = true),
                 ActuatorSemanticsCase(HomeConnectionActuatorStatus.Degraded, ToggleableState.On, clickable = true),

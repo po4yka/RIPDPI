@@ -171,7 +171,6 @@ internal fun SimpleHomeContent(
                             if (active) R.string.simple_disconnect else R.string.simple_connect,
                         ),
                     onClick = { onToggleConnection(active) },
-                    loading = connecting,
                     enabled = !reportBusy && !disconnectBlocked,
                     variant = RipDpiButtonVariant.Primary,
                 )

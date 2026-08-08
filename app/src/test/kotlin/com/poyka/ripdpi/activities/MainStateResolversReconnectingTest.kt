@@ -30,10 +30,10 @@ class MainStateResolversReconnectingTest {
     }
 
     @Test
-    fun `primary action during reconnect shows the wait state via the effective connecting state`() {
-        // The real path: appStatus Reconnecting -> effective Connecting -> NONE (wait).
+    fun `primary action during reconnect stops via the effective connecting state`() {
+        // The real path: appStatus Reconnecting -> effective Connecting -> STOP (cancel).
         assertEquals(
-            MainPrimaryConnectionAction.NONE,
+            MainPrimaryConnectionAction.STOP,
             resolvePrimaryConnectionAction(ConnectionState.Connecting, AppStatus.Reconnecting),
         )
     }

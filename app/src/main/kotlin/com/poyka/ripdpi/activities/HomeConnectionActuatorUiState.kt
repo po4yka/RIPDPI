@@ -84,7 +84,8 @@ data class HomeConnectionActuatorUiState(
     val isDeactivationAvailable: Boolean
         get() =
             deactivationEnabled ?: (
-                status == HomeConnectionActuatorStatus.Locked ||
+                status == HomeConnectionActuatorStatus.Engaging ||
+                    status == HomeConnectionActuatorStatus.Locked ||
                     status == HomeConnectionActuatorStatus.Degraded
             )
 }

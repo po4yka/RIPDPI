@@ -7,9 +7,12 @@ import com.poyka.ripdpi.data.stopAction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal const val notificationStopAction = "notification_stop"
 internal const val diagnosticsStopAction = "diagnostics_stop"
@@ -53,20 +56,43 @@ internal class ServiceShellDelegate(
     private val onRevoke: (suspend () -> Unit)? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    private data class QueuedCommand(
+    private class QueuedCommand(
         val block: suspend () -> Unit,
         val onDrop: () -> Unit,
+        val cancellableByUserStop: Boolean,
+        val acceptedStopEpoch: Long,
+    ) {
+        private val dispositionClaimed = AtomicBoolean(false)
+
+        fun markExecuted() {
+            dispositionClaimed.compareAndSet(false, true)
+        }
+
+        fun cancelWithoutExecution() {
+            if (dispositionClaimed.compareAndSet(false, true)) {
+                onDrop()
+            }
+        }
+    }
+
+    private data class ActiveCommand(
+        val command: QueuedCommand,
+        val job: Job,
     )
+
+    private val commandStateLock = Any()
+    private var acceptedStopEpoch = 0L
+    private var activeCommand: ActiveCommand? = null
 
     private val commandQueue =
         Channel<QueuedCommand>(
             capacity = Channel.UNLIMITED,
-            onUndeliveredElement = { command -> command.onDrop() },
+            onUndeliveredElement = QueuedCommand::cancelWithoutExecution,
         )
     private val commandConsumer =
         serviceScope.launch(ioDispatcher) {
             for (command in commandQueue) {
-                executeCommand(command.block)
+                executeQueuedCommand(command)
             }
         }
 
@@ -91,14 +117,14 @@ internal class ServiceShellDelegate(
             packageReplacedRecoveryStartAction,
             processDeathRecoveryStartAction,
             -> {
-                enqueue { onStartWithId(action, startId) }
+                enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
                 android.app.Service.START_STICKY
             }
 
             startAction -> {
                 val prepareUserStart = shouldPrepareUserStart()
                 onAcceptedStart()
-                enqueue {
+                enqueue(cancellableByUserStop = true) {
                     if (prepareUserStart) beforeUserStart()
                     onStartWithId(action, startId)
                 }
@@ -106,7 +132,7 @@ internal class ServiceShellDelegate(
             }
 
             diagnosticsStartAction -> {
-                enqueue { onStartWithId(action, startId) }
+                enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
                 android.app.Service.START_STICKY
             }
 
@@ -116,18 +142,19 @@ internal class ServiceShellDelegate(
             }
 
             startupFallbackStartAction -> {
-                enqueue { onStartWithId(action, startId) }
+                enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
                 android.app.Service.START_STICKY
             }
 
             stopAction, notificationStopAction -> {
                 if (isStopAllowed(action)) {
                     onAcceptedStop()
+                    cancelStartsAcceptedBeforeUserStop()
                     enqueue { onStop(startId) }
                     android.app.Service.START_NOT_STICKY
                 } else {
                     Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
-                    enqueue(block = onStart)
+                    enqueue(cancellableByUserStop = true, block = onStart)
                     android.app.Service.START_STICKY
                 }
             }
@@ -138,7 +165,7 @@ internal class ServiceShellDelegate(
                     android.app.Service.START_NOT_STICKY
                 } else {
                     Logger.w { "Ignoring diagnostics stop for $serviceLabel service while disconnect is blocked" }
-                    enqueue(block = onStart)
+                    enqueue(cancellableByUserStop = true, block = onStart)
                     android.app.Service.START_STICKY
                 }
             }
@@ -171,6 +198,7 @@ internal class ServiceShellDelegate(
         enqueue(
             block = { transportFailoverCommandHandler.restart(requestId, target) },
             onDrop = { transportFailoverCommandHandler.reject(requestId) },
+            cancellableByUserStop = true,
         )
     }
 
@@ -190,12 +218,63 @@ internal class ServiceShellDelegate(
         }
     }
 
+    private suspend fun executeQueuedCommand(command: QueuedCommand) {
+        val job =
+            serviceScope.launch(ioDispatcher, start = CoroutineStart.LAZY) {
+                try {
+                    executeCommand(command.block)
+                } finally {
+                    command.markExecuted()
+                }
+            }
+        val superseded =
+            synchronized(commandStateLock) {
+                if (command.cancellableByUserStop && command.acceptedStopEpoch != acceptedStopEpoch) {
+                    true
+                } else {
+                    activeCommand = ActiveCommand(command, job)
+                    false
+                }
+            }
+        if (superseded) {
+            command.cancelWithoutExecution()
+            job.cancel(CancellationException("$serviceLabel start superseded by user stop"))
+            return
+        }
+
+        try {
+            job.start()
+            job.join()
+        } finally {
+            synchronized(commandStateLock) {
+                if (activeCommand?.job === job) {
+                    activeCommand = null
+                }
+            }
+        }
+    }
+
+    private fun cancelStartsAcceptedBeforeUserStop() {
+        val commandToCancel =
+            synchronized(commandStateLock) {
+                acceptedStopEpoch += 1
+                activeCommand?.takeIf { it.command.cancellableByUserStop }
+            }
+        commandToCancel?.command?.cancelWithoutExecution()
+        commandToCancel?.job?.cancel(CancellationException("$serviceLabel start superseded by user stop"))
+    }
+
     private fun enqueue(
         onDrop: () -> Unit = {},
+        cancellableByUserStop: Boolean = false,
         block: suspend () -> Unit,
     ) {
-        if (commandQueue.trySend(QueuedCommand(block, onDrop)).isFailure) {
-            onDrop()
+        val command =
+            synchronized(commandStateLock) {
+                QueuedCommand(block, onDrop, cancellableByUserStop, acceptedStopEpoch)
+            }
+        if (commandQueue.trySend(command).isFailure) {
+            command.cancelWithoutExecution()
             Logger.w { "Dropping $serviceLabel service command after queue closure" }
         }
     }

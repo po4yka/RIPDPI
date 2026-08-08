@@ -265,35 +265,6 @@ class ServiceShellDelegateTest {
         }
 
     @Test
-    fun `service lifecycle commands execute in accepted intent order`() =
-        runTest {
-            val releaseStart = CompletableDeferred<Unit>()
-            val operations = mutableListOf<String>()
-            val delegate =
-                ServiceShellDelegate(
-                    serviceScope = backgroundScope,
-                    serviceLabel = "proxy",
-                    onStart = {
-                        operations += "start-begin"
-                        releaseStart.await()
-                        operations += "start-end"
-                    },
-                    onStop = { operations += "stop" },
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
-                )
-
-            delegate.onStartCommand(startAction, 1)
-            delegate.onStartCommand(stopAction, 2)
-            runCurrent()
-
-            assertEquals(listOf("start-begin"), operations)
-            releaseStart.complete(Unit)
-            runCurrent()
-
-            assertEquals(listOf("start-begin", "start-end", "stop"), operations)
-        }
-
-    @Test
     fun proxyShellDelegatesStartAndStopActions() =
         runTest {
             var startCalls = 0

@@ -67,7 +67,14 @@ internal class MainConnectionActions(
     }
 
     fun stop() {
+        val wasConnecting = runtimeState.value.connectionState == ConnectionState.Connecting
         serviceController.stop()
+        // An accepted start can still be suspended before the service publishes a
+        // non-Halted status. In that window there is no status edge for observeStatus()
+        // to consume after Stop, so clear the optimistic Connecting state locally.
+        if (wasConnecting) {
+            onHalted()
+        }
     }
 
     fun dismissError() {

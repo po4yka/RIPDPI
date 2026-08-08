@@ -92,7 +92,7 @@ class SimpleHomeScreenTest {
     }
 
     @Test
-    fun `connecting session remains disabled before lockdown snapshot arrives`() {
+    fun `connecting session exposes cancellation before lockdown snapshot arrives`() {
         var toggleClicks = 0
 
         composeRule.setContent {
@@ -110,8 +110,8 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Disconnect").assertIsNotEnabled()
-        composeRule.runOnIdle { assertEquals(0, toggleClicks) }
+        composeRule.onNodeWithText("Disconnect").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 
     @Test

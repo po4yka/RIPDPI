@@ -217,11 +217,11 @@ class MainViewModel
         }
 
         fun onStopRequested() {
-            // Stop on any non-Halted status so an internal request issued during the brief
-            // Reconnecting window is not silently dropped. The service owns the authoritative
-            // Android-lockdown check because its cached UI snapshot can be stale.
+            // A freshly accepted start can still report Halted while its startup coroutine is
+            // suspended. Forward Stop for that optimistic Connecting state as well. The service
+            // owns the authoritative Android-lockdown check because its cached UI snapshot can be stale.
             val status = mainServiceDependencies.serviceStateStore.status.value.first
-            if (status != AppStatus.Halted) {
+            if (status != AppStatus.Halted || uiState.value.connectionState == ConnectionState.Connecting) {
                 connectionActions.stop()
             }
         }
