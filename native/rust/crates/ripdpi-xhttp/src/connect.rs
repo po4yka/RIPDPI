@@ -11,11 +11,11 @@ use crate::config::{AsyncIo, XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
 use crate::pool::PooledConnection;
 
-// NOT cancel-safe: dropping this future mid-flight may abandon a partially
-// established TCP/TLS/H2 connection without returning it to the pool; the caller
-// must treat a cancelled connect as "no connection" and retry from scratch.
-// (PQ-KEM telemetry only fires after a fully-completed handshake, so a cancelled
-// connect never miscounts.)
+/// NOT cancel-safe: dropping this future mid-flight may abandon a partially
+/// established TCP/TLS/H2 connection without returning it to the pool; the caller
+/// must treat a cancelled connect as "no connection" and retry from scratch.
+/// (PQ-KEM telemetry only fires after a fully-completed handshake, so a cancelled
+/// connect never miscounts.)
 pub(crate) async fn create_connection(
     mode: &XhttpMode,
     max_concurrent_streams: usize,
@@ -97,6 +97,8 @@ pub(crate) async fn create_connection(
     Ok(pooled)
 }
 
+/// cancel-safe: DNS/TCP futures and the not-yet-returned owned socket are
+/// dropped on cancellation; no connected stream is published to the caller.
 async fn connect_tcp_stream(
     server: &str,
     port: u16,

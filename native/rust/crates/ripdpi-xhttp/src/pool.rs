@@ -73,6 +73,8 @@ impl PooledConnection {
         self.closed.load(Ordering::SeqCst)
     }
 
+    /// NOT cancel-safe: cancellation may reset a partially submitted H2
+    /// request. Dropping the request future and its body tears that stream down.
     pub(crate) async fn send_request(
         &self,
         request: http::Request<XhttpBody>,
@@ -82,6 +84,8 @@ impl PooledConnection {
     }
 }
 
+/// cancel-safe: creation reservations and acquired permits are RAII guards;
+/// cancelling drops a partial carrier and restores pool capacity.
 pub(crate) async fn acquire_connection(
     inner: &XhttpClientInner,
 ) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
@@ -145,6 +149,8 @@ pub(crate) async fn acquire_connection(
     }
 }
 
+/// cancel-safe: Tokio mutex and semaphore acquisition are cancel-safe, and a
+/// successfully acquired permit is returned or dropped in this poll cycle.
 async fn try_acquire_existing(inner: &XhttpClientInner) -> Option<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
     let state = inner.state.lock().await;
     state.connections.iter().find_map(|connection| {

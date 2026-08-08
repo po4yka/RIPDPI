@@ -16,7 +16,7 @@ ripdpi-tls-profiles = { workspace = true }
 ripdpi-vless = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-boring = { workspace = true }
 tracing = { workspace = true }
 

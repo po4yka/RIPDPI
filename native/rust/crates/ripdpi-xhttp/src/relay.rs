@@ -108,6 +108,8 @@ impl StreamMetadata for XhttpMode {
 }
 
 impl PooledConnection {
+    /// cancel-safe: the permit is owned by this future and stream-open pump
+    /// tasks are aborted by [`OpenStreamTaskGuard`] until a stream is returned.
     pub(crate) async fn open_stream_from_mode(
         &self,
         mode: &XhttpMode,
@@ -120,6 +122,9 @@ impl PooledConnection {
         }
     }
 
+    /// NOT cancel-safe at individual write/request awaits; cancellation is made
+    /// safe at the operation boundary by [`OpenStreamTaskGuard`] and permit RAII.
+    ///
     /// `stream-up` wire shape: one GET (download) + one streaming POST
     /// (upload), session id embedded in the URL path. Matches xray-core's
     /// `dialer.go` stream-up branch.
@@ -178,6 +183,9 @@ impl PooledConnection {
         Ok(stream)
     }
 
+    /// NOT cancel-safe at individual write/request awaits; cancellation is made
+    /// safe at the operation boundary by [`OpenStreamTaskGuard`] and permit RAII.
+    ///
     /// `stream-one` wire shape: one bidirectional HTTP/2 request — the
     /// request body carries the upload stream, the response body carries
     /// the download stream, no session id is embedded in the URL.
