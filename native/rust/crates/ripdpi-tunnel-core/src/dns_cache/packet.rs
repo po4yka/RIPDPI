@@ -50,7 +50,9 @@ pub(super) fn rewrite_response(
         }
     }
 
-    strip_aaaa_records(&mut message);
+    if !cache.ipv6_enabled {
+        strip_aaaa_records(&mut message);
+    }
 
     Ok(DnsRewriteResult {
         response: message.to_vec().map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
@@ -81,8 +83,8 @@ pub(super) fn servfail_response(query: &[u8]) -> Result<Vec<u8>, DnsCacheError> 
 
 fn strip_aaaa_records(message: &mut Message) {
     // Strip AAAA records from answers, additionals, and name-servers so
-    // Android's Happy Eyeballs algorithm cannot prefer a raw IPv6 address
-    // that bypasses the VPN tunnel (causing ENETUNREACH).
+    // Android's Happy Eyeballs algorithm cannot select an address family that
+    // the active VPN interface does not route.
     message.answers.retain(|record| !matches!(&record.data, RData::AAAA(_)));
     message.additionals.retain(|record| !matches!(&record.data, RData::AAAA(_)));
     message.authorities.retain(|record| !matches!(&record.data, RData::AAAA(_)));

@@ -1,5 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
+use hickory_proto::op::{Message, MessageType, OpCode, Query};
+use hickory_proto::rr::rdata::AAAA;
+use hickory_proto::rr::{Name, RData, Record, RecordType};
 use ripdpi_dns_resolver::{EncryptedDnsProtocol, EncryptedDnsSocks5Credentials, EncryptedDnsTransport};
 
 use super::super::protect_hooks::encrypted_dns_connect_hooks;
@@ -44,6 +47,33 @@ fn parse_dns_cache_rejects_zero_cache_size() {
 
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
     assert_eq!(err.to_string(), "mapdns.cache_size must be greater than zero");
+}
+
+#[test]
+fn parse_dns_cache_preserves_aaaa_when_tunnel_ipv6_is_enabled() {
+    let mut config = tunnel_config_with_mapdns(Some(mapdns_config(8)));
+    config.tunnel.ipv6 = Some("fd00::1/128".to_string());
+    let mut cache = parse_dns_cache(&config, None).expect("cache parses").expect("MapDNS cache");
+    let name = Name::from_ascii("fixture.test").expect("name");
+    let mut query = Message::new(0x1234, MessageType::Query, OpCode::Query);
+    query.add_query(Query::query(name.clone(), RecordType::AAAA));
+    let query = query.to_vec().expect("query encodes");
+    let mut upstream = Message::response(0x1234, OpCode::Query);
+    upstream.add_query(Query::query(name.clone(), RecordType::AAAA));
+    upstream.add_answer(Record::from_rdata(
+        name,
+        120,
+        RData::AAAA(AAAA("2001:db8::10".parse().expect("IPv6 address"))),
+    ));
+
+    let rewritten =
+        cache.rewrite_response(&query, &upstream.to_vec().expect("response encodes")).expect("response rewrites");
+    let rewritten = Message::from_vec(&rewritten.response).expect("rewritten response parses");
+
+    assert!(
+        rewritten.answers.iter().any(|record| matches!(&record.data, RData::AAAA(_))),
+        "an IPv6-capable tunnel must retain AAAA answers",
+    );
 }
 
 #[test]

@@ -54,8 +54,9 @@ pub(in crate::io_loop) fn parse_dns_cache(
     config: &Config,
     dns_cache: Option<DnsCache>,
 ) -> io::Result<Option<DnsCache>> {
-    if dns_cache.is_some() {
-        return Ok(dns_cache);
+    if let Some(mut dns_cache) = dns_cache {
+        dns_cache.set_ipv6_enabled(config.tunnel.ipv6.is_some());
+        return Ok(Some(dns_cache));
     }
 
     let Some(runtime) = parse_mapdns_runtime(config)? else {
@@ -66,7 +67,9 @@ pub(in crate::io_loop) fn parse_dns_cache(
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "mapdns.cache_size must be greater than zero"));
     }
 
-    DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size).map(Some).map_err(|err| {
+    let mut dns_cache = DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size).map_err(|err| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid mapdns cache configuration: {err}"))
-    })
+    })?;
+    dns_cache.set_ipv6_enabled(config.tunnel.ipv6.is_some());
+    Ok(Some(dns_cache))
 }

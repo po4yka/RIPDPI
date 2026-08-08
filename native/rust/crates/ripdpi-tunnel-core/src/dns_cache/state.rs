@@ -20,6 +20,8 @@ pub struct DnsCache {
     max: usize,
     next_free: usize,
     free_slots: Vec<usize>,
+    /// True only when the active TUN owns an IPv6 address and default route.
+    pub(super) ipv6_enabled: bool,
     #[cfg(test)]
     reset_inspections: usize,
     #[cfg(test)]
@@ -52,11 +54,16 @@ impl DnsCache {
             max,
             next_free: 0,
             free_slots: Vec::new(),
+            ipv6_enabled: false,
             #[cfg(test)]
             reset_inspections: 0,
             #[cfg(test)]
             allocation_steps: 0,
         })
+    }
+
+    pub(crate) fn set_ipv6_enabled(&mut self, enabled: bool) {
+        self.ipv6_enabled = enabled;
     }
 
     pub fn lookup(&mut self, ip: u32) -> Option<DnsCacheEntry> {
