@@ -230,6 +230,45 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
+    fun `redactor preserves structured domain observations while hiding their hosts`() {
+        val sensitiveHost = "private.example.test"
+        val report =
+            ScanReport(
+                sessionId = "session-redact-domain",
+                profileId = "default",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1L,
+                finishedAt = 2L,
+                summary = "complete",
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.DOMAIN,
+                            target = sensitiveHost,
+                            domain =
+                                DomainObservationFact(
+                                    host = sensitiveHost,
+                                    httpStatus = HttpProbeStatus.OK,
+                                    tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                                    tlsError = "handshake failed for $sensitiveHost",
+                                ),
+                        ),
+                    ),
+            )
+
+        val redacted = requireNotNull(redactor.redact(report.toEngineScanReportWire()))
+        val observation = redacted.observations.single()
+        val domain = requireNotNull(observation.domain)
+        val encoded = json.encodeToString(redacted)
+
+        assertEquals("redacted", observation.target)
+        assertEquals("redacted", domain.host)
+        assertEquals(HttpProbeStatus.OK, domain.httpStatus)
+        assertEquals(TlsProbeStatus.HANDSHAKE_FAILED, domain.tls13Status)
+        assertFalse(encoded.contains(sensitiveHost))
+    }
+
+    @Test
     fun `redactor leaves unknown ssid unchanged`() {
         val modelWithUnknownSsid =
             NetworkSnapshotModel(

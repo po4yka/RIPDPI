@@ -255,7 +255,7 @@ private fun projectStructuredArchiveJson(
             element
         }
 
-        fieldName.isArchiveSensitiveScalarField() -> {
+        fieldName.isArchiveSensitiveScalarField() && element is JsonPrimitive -> {
             JsonPrimitive("redacted")
         }
 
