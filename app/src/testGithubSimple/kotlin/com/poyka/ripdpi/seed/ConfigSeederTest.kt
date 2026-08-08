@@ -343,6 +343,23 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `seeding disables a saved command line override before pinning the primary`() =
+        runTest {
+            relaySettings.update {
+                setEnableCmdSettings(true)
+                setCmdArgs("--port 1081")
+            }
+
+            makeSeeder(FAKE_BUNDLE).seed()
+
+            val settings = relaySettings.snapshot()
+            assertFalse(settings.enableCmdSettings)
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayKindVlessReality, settings.relayKind)
+            assertEquals("simple-seed-VlessReality", settings.relayProfileId)
+        }
+
+    @Test
     fun `all relay profiles survive seeding under distinct ids`() =
         runTest {
             val seeder = makeSeeder(FAKE_BUNDLE)

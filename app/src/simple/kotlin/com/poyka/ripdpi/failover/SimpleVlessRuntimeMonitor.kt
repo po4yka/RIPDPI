@@ -68,6 +68,7 @@ internal class SimpleVlessRuntimeMonitor
             if (mode != Mode.VPN) return
             fallbackMutex.withLock {
                 settingsRepository.update {
+                    setEnableCmdSettings(false)
                     setRelayEnabled(true)
                     setRelayKind(RelayKindVlessReality)
                     setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
@@ -206,6 +207,7 @@ internal class SimpleVlessRuntimeMonitor
                 return
             }
             settingsRepository.update {
+                setEnableCmdSettings(false)
                 setRelayEnabled(true)
                 setRelayKind(RelayKindHysteria2)
                 setRelayProfileId(fallback.id)
@@ -263,6 +265,7 @@ internal class SimpleVlessRuntimeMonitor
                 return
             }
             settingsRepository.update {
+                setEnableCmdSettings(false)
                 setRelayEnabled(false)
                 setSimpleFailoverAwgProfileId(awgRequest.profileId)
             }

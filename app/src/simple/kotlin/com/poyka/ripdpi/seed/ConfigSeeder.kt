@@ -225,6 +225,9 @@ open class ConfigSeeder
                 ),
             ) { "Embedded VLESS+Reality primary is not relay-activatable" }
             settingsRepository.update {
+                // Simple owns the normal runtime selection. A persisted CLI override would make
+                // relay/AWG fields invisible to SharedProxyRuntimeStack.
+                setEnableCmdSettings(false)
                 setRipdpiMode(Mode.VPN.preferenceValue)
                 setSimpleFailoverAwgProfileId("")
             }

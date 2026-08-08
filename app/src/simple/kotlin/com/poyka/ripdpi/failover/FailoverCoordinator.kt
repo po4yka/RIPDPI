@@ -275,6 +275,7 @@ class FailoverCoordinator
                 startupRecoveryEpoch++
                 stopObserving()
                 settingsRepository.update {
+                    setEnableCmdSettings(false)
                     setRelayEnabled(true)
                     setRelayKind(RelayKindVlessReality)
                     setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
@@ -890,6 +891,8 @@ class FailoverCoordinator
         /**
          * Writes the configuration for [candidate] to [AppSettings] so that the session
          * that starts after [performSwitch] picks up the correct transport.
+         * Command-line overrides are disabled in the same transaction because command-line
+         * preferences intentionally expose neither relay nor AWG runtime configuration.
          *
          * For relay candidates: updates the relay kind and profile-id settings fields that
          * [UpstreamRelayRuntimeConfigResolver] reads on session start. The credentials are
@@ -909,6 +912,7 @@ class FailoverCoordinator
                 is FailoverCandidate.Relay -> {
                     awgEgressSelection.clear()
                     settingsRepository.update {
+                        setEnableCmdSettings(false)
                         setRelayEnabled(true)
                         setRelayKind(candidate.relayKind)
                         setRelayProfileId(candidate.profileId)
@@ -921,6 +925,7 @@ class FailoverCoordinator
                     // resolver can rehydrate the egress request after a service/process restart.
                     awgEgressSelection.select(candidate.awgProfileId)
                     settingsRepository.update {
+                        setEnableCmdSettings(false)
                         setRelayEnabled(false)
                         setSimpleFailoverAwgProfileId(candidate.awgProfileId)
                     }

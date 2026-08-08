@@ -32,6 +32,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +46,7 @@ class SimpleVlessRuntimeMonitorTest {
             val settings = FakeAppSettingsRepository()
             val controller = RecordingServiceController()
             settings.update {
+                setEnableCmdSettings(true)
                 setRelayEnabled(true)
                 setRelayKind(RelayKindVlessReality)
                 setRelayProfileId(SeededVlessProfileId)
@@ -70,6 +72,7 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
             assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
             assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
+            assertFalse(settings.snapshot().enableCmdSettings)
         }
 
     @Test
@@ -79,6 +82,7 @@ class SimpleVlessRuntimeMonitorTest {
             val settings = FakeAppSettingsRepository()
             val controller = RecordingServiceController()
             settings.update {
+                setEnableCmdSettings(true)
                 setRelayEnabled(true)
                 setRelayKind(RelayKindVlessReality)
                 setRelayProfileId(SeededVlessProfileId)
@@ -104,6 +108,7 @@ class SimpleVlessRuntimeMonitorTest {
 
             assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
             assertEquals(RelayKindHysteria2, settings.snapshot().relayKind)
+            assertFalse(settings.snapshot().enableCmdSettings)
         }
 
     @Test

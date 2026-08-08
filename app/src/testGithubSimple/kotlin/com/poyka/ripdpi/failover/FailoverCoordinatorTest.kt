@@ -445,6 +445,7 @@ class FailoverCoordinatorTest {
         runTest {
             val settings = FakeAppSettingsRepository()
             settings.update {
+                setEnableCmdSettings(true)
                 setRelayEnabled(false)
                 setRelayKind(RelayKindHysteria2)
                 setRelayProfileId("simple-seed-Hysteria2")
@@ -454,6 +455,7 @@ class FailoverCoordinatorTest {
 
             coordinator.prepare(Mode.VPN)
 
+            assertFalse(settings.snapshot().enableCmdSettings)
             assertTrue(settings.relayEnabled())
             assertEquals(RelayKindVlessReality, settings.relayKind())
             assertEquals("simple-seed-VlessReality", settings.relayProfileId())
@@ -559,7 +561,14 @@ class FailoverCoordinatorTest {
         runTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 0L)
-            val (coordinator, controller, _) = buildCoordinator(stateStore = stateStore, clock = clock)
+            val settings = FakeAppSettingsRepository()
+            settings.update { setEnableCmdSettings(true) }
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
 
             coordinator.startObserving(observeScope)
@@ -585,6 +594,7 @@ class FailoverCoordinatorTest {
             assertEquals("Expected exactly one stop", 1, controller.stopCalls.size)
             assertEquals("Expected exactly one start", 1, controller.startCalls.size)
             assertEquals(Mode.VPN, controller.startCalls.first())
+            assertFalse(settings.snapshot().enableCmdSettings)
 
             coordinator.stopObserving()
         }
@@ -2136,6 +2146,7 @@ class FailoverCoordinatorTest {
                 )
             // Seed settings to Hysteria2 so coordinator resumes at index 1.
             settings.update {
+                setEnableCmdSettings(true)
                 setRelayEnabled(true)
                 setRelayKind(RelayKindHysteria2)
             }
@@ -2172,6 +2183,7 @@ class FailoverCoordinatorTest {
                 "Expected AWG candidate after switch from Hysteria2, got $afterSwitch"
             }
             assertEquals("AWG profile id must match", SIMPLE_SEED_AWG_PROFILE_ID, afterSwitch.awgProfileId)
+            assertFalse(settings.snapshot().enableCmdSettings)
 
             coordinator.stopObserving()
         }
