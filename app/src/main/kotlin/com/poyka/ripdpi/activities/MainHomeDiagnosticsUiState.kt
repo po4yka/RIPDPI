@@ -72,6 +72,7 @@ private fun HomeDiagnosticsRuntimeState.analysisRunUiStatus(): HomeDiagnosticsRu
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.COMPLETED -> HomeDiagnosticsRunUiStatus.COMPLETED
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.CANCELLED -> HomeDiagnosticsRunUiStatus.CANCELLED
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.FAILED -> HomeDiagnosticsRunUiStatus.FAILED
+        analysisStartCancelled -> HomeDiagnosticsRunUiStatus.CANCELLED
         else -> HomeDiagnosticsRunUiStatus.IDLE
     }
 

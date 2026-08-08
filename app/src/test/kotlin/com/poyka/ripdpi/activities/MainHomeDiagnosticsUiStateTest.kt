@@ -12,6 +12,20 @@ import org.junit.Test
 
 class MainHomeDiagnosticsUiStateTest {
     @Test
+    fun `cancelled analysis start is exposed as a terminal cancelled state`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime = HomeDiagnosticsRuntimeState(analysisStartCancelled = true),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeDiagnosticsRunUiStatus.CANCELLED, uiState.analysisRunStatus)
+    }
+
+    @Test
     fun `buildHomeDiagnosticsUiState exposes latest manual scan when no composite audit exists`() {
         val uiState =
             buildHomeDiagnosticsUiState(

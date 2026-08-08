@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStarted
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions
@@ -22,7 +23,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -34,12 +34,15 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeout
 
 private const val HomeVerificationProfileId = "default"
+private const val HomeAnalysisStartTimeoutMillis = 10_000L
 
 internal data class HomeDiagnosticsRuntimeState(
     val activeRunId: String? = null,
@@ -61,6 +64,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val pcapRecordingRequested: Boolean = false,
     val analysisStarting: Boolean = false,
     val analysisStartFailed: Boolean = false,
+    val analysisStartCancelled: Boolean = false,
 )
 
 internal class MainHomeDiagnosticsActions(
@@ -80,6 +84,7 @@ internal class MainHomeDiagnosticsActions(
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
     private var activeRunObservation: Job? = null
+    private var analysisStartJob: Job? = null
 
     fun initialize() {
         mutations.launch { refreshFingerprint() }
@@ -89,7 +94,15 @@ internal class MainHomeDiagnosticsActions(
         observeVerifiedVpnConnection()
         observeBlockingPermissionWhileWaiting()
         observeServiceStatusForFingerprint()
-        observePcapCaptureState()
+        pcapCaptureRuntimeController?.let { controller ->
+            mutations.launch {
+                controller.state.collect { state ->
+                    homeDiagnosticsState.update { current ->
+                        current.copy(pcapRecordingRequested = state is PcapCaptureRuntimeState.Recording)
+                    }
+                }
+            }
+        }
     }
 
     private fun observeLatestManualDiagnosticSession() {
@@ -222,69 +235,97 @@ internal class MainHomeDiagnosticsActions(
     }
 
     fun runFullAnalysis() {
-        mutations.launch {
-            if (homeDiagnosticsState.value.analysisInProgress()) return@launch
-            activeRunObservation?.cancel()
-            homeDiagnosticsState.update {
-                it.copy(
-                    activeRunId = null,
-                    activeRunProgress = null,
-                    activeRunStageProgress = null,
-                    activeStageStepProgress = 0f,
-                    quickScanActive = false,
-                    latestCompositeOutcome = null,
-                    analysisSheetVisible = false,
-                    verificationSheet = null,
-                    activeVerificationSessionId = null,
-                    waitingForVerifiedVpnStart = false,
-                    verificationProgress = null,
-                    analysisStartFailed = false,
-                    analysisStarting = true,
-                )
-            }
-            runCatching {
-                diagnosticsHomeCompositeRunService.startHomeAnalysis(
-                    DiagnosticsHomeRunOptions(),
-                )
-            }.onSuccess { started ->
+        startAnalysis(quickScan = false) {
+            diagnosticsHomeCompositeRunService.startHomeAnalysis(
+                DiagnosticsHomeRunOptions(),
+            )
+        }
+    }
+
+    private fun startAnalysis(
+        quickScan: Boolean,
+        start: suspend () -> DiagnosticsHomeCompositeRunStarted,
+    ) {
+        if (analysisStartJob?.isActive == true || homeDiagnosticsState.value.analysisInProgress()) return
+        analysisStartJob =
+            mutations.launch {
+                activeRunObservation?.cancel()
                 homeDiagnosticsState.update {
                     it.copy(
-                        activeRunId = started.runId,
-                        activeRunStageProgress = stringResolver.getString(R.string.home_diagnostics_analysis_running),
-                        analysisStarting = false,
+                        activeRunId = null,
+                        activeRunProgress = null,
+                        activeRunStageProgress = null,
+                        activeStageStepProgress = 0f,
+                        quickScanActive = quickScan,
+                        latestCompositeOutcome = null,
+                        analysisSheetVisible = false,
+                        verificationSheet = null,
+                        activeVerificationSessionId = null,
+                        waitingForVerifiedVpnStart = false,
+                        verificationProgress = null,
+                        analysisStartFailed = false,
+                        analysisStartCancelled = false,
+                        analysisStarting = true,
                     )
                 }
-                activeRunObservation =
-                    mutations.launch {
-                        diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
-                            homeDiagnosticsState.update { current ->
-                                current.withCompositeProgress(progress)
-                            }
-                            progress.outcome?.let { outcome ->
-                                refreshFingerprint(outcome.fingerprintHash)
-                                publishLatestDirectModeOutcome(outcome)
-                            }
-                        }
+                val failStart: suspend () -> Unit = {
+                    homeDiagnosticsState.update {
+                        it.copy(
+                            analysisStarting = false,
+                            analysisStartFailed = true,
+                            analysisStartCancelled = false,
+                            quickScanActive = false,
+                        )
                     }
-            }.onFailure { error ->
-                homeDiagnosticsState.update { it.copy(analysisStarting = false, analysisStartFailed = true) }
-                val message =
-                    when (error) {
-                        is DiagnosticsScanStartRejectedException -> {
-                            stringResolver.getString(R.string.diagnostics_error_start_failed)
-                        }
-
-                        else -> {
-                            stringResolver.getString(R.string.diagnostics_error_start_failed)
-                        }
+                    mutations.emit(
+                        MainEffect.ShowError(
+                            stringResolver.getString(R.string.diagnostics_error_start_failed),
+                        ),
+                    )
+                }
+                try {
+                    val started = withTimeout(HomeAnalysisStartTimeoutMillis) { start() }
+                    homeDiagnosticsState.update {
+                        it.copy(
+                            activeRunId = started.runId,
+                            activeRunStageProgress =
+                                stringResolver.getString(R.string.home_diagnostics_analysis_running),
+                            analysisStarting = false,
+                        )
                     }
-                mutations.emit(MainEffect.ShowError(message))
+                    activeRunObservation =
+                        mutations.launch {
+                            diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
+                                homeDiagnosticsState.update { current ->
+                                    current.withCompositeProgress(progress)
+                                }
+                                progress.outcome?.let { outcome ->
+                                    refreshFingerprint(outcome.fingerprintHash)
+                                    publishLatestDirectModeOutcome(outcome)
+                                }
+                            }
+                        }
+                } catch (_: TimeoutCancellationException) {
+                    failStart()
+                } catch (cancelled: CancellationException) {
+                    homeDiagnosticsState.update { current ->
+                        if (current.analysisStarting) current.withCancelledAnalysisStart() else current
+                    }
+                    throw cancelled
+                } catch (_: Exception) {
+                    failStart()
+                }
             }
-        }
     }
 
     fun cancelAnalysis() {
         mutations.launch {
+            if (homeDiagnosticsState.value.analysisStarting) {
+                homeDiagnosticsState.update { it.withCancelledAnalysisStart() }
+                analysisStartJob?.cancel()
+                analysisStartJob = null
+                return@launch
+            }
             val runId = homeDiagnosticsState.value.activeRunId ?: return@launch
             runCatching { diagnosticsHomeCompositeRunService.cancelHomeRun(runId) }
                 .onFailure {
@@ -298,64 +339,10 @@ internal class MainHomeDiagnosticsActions(
     }
 
     fun runQuickAnalysis() {
-        mutations.launch {
-            if (homeDiagnosticsState.value.analysisInProgress()) return@launch
-            activeRunObservation?.cancel()
-            homeDiagnosticsState.update {
-                it.copy(
-                    activeRunId = null,
-                    activeRunProgress = null,
-                    activeRunStageProgress = null,
-                    activeStageStepProgress = 0f,
-                    quickScanActive = true,
-                    latestCompositeOutcome = null,
-                    analysisSheetVisible = false,
-                    verificationSheet = null,
-                    activeVerificationSessionId = null,
-                    waitingForVerifiedVpnStart = false,
-                    verificationProgress = null,
-                    analysisStartFailed = false,
-                    analysisStarting = true,
-                )
-            }
-            runCatching {
-                diagnosticsHomeCompositeRunService.startQuickAnalysis(
-                    DiagnosticsHomeRunOptions(),
-                )
-            }.onSuccess { started ->
-                homeDiagnosticsState.update {
-                    it.copy(
-                        activeRunId = started.runId,
-                        activeRunStageProgress = stringResolver.getString(R.string.home_diagnostics_analysis_running),
-                        analysisStarting = false,
-                    )
-                }
-                activeRunObservation =
-                    mutations.launch {
-                        diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
-                            homeDiagnosticsState.update { current ->
-                                current.withCompositeProgress(progress)
-                            }
-                            progress.outcome?.let { outcome ->
-                                refreshFingerprint(outcome.fingerprintHash)
-                                publishLatestDirectModeOutcome(outcome)
-                            }
-                        }
-                    }
-            }.onFailure { error ->
-                homeDiagnosticsState.update { it.copy(analysisStarting = false, analysisStartFailed = true) }
-                val message =
-                    when (error) {
-                        is DiagnosticsScanStartRejectedException -> {
-                            stringResolver.getString(R.string.diagnostics_error_start_failed)
-                        }
-
-                        else -> {
-                            stringResolver.getString(R.string.diagnostics_error_start_failed)
-                        }
-                    }
-                mutations.emit(MainEffect.ShowError(message))
-            }
+        startAnalysis(quickScan = true) {
+            diagnosticsHomeCompositeRunService.startQuickAnalysis(
+                DiagnosticsHomeRunOptions(),
+            )
         }
     }
 
@@ -366,17 +353,6 @@ internal class MainHomeDiagnosticsActions(
                 controller.stop()
             } else {
                 controller.start()
-            }
-        }
-    }
-
-    private fun observePcapCaptureState() {
-        val controller = pcapCaptureRuntimeController ?: return
-        mutations.launch {
-            controller.state.collect { state ->
-                homeDiagnosticsState.update { current ->
-                    current.copy(pcapRecordingRequested = state is PcapCaptureRuntimeState.Recording)
-                }
             }
         }
     }
@@ -580,6 +556,14 @@ private fun HomeDiagnosticsRuntimeState.analysisInProgress(): Boolean =
     analysisStarting || activeRunId != null ||
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
 
+private fun HomeDiagnosticsRuntimeState.withCancelledAnalysisStart(): HomeDiagnosticsRuntimeState =
+    copy(
+        analysisStarting = false,
+        analysisStartFailed = false,
+        analysisStartCancelled = true,
+        quickScanActive = false,
+    )
+
 private data class ActiveRunProgressSelection(
     val progress: DiagnosticsHomeCompositeProgress?,
     val ownsSession: Boolean,
@@ -658,6 +642,7 @@ private fun HomeDiagnosticsRuntimeState.withCompositeProgress(
         latestCompositeOutcome = progress.outcome ?: latestCompositeOutcome,
         analysisSheetVisible = progress.outcome != null || analysisSheetVisible,
         analysisStartFailed = false,
+        analysisStartCancelled = false,
     )
 }
 

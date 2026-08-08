@@ -193,7 +193,8 @@ class SimpleHomeScreenTest {
     }
 
     @Test
-    fun `starting report disables both actions until run id is available`() {
+    fun `starting report exposes cancellation while connection remains isolated`() {
+        var cancelClicks = 0
         val diagnostics =
             HomeDiagnosticsUiState(
                 analysisAction = HomeDiagnosticsActionUiState(supportingText = "Starting diagnostics", busy = true),
@@ -209,14 +210,15 @@ class SimpleHomeScreenTest {
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
                     onRunReport = {},
-                    onCancelReport = {},
+                    onCancelReport = { cancelClicks += 1 },
                 )
             }
         }
 
         composeRule.onNodeWithText("Connect").assertIsNotEnabled()
-        composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
+        composeRule.onNodeWithText("Cancel active scan").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Starting diagnostics").assertExists()
+        composeRule.runOnIdle { assertEquals(1, cancelClicks) }
     }
 
     @Test

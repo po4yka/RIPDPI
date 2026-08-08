@@ -104,8 +104,9 @@ internal fun SimpleHomeContent(
     val active = connecting || connected
     val reportBusy = diagnostics.analysisAction.busy
     val disconnectBlocked = active && blocksDisconnect
-    val reportStarting = diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING
-    val reportCancellable = diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
+    val reportCancellable =
+        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING ||
+            diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
     val protocolLabel = activeTransport?.toProtocolLabel()
 
     Scaffold(
@@ -186,7 +187,6 @@ internal fun SimpleHomeContent(
                             if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
                         ),
                     onClick = if (reportCancellable) onCancelReport else onRunReport,
-                    loading = reportStarting,
                     enabled = reportCancellable || (!reportBusy && diagnostics.analysisAction.enabled),
                     variant = RipDpiButtonVariant.Outline,
                 )

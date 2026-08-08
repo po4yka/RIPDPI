@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -726,6 +727,55 @@ class MainHomeDiagnosticsConcurrencyTest {
             runCurrent()
             assertFalse(homeDiagnosticsState.value.analysisStarting)
             assertEquals("home-run", homeDiagnosticsState.value.activeRunId)
+        }
+
+    @Test
+    fun `cancel analysis aborts a stuck start before a run id exists`() =
+        runTest {
+            val startGate = CompletableDeferred<Unit>()
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService().apply { this.startGate = startGate }
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.runFullAnalysis()
+            runCurrent()
+            assertTrue(homeDiagnosticsState.value.analysisStarting)
+
+            actions.cancelAnalysis()
+            runCurrent()
+
+            assertFalse(homeDiagnosticsState.value.analysisStarting)
+            assertTrue(homeDiagnosticsState.value.analysisStartCancelled)
+            assertNull(homeDiagnosticsState.value.activeRunId)
+            assertTrue(compositeRunService.cancelledRunIds.isEmpty())
+        }
+
+    @Test
+    fun `stuck analysis start reaches a bounded failure state`() =
+        runTest {
+            val startGate = CompletableDeferred<Unit>()
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService().apply { this.startGate = startGate }
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.runFullAnalysis()
+            runCurrent()
+            advanceTimeBy(30_000)
+            runCurrent()
+
+            assertFalse(homeDiagnosticsState.value.analysisStarting)
+            assertTrue(homeDiagnosticsState.value.analysisStartFailed)
+            assertNull(homeDiagnosticsState.value.activeRunId)
         }
 
     @Test
