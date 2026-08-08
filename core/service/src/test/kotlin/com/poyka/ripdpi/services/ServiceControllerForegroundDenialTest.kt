@@ -6,11 +6,13 @@ import android.net.VpnService
 import android.os.Build
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.stopAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,6 +31,35 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.S], shadows = [ShadowServiceControllerVpnPrepareService::class])
 class ServiceControllerForegroundDenialTest {
+    @Test
+    fun validTransportFailoverIntentPreservesExactIdentity() {
+        val decoded =
+            Intent(transportFailoverRestartAction)
+                .putExtra(transportFailoverRequestIdExtra, 17L)
+                .putExtra(transportFailoverTargetKindExtra, RelayKindVlessReality)
+                .putExtra(transportFailoverTargetProfileIdExtra, "reality-17")
+                .decodeTransportFailoverCommand()
+
+        assertEquals(17L, decoded.requestId)
+        assertEquals(
+            TransportFailoverTarget(RelayKindVlessReality, "reality-17"),
+            decoded.target,
+        )
+    }
+
+    @Test
+    fun malformedTransportFailoverIntentDecodesFailClosed() {
+        val decoded =
+            Intent(transportFailoverRestartAction)
+                .putExtra(transportFailoverRequestIdExtra, "not-a-long")
+                .putExtra(transportFailoverTargetKindExtra, " ")
+                .putExtra(transportFailoverTargetProfileIdExtra, "")
+                .decodeTransportFailoverCommand()
+
+        assertNull(decoded.requestId)
+        assertNull(decoded.target)
+    }
+
     @Test
     fun foregroundServiceDenialRejectsProxyStartWithoutReportingRunning() {
         val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
@@ -166,10 +197,14 @@ class ServiceControllerForegroundDenialTest {
                 serviceIntentArbiter = ServiceIntentArbiter(),
             )
 
-        val result = controller.restartVpnForTransportFailover()
+        val target = TransportFailoverTarget(RelayKindVlessReality, "reality-1")
+        val result = controller.restartVpnForTransportFailover(requestId = 41L, expectedTarget = target)
 
         assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
         assertEquals(transportFailoverRestartAction, starter.lastIntent?.action)
+        assertEquals(41L, starter.lastIntent?.getLongExtra(transportFailoverRequestIdExtra, 0L))
+        assertEquals(RelayKindVlessReality, starter.lastIntent?.getStringExtra(transportFailoverTargetKindExtra))
+        assertEquals("reality-1", starter.lastIntent?.getStringExtra(transportFailoverTargetProfileIdExtra))
         assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
         assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
     }

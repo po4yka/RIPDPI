@@ -20,6 +20,7 @@ import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
+import com.poyka.ripdpi.services.TransportFailoverTarget
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -850,7 +851,10 @@ private class RecordingServiceController(
         return ServiceStartResult.Accepted(mode)
     }
 
-    override fun restartVpnForTransportFailover(): ServiceStartResult {
+    override fun restartVpnForTransportFailover(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): ServiceStartResult {
         failoverRestartCalls += Mode.VPN
         return ServiceStartResult.Accepted(Mode.VPN)
     }

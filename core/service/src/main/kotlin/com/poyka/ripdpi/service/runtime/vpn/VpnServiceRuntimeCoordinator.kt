@@ -48,6 +48,8 @@ import com.poyka.ripdpi.services.SharedProxyRuntimeStack
 import com.poyka.ripdpi.services.SystemServiceClock
 import com.poyka.ripdpi.services.TelemetryFingerprintHasher
 import com.poyka.ripdpi.services.TelemetryJobReplacer
+import com.poyka.ripdpi.services.TransportFailoverApplyTracker
+import com.poyka.ripdpi.services.TransportFailoverTarget
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
 import com.poyka.ripdpi.services.VpnCoordinatorHost
@@ -71,12 +73,15 @@ import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.XrayProviderSessionController
+import com.poyka.ripdpi.services.transportFailoverTargetOrNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 /**
@@ -104,11 +109,13 @@ internal class VpnServiceRuntimeCoordinator(
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
+    private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
     private val screenStateObserver: ScreenStateObserver,
     private val directPathPolicyTelemetryConsumer:
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
+    private val transportFailoverRuntimeTimeoutMillis: Long = 45_000L,
     private val rootHelperManager: RootHelperManager = RootHelperManager(),
     /**
      * Optional embedded-Xray provider seam. Null when the provider is not wired;
@@ -381,30 +388,140 @@ internal class VpnServiceRuntimeCoordinator(
      * replaced, so Android lockdown never has to permit a user-style service Stop.
      */
     @Suppress("TooGenericExceptionCaught")
-    suspend fun restartAfterTransportFailover() {
+    suspend fun restartAfterTransportFailover(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ) {
         mutex.withLock {
-            val session = runtimeSession
-            if (status != ServiceStatus.Connected || stopping || session == null) {
-                Logger.w { "Ignoring transport failover restart while VPN runtime is not connected" }
-                return
-            }
-            handoverRestarting = true
+            var runtimeClaimed = false
+            var runtimeApplied = false
             try {
-                val resolution = resolveInitialConnectionPolicy()
                 withContext(NonCancellable) {
-                    runtimeCompositionCoordinator.restartAfterPolicyChange(
-                        session = session,
-                        resolution = resolution,
-                        appliedAt = clock.nowMillis(),
-                        restartReason = "transport_failover",
-                    )
+                    withTimeout(transportFailoverRuntimeTimeoutMillis) {
+                        val preparation = prepareTransportFailover(requestId, expectedTarget) ?: return@withTimeout
+                        runtimeClaimed = true
+                        handoverRestarting = true
+                        runtimeCompositionCoordinator.restartAfterPolicyChange(
+                            session = preparation.session,
+                            resolution = preparation.resolution,
+                            appliedAt = clock.nowMillis(),
+                            restartReason = "transport_failover",
+                        )
+                        check(transportFailoverApplyTracker.recordApplied(requestId)) {
+                            "Transport failover apply request expired before runtime acknowledgement"
+                        }
+                        runtimeApplied = true
+                    }
                 }
-            } catch (error: Exception) {
-                updateStatus(ServiceStatus.Failed, classifyFailureReason(error, isTunnelContext = true))
-                throw error
+            } catch (cancelled: CancellationException) {
+                handleTransportFailoverFailure(requestId, cancelled, runtimeClaimed, runtimeApplied)
+                return@withLock
+            } catch (failure: Exception) {
+                if (handleTransportFailoverFailure(requestId, failure, runtimeClaimed, runtimeApplied)) {
+                    return@withLock
+                }
+                throw failure
             } finally {
+                if (runtimeClaimed) {
+                    transportFailoverApplyTracker.releaseRuntimeOwnership(requestId)
+                }
                 handoverRestarting = false
             }
+        }
+    }
+
+    private suspend fun handleTransportFailoverFailure(
+        requestId: Long,
+        failure: Exception,
+        runtimeClaimed: Boolean,
+        runtimeApplied: Boolean,
+    ): Boolean =
+        when {
+            runtimeApplied -> {
+                Logger.i { "Transport failover request=$requestId completed before command cancellation" }
+                true
+            }
+
+            !runtimeClaimed -> {
+                transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
+                Logger.w(failure) { "Transport failover failed before runtime mutation request=$requestId" }
+                true
+            }
+
+            else -> {
+                val failClosed =
+                    withContext(NonCancellable) {
+                        runCatching { runtimeCompositionCoordinator.retainFailClosedAfterHandoverFailure() }
+                            .onFailure { cleanupFailure ->
+                                Logger.e(cleanupFailure) { "Failed to retain fail-closed transport barrier" }
+                            }.getOrDefault(false)
+                    }
+                transportFailoverApplyTracker.recordRuntimeFailure(requestId, rollbackSafe = failClosed)
+                updateStatus(ServiceStatus.Failed, classifyFailureReason(failure, isTunnelContext = true))
+                false
+            }
+        }
+
+    private data class TransportFailoverPreparation(
+        val session: VpnRuntimeSession,
+        val resolution: ConnectionPolicyResolution,
+    )
+
+    private suspend fun prepareTransportFailover(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): TransportFailoverPreparation? {
+        val session = currentTransportFailoverSession(requestId)
+        val resolution = session?.let { resolveTransportFailoverPolicy(requestId, expectedTarget) }
+        return if (
+            session != null &&
+            resolution != null &&
+            transportFailoverApplyTracker.claimApplying(requestId)
+        ) {
+            TransportFailoverPreparation(session, resolution)
+        } else {
+            if (session != null && resolution != null) {
+                Logger.i { "Ignoring stale transport failover request=$requestId before runtime mutation" }
+            }
+            null
+        }
+    }
+
+    private fun currentTransportFailoverSession(requestId: Long): VpnRuntimeSession? {
+        var session: VpnRuntimeSession? = null
+        val currentSession = runtimeSession
+        if (status != ServiceStatus.Connected || stopping || currentSession == null) {
+            Logger.w { "Ignoring transport failover restart while VPN runtime is not connected" }
+            transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
+        } else {
+            session = currentSession
+        }
+        return session
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun resolveTransportFailoverPolicy(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): ConnectionPolicyResolution? {
+        val resolution =
+            try {
+                resolveInitialConnectionPolicy()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
+                Logger.w(error) { "Failed to resolve transport failover request=$requestId" }
+                null
+            }
+        return if (resolution?.transportFailoverTargetOrNull() == expectedTarget) {
+            resolution
+        } else {
+            resolution?.let {
+                transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
+                Logger.w { "Resolved policy does not match transport failover request=$requestId" }
+            }
+            null
         }
     }
 

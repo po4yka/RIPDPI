@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
@@ -29,6 +31,7 @@ import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompileResult
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompiler
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -64,6 +67,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val vpnProtectFailureMonitor: TestVpnProtectFailureMonitor,
         val resolverOverrides: TestResolverOverrideStore,
         val preferredPaths: TestNetworkDnsPathPreferenceStore,
+        val transportFailoverApplyTracker: TransportFailoverApplyTracker,
         val events: MutableList<String>,
     )
 
@@ -392,18 +396,37 @@ class VpnServiceRuntimeCoordinatorTest {
     @Test
     fun transportFailoverRecomposesBehindTunWithoutStoppingVpnService() =
         runTest {
+            val target = TransportFailoverTarget(RelayKindHysteria2, "transport-failover")
             val env =
                 newEnv(
                     resolutions =
                         listOf(
                             sampleResolution(mode = Mode.VPN, policySignature = "initial"),
-                            sampleResolution(mode = Mode.VPN, policySignature = "transport-failover"),
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                policySignature = "transport-failover",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
                         ),
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ).copy(udpEnabled = true),
                 )
 
             env.coordinator.start()
             runCurrent()
-            env.coordinator.restartAfterTransportFailover()
+            val requestId = env.transportFailoverApplyTracker.begin()
+            env.coordinator.restartAfterTransportFailover(requestId, target)
             runCurrent()
 
             assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
@@ -412,6 +435,208 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertTrue(env.events.indexOf("proxy:stop") < env.events.lastIndexOf("vpn:establish"))
+            assertEquals(
+                TransportFailoverApplyOutcome.Applied,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+        }
+
+    @Test
+    fun cancellationAfterRuntimeMutationKeepsAppliedTransportHealthy() =
+        runTest {
+            val stopGate = CompletableDeferred<Unit>()
+            var runtimeIndex = 0
+            val target = TransportFailoverTarget(RelayKindVlessReality, "reserve-profile")
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                policySignature = "transport-failover",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).also { runtime ->
+                            if (runtimeIndex++ == 0) runtime.beforeStop = { stopGate.await() }
+                        }
+                    },
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ).copy(udpEnabled = true),
+                )
+            env.coordinator.start()
+            runCurrent()
+            val requestId = env.transportFailoverApplyTracker.begin()
+            val restart =
+                backgroundScope.launch {
+                    env.coordinator.restartAfterTransportFailover(requestId, target)
+                }
+
+            runCurrent()
+            restart.cancel()
+            stopGate.complete(Unit)
+            runCurrent()
+            restart.join()
+
+            assertEquals(
+                TransportFailoverApplyOutcome.Applied,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(2, env.factory.runtimes.size)
+            assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
+        }
+
+    @Test
+    fun transportFailoverOutsideConnectedSessionReportsFailedApplication() =
+        runTest {
+            val env = newEnv()
+            val requestId = env.transportFailoverApplyTracker.begin()
+
+            env.coordinator.restartAfterTransportFailover(
+                requestId,
+                TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+            )
+
+            assertEquals(
+                TransportFailoverApplyOutcome.RollbackSafeFailure,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+        }
+
+    @Test
+    fun transportFailoverTargetMismatchKeepsExistingRuntimeHealthy() =
+        runTest {
+            val resolvedTarget = TransportFailoverTarget(RelayKindVlessReality, "resolved-profile")
+            val requestedTarget = TransportFailoverTarget(RelayKindVlessReality, "requested-profile")
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                policySignature = "resolved-profile",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = resolvedTarget.transportKind,
+                                                profileId = resolvedTarget.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+            env.coordinator.start()
+            runCurrent()
+            val requestId = env.transportFailoverApplyTracker.begin()
+
+            env.coordinator.restartAfterTransportFailover(requestId, requestedTarget)
+            runCurrent()
+
+            assertEquals(
+                TransportFailoverApplyOutcome.RollbackSafeFailure,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
+        }
+
+    @Test
+    fun transportFailoverDeadlineCancelsHungApplicationAndCompletesFailClosedCleanup() =
+        runTest {
+            val stopGate = CompletableDeferred<Unit>()
+            var runtimeIndex = 0
+            val target = TransportFailoverTarget(RelayKindVlessReality, "reserve-profile")
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                policySignature = "reserve",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).also { runtime ->
+                            if (runtimeIndex++ == 0) runtime.beforeStop = { stopGate.await() }
+                        }
+                    },
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ),
+                    transportFailoverRuntimeTimeoutMillis = 50L,
+                )
+            env.coordinator.start()
+            runCurrent()
+            val requestId = env.transportFailoverApplyTracker.begin()
+            val restart =
+                async {
+                    env.coordinator.restartAfterTransportFailover(requestId, target)
+                }
+
+            runCurrent()
+            advanceTimeBy(51L)
+            runCurrent()
+
+            assertEquals(
+                TransportFailoverApplyOutcome.RollbackSafeFailure,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            restart.await()
+            assertFalse(stopGate.isCompleted)
+            assertTrue(env.transportFailoverApplyTracker.begin() > requestId)
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+        }
+
+    @Test
+    fun cancelledTransportFailoverCommandCannotMutateOrDemoteRuntime() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val requestId = env.transportFailoverApplyTracker.begin()
+            env.transportFailoverApplyTracker.cancel(requestId)
+
+            env.coordinator.restartAfterTransportFailover(
+                requestId,
+                TransportFailoverTarget(RelayKindVlessReality, "stale-profile"),
+            )
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
         }
 
     @Test
@@ -1343,6 +1568,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     runtimeExperimentSelectionProvider = StaticRuntimeExperimentSelectionProvider,
                     clock = clock,
                 ),
+            transportFailoverApplyTracker = TransportFailoverApplyTracker(),
             screenStateObserver = TestScreenStateObserver(),
             ioDispatcher = dispatcher,
             clock = clock,
@@ -1593,6 +1819,8 @@ class VpnServiceRuntimeCoordinatorTest {
         appSettingsRepository: TestAppSettingsRepository =
             TestAppSettingsRepository(resolutions.firstOrNull()?.settings ?: AppSettingsSerializer.defaultValue),
         runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
+        relayRuntimeConfig: ResolvedRipDpiRelayConfig = sampleResolvedRelayConfig(),
+        transportFailoverRuntimeTimeoutMillis: Long = 60_000L,
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val events = mutableListOf<String>()
@@ -1618,6 +1846,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val overrides = TestResolverOverrideStore()
         val preferredPaths = TestNetworkDnsPathPreferenceStore()
         val clock = TestServiceClock(now = 1_000L)
+        val transportFailoverApplyTracker = TransportFailoverApplyTracker()
         val tunnelRuntime =
             VpnTunnelRuntime(
                 vpnHost = host,
@@ -1657,7 +1886,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         dispatcher = dispatcher,
                         relayFactory = relayFactory,
                         naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                        runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                        runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(relayRuntimeConfig),
                     ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(
@@ -1690,9 +1919,11 @@ class VpnServiceRuntimeCoordinatorTest {
                         runtimeExperimentSelectionProvider = StaticRuntimeExperimentSelectionProvider,
                         clock = clock,
                     ),
+                transportFailoverApplyTracker = transportFailoverApplyTracker,
                 screenStateObserver = TestScreenStateObserver(),
                 ioDispatcher = dispatcher,
                 clock = clock,
+                transportFailoverRuntimeTimeoutMillis = transportFailoverRuntimeTimeoutMillis,
             )
         return Env(
             coordinator = coordinator,
@@ -1711,6 +1942,7 @@ class VpnServiceRuntimeCoordinatorTest {
             vpnProtectFailureMonitor = vpnProtectFailureMonitor,
             resolverOverrides = overrides,
             preferredPaths = preferredPaths,
+            transportFailoverApplyTracker = transportFailoverApplyTracker,
             events = events,
         )
     }

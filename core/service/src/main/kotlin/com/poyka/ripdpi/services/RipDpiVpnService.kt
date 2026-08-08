@@ -89,6 +89,9 @@ class RipDpiVpnService :
     internal lateinit var directDnsUnderlayAuthority: DirectDnsUnderlayAuthority
 
     @Inject
+    internal lateinit var transportFailoverApplyTracker: TransportFailoverApplyTracker
+
+    @Inject
     lateinit var selectorRuntimeLifecycleListeners:
         Set<@JvmSuppressWildcards com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener>
 
@@ -126,6 +129,7 @@ class RipDpiVpnService :
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
+                transportFailoverApplyTracker = transportFailoverApplyTracker,
                 beforeUserStart = {
                     explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN)
                 },
@@ -204,7 +208,13 @@ class RipDpiVpnService :
         if (isServiceRecoveryStartAction(intent?.action) && serviceStateStore.status.value.first == AppStatus.Halted) {
             serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
         }
-        return shellDelegate.onStartCommand(intent?.action, startId)
+        val transportFailoverCommand = intent.decodeTransportFailoverCommand()
+        return shellDelegate.onStartCommand(
+            action = intent?.action,
+            startId = startId,
+            transportFailoverRequestId = transportFailoverCommand.requestId,
+            transportFailoverTarget = transportFailoverCommand.target,
+        )
     }
 
     override fun onRevoke() {
@@ -459,6 +469,36 @@ class RipDpiVpnService :
                     },
             )
     }
+}
+
+internal data class DecodedTransportFailoverCommand(
+    val requestId: Long?,
+    val target: TransportFailoverTarget?,
+)
+
+internal fun Intent?.decodeTransportFailoverCommand(): DecodedTransportFailoverCommand {
+    val requestId =
+        runCatching {
+            this
+                ?.takeIf { it.hasExtra(transportFailoverRequestIdExtra) }
+                ?.getLongExtra(transportFailoverRequestIdExtra, 0L)
+                ?.takeIf { it > 0L }
+        }.getOrNull()
+    val transportKind =
+        runCatching { this?.getStringExtra(transportFailoverTargetKindExtra) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+    val profileId =
+        runCatching { this?.getStringExtra(transportFailoverTargetProfileIdExtra) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+    val target =
+        if (transportKind != null && profileId != null) {
+            TransportFailoverTarget(transportKind, profileId)
+        } else {
+            null
+        }
+    return DecodedTransportFailoverCommand(requestId, target)
 }
 
 internal data class VpnTunnelRouteEntry(

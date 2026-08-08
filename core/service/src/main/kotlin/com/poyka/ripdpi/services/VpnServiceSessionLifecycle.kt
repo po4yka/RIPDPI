@@ -21,6 +21,7 @@ internal class VpnServiceSessionLifecycle(
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
+    private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
     private val beforeUserStart: suspend () -> Unit = {},
     private val awaitStartupReadiness: suspend () -> Boolean = { true },
     private val recoverProfileMutations: suspend () -> Unit = {},
@@ -79,7 +80,13 @@ internal class VpnServiceSessionLifecycle(
                     }
                 },
                 onStop = runtimeCoordinator::stop,
-                onTransportFailoverRestart = runtimeCoordinator::restartAfterTransportFailover,
+                transportFailoverCommandHandler =
+                    TransportFailoverCommandHandler(
+                        restart = { requestId, expectedTarget ->
+                            runtimeCoordinator.restartAfterTransportFailover(requestId, expectedTarget)
+                        },
+                        reject = transportFailoverApplyTracker::recordRollbackSafeFailure,
+                    ),
                 beforeUserStart = beforeUserStart,
                 shouldPrepareUserStart = {
                     serviceStateStore.status.value.first != AppStatus.Running

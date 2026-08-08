@@ -192,8 +192,7 @@ class ServiceSessionModuleTest {
                     dependencies = runtimeDependencies,
                     dispatchers = dispatchers,
                 )
-            val statusReporter =
-                VpnServiceSessionModule.provideVpnStatusReporter(statusDependencies)
+            val statusReporter = VpnServiceSessionModule.provideVpnStatusReporter(statusDependencies)
             val vpnProtectFailureMonitor = VpnServiceSessionModule.provideVpnProtectFailureMonitor()
             val coordinator =
                 VpnServiceSessionModule.provideVpnCoordinator(
@@ -203,6 +202,7 @@ class ServiceSessionModuleTest {
                     vpnProtectFailureMonitor = vpnProtectFailureMonitor,
                     vpnTunnelRuntime = vpnTunnelRuntime,
                     encryptedDnsFailoverController = encryptedDnsFailoverController,
+                    transportFailoverApplyTracker = TransportFailoverApplyTracker(),
                     services =
                         VpnCoordinatorServices(
                             upstreamRelaySupervisor = upstreamRelaySupervisor,

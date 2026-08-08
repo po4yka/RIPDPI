@@ -31,6 +31,7 @@ import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
+import com.poyka.ripdpi.services.TransportFailoverApplyTracker
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
 import com.poyka.ripdpi.services.VpnCoordinatorHost
@@ -344,6 +345,7 @@ internal object VpnServiceSessionModule {
         vpnProtectFailureMonitor: VpnProtectFailureMonitor,
         vpnTunnelRuntime: VpnTunnelRuntime,
         encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
+        transportFailoverApplyTracker: TransportFailoverApplyTracker,
         services: VpnCoordinatorServices,
         initialRelayRacePolicy: Optional<InitialRelayRacePolicy> = Optional.empty(),
     ): VpnServiceRuntimeCoordinator =
@@ -365,6 +367,7 @@ internal object VpnServiceSessionModule {
             amneziaWgRuntimeSupervisor = services.amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = services.proxyRuntimeSupervisor,
             statusReporter = services.statusReporter,
+            transportFailoverApplyTracker = transportFailoverApplyTracker,
             screenStateObserver = runtimeDependencies.screenStateObserver,
             directPathPolicyTelemetryConsumer = services.directPathPolicyTelemetryConsumer,
             rootHelperManager = services.rootHelperManager,

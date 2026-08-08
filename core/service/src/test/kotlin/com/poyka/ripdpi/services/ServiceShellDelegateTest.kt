@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -47,15 +49,84 @@ class ServiceShellDelegateTest {
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
                     onStop = {},
-                    onTransportFailoverRestart = { operations += "fallback-restart" },
+                    transportFailoverCommandHandler =
+                        TransportFailoverCommandHandler(
+                            restart = { _, _ -> operations += "fallback-restart" },
+                        ),
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(transportFailoverRestartAction, 1)
+            delegate.onStartCommand(
+                transportFailoverRestartAction,
+                1,
+                transportFailoverRequestId = 11L,
+                transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+            )
+            delegate.onStartCommand(startAction, 2)
             runCurrent()
 
-            assertEquals(listOf("fallback-restart"), operations)
+            assertEquals(listOf("fallback-restart", "prepare", "start"), operations)
+        }
+
+    @Test
+    fun `transport failover without a target rejects the tracked request`() =
+        runTest {
+            val rejectedRequests = mutableListOf<Long>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = {},
+                    transportFailoverCommandHandler =
+                        TransportFailoverCommandHandler(
+                            restart = { _, _ -> },
+                            reject = rejectedRequests::add,
+                        ),
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(
+                transportFailoverRestartAction,
+                1,
+                transportFailoverRequestId = 13L,
+            )
+
+            assertEquals(listOf(13L), rejectedRequests)
+        }
+
+    @Test
+    fun `queued transport failover is rejected when command consumer stops`() =
+        runTest {
+            val keepConsumerBusy = CompletableDeferred<Unit>()
+            val rejectedRequests = mutableListOf<Long>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { keepConsumerBusy.await() },
+                    onStop = {},
+                    transportFailoverCommandHandler =
+                        TransportFailoverCommandHandler(
+                            restart = { _, _ -> },
+                            reject = rejectedRequests::add,
+                        ),
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            delegate.onStartCommand(startAction, 1)
+            runCurrent()
+
+            delegate.onStartCommand(
+                transportFailoverRestartAction,
+                1,
+                transportFailoverRequestId = 14L,
+                transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+            )
+            backgroundScope.cancel()
+            runCurrent()
+
+            assertEquals(listOf(14L), rejectedRequests)
         }
 
     @Test
@@ -282,12 +353,21 @@ class ServiceShellDelegateTest {
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { stopIds += it },
-                    onTransportFailoverRestart = { restartCalls += 1 },
+                    transportFailoverCommandHandler =
+                        TransportFailoverCommandHandler(
+                            restart = { _, _ -> restartCalls += 1 },
+                        ),
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            val result = delegate.onStartCommand(transportFailoverRestartAction, 8)
+            val result =
+                delegate.onStartCommand(
+                    transportFailoverRestartAction,
+                    8,
+                    transportFailoverRequestId = 12L,
+                    transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)

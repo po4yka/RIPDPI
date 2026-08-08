@@ -29,6 +29,10 @@ import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
+import com.poyka.ripdpi.services.TransportFailoverApplyOutcome
+import com.poyka.ripdpi.services.TransportFailoverApplyTracker
+import com.poyka.ripdpi.services.TransportFailoverTarget
+import com.poyka.ripdpi.services.TransportKindAmneziaWg
 import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
@@ -39,6 +43,9 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +55,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
 import javax.inject.Inject
@@ -164,6 +172,7 @@ class FailoverCoordinator
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val egressProbe: FailoverEgressProbe,
         private val egressHealthCache: SimpleEgressHealthMemory,
+        private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
         ActiveTransportProvider,
@@ -219,6 +228,9 @@ class FailoverCoordinator
 
         /** `true` after we have cycled through all candidates with none healthy. */
         private var backedOff: Boolean = false
+
+        /** Blocks new switches while a timed-out runtime still owns the persisted candidate. */
+        private var transportReconciliationPending: Boolean = false
 
         /** Switches performed since the last healthy observation; drives back-off. */
         private var switchesInCycle: Int = 0
@@ -308,9 +320,13 @@ class FailoverCoordinator
          * // cancel-safe: launches a child Job; cancellation terminates the job cleanly
          */
         fun startObserving(scope: CoroutineScope) {
-            stopObserving()
+            val previousJob = observeJob
+            previousJob?.cancel()
             scope
                 .launch {
+                    withContext(NonCancellable) { previousJob?.join() }
+                    currentCoroutineContext().ensureActive()
+                    clearObservationState(clearTransportReconciliation = false)
                     val rebuilt = buildCandidates()
                     val diagnosticAwg = resumeOnlyDiagnosticAwg()
                     if (diagnosticAwg != null) {
@@ -363,8 +379,15 @@ class FailoverCoordinator
          * // cancel-safe: cancels the child job only
          */
         fun stopObserving() {
-            observeJob?.cancel()
-            observeJob = null
+            val stoppedJob = observeJob
+            stoppedJob?.cancel()
+            stoppedJob?.invokeOnCompletion {
+                if (observeJob === stoppedJob) observeJob = null
+            }
+            clearObservationState(clearTransportReconciliation = true)
+        }
+
+        private fun clearObservationState(clearTransportReconciliation: Boolean) {
             setActiveCandidate(null)
             failingsSince = null
             observedProxyTotalErrors = null
@@ -372,6 +395,7 @@ class FailoverCoordinator
             activeRequirements = EgressRequirements()
             awgEgressSelection.clear()
             backedOff = false
+            if (clearTransportReconciliation) transportReconciliationPending = false
             switchesInCycle = 0
             lastSwitchAt = 0L
             activeCandidateIndex = 0
@@ -714,11 +738,17 @@ class FailoverCoordinator
          * If advancing would wrap back to index 0 we have exhausted all candidates;
          * set [backedOff] and stop switching until a healthy emission resets state.
          *
-         * // NOT cancel-safe: suspends while persisting the next candidate. The accepted
-         * restart is an in-session recompose: the existing TUN remains a fail-closed barrier
-         * and Android lockdown does not have to permit a user-style service Stop.
+         * // conditionally cancel-safe: suspends while persisting and applying the next candidate.
+         * Until the runtime acknowledges application, rejected and rollback-safe failed attempts
+         * restore the previous persisted candidate in [NonCancellable]. A runtime-owned timeout
+         * preserves the in-flight candidate and blocks further switching until reconciliation.
          */
         private suspend fun performSwitch(now: Long) {
+            if (transportReconciliationPending) {
+                backedOff = true
+                Logger.w { "FailoverCoordinator: waiting for in-flight transport reconciliation" }
+                return
+            }
             if (switchesInCycle >= candidates.size - 1) {
                 // Every candidate has been tried this failing cycle with none recovering.
                 Logger.w { "FailoverCoordinator: all candidates exhausted, backing off" }
@@ -727,34 +757,136 @@ class FailoverCoordinator
             }
             val nextIndex = (activeCandidateIndex + 1) % candidates.size
 
+            val previousCandidate = candidates[activeCandidateIndex]
             val nextCandidate = candidates[nextIndex]
+            val switchEpoch = startupRecoveryMutex.withLock { startupRecoveryEpoch }
             Logger.i {
-                "FailoverCoordinator: switching ${candidates[activeCandidateIndex].transportKind()} → " +
+                "FailoverCoordinator: switching ${previousCandidate.transportKind()} → " +
                     "${nextCandidate.transportKind()} " +
                     "(failDuration=${now - (failingsSince ?: now)}ms)"
             }
 
-            // Write next candidate's config before touching the session so the service
-            // reads the correct config on restart.
-            writeConfig(nextCandidate)
+            var applyRequestId: Long? = null
+            var applied = false
+            var rollbackSafe = true
+            var configWritten = false
+            try {
+                val requestId = transportFailoverApplyTracker.tryBegin()
+                if (requestId == null) {
+                    transportReconciliationPending = true
+                    backedOff = true
+                    rollbackSafe = false
+                    Logger.w { "FailoverCoordinator: runtime still owns a prior transport application" }
+                    return
+                }
+                applyRequestId = requestId
+                // Serialize the forward mutation with explicit startup recovery. Otherwise a
+                // stale observer can overwrite the freshly restored VLESS primary after
+                // prepare() has advanced the recovery epoch.
+                configWritten =
+                    startupRecoveryMutex.withLock {
+                        if (startupRecoveryEpoch == switchEpoch) {
+                            configWritten = true
+                            writeConfig(nextCandidate)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                if (!configWritten) {
+                    Logger.i { "FailoverCoordinator: stale switch was superseded before persistence" }
+                    return
+                }
 
-            // Update bookkeeping before the suspension points below so a cancellation
-            // cannot leave the index and timestamp inconsistent.
-            activeCandidateIndex = nextIndex
-            lastSwitchAt = now
+                skipNextInitialRelayRace = true
+                val result =
+                    serviceController.restartVpnForTransportFailover(
+                        requestId = requestId,
+                        expectedTarget = nextCandidate.transportFailoverTarget(),
+                    )
+                if (result is ServiceStartResult.Rejected) {
+                    transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
+                    Logger.w { "FailoverCoordinator: restart rejected — ${result.reason}" }
+                    return
+                }
+
+                val outcome =
+                    transportFailoverApplyTracker.awaitOutcome(
+                        requestId = requestId,
+                        timeoutMillis = TRANSPORT_APPLY_TIMEOUT_MILLIS,
+                    )
+                applied = outcome == TransportFailoverApplyOutcome.Applied
+                rollbackSafe = outcome == TransportFailoverApplyOutcome.RollbackSafeFailure
+                transportReconciliationPending = outcome == TransportFailoverApplyOutcome.TimedOutInFlight
+                if (transportReconciliationPending) backedOff = true
+                if (!applied) {
+                    Logger.w {
+                        "FailoverCoordinator: transport application was not confirmed for request=" +
+                            "$requestId outcome=$outcome"
+                    }
+                    return
+                }
+
+                activeCandidateIndex = nextIndex
+                lastSwitchAt = clock.nowMillis()
+                resetPendingSwitchSignals()
+                switchesInCycle++
+                setActiveCandidate(nextCandidate)
+            } catch (cancelled: CancellationException) {
+                applyRequestId?.let { requestId ->
+                    val outcome =
+                        withContext(NonCancellable) {
+                            transportFailoverApplyTracker.settleCancellation(
+                                requestId = requestId,
+                                timeoutMillis = TRANSPORT_APPLY_TIMEOUT_MILLIS,
+                            )
+                        }
+                    applied = outcome == TransportFailoverApplyOutcome.Applied
+                    rollbackSafe = outcome == TransportFailoverApplyOutcome.RollbackSafeFailure
+                    transportReconciliationPending = outcome == TransportFailoverApplyOutcome.TimedOutInFlight
+                    if (transportReconciliationPending) backedOff = true
+                }
+                throw cancelled
+            } finally {
+                if (!applied && rollbackSafe) {
+                    applyRequestId?.let(transportFailoverApplyTracker::cancel)
+                    skipNextInitialRelayRace = false
+                    if (configWritten) {
+                        withContext(NonCancellable) {
+                            startupRecoveryMutex.withLock {
+                                if (startupRecoveryEpoch == switchEpoch) {
+                                    writeConfig(previousCandidate)
+                                } else {
+                                    Logger.i { "FailoverCoordinator: stale switch rollback was superseded" }
+                                }
+                            }
+                        }
+                    }
+                    resetPendingSwitchSignals()
+                } else if (!applied) {
+                    Logger.w {
+                        "FailoverCoordinator: preserving in-flight transport config until runtime reconciliation"
+                    }
+                    resetPendingSwitchSignals()
+                }
+            }
+        }
+
+        private fun resetPendingSwitchSignals() {
             failingsSince = null
             observedProxyTotalErrors = null
             suspectedRelayFailure = false
-            switchesInCycle++
-            setActiveCandidate(nextCandidate)
-
-            skipNextInitialRelayRace = true
-            val result = serviceController.restartVpnForTransportFailover()
-            if (result is ServiceStartResult.Rejected) {
-                skipNextInitialRelayRace = false
-                Logger.w { "FailoverCoordinator: restart rejected — ${result.reason}" }
-            }
         }
+
+        private fun FailoverCandidate.transportFailoverTarget(): TransportFailoverTarget =
+            TransportFailoverTarget(
+                transportKind = transportKind(),
+                profileId =
+                    when (this) {
+                        is FailoverCandidate.Relay -> profileId
+                        is FailoverCandidate.Awg -> awgProfileId
+                    },
+            )
 
         /**
          * Writes the configuration for [candidate] to [AppSettings] so that the session
@@ -769,9 +901,9 @@ class FailoverCoordinator
          * rehydrated [com.poyka.ripdpi.data.awg.AwgActivationRequest] to
          * [com.poyka.ripdpi.core.RipDpiProxyUIPreferences.awg].
          *
-         * // NOT cancel-safe: contains suspending [settingsRepository.update]. If cancelled
-         * after the settings write but before the session restart, the settings remain at the
-         * new candidate's values — a subsequent session start picks up the correct transport.
+         * // NOT cancel-safe: contains suspending [settingsRepository.update]. Callers that need
+         * transactional switching must compensate with a [NonCancellable] write of the previous
+         * candidate until runtime application has been acknowledged.
          */
         private suspend fun writeConfig(candidate: FailoverCandidate) {
             when (candidate) {
@@ -978,6 +1110,7 @@ class FailoverCoordinator
             const val XUDP_FAILURE_STREAK_THRESHOLD = 3L
             const val SEEDED_VLESS_REALITY_PROFILE_ID = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
             const val STARTUP_HALT_WAIT_TIMEOUT_MILLIS = 5_000L
+            const val TRANSPORT_APPLY_TIMEOUT_MILLIS = 60_000L
             val relayKindPriority =
                 mapOf(
                     RelayKindVlessReality to 0,
@@ -1023,7 +1156,7 @@ internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxy
 private fun FailoverCandidate.transportKind(): String =
     when (this) {
         is FailoverCandidate.Relay -> relayKind
-        is FailoverCandidate.Awg -> "amneziawg"
+        is FailoverCandidate.Awg -> TransportKindAmneziaWg
     }
 
 /**

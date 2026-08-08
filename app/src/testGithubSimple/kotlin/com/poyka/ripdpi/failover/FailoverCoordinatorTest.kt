@@ -31,13 +31,20 @@ import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
+import com.poyka.ripdpi.services.TransportFailoverApplyTracker
+import com.poyka.ripdpi.services.TransportFailoverTarget
+import com.poyka.ripdpi.services.TransportKindAmneziaWg
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,6 +55,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -113,8 +121,15 @@ private class FakeServiceController(
     StartupFallbackController {
     val startCalls = mutableListOf<Mode>()
     val transportRestartCalls = mutableListOf<Mode>()
+    val transportRestartRequestIds = mutableListOf<Long>()
+    val transportRestartTargets = mutableListOf<TransportFailoverTarget>()
     val stopCalls = mutableListOf<Unit>()
     val actualStopCalls = mutableListOf<Unit>()
+    var beforeTransportRestartResult: () -> Unit = {}
+    var transportRestartResult: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN)
+    var autoConfirmTransportRestart: Boolean = true
+    var claimTransportRestartWithoutConfirmation: Boolean = false
+    var transportFailoverApplyTracker: TransportFailoverApplyTracker? = null
 
     override fun start(mode: Mode): ServiceStartResult {
         startCalls += mode
@@ -126,13 +141,29 @@ private class FakeServiceController(
         stateStore?.setStatus(AppStatus.Halted, Mode.VPN)
     }
 
-    override fun restartVpnForTransportFailover(): ServiceStartResult {
+    override fun restartVpnForTransportFailover(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): ServiceStartResult {
         transportRestartCalls += Mode.VPN
+        transportRestartRequestIds += requestId
+        transportRestartTargets += expectedTarget
         // Keep the legacy counters populated so the existing switch-budget tests
         // remain focused on how many replacements were requested.
         stopCalls += Unit
         startCalls += Mode.VPN
-        return ServiceStartResult.Accepted(Mode.VPN)
+        beforeTransportRestartResult()
+        return transportRestartResult.also { result ->
+            if (autoConfirmTransportRestart && result is ServiceStartResult.Accepted) {
+                transportFailoverApplyTracker?.let { tracker ->
+                    check(tracker.claimApplying(requestId))
+                    check(tracker.recordApplied(requestId))
+                    tracker.releaseRuntimeOwnership(requestId)
+                }
+            } else if (claimTransportRestartWithoutConfirmation && result is ServiceStartResult.Accepted) {
+                check(transportFailoverApplyTracker?.claimApplying(requestId) == true)
+            }
+        }
     }
 
     override fun captureStartupFallbackLease(): StartupFallbackLease = FakeStartupFallbackLease
@@ -164,6 +195,8 @@ private class FakeRelayProfileStore(
 private class FakeAppSettingsRepository(
     udpAssociateEnabled: Boolean? = false,
 ) : AppSettingsRepository {
+    var beforeUpdate: suspend () -> Unit = {}
+
     private val settingsState =
         MutableStateFlow(
             AppSettingsSerializer.defaultValue
@@ -177,6 +210,7 @@ private class FakeAppSettingsRepository(
     override suspend fun snapshot(): AppSettings = settingsState.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        beforeUpdate()
         settingsState.value =
             settingsState.value
                 .toBuilder()
@@ -325,6 +359,8 @@ private fun buildCoordinator(
 ): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
     val awgSelection = SimpleAwgEgressSelection(awgRepo, settings)
+    val transportFailoverApplyTracker = TransportFailoverApplyTracker()
+    controller.transportFailoverApplyTracker = transportFailoverApplyTracker
     val coordinator =
         FailoverCoordinator(
             serviceStateStore = stateStore,
@@ -335,9 +371,10 @@ private fun buildCoordinator(
             awgEgressSelection = awgSelection,
             egressProbe = egressProbe,
             egressHealthCache = egressHealthMemory,
+            transportFailoverApplyTracker = transportFailoverApplyTracker,
             clock = clock,
         )
-    return CoordinatorFixture(coordinator, controller, clock, awgSelection)
+    return CoordinatorFixture(coordinator, controller, clock, awgSelection, transportFailoverApplyTracker)
 }
 
 private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
@@ -384,6 +421,7 @@ private data class CoordinatorFixture(
     val controller: FakeServiceController,
     val clock: FakeFailoverClock,
     val awgSelection: SimpleAwgEgressSelection,
+    val transportFailoverApplyTracker: TransportFailoverApplyTracker,
 )
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -568,6 +606,490 @@ class FailoverCoordinatorTest {
             assertEquals(Mode.VPN, controller.startCalls.first())
 
             coordinator.stopObserving()
+        }
+
+    @Test
+    fun `transport remains current until restart application is accepted`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    autoConfirmTransportRestart = false
+                }
+            lateinit var coordinator: FailoverCoordinator
+            controller.beforeTransportRestartResult = {
+                val active = coordinator.activeCandidate.value
+                check(active is FailoverCandidate.Relay)
+                assertEquals(RelayKindVlessReality, active.relayKind)
+                assertEquals("reality-1", active.profileId)
+            }
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                )
+            coordinator = fixture.coordinator
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            val pending = coordinator.activeCandidate.value
+            check(pending is FailoverCandidate.Relay)
+            assertEquals(RelayKindVlessReality, pending.relayKind)
+
+            val requestId = controller.transportRestartRequestIds.single()
+            assertTrue(fixture.transportFailoverApplyTracker.claimApplying(requestId))
+            assertTrue(fixture.transportFailoverApplyTracker.recordApplied(requestId))
+            advanceUntilIdle()
+
+            val active = coordinator.activeCandidate.value
+            check(active is FailoverCandidate.Relay)
+            assertEquals(RelayKindHysteria2, active.relayKind)
+            assertEquals("hysteria-1", active.profileId)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `rejected transport application rolls back and remains retryable`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId("reality-1")
+            }
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    transportRestartResult =
+                        ServiceStartResult.Rejected(
+                            mode = Mode.VPN,
+                            reason = ServiceStartRejectionReason.ForegroundServiceBlocked("blocked"),
+                        )
+                }
+            val coordinator =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                    settings = settings,
+                ).coordinator
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            val rejectedActive = coordinator.activeCandidate.value
+            check(rejectedActive is FailoverCandidate.Relay)
+            assertEquals(RelayKindVlessReality, rejectedActive.relayKind)
+            assertEquals("reality-1", rejectedActive.profileId)
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVlessReality, settings.relayKind())
+            assertEquals("reality-1", settings.relayProfileId())
+
+            controller.transportRestartResult = ServiceStartResult.Accepted(Mode.VPN)
+            repeat(4) {
+                clock.advance(8_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            val retriedActive = coordinator.activeCandidate.value
+            check(retriedActive is FailoverCandidate.Relay)
+            assertEquals(RelayKindHysteria2, retriedActive.relayKind)
+            assertEquals(2, controller.transportRestartCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `failed AWG application restores persisted relay selection`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindHysteria2)
+                setRelayProfileId("hysteria-1")
+            }
+            val awg =
+                AwgProfileEntity(
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
+                    name = "Fallback AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    autoConfirmTransportRestart = false
+                }
+            lateinit var fixture: CoordinatorFixture
+            controller.beforeTransportRestartResult = {
+                fixture.transportFailoverApplyTracker.recordRollbackSafeFailure(
+                    controller.transportRestartRequestIds.single(),
+                )
+            }
+            fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                    settings = settings,
+                    awgProfiles = listOf(awg),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            val active = fixture.coordinator.activeCandidate.value
+            check(active is FailoverCandidate.Relay)
+            assertEquals(RelayKindHysteria2, active.relayKind)
+            assertEquals("hysteria-1", active.profileId)
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindHysteria2, settings.relayKind())
+            assertEquals("hysteria-1", settings.relayProfileId())
+            assertEquals("", settings.simpleFailoverAwgProfileId())
+            assertNull(fixture.awgSelection.selectedAwgEgress())
+
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `partial AWG persistence failure restores relay and clears selector`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindHysteria2)
+                setRelayProfileId("hysteria-1")
+            }
+            val awg =
+                AwgProfileEntity(
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
+                    name = "Fallback AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                    awgProfiles = listOf(awg),
+                )
+            val observerFailure = CompletableDeferred<Throwable>()
+            val observeJob = SupervisorJob()
+            val observeScope =
+                CoroutineScope(
+                    observeJob +
+                        UnconfinedTestDispatcher(testScheduler) +
+                        CoroutineExceptionHandler { _, failure -> observerFailure.complete(failure) },
+                )
+            var failNextUpdate = true
+            settings.beforeUpdate = {
+                if (failNextUpdate) {
+                    failNextUpdate = false
+                    error("simulated settings write failure")
+                }
+            }
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindHysteria2, settings.relayKind())
+            assertEquals("hysteria-1", settings.relayProfileId())
+            assertEquals("", settings.simpleFailoverAwgProfileId())
+            assertNull(fixture.awgSelection.selectedAwgEgress())
+            assertEquals("simulated settings write failure", observerFailure.await().message)
+
+            fixture.coordinator.stopObserving()
+            observeJob.cancel()
+        }
+
+    @Test
+    fun `timed out transport application restores persisted relay selection`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId("reality-1")
+            }
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    autoConfirmTransportRestart = false
+                }
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            val active = fixture.coordinator.activeCandidate.value
+            check(active is FailoverCandidate.Relay)
+            assertEquals(RelayKindVlessReality, active.relayKind)
+            assertEquals("reality-1", active.profileId)
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVlessReality, settings.relayKind())
+            assertEquals("reality-1", settings.relayProfileId())
+            val requestId = controller.transportRestartRequestIds.single()
+            assertFalse(fixture.transportFailoverApplyTracker.recordApplied(requestId))
+
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `timed out runtime-owned application preserves in-flight relay selection`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId("reality-1")
+            }
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    autoConfirmTransportRestart = false
+                    claimTransportRestartWithoutConfirmation = true
+                }
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindHysteria2, settings.relayKind())
+            assertEquals("hysteria-1", settings.relayProfileId())
+            val requestId = controller.transportRestartRequestIds.single()
+            assertTrue(runCatching { fixture.transportFailoverApplyTracker.begin() }.isFailure)
+
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertEquals(1, controller.transportRestartCalls.size)
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindHysteria2, settings.relayKind())
+            assertEquals("hysteria-1", settings.relayProfileId())
+
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `explicit prepare supersedes rollback from a cancelled transport switch`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindHysteria2)
+                setRelayProfileId("hysteria-1")
+            }
+            val awg =
+                AwgProfileEntity(
+                    id = SIMPLE_SEED_AWG_PROFILE_ID,
+                    name = "Fallback AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    autoConfirmTransportRestart = false
+                }
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                    settings = settings,
+                    awgProfiles = listOf(awg),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            runCurrent()
+            assertEquals(1, controller.transportRestartRequestIds.size)
+
+            fixture.coordinator.prepare(Mode.VPN)
+            runCurrent()
+
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVlessReality, settings.relayKind())
+            assertEquals("simple-seed-VlessReality", settings.relayProfileId())
+            assertEquals("", settings.simpleFailoverAwgProfileId())
+        }
+
+    @Test
+    fun `replacement observer waits for cancelled switch rollback`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId("reality-1")
+            }
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    autoConfirmTransportRestart = false
+                }
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            runCurrent()
+            assertEquals(1, controller.transportRestartCalls.size)
+
+            val rollbackStarted = CompletableDeferred<Unit>()
+            val releaseRollback = CompletableDeferred<Unit>()
+            settings.beforeUpdate = {
+                rollbackStarted.complete(Unit)
+                releaseRollback.await()
+            }
+            fixture.coordinator.stopObserving()
+            fixture.coordinator.startObserving(observeScope)
+            runCurrent()
+
+            rollbackStarted.await()
+            fixture.coordinator.stopObserving()
+            fixture.coordinator.startObserving(observeScope)
+            runCurrent()
+            assertNull(fixture.coordinator.activeCandidate.value)
+            assertFalse(releaseRollback.isCompleted)
+
+            releaseRollback.complete(Unit)
+            advanceUntilIdle()
+
+            val active = fixture.coordinator.activeCandidate.value
+            check(active is FailoverCandidate.Relay)
+            assertEquals(RelayKindVlessReality, active.relayKind)
+            assertEquals("reality-1", active.profileId)
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVlessReality, settings.relayKind())
+            assertEquals("reality-1", settings.relayProfileId())
+            assertEquals(1, controller.transportRestartCalls.size)
+
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `explicit prepare serializes with forward fallback persistence`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            val fallbackWriteStarted = CompletableDeferred<Unit>()
+            val releaseFallbackWrite = CompletableDeferred<Unit>()
+            var intercepted = false
+            settings.beforeUpdate = {
+                if (!intercepted) {
+                    intercepted = true
+                    fallbackWriteStarted.complete(Unit)
+                    releaseFallbackWrite.await()
+                }
+            }
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = FakeServiceController(stateStore),
+                    clock = clock,
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            fixture.coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            fallbackWriteStarted.await()
+            val prepare = async { fixture.coordinator.prepare(Mode.VPN) }
+            runCurrent()
+
+            releaseFallbackWrite.complete(Unit)
+            prepare.await()
+            advanceUntilIdle()
+
+            assertTrue(settings.relayEnabled())
+            assertEquals(RelayKindVlessReality, settings.relayKind())
+            assertEquals("simple-seed-VlessReality", settings.relayProfileId())
+            assertEquals("", settings.simpleFailoverAwgProfileId())
         }
 
     @Test
@@ -1362,6 +1884,10 @@ class FailoverCoordinatorTest {
 
             assertTrue(coordinator.activeCandidate.value is FailoverCandidate.Awg)
             assertEquals(2, controller.startCalls.size)
+            assertEquals(
+                TransportFailoverTarget(TransportKindAmneziaWg, SIMPLE_SEED_AWG_PROFILE_ID),
+                controller.transportRestartTargets.last(),
+            )
             coordinator.stopObserving()
         }
 

@@ -38,7 +38,10 @@ interface ServiceController {
     fun stop()
 
     /** Recompose the active VPN transport without accepting a user Stop or releasing the TUN barrier. */
-    fun restartVpnForTransportFailover(): ServiceStartResult = start(Mode.VPN)
+    fun restartVpnForTransportFailover(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): ServiceStartResult = start(Mode.VPN)
 
     /** Internal diagnostics resume that must not replace explicit user intent. */
     fun startForDiagnostics(mode: Mode): ServiceStartResult = start(mode)
@@ -250,6 +253,8 @@ class DefaultServiceController
         private fun startInternal(
             mode: Mode,
             action: String,
+            transportFailoverRequestId: Long? = null,
+            transportFailoverTarget: TransportFailoverTarget? = null,
         ): ServiceStartResult {
             if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
                 return ServiceStartResult.Accepted(mode)
@@ -266,6 +271,13 @@ class DefaultServiceController
                     val intent =
                         Intent(context, RipDpiVpnService::class.java).apply {
                             this.action = action
+                            transportFailoverRequestId?.let { requestId ->
+                                putExtra(transportFailoverRequestIdExtra, requestId)
+                            }
+                            transportFailoverTarget?.let { target ->
+                                putExtra(transportFailoverTargetKindExtra, target.transportKind)
+                                putExtra(transportFailoverTargetProfileIdExtra, target.profileId)
+                            }
                         }
                     try {
                         foregroundServiceStarter.startForegroundService(context, intent)
@@ -306,8 +318,16 @@ class DefaultServiceController
             }
         }
 
-        override fun restartVpnForTransportFailover(): ServiceStartResult =
-            startInternal(Mode.VPN, transportFailoverRestartAction)
+        override fun restartVpnForTransportFailover(
+            requestId: Long,
+            expectedTarget: TransportFailoverTarget,
+        ): ServiceStartResult =
+            startInternal(
+                mode = Mode.VPN,
+                action = transportFailoverRestartAction,
+                transportFailoverRequestId = requestId,
+                transportFailoverTarget = expectedTarget,
+            )
 
         override fun captureStartupFallbackLease(): StartupFallbackLease =
             UserIntentStartupFallbackLease(serviceIntentArbiter.captureExplicitUserIntentGeneration())
