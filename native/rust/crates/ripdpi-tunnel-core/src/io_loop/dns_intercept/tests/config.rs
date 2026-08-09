@@ -56,10 +56,10 @@ fn parse_dns_cache_preserves_aaaa_when_tunnel_ipv6_is_enabled() {
     let mut cache = parse_dns_cache(&config, None).expect("cache parses").expect("MapDNS cache");
     let name = Name::from_ascii("fixture.test").expect("name");
     let mut query = Message::new(0x1234, MessageType::Query, OpCode::Query);
-    query.add_query(Query::query(name.clone(), RecordType::AAAA));
+    query.add_query(Query::new(name.clone(), RecordType::AAAA));
     let query = query.to_vec().expect("query encodes");
     let mut upstream = Message::response(0x1234, OpCode::Query);
-    upstream.add_query(Query::query(name.clone(), RecordType::AAAA));
+    upstream.add_query(Query::new(name.clone(), RecordType::AAAA));
     upstream.add_answer(Record::from_rdata(
         name,
         120,

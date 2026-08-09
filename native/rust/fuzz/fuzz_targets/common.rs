@@ -183,7 +183,7 @@ pub fn session_request_smoke() {
 }
 
 pub fn socks4_request_from_bytes(data: &[u8]) -> Vec<u8> {
-    let port = 1 + u16::from_be_bytes([data.first().copied().unwrap_or(0), data.get(1).copied().unwrap_or(0)]);
+    let port = u16::from_be_bytes([data.first().copied().unwrap_or(0), data.get(1).copied().unwrap_or(0)]).max(1);
     let user = ascii_label(data.get(2..).unwrap_or_default(), "user", 12);
 
     if data.first().copied().unwrap_or(0) & 0x1 == 0 {
@@ -208,7 +208,7 @@ pub fn socks4_request_from_bytes(data: &[u8]) -> Vec<u8> {
 }
 
 pub fn socks5_request_from_bytes(data: &[u8]) -> Vec<u8> {
-    let port = 1 + u16::from_be_bytes([data.first().copied().unwrap_or(0), data.get(1).copied().unwrap_or(0)]);
+    let port = u16::from_be_bytes([data.first().copied().unwrap_or(0), data.get(1).copied().unwrap_or(0)]).max(1);
     let cmd =
         if data.get(2).copied().unwrap_or(0) & 0x1 == 0 {
             ripdpi_session::S_CMD_CONN
@@ -249,7 +249,7 @@ pub fn http_connect_request_from_bytes(data: &[u8]) -> String {
             1 => "example.net",
             _ => "ipv6.example",
         };
-    let port = 1 + u16::from_be_bytes([data.get(1).copied().unwrap_or(0), data.get(2).copied().unwrap_or(0)]);
+    let port = u16::from_be_bytes([data.get(1).copied().unwrap_or(0), data.get(2).copied().unwrap_or(0)]).max(1);
     let request_target =
         if data.get(3).copied().unwrap_or(0) & 0x1 == 0 {
             format!("{host}:{port}")

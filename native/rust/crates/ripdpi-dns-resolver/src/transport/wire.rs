@@ -22,7 +22,7 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
     let id = random_dns_id()?;
     let mut message = Message::new(id, MessageType::Query, OpCode::Query);
     message.metadata.recursion_desired = true;
-    message.add_query(Query::query(
+    message.add_query(Query::new(
         Name::from_ascii(name).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?,
         record_type,
     ));

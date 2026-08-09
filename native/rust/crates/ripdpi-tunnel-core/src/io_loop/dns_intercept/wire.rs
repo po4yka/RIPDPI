@@ -11,10 +11,10 @@ pub(crate) fn parse_dns_query(packet: &[u8]) -> Option<ParsedDnsQuery> {
         return None;
     }
     let query = &message.queries[0];
-    if query.query_class() != DNSClass::IN {
+    if query.query_class != DNSClass::IN {
         return None;
     }
-    let host = query.name().to_utf8().trim_end_matches('.').to_string();
+    let host = query.name.to_utf8().trim_end_matches('.').to_string();
     if host.is_empty() {
         return None;
     }

@@ -84,7 +84,7 @@ fn odoh_https_svcb_config_source_refuses_plaintext_lookup() {
 
 fn build_https_response_with_odoh_config(ttl_secs: u32, config_bytes: Vec<u8>) -> Vec<u8> {
     let mut query = Message::new(42, MessageType::Query, OpCode::Query);
-    query.add_query(Query::query(Name::from_ascii("odoh-target.test.").expect("query name"), RecordType::HTTPS));
+    query.add_query(Query::new(Name::from_ascii("odoh-target.test.").expect("query name"), RecordType::HTTPS));
 
     let mut response = Message::response(query.metadata.id, OpCode::Query);
     response.metadata.recursion_desired = query.metadata.recursion_desired;
@@ -97,7 +97,7 @@ fn build_https_response_with_odoh_config(ttl_secs: u32, config_bytes: Vec<u8>) -
             Name::from_ascii("svc.odoh-target.test.").expect("target name"),
             vec![(SvcParamKey::Key(ODOHCONFIG_SVCB_KEY), SvcParamValue::Unknown(Unknown(config_bytes.clone())))],
         );
-        response.add_answer(Record::from_rdata(question.name().clone(), ttl_secs, RData::HTTPS(HTTPS(binding))));
+        response.add_answer(Record::from_rdata(question.name.clone(), ttl_secs, RData::HTTPS(HTTPS(binding))));
     }
 
     response.to_vec().expect("response serializes")

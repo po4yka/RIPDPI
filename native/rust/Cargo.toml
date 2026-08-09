@@ -282,8 +282,10 @@ socket2 = "0.6"
 proptest = "1"
 rcgen = "0.14"
 rustls = { version = "0.23.40", default-features = false, features = ["ring", "std", "tls12", "aws-lc-rs"] }
-hickory-proto = { version = "0.26", default-features = false, features = ["std"] }
-hickory-resolver = { version = "0.26", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
+# Exact upstream revision containing the malformed-RDATA bounds fix from
+# hickory-dns/hickory-dns#3743. Return to crates.io when the fix is released.
+hickory-proto = { git = "https://github.com/hickory-dns/hickory-dns.git", rev = "ac6cc706d9641ce8440bd20e2da20d51b522555f", default-features = false, features = ["std"] }
+hickory-resolver = { git = "https://github.com/hickory-dns/hickory-dns.git", rev = "ac6cc706d9641ce8440bd20e2da20d51b522555f", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
 smoltcp = { version = "0.13", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"
 tokio = { version = "1", default-features = false }

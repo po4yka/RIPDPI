@@ -208,7 +208,7 @@ fn build_dnscrypt_server_state(
 fn is_dnscrypt_certificate_query(packet: &[u8]) -> bool {
     Message::from_vec(packet)
         .ok()
-        .and_then(|message| message.queries.first().map(|query| query.query_type() == RecordType::TXT))
+        .and_then(|message| message.queries.first().map(|query| query.query_type == RecordType::TXT))
         .unwrap_or(false)
 }
 
@@ -218,7 +218,7 @@ fn build_dnscrypt_cert_response(query: &[u8], provider_name: &str, cert_bytes: &
     response.metadata.recursion_desired = request.metadata.recursion_desired;
     response.metadata.recursion_available = true;
     response.metadata.response_code = ResponseCode::NoError;
-    response.add_query(Query::query(Name::from_ascii(provider_name).expect("fixture provider name"), RecordType::TXT));
+    response.add_query(Query::new(Name::from_ascii(provider_name).expect("fixture provider name"), RecordType::TXT));
     response.add_answer(Record::from_rdata(
         Name::from_ascii(provider_name).expect("fixture provider name"),
         600,

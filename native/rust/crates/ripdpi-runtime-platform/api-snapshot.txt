@@ -106,6 +106,6 @@ pub mod ripdpi_runtime_platform::ttl_ops
 pub fn ripdpi_runtime_platform::ttl_ops::enable_recv_ttl(&std::net::tcp::TcpStream) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::ttl_ops::read_chunk_with_ttl(&std::net::tcp::TcpStream, &mut [u8]) -> std::io::error::Result<(usize, core::option::Option<u8>)>
 pub mod ripdpi_runtime_platform::vpn
-pub fn ripdpi_runtime_platform::vpn::protect_diagnostics_socket<T: std::os::fd::raw::AsRawFd>(&T, core::option::Option<&str>) -> std::io::error::Result<()>
+pub fn ripdpi_runtime_platform::vpn::protect_diagnostics_socket<T: std::os::fd::raw::AsRawFd>(&T, core::option::Option<&str>, &str) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::vpn::protect_proxy_socket<T: std::os::fd::raw::AsRawFd>(&T, core::option::Option<&str>) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::vpn::protect_socket<T: std::os::fd::raw::AsRawFd>(&T, core::option::Option<&str>) -> std::io::error::Result<()>

@@ -16,6 +16,7 @@ fuzz_target!(|data: &[u8]| {
 
     if !structured.is_empty() {
         let truncated_len = structured.len().saturating_sub(1 + usize::from(data.first().copied().unwrap_or(0) % 4));
+        let truncated_len = (0..=truncated_len).rev().find(|&index| structured.is_char_boundary(index)).unwrap_or(0);
         let _ = structured[..truncated_len].parse::<ripdpi_tunnel_config::Config>();
     }
 });

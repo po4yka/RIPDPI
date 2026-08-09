@@ -108,6 +108,6 @@ fn dynamic_fixture_config() -> FixtureConfig {
 fn dns_query(name: &str) -> Vec<u8> {
     let mut message = Message::new(42, MessageType::Query, OpCode::Query);
     message.metadata.recursion_desired = true;
-    message.add_query(Query::query(Name::from_ascii(name).expect("query name"), RecordType::A));
+    message.add_query(Query::new(Name::from_ascii(name).expect("query name"), RecordType::A));
     message.to_vec().expect("query serializes")
 }

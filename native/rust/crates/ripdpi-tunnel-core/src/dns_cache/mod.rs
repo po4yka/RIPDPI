@@ -73,7 +73,7 @@ mod tests {
     fn build_query(name: &str) -> Vec<u8> {
         let mut message = Message::new(0x1234, MessageType::Query, OpCode::Query);
         message.metadata.recursion_desired = true;
-        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        message.add_query(Query::new(Name::from_ascii(name).expect("name"), RecordType::A));
         message.to_vec().expect("query encodes")
     }
 
@@ -82,7 +82,7 @@ mod tests {
         message.metadata.recursion_desired = true;
         message.metadata.recursion_available = true;
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        message.add_query(Query::new(Name::from_ascii(name).expect("name"), RecordType::A));
 
         for ip in ips {
             message.add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(*ip))));

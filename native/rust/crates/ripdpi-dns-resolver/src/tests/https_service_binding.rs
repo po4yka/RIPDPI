@@ -1,4 +1,9 @@
 use super::*;
+
+const MALFORMED_HTTPS_TSIG_RESPONSE: &[u8] = &[
+    0x28, 0x0a, 0x5c, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46, 0xda, 0x00, 0x00, 0xfa, 0x00, 0x00, 0x00, 0x3e,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x47, 0x8c, 0x30, 0x00, 0x2e,
+];
 use crate::{
     DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverRole, HttpsRrRecordType,
     parse_https_service_bindings,
@@ -26,7 +31,7 @@ fn build_service_binding_response(
             RecordType::SVCB => RData::SVCB(binding),
             other => panic!("unsupported service binding record type: {other:?}"),
         };
-        response.add_answer(Record::from_rdata(question.name().clone(), 120, rdata));
+        response.add_answer(Record::from_rdata(question.name.clone(), 120, rdata));
     }
     response.to_vec().expect("response serializes")
 }
@@ -167,6 +172,11 @@ fn parse_https_service_bindings_rejects_truncated_ech_payload() {
     let error = parse_https_service_bindings(&response).expect_err("truncated ECH payload must fail");
 
     assert!(error.to_string().contains("truncated"));
+}
+
+#[test]
+fn parse_https_service_bindings_rejects_malformed_tsig_without_panicking() {
+    assert!(parse_https_service_bindings(MALFORMED_HTTPS_TSIG_RESPONSE).is_err());
 }
 
 #[test]

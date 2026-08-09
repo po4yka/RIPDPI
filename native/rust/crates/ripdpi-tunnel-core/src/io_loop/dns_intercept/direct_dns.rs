@@ -182,7 +182,7 @@ mod tests {
 
     fn build_query(name: &str, id: u16) -> Message {
         let mut message = Message::new(id, MessageType::Query, OpCode::Query);
-        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        message.add_query(Query::new(Name::from_ascii(name).expect("name"), RecordType::A));
         message
     }
 

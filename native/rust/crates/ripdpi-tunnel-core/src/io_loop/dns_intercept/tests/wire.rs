@@ -41,6 +41,6 @@ fn refused_response_preserves_id_and_question() {
     assert_eq!(response.metadata.id, 0x1234);
     assert_eq!(response.metadata.response_code, ResponseCode::Refused);
     assert_eq!(response.queries.len(), 1);
-    assert_eq!(response.queries[0].name().to_utf8(), "blocked.example.");
+    assert_eq!(response.queries[0].name.to_utf8(), "blocked.example.");
     assert!(response.answers.is_empty());
 }

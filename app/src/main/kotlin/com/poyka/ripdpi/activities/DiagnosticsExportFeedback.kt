@@ -165,25 +165,31 @@ private fun Throwable.archiveFailureCode(): DiagnosticsArchiveFailureCode? {
 private fun archiveSaveMessage(
     failureCode: DiagnosticsArchiveFailureCode?,
     stage: DiagnosticsDocumentExportStage?,
-): Int {
-    if (failureCode == DiagnosticsArchiveFailureCode.STORAGE) {
-        return R.string.diagnostics_archive_storage_failed
+): Int =
+    archiveFailureMessage(failureCode)
+        ?: when (stage) {
+            DiagnosticsDocumentExportStage.DESTINATION_OPEN -> {
+                R.string.diagnostics_archive_destination_open_failed
+            }
+
+            DiagnosticsDocumentExportStage.ARCHIVE_WRITE -> {
+                R.string.diagnostics_archive_destination_write_failed
+            }
+
+            null -> {
+                R.string.diagnostics_archive_save_failed
+            }
+        }
+
+@StringRes
+private fun archiveFailureMessage(failureCode: DiagnosticsArchiveFailureCode?): Int? =
+    when (failureCode) {
+        DiagnosticsArchiveFailureCode.STORAGE -> R.string.diagnostics_archive_storage_failed
+        DiagnosticsArchiveFailureCode.DATABASE -> R.string.diagnostics_archive_database_failed
+        DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT -> R.string.diagnostics_archive_inconsistent_result_failed
+        DiagnosticsArchiveFailureCode.IO -> R.string.diagnostics_archive_destination_write_failed
+        null -> null
     }
-    if (failureCode == DiagnosticsArchiveFailureCode.DATABASE) {
-        return R.string.diagnostics_archive_database_failed
-    }
-    if (failureCode == DiagnosticsArchiveFailureCode.INCONSISTENT_RESULT) {
-        return R.string.diagnostics_archive_inconsistent_result_failed
-    }
-    if (failureCode == DiagnosticsArchiveFailureCode.IO) {
-        return R.string.diagnostics_archive_destination_write_failed
-    }
-    return when (stage) {
-        DiagnosticsDocumentExportStage.DESTINATION_OPEN -> R.string.diagnostics_archive_destination_open_failed
-        DiagnosticsDocumentExportStage.ARCHIVE_WRITE -> R.string.diagnostics_archive_destination_write_failed
-        null -> R.string.diagnostics_archive_save_failed
-    }
-}
 
 private fun DiagnosticsDocumentExportStage?.toSupportCode(): String =
     when (this) {
