@@ -12,6 +12,7 @@ internal class DiagnosticsArchiveStrategyEvidenceEntryBuilder(
     private val capabilitiesEntryBuilder = DiagnosticsArchiveCapabilitiesEntryBuilder(json)
     private val emissionReceiptsEntryBuilder = DiagnosticsArchiveEmissionReceiptsEntryBuilder(json)
     private val protocolMilestonesEntryBuilder = DiagnosticsArchiveProtocolMilestonesEntryBuilder(json)
+    private val resolverTraceEntryBuilder = DiagnosticsArchiveResolverTraceEntryBuilder(json)
     private val decisionTraceEntryBuilder = DiagnosticsArchiveDecisionTraceEntryBuilder(json)
 
     fun buildRoot(
@@ -36,6 +37,7 @@ internal class DiagnosticsArchiveStrategyEvidenceEntryBuilder(
             )
             add(emissionReceiptsEntryBuilder.buildRoot(selection, report))
             add(protocolMilestonesEntryBuilder.buildRoot(selection, report, targetAliases))
+            add(resolverTraceEntryBuilder.buildRoot(selection, report, targetAliases))
             add(decisionTraceEntryBuilder.build("decision-trace.json", sessionId, profileId, report))
             add(buildStrategyMatrixEntry("strategy-matrix.json", sessionId, profileId, report))
         }
@@ -64,6 +66,7 @@ internal class DiagnosticsArchiveStrategyEvidenceEntryBuilder(
             )
             add(emissionReceiptsEntryBuilder.buildStage(prefix, stage, report))
             add(protocolMilestonesEntryBuilder.buildStage(prefix, stage, report, targetAliases))
+            add(resolverTraceEntryBuilder.buildStage(prefix, stage, report, targetAliases))
             add(decisionTraceEntryBuilder.build("$prefix/decision-trace.json", sessionId, profileId, report))
             add(buildStrategyMatrixEntry("$prefix/strategy-matrix.json", sessionId, profileId, report))
         }

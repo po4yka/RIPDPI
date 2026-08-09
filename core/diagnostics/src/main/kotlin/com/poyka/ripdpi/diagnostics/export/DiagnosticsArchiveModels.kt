@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 11 adds archive-local stable target aliases.
-    const val schemaVersion = 11
+    // Version 12 adds resolver decision, fallback, and runtime evidence traces.
+    const val schemaVersion = 12
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5

@@ -6,5 +6,6 @@ internal fun MutableList<String>.addStrategyEvidenceFiles(prefix: String = "") {
     add("${prefix}attempts.jsonl")
     add("${prefix}emission-receipts.jsonl")
     add("${prefix}protocol-milestones.jsonl")
+    add("${prefix}resolver-trace.jsonl")
     add("${prefix}decision-trace.json")
 }

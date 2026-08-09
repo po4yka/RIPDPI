@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifact
@@ -153,7 +154,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(aliases.all { it.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v11.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v12.json", text)
     }
 
     @Test
@@ -329,7 +330,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/capabilities_v11.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/capabilities_v12.json", text)
     }
 
     @Test
@@ -370,7 +371,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(rows.all { row -> row.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v11.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v12.jsonl", text)
     }
 
     @Test
@@ -528,7 +529,7 @@ class DiagnosticsArchiveRendererTest {
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("quic.example"))
         assertFalse(text.contains("CLIENT_HELLO"))
-        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v11.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v12.jsonl", text)
     }
 
     @Test
@@ -739,6 +740,84 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer exports ordered privacy safe resolver trace`() {
+        val base = buildFullRendererSelection()
+        val report = resolverTraceReport(requireNotNull(base.primaryReport))
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-resolver-trace", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-resolver-trace.zip",
+                createdAt = 44L,
+            )
+
+        val entries =
+            renderer
+                .render(target, base.copy(primaryReport = report))
+                .associateBy(DiagnosticsArchiveEntry::name)
+        val traceText = entries.getValue("resolver-trace.jsonl").bytes.decodeToString()
+        val rows =
+            traceText
+                .lineSequence()
+                .filter(String::isNotBlank)
+                .map(json::parseToJsonElement)
+                .map { it.jsonObject }
+                .toList()
+
+        assertEquals(
+            listOf(
+                "DNS_OBSERVATION",
+                "RESOLVER_ATTEMPT",
+                "RESOLVER_ATTEMPT",
+                "RESOLVER_RECOMMENDATION",
+                "RUNTIME_SAMPLE",
+            ),
+            rows.map { it.getValue("recordType").jsonPrimitive.content },
+        )
+        assertEquals(
+            listOf(1, 2, 3, 4, 5),
+            rows.map {
+                it
+                    .getValue("sequence")
+                    .jsonPrimitive.content
+                    .toInt()
+            },
+        )
+        assertEquals("target-1", rows[0].getValue("targetAlias").jsonPrimitive.content)
+        assertEquals(
+            1,
+            rows[0]
+                .getValue("systemAddressCount")
+                .jsonPrimitive.content
+                .toInt(),
+        )
+        assertEquals(
+            2,
+            rows[0]
+                .getValue("encryptedAddressCount")
+                .jsonPrimitive.content
+                .toInt(),
+        )
+        assertEquals("PRIMARY", rows[1].getValue("resolverRole").jsonPrimitive.content)
+        assertEquals("FAILED", rows[1].getValue("attemptStatus").jsonPrimitive.content)
+        assertEquals("timeout", rows[1].getValue("attemptOutcome").jsonPrimitive.content)
+        assertEquals("FALLBACK", rows[2].getValue("resolverRole").jsonPrimitive.content)
+        assertEquals("SUCCEEDED", rows[2].getValue("attemptStatus").jsonPrimitive.content)
+        assertEquals(2, rows[2].getValue("answerCount").jsonPrimitive.int)
+        assertEquals("REDACTED", rows[3].getValue("endpointStatus").jsonPrimitive.content)
+        assertEquals(
+            "telemetry.csv#L2",
+            rows[4]
+                .getValue("evidenceRefs")
+                .jsonArray
+                .single()
+                .jsonPrimitive.content,
+        )
+        assertFalse(rows[4].containsKey("sessionId"))
+        assertResolverTracePrivacy(traceText)
+        GoldenContractSupport.assertTextGolden("archive/resolver_trace_v12.jsonl", traceText)
+    }
+
+    @Test
     fun `renderer exports decision trace for every composite stage`() {
         val base = buildFullRendererSelection()
         val stage =
@@ -783,6 +862,101 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(trace.getValue("decisions").jsonArray.isNotEmpty())
         assertFalse(traceText.contains("blocked.example"))
         assertFalse(traceText.contains("opaque-resolver-endpoint"))
+    }
+
+    @Test
+    fun `renderer exports resolver trace for every composite stage`() {
+        val base = buildFullRendererSelection()
+        val stage =
+            rendererCompositeStage(
+                stageKey = "automatic_audit",
+                events = base.primaryEvents,
+                session = base.primarySession,
+            ).copy(
+                report = base.primaryReport,
+                telemetry = base.payload.telemetry,
+            )
+        val selection = compositeRendererSelection(base, stage, "resolver-trace-home-run")
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-stage-resolver-trace", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-stage-resolver-trace.zip",
+                createdAt = 44L,
+            )
+
+        val traceText =
+            renderer
+                .render(target, selection)
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("stages/automatic_audit/resolver-trace.jsonl")
+                .bytes
+                .decodeToString()
+
+        assertTrue(traceText.contains("stages/automatic_audit/report.json#/resolverRecommendation"))
+        assertTrue(traceText.contains("stages/automatic_audit/telemetry.csv#L2"))
+        assertFalse(traceText.contains("opaque-resolver-endpoint"))
+    }
+
+    @Test
+    fun `resolver trace participates in archive contract and integrity`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-resolver-trace-contract", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-resolver-trace-contract.zip",
+                createdAt = 44L,
+            )
+
+        val entries = renderer.render(target, buildFullRendererSelection()).associateBy(DiagnosticsArchiveEntry::name)
+        val manifest =
+            json.decodeFromString(
+                DiagnosticsArchiveManifest.serializer(),
+                entries.getValue("manifest.json").bytes.decodeToString(),
+            )
+        val integrity =
+            json.decodeFromString(
+                DiagnosticsArchiveIntegrityPayload.serializer(),
+                entries.getValue("integrity.json").bytes.decodeToString(),
+            )
+
+        assertEquals(12, manifest.schemaVersion)
+        assertTrue(manifest.includedFiles.contains("resolver-trace.jsonl"))
+        assertEquals(
+            DiagnosticsArchiveSectionStatus.REDACTED,
+            manifest.sectionStatusSummary.getValue("resolver-trace.jsonl"),
+        )
+        assertTrue(integrity.files.any { it.name == "resolver-trace.jsonl" })
+    }
+
+    @Test
+    fun `resolver trace reports truncated telemetry evidence`() {
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                rootSourceCounts =
+                    base.rootSourceCounts.copy(
+                        telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit + 1,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-resolver-trace-truncated", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-resolver-trace-truncated.zip",
+                createdAt = 44L,
+            )
+
+        val manifest =
+            renderer
+                .render(target, selection)
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("manifest.json")
+                .bytes
+                .decodeToString()
+                .let { json.decodeFromString(DiagnosticsArchiveManifest.serializer(), it) }
+
+        assertEquals(
+            DiagnosticsArchiveSectionStatus.TRUNCATED,
+            manifest.sectionStatusSummary.getValue("resolver-trace.jsonl"),
+        )
     }
 
     @Test
@@ -1220,7 +1394,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(11, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(12, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -2378,6 +2552,32 @@ class DiagnosticsArchiveRendererTest {
             fileLogSnapshot = null,
         )
 
+    private fun compositeRendererSelection(
+        base: DiagnosticsArchiveSelection,
+        stage: DiagnosticsArchiveCompositeStageSelection,
+        runId: String,
+    ): DiagnosticsArchiveSelection =
+        base.copy(
+            runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+            homeRunId = runId,
+            homeCompositeOutcome =
+                DiagnosticsHomeCompositeOutcome(
+                    runId = runId,
+                    actionable = false,
+                    headline = "Complete",
+                    summary = "Complete",
+                    stageSummaries = listOf(stage.stageSummary),
+                    bundleSessionIds = listOfNotNull(base.primarySession?.id),
+                ),
+            compositeStages = listOf(stage),
+            includedFiles =
+                com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                    logcatIncluded = true,
+                    composite = true,
+                    compositeStageKeys = listOf(stage.stageSummary.stageKey),
+                ),
+        )
+
     private fun rendererCompositeStage(
         stageKey: String,
         events: List<NativeSessionEventEntity>,
@@ -2429,6 +2629,61 @@ class DiagnosticsArchiveRendererTest {
                     ),
                 ),
         )
+
+    private fun resolverTraceReport(report: EngineScanReportWire) =
+        report.copy(
+            results =
+                listOf(
+                    EngineProbeResultWire(
+                        probeType = "dns",
+                        target = "blocked.example",
+                        outcome = "dns_blocked",
+                        details =
+                            listOf(
+                                ProbeDetail("oracleTrust", "single_fallback"),
+                                ProbeDetail("oracleConfidenceScore", "60"),
+                                ProbeDetail(
+                                    "oracleTriedResolvers",
+                                    "resolver.private.example|fallback.private.example",
+                                ),
+                                ProbeDetail(
+                                    "oracleAttemptDiagnostics",
+                                    "resolver.private.example:timeout:25:0|" +
+                                        "fallback.private.example:ok:42:2",
+                                ),
+                            ),
+                    ),
+                ),
+            observations =
+                listOf(
+                    ObservationFact(
+                        kind = ObservationKind.DNS,
+                        target = "blocked.example",
+                        dns =
+                            DnsObservationFact(
+                                domain = "blocked.example",
+                                status = DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
+                                udpAddresses = listOf("198.51.100.10"),
+                                encryptedAddresses = listOf("203.0.113.20", "203.0.113.21"),
+                                udpLatencyMs = 15L,
+                                encryptedLatencyMs = 42L,
+                                tamperingScore = 80,
+                            ),
+                    ),
+                ),
+        )
+
+    private fun assertResolverTracePrivacy(traceText: String) {
+        listOf(
+            "blocked.example",
+            "198.51.100.10",
+            "opaque-resolver-endpoint",
+            "resolver.private.example",
+            "fallback.private.example",
+        ).forEach { sensitiveValue ->
+            assertFalse(traceText.contains(sensitiveValue))
+        }
+    }
 
     private fun capabilityEvidenceReport(report: EngineScanReportWire): EngineScanReportWire {
         val executionPlan = requireNotNull(report.executionPlan)
@@ -2729,35 +2984,35 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v11.json",
+            "archive/manifest_v12.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v11.json",
+            "archive/archive_provenance_v12.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v11.json",
+            "archive/runtime_config_v12.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v11.json",
+            "archive/analysis_v12.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v11.json",
+            "archive/completeness_v12.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v11.json",
+            "archive/integrity_v12.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v11.json",
+            "archive/execution_plan_v12.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/decision_trace_v11.json",
+            "archive/decision_trace_v12.json",
             entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }

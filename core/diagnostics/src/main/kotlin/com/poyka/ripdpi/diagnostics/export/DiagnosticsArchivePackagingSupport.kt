@@ -498,6 +498,14 @@ private fun sectionStatusForFileName(
             }
         }
 
+        "resolver-trace.jsonl" -> {
+            if (flags.telemetry) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.REDACTED
+            }
+        }
+
         "native-events.csv" -> {
             if (flags.nativeEvents) {
                 DiagnosticsArchiveSectionStatus.TRUNCATED
@@ -546,6 +554,14 @@ private fun stageSectionStatusForFileName(
 
         fileName.endsWith("/protocol-milestones.jsonl") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/resolver-trace.jsonl") -> {
+            if (flags.telemetry) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.REDACTED
+            }
         }
 
         fileName.endsWith("/decision-trace.json") -> {

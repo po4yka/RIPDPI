@@ -54,6 +54,9 @@ internal class DiagnosticsArchiveTargetAliasRegistry private constructor(
             report?.observations.orEmpty().forEachIndexed { index, observation ->
                 occurrences.record(observation.target, "${prefix}report.json#/observations/$index")
             }
+            report?.results.orEmpty().forEachIndexed { index, result ->
+                occurrences.record(result.target, "${prefix}report.json#/results/$index")
+            }
             report?.strategyProbeReport?.attempts.orEmpty().forEachIndexed { index, attempt ->
                 occurrences.record(attempt.target, "${prefix}attempts.jsonl#L${index + 1}")
             }
