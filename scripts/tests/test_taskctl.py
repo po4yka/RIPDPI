@@ -498,6 +498,29 @@ class TaskctlContractTest(TaskctlFixture):
         work = self.root / "docs/tasks/work" / f"{created.task_id}.md"
         self.assertNotIn("!medium", work.read_text(encoding="utf-8"))
 
+    def test_new_rejects_high_risk_waiver_before_writing(self) -> None:
+        self.add_simple_task()
+        before = set(self.root.glob("docs/tasks/issues/*.md"))
+        args = argparse.Namespace(
+            root=self.root,
+            title="Add unsafe waiver",
+            kind="chore",
+            area="ci",
+            priority="high",
+            risk="high",
+            owner="test",
+            parent=None,
+            slug=None,
+            spec_mode="not-required",
+            spec_reason="tooling-only",
+            openspec_change=None,
+        )
+
+        with self.assertRaisesRegex(taskctl.ContractError, "high-risk task cannot waive OpenSpec"):
+            taskctl.command_new(args)
+
+        self.assertEqual(before, set(self.root.glob("docs/tasks/issues/*.md")))
+
     def test_new_task_uses_supported_mdtask_priority_tokens(self) -> None:
         self.add_simple_task()
         for priority, token in (
@@ -775,6 +798,54 @@ class TaskctlHistoryTest(TaskctlFixture):
 
         with self.assertRaisesRegex(taskctl.ContractError, "invalid terminal transition missing -> done"):
             taskctl.validate_deleted_history(self.root, base)
+
+    def test_federation_history_uses_latest_reintroduced_incarnation(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.write_board()
+        self.commit_all("add first incarnation")
+        self.prepare_simple_terminal(path)
+        self.commit_all("complete first incarnation")
+        self.purge_simple_task(path)
+        self.commit_all("purge first incarnation")
+
+        path = self.add_simple_task(status="review")
+        self.commit_all("add second incarnation")
+        document = taskctl.read_document(path)
+        values = dict(document.values)
+        values.update(
+            {
+                "status": "done",
+                "closed_at": "2026-08-09T00:00:00Z",
+                "closed_reason": "Forged.",
+                "evidence_summary": "Second incarnation stayed open.",
+            }
+        )
+        path.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.with_suffix(".close.json").write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "task_id": "CIC-1786234567890001",
+                    "change": None,
+                    "outcome": "done",
+                    "issue_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "execution_sha256": hashlib.sha256(work.read_bytes()).hexdigest(),
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        self.commit_all("forge second terminal state")
+        self.purge_simple_task(path)
+        self.commit_all("purge second incarnation")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "terminal commit contains open execution steps"):
+            taskctl.resolve_terminal_task(
+                self.root,
+                "CIC-1786234567890001",
+                taskctl.load_project_config(self.root),
+            )
 
     def test_dropped_openspec_change_archives_without_syncing_normative_specs(self) -> None:
         self.add_active_spec_task(status="review", done=False)
