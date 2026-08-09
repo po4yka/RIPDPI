@@ -98,10 +98,7 @@ runs:
           "https://dl.google.com/android/cli/$android_cli_version/linux_x86_64/android-cli" \
           -o "$android_cli"
         printf '%s  %s\n' "$android_cli_sha256" "$android_cli" | sha256sum --check --strict
-        mkdir -p "$HOME/.local/bin"
-        install -m 0755 "$android_cli" "$HOME/.local/bin/android"
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        export PATH="$HOME/.local/bin:$PATH"
+        sudo install -m 0755 "$android_cli" /usr/local/bin/android
         # Capture the complete output before inspecting it. Piping this Rust CLI
         # through `head` can close stdout early and make the process panic with
         # exit 101 when a runner emits an additional informational line.

@@ -164,6 +164,11 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn('android_cli_sha256="e5b6930e', source)
         self.assertIn("linux_x86_64/android-cli", source)
         self.assertIn("sha256sum --check --strict", source)
+        self.assertIn(
+            'sudo install -m 0755 "$android_cli" /usr/local/bin/android',
+            source,
+        )
+        self.assertNotIn('>> "$GITHUB_PATH"', source)
         self.assertIn('version_output="$(android --no-metrics --version 2>&1)"', source)
         self.assertNotIn("android --version 2>&1 | head", source)
         self.assertNotIn("android/cli/latest", source)
