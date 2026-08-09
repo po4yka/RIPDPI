@@ -910,7 +910,7 @@ mod tests {
         message.metadata.recursion_desired = true;
         message.metadata.recursion_available = true;
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::query(name.clone(), RecordType::A));
+        message.add_query(Query::new(name.clone(), RecordType::A));
         message.add_answer(Record::from_rdata(name, 60, RData::A(A(ip))));
         message.to_vec().expect("response encodes")
     }

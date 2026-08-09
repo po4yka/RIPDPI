@@ -52,8 +52,8 @@ async fn exchange_via_hickory(
         .queries
         .first()
         .ok_or_else(|| EncryptedDnsError::DnsParse("query contains no questions".to_string()))?;
-    let name: Name = query.name().clone();
-    let record_type: RecordType = query.query_type();
+    let name: Name = query.name.clone();
+    let record_type: RecordType = query.query_type;
 
     // 2. Build NameServerConfig from endpoint bootstrap IPs.
     if endpoint.bootstrap_ips.is_empty() {

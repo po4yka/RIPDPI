@@ -51,8 +51,8 @@ where
             assert_eq!(request_line, "POST /dns-query HTTP/1.1");
             let message = Message::from_vec(&body).expect("query parses");
             let query = message.queries.first().expect("query section");
-            assert_eq!(query.name().to_ascii(), expected_domain);
-            assert_eq!(query.query_type(), expected_type);
+            assert_eq!(query.name.to_ascii(), expected_domain);
+            assert_eq!(query.query_type, expected_type);
             observed_count.fetch_add(1, Ordering::Relaxed);
 
             let response = response.into();

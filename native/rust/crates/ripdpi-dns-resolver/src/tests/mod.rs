@@ -21,6 +21,17 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 
+const MALFORMED_TSIG_RESPONSE: &[u8] = &[
+    0x0a, 0xe3, 0x2e, 0x2b, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfa, 0xff, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x3d, 0x01, 0x00, 0x00, 0x30,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x41,
+];
+
+#[test]
+fn extract_ip_answers_rejects_malformed_tsig_without_panicking() {
+    assert!(extract_ip_answers(MALFORMED_TSIG_RESPONSE).is_err());
+}
+
 #[derive(Clone)]
 struct DnsCryptTestServer {
     provider_public_key_hex: String,
@@ -113,8 +124,8 @@ fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {
     response.metadata.response_code = ResponseCode::NoError;
     for query in &request.queries {
         response.add_query(query.clone());
-        if query.query_type() == RecordType::A {
-            response.add_answer(Record::from_rdata(query.name().clone(), 60, RData::A(A(answer_ip))));
+        if query.query_type == RecordType::A {
+            response.add_answer(Record::from_rdata(query.name.clone(), 60, RData::A(A(answer_ip))));
         }
     }
     response.to_vec().expect("response serializes")
@@ -140,24 +151,24 @@ fn build_response_with_record(query: &[u8], ttl_secs: u32) -> Vec<u8> {
     response.metadata.response_code = ResponseCode::NoError;
     for query in &request.queries {
         response.add_query(query.clone());
-        match query.query_type() {
+        match query.query_type {
             RecordType::A => {
                 response.add_answer(Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     ttl_secs,
                     RData::A(A(Ipv4Addr::new(198, 18, 0, 10))),
                 ));
             }
             RecordType::AAAA => {
                 response.add_answer(Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     ttl_secs,
                     RData::AAAA(AAAA("2001:db8::10".parse().expect("ipv6"))),
                 ));
             }
             RecordType::CNAME => {
                 response.add_answer(Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     ttl_secs,
                     RData::CNAME(CNAME(Name::from_ascii("alias.fixture.test").expect("cname"))),
                 ));
@@ -1109,7 +1120,7 @@ fn start_dnscrypt_server(server: DnsCryptTestServer, response_packet: Vec<u8>) -
             let packet = read_length_prefixed_frame(&mut stream).expect("dnscrypt tcp read");
             if let Ok(message) = Message::from_vec(&packet) {
                 let is_txt_cert_query =
-                    message.queries.first().is_some_and(|query| query.query_type() == RecordType::TXT);
+                    message.queries.first().is_some_and(|query| query.query_type == RecordType::TXT);
                 if is_txt_cert_query {
                     let response =
                         build_dnscrypt_cert_response(&packet, &server.provider_name, &server.certificate_bytes());
@@ -1189,7 +1200,7 @@ fn build_dnscrypt_cert_response(query: &[u8], provider_name: &str, cert_bytes: &
     response.metadata.recursion_desired = request.metadata.recursion_desired;
     response.metadata.recursion_available = true;
     response.metadata.response_code = ResponseCode::NoError;
-    response.add_query(Query::query(Name::from_ascii(provider_name).expect("provider name"), RecordType::TXT));
+    response.add_query(Query::new(Name::from_ascii(provider_name).expect("provider name"), RecordType::TXT));
     response.add_answer(Record::from_rdata(
         Name::from_ascii(provider_name).expect("provider name"),
         600,

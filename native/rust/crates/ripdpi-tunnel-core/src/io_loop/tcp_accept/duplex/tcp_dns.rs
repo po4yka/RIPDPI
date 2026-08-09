@@ -172,7 +172,7 @@ mod tests {
 
     fn query() -> Vec<u8> {
         let mut message = Message::new(0x1234, MessageType::Query, OpCode::Query);
-        message.add_query(Query::query(Name::from_ascii("tcp.example").expect("name"), RecordType::A));
+        message.add_query(Query::new(Name::from_ascii("tcp.example").expect("name"), RecordType::A));
         message.to_vec().expect("query")
     }
 

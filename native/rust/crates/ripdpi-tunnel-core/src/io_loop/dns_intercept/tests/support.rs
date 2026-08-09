@@ -90,7 +90,7 @@ pub(super) fn test_dns_cache() -> crate::dns_cache::DnsCache {
 pub(super) fn build_query(name: &str) -> Vec<u8> {
     let mut message = Message::new(0x1234, MessageType::Query, OpCode::Query);
     message.metadata.recursion_desired = true;
-    message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+    message.add_query(Query::new(Name::from_ascii(name).expect("name"), RecordType::A));
     message.to_vec().expect("query encodes")
 }
 
@@ -99,7 +99,7 @@ pub(super) fn build_response(name: &str, ip: Ipv4Addr) -> Vec<u8> {
     message.metadata.recursion_desired = true;
     message.metadata.recursion_available = true;
     message.metadata.response_code = ResponseCode::NoError;
-    message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+    message.add_query(Query::new(Name::from_ascii(name).expect("name"), RecordType::A));
     message.add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(ip))));
     message.to_vec().expect("response encodes")
 }
