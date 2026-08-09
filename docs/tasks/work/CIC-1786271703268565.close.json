@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "All 51 pre-purge task IDs were classified; 3 done and 19 dropped records passed terminal-history protocol; 29 active tasks and 119 steps passed taskctl, OpenSpec, architecture, Cargo, README, legal, and independent review gates; candidate 40742a63e was pushed to main.",
+  "execution_sha256": "a6dcde8d09e044f51b6d4d2947aae4474ae9e6a04b00c34de6eed09eca5d6d3f",
+  "issue_sha256": "7d2d3903d6d941941be2dd6ff194f4652db8864f526e74e00f3673126f97f710",
+  "outcome": "done",
+  "prepared_at": "2026-08-09T11:30:02Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1786271703268565"
+}

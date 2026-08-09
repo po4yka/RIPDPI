@@ -2,7 +2,7 @@
 id: CIC-1786271703268565
 title: Refresh and migrate the repository backlog
 kind: chore
-status: review
+status: done
 area: ci
 priority: high
 owner: Tasking maintainer
@@ -14,6 +14,9 @@ created: 2026-08-09
 updated: 2026-08-09
 spec_reason: tooling-only
 status_detail: Rebased validation passed and candidate 40742a63e was published to main.
+closed_at: "2026-08-09T11:30:02Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All 51 pre-purge task IDs were classified; 3 done and 19 dropped records passed terminal-history protocol; 29 active tasks and 119 steps passed taskctl, OpenSpec, architecture, Cargo, README, legal, and independent review gates; candidate 40742a63e was pushed to main.
 ---
 
 ## Goal
