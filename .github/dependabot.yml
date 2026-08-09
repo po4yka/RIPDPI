@@ -10,6 +10,8 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
 
   - package-ecosystem: "cargo"
@@ -21,6 +23,8 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
 
   - package-ecosystem: "npm"
@@ -32,6 +36,8 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 2
 
   - package-ecosystem: "github-actions"
@@ -43,4 +49,6 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
