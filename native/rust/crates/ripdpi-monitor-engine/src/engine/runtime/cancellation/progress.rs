@@ -5,6 +5,10 @@ use crate::types::{ScanProgress, SharedState};
 
 use super::super::plan::ExecutionPlan;
 
+pub(in crate::engine) fn cancelled_run_summary(has_partial_results: bool) -> &'static str {
+    if has_partial_results { "Scan completed with partial results" } else { "Scan cancelled" }
+}
+
 pub(super) fn publish_cancelled_progress(
     plan: &ExecutionPlan,
     shared: &Arc<Mutex<SharedState>>,
