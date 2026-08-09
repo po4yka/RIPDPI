@@ -58,7 +58,13 @@
         "properties": {
           "id": { "$ref": "#/$defs/technical_id" },
           "ssh_target": { "type": "string", "pattern": "^[A-Za-z0-9_.@-]+$" },
+          "ssh_transport_host": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+          "ssh_host_key_alias": { "type": "string", "pattern": "^[A-Za-z0-9_.@-]+$" },
           "policy": { "$ref": "#/$defs/technical_id" }
+        },
+        "dependentRequired": {
+          "ssh_transport_host": ["ssh_host_key_alias"],
+          "ssh_host_key_alias": ["ssh_transport_host"]
         },
         "additionalProperties": false
       }
