@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -86,6 +87,7 @@ class DeveloperAnalyticsAllowListTest {
                 DeveloperAnalyticsPayload(
                     schemaVersion = 1,
                     generatedAtIsoUtc = "2026-05-16T00:00:00Z",
+                    failureEnvelopes = listOf(hostileFailureEnvelope()),
                     reproductionContext =
                         DeveloperReproductionContext(
                             appVersionName = "1.0.0-fixture",
@@ -150,6 +152,27 @@ class DeveloperAnalyticsAllowListTest {
                 )
         }
 
+    private fun hostileFailureEnvelope() =
+        DeveloperFailureEnvelopeEntry(
+            stageKey = "dpi_full",
+            stageLabel = "failure-envelope-sensitive-marker-label",
+            headline = "failure-envelope-sensitive-marker-headline",
+            summary = "failure-envelope-sensitive-marker-summary",
+            tcpErrors =
+                listOf(
+                    "failure-envelope-sensitive-marker-target",
+                    "stages/dpi_full/report.json#/observations/1/tcp/status=CONNECT_FAILED",
+                    "stages/dpi_full/report.json#/observations/5/tcp/status=BLOCKED_16KB",
+                    "stages/dpi_full/report.json#/observations/6/tcp/status=BLOCKED16_KB",
+                ),
+            dnsErrors =
+                listOf(
+                    "stages/dpi_full/report.json#/observations/3/dns/status=CONNECT_FAILED",
+                    "stages/dpi_full/report.json#/observations/4/dns/status=NXDOMAIN_MISMATCH",
+                ),
+            quicErrors = listOf("stages/dpi_full/report.json#/observations/2/quic/status=ERROR"),
+        )
+
     private fun readDeveloperAnalyticsJson(archivePath: String): JsonObject =
         ZipFile(archivePath).use { zip ->
             val entry =
@@ -184,6 +207,45 @@ class DeveloperAnalyticsAllowListTest {
                 obj.containsKey(denied),
             )
         }
+
+        val serialized = obj.toString()
+        assertEquals(
+            "archive boundary must normalize developer analytics to its current schema",
+            DeveloperAnalyticsSchemaVersion,
+            obj
+                .getValue("schemaVersion")
+                .jsonPrimitive
+                .content
+                .toInt(),
+        )
+        assertFalse(
+            "failure envelope must not export arbitrary source text",
+            serialized.contains("failure-envelope-sensitive-marker"),
+        )
+        assertTrue(
+            "failure envelope must retain typed TCP references",
+            serialized.contains("stages/dpi_full/report.json#/observations/1/tcp/status=CONNECT_FAILED"),
+        )
+        assertFalse(
+            "failure envelope must reject enum names that differ from report wire tokens",
+            serialized.contains("stages/dpi_full/report.json#/observations/5/tcp/status=BLOCKED_16KB"),
+        )
+        assertTrue(
+            "failure envelope must retain canonical report wire tokens",
+            serialized.contains("stages/dpi_full/report.json#/observations/6/tcp/status=BLOCKED16_KB"),
+        )
+        assertTrue(
+            "failure envelope must retain typed QUIC references",
+            serialized.contains("stages/dpi_full/report.json#/observations/2/quic/status=ERROR"),
+        )
+        assertFalse(
+            "failure envelope must reject enum values from a different typed field",
+            serialized.contains("stages/dpi_full/report.json#/observations/3/dns/status=CONNECT_FAILED"),
+        )
+        assertTrue(
+            "failure envelope must retain enum values valid for the typed field",
+            serialized.contains("stages/dpi_full/report.json#/observations/4/dns/status=NXDOMAIN_MISMATCH"),
+        )
 
         assertNestedDeveloperAnalyticsProjection(obj)
         assertNetworkSnapshotProjection(obj)

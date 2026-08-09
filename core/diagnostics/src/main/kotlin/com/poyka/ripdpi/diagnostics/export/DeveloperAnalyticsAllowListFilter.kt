@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
+import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsSchemaVersion
+import com.poyka.ripdpi.diagnostics.DeveloperFailureFactField
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -15,7 +17,6 @@ import kotlinx.serialization.json.jsonPrimitive
 internal object DeveloperAnalyticsAllowListFilter {
     private val topLevelKeys =
         setOf(
-            "schemaVersion",
             "generatedAtIsoUtc",
             "stageTimings",
             "failureEnvelopes",
@@ -29,8 +30,6 @@ internal object DeveloperAnalyticsAllowListFilter {
         )
     private val stageTimingKeys =
         setOf("stageKey", "wallClockMs", "cpuMs", "dnsMs", "tcpHandshakeMs", "tlsHandshakeMs", "ttfbMs", "notes")
-    private val failureEnvelopeKeys =
-        setOf("stageKey", "stageLabel", "headline", "summary", "tcpErrors", "tlsErrors", "dnsErrors", "httpErrors")
     private val reproductionKeys =
         setOf(
             "appVersionName",
@@ -95,6 +94,7 @@ internal object DeveloperAnalyticsAllowListFilter {
         val source = json.encodeToJsonElement(DeveloperAnalyticsPayload.serializer(), payload).jsonObject
         return JsonObject(
             buildMap {
+                put("schemaVersion", JsonPrimitive(DeveloperAnalyticsSchemaVersion))
                 topLevelKeys.forEach { key ->
                     val value = source[key] ?: return@forEach
                     put(key, projectTopLevel(key, value))
@@ -109,7 +109,7 @@ internal object DeveloperAnalyticsAllowListFilter {
     ): JsonElement =
         when (key) {
             "stageTimings" -> projectObjectArray(value, stageTimingKeys)
-            "failureEnvelopes" -> projectObjectArray(value, failureEnvelopeKeys)
+            "failureEnvelopes" -> DeveloperFailureEnvelopeProjection.project(value)
             "reproductionContext" -> projectNullableObject(value, reproductionKeys)
             "nativeRuntime" -> projectNullableObject(value, nativeRuntimeKeys)
             "effectiveConfigDiff" -> projectConfigDiff(value)
@@ -204,4 +204,106 @@ internal object DeveloperAnalyticsAllowListFilter {
                 if (value.isString) JsonPrimitive(redactDiagnosticsArchiveText(value.content)) else value
             }
         }
+}
+
+private object DeveloperFailureEnvelopeProjection {
+    private const val StageKeyGroupIndex = 1
+    private const val FieldPathGroupIndex = 3
+    private const val FieldValueGroupIndex = 4
+    private val referencePaths =
+        mapOf(
+            "tcpErrors" to
+                setOf(
+                    "tcp/status",
+                    "domain/transportFailure",
+                    "service/endpointStatus",
+                    "service/endpointFailure",
+                    "circumvention/handshakeStatus",
+                    "circumvention/handshakeFailure",
+                    "strategy/status",
+                    "strategy/transportFailure",
+                ),
+            "tlsErrors" to
+                setOf(
+                    "domain/tls13Status",
+                    "domain/tls12Status",
+                    "domain/tlsEchStatus",
+                    "strategy/tlsEchStatus",
+                ),
+            "dnsErrors" to setOf("dns/status"),
+            "httpErrors" to
+                setOf(
+                    "domain/httpStatus",
+                    "service/bootstrapStatus",
+                    "service/mediaStatus",
+                    "circumvention/bootstrapStatus",
+                    "strategy/status",
+                    "throughput/status",
+                ),
+            "quicErrors" to
+                setOf(
+                    "quic/status",
+                    "quic/transportFailure",
+                    "service/quicStatus",
+                    "service/quicFailure",
+                    "strategy/status",
+                    "strategy/transportFailure",
+                ),
+        )
+    private val allowedValuesByPath =
+        DeveloperFailureFactField.entries.associate { field -> field.reportPath to field.allowedWireValues }
+    private val stageKeyPattern = Regex("[a-z0-9_]+")
+    private val referencePattern =
+        Regex("stages/([a-z0-9_]+)/report\\.json#/observations/(0|[1-9][0-9]*)/([^=]+)=([A-Z][A-Z0-9_]*)")
+
+    fun project(value: JsonElement): JsonArray =
+        JsonArray(
+            value.jsonArray.mapNotNull { element ->
+                val source = element as? JsonObject ?: return@mapNotNull null
+                val stageKey = (source["stageKey"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+                stageKey.takeIf(stageKeyPattern::matches)?.let { projectEnvelope(source, it) }
+            },
+        )
+
+    private fun projectEnvelope(
+        source: JsonObject,
+        stageKey: String,
+    ): JsonObject {
+        val errors =
+            referencePaths.mapValues { (key, paths) ->
+                val references = source[key] as? JsonArray ?: JsonArray(emptyList())
+                JsonArray(
+                    references
+                        .filterIsInstance<JsonPrimitive>()
+                        .map { it.content }
+                        .filter { isTypedReference(it, stageKey, paths) }
+                        .map(::JsonPrimitive),
+                )
+            }
+        val factCount = errors.values.sumOf(JsonArray::size)
+        return JsonObject(
+            buildMap {
+                put("stageKey", JsonPrimitive(stageKey))
+                put("stageLabel", JsonPrimitive(stageKey))
+                put("headline", JsonPrimitive("Typed probe failures recorded"))
+                put(
+                    "summary",
+                    JsonPrimitive("$factCount typed failure facts; see referenced stage report observations."),
+                )
+                putAll(errors)
+            },
+        )
+    }
+
+    private fun isTypedReference(
+        reference: String,
+        stageKey: String,
+        allowedPaths: Set<String>,
+    ): Boolean {
+        val match = referencePattern.matchEntire(reference)
+        if (match == null || match.groupValues[StageKeyGroupIndex] != stageKey) return false
+        val fieldPath = match.groupValues[FieldPathGroupIndex]
+        val fieldValue = match.groupValues[FieldValueGroupIndex]
+        return fieldPath in allowedPaths && fieldValue in allowedValuesByPath[fieldPath].orEmpty()
+    }
 }

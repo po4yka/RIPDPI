@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -28,9 +29,19 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
     protected val json = diagnosticsTestJson()
     protected val compositeRunService = ArchiveCompositeRunService()
 
-    protected fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
+    protected fun createArchiveExporter(
+        stores: FakeDiagnosticsHistoryStores,
+        developerAnalyticsSource: DeveloperAnalyticsSource = NoopDeveloperAnalyticsSource,
+    ): DefaultDiagnosticsArchiveExporter {
         val context = TestContext()
-        return createArchiveExporter(stores, context = context, rootModeEnabled = false)
+        return createArchiveExporterForTest(
+            stores = stores,
+            context = context,
+            rootModeEnabled = false,
+            compositeRunService = compositeRunService,
+            json = json,
+            developerAnalyticsSource = developerAnalyticsSource,
+        )
     }
 
     protected fun createArchiveExporter(
@@ -182,6 +193,75 @@ internal class ArchiveCompositeRunService : DiagnosticsHomeCompositeRunService {
 }
 
 internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBase() {
+    @Test
+    fun `home archive passes typed stage failures to developer analytics`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            val failedSession = stores.sessionsState.value.first { it.id == "dpi-session" }
+            val report =
+                EngineScanReportWire(
+                    sessionId = failedSession.id,
+                    profileId = failedSession.profileId,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10,
+                    finishedAt = 20,
+                    summary = "Typed DNS failure",
+                    observations =
+                        listOf(
+                            ObservationFact(
+                                kind = ObservationKind.DNS,
+                                target = "blocked.example",
+                                dns =
+                                    DnsObservationFact(
+                                        domain = "blocked.example",
+                                        status = DnsObservationStatus.NXDOMAIN_MISMATCH,
+                                    ),
+                            ),
+                        ),
+                )
+            stores.sessionsState.value =
+                stores.sessionsState.value.map { session ->
+                    if (session.id == failedSession.id) {
+                        session.copy(reportJson = json.encodeToString(EngineScanReportWire.serializer(), report))
+                    } else {
+                        session
+                    }
+                }
+            val outcome = buildSampleCompositeOutcome()
+            compositeRunService.putCompletedRun(outcome)
+            var capturedContext: DeveloperAnalyticsContext? = null
+            val analyticsSource =
+                object : DeveloperAnalyticsSource {
+                    override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload {
+                        capturedContext = context
+                        return DeveloperAnalyticsPayload()
+                    }
+                }
+            val exporter = createArchiveExporter(stores, developerAnalyticsSource = analyticsSource)
+
+            exporter.createArchive(
+                DiagnosticsArchiveRequest(
+                    sessionIds = outcome.bundleSessionIds,
+                    homeRunId = outcome.runId,
+                    reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                    requestedAt = 24,
+                ),
+            )
+
+            assertEquals(
+                listOf(
+                    DeveloperFailureFactEvidence(
+                        category = DeveloperFailureCategory.DNS,
+                        observationIndex = 0,
+                        field = DeveloperFailureFactField.DNS_STATUS,
+                        value = DnsObservationStatus.NXDOMAIN_MISMATCH,
+                    ),
+                ),
+                requireNotNull(capturedContext).failureEnvelopes.single().facts,
+            )
+        }
+
     @Test
     fun `writeArchive reports io failure without leaving a cache archive`() =
         runTest {

@@ -43,10 +43,8 @@ private const val BaselineAbove = "above_baseline"
 private const val BaselineSignificantlyBelow = "significantly_below_baseline"
 private const val BaselineBelow = "below_baseline"
 private const val BaselineWithin = "within_baseline"
-private const val TcpErrorPreviewLimit = 5
-private const val TlsErrorPreviewLimit = 5
-private const val DnsErrorPreviewLimit = 5
-private const val HttpErrorPreviewLimit = 5
+private const val FailureFactPreviewLimit = 5
+private val DeveloperFailureStageKeyPattern = Regex("[a-z0-9_]+")
 
 internal fun buildDeveloperStageTimings(context: DeveloperAnalyticsContext): List<DeveloperStageTimingEntry> =
     context.stageTimings.map { timing ->
@@ -61,6 +59,47 @@ internal fun buildDeveloperStageTimings(context: DeveloperAnalyticsContext): Lis
             notes = timing.notes,
         )
     }
+
+internal fun buildDeveloperFailureEnvelopes(context: DeveloperAnalyticsContext): List<DeveloperFailureEnvelopeEntry> =
+    context.failureEnvelopes.mapNotNull { envelope ->
+        val stageKey = envelope.stageKey.takeIf(DeveloperFailureStageKeyPattern::matches) ?: return@mapNotNull null
+        val facts =
+            envelope.facts
+                .asSequence()
+                .filter { fact -> fact.observationIndex >= 0 }
+                .map { fact ->
+                    RenderedDeveloperFailureFact(
+                        category = fact.category,
+                        reference =
+                            "stages/$stageKey/report.json#/observations/${fact.observationIndex}/" +
+                                "${fact.field.reportPath}=${fact.field.wireToken(fact.value)}",
+                    )
+                }.distinct()
+                .toList()
+        DeveloperFailureEnvelopeEntry(
+            stageKey = stageKey,
+            stageLabel = stageKey,
+            headline = "Typed probe failures recorded",
+            summary = "${facts.size} typed failure facts; see referenced stage report observations.",
+            tcpErrors = facts.referencesFor(DeveloperFailureCategory.TCP),
+            tlsErrors = facts.referencesFor(DeveloperFailureCategory.TLS),
+            dnsErrors = facts.referencesFor(DeveloperFailureCategory.DNS),
+            httpErrors = facts.referencesFor(DeveloperFailureCategory.HTTP),
+            quicErrors = facts.referencesFor(DeveloperFailureCategory.QUIC),
+        )
+    }
+
+private data class RenderedDeveloperFailureFact(
+    val category: DeveloperFailureCategory,
+    val reference: String,
+)
+
+private fun List<RenderedDeveloperFailureFact>.referencesFor(category: DeveloperFailureCategory): List<String> =
+    asSequence()
+        .filter { fact -> fact.category == category }
+        .map { fact -> fact.reference }
+        .take(FailureFactPreviewLimit)
+        .toList()
 
 /**
  * Lightweight in-memory ring buffer for breadcrumbs surfaced into
@@ -107,10 +146,10 @@ class DefaultDeveloperAnalyticsSource
             withContext(Dispatchers.IO) {
                 val settings = runCatching { appSettingsRepository.settings.first() }.getOrNull()
                 DeveloperAnalyticsPayload(
-                    schemaVersion = 1,
+                    schemaVersion = DeveloperAnalyticsSchemaVersion,
                     generatedAtIsoUtc = isoNowUtc(),
                     stageTimings = buildDeveloperStageTimings(context),
-                    failureEnvelopes = buildFailureEnvelopes(context),
+                    failureEnvelopes = buildDeveloperFailureEnvelopes(context),
                     reproductionContext = buildReproductionContext(),
                     nativeRuntime = buildNativeRuntime(),
                     effectiveConfigDiff = settings?.let(::buildConfigDiff).orEmpty(),
@@ -122,41 +161,6 @@ class DefaultDeveloperAnalyticsSource
                     notes = buildNotes(),
                 )
             }
-
-        private fun buildFailureEnvelopes(context: DeveloperAnalyticsContext): List<DeveloperFailureEnvelopeEntry> {
-            val composite = context.homeCompositeOutcome ?: return emptyList()
-            return composite.stageSummaries
-                .filter { it.status == DiagnosticsHomeCompositeStageStatus.FAILED }
-                .map { stage ->
-                    val summary = stage.summary
-                    DeveloperFailureEnvelopeEntry(
-                        stageKey = stage.stageKey,
-                        stageLabel = stage.stageLabel,
-                        headline = stage.headline,
-                        summary = summary,
-                        tcpErrors =
-                            extractHints(
-                                summary,
-                                listOf("RST", "reset", "refused", "timed out"),
-                            ).take(TcpErrorPreviewLimit),
-                        tlsErrors =
-                            extractHints(
-                                summary,
-                                listOf("TLS", "certificate", "handshake", "SNI"),
-                            ).take(TlsErrorPreviewLimit),
-                        dnsErrors =
-                            extractHints(
-                                summary,
-                                listOf("NXDOMAIN", "SERVFAIL", "resolve", "dns"),
-                            ).take(DnsErrorPreviewLimit),
-                        httpErrors =
-                            extractHints(
-                                summary,
-                                listOf("HTTP", "status=", "4", "5"),
-                            ).take(HttpErrorPreviewLimit),
-                    )
-                }
-        }
 
         private fun buildReproductionContext(): DeveloperReproductionContext {
             val digests = computeNativeLibDigests()
@@ -431,17 +435,9 @@ class DefaultDeveloperAnalyticsSource
             notes +=
                 "Stage cpuMs is app-process CPU consumed during the stage window; concurrent stage windows may overlap."
             notes += "Protocol phase timings are sums of measurements emitted by individual probes."
-            notes += "Failure envelopes are heuristically extracted from the stage summary text."
+            notes += "Failure envelopes are projected from typed probe observations."
             return notes
         }
-
-        private fun extractHints(
-            summary: String,
-            keywords: List<String>,
-        ): List<String> =
-            keywords
-                .filter { keyword -> summary.contains(keyword, ignoreCase = true) }
-                .map { keyword -> "hint: summary mentions '$keyword'" }
 
         private fun isoNowUtc(): String = DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC))
     }
