@@ -458,7 +458,7 @@ class DiagnosticsDisplaySummaryTest {
     }
 
     @Test
-    fun `summary projector surfaces tls blocked no direct solution reason`() {
+    fun `summary projector reports confirmed post client hello failure without claiming blocking`() {
         val summary =
             ScanReport(
                 sessionId = "session-no-direct-tls",
@@ -476,7 +476,7 @@ class DiagnosticsDisplaySummaryTest {
                     ),
             ).displaySummary()
 
-        assertEquals("No direct solution: TLS blocked after ClientHello", summary)
+        assertEquals("No direct solution: TLS handshake failed after ClientHello", summary)
     }
 
     @Test

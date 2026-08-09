@@ -115,7 +115,7 @@ private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
                 }
 
                 DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE -> {
-                    "No direct solution: TLS blocked after ClientHello"
+                    "No direct solution: TLS handshake failed after ClientHello"
                 }
 
                 DirectModeReasonCode.QUIC_BLOCKED -> {

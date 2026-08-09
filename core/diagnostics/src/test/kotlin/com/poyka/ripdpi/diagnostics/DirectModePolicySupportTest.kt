@@ -65,7 +65,7 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `all failed tls authority returns honest no direct solution verdict`() {
+    fun `tls handshake failure without server hello evidence does not claim post client hello`() {
         val report =
             reportWithResults(
                 ProbeResult(
@@ -76,6 +76,8 @@ class DirectModePolicySupportTest {
                         listOf(
                             ProbeDetail("candidateId", "baseline_plain_direct"),
                             ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("tlsError", "Error with reply: Host unreachable."),
+                            ProbeDetail("tlsServerHelloReceived", "false"),
                         ),
                 ),
             )
@@ -85,11 +87,39 @@ class DirectModePolicySupportTest {
 
         assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, observation.transportPolicy?.outcome)
         assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, observation.transportClass)
-        assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, observation.reasonCode)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
         assertNotNull(observation.cooldownUntil)
         assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
-        assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, verdict?.reasonCode)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, verdict?.reasonCode)
         assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, verdict?.transportClass)
+        assertEquals(
+            "No direct solution for this authority",
+            report.copy(directModeVerdict = verdict).displaySummary(),
+        )
+    }
+
+    @Test
+    fun `tls handshake failure with server hello evidence confirms post client hello`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "strategy_https",
+                    target = "example.org",
+                    outcome = "tls_handshake_failed",
+                    details =
+                        listOf(
+                            ProbeDetail("candidateId", "baseline_plain_direct"),
+                            ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("tlsServerHelloReceived", "true"),
+                        ),
+                ),
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, observation.reasonCode)
+        assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, verdict?.reasonCode)
     }
 
     @Test
