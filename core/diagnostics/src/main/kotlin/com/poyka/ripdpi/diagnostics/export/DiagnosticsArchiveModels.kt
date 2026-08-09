@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 9 adds root and per-stage structured protocol milestone evidence.
-    const val schemaVersion = 9
+    // Version 10 adds root and per-stage capability evidence and emission receipts.
+    const val schemaVersion = 10
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -77,10 +77,7 @@ internal object DiagnosticsArchiveFormat {
             add("summary.txt")
             add("manifest.json")
             add("report.json")
-            add("execution-plan.json")
-            add("attempts.jsonl")
-            add("protocol-milestones.jsonl")
-            add("decision-trace.json")
+            addStrategyEvidenceFiles()
             add("strategy-matrix.json")
             if (composite) {
                 add("home-analysis.json")
@@ -89,12 +86,9 @@ internal object DiagnosticsArchiveFormat {
                 compositeStageKeys.forEach { stageKey ->
                     val prefix = "stages/$stageKey"
                     add("$prefix/report.json")
-                    add("$prefix/execution-plan.json")
-                    add("$prefix/attempts.jsonl")
-                    add("$prefix/protocol-milestones.jsonl")
-                    add("$prefix/decision-trace.json")
-                    add("$prefix/probe-results.csv")
+                    addStrategyEvidenceFiles("$prefix/")
                     add("$prefix/strategy-matrix.json")
+                    add("$prefix/probe-results.csv")
                     add("$prefix/network-snapshots.json")
                     add("$prefix/diagnostic-context.json")
                     add("$prefix/native-events.csv")

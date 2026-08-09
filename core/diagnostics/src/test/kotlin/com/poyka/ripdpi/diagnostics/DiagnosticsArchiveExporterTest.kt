@@ -242,7 +242,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         }
 
     @Test
-    fun `createArchive persists requested session export and writes schema v9 archive`() =
+    fun `createArchive persists requested session export and writes schema v10 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -265,7 +265,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(9, archive.schemaVersion)
+            assertEquals(10, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -776,7 +776,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(9, archive.schemaVersion)
+            assertEquals(10, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -1019,6 +1019,14 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
         assertEquals(outcome.runId, manifest.homeRunId)
         assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
+        assertEquals(
+            manifest.includedFiles,
+            zip
+                .entries()
+                .asSequence()
+                .map { entry -> entry.name }
+                .toList(),
+        )
         assertTrue(
             Regex(
                 "ripdpi-diagnostics-1700000000000-correlation-[0-9]+\\.zip",
@@ -1029,21 +1037,27 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("stage-summaries.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/execution-plan.json"))
+        assertNotNull(zip.getEntry("stages/automatic_audit/capabilities.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/attempts.jsonl"))
+        assertNotNull(zip.getEntry("stages/automatic_audit/emission-receipts.jsonl"))
         assertNotNull(zip.getEntry("stages/automatic_audit/protocol-milestones.jsonl"))
         assertNotNull(zip.getEntry("stages/automatic_audit/decision-trace.json"))
         assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
         assertNotNull(zip.getEntry("stages/default_connectivity/execution-plan.json"))
+        assertNotNull(zip.getEntry("stages/default_connectivity/capabilities.json"))
         assertNotNull(zip.getEntry("stages/default_connectivity/attempts.jsonl"))
+        assertNotNull(zip.getEntry("stages/default_connectivity/emission-receipts.jsonl"))
         assertNotNull(zip.getEntry("stages/default_connectivity/protocol-milestones.jsonl"))
         assertNotNull(zip.getEntry("stages/default_connectivity/decision-trace.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/execution-plan.json"))
+        assertNotNull(zip.getEntry("stages/dpi_full/capabilities.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/attempts.jsonl"))
+        assertNotNull(zip.getEntry("stages/dpi_full/emission-receipts.jsonl"))
         assertNotNull(zip.getEntry("stages/dpi_full/protocol-milestones.jsonl"))
         assertNotNull(zip.getEntry("stages/dpi_full/decision-trace.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v9.json",
+            "archive/manifest_home_composite_v10.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(
@@ -1053,15 +1067,15 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             },
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/home_analysis_composite_v9.json",
+            "archive/home_analysis_composite_v10.json",
             zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_index_composite_v9.json",
+            "archive/stage_index_composite_v10.json",
             zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_summaries_composite_v9.json",
+            "archive/stage_summaries_composite_v10.json",
             zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
         )
     }

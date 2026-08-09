@@ -27,6 +27,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -125,6 +126,194 @@ class DiagnosticsArchiveRendererTest {
         assertEquals("EXECUTED", rows[0].getValue("status").jsonPrimitive.content)
         assertEquals("target-2", rows[1].getValue("targetAlias").jsonPrimitive.content)
         assertEquals("SKIPPED", rows[1].getValue("status").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `renderer exports capability evidence without guessing availability`() {
+        val base = buildFullRendererSelection()
+        val report = capabilityEvidenceReport(requireNotNull(base.primaryReport))
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-capabilities", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-capabilities.zip",
+                createdAt = 44L,
+            )
+
+        val text =
+            renderer
+                .render(target, base.copy(primaryReport = report))
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("capabilities.json")
+                .bytes
+                .decodeToString()
+        val capabilities =
+            json
+                .parseToJsonElement(text)
+                .jsonObject
+                .getValue("capabilities")
+                .jsonArray
+
+        assertEquals(
+            listOf("root_helper_available", "ttl_write"),
+            capabilities.map { item ->
+                item.jsonObject
+                    .getValue("id")
+                    .jsonPrimitive.content
+            },
+        )
+        assertEquals(
+            listOf("UNAVAILABLE", "AVAILABLE"),
+            capabilities.map { item ->
+                item.jsonObject
+                    .getValue("status")
+                    .jsonPrimitive.content
+            },
+        )
+        assertTrue(
+            capabilities.all { item ->
+                item.jsonObject
+                    .getValue("evidenceRefs")
+                    .jsonArray
+                    .isNotEmpty()
+            },
+        )
+        assertFalse(text.contains("blocked.example"))
+        assertFalse(text.contains("telegram.org"))
+        GoldenContractSupport.assertJsonGolden("archive/capabilities_v10.json", text)
+    }
+
+    @Test
+    fun `renderer exports evidenced emission receipts without claiming skipped emissions`() {
+        val base = buildFullRendererSelection()
+        val report = capabilityEvidenceReport(requireNotNull(base.primaryReport))
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-emission-receipts", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-emission-receipts.zip",
+                createdAt = 45L,
+            )
+
+        val text =
+            renderer
+                .render(target, base.copy(primaryReport = report))
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("emission-receipts.jsonl")
+                .bytes
+                .decodeToString()
+        val rows =
+            text
+                .lineSequence()
+                .filter(String::isNotBlank)
+                .map(json::parseToJsonElement)
+                .map { row -> row.jsonObject }
+                .toList()
+
+        assertEquals(listOf("tcp-prod", "tcp-rooted"), rows.map { it.getValue("candidateId").jsonPrimitive.content })
+        assertEquals(
+            listOf("EXACT_EMITTER_EXECUTED", "NOT_EMITTED"),
+            rows.map { it.getValue("emissionStatus").jsonPrimitive.content },
+        )
+        assertEquals(
+            listOf("ATTEMPT_EXECUTED", "CAPABILITY_SKIPPED"),
+            rows.map { it.getValue("evidenceBasis").jsonPrimitive.content },
+        )
+        assertTrue(rows.all { row -> row.getValue("evidenceRefs").jsonArray.isNotEmpty() })
+        assertFalse(text.contains("blocked.example"))
+        assertFalse(text.contains("telegram.org"))
+        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v10.jsonl", text)
+    }
+
+    @Test
+    fun `renderer does not resolve conflicting emission evidence into a verdict`() {
+        val base = buildFullRendererSelection()
+        val report = capabilityEvidenceReport(requireNotNull(base.primaryReport))
+        val strategyReport = requireNotNull(report.strategyProbeReport)
+        val conflicted =
+            report.copy(
+                strategyProbeReport =
+                    strategyReport.copy(
+                        tcpCandidates =
+                            strategyReport.tcpCandidates.map { candidate ->
+                                if (candidate.id == "tcp-prod") {
+                                    candidate.copy(outcome = "capability_skipped", skipped = true)
+                                } else {
+                                    candidate
+                                }
+                            },
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-conflicting-emission", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-conflicting-emission.zip",
+                createdAt = 46L,
+            )
+
+        val entries =
+            renderer
+                .render(target, base.copy(primaryReport = conflicted))
+                .associateBy(DiagnosticsArchiveEntry::name)
+        val capabilities =
+            json
+                .parseToJsonElement(entries.getValue("capabilities.json").bytes.decodeToString())
+                .jsonObject
+                .getValue("capabilities")
+                .jsonArray
+        val receipt =
+            entries
+                .getValue("emission-receipts.jsonl")
+                .bytes
+                .decodeToString()
+                .lineSequence()
+                .first()
+                .let(json::parseToJsonElement)
+                .jsonObject
+
+        assertEquals(
+            "UNKNOWN",
+            capabilities
+                .single {
+                    it.jsonObject
+                        .getValue("id")
+                        .jsonPrimitive.content == "ttl_write"
+                }.jsonObject
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+        assertEquals("UNVERIFIED", receipt.getValue("emissionStatus").jsonPrimitive.content)
+        assertEquals("CONFLICTING_EVIDENCE", receipt.getValue("evidenceBasis").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `renderer preserves executed attempt without asserting emitter when summary is absent`() {
+        val base = buildFullRendererSelection()
+        val report = capabilityEvidenceReport(requireNotNull(base.primaryReport))
+        val withoutSummaries =
+            report.copy(
+                strategyProbeReport = requireNotNull(report.strategyProbeReport).copy(tcpCandidates = emptyList()),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-attempt-without-summary", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-attempt-without-summary.zip",
+                createdAt = 47L,
+            )
+
+        val receipt =
+            renderer
+                .render(target, base.copy(primaryReport = withoutSummaries))
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("emission-receipts.jsonl")
+                .bytes
+                .decodeToString()
+                .lineSequence()
+                .first()
+                .let(json::parseToJsonElement)
+                .jsonObject
+
+        assertEquals("UNVERIFIED", receipt.getValue("emissionStatus").jsonPrimitive.content)
+        assertEquals("ATTEMPT_EXECUTED", receipt.getValue("evidenceBasis").jsonPrimitive.content)
+        assertEquals(1, receipt.getValue("executedAttemptCount").jsonPrimitive.int)
     }
 
     @Test
@@ -241,6 +430,54 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(text.lineSequence().filter(String::isNotBlank).count() == 3)
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("quic.example"))
+    }
+
+    @Test
+    fun `renderer exports capability and emission evidence for every composite stage`() {
+        val base = buildFullRendererSelection()
+        val report = capabilityEvidenceReport(requireNotNull(base.primaryReport))
+        val stage =
+            rendererCompositeStage(
+                stageKey = "automatic_audit",
+                events = base.primaryEvents,
+                session = base.primarySession,
+            ).copy(report = report)
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                homeRunId = "emission-home-run",
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "emission-home-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                        stageSummaries = listOf(stage.stageSummary),
+                        bundleSessionIds = listOfNotNull(base.primarySession?.id),
+                    ),
+                compositeStages = listOf(stage),
+                includedFiles =
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = true,
+                        composite = true,
+                        compositeStageKeys = listOf("automatic_audit"),
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-stage-emission", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-stage-emission.zip",
+                createdAt = 46L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val capabilities = entries.getValue("stages/automatic_audit/capabilities.json").bytes.decodeToString()
+        val receipts = entries.getValue("stages/automatic_audit/emission-receipts.jsonl").bytes.decodeToString()
+
+        assertTrue(capabilities.contains("stages/automatic_audit/execution-plan.json#"))
+        assertTrue(receipts.contains("stages/automatic_audit/attempts.jsonl#L1"))
+        assertFalse(capabilities.contains("blocked.example"))
+        assertFalse(receipts.contains("telegram.org"))
     }
 
     @Test
@@ -833,7 +1070,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(9, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(10, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -1198,6 +1435,42 @@ class DiagnosticsArchiveRendererTest {
                 "attempts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
                 "stages/legacy/execution-plan.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
                 "stages/legacy/attempts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+            ),
+            statuses,
+        )
+    }
+
+    @Test
+    fun `capability and emission sections are unavailable without a strategy execution plan`() {
+        val base = buildFullRendererSelection()
+        val stage = rendererCompositeStage("legacy", emptyList())
+        val rootReport = requireNotNull(base.primaryReport)
+        val rootExecutionPlan = requireNotNull(rootReport.executionPlan)
+        val legacyReport = rootReport.copy(executionPlan = rootExecutionPlan.copy(strategy = null))
+        val selection =
+            base.copy(
+                primaryReport = legacyReport,
+                includedFiles =
+                    listOf(
+                        "capabilities.json",
+                        "emission-receipts.jsonl",
+                        "stages/legacy/capabilities.json",
+                        "stages/legacy/emission-receipts.jsonl",
+                    ),
+                compositeStages =
+                    listOf(
+                        stage.copy(report = legacyReport),
+                    ),
+            )
+
+        val statuses = buildSectionStatuses(selection)
+
+        assertEquals(
+            mapOf(
+                "capabilities.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "emission-receipts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "stages/legacy/capabilities.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "stages/legacy/emission-receipts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
             ),
             statuses,
         )
@@ -1990,6 +2263,32 @@ class DiagnosticsArchiveRendererTest {
                 ),
         )
 
+    private fun capabilityEvidenceReport(report: EngineScanReportWire): EngineScanReportWire {
+        val executionPlan = requireNotNull(report.executionPlan)
+        val strategyPlan = requireNotNull(executionPlan.strategy)
+        return report.copy(
+            executionPlan =
+                executionPlan.copy(
+                    strategy =
+                        strategyPlan.copy(
+                            tcpCandidates =
+                                listOf(
+                                    rendererCandidatePlan("tcp-prod", "tlsrec_split").copy(
+                                        requiredCapabilities = listOf("ttl_write"),
+                                    ),
+                                    rendererCandidatePlan("tcp-rooted", "seqovl").copy(
+                                        emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                                        exactEmitterRequiresRoot = true,
+                                        requiredCapabilities = listOf("root_helper_available"),
+                                    ),
+                                ),
+                            quicCandidates = emptyList(),
+                        ),
+                ),
+            strategyProbeReport = report.strategyProbeReport?.copy(quicCandidates = emptyList()),
+        )
+    }
+
     private fun networkProtocolFamilyObservations() =
         listOf(
             ObservationFact(
@@ -2263,35 +2562,35 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v9.json",
+            "archive/manifest_v10.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v9.json",
+            "archive/archive_provenance_v10.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v9.json",
+            "archive/runtime_config_v10.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v9.json",
+            "archive/analysis_v10.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v9.json",
+            "archive/completeness_v10.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v9.json",
+            "archive/integrity_v10.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v9.json",
+            "archive/execution_plan_v10.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/decision_trace_v9.json",
+            "archive/decision_trace_v10.json",
             entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }

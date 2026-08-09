@@ -20,9 +20,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private val json: Json,
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
-    private val attemptsEntryBuilder = DiagnosticsArchiveAttemptsEntryBuilder(json)
-    private val protocolMilestonesEntryBuilder = DiagnosticsArchiveProtocolMilestonesEntryBuilder(json)
-    private val decisionTraceEntryBuilder = DiagnosticsArchiveDecisionTraceEntryBuilder(json)
+    private val strategyEvidenceEntryBuilder = DiagnosticsArchiveStrategyEvidenceEntryBuilder(redactor, json)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
@@ -55,40 +53,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value = buildRedactedPayload(selection),
                 ),
             )
-            add(
-                jsonEntry(
-                    name = "execution-plan.json",
-                    serializer = ExecutionPlanArchivePayload.serializer(),
-                    value =
-                        ExecutionPlanArchivePayload(
-                            sessionId = selection.primarySession?.id,
-                            profileId = selection.primarySession?.profileId,
-                            executionPlan = redactor.redact(selection.primaryReport)?.executionPlan,
-                        ),
-                ),
-            )
-            add(
-                attemptsEntryBuilder.build(
-                    name = "attempts.jsonl",
-                    sessionId = selection.primarySession?.id,
-                    profileId = selection.primarySession?.profileId,
-                    report = redactor.redact(selection.primaryReport),
-                ),
-            )
-            add(protocolMilestonesEntryBuilder.buildRoot(selection, redactor.redact(selection.primaryReport)))
-            add(buildRootDecisionTraceEntry(selection))
-            add(
-                jsonEntry(
-                    name = "strategy-matrix.json",
-                    serializer = StrategyMatrixArchivePayload.serializer(),
-                    value =
-                        StrategyMatrixArchivePayload(
-                            sessionId = selection.primarySession?.id,
-                            profileId = selection.primarySession?.profileId,
-                            strategyProbeReport = redactor.redact(selection.primaryReport)?.strategyProbeReport,
-                        ),
-                ),
-            )
+            addAll(strategyEvidenceEntryBuilder.buildRoot(selection))
             addAll(compositeEntries)
             add(
                 jsonEntry(
@@ -445,29 +410,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value = stagePayload,
                 ),
             )
-            add(buildStageExecutionPlanEntry(prefix, stage))
-            add(
-                attemptsEntryBuilder.build(
-                    name = "$prefix/attempts.jsonl",
-                    sessionId = stage.session?.id,
-                    profileId = stage.session?.profileId,
-                    report = redactor.redact(stage.report),
-                ),
-            )
-            add(protocolMilestonesEntryBuilder.buildStage(prefix, stage, redactor.redact(stage.report)))
-            add(buildStageDecisionTraceEntry(prefix, stage))
-            add(
-                jsonEntry(
-                    name = "$prefix/strategy-matrix.json",
-                    serializer = StrategyMatrixArchivePayload.serializer(),
-                    value =
-                        StrategyMatrixArchivePayload(
-                            sessionId = stage.session?.id,
-                            profileId = stage.session?.profileId,
-                            strategyProbeReport = redactor.redact(stage.report)?.strategyProbeReport,
-                        ),
-                ),
-            )
+            addAll(strategyEvidenceEntryBuilder.buildStage(prefix, stage))
             add(
                 textEntry(
                     name = "$prefix/probe-results.csv",
@@ -501,38 +444,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
         }
     }
-
-    private fun buildStageExecutionPlanEntry(
-        prefix: String,
-        stage: DiagnosticsArchiveCompositeStageSelection,
-    ) = jsonEntry(
-        name = "$prefix/execution-plan.json",
-        serializer = ExecutionPlanArchivePayload.serializer(),
-        value =
-            ExecutionPlanArchivePayload(
-                sessionId = stage.session?.id,
-                profileId = stage.session?.profileId,
-                executionPlan = redactor.redact(stage.report)?.executionPlan,
-            ),
-    )
-
-    private fun buildStageDecisionTraceEntry(
-        prefix: String,
-        stage: DiagnosticsArchiveCompositeStageSelection,
-    ) = decisionTraceEntryBuilder.build(
-        name = "$prefix/decision-trace.json",
-        sessionId = stage.session?.id,
-        profileId = stage.session?.profileId,
-        report = redactor.redact(stage.report),
-    )
-
-    private fun buildRootDecisionTraceEntry(selection: DiagnosticsArchiveSelection) =
-        decisionTraceEntryBuilder.build(
-            name = "decision-trace.json",
-            sessionId = selection.primarySession?.id,
-            profileId = selection.primarySession?.profileId,
-            report = redactor.redact(selection.primaryReport),
-        )
 
     private fun buildStageSnapshotPayload(
         stage: DiagnosticsArchiveCompositeStageSelection,

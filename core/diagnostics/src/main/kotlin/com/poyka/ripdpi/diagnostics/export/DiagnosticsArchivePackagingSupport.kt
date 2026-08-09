@@ -285,6 +285,12 @@ private fun rootEvidenceUnavailable(
             selection.primaryReport?.executionPlan == null
         }
 
+        "capabilities.json",
+        "emission-receipts.jsonl",
+        -> {
+            selection.primaryReport?.executionPlan?.strategy == null
+        }
+
         "attempts.jsonl" -> {
             selection.primaryReport
                 ?.strategyProbeReport
@@ -312,6 +318,11 @@ private fun stageEvidenceUnavailable(
     when {
         fileName.endsWith("/execution-plan.json") -> {
             stage.report?.executionPlan == null
+        }
+
+        fileName.endsWith("/capabilities.json") ||
+            fileName.endsWith("/emission-receipts.jsonl") -> {
+            stage.report?.executionPlan?.strategy == null
         }
 
         fileName.endsWith("/attempts.jsonl") -> {
@@ -450,7 +461,9 @@ private fun sectionStatusForFileName(
         "manifest.json",
         "report.json",
         "execution-plan.json",
+        "capabilities.json",
         "attempts.jsonl",
+        "emission-receipts.jsonl",
         "protocol-milestones.jsonl",
         "decision-trace.json",
         "home-analysis.json",
@@ -518,7 +531,15 @@ private fun stageSectionStatusForFileName(
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 
+        fileName.endsWith("/capabilities.json") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
         fileName.endsWith("/attempts.jsonl") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/emission-receipts.jsonl") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 
