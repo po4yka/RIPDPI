@@ -16,6 +16,8 @@ updated: 2026-08-09
 source_wiki_pages:
   - wireguard-rtk-south-amneziawg-middlebox-compatibility
 status_detail: Standalone runtime, UI, import, and composition are implemented; external AWG endpoint evidence and retry-budget measurements are unavailable.
+related_tasks:
+  - po4yka/ripdpi-vpn-deploy#TST-1786299293097217
 ---
 
 ## Motivation
