@@ -1101,6 +1101,9 @@ def resolve_terminal_task(root: Path, task_id: str, config: ProjectConfig) -> di
                 historical_issue = git_show_text(root, revision, relative)
                 if historical_issue is None:
                     previous_status = None
+                    terminal_transition = None
+                    terminal_document = None
+                    terminal_text = None
                     continue
                 with tempfile.TemporaryDirectory(prefix="taskctl-federation-transition-") as directory:
                     transition_path = Path(directory) / "issue.md"
@@ -1108,6 +1111,9 @@ def resolve_terminal_task(root: Path, task_id: str, config: ProjectConfig) -> di
                     transition_document = read_document(transition_path)
                 if transition_document.task_id != task_id:
                     previous_status = None
+                    terminal_transition = None
+                    terminal_document = None
+                    terminal_text = None
                     continue
                 current_status = transition_document.values.get("status")
                 if current_status in {"done", "dropped"}:
@@ -1833,6 +1839,8 @@ def command_new(args: argparse.Namespace) -> int:
         fail("spec-not-required task requires --spec-reason")
     if args.spec_mode == "not-required" and args.kind in {"feature", "epic"}:
         fail(f"{args.kind} cannot waive OpenSpec")
+    if args.spec_mode == "not-required" and args.risk == "high":
+        fail("high-risk task cannot waive OpenSpec")
     if args.area not in config.areas:
         fail(f"unknown task area {args.area!r}")
     if args.parent is not None:
