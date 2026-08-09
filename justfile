@@ -18,7 +18,13 @@ default:
 # Install git hooks and dev tooling
 [group('setup')]
 setup:
+    npm ci --prefix tools/tasking --ignore-scripts
     lefthook install --force
+
+# Install the exact repository-pinned mdtask and OpenSpec versions
+[group('setup')]
+task-tools:
+    npm ci --prefix tools/tasking --ignore-scripts
 
 # ─── Build ────────────────────────────────────────────────────────
 
@@ -86,6 +92,31 @@ test-pmtud-local-evidence output_dir="":
     fi
     bash scripts/ci/run-pmtud-local-evidence.sh --output-dir "$output_dir"
     echo "PMTUD evidence: $output_dir/manifest.json"
+
+# Validate the portfolio, mdtask execution graph, OpenSpec changes, and generated board
+[group('test')]
+task-check: task-tools
+    ./taskctl validate
+
+# List the portfolio with execution progress
+[group('run')]
+task-list: task-tools
+    ./taskctl list
+
+# List backlog/todo tasks whose portfolio blockers are resolved
+[group('run')]
+task-ready: task-tools
+    ./taskctl ready
+
+# Print parent and blocker relationships
+[group('run')]
+task-graph: task-tools
+    ./taskctl graph
+
+# Strictly validate every active OpenSpec change
+[group('test')]
+openspec-validate: task-tools
+    OPENSPEC_TELEMETRY=0 tools/tasking/node_modules/.bin/openspec validate --all --strict --no-interactive
 
 # Verify Roborazzi screenshot baselines
 [group('test')]
@@ -239,7 +270,7 @@ release-preflight tag window_start started_at:
 
 # Run full local CI mirror (lint + test for both Kotlin and Rust)
 [group('ci')]
-ci: lint lint-rust test test-rust
+ci: task-check lint lint-rust test test-rust
 
 # Run GitHub Actions locally via act
 [group('ci')]

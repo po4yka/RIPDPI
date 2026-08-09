@@ -89,6 +89,10 @@ pre-commit:
     harness-cargo-locked:
       run: python3 scripts/ci/check_harness_cargo_locked.py
 
+    task-contracts:
+      glob: "{.mdtaskrc,taskctl,docs/tasks/**,openspec/**,tools/tasking/**,scripts/tasks/**,.agents/skills/{mdtask*,sdd,openspec-*}/**,AGENTS.md}"
+      run: ./taskctl validate
+
 commit-msg:
   commands:
     conventional-commit:

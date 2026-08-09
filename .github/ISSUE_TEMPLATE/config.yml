@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/po4yka/RIPDPI/security/advisories/new
+    about: Report suspected vulnerabilities privately; do not disclose them in a public issue.
+  - name: Repository task workflow
+    url: https://github.com/po4yka/RIPDPI/blob/main/docs/tasks/README.md
+    about: Feature, bug, and maintenance work is tracked in the repository task portfolio.

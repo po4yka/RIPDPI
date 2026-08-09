@@ -228,6 +228,9 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             'git diff --name-only "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA"', source
         )
         self.assertIn("workflow-only-contracts:", source)
+        self.assertIn("task-contracts:", source)
+        self.assertIn("npm ci --prefix tools/tasking --ignore-scripts", source)
+        self.assertIn("./taskctl validate", source)
         self.assertIn("fixture-contracts:", source)
         self.assertIn("actionlint .github/workflows/*.yml", source)
         self.assertIn("pinact run --fix=false --no-api", source)

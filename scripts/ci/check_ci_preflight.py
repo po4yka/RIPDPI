@@ -9,7 +9,9 @@ from collections.abc import Mapping
 
 
 ALLOWED_RESULTS = frozenset({"success", "skipped"})
-ALWAYS_REQUIRED = frozenset({"change-routing", "android-e2e-result-contracts"})
+ALWAYS_REQUIRED = frozenset(
+    {"change-routing", "task-contracts", "android-e2e-result-contracts"}
+)
 SOURCE_REQUIRED = frozenset(
     {
         "design-md-lint",

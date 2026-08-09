@@ -7,6 +7,7 @@ from scripts.ci.check_ci_preflight import preflight_errors
 
 COMMON_SUCCESS = {
     "change-routing": {"result": "success"},
+    "task-contracts": {"result": "success"},
     "docs-only-gate": {"result": "skipped"},
     "workflow-only-contracts": {"result": "skipped"},
     "fixture-contracts": {"result": "skipped"},
@@ -55,6 +56,7 @@ class CheckCiPreflightTest(unittest.TestCase):
     def test_documentation_and_schedule_routes_accept_intentional_skips(self) -> None:
         docs = {name: {"result": "skipped"} for name in COMMON_SUCCESS}
         docs["change-routing"]["result"] = "success"
+        docs["task-contracts"]["result"] = "success"
         docs["android-e2e-result-contracts"]["result"] = "success"
         docs["docs-only-gate"]["result"] = "success"
         self.assertEqual(

@@ -134,6 +134,44 @@ jobs:
     steps:
       - run: 'echo "Documentation-only change: heavy CI jobs intentionally skipped."'
 
+  task-contracts:
+    name: Task and OpenSpec contract gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tools/tasking/package-lock.json
+
+      - name: Install pinned tasking tools
+        run: npm ci --prefix tools/tasking --ignore-scripts
+
+      - name: Run tasking contract tests
+        run: |
+          python3 -m unittest \
+            scripts.tests.test_taskctl \
+            scripts.tests.test_check_harness_links
+
+      - name: Validate portfolio, mdtask, OpenSpec, and deletion history
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          args=()
+          if [[ "$EVENT_NAME" == "pull_request" && -n "$PR_BASE_SHA" ]]; then
+            args+=(--base "$PR_BASE_SHA")
+          elif [[ "$EVENT_NAME" == "push" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            args+=(--base "$PUSH_BEFORE_SHA")
+          fi
+          ./taskctl validate "${args[@]}"
+
   workflow-only-contracts:
     name: Workflow-only contract gate
     needs: change-routing
@@ -320,6 +358,7 @@ jobs:
     if: always()
     needs:
       - change-routing
+      - task-contracts
       - docs-only-gate
       - workflow-only-contracts
       - fixture-contracts
@@ -2848,6 +2887,7 @@ jobs:
     if: always()
     needs:
       - change-routing
+      - task-contracts
       - docs-only-gate
       - workflow-only-contracts
       - fixture-contracts
@@ -2925,6 +2965,7 @@ jobs:
           }
           required_success = {
               "change-routing",
+              "task-contracts",
               "android-e2e-result-contracts",
               "ci-preflight",
           }
