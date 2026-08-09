@@ -26,6 +26,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -123,6 +124,107 @@ class DiagnosticsArchiveRendererTest {
         assertEquals("EXECUTED", rows[0].getValue("status").jsonPrimitive.content)
         assertEquals("target-2", rows[1].getValue("targetAlias").jsonPrimitive.content)
         assertEquals("SKIPPED", rows[1].getValue("status").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `renderer exports ordered privacy safe decision trace`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-decision-trace", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-decision-trace.zip",
+                createdAt = 44L,
+            )
+
+        val entries = renderer.render(target, buildFullRendererSelection()).associateBy(DiagnosticsArchiveEntry::name)
+        val traceText = entries.getValue("decision-trace.json").bytes.decodeToString()
+        val trace = json.parseToJsonElement(traceText).jsonObject
+        val decisions = trace.getValue("decisions").jsonArray
+
+        assertEquals("decision_trace_v1", trace.getValue("traceVersion").jsonPrimitive.content)
+        assertEquals(
+            listOf(
+                "SCAN_COMPLETION",
+                "DIAGNOSIS",
+                "RESOLVER_SELECTION",
+                "STRATEGY_PROBE_COMPLETION",
+                "STRATEGY_SELECTION",
+                "STRATEGY_AUDIT",
+            ),
+            decisions.map { decision ->
+                decision.jsonObject
+                    .getValue("decisionType")
+                    .jsonPrimitive.content
+            },
+        )
+        assertEquals(
+            (1..decisions.size).toList(),
+            decisions.map { decision ->
+                decision.jsonObject
+                    .getValue("sequence")
+                    .jsonPrimitive.content
+                    .toInt()
+            },
+        )
+        assertTrue(
+            decisions.all { decision ->
+                decision.jsonObject
+                    .getValue("evidenceRefs")
+                    .jsonArray
+                    .isNotEmpty()
+            },
+        )
+        assertTrue(traceText.contains("tcp-prod"))
+        assertTrue(traceText.contains("quic-prod"))
+        assertFalse(traceText.contains("blocked.example"))
+        assertFalse(traceText.contains("opaque-resolver-endpoint"))
+        assertFalse(traceText.contains("recommendedProxyConfigJson"))
+    }
+
+    @Test
+    fun `renderer exports decision trace for every composite stage`() {
+        val base = buildFullRendererSelection()
+        val stage =
+            rendererCompositeStage(
+                stageKey = "automatic_audit",
+                events = base.primaryEvents,
+                session = base.primarySession,
+            ).copy(report = base.primaryReport)
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                homeRunId = "decision-home-run",
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "decision-home-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                        stageSummaries = listOf(stage.stageSummary),
+                        bundleSessionIds = listOfNotNull(base.primarySession?.id),
+                    ),
+                compositeStages = listOf(stage),
+                includedFiles =
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = true,
+                        composite = true,
+                        compositeStageKeys = listOf("automatic_audit"),
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-stage-decision-trace", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-stage-decision-trace.zip",
+                createdAt = 44L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val traceText = entries.getValue("stages/automatic_audit/decision-trace.json").bytes.decodeToString()
+        val trace = json.parseToJsonElement(traceText).jsonObject
+
+        assertEquals("decision_trace_v1", trace.getValue("traceVersion").jsonPrimitive.content)
+        assertTrue(trace.getValue("decisions").jsonArray.isNotEmpty())
+        assertFalse(traceText.contains("blocked.example"))
+        assertFalse(traceText.contains("opaque-resolver-endpoint"))
     }
 
     @Test
@@ -560,7 +662,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(7, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(8, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -925,6 +1027,32 @@ class DiagnosticsArchiveRendererTest {
                 "attempts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
                 "stages/legacy/execution-plan.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
                 "stages/legacy/attempts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+            ),
+            statuses,
+        )
+    }
+
+    @Test
+    fun `decision trace sections are unavailable when reports are missing`() {
+        val base = buildFullRendererSelection()
+        val stage = rendererCompositeStage("legacy", emptyList())
+        val selection =
+            base.copy(
+                primaryReport = null,
+                includedFiles =
+                    listOf(
+                        "decision-trace.json",
+                        "stages/legacy/decision-trace.json",
+                    ),
+                compositeStages = listOf(stage),
+            )
+
+        val statuses = buildSectionStatuses(selection)
+
+        assertEquals(
+            mapOf(
+                "decision-trace.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "stages/legacy/decision-trace.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
             ),
             statuses,
         )
@@ -1867,32 +1995,36 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v7.json",
+            "archive/manifest_v8.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v7.json",
+            "archive/archive_provenance_v8.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v7.json",
+            "archive/runtime_config_v8.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v7.json",
+            "archive/analysis_v8.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v7.json",
+            "archive/completeness_v8.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v7.json",
+            "archive/integrity_v8.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v7.json",
+            "archive/execution_plan_v8.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/decision_trace_v8.json",
+            entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }
 

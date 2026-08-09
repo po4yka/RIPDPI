@@ -21,6 +21,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
     private val attemptsEntryBuilder = DiagnosticsArchiveAttemptsEntryBuilder(json)
+    private val decisionTraceEntryBuilder = DiagnosticsArchiveDecisionTraceEntryBuilder(json)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
@@ -73,6 +74,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     report = redactor.redact(selection.primaryReport),
                 ),
             )
+            add(buildRootDecisionTraceEntry(selection))
             add(
                 jsonEntry(
                     name = "strategy-matrix.json",
@@ -461,6 +463,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     report = redactor.redact(stage.report),
                 ),
             )
+            add(buildStageDecisionTraceEntry(prefix, stage))
             add(
                 jsonEntry(
                     name = "$prefix/strategy-matrix.json",
@@ -506,6 +509,24 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
         }
     }
+
+    private fun buildStageDecisionTraceEntry(
+        prefix: String,
+        stage: DiagnosticsArchiveCompositeStageSelection,
+    ) = decisionTraceEntryBuilder.build(
+        name = "$prefix/decision-trace.json",
+        sessionId = stage.session?.id,
+        profileId = stage.session?.profileId,
+        report = redactor.redact(stage.report),
+    )
+
+    private fun buildRootDecisionTraceEntry(selection: DiagnosticsArchiveSelection) =
+        decisionTraceEntryBuilder.build(
+            name = "decision-trace.json",
+            sessionId = selection.primarySession?.id,
+            profileId = selection.primarySession?.profileId,
+            report = redactor.redact(selection.primaryReport),
+        )
 
     private fun buildStageSnapshotPayload(
         stage: DiagnosticsArchiveCompositeStageSelection,

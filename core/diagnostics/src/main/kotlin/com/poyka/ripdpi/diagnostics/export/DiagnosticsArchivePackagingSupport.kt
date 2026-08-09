@@ -242,29 +242,9 @@ internal fun buildSectionStatuses(
                 }
             put(
                 fileName,
-                if (fileName == "execution-plan.json" && selection.primaryReport?.executionPlan == null) {
-                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
-                } else if (
-                    fileName == "attempts.jsonl" &&
-                    selection.primaryReport
-                        ?.strategyProbeReport
-                        ?.attempts
-                        .isNullOrEmpty()
-                ) {
-                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
-                } else if (
-                    compositeStage != null &&
-                    fileName.endsWith("/execution-plan.json") &&
-                    compositeStage.report?.executionPlan == null
-                ) {
-                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
-                } else if (
-                    compositeStage != null &&
-                    fileName.endsWith("/attempts.jsonl") &&
-                    compositeStage.report
-                        ?.strategyProbeReport
-                        ?.attempts
-                        .isNullOrEmpty()
+                if (
+                    rootEvidenceUnavailable(fileName, selection) ||
+                    compositeStage?.let { stageEvidenceUnavailable(fileName, it) } == true
                 ) {
                     DiagnosticsArchiveSectionStatus.UNAVAILABLE
                 } else if (compositeStage != null) {
@@ -295,6 +275,56 @@ internal fun buildSectionStatuses(
         }
     }
 }
+
+private fun rootEvidenceUnavailable(
+    fileName: String,
+    selection: DiagnosticsArchiveSelection,
+): Boolean =
+    when (fileName) {
+        "execution-plan.json" -> {
+            selection.primaryReport?.executionPlan == null
+        }
+
+        "attempts.jsonl" -> {
+            selection.primaryReport
+                ?.strategyProbeReport
+                ?.attempts
+                .isNullOrEmpty()
+        }
+
+        "decision-trace.json" -> {
+            selection.primaryReport == null
+        }
+
+        else -> {
+            false
+        }
+    }
+
+private fun stageEvidenceUnavailable(
+    fileName: String,
+    stage: DiagnosticsArchiveCompositeStageSelection,
+): Boolean =
+    when {
+        fileName.endsWith("/execution-plan.json") -> {
+            stage.report?.executionPlan == null
+        }
+
+        fileName.endsWith("/attempts.jsonl") -> {
+            stage.report
+                ?.strategyProbeReport
+                ?.attempts
+                .isNullOrEmpty()
+        }
+
+        fileName.endsWith("/decision-trace.json") -> {
+            stage.report == null
+        }
+
+        else -> {
+            false
+        }
+    }
 
 internal fun buildCompleteness(
     selection: DiagnosticsArchiveSelection,
@@ -413,6 +443,7 @@ private fun sectionStatusForFileName(
         "report.json",
         "execution-plan.json",
         "attempts.jsonl",
+        "decision-trace.json",
         "home-analysis.json",
         "stage-index.json",
         "stage-summaries.json",
@@ -479,6 +510,10 @@ private fun stageSectionStatusForFileName(
         }
 
         fileName.endsWith("/attempts.jsonl") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/decision-trace.json") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 
