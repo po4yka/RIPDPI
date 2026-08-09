@@ -2,12 +2,13 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (21)
+## Doing (22)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | epic | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-07-17 |
 | critical | epic | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
+| high | ci | [Integrate repository task management and OpenSpec](issues/integrate-repository-task-management-and-openspec.md) | Codex coordinator | 2026-08-09 |
 | high | ci | [Run a recurring real-VPS AmneziaWG and NAT lane](issues/run-recurring-real-vps-awg-nat-lane.md) | AWG real-VPS lane | 2026-07-22 |
 | high | diagnostics | [Harden remaining diagnostics evidence](issues/harden-remaining-diagnostics-evidence.md) | Codex diagnostics completion coordinator | 2026-07-29 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
