@@ -1,21 +1,20 @@
-# RST-1786264762917304: Unpin russh after rsa advisory fix
+# RST-1786264762917304: Remove RSA advisory paths from russh and Arti dependencies
 
 ## Objective
 
-Unpin russh after rsa advisory fix
+Remove every vulnerable RSA dependency path and its waiver while preserving SSH and Tor behavior.
 
 ## Ownership
 
-Ownership is declared in the portfolio task and the implementation worktree before execution.
+- serialized russh/Arti dependency graph, lockfile, waiver, and focused SSH/Tor tests
 
 ## Execution
 
-- [ ] RST-1786264762919282 cargo deny check advisories exits 0 with the RUSTSEC-2023-0071 suppression removed from deny.toml #feature !low @item:RST-1786264762917304
-- [ ] RST-1786264762919454 cargo nextest run -p ripdpi-ssh --locked green #feature !low @item:RST-1786264762917304
-- [ ] RST-1786264762919575 cargo nextest run --workspace --locked green #feature !low @item:RST-1786264762917304
-- [ ] RST-1786264762919026 The =0.62.5 exact pin is removed or updated in Cargo.toml #feature !low @item:RST-1786264762917304
-- [ ] RST-1786264762919596 Commit message references the russh release that resolved the rsa dependency #feature !low @item:RST-1786264762917304
+- [ ] RST-1786264762919282 Remove vulnerable RSA paths from russh and Arti and delete RUSTSEC-2023-0071 waivers #chore !low @item:RST-1786264762917304
+- [ ] RST-1786264762919454 Verify focused SSH and Tor behavior on the locked replacement graph #chore !low @item:RST-1786264762917304 @blocked_by:RST-1786264762919282
+- [ ] RST-1786264762919575 Run the locked native workspace and advisory gates #chore !low @item:RST-1786264762917304 @blocked_by:RST-1786264762919454
 
 ## Verification
 
-Use the exact gates and evidence required by the portfolio task and `verification.md` when present.
+- `cargo nextest run -p ripdpi-ssh --locked` and focused Arti tests
+- locked workspace tests, cargo-deny advisories, and waiver validator

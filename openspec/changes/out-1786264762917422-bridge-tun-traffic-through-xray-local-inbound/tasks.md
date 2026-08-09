@@ -1,21 +1,27 @@
-# OUT-1786264762917422: Bridge TUN traffic through Xray local inbound
+# OUT-1786264762917422: Finish and verify Xray VPN provider end to end
 
 ## Objective
 
-Bridge TUN traffic through Xray local inbound
+Turn the landed Xray orchestration into a reproducible selectable provider proven with a real artifact and device egress.
 
 ## Ownership
 
-Ownership is declared in the portfolio task and the implementation worktree before execution.
+- Xray provider onboarding, runtime orchestration, diagnostics, and tests
+- exact gomobile artifact and physical-device evidence lane
 
 ## Execution
 
-- [x] OUT-1786264762918956 VPN startup can select Xray as the tunnel's upstream local endpoint. — XrayTunnelHandoff resolves the upstream from VpnProviderKind (Native keeps tun2socks; Xray points the tunnel at 127.0.0.1:localInboundPort); covered by XrayTunnelHandof… #feature !high @item:OUT-1786264762917422
-- [x] OUT-1786264762918267 Xray outbound sockets and DNS are protected so provider traffic does not loop into the TUN fd. — protect-first ordering in RipDpiXrayRuntime; DNS ownership pinned to the tunnel; proven by XrayProtectFdContractTest and XrayDnsLoopRegression… #feature !high @item:OUT-1786264762917422
-- [x] OUT-1786264762918785 Existing tunnel telemetry remains available when the upstream endpoint is Xray instead of RIPDPI-native proxy. — XrayProviderOrchestrator drives the ManagedTunnel seam unchanged; orchestrator tests assert the tunnel lifecycle is preserved… #feature !high @item:OUT-1786264762917422
-- [x] OUT-1786264762918495 Network handover restarts both Xray and tunnel when the local inbound or provider route changes. — route-change dual-restart (tunnel stopped before Xray) covered by XrayProviderOrchestratorTest / XrayServiceLifecycleMatrixTest #feature !high @item:OUT-1786264762917422
-- [ ] OUT-1786264762918700 A local/device smoke test proves traffic exits through the Xray outbound. — documented in docs/contributor/xray-tun-bridge-smoke.md but UNVERIFIED IN CI. OPEN: requires gomobile/libXray + NDK29 native engine + device + live server; the smo… #feature !high @item:OUT-1786264762917422
+- [x] OUT-1786264762918956 Select Xray as the VPN tunnel upstream #feature !high @item:OUT-1786264762917422
+- [x] OUT-1786264762918267 Protect Xray outbound sockets and preserve single-owner DNS #feature !high @item:OUT-1786264762917422
+- [x] OUT-1786264762918785 Preserve tunnel telemetry through the Xray upstream #feature !high @item:OUT-1786264762917422
+- [x] OUT-1786264762918495 Restart Xray and tunnel in safe order after network handover #feature !high @item:OUT-1786264762917422
+- [ ] OUT-1786264762918700 Prove real Xray outbound egress on a physical device #feature !high @item:OUT-1786264762917422 @blocked_by:OUT-1786272743763099
+- [ ] OUT-1786272743760717 Validate imported and editor-created Xray profiles through onboarding and durable provider selection #feature !high @item:OUT-1786264762917422
+- [ ] OUT-1786272743763099 Build and verify the exact gomobile libXray artifact in a clean checkout #feature !high @item:OUT-1786264762917422 @blocked_by:OUT-1786272743760717
+- [ ] OUT-1786272743765628 Prove physical-device Xray egress, protect-denial handling, lifecycle recovery, and live telemetry #feature !high @item:OUT-1786264762917422 @blocked_by:OUT-1786272743763099
 
 ## Verification
 
-Use the exact gates and evidence required by the portfolio task and `verification.md` when present.
+- current Compose and engine-api provider tests
+- exact gomobile artifact inspection
+- physical-device egress, DNS, socket protection, restart, and telemetry receipt

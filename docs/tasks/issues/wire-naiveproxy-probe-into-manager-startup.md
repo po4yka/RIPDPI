@@ -2,16 +2,16 @@
 id: SVC-1786264762917506
 title: Wire NaiveProxy helper probe into manager startup
 kind: feature
-status: doing
+status: todo
 area: service
 priority: medium
-owner: unassigned
+owner: Service runtime maintainer
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: svc-1786264762917506-wire-naiveproxy-probe-into-manager-startup
 created: 2026-05-15
-updated: 2026-06-10
+updated: 2026-08-09
 ---
 
 ## Summary
@@ -28,7 +28,7 @@ The helper-side `--probe` line and Kotlin parser now exist. Finish the Android s
 - [x] (2026-05-28) Kotlin parser exists in `NaiveProxyProbeParser.kt`, with unit tests covering marker, malformed JSON, missing required fields, and schema-range checks.
 - [ ] `NaiveProxyManager` invokes `--probe` before `start`, parses the JSON, and refuses to start when `schema_version` is outside the range it supports, surfacing a recognizable failure class.
 - [ ] Existing `RIPDPI-READY` / `RIPDPI-ERROR` paths remain unchanged for now; this task only adds the pre-launch probe.
-- [ ] Unit tests cover manager preflight behavior: (a) probe round-trip, (b) refusal on schema mismatch, (c) backward compatibility when the helper does not support `--probe` if the current release still allows schema 0.
+- [ ] Unit tests cover manager preflight behavior: probe round-trip, refusal on exact schema mismatch, missing required capability tags, and a recognizable configuration error before runtime launch. Legacy schema-0 fallback is not supported.
 - [ ] `docs/native/relay-naiveproxy-runtime.md` documents the probe line and the schema-version policy.
 
 ## Definition of done
@@ -38,7 +38,7 @@ The helper-side `--probe` line and Kotlin parser now exist. Finish the Android s
 
 ## Risks / open questions
 
-- Schema-0 fallback gives the helper one release of grace; after that the manager should hard-require the probe. Decide if a build flag controls the cutoff.
+- The manager and bundled helper ship together, so accepting schema 0 would hide packaging drift; preflight must fail closed.
 
 ## Links
 

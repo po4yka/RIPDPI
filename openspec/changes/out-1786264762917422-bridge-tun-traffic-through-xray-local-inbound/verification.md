@@ -6,10 +6,10 @@ local: required
 local_evidence: null
 remote_ci: required
 remote_ci_evidence: null
-device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
-artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+device: blocked
+device_evidence: Physical-device Xray egress, protect-denial, lifecycle, and telemetry evidence is required.
+artifact: blocked
+artifact_evidence: A clean-checkout gomobile libXray artifact and exact APK are required.
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---

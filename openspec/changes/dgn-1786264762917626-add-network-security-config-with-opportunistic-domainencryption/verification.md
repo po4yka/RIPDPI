@@ -6,10 +6,10 @@ local: required
 local_evidence: null
 remote_ci: required
 remote_ci_evidence: null
-device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
-artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+device: blocked
+device_evidence: Physical API-37 packet capture showing an ECH attempt is required and unavailable.
+artifact: required
+artifact_evidence: The packet-capture receipt must identify the exact tested APK and source SHA.
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---

@@ -55,9 +55,9 @@ Cross-boundary contract docs:
 
 **Offline learner:** UCB1 remains the production scorer. Thompson sampling exists as a standalone implementation; rarity penalties, attempt budgets, shared-priors transport, and environment segregation are opt-in or supporting pieces.
 
-**Shared priors:** Bundles are fail-secure: parser, manifest verification, production key, and manifest/priors URLs must all validate before data reaches the evolver. The remaining release task is embedding the production ed25519 public key and populating the catalog URLs.
+**Shared priors:** Bundles are fail-secure: parser, manifest verification, production key, and manifest/priors URLs must all validate before data reaches the evolver. Production release activation is tracked by `SVC-1786272083078316`.
 
-**Environment calibration:** Android environment detection is wired for bandit key segregation. Per-family emulator-to-field calibration factors remain a research spike.
+**Environment calibration:** Android environment detection is wired for bandit key segregation. Privacy-clean sim-to-field calibration research is tracked by `TST-1786272277266667`.
 
 ## ECH Rotation
 

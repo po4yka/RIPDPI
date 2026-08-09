@@ -2,21 +2,24 @@
 
 ## Objective
 
-Wire NaiveProxy helper probe into manager startup
+Require an exact helper capability/schema preflight before every NaiveProxy runtime start.
 
 ## Ownership
 
-Ownership is declared in the portfolio task and the implementation worktree before execution.
+- `core/service` NaiveProxy manager, parser, telemetry, and tests
+- bundled `ripdpi-naiveproxy` helper probe contract and runtime documentation
 
 ## Execution
 
-- [x] SVC-1786264762919787 (2026-05-15) Helper emits a single RIPDPI-PROBE { ... } JSON line on --probe exit with fields { "schemaversion": u32, "helperversion": semver, "features": [string, ...] }. Hand-formatted JSON (no serde dep for the fast-path) in ripdpi-naiv… #feature @item:SVC-1786264762917506
-- [x] SVC-1786264762919579 (2026-05-28) Kotlin parser exists in NaiveProxyProbeParser.kt, with unit tests covering marker, malformed JSON, missing required fields, and schema-range checks #feature @item:SVC-1786264762917506
-- [ ] SVC-1786264762919010 NaiveProxyManager invokes --probe before start, parses the JSON, and refuses to start when schemaversion is outside the range it supports, surfacing a recognizable failure class #feature @item:SVC-1786264762917506
-- [ ] SVC-1786264762919278 Existing RIPDPI-READY / RIPDPI-ERROR paths remain unchanged for now; this task only adds the pre-launch probe #feature @item:SVC-1786264762917506
-- [ ] SVC-1786264762919141 Unit tests cover manager preflight behavior: (a) probe round-trip, (b) refusal on schema mismatch, (c) backward compatibility when the helper does not support --probe if the current release still allows schema 0 #feature @item:SVC-1786264762917506
-- [ ] SVC-1786264762919098 docs/native/relay-naiveproxy-runtime.md documents the probe line and the schema-version policy #feature @item:SVC-1786264762917506
+- [x] SVC-1786264762919787 Emit the versioned RIPDPI-PROBE helper record #feature @item:SVC-1786264762917506
+- [x] SVC-1786264762919579 Parse and validate the probe record in Kotlin #feature @item:SVC-1786264762917506
+- [ ] SVC-1786264762919010 Invoke --probe before start and fail with a typed configuration error on schema or capability mismatch #feature @item:SVC-1786264762917506
+- [ ] SVC-1786264762919278 Preserve the existing RIPDPI-READY and RIPDPI-ERROR runtime protocol after successful preflight #feature @item:SVC-1786264762917506 @blocked_by:SVC-1786264762919010
+- [ ] SVC-1786264762919141 Cover exact schema, required capabilities, malformed output, timeout, and missing-probe fail-closed paths #feature @item:SVC-1786264762917506 @blocked_by:SVC-1786264762919010
+- [ ] SVC-1786264762919098 Document the enforced preflight and schema policy in relay-naiveproxy-runtime.md #feature @item:SVC-1786264762917506 @blocked_by:SVC-1786264762919141
 
 ## Verification
 
-Use the exact gates and evidence required by the portfolio task and `verification.md` when present.
+- focused `NaiveProxyManager` and `NaiveProxyProbeParser` unit tests
+- `cargo nextest -p ripdpi-naiveproxy`
+- service lifecycle regression tests and documentation contract check

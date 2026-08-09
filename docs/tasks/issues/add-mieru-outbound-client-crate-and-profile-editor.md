@@ -1,22 +1,22 @@
 ---
 id: OUT-1786264762917513
-title: Add Mieru outbound client crate and profile editor
+title: Complete Mieru UDP carrier and upstream interoperability
 kind: feature
-status: doing
+status: todo
 area: outbound
-priority: medium
-owner: unassigned
+priority: high
+owner: Outbound protocol maintainer
 parent: EPC-1786264762917457
 blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917513-add-mieru-outbound-client-crate-and-profile-editor
 created: 2026-04-24
-updated: 2026-06-10
+updated: 2026-08-09
 ---
 
 ## Summary
 
-Add a `ripdpi-mieru` Rust crate implementing the Mieru outbound client and a `MieruProfileScreen` editor. Mieru (enfein/mieru) is actively developed and used by Mieru-compatible deployments; omitting it blocks interoperability with that user cohort.
+Finish the two observable gaps in the existing Mieru implementation: the UI-selectable UDP carrier currently returns `MieruError::UdpUnsupported`, and the TCP/mux implementation has no recorded interoperability run against upstream `mita`.
 
 ## Context
 
@@ -24,8 +24,8 @@ Mieru uses a custom UDP-based protocol with replay resistance; the Go reference 
 
 ## Acceptance criteria
 
-- [~] `ripdpi-mieru` TCP carrier is implemented (XChaCha20-Poly1305 time-rotated PBKDF2 keys, user-stamped incrementing nonce, byte-exact 32-byte metadata + segment framing, open-session handshake, in-tunnel SOCKS5 connect) and wired into the relay (`MieruSessionFactory` dials + runs it). Covered by deterministic primitive vectors + a spec-faithful in-crate loopback 1 MiB round-trip (self-consistency). **Upstream/live-server reference vectors still pending** — on-wire interop is unverified offline. See `native/rust/crates/ripdpi-mieru/PROTOCOL.md`.
-- [~] TCP carrier supported; the UDP carrier (KCP-like reliable ARQ) returns `MieruError::UdpUnsupported` (out of scope, deferred).
+- [ ] The implemented TCP/mux carrier is verified against a pinned upstream `mita` server; current deterministic loopback proof is preserved but not presented as upstream interoperability.
+- [ ] The UI-selectable UDP carrier is implemented with upstream-compatible reliable transport, or UDP is removed from the selectable public profile contract.
 - [x] Multiplexing implemented for `low`/`middle`/`high` (`mux.rs`): many `sessionID`-tagged sub-sessions share one carrier. A single serialized `Encryptor` keeps the per-direction nonce monotonic (nonce-reuse-safe under concurrent streams); a single reader task demuxes inbound segments to per-sub-session mailboxes by `sessionID` (no cross-contamination). Level → per-carrier concurrent-stream ceiling (`off`=1/`low`=8/`middle`=32/`high`=128 — RIPDPI policy, `PROTOCOL.md` §7) with backpressure; `off` keeps the one-stream-per-carrier path. The facade marks the carrier `reusable` when multiplexed so the relay pool drives many `open_stream` calls. Tests: concurrent-stream isolation + sequential carrier reuse with nonce monotonicity.
 - [x] `MieruProfileScreen` validates server + port, username, password, protocol mode (TCP/UDP), mTU.
 - [x] The replay key comes from a shared network-time source, never a direct device-clock read. Implemented the workspace's first network-time provider (`ripdpi-network-time`: monotonic-from-anchor with device-clock fallback), wired the relay facade to it (replacing `SystemTime::now()`), and adopted it in `ripdpi-shadowsocks` SIP022 too so the pattern is shared. The engine calibrates the shared provider once per session from the server's authenticated segment timestamp. **Residual risk (documented, not deferred — `PROTOCOL.md` §6, `ripdpi-network-time` crate docs):** first contact before any calibration still uses the device clock (within the protocols' skew tolerance); no SNTP (offline/no-backend rule), so the trusted anchor comes only from servers the user already connects to.

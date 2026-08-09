@@ -23,5 +23,5 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-RST-1786264762917304-001 | RST-1786264762919282 | Pending | required |
 | REQ-RST-1786264762917304-002 | RST-1786264762919454 | Pending | required |
 | REQ-RST-1786264762917304-003 | RST-1786264762919575 | Pending | required |
-| REQ-RST-1786264762917304-004 | RST-1786264762919026 | Pending | required |
-| REQ-RST-1786264762917304-005 | RST-1786264762919596 | Pending | required |
+| REQ-RST-1786264762917304-004 | RST-1786264762919282 | Locked dependency graph and release provenance | required |
+| REQ-RST-1786264762917304-005 | RST-1786264762919575 | Exact replacement versions and full validation receipt | required |

@@ -1,20 +1,21 @@
 ---
 id: TRN-1786264762917677
-title: Wire AmneziaWG RTK South cohort (Jc=4) into Android client
+title: Verify AmneziaWG interoperability and tune RTK-South retries
 kind: feature
-status: doing
+status: blocked
 area: transport
 priority: medium
-owner: unassigned
+owner: AmneziaWG interoperability maintainer
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917677-wire-amneziawg-rtk-south-jc4-cohort-into-android-client
 created: 2026-05-22
-updated: 2026-06-21
+updated: 2026-08-09
 source_wiki_pages:
   - wireguard-rtk-south-amneziawg-bypass
 linked_task: null
+status_detail: Standalone runtime, UI, import, and composition are implemented; external AWG endpoint evidence and retry-budget measurements are unavailable.
 ---
 
 ## Motivation
@@ -41,8 +42,8 @@ Community-tested working parameters for the observed cohort: `Jc=4 Jmin=10 Jmax=
 
 - [x] AmneziaWG client support compiles for all 4 Android ABIs.
 - [x] Cohort profile import populates Jc/Jmin/Jmax/S/H/I from server-provided YAML or subscription URL.
-- [ ] Smoke test against synthetic AWG endpoint with RTK South parameters succeeds.
-- [ ] Probabilistic-retry logic implemented (max 4 attempts, configurable per-cohort).
+- [ ] Interoperability smoke against an external AWG endpoint with RTK-South parameters succeeds on the exact Android artifact.
+- [ ] Retry budget is derived from observed handshake evidence, bounded, configurable per cohort, and regression-tested.
 - [x] Dedup confirmed: distinct from `add-wireguard-over-websocket-transport-amneziawg-disguise` — this task wires AmneziaWG packet-signature randomization (Jc/Jmin/Jmax/H/S/I) into the existing `ripdpi-warp-core` WG kernel; the other adds a WG-over-WebSocket *tunnel* disguise. Different layers.
 
 ## Risks / open questions

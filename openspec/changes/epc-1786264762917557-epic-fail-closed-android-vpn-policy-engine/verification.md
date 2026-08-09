@@ -6,10 +6,10 @@ local: required
 local_evidence: null
 remote_ci: required
 remote_ci_evidence: null
-device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
-artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+device: blocked
+device_evidence: Physical Android 17 two-egress and reconnect evidence remains unavailable.
+artifact: required
+artifact_evidence: The eventual device receipt must identify the exact tested APK and source SHA.
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---
@@ -20,8 +20,8 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-EPC-1786264762917557-001 | EPC-1786264762918513 | Pending | required |
-| REQ-EPC-1786264762917557-002 | EPC-1786264762918039 | Pending | required |
-| REQ-EPC-1786264762917557-003 | EPC-1786264762918138 | Pending | required |
-| REQ-EPC-1786264762917557-004 | EPC-1786264762918003 | Pending | required |
-| REQ-EPC-1786264762917557-005 | EPC-1786264762918458 | Pending | required |
+| REQ-EPC-1786264762917557-001 | EPC-1786272743773301 | Physical Android 17 exclusion evidence | required |
+| REQ-EPC-1786264762917557-002 | EPC-1786272743773301 | Physical Android 17 exclusion evidence | required |
+| REQ-EPC-1786264762917557-003 | EPC-1786272743773301 | Physical Android 17 exclusion evidence | required |
+| REQ-EPC-1786264762917557-004 | EPC-1786272743773301 | Physical Android 17 exclusion evidence | required |
+| REQ-EPC-1786264762917557-005 | EPC-1786272743773301 | Physical Android 17 exclusion evidence | required |

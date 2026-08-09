@@ -4,14 +4,14 @@ title: Add optional Cloudflare Workers transport mode
 kind: feature
 status: backlog
 area: rust-native
-priority: medium
-owner: unassigned
+priority: low
+owner: Relay transport maintainer
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917044-add-cloudflare-workers-transport-mode
 created: 2026-05-16
-updated: 2026-06-10
+updated: 2026-08-09
 ---
 
 ## Summary

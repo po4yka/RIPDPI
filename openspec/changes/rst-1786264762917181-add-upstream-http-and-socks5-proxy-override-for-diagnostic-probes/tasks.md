@@ -10,7 +10,7 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] RST-1786264762917568 Diagnostic profile supports upstreamproxy: socks5://… | http://… including basic auth in the URL #feature !low @item:RST-1786264762917181
+- [ ] RST-1786264762917568 Accept per-run authenticated SOCKS5 and HTTP upstream proxy URLs #feature !low @item:RST-1786264762917181
 - [ ] RST-1786264762917733 When set, every TCP-based probe (TLS reachability, TCP 16-20KB, HTTP injection) routes through the proxy. DNS UDP probes are skipped or fall back to DoH-via-proxy and are flagged as such #feature !low @item:RST-1786264762917181
 - [ ] RST-1786264762917069 Diagnostics summary clearly labels the result as proxy-routed and never persists a transparent verdict from a proxy-routed run into the per-network policy store #feature !low @item:RST-1786264762917181
 - [ ] RST-1786264762917443 Proxy URL is treated as a credential: never logged at any level, never written to export bundles, redacted in summary #feature !low @item:RST-1786264762917181

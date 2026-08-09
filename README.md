@@ -203,7 +203,7 @@ Details: [docs/testing.md](docs/testing.md)
 - [Local network test lab](test-lab/README.md)
 - [External UI automation](docs/automation/README.md)
 - [Architecture notes](docs/architecture/README.md)
-- [Roadmap](ROADMAP.md)
+- [Task board](docs/tasks/board.md)
 
 ## Translate RIPDPI
 

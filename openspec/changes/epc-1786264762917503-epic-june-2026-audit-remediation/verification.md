@@ -20,4 +20,4 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-EPC-1786264762917503-001 | EPC-1786264762918442 | Pending | required |
+| REQ-EPC-1786264762917503-001 | EPC-1786272743768392 | Three child task receipts and exact-main CI | required |

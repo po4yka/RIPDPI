@@ -257,5 +257,5 @@ a per-socket (not per-packet) control-plane call required by the
 | Architecture quality gates | [`architecture/quality-gates.md`](quality-gates.md) |
 | Testing, E2E, golden contracts | [`docs/testing.md`](../testing.md) |
 | Full project reference (build, CI, rules, skills) | [`AGENTS.md`](../../AGENTS.md) |
-| Forward roadmap | [`ROADMAP.md`](../../ROADMAP.md) |
+| Forward work | [`docs/tasks/board.md`](../tasks/board.md) |
 | Cross-tool engineering rules | [`.claude/rules/`](../../.claude/rules/) |

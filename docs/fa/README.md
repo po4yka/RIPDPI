@@ -176,7 +176,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - [عملیات بستهٔ راهبرد و فهرست TLS](../../docs/strategy-pack-operations.md)
 - [نمونه‌های پروفایل رله](../../docs/relay-profile-examples.md)
 - [یادداشت‌های معماری](../../docs/architecture/README.md)
-- [نقشهٔ راه](../../ROADMAP.md)
+- [Task board](../tasks/board.md)
 
 ## ترجمهٔ RIPDPI
 

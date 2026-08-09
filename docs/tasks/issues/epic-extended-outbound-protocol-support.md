@@ -2,16 +2,19 @@
 id: EPC-1786264762917457
 title: Epic - Extended outbound protocol support
 kind: epic
-status: doing
+status: todo
 area: epic
-priority: high
-owner: unassigned
+priority: medium
+owner: Outbound protocol maintainer
 parent: null
-blocked_by: []
+blocked_by:
+  - OUT-1786264762917254
+  - OUT-1786264762917513
+  - OUT-1786264762917551
 spec_mode: required
 openspec_change: epc-1786264762917457-epic-extended-outbound-protocol-support
 created: 2026-04-24
-updated: 2026-06-10
+updated: 2026-08-09
 ---
 
 > **2026-06-01 — scope reduced per [ADR 0004](../../adr/0004-protocol-support-policy.md).** VMess, Trojan-Go, and Hysteria v1 are **dropped from this epic and removed from the codebase** — they were never-completed stubs that carried no traffic, and RIPDPI maintains support only for current/actual protocols. The remaining open backlog is **SSH** and **Mieru** only (not-yet-implemented compatibility work, explicitly *not* legacy). Their child tasks are deleted.

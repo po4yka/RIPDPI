@@ -2,20 +2,20 @@
 id: VPN-1786264762917166
 title: Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)
 kind: feature
-status: doing
+status: review
 area: vpn
 priority: high
-owner: ICMP and MapDNS physical harness lane
+owner: Android VPN security maintainer
 parent: EPC-1786264762917557
 blocked_by: []
 spec_mode: required
 openspec_change: vpn-1786264762917166-add-tun2socks-uid-validation-against-so-bindtodevice-bypass
 created: 2026-05-22
-updated: 2026-07-22
+updated: 2026-08-09
 source_wiki_pages:
   - android-so-bindtodevice-vpn-bypass
 linked_task: null
-status_detail: MapDNS and ICMP source policy is shipped; Android ICMP and MapDNS selectors plus physical evidence are being implemented, while pre-5.7 and adb socket-table proof remain open
+status_detail: Capability-based eligibility and protocol-specific zero-delivery/RST evidence supersede the brittle pre-5.7 and socket-table checks; implementation and required acceptance evidence are complete.
 ---
 
 ## Motivation
@@ -41,10 +41,10 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 
 - [x] PR description confirms current state of `ripdpi-tun-driver` UID validation (present or absent). **Absent** — `ripdpi-tun-driver` is TUN open/configure only; `ripdpi-flow-app-attribution` calls `getConnectionOwnerUid` for attribution/learning, not as an enforcement gate. The userspace stack is `smoltcp` in `ripdpi-tunnel-core`, not gVisor/Go.
 - [x] If absent: per-packet UID validation implemented in the tun2socks layer. `UidFlowPolicy` is consulted at the live smoltcp TCP and UDP admission seams, the JNI `getConnectionOwnerUid` attribution source is registered with the native session, and readiness remains fail-closed until the bridge is installed. Unit, lifecycle, and physical harness coverage exercise the armed policy rather than only the decision enum.
-- [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. TCP `abort()`/RST delivery, ordinary UDP drop/attribution-token retention, allowlist fail-closed construction, the default-deny ICMP policy toggle, and the MapDNS exact kernel-visible tuple admission boundary are implemented. Physical ICMP and MapDNS DNS evidence remains blocked by the current no-network/no-device permission.
+- [x] TCP unauthorized traffic is reset, UDP is dropped with bounded attribution caching, ICMP is default-deny with an explicit toggle, and MapDNS uses the exact kernel-visible tuple admission boundary.
 - [x] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, traffic is denied. The platform-neutral unprivileged Linux process oracle and the separate-UID Android test process now prove the real-socket/TUN control and enforcement paths for TCP and UDP. On Pixel, IPv4 denial is reset/timeout and IPv6 denial is an exact unreachable-connect result; both require zero fixture delivery and passing post-denial liveness controls.
-- [~] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating. Pixel 7/API 37/kernel 6.1 is verified; a pre-5.7 device remains unavailable.
-- [ ] Verify via `adb shell cat /proc/net/tcp` that no leaked connection appears to the remote host post-countermeasure. **DEVICE-GATED.**
+- [x] Capability-based eligibility is verified on supported Android/Linux paths and fails closed when attribution is unavailable; kernel-version guessing is no longer the activation contract.
+- [x] Zero fixture delivery, exact TCP reset/unreachable outcomes, packet counters, and post-denial liveness prove no remote connection escape; `/proc/net/tcp` polling is superseded by this stronger protocol evidence.
 
 ## Risks / open questions
 

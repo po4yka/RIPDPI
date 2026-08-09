@@ -2,16 +2,19 @@
 id: EPC-1786264762917503
 title: Epic - June 2026 full-project audit remediation
 kind: epic
-status: doing
+status: todo
 area: epic
-priority: high
-owner: unassigned
+priority: medium
+owner: Architecture maintainer
 parent: null
-blocked_by: []
+blocked_by:
+  - CIC-1786272446167159
+  - RLY-1786264762917178
+  - RST-1786264762917099
 spec_mode: required
 openspec_change: epc-1786264762917503-epic-june-2026-audit-remediation
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
 ---

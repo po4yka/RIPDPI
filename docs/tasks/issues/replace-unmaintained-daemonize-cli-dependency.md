@@ -1,17 +1,17 @@
 ---
 id: RST-1786264762917942
 title: Replace unmaintained daemonize CLI dependency
-kind: feature
+kind: chore
 status: backlog
 area: rust-native
-priority: low
+priority: medium
 owner: Native security maintainer
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917942-replace-unmaintained-daemonize-cli-dependency
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-08-09
 ---
 
 ## Goal
@@ -24,7 +24,7 @@ Re-evaluate the waiver no later than 2026-10-11. The machine-checked expiry in `
 
 ## Acceptance criteria
 
-- `cargo tree --manifest-path native/rust/Cargo.toml -p ripdpi-android -i daemonize` remains empty.
-- The local CLI retains equivalent opt-in daemonization and PID-file behavior without `daemonize 0.5.0`.
-- `RUSTSEC-2025-0069` is removed from `native/rust/deny.toml` and `native/rust/advisory-waivers.toml`.
-- `cargo deny --manifest-path native/rust/Cargo.toml check advisories` and `python3 scripts/ci/check_rust_advisory_waivers.py` pass.
+- [ ] `cargo tree --manifest-path native/rust/Cargo.toml -p ripdpi-android -i daemonize` remains empty.
+- [ ] The local CLI retains equivalent opt-in daemonization and PID-file behavior without `daemonize 0.5.0`.
+- [ ] `RUSTSEC-2025-0069` is removed from `native/rust/deny.toml` and `native/rust/advisory-waivers.toml`.
+- [ ] `cargo deny --manifest-path native/rust/Cargo.toml check advisories` and `python3 scripts/ci/check_rust_advisory_waivers.py` pass.

@@ -174,7 +174,7 @@ Detalles: [docs/testing.md](docs/testing.md)
 - [Operaciones de strategy-pack y catálogo TLS](docs/strategy-pack-operations.md)
 - [Ejemplos de perfiles de relevo](docs/relay-profile-examples.md)
 - [Notas de arquitectura](docs/architecture/README.md)
-- [Hoja de ruta](ROADMAP.md)
+- [Task board](docs/tasks/board.md)
 
 ## Traducir RIPDPI
 
