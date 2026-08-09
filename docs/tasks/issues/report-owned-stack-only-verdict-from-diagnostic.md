@@ -5,6 +5,7 @@ kind: feature
 status: todo
 area: diagnostics
 priority: medium
+risk: high
 owner: Diagnostics policy maintainer
 parent: null
 blocked_by: []

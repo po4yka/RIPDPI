@@ -5,6 +5,7 @@ kind: feature
 status: blocked
 area: transport
 priority: medium
+risk: high
 owner: AmneziaWG interoperability maintainer
 parent: null
 blocked_by: []

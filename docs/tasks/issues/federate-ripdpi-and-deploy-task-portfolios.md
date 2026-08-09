@@ -5,6 +5,7 @@ kind: feature
 status: backlog
 area: ci
 priority: high
+risk: high
 owner: Tasking federation maintainer
 parent: null
 blocked_by: []

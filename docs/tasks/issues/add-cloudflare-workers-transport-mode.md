@@ -5,6 +5,7 @@ kind: feature
 status: backlog
 area: rust-native
 priority: low
+risk: high
 owner: Relay transport maintainer
 parent: null
 blocked_by: []

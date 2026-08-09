@@ -5,6 +5,7 @@ kind: bug
 status: todo
 area: relay
 priority: medium
+risk: high
 owner: Relay maintainer
 parent: EPC-1786264762917503
 blocked_by: []

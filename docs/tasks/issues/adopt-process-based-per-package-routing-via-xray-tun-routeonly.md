@@ -5,6 +5,7 @@ kind: feature
 status: blocked
 area: routing
 priority: medium
+risk: high
 owner: Android VPN device evidence maintainer
 parent: EPC-1786264762917557
 blocked_by: []

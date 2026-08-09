@@ -5,6 +5,7 @@ kind: epic
 status: todo
 area: epic
 priority: medium
+risk: high
 owner: Outbound protocol maintainer
 parent: null
 blocked_by:

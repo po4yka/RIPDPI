@@ -5,6 +5,7 @@ kind: feature
 status: backlog
 area: service
 priority: high
+risk: high
 owner: Release and service maintainer
 parent: null
 blocked_by: []

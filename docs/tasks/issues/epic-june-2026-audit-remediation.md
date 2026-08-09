@@ -5,6 +5,7 @@ kind: epic
 status: todo
 area: epic
 priority: medium
+risk: high
 owner: Architecture maintainer
 parent: null
 blocked_by:

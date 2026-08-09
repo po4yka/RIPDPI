@@ -5,6 +5,7 @@ kind: epic
 status: blocked
 area: epic
 priority: high
+risk: high
 owner: Xray provider maintainer
 parent: null
 blocked_by:

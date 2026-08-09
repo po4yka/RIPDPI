@@ -5,6 +5,7 @@ kind: feature
 status: todo
 area: outbound
 priority: high
+risk: high
 owner: Outbound protocol maintainer
 parent: EPC-1786264762917457
 blocked_by: []
