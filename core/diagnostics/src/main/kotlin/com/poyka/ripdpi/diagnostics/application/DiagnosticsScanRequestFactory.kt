@@ -125,7 +125,7 @@ internal class DiagnosticsScanRequestFactory
                         settings = original.settings,
                         preferredDnsPath = effectivePreferredDnsPath,
                         preferredEdges = scanContext.preferredEdges,
-                        protectPath = resolveProtectPath(context),
+                        protectPath = resolveProtectPath(context, pathMode),
                     ).withActiveProbeSafetyBudget(
                         scanOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE,
                         requestedMaxCandidates = null,
@@ -256,7 +256,7 @@ internal class DiagnosticsScanRequestFactory
                         settings = settings,
                         preferredDnsPath = scanContext.preferredDnsPath,
                         preferredEdges = scanContext.preferredEdges,
-                        protectPath = resolveProtectPath(context),
+                        protectPath = resolveProtectPath(context, pathMode),
                     ).withActiveProbeSafetyBudget(
                         scanOrigin = scanOrigin,
                         requestedMaxCandidates = maxCandidates,
@@ -458,13 +458,20 @@ private fun resolveStrategyProbeRuntimeContext(
 }
 
 /**
- * Returns the absolute path to the protect_path socket file used by VpnService.protect().
+ * Returns the absolute path to the protect_path socket used by VpnService.protect()
+ * only while the scan remains inside the active VPN path.
  *
- * Always returns the expected path — the socket is created by VpnProtectSocketServer when
- * the VPN service starts, which may happen after scan preparation but before the native
- * proxy actually connects.  The native code tolerates a missing socket gracefully.
+ * RAW_PATH orchestration stops the VPN runtime before starting the native bridge, so its
+ * protect backend is intentionally unavailable and must not be advertised to native probes.
  */
-private fun resolveProtectPath(context: Context): String = File(context.filesDir, "protect_path").absolutePath
+private fun resolveProtectPath(
+    context: Context,
+    pathMode: ScanPathMode,
+): String? =
+    when (pathMode) {
+        ScanPathMode.RAW_PATH -> null
+        ScanPathMode.IN_PATH -> File(context.filesDir, "protect_path").absolutePath
+    }
 
 internal fun selectStrategyProbeTargetsForSession(
     sessionId: String,

@@ -191,6 +191,19 @@ class DiagnosticsScanRequestFactoryTest {
         }
 
     @Test
+    fun `raw path strategy probe omits vpn protect backend`() =
+        runTest {
+            val request = prepareStrategyProbeRequest(settings = defaultDiagnosticsAppSettings())
+            val preferences =
+                requireNotNull(
+                    decodeRipDpiProxyUiPreferences(requireNotNull(request.strategyProbe?.baseProxyConfigJson)),
+                )
+
+            assertNull(preferences.runtimeContext?.protectPath)
+            assertNotNull(preferences.runtimeContext?.encryptedDns)
+        }
+
+    @Test
     fun `prepare scan preserves explicit scan origin`() =
         runTest {
             val settings = defaultDiagnosticsAppSettings()
@@ -406,9 +419,10 @@ class DiagnosticsScanRequestFactoryTest {
                 )
             val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = null)
             val context = strategyProbeContext(settings = settings, preferredDnsPath = collectedPreference)
+            val testContext = TestContext()
             val factory =
                 DiagnosticsScanRequestFactory(
-                    context = TestContext(),
+                    context = testContext,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     intentResolver =
                         object : DiagnosticsIntentResolver {
@@ -465,6 +479,14 @@ class DiagnosticsScanRequestFactoryTest {
             assertEquals(overridePath.protocol, runtimeDns.protocol)
             assertEquals(overridePath.host, runtimeDns.host)
             assertEquals(overridePath.port, runtimeDns.port)
+            val reprobePreferences =
+                requireNotNull(
+                    decodeRipDpiProxyUiPreferences(requireNotNull(request.strategyProbe?.baseProxyConfigJson)),
+                )
+            assertEquals(
+                File(testContext.filesDir, "protect_path").absolutePath,
+                reprobePreferences.runtimeContext?.protectPath,
+            )
         }
 
     private suspend fun prepareStrategyProbeRequest(
