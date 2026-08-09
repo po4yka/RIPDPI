@@ -352,6 +352,7 @@ class TaskctlContractTest(TaskctlFixture):
 
     def test_prepare_dropped_spec_preserves_open_step_as_dropped(self) -> None:
         self.add_active_spec_task(status="review", done=False)
+        self.add_simple_task()
         args = argparse.Namespace(
             root=self.root,
             query="DGN-1786234567890101",
@@ -367,9 +368,19 @@ class TaskctlContractTest(TaskctlFixture):
         ).read_text(encoding="utf-8")
 
         self.assertEqual("dropped", documents[0].values["status"])
-        self.assertEqual([], steps)
+        self.assertEqual(
+            ["CIC-1786234567890002"],
+            [step.task_id for step in steps],
+        )
         self.assertIn("DROPPED:", tasks_text)
         self.assertNotIn("- [x]", tasks_text)
+        receipt = json.loads(
+            (
+                self.root
+                / "openspec/changes/dgn-1786234567890101-change/.taskctl-drop.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(["DGN-1786234567890102"], receipt["dropped_step_ids"])
 
     def test_new_simple_task_uses_global_allocator_and_execution_contract(self) -> None:
         self.add_simple_task()

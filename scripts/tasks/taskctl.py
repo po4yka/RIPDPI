@@ -1470,7 +1470,8 @@ def command_close_prepare(args: argparse.Namespace) -> int:
             fail("dropped closure requires --reason")
         if not transition_allowed(document.values["status"], "dropped"):
             fail(f"cannot drop task from {document.values['status']}")
-        execution = prepare_dropped_execution(args.root, document, steps, args.reason)
+        task_steps = [step for step in steps if step.item_id == document.task_id]
+        execution = prepare_dropped_execution(args.root, document, task_steps, args.reason)
     values = dict(document.values)
     values["status"] = args.outcome
     values["updated"] = date.today().isoformat()
