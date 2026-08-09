@@ -2,7 +2,7 @@
 id: CIC-1786264762917931
 title: Integrate repository task management and OpenSpec
 kind: feature
-status: review
+status: done
 area: ci
 priority: high
 owner: Codex coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: cic-1786264762917931-integrate-repository-task-management-and-openspec
 created: 2026-08-09
 updated: 2026-08-09
+closed_at: "2026-08-09T10:15:58Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Forward repair committed review state at 6c6dcccf0 after the published lifecycle incident; integration evidence remains task-contract CI run 31306595281 with Issues disabled and Private Vulnerability Reporting enabled.
 ---
 
 ## Goal
