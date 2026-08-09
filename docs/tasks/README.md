@@ -26,6 +26,7 @@ priority: high
 owner: Role name
 parent: EPC-1786234567890001
 blocked_by: []
+related_tasks: []
 spec_mode: required
 openspec_change: dgn-1786234567890123-diagnostics-redesign
 created: YYYY-MM-DD
@@ -37,9 +38,11 @@ updated: YYYY-MM-DD
 - `status`: `backlog | todo | doing | review | blocked | done | dropped`.
 - `priority`: `critical | high | medium | low`.
 - `area`: `engine | rust-native | diagnostics | transport | outbound | dns | routing | vpn | proxy | relay | android | ui | data | service | testing | ci | epic`.
-- `parent`, `blocked_by`, and local `linked_task` values use stable IDs. `blocked_by` is canonical; reverse `blocks` is derived.
+- `parent`, `blocked_by`, and `related_tasks` use a local stable ID or a qualified external reference such as `po4yka/ripdpi-vpn-deploy#ANS-1786234567890123`.
+- `blocked_by` is canonical; reverse `blocks` is derived. External blockers remain unresolved in local `ready` output until a federation command receives the peer checkout.
 - A blocked task needs an in-repository blocker or a non-empty `status_detail` describing its external gate.
-- `source_wiki_pages`, `linked_task`, `status_detail`, and `status_note` are optional provenance/status fields.
+- `source_wiki_pages`, `related_tasks`, `status_detail`, and `status_note` are optional provenance/status fields.
+- Project identity, area prefixes, evidence categories, OpenSpec schema, and allowed federation peers live in `tools/tasking/project.json`.
 - `done` and `dropped` additionally require `closed_at`, `closed_reason`, and `evidence_summary`.
 
 The numeric suffix is a sortable allocation derived from UTC epoch milliseconds plus three random digits. It is globally unique across portfolio and execution IDs, even when prefixes differ. Worktrees belonging to the same Git repository coordinate allocations through a locked reservation file in the shared Git directory; the committed validator remains the cross-clone collision oracle. Area prefixes are enforced by `taskctl`: `ENG`, `RST`, `DGN`, `TRN`, `OUT`, `DNS`, `RTE`, `VPN`, `PRX`, `RLY`, `AND`, `UIX`, `DAT`, `SVC`, `TST`, `CIC`, and `EPC`.

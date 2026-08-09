@@ -14,9 +14,8 @@ created: 2026-07-10
 updated: 2026-08-09
 status_detail: Implementation and focused gates are complete; current main CI architecture-health is red until tracked PR 373 lands, so final exact-main evidence is pending.
 source_wiki_pages:
-  - whitelist-dpi-confirm-good-paradigm
+  - allowlist-path-confirm-good-paradigm
   - urltest-dual-transport-fallback
-linked_task: null
 ---
 
 ## Goal

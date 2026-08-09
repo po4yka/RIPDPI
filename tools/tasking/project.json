@@ -1,0 +1,35 @@
+{
+  "allowed_peers": [
+    "po4yka/ripdpi-vpn-deploy"
+  ],
+  "areas": {
+    "android": "AND",
+    "ci": "CIC",
+    "data": "DAT",
+    "diagnostics": "DGN",
+    "dns": "DNS",
+    "engine": "ENG",
+    "epic": "EPC",
+    "outbound": "OUT",
+    "proxy": "PRX",
+    "relay": "RLY",
+    "routing": "RTE",
+    "rust-native": "RST",
+    "service": "SVC",
+    "testing": "TST",
+    "transport": "TRN",
+    "ui": "UIX",
+    "vpn": "VPN"
+  },
+  "evidence_categories": [
+    "local",
+    "remote_ci",
+    "device",
+    "artifact",
+    "deployment"
+  ],
+  "federation_contract": 1,
+  "openspec_schema": "ripdpi-change",
+  "project": "po4yka/RIPDPI",
+  "schema": 1
+}

@@ -28,6 +28,7 @@ class TaskctlFixture(unittest.TestCase):
             (self.root / relative).mkdir(parents=True, exist_ok=True)
         asset = self.root / "tools/tasking/generated.txt"
         asset.write_text("fixture\n", encoding="utf-8")
+        self.write_project_config()
         (self.root / "tools/tasking/generated-assets.lock.json").write_text(
             json.dumps(
                 {
@@ -37,6 +38,30 @@ class TaskctlFixture(unittest.TestCase):
                         "tools/tasking/generated.txt": hashlib.sha256(asset.read_bytes()).hexdigest()
                     },
                 }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def write_project_config(
+        self,
+        *,
+        project: str = "po4yka/RIPDPI",
+        peers: list[str] | None = None,
+        contract: int = 1,
+    ) -> None:
+        (self.root / "tools/tasking/project.json").write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "federation_contract": contract,
+                    "project": project,
+                    "areas": taskctl.AREA_PREFIXES,
+                    "evidence_categories": list(taskctl.EVIDENCE_CATEGORIES),
+                    "openspec_schema": "ripdpi-change",
+                    "allowed_peers": peers if peers is not None else ["po4yka/ripdpi-vpn-deploy"],
+                },
+                sort_keys=True,
             )
             + "\n",
             encoding="utf-8",
@@ -745,6 +770,280 @@ print("{}")
 
         with self.assertRaisesRegex(taskctl.ContractError, "invalid OpenSpec archive receipt"):
             taskctl.validate_deleted_history(self.root, base)
+
+
+class TaskctlFederationTest(TaskctlFixture):
+    def setUp(self) -> None:
+        super().setUp()
+        self.peer_temp = tempfile.TemporaryDirectory(prefix="ripdpi-taskctl-peer-")
+        self.peer = Path(self.peer_temp.name)
+        for relative in ("docs/tasks/issues", "docs/tasks/work", "openspec/changes/archive", "tools/tasking"):
+            (self.peer / relative).mkdir(parents=True, exist_ok=True)
+        self.write_config(self.root, "po4yka/RIPDPI", ["po4yka/ripdpi-vpn-deploy"])
+        self.write_config(self.peer, "po4yka/ripdpi-vpn-deploy", ["po4yka/RIPDPI"])
+        self.init_git(self.root)
+        self.init_git(self.peer)
+
+    def tearDown(self) -> None:
+        self.peer_temp.cleanup()
+        super().tearDown()
+
+    def write_config(self, root: Path, project: str, peers: list[str]) -> None:
+        (root / "tools/tasking/project.json").write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "federation_contract": 1,
+                    "project": project,
+                    "areas": taskctl.AREA_PREFIXES,
+                    "evidence_categories": list(taskctl.EVIDENCE_CATEGORIES),
+                    "openspec_schema": "ripdpi-change",
+                    "allowed_peers": peers,
+                },
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def init_git(self, root: Path) -> None:
+        subprocess.run(("git", "init", "-q"), cwd=root, check=True)
+        subprocess.run(("git", "config", "user.name", "Taskctl Test"), cwd=root, check=True)
+        subprocess.run(("git", "config", "user.email", "taskctl@example.invalid"), cwd=root, check=True)
+
+    def commit(self, root: Path, message: str) -> str:
+        subprocess.run(("git", "add", "."), cwd=root, check=True)
+        subprocess.run(("git", "commit", "-q", "-m", message), cwd=root, check=True)
+        return subprocess.run(
+            ("git", "rev-parse", "HEAD"), cwd=root, check=True, text=True, stdout=subprocess.PIPE
+        ).stdout.strip()
+
+    def add_task(
+        self,
+        root: Path,
+        task_id: str,
+        *,
+        status: str = "todo",
+        blockers: list[str] | None = None,
+        related: list[str] | None = None,
+    ) -> Path:
+        values = {
+            "id": task_id,
+            "title": f"Task {task_id}",
+            "kind": "chore",
+            "status": status,
+            "area": "ci",
+            "priority": "high",
+            "owner": "test",
+            "parent": None,
+            "blocked_by": blockers or [],
+            "related_tasks": related or [],
+            "spec_mode": "not-required",
+            "openspec_change": None,
+            "created": "2026-08-09",
+            "updated": "2026-08-09",
+            "spec_reason": "tooling-only",
+        }
+        path = root / "docs/tasks/issues" / f"{task_id.casefold()}.md"
+        path.write_text(taskctl.render_document(values, "## Goal\n\nFixture.\n"), encoding="utf-8")
+        prefix, suffix = task_id.split("-", 1)
+        step_id = f"{prefix}-{int(suffix) + 1:016d}"
+        (root / "docs/tasks/work" / f"{task_id}.md").write_text(
+            f"- [ ] {step_id} Execute fixture !high #chore @item:{task_id}\n",
+            encoding="utf-8",
+        )
+        documents, steps = taskctl.load_state(root)
+        (root / "docs/tasks/board.md").write_text(taskctl.render_board(root, documents, steps), encoding="utf-8")
+        return path
+
+    def test_export_is_deterministic_and_omits_body_and_evidence(self) -> None:
+        self.add_task(self.root, "CIC-1786234567890001")
+        self.commit(self.root, "add task")
+
+        first = json.dumps(taskctl.export_payload(self.root), sort_keys=True)
+        second = json.dumps(taskctl.export_payload(self.root), sort_keys=True)
+
+        self.assertEqual(first, second)
+        self.assertNotIn("Fixture", first)
+        self.assertNotIn("evidence", first.casefold())
+
+    def test_equal_local_ids_remain_distinct_and_reverse_block_is_derived(self) -> None:
+        task_id = "CIC-1786234567890001"
+        self.add_task(self.root, task_id)
+        self.add_task(self.peer, task_id, blockers=[f"po4yka/RIPDPI#{task_id}"])
+        self.commit(self.root, "add local task")
+        self.commit(self.peer, "add peer task")
+
+        payload = taskctl.federation_payload(self.root, self.peer)
+        by_id = {node["id"]: node for node in payload["tasks"]}
+
+        self.assertEqual(2, len(by_id))
+        self.assertEqual(
+            [f"po4yka/ripdpi-vpn-deploy#{task_id}"],
+            by_id[f"po4yka/RIPDPI#{task_id}"]["blocks"],
+        )
+        self.assertNotIn(f"po4yka/ripdpi-vpn-deploy#{task_id}", {node["id"] for node in payload["ready"]})
+
+    def test_cross_repository_blocker_cycle_is_rejected(self) -> None:
+        local_id = "CIC-1786234567890001"
+        peer_id = "CIC-1786234567890003"
+        self.add_task(self.root, local_id, blockers=[f"po4yka/ripdpi-vpn-deploy#{peer_id}"])
+        self.add_task(self.peer, peer_id, blockers=[f"po4yka/RIPDPI#{local_id}"])
+        self.commit(self.root, "add local cycle edge")
+        self.commit(self.peer, "add peer cycle edge")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "federated blocker cycle"):
+            taskctl.federation_payload(self.root, self.peer)
+
+    def test_unknown_peer_and_missing_peer_task_fail_closed(self) -> None:
+        with self.assertRaisesRegex(taskctl.ContractError, "unapproved project"):
+            self.add_task(
+                self.root,
+                "CIC-1786234567890001",
+                blockers=["someone/unknown#CIC-1786234567890003"],
+            )
+        (self.root / "docs/tasks/issues/cic-1786234567890001.md").unlink()
+        (self.root / "docs/tasks/work/CIC-1786234567890001.md").unlink()
+        self.add_task(
+            self.root,
+            "CIC-1786234567890001",
+            blockers=["po4yka/ripdpi-vpn-deploy#CIC-1786234567890999"],
+        )
+        self.add_task(self.peer, "CIC-1786234567890003")
+        self.commit(self.root, "add missing peer reference")
+        self.commit(self.peer, "add peer anchor")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "missing federated task"):
+            taskctl.federation_payload(self.root, self.peer)
+
+    def test_incompatible_contract_is_rejected_before_graph_evaluation(self) -> None:
+        self.add_task(self.root, "CIC-1786234567890001")
+        self.add_task(self.peer, "CIC-1786234567890003")
+        config_path = self.peer / "tools/tasking/project.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["federation_contract"] = 2
+        config_path.write_text(json.dumps(config) + "\n", encoding="utf-8")
+        self.commit(self.root, "add local task")
+        self.commit(self.peer, "add incompatible peer")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "unsupported federation contract"):
+            taskctl.federation_payload(self.root, self.peer)
+
+    def test_active_dropped_blocker_is_rejected(self) -> None:
+        blocker_id = "CIC-1786234567890001"
+        consumer_id = "CIC-1786234567890005"
+        blocker = self.add_task(self.peer, blocker_id, status="review")
+        self.add_task(self.root, consumer_id, blockers=[f"po4yka/ripdpi-vpn-deploy#{blocker_id}"])
+        document = taskctl.read_document(blocker)
+        values = dict(document.values)
+        values.update(
+            {
+                "status": "dropped",
+                "closed_at": "2026-08-09T00:00:00Z",
+                "closed_reason": "Cancelled.",
+                "evidence_summary": "Cancellation recorded.",
+            }
+        )
+        blocker.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.peer / f"docs/tasks/work/{blocker_id}.md"
+        step_id = taskctl.read_steps(work)[0].task_id
+        work.write_text(
+            work.read_text(encoding="utf-8").replace(
+                f"- [ ] {step_id}", f"- {step_id} DROPPED:"
+            ),
+            encoding="utf-8",
+        )
+        terminal = taskctl.read_document(blocker)
+        taskctl.write_lifecycle_receipt(
+            self.peer,
+            terminal,
+            work,
+            "drop",
+            {
+                "schema": 1,
+                "task_id": blocker_id,
+                "change": None,
+                "outcome": "dropped",
+                "dropped_step_ids": [step_id],
+            },
+        )
+        taskctl.write_lifecycle_receipt(
+            self.peer,
+            terminal,
+            work,
+            "close",
+            {
+                "schema": 1,
+                "task_id": blocker_id,
+                "change": None,
+                "outcome": "dropped",
+                "issue_sha256": hashlib.sha256(blocker.read_bytes()).hexdigest(),
+                "execution_sha256": hashlib.sha256(work.read_bytes()).hexdigest(),
+            },
+        )
+        peer_documents, peer_steps = taskctl.load_state(self.peer)
+        (self.peer / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.peer, peer_documents, peer_steps), encoding="utf-8"
+        )
+        self.commit(self.root, "add consumer")
+        self.commit(self.peer, "record dropped blocker")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "blocker .* was dropped"):
+            taskctl.federation_payload(self.root, self.peer)
+
+    def test_purged_done_blocker_resolves_from_terminal_history(self) -> None:
+        blocker_id = "CIC-1786234567890001"
+        consumer_id = "CIC-1786234567890005"
+        self.add_task(self.peer, "CIC-1786234567890003")
+        blocker = self.add_task(self.peer, blocker_id, status="review")
+        self.commit(self.peer, "add peer tasks")
+        document = taskctl.read_document(blocker)
+        values = dict(document.values)
+        values.update(
+            {
+                "status": "done",
+                "closed_at": "2026-08-09T00:00:00Z",
+                "closed_reason": "Verified.",
+                "evidence_summary": "Federation fixture passed.",
+            }
+        )
+        blocker.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.peer / f"docs/tasks/work/{blocker_id}.md"
+        work.write_text(work.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        terminal = taskctl.read_document(blocker)
+        taskctl.write_lifecycle_receipt(
+            self.peer,
+            terminal,
+            work,
+            "close",
+            {
+                "schema": 1,
+                "task_id": blocker_id,
+                "change": None,
+                "outcome": "done",
+                "issue_sha256": hashlib.sha256(blocker.read_bytes()).hexdigest(),
+                "execution_sha256": hashlib.sha256(work.read_bytes()).hexdigest(),
+            },
+        )
+        self.commit(self.peer, "prepare terminal blocker")
+        blocker.unlink()
+        work.unlink()
+        work.with_suffix(".close.json").unlink()
+        anchor_docs, anchor_steps = taskctl.load_state(self.peer)
+        (self.peer / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.peer, anchor_docs, anchor_steps), encoding="utf-8"
+        )
+        self.commit(self.peer, "purge terminal blocker")
+        self.add_task(self.root, consumer_id, blockers=[f"po4yka/ripdpi-vpn-deploy#{blocker_id}"])
+        self.commit(self.root, "add consumer")
+
+        payload = taskctl.federation_payload(self.root, self.peer)
+        ready_ids = {node["id"] for node in payload["ready"]}
+
+        self.assertIn(f"po4yka/RIPDPI#{consumer_id}", ready_ids)
+        historical = next(node for node in payload["tasks"] if node["id"].endswith(f"#{blocker_id}"))
+        self.assertTrue(historical["historical"])
+        self.assertEqual("done", historical["status"])
 
 
 class TaskctlConcurrencyTest(TaskctlFixture):
