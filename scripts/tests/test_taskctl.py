@@ -395,6 +395,43 @@ class TaskctlContractTest(TaskctlFixture):
         suffixes = [taskctl.ID_RE.fullmatch(document.task_id).group(2) for document in documents]
         suffixes.extend(taskctl.ID_RE.fullmatch(step.task_id).group(2) for step in steps)
         self.assertEqual(len(suffixes), len(set(suffixes)))
+        created = next(document for document in documents if document.values["title"] == args.title)
+        work = self.root / "docs/tasks/work" / f"{created.task_id}.md"
+        self.assertNotIn("!medium", work.read_text(encoding="utf-8"))
+
+    def test_new_task_uses_supported_mdtask_priority_tokens(self) -> None:
+        self.add_simple_task()
+        for priority, token in (
+            ("critical", "!crit"),
+            ("high", "!high"),
+            ("medium", None),
+            ("low", "!low"),
+        ):
+            with self.subTest(priority=priority):
+                args = argparse.Namespace(
+                    root=self.root,
+                    title=f"Repair {priority} tooling",
+                    kind="bug",
+                    area="ci",
+                    priority=priority,
+                    owner="test",
+                    parent=None,
+                    slug=None,
+                    spec_mode="not-required",
+                    spec_reason="tooling-only",
+                    openspec_change=None,
+                )
+
+                self.assertEqual(0, taskctl.command_new(args))
+                documents, _ = taskctl.load_state(self.root)
+                created = next(document for document in documents if document.values["title"] == args.title)
+                work = self.root / "docs/tasks/work" / f"{created.task_id}.md"
+                text = work.read_text(encoding="utf-8")
+
+                if token is None:
+                    self.assertNotRegex(text, r" !(?:crit|critical|high|medium|low) ")
+                else:
+                    self.assertIn(f" {token} ", text)
 
     def test_archived_change_requires_taskctl_receipt(self) -> None:
         self.add_archived_spec_task(receipt=False)
@@ -459,6 +496,42 @@ class TaskctlHistoryTest(TaskctlFixture):
         self.git("add", ".")
         self.git("commit", "-q", "-m", message)
         return self.git("rev-parse", "HEAD")
+
+    def prepare_simple_terminal(self, path: Path) -> None:
+        document = taskctl.read_document(path)
+        values = dict(document.values)
+        values.update(
+            {
+                "status": "done",
+                "closed_at": "2026-08-09T00:00:00Z",
+                "closed_reason": "Verified.",
+                "evidence_summary": "Unit fixture passed.",
+            }
+        )
+        path.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.write_text(work.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        terminal = taskctl.read_document(path)
+        taskctl.write_lifecycle_receipt(
+            self.root,
+            terminal,
+            work,
+            "close",
+            {
+                "schema": 1,
+                "task_id": terminal.task_id,
+                "change": None,
+                "outcome": "done",
+                "issue_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "execution_sha256": hashlib.sha256(work.read_bytes()).hexdigest(),
+            },
+        )
+
+    def purge_simple_task(self, path: Path) -> None:
+        path.unlink()
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.unlink()
+        work.with_suffix(".close.json").unlink()
 
     def test_deletion_without_terminal_commit_is_rejected(self) -> None:
         path = self.add_simple_task()
@@ -548,6 +621,44 @@ class TaskctlHistoryTest(TaskctlFixture):
         self.commit_all("purge task")
 
         taskctl.validate_deleted_history(self.root, base)
+
+    def test_latest_reintroduced_incarnation_repairs_published_invalid_transition(self) -> None:
+        path = self.add_simple_task(status="doing")
+        self.write_board()
+        base = self.commit_all("add doing task")
+        self.prepare_simple_terminal(path)
+        self.commit_all("publish invalid direct terminal state")
+        self.purge_simple_task(path)
+        self.commit_all("publish invalid purge")
+
+        path = self.add_simple_task(status="review")
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.write_text(work.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        self.commit_all("reintroduce committed review state")
+        self.prepare_simple_terminal(path)
+        self.commit_all("record repaired terminal state")
+        self.purge_simple_task(path)
+        self.commit_all("purge repaired task")
+
+        taskctl.validate_deleted_history(self.root, base)
+
+    def test_reintroduced_task_cannot_skip_committed_review_state(self) -> None:
+        path = self.add_simple_task(status="doing")
+        self.write_board()
+        base = self.commit_all("add doing task")
+        self.prepare_simple_terminal(path)
+        self.commit_all("publish invalid direct terminal state")
+        self.purge_simple_task(path)
+        self.commit_all("publish invalid purge")
+
+        path = self.add_simple_task(status="review")
+        self.prepare_simple_terminal(path)
+        self.commit_all("reintroduce task directly as done")
+        self.purge_simple_task(path)
+        self.commit_all("purge unrepaired task")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "invalid terminal transition missing -> done"):
+            taskctl.validate_deleted_history(self.root, base)
 
     def test_dropped_openspec_change_archives_without_syncing_normative_specs(self) -> None:
         self.add_active_spec_task(status="review", done=False)

@@ -28,6 +28,12 @@ STATUSES = frozenset((*STATUS_ORDER, "done", "dropped"))
 KINDS = frozenset(("feature", "bug", "chore", "research", "epic"))
 PRIORITIES = ("critical", "high", "medium", "low")
 PRIORITY_ORDER = {value: index for index, value in enumerate(PRIORITIES)}
+MDTASK_PRIORITY_TOKENS = {
+    "critical": " !crit",
+    "high": " !high",
+    "medium": "",
+    "low": " !low",
+}
 AREA_PREFIXES = {
     "engine": "ENG",
     "rust-native": "RST",
@@ -840,19 +846,28 @@ def validate_deleted_history(root: Path, base: str) -> None:
             base_snapshot = document_at(base)
             terminal_ref: str | None = None
             prior_status: str | None = None
-            if base_snapshot and base_snapshot[0].values.get("status") in {"done", "dropped"}:
+            history = run_command(
+                ("git", "log", "--reverse", "--format=%H", f"{base}..{previous_ref}", "--", relative),
+                root=root,
+            )
+            snapshots = [(base, base_snapshot)]
+            snapshots.extend(
+                (commit, document_at(commit))
+                for commit in filter(None, (history.stdout or "").splitlines())
+            )
+            last_absent = max(
+                (index for index, (_, snapshot) in enumerate(snapshots) if snapshot is None),
+                default=-1,
+            )
+            if (
+                last_absent == -1
+                and base_snapshot
+                and base_snapshot[0].values.get("status") in {"done", "dropped"}
+            ):
                 terminal_ref = base
-                prior_status = None
             else:
-                prior_status = base_snapshot[0].values.get("status") if base_snapshot else None
-                history = run_command(
-                    ("git", "log", "--reverse", "--format=%H", f"{base}..{previous_ref}", "--", relative),
-                    root=root,
-                )
-                for commit in filter(None, (history.stdout or "").splitlines()):
-                    snapshot = document_at(commit)
-                    if snapshot is None:
-                        continue
+                for commit, snapshot in snapshots[last_absent + 1 :]:
+                    assert snapshot is not None
                     status = snapshot[0].values.get("status")
                     if status in {"done", "dropped"}:
                         terminal_ref = commit
@@ -860,13 +875,12 @@ def validate_deleted_history(root: Path, base: str) -> None:
                     prior_status = status
             if terminal_ref is None:
                 fail(f"{relative}: terminal transition commit is missing")
-            if prior_status is not None:
-                if outcome == "done" and prior_status != "review":
-                    fail(f"{relative}: invalid terminal transition {prior_status} -> done")
-                if outcome == "dropped" and (
-                    prior_status not in STATUSES or not transition_allowed(prior_status, "dropped")
-                ):
-                    fail(f"{relative}: invalid terminal transition {prior_status} -> dropped")
+            if outcome == "done" and prior_status != "review" and terminal_ref != base:
+                fail(f"{relative}: invalid terminal transition {prior_status or 'missing'} -> done")
+            if outcome == "dropped" and terminal_ref != base and (
+                prior_status not in STATUSES or not transition_allowed(prior_status, "dropped")
+            ):
+                fail(f"{relative}: invalid terminal transition {prior_status or 'missing'} -> dropped")
 
             terminal_snapshot = document_at(terminal_ref)
             assert terminal_snapshot is not None
@@ -1194,7 +1208,7 @@ def command_new(args: argparse.Namespace) -> int:
         work.parent.mkdir(parents=True, exist_ok=True)
         step_id = allocate_id(args.root, args.area, used | {ID_RE.fullmatch(task_id).group(2)})  # type: ignore[union-attr]
         work.write_text(
-            f"# {task_id}: {args.title}\n\n## Objective\n\n{args.title}\n\n## Ownership\n\nDeclare owned paths before implementation.\n\n## Execution\n\n- [ ] {step_id} Define implementation and verification #{args.kind} !{args.priority} @item:{task_id}\n",
+            f"# {task_id}: {args.title}\n\n## Objective\n\n{args.title}\n\n## Ownership\n\nDeclare owned paths before implementation.\n\n## Execution\n\n- [ ] {step_id} Define implementation and verification #{args.kind}{MDTASK_PRIORITY_TOKENS[args.priority]} @item:{task_id}\n",
             encoding="utf-8",
         )
     else:
