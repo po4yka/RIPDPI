@@ -49,7 +49,7 @@ fn emit_diagnostics_event(
     let policy_signature = log_context.and_then(|context| context.policy_signature.as_deref()).unwrap_or("");
     let fingerprint_hash = log_context.and_then(|context| context.fingerprint_hash.as_deref()).unwrap_or("");
     let diagnostics_session_id =
-        log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or("");
+        log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or(session_id);
 
     match level.trim().to_ascii_lowercase().as_str() {
         "trace" => tracing::trace!(

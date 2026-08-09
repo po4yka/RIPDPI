@@ -19,6 +19,7 @@ pub struct MonitorSession {
     pub(super) shared: Arc<Mutex<SharedState>>,
     pub(super) cancel: Arc<AtomicBool>,
     pub(super) worker: Mutex<Option<JoinHandle<()>>>,
+    active_session_id: Mutex<Option<String>>,
     pub(super) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(super) platform_bridge: Arc<dyn MonitorPlatformBridge>,
     pub(super) candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
@@ -61,6 +62,7 @@ impl MonitorSession {
             shared: Arc::new(Mutex::new(SharedState::default())),
             cancel: Arc::new(AtomicBool::new(false)),
             worker: Mutex::new(None),
+            active_session_id: Mutex::new(None),
             tls_verifier,
             platform_bridge,
             candidate_runtime_launcher,
@@ -76,7 +78,9 @@ impl MonitorSession {
             return Err("diagnostics scan already running".to_string());
         }
         self.cancel.store(false, Ordering::Release);
-        self.platform_bridge.clear_passive_events();
+        self.platform_bridge.clear_passive_events(&session_id);
+        *self.active_session_id.lock().map_err(|_| "monitor session id poisoned".to_string())? =
+            Some(session_id.clone());
         {
             let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             shared.progress = None;
@@ -114,7 +118,9 @@ impl MonitorSession {
     }
 
     pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
-        passive_events_to_json(self.platform_bridge.drain_passive_events())
+        let session_id = self.active_session_id.lock().map_err(|_| "monitor session id poisoned".to_string())?.clone();
+        let events = session_id.as_deref().map(|id| self.platform_bridge.drain_passive_events(id)).unwrap_or_default();
+        passive_events_to_json(events)
     }
 
     /// Cancel the active scan and retire its worker without blocking the caller.
@@ -144,11 +150,47 @@ impl MonitorSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ProbeResult, ScanCompletionKind, ScanPathMode, ScanReport};
+    use crate::types::{NativeSessionEvent, ProbeResult, ScanCompletionKind, ScanPathMode, ScanReport};
     use ripdpi_telemetry::recorder::RecorderSnapshot;
     use std::sync::mpsc;
     use std::thread;
     use std::time::{Duration, Instant};
+
+    #[derive(Default)]
+    struct RecordingPlatformBridge {
+        drained_session_ids: Mutex<Vec<String>>,
+    }
+
+    impl MonitorPlatformBridge for RecordingPlatformBridge {
+        fn drain_passive_events(&self, session_id: &str) -> Vec<NativeSessionEvent> {
+            self.drained_session_ids.lock().expect("drained session ids").push(session_id.to_string());
+            vec![NativeSessionEvent {
+                source: "test".to_string(),
+                level: "info".to_string(),
+                message: session_id.to_string(),
+                created_at: 0,
+                runtime_id: None,
+                mode: None,
+                policy_signature: None,
+                fingerprint_hash: None,
+                subsystem: Some("diagnostics".to_string()),
+            }]
+        }
+    }
+
+    #[test]
+    fn passive_events_are_polled_for_the_active_session_only() {
+        let platform_bridge = Arc::new(RecordingPlatformBridge::default());
+        let session = MonitorSession::with_platform_bridge(platform_bridge.clone());
+        *session.active_session_id.lock().expect("active session id") = Some("stage-b".to_string());
+
+        let payload = session.poll_passive_events_json().expect("poll passive events").expect("event payload");
+        let events: Vec<NativeSessionEvent> = serde_json::from_str(&payload).expect("decode event payload");
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].message, "stage-b");
+        assert_eq!(*platform_bridge.drained_session_ids.lock().expect("drained session ids"), ["stage-b"]);
+    }
 
     #[test]
     fn take_report_consumes_finished_report() {

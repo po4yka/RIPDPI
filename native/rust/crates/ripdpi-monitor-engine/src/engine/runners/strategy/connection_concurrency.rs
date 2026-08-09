@@ -80,7 +80,15 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                 &profiles,
                 || runtime.is_cancelled() || runtime.is_past_deadline(),
                 |profile, level| {
-                    execute_cell(target, &metadata.cohort_id, address, profile, level, runtime.scan_deadline())
+                    execute_cell(
+                        target,
+                        &metadata.cohort_id,
+                        address,
+                        profile,
+                        level,
+                        runtime.scan_deadline(),
+                        &plan.session_id,
+                    )
                 },
             );
             for cell in &target_matrix.cells {
@@ -207,22 +215,28 @@ fn execute_cell(
     profile: &str,
     parallelism: u16,
     deadline: Option<Instant>,
+    diagnostics_session_id: &str,
 ) -> ClassifierCell {
     execute_cell_with(target, cohort_id, address, profile, parallelism, deadline, |host, address, profile| {
         let timeout =
             ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
         let connector = ripdpi_tls_profiles::build_connector(profile, true).map_err(|error| error.to_string())?;
-        let stream = protected_tcp_connect(address, timeout).map_err(|error| error.to_string())?;
+        let stream =
+            protected_tcp_connect(address, timeout, diagnostics_session_id).map_err(|error| error.to_string())?;
         stream.set_read_timeout(Some(timeout)).map_err(|error| error.to_string())?;
         stream.set_write_timeout(Some(timeout)).map_err(|error| error.to_string())?;
         connector.connect(host, stream).map_err(|error| error.to_string())
     })
 }
 
-fn protected_tcp_connect(address: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
+fn protected_tcp_connect(
+    address: SocketAddr,
+    timeout: Duration,
+    diagnostics_session_id: &str,
+) -> io::Result<TcpStream> {
     let domain = if address.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    ripdpi_runtime_platform::vpn::protect_diagnostics_socket(&socket, None)?;
+    ripdpi_runtime_platform::vpn::protect_diagnostics_socket(&socket, None, diagnostics_session_id)?;
     socket.connect_timeout(&SockAddr::from(address), timeout)?;
     Ok(socket.into())
 }
@@ -632,7 +646,8 @@ mod tests {
             let cell = execute_cell_with(&target, "fixture", address, profile, 2, None, |host, address, profile| {
                 let connector =
                     ripdpi_tls_profiles::build_connector(profile, false).map_err(|error| error.to_string())?;
-                let stream = protected_tcp_connect(address, CONNECT_TIMEOUT).map_err(|error| error.to_string())?;
+                let stream =
+                    protected_tcp_connect(address, CONNECT_TIMEOUT, "fixture").map_err(|error| error.to_string())?;
                 connector.connect(host, stream).map_err(|error| error.to_string())
             });
             assert_eq!(cell.status, ClassifierStatus::Healthy, "{profile}");

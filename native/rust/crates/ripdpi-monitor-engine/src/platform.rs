@@ -3,9 +3,9 @@ use log::LevelFilter;
 use crate::contracts::NativeSessionEvent;
 
 pub trait MonitorPlatformBridge: Send + Sync {
-    fn clear_passive_events(&self) {}
+    fn clear_passive_events(&self, _session_id: &str) {}
 
-    fn drain_passive_events(&self) -> Vec<NativeSessionEvent> {
+    fn drain_passive_events(&self, _session_id: &str) -> Vec<NativeSessionEvent> {
         Vec::new()
     }
 

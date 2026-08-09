@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativeEventRecord {
@@ -81,12 +79,13 @@ struct EventRingBuffersInner {
 struct EventQueue {
     sender: flume::Sender<NativeEventRecord>,
     receiver: flume::Receiver<NativeEventRecord>,
+    operation_gate: Mutex<()>,
 }
 
 impl EventQueue {
     fn bounded(capacity: usize) -> Self {
         let (sender, receiver) = flume::bounded(capacity.max(1));
-        Self { sender, receiver }
+        Self { sender, receiver, operation_gate: Mutex::new(()) }
     }
 
     fn push_drop_oldest(&self, event: NativeEventRecord) {
@@ -100,12 +99,42 @@ impl EventQueue {
         }
     }
 
+    fn push_drop_oldest_routed(&self, event: NativeEventRecord) {
+        let _guard = self.operation_gate.lock().unwrap_or_else(PoisonError::into_inner);
+        self.push_drop_oldest(event);
+    }
+
     fn drain(&self) -> Vec<NativeEventRecord> {
         self.receiver.try_iter().collect()
     }
 
+    fn drain_routed(&self) -> Vec<NativeEventRecord> {
+        let _guard = self.operation_gate.lock().unwrap_or_else(PoisonError::into_inner);
+        self.drain()
+    }
+
     fn clear(&self) {
         for _ in self.receiver.try_iter() {}
+    }
+
+    fn clear_routed(&self) {
+        let _guard = self.operation_gate.lock().unwrap_or_else(PoisonError::into_inner);
+        self.clear();
+    }
+
+    fn drain_matching(&self, mut predicate: impl FnMut(&NativeEventRecord) -> bool) -> Vec<NativeEventRecord> {
+        let _guard = self.operation_gate.lock().unwrap_or_else(PoisonError::into_inner);
+        let (matching, retained): (Vec<_>, Vec<_>) = self.receiver.try_iter().partition(|event| predicate(event));
+        for event in retained {
+            if self.sender.try_send(event).is_err() {
+                log::error!("failed to retain routed native event");
+            }
+        }
+        matching
+    }
+
+    fn clear_matching(&self, predicate: impl FnMut(&NativeEventRecord) -> bool) {
+        drop(self.drain_matching(predicate));
     }
 }
 
@@ -153,6 +182,10 @@ impl EventRingBuffers {
         self.drain(EventRing::Diagnostics)
     }
 
+    pub fn drain_diagnostics_for_session(&self, session_id: &str) -> Vec<NativeEventRecord> {
+        self.inner.diagnostics.drain_matching(|event| event.diagnostics_session_id.as_deref() == Some(session_id))
+    }
+
     pub fn clear_proxy(&self) {
         self.clear(EventRing::Proxy);
     }
@@ -173,16 +206,29 @@ impl EventRingBuffers {
         self.clear(EventRing::Diagnostics);
     }
 
+    pub fn clear_diagnostics_for_session(&self, session_id: &str) {
+        self.inner.diagnostics.clear_matching(|event| event.diagnostics_session_id.as_deref() == Some(session_id));
+    }
+
     pub(crate) fn push(&self, ring: EventRing, event: NativeEventRecord) {
-        self.ring(ring).push_drop_oldest(event);
+        match ring {
+            EventRing::Diagnostics => self.inner.diagnostics.push_drop_oldest_routed(event),
+            _ => self.ring(ring).push_drop_oldest(event),
+        }
     }
 
     fn drain(&self, ring: EventRing) -> Vec<NativeEventRecord> {
-        self.ring(ring).drain()
+        match ring {
+            EventRing::Diagnostics => self.inner.diagnostics.drain_routed(),
+            _ => self.ring(ring).drain(),
+        }
     }
 
     fn clear(&self, ring: EventRing) {
-        self.ring(ring).clear();
+        match ring {
+            EventRing::Diagnostics => self.inner.diagnostics.clear_routed(),
+            _ => self.ring(ring).clear(),
+        }
     }
 
     fn ring(&self, ring: EventRing) -> &EventQueue {
@@ -221,6 +267,10 @@ pub fn drain_diagnostics_events() -> Vec<NativeEventRecord> {
     global_event_rings().drain_diagnostics()
 }
 
+pub fn drain_diagnostics_events_for_session(session_id: &str) -> Vec<NativeEventRecord> {
+    global_event_rings().drain_diagnostics_for_session(session_id)
+}
+
 pub fn clear_proxy_events() {
     global_event_rings().clear_proxy();
 }
@@ -239,6 +289,10 @@ pub fn clear_tunnel_events() {
 
 pub fn clear_diagnostics_events() {
     global_event_rings().clear_diagnostics();
+}
+
+pub fn clear_diagnostics_events_for_session(session_id: &str) {
+    global_event_rings().clear_diagnostics_for_session(session_id);
 }
 
 #[cfg(test)]
@@ -281,6 +335,52 @@ mod tests {
         rings.clear_diagnostics();
 
         assert!(rings.drain_diagnostics().is_empty());
+    }
+
+    #[test]
+    fn diagnostics_session_drain_preserves_parallel_session_events() {
+        let rings = EventRingBuffers::new(RingConfig::default());
+        let mut stage_a_first = event("stage-a-first");
+        stage_a_first.diagnostics_session_id = Some("stage-a".to_string());
+        let mut stage_b = event("stage-b");
+        stage_b.diagnostics_session_id = Some("stage-b".to_string());
+        let mut stage_a_second = event("stage-a-second");
+        stage_a_second.diagnostics_session_id = Some("stage-a".to_string());
+
+        rings.push(EventRing::Diagnostics, stage_a_first);
+        rings.push(EventRing::Diagnostics, stage_b);
+        rings.push(EventRing::Diagnostics, stage_a_second);
+
+        let stage_a_rings = rings.clone();
+        let stage_a = std::thread::spawn(move || stage_a_rings.drain_diagnostics_for_session("stage-a"));
+        let stage_b_rings = rings.clone();
+        let stage_b = std::thread::spawn(move || stage_b_rings.drain_diagnostics_for_session("stage-b"));
+        let stage_a_messages =
+            stage_a.join().expect("stage-a drain").into_iter().map(|event| event.message).collect::<Vec<_>>();
+        let stage_b_messages =
+            stage_b.join().expect("stage-b drain").into_iter().map(|event| event.message).collect::<Vec<_>>();
+
+        assert_eq!(stage_a_messages, ["stage-a-first", "stage-a-second"]);
+        assert_eq!(stage_b_messages, ["stage-b"]);
+    }
+
+    #[test]
+    fn diagnostics_session_clear_preserves_parallel_session_events() {
+        let rings = EventRingBuffers::new(RingConfig::default());
+        let mut stage_a = event("stale-stage-a");
+        stage_a.diagnostics_session_id = Some("stage-a".to_string());
+        let mut stage_b = event("active-stage-b");
+        stage_b.diagnostics_session_id = Some("stage-b".to_string());
+        rings.push(EventRing::Diagnostics, stage_a);
+        rings.push(EventRing::Diagnostics, stage_b);
+
+        rings.clear_diagnostics_for_session("stage-a");
+
+        assert!(rings.drain_diagnostics_for_session("stage-a").is_empty());
+        assert_eq!(
+            rings.drain_diagnostics_for_session("stage-b").into_iter().map(|event| event.message).collect::<Vec<_>>(),
+            ["active-stage-b"],
+        );
     }
 
     #[test]

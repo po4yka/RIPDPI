@@ -14,9 +14,10 @@ mod tests;
 use jni::sys::jint;
 
 pub use events::{
-    EventRingBuffers, NativeEventRecord, RingConfig, clear_diagnostics_events, clear_proxy_events, clear_relay_events,
-    clear_tunnel_events, clear_warp_events, drain_diagnostics_events, drain_proxy_events, drain_relay_events,
-    drain_tunnel_events, drain_warp_events,
+    EventRingBuffers, NativeEventRecord, RingConfig, clear_diagnostics_events, clear_diagnostics_events_for_session,
+    clear_proxy_events, clear_relay_events, clear_tunnel_events, clear_warp_events, drain_diagnostics_events,
+    drain_diagnostics_events_for_session, drain_proxy_events, drain_relay_events, drain_tunnel_events,
+    drain_warp_events,
 };
 pub use exceptions::{
     describe_exception, sanitize_error_message, throw_illegal_argument, throw_illegal_argument_env,

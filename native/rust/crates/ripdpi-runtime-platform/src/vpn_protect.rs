@@ -87,6 +87,7 @@ fn should_emit_outcome(outcome: ProtectOutcome, success_sequence: u64) -> bool {
 fn run_with_outcome(
     backend: ProtectBackend,
     ring: Option<ProtectEventRing>,
+    diagnostics_session_id: Option<&str>,
     protect: impl FnOnce() -> io::Result<()>,
 ) -> io::Result<()> {
     let result = protect();
@@ -104,11 +105,13 @@ fn run_with_outcome(
         if should_emit_outcome(outcome, success_sequence) {
             let backend = backend.as_str();
             let outcome = outcome.as_str();
+            let diagnostics_session_id = diagnostics_session_id.unwrap_or("");
             tracing::debug!(
                 ring = ring.as_str(),
                 source = PROTECT_EVENT_SOURCE,
                 kind = PROTECT_EVENT_KIND,
                 subsystem = PROTECT_SUBSYSTEM,
+                diagnostics_session_id,
                 backend,
                 outcome,
                 "vpn protect backend={} outcome={}",
@@ -122,7 +125,7 @@ fn run_with_outcome(
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
-    protect_socket_with_ring(socket, path, None)
+    protect_socket_with_ring(socket, path, None, None)
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -130,19 +133,22 @@ fn protect_socket_with_ring<T: AsRawFd>(
     socket: &T,
     path: Option<&str>,
     ring: Option<ProtectEventRing>,
+    diagnostics_session_id: Option<&str>,
 ) -> io::Result<()> {
     if crate::protect::has_protect_callback() {
-        return run_with_outcome(ProtectBackend::Jni, ring, || {
+        return run_with_outcome(ProtectBackend::Jni, ring, diagnostics_session_id, || {
             crate::protect::protect_socket_via_callback(socket.as_raw_fd())
         });
     }
 
-    run_with_outcome(ProtectBackend::Uds, ring, || ripdpi_privileged_ops::protect_socket(socket, path))
+    run_with_outcome(ProtectBackend::Uds, ring, diagnostics_session_id, || {
+        ripdpi_privileged_ops::protect_socket(socket, path)
+    })
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
-    protect_socket_with_ring(socket, path, None)
+    protect_socket_with_ring(socket, path, None, None)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -150,22 +156,27 @@ fn protect_socket_with_ring<T: AsRawFd>(
     socket: &T,
     _path: Option<&str>,
     ring: Option<ProtectEventRing>,
+    diagnostics_session_id: Option<&str>,
 ) -> io::Result<()> {
     if crate::protect::has_protect_callback() {
-        return run_with_outcome(ProtectBackend::Jni, ring, || {
+        return run_with_outcome(ProtectBackend::Jni, ring, diagnostics_session_id, || {
             crate::protect::protect_socket_via_callback(socket.as_raw_fd())
         });
     }
 
-    run_with_outcome(ProtectBackend::Noop, ring, || Ok(()))
+    run_with_outcome(ProtectBackend::Noop, ring, diagnostics_session_id, || Ok(()))
 }
 
 pub fn protect_proxy_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
-    protect_socket_with_ring(socket, path, Some(ProtectEventRing::Proxy))
+    protect_socket_with_ring(socket, path, Some(ProtectEventRing::Proxy), None)
 }
 
-pub fn protect_diagnostics_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
-    protect_socket_with_ring(socket, path, Some(ProtectEventRing::Diagnostics))
+pub fn protect_diagnostics_socket<T: AsRawFd>(
+    socket: &T,
+    path: Option<&str>,
+    diagnostics_session_id: &str,
+) -> io::Result<()> {
+    protect_socket_with_ring(socket, path, Some(ProtectEventRing::Diagnostics), Some(diagnostics_session_id))
 }
 
 #[cfg(test)]
@@ -217,7 +228,7 @@ mod tests {
         let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
 
         let result = tracing::subscriber::with_default(subscriber, || {
-            run_with_outcome(ProtectBackend::Jni, Some(ProtectEventRing::Diagnostics), || Ok(()))
+            run_with_outcome(ProtectBackend::Jni, Some(ProtectEventRing::Diagnostics), Some("stage-a"), || Ok(()))
         });
 
         assert!(result.is_ok());
@@ -226,6 +237,7 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].source, PROTECT_EVENT_SOURCE);
         assert_eq!(events[0].kind.as_deref(), Some(PROTECT_EVENT_KIND));
+        assert_eq!(events[0].diagnostics_session_id.as_deref(), Some("stage-a"));
         assert_eq!(events[0].message, "vpn protect backend=jni outcome=success");
         assert!(!events[0].message.contains("fd="));
     }

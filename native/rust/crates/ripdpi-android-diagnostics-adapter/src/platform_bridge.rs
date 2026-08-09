@@ -1,6 +1,6 @@
 use android_support::{
-    NativeEventRecord, clear_android_log_scope_level, clear_diagnostics_events, drain_diagnostics_events,
-    set_android_log_scope_level,
+    NativeEventRecord, clear_android_log_scope_level, clear_diagnostics_events_for_session,
+    drain_diagnostics_events_for_session, set_android_log_scope_level,
 };
 use log::LevelFilter;
 use ripdpi_diagnostics_contracts::NativeSessionEvent;
@@ -9,12 +9,12 @@ use ripdpi_monitor_engine::{MonitorPlatformBridge, ScopedMonitorLogLevel};
 pub(crate) struct AndroidMonitorPlatformBridge;
 
 impl MonitorPlatformBridge for AndroidMonitorPlatformBridge {
-    fn clear_passive_events(&self) {
-        clear_diagnostics_events();
+    fn clear_passive_events(&self, session_id: &str) {
+        clear_diagnostics_events_for_session(session_id);
     }
 
-    fn drain_passive_events(&self) -> Vec<NativeSessionEvent> {
-        drain_diagnostics_events().into_iter().map(native_session_event_from).collect()
+    fn drain_passive_events(&self, session_id: &str) -> Vec<NativeSessionEvent> {
+        drain_diagnostics_events_for_session(session_id).into_iter().map(native_session_event_from).collect()
     }
 
     fn scoped_log_level(&self, scope: String, level: LevelFilter) -> Box<dyn ScopedMonitorLogLevel> {
