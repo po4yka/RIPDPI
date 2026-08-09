@@ -17,7 +17,7 @@ updated only after their source inputs stabilize.
 - [x] CIC-1786277545125976 Add qualified references plus versioned export and federation commands #feature !high @item:CIC-1786277494692459 @blocked_by:CIC-1786277545105474
 - [x] CIC-1786277545147177 Migrate RIPDPI task records away from linked_task and correct stale cross-repo prose #feature !high @item:CIC-1786277494692459 @blocked_by:CIC-1786277545125976
 - [x] CIC-1786277545167878 Cover combined readiness, cycles, history, privacy, and contract mismatch with tests #feature !high @item:CIC-1786277494692459 @blocked_by:CIC-1786277545125976
-- [ ] CIC-1786277545187486 Regenerate contracts and observe clean local validation on the final source tree #feature !high @item:CIC-1786277494692459 @blocked_by:CIC-1786277545147177 @blocked_by:CIC-1786277545167878
+- [x] CIC-1786277545187486 Regenerate contracts and observe clean local validation on the final source tree #feature !high @item:CIC-1786277494692459 @blocked_by:CIC-1786277545147177 @blocked_by:CIC-1786277545167878
 
 ## Verification
 
