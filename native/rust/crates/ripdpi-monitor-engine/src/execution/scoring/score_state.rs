@@ -2,17 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::types::ProbeResult;
 
-#[derive(Debug)]
-pub struct ProbeAttemptSample {
-    pub target: String,
-    pub is_control: bool,
-    pub protocol: String,
-    pub started_at_ms: u64,
-    pub duration_ms: u64,
-    pub retry_count: usize,
-    pub outcome: String,
-    pub reason: Option<String>,
-}
+use super::attempts::{ProbeAttemptMetadata, ProbeAttemptSample};
 
 #[derive(Default)]
 pub struct CandidateScore {
@@ -35,41 +25,6 @@ pub struct CandidateScore {
 }
 
 impl CandidateScore {
-    pub fn add(&mut self, sample: ProbeSample) {
-        if let Some(ref domain) = sample.domain {
-            *self.domain_totals.entry(domain.clone()).or_default() += 1;
-            self.domain_controls
-                .entry(domain.clone())
-                .and_modify(|is_control| *is_control |= sample.is_control)
-                .or_insert(sample.is_control);
-            if sample.success {
-                *self.domain_successes.entry(domain.clone()).or_default() += 1;
-            }
-        }
-
-        self.attempt_samples.push(ProbeAttemptSample {
-            target: sample.domain.clone().unwrap_or_else(|| sample.result.target.clone()),
-            is_control: sample.is_control,
-            protocol: sample.protocol,
-            started_at_ms: sample.started_at_ms,
-            duration_ms: sample.latency_ms,
-            retry_count: sample.retry_count,
-            outcome: sample.result.outcome.clone(),
-            reason: sample.reason,
-        });
-        self.results.push(sample.result);
-        self.total_targets += 1;
-        self.total_weight += sample.weight;
-        self.quality_score += sample.quality * sample.weight;
-
-        if sample.success {
-            self.succeeded_targets += 1;
-            self.weighted_success_score += sample.weight;
-            self.latency_sum_ms += sample.latency_ms;
-            self.latency_count += 1;
-        }
-    }
-
     pub fn average_latency_ms(&self) -> Option<u64> {
         (self.latency_count > 0).then(|| self.latency_sum_ms / self.latency_count as u64)
     }
@@ -84,11 +39,7 @@ pub struct ProbeSample {
     pub success: bool,
     pub weight: usize,
     pub quality: usize,
-    pub latency_ms: u64,
-    pub started_at_ms: u64,
-    pub retry_count: usize,
-    pub protocol: String,
-    pub reason: Option<String>,
+    pub attempt: ProbeAttemptMetadata,
     /// The domain this sample was probed against, for per-domain outcome tracking.
     pub domain: Option<String>,
     /// Whether the exact planned domain target is a neutral control.

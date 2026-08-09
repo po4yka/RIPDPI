@@ -1,19 +1,10 @@
 use crate::candidates::StrategyCandidateSpec;
-use crate::types::{
-    ProbeResult, STRATEGY_PROBE_ATTEMPT_VERSION, StrategyProbeAttempt, StrategyProbeAttemptRound,
-    StrategyProbeAttemptStatus, StrategyProbeCandidateSummary, StrategyProbeProgressLane,
-};
+use crate::types::StrategyProbeCandidateSummary;
 
+use super::attempts::build_strategy_probe_attempts;
+use super::candidate_execution::CandidateExecution;
 use super::score_state::CandidateScore;
 use super::{candidate_notes, candidate_proxy_config_json};
-
-#[derive(Debug)]
-pub struct CandidateExecution {
-    pub summary: StrategyProbeCandidateSummary,
-    pub results: Vec<ProbeResult>,
-    pub attempts: Vec<StrategyProbeAttempt>,
-    pub cancelled: bool,
-}
 
 pub fn build_candidate_execution(
     spec: &StrategyCandidateSpec,
@@ -30,45 +21,7 @@ pub fn build_candidate_execution(
     let rationale = format!("{} of {} targets succeeded", score.succeeded_targets, score.total_targets);
     let domain_outcomes = score.domain_outcomes();
     let average_latency_ms = score.average_latency_ms();
-    let lane = if score.attempt_samples.iter().any(|attempt| attempt.protocol == "QUIC") {
-        StrategyProbeProgressLane::Quic
-    } else {
-        StrategyProbeProgressLane::Tcp
-    };
-    let attempts = score
-        .attempt_samples
-        .into_iter()
-        .map(|attempt| {
-            let timed_out = attempt.reason.as_ref().is_some_and(|reason| {
-                let normalized = reason.to_ascii_lowercase();
-                normalized.contains("timed out") || normalized.contains("timeout")
-            });
-            StrategyProbeAttempt {
-                attempt_version: STRATEGY_PROBE_ATTEMPT_VERSION.to_string(),
-                sequence: 0,
-                candidate_index: 0,
-                candidate_id: spec.id.to_string(),
-                candidate_label: spec.label.to_string(),
-                candidate_family: spec.family.to_string(),
-                lane,
-                target: attempt.target,
-                target_index: 0,
-                is_control: attempt.is_control,
-                protocol: attempt.protocol,
-                round: StrategyProbeAttemptRound::FullMatrix,
-                status: if timed_out {
-                    StrategyProbeAttemptStatus::TimedOut
-                } else {
-                    StrategyProbeAttemptStatus::Executed
-                },
-                started_at_ms: Some(attempt.started_at_ms),
-                duration_ms: Some(attempt.duration_ms),
-                retry_count: attempt.retry_count,
-                outcome: Some(attempt.outcome),
-                reason: attempt.reason,
-            }
-        })
-        .collect();
+    let attempts = build_strategy_probe_attempts(spec, score.attempt_samples);
 
     CandidateExecution {
         summary: StrategyProbeCandidateSummary {
@@ -96,16 +49,6 @@ pub fn build_candidate_execution(
         attempts,
         cancelled: false,
     }
-}
-
-pub(in crate::execution) fn cancelled_candidate_execution(
-    spec: &StrategyCandidateSpec,
-    score: CandidateScore,
-    quality_floor: usize,
-) -> CandidateExecution {
-    let mut execution = build_candidate_execution(spec, score, quality_floor);
-    execution.cancelled = true;
-    execution
 }
 
 pub fn failed_candidate_execution(

@@ -13,8 +13,8 @@ use crate::util::{now_ms, stable_probe_hash};
 use super::support::candidate_probe_details;
 use crate::execution::runtime::{CandidateRuntimeLauncher, probe_runtime_transport};
 use crate::execution::scoring::{
-    CandidateExecution, CandidateScore, ProbeSample, build_candidate_execution, cancelled_candidate_execution,
-    failed_candidate_execution, not_applicable_candidate_execution,
+    CandidateExecution, CandidateScore, ProbeAttemptMetadata, ProbeSample, build_candidate_execution,
+    cancelled_candidate_execution, failed_candidate_execution, not_applicable_candidate_execution,
 };
 
 pub fn execute_quic_candidate(
@@ -81,12 +81,11 @@ pub(super) fn run_quic_strategy_probe(
         Ok(result) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string(), result.connected_addr),
         Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err, None),
     };
-    let attempt_reason = (error != "none").then(|| error.clone());
     let mut details = candidate_probe_details(candidate, "QUIC", latency_ms);
     details.extend([
         ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
         ProbeDetail { key: "status".to_string(), value: status },
-        ProbeDetail { key: "error".to_string(), value: error },
+        ProbeDetail { key: "error".to_string(), value: error.clone() },
     ]);
     if let Some(addr) = connected_addr {
         details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
@@ -110,10 +109,6 @@ pub(super) fn run_quic_strategy_probe(
             "quic_response" => 3,
             _ => 0,
         },
-        latency_ms,
-        started_at_ms: started,
-        retry_count: 0,
-        protocol: "QUIC".to_string(),
-        reason: attempt_reason,
+        attempt: ProbeAttemptMetadata::new(started, latency_ms, 0, "QUIC", (error != "none").then(|| error.clone())),
     }
 }
