@@ -2,7 +2,7 @@
 id: CIC-1786270029481807
 title: Repair published terminal-history validation
 kind: bug
-status: review
+status: done
 area: ci
 priority: critical
 owner: Codex tasking repair
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-08-09
 updated: 2026-08-09
 spec_reason: tooling-only
+closed_at: "2026-08-09T10:17:38Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 53 focused tests passed; all four mdtask priority mappings are covered; published integration history validates from b8052b8900699589034d8a9141d769f3cd539a67 after committed review, terminal, and purge repair.
 ---
 
 ## Goal
