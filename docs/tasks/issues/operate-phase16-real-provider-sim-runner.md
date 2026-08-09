@@ -5,6 +5,7 @@ kind: chore
 status: blocked
 area: testing
 priority: medium
+risk: standard
 owner: Real-provider test lab maintainer
 parent: null
 blocked_by: []

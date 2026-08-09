@@ -5,6 +5,7 @@ kind: feature
 status: blocked
 area: outbound
 priority: high
+risk: high
 owner: Xray provider maintainer
 parent: EPC-1786264762917329
 blocked_by: []

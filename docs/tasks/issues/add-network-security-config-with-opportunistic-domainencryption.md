@@ -5,6 +5,7 @@ kind: feature
 status: blocked
 area: diagnostics
 priority: medium
+risk: high
 owner: Android 17 device evidence maintainer
 parent: null
 blocked_by: []

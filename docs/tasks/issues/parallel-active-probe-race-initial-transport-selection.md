@@ -5,6 +5,7 @@ kind: feature
 status: review
 area: transport
 priority: high
+risk: high
 owner: Transport selection maintainer
 parent: null
 blocked_by: []

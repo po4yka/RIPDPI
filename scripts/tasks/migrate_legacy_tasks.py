@@ -269,6 +269,7 @@ def main() -> int:
             "status": old["status"],
             "area": old["area"],
             "priority": old["priority"],
+            "risk": "high" if spec_mode == "required" else "standard",
             "owner": old["owner"],
             "parent": ids.get(old["parent"]) if old["parent"] is not None else None,
             "blocked_by": [ids[value] for value in old["blocked_by"]],

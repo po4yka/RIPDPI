@@ -5,6 +5,7 @@ kind: chore
 status: backlog
 area: rust-native
 priority: low
+risk: high
 owner: Native security maintainer
 parent: null
 blocked_by: []

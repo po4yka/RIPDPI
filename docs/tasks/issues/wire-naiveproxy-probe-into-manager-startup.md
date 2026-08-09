@@ -5,6 +5,7 @@ kind: feature
 status: todo
 area: service
 priority: medium
+risk: high
 owner: Service runtime maintainer
 parent: null
 blocked_by: []

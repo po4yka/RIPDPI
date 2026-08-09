@@ -5,6 +5,7 @@ kind: bug
 status: todo
 area: ci
 priority: critical
+risk: standard
 owner: CI and performance maintainer
 parent: EPC-1786264762917503
 blocked_by: []

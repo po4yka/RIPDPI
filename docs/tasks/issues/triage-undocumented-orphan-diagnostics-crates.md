@@ -5,6 +5,7 @@ kind: chore
 status: backlog
 area: rust-native
 priority: low
+risk: high
 owner: Native architecture maintainer
 parent: EPC-1786264762917503
 blocked_by: []

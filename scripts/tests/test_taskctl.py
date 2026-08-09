@@ -29,6 +29,7 @@ class TaskctlFixture(unittest.TestCase):
         asset = self.root / "tools/tasking/generated.txt"
         asset.write_text("fixture\n", encoding="utf-8")
         self.write_project_config()
+        self.write_federation_contract(self.root)
         (self.root / "tools/tasking/generated-assets.lock.json").write_text(
             json.dumps(
                 {
@@ -67,6 +68,26 @@ class TaskctlFixture(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def write_federation_contract(self, root: Path) -> None:
+        (root / taskctl.FEDERATION_CONTRACT_PATH).write_text(
+            json.dumps(
+                {
+                    "contract_version": 1,
+                    "identity": "owner/repository#TASK-ID",
+                    "relations": ["parent", "blocked_by", "related_tasks"],
+                    "required_task_fields": [
+                        "id", "task_id", "path", "kind", "risk", "status", "progress", "parent",
+                        "blocked_by", "related_tasks", "openspec_change", "historical",
+                    ],
+                    "terminal_states": ["done", "dropped"],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     def tearDown(self) -> None:
         self.temp.cleanup()
 
@@ -79,6 +100,8 @@ class TaskctlFixture(unittest.TestCase):
         parent: str | None = None,
         blockers: list[str] | None = None,
         reason: str = "tooling-only",
+        risk: str = "standard",
+        related: list[str] | None = None,
     ) -> Path:
         values = {
             "id": task_id,
@@ -87,9 +110,11 @@ class TaskctlFixture(unittest.TestCase):
             "status": status,
             "area": taskctl.PREFIX_AREAS[task_id.split("-", 1)[0]],
             "priority": "high",
+            "risk": risk,
             "owner": "test",
             "parent": parent,
             "blocked_by": blockers or [],
+            "related_tasks": related or [],
             "spec_mode": "not-required",
             "openspec_change": None,
             "created": "2026-08-09",
@@ -122,6 +147,7 @@ class TaskctlFixture(unittest.TestCase):
             "status": "review",
             "area": "diagnostics",
             "priority": "high",
+            "risk": "high",
             "owner": "test",
             "parent": None,
             "blocked_by": [],
@@ -198,6 +224,7 @@ class TaskctlFixture(unittest.TestCase):
             "status": status,
             "area": "diagnostics",
             "priority": "high",
+            "risk": "high",
             "owner": "test",
             "parent": None,
             "blocked_by": [],
@@ -280,11 +307,28 @@ class TaskctlContractTest(TaskctlFixture):
         with self.assertRaisesRegex(taskctl.ContractError, "cannot waive OpenSpec"):
             taskctl.load_state(self.root)
 
+    def test_high_risk_task_cannot_waive_openspec(self) -> None:
+        self.add_simple_task(risk="high")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "high-risk task cannot waive OpenSpec"):
+            taskctl.load_state(self.root)
+
     def test_missing_blocker_is_rejected(self) -> None:
         self.add_simple_task(blockers=["CIC-1786234567890999"])
 
         with self.assertRaisesRegex(taskctl.ContractError, "missing or self blocker"):
             taskctl.load_state(self.root)
+
+    def test_text_ready_reports_unresolved_external_blocker(self) -> None:
+        self.add_simple_task(
+            blockers=["po4yka/ripdpi-vpn-deploy#CIC-1786234567890999"]
+        )
+        output = StringIO()
+
+        with redirect_stdout(output):
+            taskctl.command_ready(argparse.Namespace(root=self.root, json=False))
+
+        self.assertIn("UNRESOLVED_EXTERNAL\tCIC-1786234567890001", output.getvalue())
 
     def test_blocker_cycle_is_rejected(self) -> None:
         first = "CIC-1786234567890001"
@@ -433,6 +477,7 @@ class TaskctlContractTest(TaskctlFixture):
             kind="chore",
             area="ci",
             priority="medium",
+            risk="standard",
             owner="test",
             parent=None,
             slug=None,
@@ -468,6 +513,7 @@ class TaskctlContractTest(TaskctlFixture):
                     kind="bug",
                     area="ci",
                     priority=priority,
+                    risk="standard",
                     owner="test",
                     parent=None,
                     slug=None,
@@ -676,6 +722,22 @@ class TaskctlHistoryTest(TaskctlFixture):
 
         taskctl.validate_deleted_history(self.root, base)
 
+    def test_purge_rejects_incoming_related_task(self) -> None:
+        target = self.add_simple_task(status="review")
+        self.add_simple_task(
+            task_id="CIC-1786234567890003",
+            related=["CIC-1786234567890001"],
+        )
+        self.write_board()
+        self.commit_all("add related tasks")
+        self.prepare_simple_terminal(target)
+        self.commit_all("prepare terminal target")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "incoming reference"):
+            taskctl.command_close_purge(
+                argparse.Namespace(root=self.root, query="CIC-1786234567890001")
+            )
+
     def test_latest_reintroduced_incarnation_repairs_published_invalid_transition(self) -> None:
         path = self.add_simple_task(status="doing")
         self.write_board()
@@ -781,6 +843,7 @@ class TaskctlFederationTest(TaskctlFixture):
             (self.peer / relative).mkdir(parents=True, exist_ok=True)
         self.write_config(self.root, "po4yka/RIPDPI", ["po4yka/ripdpi-vpn-deploy"])
         self.write_config(self.peer, "po4yka/ripdpi-vpn-deploy", ["po4yka/RIPDPI"])
+        self.write_federation_contract(self.peer)
         self.init_git(self.root)
         self.init_git(self.peer)
 
@@ -834,6 +897,7 @@ class TaskctlFederationTest(TaskctlFixture):
             "status": status,
             "area": "ci",
             "priority": "high",
+            "risk": "standard",
             "owner": "test",
             "parent": None,
             "blocked_by": blockers or [],
@@ -866,6 +930,14 @@ class TaskctlFederationTest(TaskctlFixture):
         self.assertEqual(first, second)
         self.assertNotIn("Fixture", first)
         self.assertNotIn("evidence", first.casefold())
+
+    def test_export_rejects_dirty_or_untracked_task_state(self) -> None:
+        issue = self.add_task(self.root, "CIC-1786234567890001")
+        self.commit(self.root, "add task")
+        issue.write_text(issue.read_text(encoding="utf-8").replace("status: todo", "status: backlog"), encoding="utf-8")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "requires committed"):
+            taskctl.export_payload(self.root)
 
     def test_equal_local_ids_remain_distinct_and_reverse_block_is_derived(self) -> None:
         task_id = "CIC-1786234567890001"
@@ -928,6 +1000,37 @@ class TaskctlFederationTest(TaskctlFixture):
 
         with self.assertRaisesRegex(taskctl.ContractError, "unsupported federation contract"):
             taskctl.federation_payload(self.root, self.peer)
+
+    def test_contract_artifact_drift_is_rejected(self) -> None:
+        self.add_task(self.root, "CIC-1786234567890001")
+        self.add_task(self.peer, "CIC-1786234567890003")
+        contract_path = self.peer / taskctl.FEDERATION_CONTRACT_PATH
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        contract["implementation_hint"] = "drift"
+        contract_path.write_text(json.dumps(contract, sort_keys=True) + "\n", encoding="utf-8")
+        self.commit(self.root, "add local task")
+        self.commit(self.peer, "add drifted peer contract")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "contract artifacts differ"):
+            taskctl.federation_payload(self.root, self.peer)
+
+    def test_pairwise_federation_allows_additional_approved_peers(self) -> None:
+        self.write_config(
+            self.root,
+            "po4yka/RIPDPI",
+            ["po4yka/ripdpi-vpn-deploy", "po4yka/another-repository"],
+        )
+        self.write_config(
+            self.peer,
+            "po4yka/ripdpi-vpn-deploy",
+            ["po4yka/RIPDPI", "po4yka/another-repository"],
+        )
+        self.add_task(self.root, "CIC-1786234567890001")
+        self.add_task(self.peer, "CIC-1786234567890003")
+        self.commit(self.root, "add local task")
+        self.commit(self.peer, "add peer task")
+
+        self.assertTrue(taskctl.federation_payload(self.root, self.peer)["valid"])
 
     def test_active_dropped_blocker_is_rejected(self) -> None:
         blocker_id = "CIC-1786234567890001"
@@ -1045,6 +1148,49 @@ class TaskctlFederationTest(TaskctlFixture):
         self.assertTrue(historical["historical"])
         self.assertEqual("done", historical["status"])
 
+    def test_forged_empty_terminal_history_cannot_release_consumer(self) -> None:
+        blocker_id = "CIC-1786234567890001"
+        consumer_id = "CIC-1786234567890005"
+        self.add_task(self.peer, "CIC-1786234567890003")
+        blocker = self.add_task(self.peer, blocker_id, status="review")
+        self.commit(self.peer, "add peer tasks")
+        document = taskctl.read_document(blocker)
+        values = dict(document.values)
+        values.update(
+            {
+                "status": "done",
+                "closed_at": "2026-08-09T00:00:00Z",
+                "closed_reason": "Forged.",
+                "evidence_summary": "Forged.",
+            }
+        )
+        blocker.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.peer / f"docs/tasks/work/{blocker_id}.md"
+        work.write_text("# Empty execution\n", encoding="utf-8")
+        receipt = {
+            "schema": 1,
+            "task_id": blocker_id,
+            "change": None,
+            "outcome": "done",
+            "issue_sha256": hashlib.sha256(blocker.read_bytes()).hexdigest(),
+            "execution_sha256": hashlib.sha256(work.read_bytes()).hexdigest(),
+        }
+        work.with_suffix(".close.json").write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+        self.commit(self.peer, "forge terminal blocker")
+        blocker.unlink()
+        work.unlink()
+        work.with_suffix(".close.json").unlink()
+        anchor_documents, anchor_steps = taskctl.load_state(self.peer)
+        (self.peer / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.peer, anchor_documents, anchor_steps), encoding="utf-8"
+        )
+        self.commit(self.peer, "purge forged blocker")
+        self.add_task(self.root, consumer_id, blockers=[f"po4yka/ripdpi-vpn-deploy#{blocker_id}"])
+        self.commit(self.root, "add consumer")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "completed task has no execution steps"):
+            taskctl.federation_payload(self.root, self.peer)
+
 
 class TaskctlConcurrencyTest(TaskctlFixture):
     def git(self, root: Path, *args: str) -> str:
@@ -1065,6 +1211,7 @@ class TaskctlConcurrencyTest(TaskctlFixture):
             kind="chore",
             area="ci",
             priority="medium",
+            risk="standard",
             owner="test",
             parent=None,
             slug=None,

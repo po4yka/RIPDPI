@@ -5,6 +5,7 @@ kind: epic
 status: blocked
 area: epic
 priority: critical
+risk: high
 owner: Android VPN policy maintainer
 parent: null
 blocked_by:

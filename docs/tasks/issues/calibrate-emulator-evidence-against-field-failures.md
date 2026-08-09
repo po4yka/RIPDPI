@@ -5,6 +5,7 @@ kind: research
 status: backlog
 area: testing
 priority: medium
+risk: standard
 owner: Diagnostics research maintainer
 parent: null
 blocked_by: []

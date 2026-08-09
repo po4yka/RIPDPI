@@ -23,6 +23,7 @@ kind: feature
 status: doing
 area: diagnostics
 priority: high
+risk: high
 owner: Role name
 parent: EPC-1786234567890001
 blocked_by: []
@@ -37,6 +38,7 @@ updated: YYYY-MM-DD
 - `kind`: `feature | bug | chore | research | epic`.
 - `status`: `backlog | todo | doing | review | blocked | done | dropped`.
 - `priority`: `critical | high | medium | low`.
+- `risk`: `standard | high`. High-risk work cannot waive OpenSpec.
 - `area`: `engine | rust-native | diagnostics | transport | outbound | dns | routing | vpn | proxy | relay | android | ui | data | service | testing | ci | epic`.
 - `parent`, `blocked_by`, and `related_tasks` use a local stable ID or a qualified external reference such as `po4yka/ripdpi-vpn-deploy#ANS-1786234567890123`.
 - `blocked_by` is canonical; reverse `blocks` is derived. External blockers remain unresolved in local `ready` output until a federation command receives the peer checkout.
@@ -67,7 +69,7 @@ Required changes use the repository schema `ripdpi-change`: `proposal.md → del
 
 ```bash
 ./taskctl ready
-./taskctl new --title "..." --kind bug --area ci --priority high \
+./taskctl new --title "..." --kind bug --area ci --priority high --risk standard \
   --spec-mode not-required --spec-reason tooling-only
 ./taskctl start <TASK-ID> --owner "Role name"
 ./taskctl steps <TASK-ID> list

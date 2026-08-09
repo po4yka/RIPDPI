@@ -5,6 +5,7 @@ kind: feature
 status: todo
 area: transport
 priority: high
+risk: high
 owner: Relay transport maintainer
 parent: null
 blocked_by: []
