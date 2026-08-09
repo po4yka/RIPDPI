@@ -137,11 +137,20 @@ jobs:
   task-contracts:
     name: Task and OpenSpec contract gate
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out federated deploy portfolio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: po4yka/ripdpi-vpn-deploy
+          path: .task-peers/ripdpi-vpn-deploy
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -158,7 +167,7 @@ jobs:
             scripts.tests.test_taskctl \
             scripts.tests.test_check_harness_links
 
-      - name: Validate portfolio, mdtask, OpenSpec, and deletion history
+      - name: Validate local and federated task contracts
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -171,6 +180,7 @@ jobs:
             args+=(--base "$PUSH_BEFORE_SHA")
           fi
           ./taskctl validate "${args[@]}"
+          ./taskctl federation validate --peer-root .task-peers/ripdpi-vpn-deploy
 
   workflow-only-contracts:
     name: Workflow-only contract gate

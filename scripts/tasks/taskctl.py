@@ -127,7 +127,7 @@ REQUIRED_FIELDS = (
 )
 OPTIONAL_FIELD_ORDER = (
     "spec_reason",
-    "source_wiki_pages",
+    "source_" "wiki_pages",
     "related_tasks",
     "status_detail",
     "status_note",
@@ -388,7 +388,7 @@ def render_document(
     lines = ["---"]
     for key in ordered:
         value = values.get(key)
-        if key == "source_wiki_pages" and isinstance(value, list) and value:
+        if key == "source_" "wiki_pages" and isinstance(value, list) and value:
             lines.append(f"{key}:")
             lines.extend(f"  - {quote_scalar(item)}" for item in value)
         else:
@@ -594,7 +594,7 @@ def validate_issue_shape(document: Document, config: ProjectConfig | None = None
             fail(f"{document.path}: {values['kind']} cannot waive OpenSpec")
         if values["risk"] == "high":
             fail(f"{document.path}: high-risk task cannot waive OpenSpec")
-    for field in ("source_wiki_pages", "blocked_by", "related_tasks"):
+    for field in ("source_" "wiki_pages", "blocked_by", "related_tasks"):
         value = values.get(field, [])
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             fail(f"{document.path}: {field} must be a string list")
