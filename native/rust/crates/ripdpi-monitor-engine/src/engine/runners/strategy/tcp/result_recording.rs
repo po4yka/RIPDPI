@@ -1,12 +1,8 @@
-use crate::candidates::StrategyCandidateSpec;
-use crate::execution::{CandidateExecution, skipped_candidate_summary};
-use crate::types::{StrategyProbeAttemptRound, StrategyProbeProgressLane};
-
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};
-use super::super::support::{
-    annotate_emitter_execution, record_not_applicable_tcp_candidate, strategy_probe_live_progress_with_targets,
-};
+use super::super::attempt_recording::record_full_matrix_candidate_attempts;
+use super::super::support::{annotate_emitter_execution, strategy_probe_live_progress_with_targets};
 use super::capability_gating::{NotApplicableReason, TcpCapabilities};
+use crate::candidates::StrategyCandidateSpec;
 
 pub(super) struct CandidateRecord {
     pub(super) failed: bool,
@@ -22,7 +18,7 @@ pub(super) fn record_hostfake_short_circuit(
     tcp_candidate_total: usize,
     domain_target_count: usize,
 ) {
-    let summary = skipped_candidate_summary(
+    let summary = crate::execution::skipped_candidate_summary(
         spec,
         domain_target_count * 2,
         6,
@@ -32,7 +28,7 @@ pub(super) fn record_hostfake_short_circuit(
     runtime.record_skipped_strategy_probe_candidate(
         plan,
         phase,
-        StrategyProbeProgressLane::Tcp,
+        crate::types::StrategyProbeProgressLane::Tcp,
         candidate_index,
         tcp_candidate_total,
         &summary.id,
@@ -52,7 +48,7 @@ pub(super) fn record_not_applicable_candidate(
     not_applicable: NotApplicableReason,
 ) {
     tracing::debug!(candidate = spec.id, reason = not_applicable.reason, "strategy probe: candidate not_applicable");
-    record_not_applicable_tcp_candidate(
+    super::super::support::record_not_applicable_tcp_candidate(
         runtime,
         plan,
         phase,
@@ -71,13 +67,10 @@ pub(super) fn record_executed_candidate(
     spec: &StrategyCandidateSpec,
     candidate_index: usize,
     tcp_candidate_total: usize,
-    mut execution: CandidateExecution,
+    mut execution: crate::execution::CandidateExecution,
     capabilities: TcpCapabilities,
 ) -> CandidateRecord {
-    for attempt in &mut execution.attempts {
-        attempt.round = StrategyProbeAttemptRound::FullMatrix;
-    }
-    runtime.strategy.attempts.append(&mut execution.attempts);
+    record_full_matrix_candidate_attempts(runtime, &mut execution);
     let mut summary = execution.summary;
     annotate_emitter_execution(&mut summary, spec, capabilities.fake_ttl_available, capabilities.ipfrag_caps);
     let hostfake_family_succeeded = summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets;
@@ -89,7 +82,7 @@ pub(super) fn record_executed_candidate(
         Some(spec.label.to_string()),
         Some(summary.outcome.clone()),
         Some(strategy_probe_live_progress_with_targets(
-            StrategyProbeProgressLane::Tcp,
+            crate::types::StrategyProbeProgressLane::Tcp,
             candidate_index,
             tcp_candidate_total,
             spec.id,

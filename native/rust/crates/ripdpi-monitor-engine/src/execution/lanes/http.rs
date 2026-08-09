@@ -5,10 +5,9 @@ use crate::candidates::StrategyCandidateSpec;
 use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request_targets};
 use crate::transport::{TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
-use crate::util::now_ms;
 
 use super::support::candidate_probe_details;
-use crate::execution::scoring::ProbeSample;
+use crate::execution::scoring::{ProbeAttemptMetadata, ProbeSample};
 
 static BLOCKPAGE_FINGERPRINTS: LazyLock<Vec<BlockpageFingerprint>> = LazyLock::new(load_fingerprints);
 
@@ -17,13 +16,12 @@ pub(super) fn run_http_strategy_probe(
     target: &DomainTarget,
     candidate: &StrategyCandidateSpec,
 ) -> ProbeSample {
-    let started = now_ms();
+    let started = crate::util::now_ms();
     let http_port = target.http_port.unwrap_or(80);
     let connect_targets = domain_connect_targets(target);
     let observation =
         try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
-    let latency_ms = now_ms().saturating_sub(started);
-    let attempt_reason = observation.error.clone();
+    let latency_ms = crate::util::now_ms().saturating_sub(started);
     // Try fingerprint-based classification first, then fall back to heuristics.
     let (outcome, fingerprint_name) = if let Some(response) = &observation.response {
         let (fp_outcome, fp_name) = classify_http_response_with_fingerprints(response, &BLOCKPAGE_FINGERPRINTS);
@@ -47,6 +45,7 @@ pub(super) fn run_http_strategy_probe(
         (observation.status.clone(), None)
     };
     let h3 = observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).is_some_and(|v| v.contains("h3"));
+    let attempt = ProbeAttemptMetadata::new(started, latency_ms, 0, "HTTP", observation.error.clone());
     let mut details = candidate_probe_details(candidate, "HTTP", latency_ms);
     details.extend([
         ProbeDetail { key: "status".to_string(), value: observation.status },
@@ -89,10 +88,6 @@ pub(super) fn run_http_strategy_probe(
         } else {
             0
         },
-        latency_ms,
-        started_at_ms: started,
-        retry_count: 0,
-        protocol: "HTTP".to_string(),
-        reason: attempt_reason,
+        attempt,
     }
 }
