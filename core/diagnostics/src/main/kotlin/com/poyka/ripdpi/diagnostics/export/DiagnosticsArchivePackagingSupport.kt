@@ -292,6 +292,10 @@ private fun rootEvidenceUnavailable(
                 .isNullOrEmpty()
         }
 
+        "protocol-milestones.jsonl" -> {
+            selection.primaryReport?.observations.isNullOrEmpty()
+        }
+
         "decision-trace.json" -> {
             selection.primaryReport == null
         }
@@ -315,6 +319,10 @@ private fun stageEvidenceUnavailable(
                 ?.strategyProbeReport
                 ?.attempts
                 .isNullOrEmpty()
+        }
+
+        fileName.endsWith("/protocol-milestones.jsonl") -> {
+            stage.report?.observations.isNullOrEmpty()
         }
 
         fileName.endsWith("/decision-trace.json") -> {
@@ -443,6 +451,7 @@ private fun sectionStatusForFileName(
         "report.json",
         "execution-plan.json",
         "attempts.jsonl",
+        "protocol-milestones.jsonl",
         "decision-trace.json",
         "home-analysis.json",
         "stage-index.json",
@@ -510,6 +519,10 @@ private fun stageSectionStatusForFileName(
         }
 
         fileName.endsWith("/attempts.jsonl") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/protocol-milestones.jsonl") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 

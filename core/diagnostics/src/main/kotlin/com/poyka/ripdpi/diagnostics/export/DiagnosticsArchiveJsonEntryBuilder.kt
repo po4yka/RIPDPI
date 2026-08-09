@@ -21,6 +21,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
     private val attemptsEntryBuilder = DiagnosticsArchiveAttemptsEntryBuilder(json)
+    private val protocolMilestonesEntryBuilder = DiagnosticsArchiveProtocolMilestonesEntryBuilder(json)
     private val decisionTraceEntryBuilder = DiagnosticsArchiveDecisionTraceEntryBuilder(json)
 
     @Suppress("detekt.LongMethod")
@@ -74,6 +75,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     report = redactor.redact(selection.primaryReport),
                 ),
             )
+            add(protocolMilestonesEntryBuilder.buildRoot(selection, redactor.redact(selection.primaryReport)))
             add(buildRootDecisionTraceEntry(selection))
             add(
                 jsonEntry(
@@ -443,18 +445,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value = stagePayload,
                 ),
             )
-            add(
-                jsonEntry(
-                    name = "$prefix/execution-plan.json",
-                    serializer = ExecutionPlanArchivePayload.serializer(),
-                    value =
-                        ExecutionPlanArchivePayload(
-                            sessionId = stage.session?.id,
-                            profileId = stage.session?.profileId,
-                            executionPlan = redactor.redact(stage.report)?.executionPlan,
-                        ),
-                ),
-            )
+            add(buildStageExecutionPlanEntry(prefix, stage))
             add(
                 attemptsEntryBuilder.build(
                     name = "$prefix/attempts.jsonl",
@@ -463,6 +454,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     report = redactor.redact(stage.report),
                 ),
             )
+            add(protocolMilestonesEntryBuilder.buildStage(prefix, stage, redactor.redact(stage.report)))
             add(buildStageDecisionTraceEntry(prefix, stage))
             add(
                 jsonEntry(
@@ -509,6 +501,20 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
         }
     }
+
+    private fun buildStageExecutionPlanEntry(
+        prefix: String,
+        stage: DiagnosticsArchiveCompositeStageSelection,
+    ) = jsonEntry(
+        name = "$prefix/execution-plan.json",
+        serializer = ExecutionPlanArchivePayload.serializer(),
+        value =
+            ExecutionPlanArchivePayload(
+                sessionId = stage.session?.id,
+                profileId = stage.session?.profileId,
+                executionPlan = redactor.redact(stage.report)?.executionPlan,
+            ),
+    )
 
     private fun buildStageDecisionTraceEntry(
         prefix: String,

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifact
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollectionStatus
@@ -124,6 +125,176 @@ class DiagnosticsArchiveRendererTest {
         assertEquals("EXECUTED", rows[0].getValue("status").jsonPrimitive.content)
         assertEquals("target-2", rows[1].getValue("targetAlias").jsonPrimitive.content)
         assertEquals("SKIPPED", rows[1].getValue("status").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `renderer exports evidenced privacy safe protocol milestones`() {
+        val base = buildFullRendererSelection()
+        val report = protocolMilestoneReport(requireNotNull(base.primaryReport))
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-protocol-milestones", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-protocol-milestones.zip",
+                createdAt = 44L,
+            )
+
+        val text =
+            renderer
+                .render(target, base.copy(primaryReport = report))
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("protocol-milestones.jsonl")
+                .bytes
+                .decodeToString()
+        val rows =
+            text
+                .lineSequence()
+                .filter(String::isNotBlank)
+                .map(json::parseToJsonElement)
+                .toList()
+
+        assertEquals(3, rows.size)
+        assertEquals(
+            listOf("TLS_HANDSHAKE", "HTTP_RESPONSE", "QUIC_RESPONSE"),
+            rows.map { row ->
+                row.jsonObject
+                    .getValue("milestone")
+                    .jsonPrimitive.content
+            },
+        )
+        assertEquals(
+            listOf("FAILED", "REACHED", "REACHED"),
+            rows.map { row ->
+                row.jsonObject
+                    .getValue("status")
+                    .jsonPrimitive.content
+            },
+        )
+        assertEquals(
+            listOf(1, 2, 3),
+            rows.map { row ->
+                row.jsonObject
+                    .getValue("sequence")
+                    .jsonPrimitive.content
+                    .toInt()
+            },
+        )
+        assertTrue(
+            rows.all { row ->
+                row.jsonObject
+                    .getValue("evidenceRef")
+                    .jsonPrimitive.content
+                    .isNotBlank()
+            },
+        )
+        assertFalse(text.contains("blocked.example"))
+        assertFalse(text.contains("quic.example"))
+        assertFalse(text.contains("CLIENT_HELLO"))
+        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v9.jsonl", text)
+    }
+
+    @Test
+    fun `renderer exports protocol milestones for every composite stage`() {
+        val base = buildFullRendererSelection()
+        val report = protocolMilestoneReport(requireNotNull(base.primaryReport))
+        val stage =
+            rendererCompositeStage(
+                stageKey = "automatic_audit",
+                events = base.primaryEvents,
+                session = base.primarySession,
+            ).copy(report = report)
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                homeRunId = "protocol-home-run",
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "protocol-home-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                        stageSummaries = listOf(stage.stageSummary),
+                        bundleSessionIds = listOfNotNull(base.primarySession?.id),
+                    ),
+                compositeStages = listOf(stage),
+                includedFiles =
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = true,
+                        composite = true,
+                        compositeStageKeys = listOf("automatic_audit"),
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-stage-protocol-milestones", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-stage-protocol-milestones.zip",
+                createdAt = 44L,
+            )
+
+        val text =
+            renderer
+                .render(target, selection)
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("stages/automatic_audit/protocol-milestones.jsonl")
+                .bytes
+                .decodeToString()
+
+        assertTrue(text.lineSequence().filter(String::isNotBlank).count() == 3)
+        assertFalse(text.contains("blocked.example"))
+        assertFalse(text.contains("quic.example"))
+    }
+
+    @Test
+    fun `renderer projects every structured network protocol family`() {
+        val base = buildFullRendererSelection()
+        val report =
+            requireNotNull(base.primaryReport).copy(
+                observations = networkProtocolFamilyObservations(),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-network-protocol-families", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-network-protocol-families.zip",
+                createdAt = 45L,
+            )
+
+        val rows =
+            renderer
+                .render(target, base.copy(primaryReport = report))
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("protocol-milestones.jsonl")
+                .bytes
+                .decodeToString()
+                .lineSequence()
+                .filter(String::isNotBlank)
+                .map(json::parseToJsonElement)
+                .toList()
+
+        assertEquals(
+            listOf(
+                "DNS_COMPARISON",
+                "TCP_CONNECT",
+                "TCP_FLOW",
+                "HTTP_BOOTSTRAP",
+                "HTTP_MEDIA_RESPONSE",
+                "SERVICE_ENDPOINT",
+                "QUIC_RESPONSE",
+                "HTTP_BOOTSTRAP",
+                "CIRCUMVENTION_HANDSHAKE",
+            ),
+            rows.map { row ->
+                row.jsonObject
+                    .getValue("milestone")
+                    .jsonPrimitive.content
+            },
+        )
+        assertTrue(
+            rows.all { row ->
+                row.jsonObject
+                    .getValue("evidenceRef")
+                    .jsonPrimitive.content
+                    .startsWith("report.json#/")
+            },
+        )
     }
 
     @Test
@@ -662,7 +833,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(8, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(9, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -1053,6 +1224,32 @@ class DiagnosticsArchiveRendererTest {
             mapOf(
                 "decision-trace.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
                 "stages/legacy/decision-trace.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+            ),
+            statuses,
+        )
+    }
+
+    @Test
+    fun `protocol milestone sections are unavailable without structured observations`() {
+        val base = buildFullRendererSelection()
+        val stage = rendererCompositeStage("legacy", emptyList())
+        val selection =
+            base.copy(
+                primaryReport = base.primaryReport?.copy(observations = emptyList()),
+                includedFiles =
+                    listOf(
+                        "protocol-milestones.jsonl",
+                        "stages/legacy/protocol-milestones.jsonl",
+                    ),
+                compositeStages = listOf(stage),
+            )
+
+        val statuses = buildSectionStatuses(selection)
+
+        assertEquals(
+            mapOf(
+                "protocol-milestones.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "stages/legacy/protocol-milestones.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
             ),
             statuses,
         )
@@ -1765,6 +1962,77 @@ class DiagnosticsArchiveRendererTest {
         events = events,
     )
 
+    private fun protocolMilestoneReport(report: EngineScanReportWire) =
+        report.copy(
+            observations =
+                listOf(
+                    ObservationFact(
+                        kind = ObservationKind.DOMAIN,
+                        target = "blocked.example",
+                        domain =
+                            DomainObservationFact(
+                                host = "blocked.example",
+                                httpStatus = HttpProbeStatus.BLOCKPAGE,
+                                tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                                transportFailure = TransportFailureKind.RESET,
+                                tlsError = "reset after blocked.example",
+                            ),
+                    ),
+                    ObservationFact(
+                        kind = ObservationKind.QUIC,
+                        target = "quic.example",
+                        quic =
+                            QuicObservationFact(
+                                host = "quic.example",
+                                status = QuicProbeStatus.INITIAL_RESPONSE,
+                            ),
+                    ),
+                ),
+        )
+
+    private fun networkProtocolFamilyObservations() =
+        listOf(
+            ObservationFact(
+                kind = ObservationKind.DNS,
+                target = "dns.example",
+                dns =
+                    DnsObservationFact(
+                        domain = "dns.example",
+                        status = DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
+                    ),
+            ),
+            ObservationFact(
+                kind = ObservationKind.TCP,
+                target = "tcp.example",
+                tcp = TcpObservationFact(provider = "provider", status = TcpProbeStatus.BLOCKED_16KB),
+            ),
+            ObservationFact(
+                kind = ObservationKind.SERVICE,
+                target = "service.example",
+                service =
+                    ServiceObservationFact(
+                        service = "media",
+                        bootstrapStatus = HttpProbeStatus.OK,
+                        mediaStatus = HttpProbeStatus.BLOCKPAGE,
+                        endpointStatus = EndpointProbeStatus.FAILED,
+                        endpointFailure = TransportFailureKind.TIMEOUT,
+                        quicStatus = QuicProbeStatus.ERROR,
+                        quicFailure = TransportFailureKind.RESET,
+                    ),
+            ),
+            ObservationFact(
+                kind = ObservationKind.CIRCUMVENTION,
+                target = "circumvention.example",
+                circumvention =
+                    CircumventionObservationFact(
+                        tool = "tool",
+                        bootstrapStatus = HttpProbeStatus.OK,
+                        handshakeStatus = EndpointProbeStatus.BLOCKED,
+                        handshakeFailure = TransportFailureKind.CLOSE,
+                    ),
+            ),
+        )
+
     private fun rendererCompositeCollectionStage(
         stageKey: String,
         telemetryCount: Int,
@@ -1995,35 +2263,35 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v8.json",
+            "archive/manifest_v9.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v8.json",
+            "archive/archive_provenance_v9.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v8.json",
+            "archive/runtime_config_v9.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v8.json",
+            "archive/analysis_v9.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v8.json",
+            "archive/completeness_v9.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v8.json",
+            "archive/integrity_v9.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v8.json",
+            "archive/execution_plan_v9.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/decision_trace_v8.json",
+            "archive/decision_trace_v9.json",
             entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }

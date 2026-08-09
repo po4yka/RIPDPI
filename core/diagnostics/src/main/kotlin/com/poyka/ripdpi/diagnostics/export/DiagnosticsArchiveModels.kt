@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 8 adds root and per-stage decision trace evidence.
-    const val schemaVersion = 8
+    // Version 9 adds root and per-stage structured protocol milestone evidence.
+    const val schemaVersion = 9
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -79,6 +79,7 @@ internal object DiagnosticsArchiveFormat {
             add("report.json")
             add("execution-plan.json")
             add("attempts.jsonl")
+            add("protocol-milestones.jsonl")
             add("decision-trace.json")
             add("strategy-matrix.json")
             if (composite) {
@@ -90,6 +91,7 @@ internal object DiagnosticsArchiveFormat {
                     add("$prefix/report.json")
                     add("$prefix/execution-plan.json")
                     add("$prefix/attempts.jsonl")
+                    add("$prefix/protocol-milestones.jsonl")
                     add("$prefix/decision-trace.json")
                     add("$prefix/probe-results.csv")
                     add("$prefix/strategy-matrix.json")
