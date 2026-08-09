@@ -19,7 +19,7 @@ Replace the loose task board with a validated portfolio, executable mdtask steps
 - [x] CIC-1786267423524098 Add the RIPDPI OpenSpec schema, stable requirements, verification matrices, and strict archive/drop workflows #feature !high @item:CIC-1786264762917931
 - [x] CIC-1786267423539623 Add task-contract CI, Lefthook and just gates, PR metadata, private security reporting guidance, and remove public issue forms #feature !high @item:CIC-1786264762917931
 - [x] CIC-1786267423555362 Pass focused unit, worktree-concurrency, upstream strict-validation, harness, and clean-copy installation gates #feature !high @item:CIC-1786264762917931
-- [ ] CIC-1786267423572903 Obtain owner/legal approval, push a review branch, pass required remote task-contract CI, then disable public GitHub Issues while confirming Private Vulnerability Reporting remains enabled #feature !high @item:CIC-1786264762917931
+- [x] CIC-1786267423572903 Obtain owner/legal approval, push a review branch, pass required remote task-contract CI, then disable public GitHub Issues while confirming Private Vulnerability Reporting remains enabled #feature !high @item:CIC-1786264762917931
 
 ## Verification
 

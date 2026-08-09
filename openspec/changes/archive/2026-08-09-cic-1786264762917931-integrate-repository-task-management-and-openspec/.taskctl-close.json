@@ -1,0 +1,11 @@
+{
+  "change": "cic-1786264762917931-integrate-repository-task-management-and-openspec",
+  "evidence_summary": "Owner-authorized integration reached main at b8052b8900699589034d8a9141d769f3cd539a67; task-contract CI passed in run 31306595281; public GitHub Issues disabled and Private Vulnerability Reporting remained enabled.",
+  "execution_sha256": "dc83ce0bf14d50c16595024d28349d4fdf2ac35d786acfc0b96b9b877ae1eef5",
+  "issue_sha256": "06f5714322e69da6505fe2eac3d673a09fad49666e9925270c2bdc8e3415a30d",
+  "outcome": "done",
+  "prepared_at": "2026-08-09T09:49:06Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1786264762917931"
+}

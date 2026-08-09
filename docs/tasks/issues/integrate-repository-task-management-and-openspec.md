@@ -2,7 +2,7 @@
 id: CIC-1786264762917931
 title: Integrate repository task management and OpenSpec
 kind: feature
-status: doing
+status: done
 area: ci
 priority: high
 owner: Codex coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: cic-1786264762917931-integrate-repository-task-management-and-openspec
 created: 2026-08-09
 updated: 2026-08-09
+closed_at: "2026-08-09T09:49:06Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Owner-authorized integration reached main at b8052b8900699589034d8a9141d769f3cd539a67; task-contract CI passed in run 31306595281; public GitHub Issues disabled and Private Vulnerability Reporting remained enabled.
 ---
 
 ## Goal
