@@ -1227,7 +1227,7 @@ jobs:
           toolchain: nightly
           components: miri,rust-src
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1302,7 +1302,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1349,7 +1349,7 @@ jobs:
           toolchain: "1.96.0"
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1419,7 +1419,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1471,7 +1471,7 @@ jobs:
           toolchain: nightly
           components: rust-src
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: |
             native/rust -> target
@@ -1505,7 +1505,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0" # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1594,7 +1594,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1627,7 +1627,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1659,7 +1659,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1698,7 +1698,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1843,7 +1843,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2322,7 +2322,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2349,7 +2349,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2401,7 +2401,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2841,7 +2841,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2882,7 +2882,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2970,7 +2970,7 @@ jobs:
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
