@@ -459,6 +459,7 @@ private fun sectionStatusForFileName(
     when (fileName) {
         "summary.txt",
         "manifest.json",
+        "capture-manifest.json",
         "report.json",
         "target-aliases.json",
         "execution-plan.json",

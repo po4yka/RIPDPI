@@ -56,6 +56,7 @@
     "includedFiles": [
         "summary.txt",
         "manifest.json",
+        "capture-manifest.json",
         "report.json",
         "target-aliases.json",
         "execution-plan.json",
@@ -130,13 +131,14 @@
     ],
     "requestedSessionId": "session-1",
     "runType": "single_session",
-    "schemaVersion": 12,
+    "schemaVersion": 13,
     "scope": "hybrid",
     "sectionStatusSummary": {
         "analysis.json": "included",
         "archive-provenance.json": "included",
         "attempts.jsonl": "redacted",
         "capabilities.json": "redacted",
+        "capture-manifest.json": "redacted",
         "completeness.json": "included",
         "decision-trace.json": "redacted",
         "developer-analytics.json": "included",

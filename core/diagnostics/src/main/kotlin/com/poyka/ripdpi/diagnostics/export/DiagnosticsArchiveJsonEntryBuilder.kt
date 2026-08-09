@@ -21,6 +21,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
     private val strategyEvidenceEntryBuilder = DiagnosticsArchiveStrategyEvidenceEntryBuilder(redactor, json)
+    private val captureManifestEntryBuilder = DiagnosticsArchiveCaptureManifestEntryBuilder(json)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
@@ -47,6 +48,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     bytes = encodeManifest(target, selection, sectionStatuses).toByteArray(),
                 ),
             )
+            add(captureManifestEntryBuilder.build(selection))
             add(
                 jsonEntry(
                     name = "report.json",

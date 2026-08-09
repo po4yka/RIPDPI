@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 12 adds resolver decision, fallback, and runtime evidence traces.
-    const val schemaVersion = 12
+    // Version 13 adds a privacy-safe manifest for separate packet-capture artifacts.
+    const val schemaVersion = 13
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -65,6 +65,7 @@ internal object DiagnosticsArchiveFormat {
     const val globalEventLimit = 200
     const val sessionEventLimit = 200
     const val snapshotLimit = 250
+    const val captureFileLimit = 4
 
     fun includedFiles(
         logcatIncluded: Boolean,
@@ -76,6 +77,7 @@ internal object DiagnosticsArchiveFormat {
         buildList {
             add("summary.txt")
             add("manifest.json")
+            add("capture-manifest.json")
             add("report.json")
             add("target-aliases.json")
             addStrategyEvidenceFiles()
@@ -175,6 +177,7 @@ internal data class DiagnosticsArchiveSelection(
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus,
     val pcapFiles: List<File> = emptyList(),
+    val captureFiles: List<File> = emptyList(),
     val replayResults: List<ReplayProbeResult> = emptyList(),
     val homeRunId: String? = null,
     val homeCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,

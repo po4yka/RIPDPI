@@ -30,6 +30,7 @@
         "archive-provenance.json": "included",
         "attempts.jsonl": "redacted",
         "capabilities.json": "redacted",
+        "capture-manifest.json": "redacted",
         "completeness.json": "included",
         "decision-trace.json": "redacted",
         "developer-analytics.json": "included",

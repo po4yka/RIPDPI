@@ -331,6 +331,7 @@ internal class DefaultDiagnosticsArchiveExporter
                     .map { stage -> "completed_stage_evidence_unavailable:${stage.stageSummary.stageKey}" }
             return selection.copy(
                 pcapFiles = emptyList(),
+                captureFiles = fileStore.getRecentCompletedPcapFiles(DiagnosticsArchiveFormat.captureFileLimit),
                 collectionWarnings = selection.collectionWarnings + missingCompletedStageWarnings,
                 includedFiles =
                     DiagnosticsArchiveFormat.includedFiles(

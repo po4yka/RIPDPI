@@ -154,7 +154,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(aliases.all { it.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v12.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v13.json", text)
     }
 
     @Test
@@ -330,7 +330,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/capabilities_v12.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/capabilities_v13.json", text)
     }
 
     @Test
@@ -371,7 +371,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(rows.all { row -> row.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v12.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v13.jsonl", text)
     }
 
     @Test
@@ -529,7 +529,7 @@ class DiagnosticsArchiveRendererTest {
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("quic.example"))
         assertFalse(text.contains("CLIENT_HELLO"))
-        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v12.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v13.jsonl", text)
     }
 
     @Test
@@ -814,7 +814,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertFalse(rows[4].containsKey("sessionId"))
         assertResolverTracePrivacy(traceText)
-        GoldenContractSupport.assertTextGolden("archive/resolver_trace_v12.jsonl", traceText)
+        GoldenContractSupport.assertTextGolden("archive/resolver_trace_v13.jsonl", traceText)
     }
 
     @Test
@@ -918,7 +918,7 @@ class DiagnosticsArchiveRendererTest {
                 entries.getValue("integrity.json").bytes.decodeToString(),
             )
 
-        assertEquals(12, manifest.schemaVersion)
+        assertEquals(13, manifest.schemaVersion)
         assertTrue(manifest.includedFiles.contains("resolver-trace.jsonl"))
         assertEquals(
             DiagnosticsArchiveSectionStatus.REDACTED,
@@ -1394,7 +1394,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(12, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(13, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -2961,6 +2961,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(entries.containsKey("runtime-config.json"))
         assertTrue(entries.containsKey("analysis.json"))
         assertTrue(entries.containsKey("completeness.json"))
+        assertTrue(entries.containsKey("capture-manifest.json"))
         assertTrue(entries.containsKey("integrity.json"))
         assertTrue(runtimeConfig.commandLineSettingsEnabled)
         assertNotNull(runtimeConfig.commandLineArgsHash)
@@ -2984,35 +2985,39 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v12.json",
+            "archive/manifest_v13.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v12.json",
+            "archive/capture_manifest_v13.json",
+            entries.getValue("capture-manifest.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/archive_provenance_v13.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v12.json",
+            "archive/runtime_config_v13.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v12.json",
+            "archive/analysis_v13.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v12.json",
+            "archive/completeness_v13.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v12.json",
+            "archive/integrity_v13.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v12.json",
+            "archive/execution_plan_v13.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/decision_trace_v12.json",
+            "archive/decision_trace_v13.json",
             entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }

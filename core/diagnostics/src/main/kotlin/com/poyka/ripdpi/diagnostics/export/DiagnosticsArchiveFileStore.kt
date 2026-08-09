@@ -64,13 +64,15 @@ class DiagnosticsArchiveFileStore(
 
     internal fun deleteArchive(file: File) = deleteVerified(file)
 
-    internal fun getRecentPcapFiles(maxFiles: Int = 3): List<File> {
+    internal fun getRecentCompletedPcapFiles(maxFiles: Int): List<File> {
         val pcapDir = File(cacheDir, "diagnostics")
         if (!pcapDir.exists()) return emptyList()
+        val activeSetIds = activePcapSetIds(pcapDir)
         return pcapDir
             .listFiles()
             .orEmpty()
             .filter { it.isFile && it.extension == "pcap" }
+            .filterNot { it.belongsToActivePcapSet(activeSetIds) }
             .sortedByDescending { it.lastModified() }
             .take(maxFiles)
     }
