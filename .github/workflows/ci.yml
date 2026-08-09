@@ -188,6 +188,7 @@ jobs:
     needs: change-routing
     if: needs.change-routing.outputs.run_workflow_ci == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,6 +207,15 @@ jobs:
             .github/workflows/*.yml \
             .github/actions/setup-android-rust/action.yml \
             .github/actions/upload-build-observability/action.yml
+
+      - name: Install pinned uv for zizmor
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.8.17"
+          enable-cache: false
+
+      - name: Audit workflow security with pinned zizmor
+        run: bash scripts/ci/run-zizmor.sh
 
       - name: Validate workflow and release contracts
         run: |
@@ -1526,7 +1536,7 @@ jobs:
       - name: Fail if baseline files modified
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --name-only origin/${GITHUB_BASE_REF}...HEAD | grep -E 'baseline' | grep -v '^#'; then
+          if git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" | grep -E 'baseline' | grep -v '^#'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi

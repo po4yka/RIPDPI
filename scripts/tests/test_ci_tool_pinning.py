@@ -9,6 +9,35 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
+    def test_zizmor_gate_is_strict_and_reproducibly_pinned(self) -> None:
+        script = (ROOT / "scripts/ci/run-zizmor.sh").read_text(encoding="utf-8")
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+
+        self.assertIn('readonly zizmor_version="1.29.0"', script)
+        self.assertIn(
+            "uses: astral-sh/setup-uv@"
+            "c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0",
+            ci,
+        )
+        self.assertIn('version: "0.8.17"', ci)
+        self.assertIn('uvx --from "zizmor==$zizmor_version"', script)
+        for flag in (
+            "--offline",
+            "--strict-collection",
+            "--persona regular",
+            "--no-ignores",
+        ):
+            self.assertIn(flag, script)
+        self.assertIn("run: bash scripts/ci/run-zizmor.sh", ci)
+        workflow_gate = re.search(
+            r"(?ms)^  workflow-only-contracts:\n.*?(?=^  [\w-]+:\n|\Z)", ci
+        )
+        self.assertIsNotNone(workflow_gate)
+        assert workflow_gate is not None
+        self.assertNotIn("continue-on-error", workflow_gate.group(0))
+        self.assertIn("zizmor:\n    bash scripts/ci/run-zizmor.sh", justfile)
+
     def test_compose_reports_require_explicit_gradle_opt_in(self) -> None:
         source = (
             ROOT

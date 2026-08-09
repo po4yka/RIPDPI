@@ -100,6 +100,7 @@ WORKFLOW_FILES: Final = frozenset(
         ".github/workflows/labeler.yml",
         ".github/workflows/secret-scan.yml",
         ".pinact.yaml",
+        "scripts/ci/run-zizmor.sh",
         "scripts/tests/test_ci_native_dependency_graph.py",
         "scripts/tests/test_ci_tool_pinning.py",
         "scripts/tests/test_nightly_coverage_selection.py",

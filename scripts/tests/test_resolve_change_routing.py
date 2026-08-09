@@ -68,7 +68,10 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                 "test-lab/chaos/netem/clear.sh",
                 "scripts/tests/test_netem_transaction.py",
             ],
-            ROUTE_WORKFLOW: [".github/workflows/codeql.yml"],
+            ROUTE_WORKFLOW: [
+                ".github/workflows/codeql.yml",
+                "scripts/ci/run-zizmor.sh",
+            ],
         }
         for expected, paths in cases.items():
             with self.subTest(route=expected):
@@ -234,6 +237,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("fixture-contracts:", source)
         self.assertIn("actionlint .github/workflows/*.yml", source)
         self.assertIn("pinact run --fix=false --no-api", source)
+        self.assertIn("run: bash scripts/ci/run-zizmor.sh", source)
         self.assertIn("scripts.tests.test_release_p1_contracts", source)
         self.assertIn("scripts.tests.test_android_device_session", source)
         self.assertIn("scripts.tests.test_netem_transaction", source)
