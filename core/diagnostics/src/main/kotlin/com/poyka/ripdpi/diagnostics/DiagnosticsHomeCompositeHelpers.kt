@@ -34,8 +34,7 @@ internal suspend fun buildCompletedStageSummary(
                 DiagnosticsHomeCompositeStageStatus.UNAVAILABLE
             }
 
-            completionKind == ScanCompletionKind.TERMINATED ||
-                completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
+            completionKind == ScanCompletionKind.TERMINATED -> {
                 DiagnosticsHomeCompositeStageStatus.FAILED
             }
 
@@ -111,7 +110,7 @@ internal fun buildHomeCompositeOutcome(
         ).joinToString(" ")
     val headline =
         when {
-            actionable -> "Analysis complete and settings applied"
+            auditOutcome != null -> auditOutcome.headline
             failedStageCount > 0 -> "Analysis finished \u2014 $failedStageCount of ${stageSummaries.size} stages failed"
             else -> "Analysis complete"
         }

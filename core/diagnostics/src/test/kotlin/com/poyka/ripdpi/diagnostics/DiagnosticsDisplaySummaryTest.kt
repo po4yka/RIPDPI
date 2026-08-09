@@ -283,7 +283,7 @@ class DiagnosticsDisplaySummaryTest {
         }
 
     @Test
-    fun `oversized partial reports are not classified as completed by Home`() =
+    fun `completed sessions with partial reports are classified as completed by Home`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val sessionId = "oversized-partial-session"
@@ -322,7 +322,7 @@ class DiagnosticsDisplaySummaryTest {
                     json = json,
                 )
 
-            assertEquals(DiagnosticsHomeCompositeStageStatus.FAILED, summary.status)
+            assertEquals(DiagnosticsHomeCompositeStageStatus.COMPLETED, summary.status)
         }
 
     @Test
