@@ -2,11 +2,13 @@ pub mod android_support
 pub struct android_support::EventRingBuffers
 impl android_support::EventRingBuffers
 pub fn android_support::EventRingBuffers::clear_diagnostics(&self)
+pub fn android_support::EventRingBuffers::clear_diagnostics_for_session(&self, &str)
 pub fn android_support::EventRingBuffers::clear_proxy(&self)
 pub fn android_support::EventRingBuffers::clear_relay(&self)
 pub fn android_support::EventRingBuffers::clear_tunnel(&self)
 pub fn android_support::EventRingBuffers::clear_warp(&self)
 pub fn android_support::EventRingBuffers::drain_diagnostics(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::EventRingBuffers::drain_diagnostics_for_session(&self, &str) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::drain_proxy(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::drain_relay(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::drain_tunnel(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
@@ -60,6 +62,7 @@ pub fn android_support::android_log_level_from_str(&str) -> core::option::Option
 pub fn android_support::authority_header_value(&str, u16, bool) -> alloc::string::String
 pub fn android_support::clear_android_log_scope_level(&str)
 pub fn android_support::clear_diagnostics_events()
+pub fn android_support::clear_diagnostics_events_for_session(&str)
 pub fn android_support::clear_proxy_events()
 pub fn android_support::clear_relay_events()
 pub fn android_support::clear_tunnel_events()
@@ -67,6 +70,7 @@ pub fn android_support::clear_warp_events()
 pub fn android_support::default_android_log_level() -> log::LevelFilter
 pub fn android_support::describe_exception(&mut jni::env::EnvUnowned<'_>) -> core::option::Option<alloc::string::String>
 pub fn android_support::drain_diagnostics_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::drain_diagnostics_events_for_session(&str) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::drain_proxy_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::drain_relay_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::drain_tunnel_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
