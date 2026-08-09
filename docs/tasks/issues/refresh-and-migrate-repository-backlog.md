@@ -2,7 +2,7 @@
 id: CIC-1786271703268565
 title: Refresh and migrate the repository backlog
 kind: chore
-status: doing
+status: review
 area: ci
 priority: high
 owner: Tasking maintainer
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-08-09
 updated: 2026-08-09
 spec_reason: tooling-only
+status_detail: Rebased validation passed and candidate 40742a63e was published to main.
 ---
 
 ## Goal
