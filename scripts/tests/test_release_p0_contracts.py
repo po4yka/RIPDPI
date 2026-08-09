@@ -188,8 +188,11 @@ class ReleaseP0ContractsTest(unittest.TestCase):
         self.assertIn('name: android-release-candidate', prepare)
         self.assertIn("--expected-source-sha \"$GITHUB_SHA\"", prepare)
         self.assertIn("environment: release-publish", publish)
-        self.assertIn("overwrite_files: false", publish)
-        self.assertIn("draft: true", publish)
+        self.assertIn('gh release create "$GITHUB_REF_NAME"', publish)
+        self.assertIn("--draft", publish)
+        self.assertIn("--verify-tag", publish)
+        self.assertIn("--notes-file publish/release-notes.md", publish)
+        self.assertNotIn("softprops/action-gh-release", publish)
         self.assertEqual(1, source.count("contents: write"))
         self.assertNotIn("id-token: write", publish)
 
