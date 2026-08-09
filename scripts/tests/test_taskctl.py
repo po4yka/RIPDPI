@@ -745,6 +745,49 @@ class TaskctlHistoryTest(TaskctlFixture):
 
         taskctl.validate_deleted_history(self.root, base)
 
+    def test_legacy_done_can_be_normalized_strictly_before_deletion(self) -> None:
+        path = self.root / "docs/tasks/issues/cic-1786234567890001.md"
+        path.write_text(
+            """# Legacy completed task
+
+- [x] #task Record the completed result #status/done
+
+## Ship definition
+
+- [x] Immutable evidence exists.
+""",
+            encoding="utf-8",
+        )
+        base = self.commit_all("record legacy completed task")
+
+        path = self.add_simple_task(status="review")
+        self.prepare_simple_terminal(path)
+        self.commit_all("normalize legacy terminal task")
+        self.purge_simple_task(path)
+        self.commit_all("purge normalized task")
+
+        taskctl.validate_deleted_history(self.root, base)
+
+    def test_open_legacy_terminal_cannot_be_normalized_as_done(self) -> None:
+        path = self.root / "docs/tasks/issues/cic-1786234567890001.md"
+        path.write_text(
+            """# Legacy incomplete task
+
+- [ ] #task Record the completed result #status/done
+""",
+            encoding="utf-8",
+        )
+        base = self.commit_all("record inconsistent legacy task")
+
+        path = self.add_simple_task(status="review")
+        self.prepare_simple_terminal(path)
+        self.commit_all("forge terminal normalization")
+        self.purge_simple_task(path)
+        self.commit_all("purge forged normalization")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "legacy terminal snapshot has open"):
+            taskctl.validate_deleted_history(self.root, base)
+
     def test_purge_rejects_incoming_related_task(self) -> None:
         target = self.add_simple_task(status="review")
         self.add_simple_task(
