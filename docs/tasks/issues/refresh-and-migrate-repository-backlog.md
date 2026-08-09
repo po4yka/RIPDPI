@@ -24,4 +24,4 @@ Leave one evidence-backed backlog in the strict task/OpenSpec system, with compl
 - Every surviving actionable item from the current board, `ROADMAP.md`, and recovery task reports is represented by one strict portfolio task and one valid execution file.
 - Completed and obsolete items are classified from code, tests, Git history, and external-run evidence; terminal tasks are committed before purge.
 - Task relationships, statuses, priorities, ownership, OpenSpec classification, step progress, and generated board match the observed repository state.
-- `./taskctl verify`, tasking tests, OpenSpec strict validation, legal review, and independent final review pass on the rebased combined tree.
+- `./taskctl validate --base <pre-refresh-main>`, tasking contract tests, OpenSpec strict validation, legal review, and independent final review pass on the rebased combined tree.
