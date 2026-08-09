@@ -6,6 +6,8 @@ import json
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest import mock
 
@@ -381,6 +383,22 @@ class TaskctlContractTest(TaskctlFixture):
             ).read_text(encoding="utf-8")
         )
         self.assertEqual(["DGN-1786234567890102"], receipt["dropped_step_ids"])
+        output = StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(
+                0,
+                taskctl.command_list(
+                    argparse.Namespace(
+                        root=self.root,
+                        status=["dropped"],
+                        area=None,
+                        kind=None,
+                        json=True,
+                    )
+                ),
+            )
+        listed = json.loads(output.getvalue())
+        self.assertEqual({"done": 0, "total": 0}, listed["tasks"][0]["progress"])
 
     def test_new_simple_task_uses_global_allocator_and_execution_contract(self) -> None:
         self.add_simple_task()

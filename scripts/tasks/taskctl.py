@@ -1080,7 +1080,10 @@ def command_list(args: argparse.Namespace) -> int:
         {
             **document.values,
             "path": str(document.path.relative_to(args.root)),
-            "progress": {"done": progress[document.task_id][0], "total": progress[document.task_id][1]},
+            "progress": {
+                "done": progress.get(document.task_id, (0, 0))[0],
+                "total": progress.get(document.task_id, (0, 0))[1],
+            },
         }
         for document in selected
     ]
