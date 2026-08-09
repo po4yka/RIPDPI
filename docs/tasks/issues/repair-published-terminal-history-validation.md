@@ -2,7 +2,7 @@
 id: CIC-1786270029481807
 title: Repair published terminal-history validation
 kind: bug
-status: doing
+status: review
 area: ci
 priority: critical
 owner: Codex tasking repair
