@@ -84,8 +84,6 @@ PROJECT_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 QUALIFIED_REF_RE = re.compile(
     r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([A-Z][A-Z0-9]*-\d{16})$"
 )
-LEGACY_STATUS_RE = re.compile(r"(?<!\S)#status/([a-z]+)(?![A-Za-z0-9_/-])")
-LEGACY_TASK_RE = re.compile(r"(?m)^- \[([ xX])\].*#task(?:\s|$)")
 
 REQUIRED_FIELDS = (
     "id",
@@ -156,14 +154,6 @@ class Step:
     text: str
     item_id: str | None
     blockers: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class HistoricalSnapshot:
-    document: Document | None
-    text: str
-    status: str
-    legacy: bool = False
 
 
 def fail(message: str) -> None:
@@ -1421,53 +1411,25 @@ def validate_deleted_history(root: Path, base: str) -> None:
         with tempfile.TemporaryDirectory(prefix="ripdpi-task-history-") as directory:
             scratch = Path(directory)
 
-            def document_at(ref: str, *, allow_legacy: bool = False) -> HistoricalSnapshot | None:
+            def document_at(ref: str) -> tuple[Document, str] | None:
                 shown = run_command(("git", "show", f"{ref}:{relative}"), root=root)
                 if shown.returncode != 0:
                     return None
-                text = shown.stdout or ""
                 issue = scratch / f"issue-{len(list(scratch.glob('issue-*')))}.md"
-                issue.write_text(text, encoding="utf-8")
-                try:
-                    document = read_document(issue)
-                except ContractError:
-                    if not allow_legacy or text.startswith("---"):
-                        raise
-                    statuses = LEGACY_STATUS_RE.findall(text)
-                    if len(statuses) != 1 or statuses[0] not in STATUSES:
-                        fail(f"{relative}: legacy historical task has no unique valid status")
-                    status = statuses[0]
-                    if status in {"done", "dropped"}:
-                        task_marks = LEGACY_TASK_RE.findall(text)
-                        if not task_marks or any(mark == " " for mark in task_marks):
-                            fail(f"{relative}: legacy terminal snapshot has open #task items")
-                    return HistoricalSnapshot(
-                        document=None,
-                        text=text,
-                        status=status,
-                        legacy=True,
-                    )
-                status = document.values.get("status")
-                if status not in STATUSES:
-                    fail(f"{relative}: historical task has invalid status {status!r}")
-                return HistoricalSnapshot(
-                    document=document,
-                    text=text,
-                    status=status,
-                )
+                issue.write_text(shown.stdout or "", encoding="utf-8")
+                return read_document(issue), shown.stdout or ""
 
             final_snapshot = document_at(previous_ref)
             assert final_snapshot is not None
-            assert final_snapshot.document is not None
-            final_document = final_snapshot.document
-            outcome = final_snapshot.status
+            final_document, _ = final_snapshot
+            outcome = final_document.values.get("status")
             if outcome not in {"done", "dropped"}:
                 fail(f"{relative}: deleted without a preceding committed terminal state")
             for field in ("closed_at", "closed_reason", "evidence_summary"):
                 if not final_document.values.get(field):
                     fail(f"{relative}: terminal state before deletion lacks {field}")
 
-            base_snapshot = document_at(base, allow_legacy=True)
+            base_snapshot = document_at(base)
             terminal_ref: str | None = None
             prior_status: str | None = None
             history = run_command(
@@ -1486,48 +1448,30 @@ def validate_deleted_history(root: Path, base: str) -> None:
             if (
                 last_absent == -1
                 and base_snapshot
-                and not base_snapshot.legacy
-                and base_snapshot.status in {"done", "dropped"}
+                and base_snapshot[0].values.get("status") in {"done", "dropped"}
             ):
                 terminal_ref = base
             else:
                 for commit, snapshot in snapshots[last_absent + 1 :]:
                     assert snapshot is not None
-                    status = snapshot.status
-                    if status in {"done", "dropped"} and not snapshot.legacy:
+                    status = snapshot[0].values.get("status")
+                    if status in {"done", "dropped"}:
                         terminal_ref = commit
                         break
                     prior_status = status
             if terminal_ref is None:
                 fail(f"{relative}: terminal transition commit is missing")
-            legacy_normalization = bool(
-                last_absent == -1
-                and base_snapshot
-                and base_snapshot.legacy
-                and base_snapshot.status == outcome
-                and prior_status == outcome
-            )
-            if (
-                outcome == "done"
-                and prior_status != "review"
-                and terminal_ref != base
-                and not legacy_normalization
-            ):
+            if outcome == "done" and prior_status != "review" and terminal_ref != base:
                 fail(f"{relative}: invalid terminal transition {prior_status or 'missing'} -> done")
-            if (
-                outcome == "dropped"
-                and terminal_ref != base
-                and not legacy_normalization
-                and (prior_status not in STATUSES or not transition_allowed(prior_status, "dropped"))
+            if outcome == "dropped" and terminal_ref != base and (
+                prior_status not in STATUSES or not transition_allowed(prior_status, "dropped")
             ):
                 fail(f"{relative}: invalid terminal transition {prior_status or 'missing'} -> dropped")
 
             terminal_snapshot = document_at(terminal_ref)
             assert terminal_snapshot is not None
-            assert terminal_snapshot.document is not None
-            terminal_document = terminal_snapshot.document
-            terminal_text = terminal_snapshot.text
-            if terminal_snapshot.status != outcome:
+            terminal_document, terminal_text = terminal_snapshot
+            if terminal_document.values.get("status") != outcome:
                 fail(f"{relative}: terminal transition does not match deleted outcome")
             validate_terminal_snapshot(
                 root,
