@@ -15,7 +15,7 @@ use crate::tls::tls_key_log_callback_for_path;
 use crate::types::DomainTarget;
 use crate::util::stable_probe_hash;
 
-use crate::execution::runtime::{CandidateRuntimeLauncher, probe_runtime_transport, run_candidate_warmup};
+use crate::execution::runtime::{CandidateRuntimeLauncher, probe_tcp_runtime_transport, run_candidate_warmup};
 use crate::execution::scoring::{
     CandidateExecution, CandidateScore, build_candidate_execution, cancelled_candidate_execution,
     failed_candidate_execution, not_applicable_candidate_execution,
@@ -37,7 +37,7 @@ pub fn execute_tcp_candidate(
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
     }
     let probe_started = std::time::Instant::now();
-    match probe_runtime_transport(runtime_launcher, spec, runtime_context) {
+    match probe_tcp_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
             let key_log = keylog_path.map(tls_key_log_callback_for_path);

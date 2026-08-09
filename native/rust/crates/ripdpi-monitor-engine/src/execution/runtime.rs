@@ -12,6 +12,7 @@ use std::time::Duration;
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
 pub use contracts::{CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime};
 pub use launch::probe_runtime_transport;
+pub(crate) use launch::probe_tcp_runtime_transport;
 pub use unavailable::UnavailableCandidateRuntimeLauncher;
 pub use warmup::run_candidate_warmup;
 
@@ -157,6 +158,48 @@ mod tests {
             assert_eq!(prepared.config.network.listen.listen_ip.to_string(), "127.0.0.1");
             assert_eq!(prepared.config.network.listen.listen_port, 0);
             Ok(Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } }))
+        }
+    }
+
+    struct TcpOnlyRelayRuntimeLauncher {
+        expect_relay: bool,
+    }
+
+    impl CandidateRuntimeLauncher for TcpOnlyRelayRuntimeLauncher {
+        fn start_candidate_runtime(
+            &self,
+            prepared: PreparedCandidateRuntime,
+        ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
+            assert!(!prepared.config.network.udp, "TCP probe runtime must disable UDP ASSOCIATE");
+            if self.expect_relay {
+                assert!(
+                    prepared.config.groups.iter().all(|group| group.policy.ext_socks.is_some()),
+                    "TCP probe runtime must preserve the configured relay path"
+                );
+            }
+            Ok(Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } }))
+        }
+    }
+
+    #[test]
+    fn tcp_probe_runtime_accepts_every_full_matrix_candidate_with_a_tcp_only_relay() {
+        let mut base = test_ui_config();
+        base.protocols.udp_associate_enabled = None;
+        base.upstream_relay.enabled = true;
+        base.upstream_relay.kind = "vless_reality".to_string();
+        base.upstream_relay.udp_enabled = false;
+        let suite = crate::candidates::build_strategy_probe_suite("full_matrix_v1", &base)
+            .expect("full matrix candidate suite");
+
+        for spec in &suite.tcp_candidates {
+            let launcher = TcpOnlyRelayRuntimeLauncher { expect_relay: spec.config.upstream_relay.enabled };
+            probe_tcp_runtime_transport(&launcher, spec, None)
+                .unwrap_or_else(|error| panic!("{} must reach the TCP probe launcher: {error}", spec.id));
+            assert_eq!(
+                spec.config.protocols.udp_associate_enabled, None,
+                "{} recommendation config must not inherit the probe-only override",
+                spec.id
+            );
         }
     }
 
