@@ -224,6 +224,7 @@ internal class DefaultDiagnosticsArchiveExporter
                         loadStageTelemetry = { session, connectionSessionIds ->
                             sourceLoader.getStageTelemetry(session, connectionSessionIds)
                         },
+                        loadRunStageTelemetry = sourceLoader::getRunStageTelemetry,
                     )
             return finalizeSelection(selection)
         }

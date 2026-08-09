@@ -11,6 +11,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration6To7,
             migration7To8,
             migration8To9,
+            migration9To10,
         )
 }
 
@@ -59,5 +60,21 @@ private val migration8To9 =
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE scan_sessions ADD COLUMN reportCompletionKind TEXT")
             db.execSQL("ALTER TABLE scan_sessions ADD COLUMN reportTerminationReason TEXT")
+        }
+    }
+
+/** v9 → v10: correlate runtime telemetry samples with a home diagnostics run and stage. */
+private val migration9To10 =
+    object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN diagnosticsRunId TEXT")
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN diagnosticsStageKey TEXT")
+            db.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS
+                    index_telemetry_samples_diagnosticsRunId_diagnosticsStageKey_createdAt
+                ON telemetry_samples(diagnosticsRunId, diagnosticsStageKey, createdAt)
+                """.trimIndent(),
+            )
         }
     }

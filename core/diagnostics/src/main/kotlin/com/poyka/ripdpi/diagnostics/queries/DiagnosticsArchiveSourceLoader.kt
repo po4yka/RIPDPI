@@ -149,10 +149,26 @@ internal class DiagnosticsArchiveSourceLoader
             connectionSessionIds: Set<String>,
         ): List<TelemetrySampleEntity> =
             artifactQueryStore.getTelemetryForArchiveStage(
+                diagnosticsRunId = null,
+                diagnosticsStageKey = null,
                 sessionId = session.id,
                 connectionSessionIds = connectionSessionIds.ifEmpty { setOf("") }.toList(),
                 startedAt = session.startedAt,
                 finishedAt = session.finishedAt ?: session.startedAt,
+                limit = DiagnosticsArchiveFormat.telemetryLimit + 1,
+            )
+
+        internal suspend fun getRunStageTelemetry(
+            runId: String,
+            stageKey: String,
+        ): List<TelemetrySampleEntity> =
+            artifactQueryStore.getTelemetryForArchiveStage(
+                diagnosticsRunId = runId,
+                diagnosticsStageKey = stageKey,
+                sessionId = null,
+                connectionSessionIds = listOf(""),
+                startedAt = 0L,
+                finishedAt = 0L,
                 limit = DiagnosticsArchiveFormat.telemetryLimit + 1,
             )
 

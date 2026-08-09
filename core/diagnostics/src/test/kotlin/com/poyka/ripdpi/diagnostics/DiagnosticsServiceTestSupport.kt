@@ -235,7 +235,9 @@ internal class FakeDiagnosticsHistoryStores :
             }.maxByOrNull { it.createdAt }
 
     override suspend fun getTelemetryForArchiveStage(
-        sessionId: String,
+        diagnosticsRunId: String?,
+        diagnosticsStageKey: String?,
+        sessionId: String?,
         connectionSessionIds: List<String>,
         startedAt: Long,
         finishedAt: Long,
@@ -243,10 +245,20 @@ internal class FakeDiagnosticsHistoryStores :
     ): List<TelemetrySampleEntity> =
         telemetryState.value
             .asSequence()
-            .filter { sample -> sample.createdAt in startedAt..finishedAt }
             .filter { sample ->
-                sample.sessionId == sessionId ||
-                    sample.connectionSessionId in connectionSessionIds
+                (
+                    sample.diagnosticsRunId == diagnosticsRunId &&
+                        sample.diagnosticsStageKey == diagnosticsStageKey &&
+                        diagnosticsRunId != null &&
+                        diagnosticsStageKey != null
+                ) ||
+                    (
+                        sample.createdAt in startedAt..finishedAt &&
+                            (
+                                sample.sessionId == sessionId ||
+                                    sample.connectionSessionId in connectionSessionIds
+                            )
+                    )
             }.sortedByDescending(TelemetrySampleEntity::createdAt)
             .take(limit)
             .toList()

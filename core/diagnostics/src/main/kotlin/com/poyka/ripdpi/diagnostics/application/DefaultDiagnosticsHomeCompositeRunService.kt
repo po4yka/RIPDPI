@@ -420,6 +420,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         summary = "Raw-path evidence did not justify a focused in-path confirmation leg.",
                     )
                 }
+                stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.SKIPPED)
                 return
             }
             stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
@@ -507,6 +508,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 )
             }
             log.i { "stage ${spec.key} started (detection-runner)" }
+            stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.RUNNING)
             val outcome =
                 runCatching {
                     withTimeoutOrNull(DetectionStageTimeoutMs) {
@@ -526,6 +528,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         summary = "Detection checks did not complete within the allowed time.",
                     )
                 }
+                stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.FAILED)
                 return
             }
             runDetectionResults[runId] = outcome
@@ -549,9 +552,10 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     summary = summaryLine,
                 )
             }
+            stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.COMPLETED)
         }
 
-        private fun skipRemainingStages(
+        private suspend fun skipRemainingStages(
             runId: String,
             reason: String,
         ) {
@@ -565,6 +569,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         summary = reason,
                     )
                 }
+                stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.SKIPPED)
             }
         }
 

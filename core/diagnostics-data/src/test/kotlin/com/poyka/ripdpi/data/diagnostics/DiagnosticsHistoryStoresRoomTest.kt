@@ -260,6 +260,37 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
         }
 
     @Test
+    fun `archive stage telemetry includes explicit run stage scope outside scan timestamps`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            store.insertTelemetrySample(
+                telemetry("stage-scoped", null, createdAt = 50L).copy(
+                    diagnosticsRunId = "home-run-1",
+                    diagnosticsStageKey = "detection_signals",
+                ),
+            )
+            store.insertTelemetrySample(
+                telemetry("different-stage", null, createdAt = 51L).copy(
+                    diagnosticsRunId = "home-run-1",
+                    diagnosticsStageKey = "path_comparison",
+                ),
+            )
+
+            val samples =
+                store.getTelemetryForArchiveStage(
+                    diagnosticsRunId = "home-run-1",
+                    diagnosticsStageKey = "detection_signals",
+                    sessionId = null,
+                    connectionSessionIds = listOf(""),
+                    startedAt = 10L,
+                    finishedAt = 25L,
+                    limit = 10,
+                )
+
+            assertEquals(listOf("stage-scoped"), samples.map { it.id })
+        }
+
+    @Test
     fun `connection evidence limit excludes separately loaded network transitions`() =
         runTest {
             val store = RoomDiagnosticsArtifactStore(db, dao)

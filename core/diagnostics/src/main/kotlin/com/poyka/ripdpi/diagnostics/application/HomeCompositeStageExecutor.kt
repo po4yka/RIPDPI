@@ -26,7 +26,19 @@ internal class HomeCompositeStageExecutor
         private val diagnosticsScanController: DiagnosticsScanController,
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val serviceStateStore: ServiceStateStore,
+        private val stageTelemetryRecorder: HomeCompositeStageTelemetryRecorder,
     ) {
+        constructor(
+            diagnosticsScanController: DiagnosticsScanController,
+            diagnosticsTimelineSource: DiagnosticsTimelineSource,
+            serviceStateStore: ServiceStateStore,
+        ) : this(
+            diagnosticsScanController = diagnosticsScanController,
+            diagnosticsTimelineSource = diagnosticsTimelineSource,
+            serviceStateStore = serviceStateStore,
+            stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder.noOp(),
+        )
+
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
@@ -59,6 +71,20 @@ internal class HomeCompositeStageExecutor
                     }
             }
             cancellationFailure?.let { throw it }
+        }
+
+        suspend fun recordStageTelemetry(
+            runId: String,
+            spec: HomeCompositeStageSpec,
+            sessionId: String? = null,
+            state: DiagnosticsHomeCompositeStageStatus,
+        ) {
+            stageTelemetryRecorder.record(
+                runId = runId,
+                stageKey = spec.key,
+                sessionId = sessionId,
+                state = state,
+            )
         }
 
         suspend fun cancelRunAndSetTerminalStatus(
@@ -143,6 +169,11 @@ internal class HomeCompositeStageExecutor
             log.i {
                 "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec, quickScan)}ms)"
             }
+            recordStageTelemetry(
+                runId = runId,
+                spec = spec,
+                state = DiagnosticsHomeCompositeStageStatus.RUNNING,
+            )
             val stageSessionId =
                 startStageSession(
                     runId = runId,
@@ -152,7 +183,15 @@ internal class HomeCompositeStageExecutor
                     progressState = progressState,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
-                ) ?: return null
+                )
+            if (stageSessionId == null) {
+                recordStageTelemetry(
+                    runId = runId,
+                    spec = spec,
+                    state = DiagnosticsHomeCompositeStageStatus.FAILED,
+                )
+                return null
+            }
             updateStage(progressState, runId, stageIndex) { current ->
                 current.copy(
                     sessionId = stageSessionId,
@@ -244,6 +283,7 @@ internal class HomeCompositeStageExecutor
             return when (signal) {
                 is StageSessionSignal.Finished -> {
                     log.i { "stage ${spec.key} completed status=${signal.session.status}" }
+                    recordStageTelemetry(runId, spec, stageSessionId, signal.session.toCompositeStageStatus())
                     stageSessionId to signal.session
                 }
 
@@ -255,6 +295,12 @@ internal class HomeCompositeStageExecutor
                         stageIndex = stageIndex,
                         headline = "${spec.label} failed",
                         summary = "VPN service stopped while the stage was running.",
+                    )
+                    recordStageTelemetry(
+                        runId = runId,
+                        spec = spec,
+                        sessionId = stageSessionId,
+                        state = DiagnosticsHomeCompositeStageStatus.FAILED,
                     )
                     null
                 }
@@ -317,6 +363,12 @@ internal class HomeCompositeStageExecutor
                 headline = "${spec.label} timed out",
                 summary = "The stage did not complete within the allowed time.",
             )
+            recordStageTelemetry(
+                runId = runId,
+                spec = spec,
+                sessionId = stageSessionId,
+                state = DiagnosticsHomeCompositeStageStatus.FAILED,
+            )
             return null
         }
 
@@ -372,3 +424,10 @@ private fun Throwable?.withSuppressed(additional: Throwable?): Throwable? =
             if (this !== next) addSuppressed(next)
         } ?: next
     } ?: this
+
+private fun DiagnosticScanSession.toCompositeStageStatus(): DiagnosticsHomeCompositeStageStatus =
+    if (status == "completed") {
+        DiagnosticsHomeCompositeStageStatus.COMPLETED
+    } else {
+        DiagnosticsHomeCompositeStageStatus.FAILED
+    }

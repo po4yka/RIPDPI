@@ -375,6 +375,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -403,6 +404,14 @@ class DiagnosticsHomeCompositeRunServiceTest {
             // Detection stage is FAILED and path comparison is skipped without paired evidence.
             assertEquals(6, outcome.completedStageCount)
             assertEquals(1, outcome.failedStageCount)
+            assertEquals(
+                outcome.stageSummaries
+                    .map { it.stageKey }
+                    .toSet(),
+                stores.telemetryState.value
+                    .mapNotNull { it.diagnosticsStageKey }
+                    .toSet(),
+            )
         }
 
     @Test
@@ -1246,6 +1255,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
     @Test
     fun `raw path stage ignores the expected vpn halt and waits for its session`() =
         runTest {
+            val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val spec = stageSpec(ScanPathMode.RAW_PATH)
@@ -1256,6 +1266,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
+                    stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
                 )
 
             val result =
@@ -1276,11 +1287,17 @@ class HomeCompositeStageExecutorVpnHaltTest {
 
             timelineSource.sessions.value = listOf(stageSession(spec, status = "completed"))
             assertEquals(SessionId, result.await()?.first)
+            val sample = stores.telemetryState.value.single()
+            assertEquals(RunId, sample.diagnosticsRunId)
+            assertEquals(spec.key, sample.diagnosticsStageKey)
+            assertEquals(SessionId, sample.sessionId)
+            assertEquals("COMPLETED", sample.connectionState)
         }
 
     @Test
     fun `in path stage fails when vpn halts before its session completes`() =
         runTest {
+            val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val spec = stageSpec(ScanPathMode.IN_PATH)
@@ -1291,6 +1308,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
+                    stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
                 )
 
             val result =
@@ -1314,6 +1332,12 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     .stages
                     .single()
                     .status,
+            )
+            assertEquals(
+                "FAILED",
+                stores.telemetryState.value
+                    .single()
+                    .connectionState,
             )
         }
 
