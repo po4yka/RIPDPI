@@ -280,11 +280,7 @@ class MainViewModel
 
         fun onToggleHomePcapRecording() = homeDiagnostics.actions.togglePcapRecording()
 
-        internal fun reportSupportError(
-            message: String,
-            supportCode: String,
-            supportPayload: String? = null,
-        ) {
+        internal val reportSupportError: (String, String, String?) -> Unit = { message, supportCode, supportPayload ->
             mutations.trySend(
                 MainEffect.ShowError(
                     message = message,

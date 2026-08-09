@@ -268,6 +268,7 @@ internal class DefaultMainActivityHost
                         viewModel.reportSupportError(
                             activity.getString(R.string.logs_failed),
                             DiagnosticsExportSupportCodes.ArchiveIo,
+                            null,
                         )
                     },
                 )
@@ -346,6 +347,7 @@ internal class DefaultMainActivityHost
                     viewModel.reportSupportError(
                         activity.getString(R.string.debug_bundle_failed),
                         DiagnosticsExportSupportCodes.ArchiveIo,
+                        null,
                     )
                 }
             }
@@ -382,6 +384,7 @@ internal class DefaultMainActivityHost
                 viewModel.reportSupportError(
                     activity.getString(R.string.home_diagnostics_share_failed),
                     DiagnosticsExportSupportCodes.ArchiveIo,
+                    null,
                 )
             }
         }
@@ -403,7 +406,7 @@ internal class DefaultMainActivityHost
             code: String?,
             message: String,
         ) {
-            code?.let { viewModel.reportSupportError(message, it) }
+            code?.let { viewModel.reportSupportError(message, it, null) }
         }
 
         private data class PendingDiagnosticsArchive(
@@ -453,40 +456,47 @@ internal suspend fun writeDiagnosticsArchiveDocument(
     writeArchive: suspend (OutputStream) -> Unit,
     deleteDocument: (Uri) -> Boolean,
 ) {
-    try {
-        val stream =
-            try {
-                openDestinationStream()
-                    ?: throw IOException("Failed to open diagnostics archive destination")
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                if (error is Error) throw error
-                throw DiagnosticsDocumentStageException(DiagnosticsDocumentExportStage.DESTINATION_OPEN, error)
-            }
-        try {
-            stream.use { output -> writeArchive(output) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            if (error is Error) throw error
-            throw DiagnosticsDocumentStageException(DiagnosticsDocumentExportStage.ARCHIVE_WRITE, error)
+    val failure =
+        runCatching {
+            val stream =
+                runCatching {
+                    openDestinationStream()
+                        ?: throw IOException("Failed to open diagnostics archive destination")
+                }.forDocumentStage(DiagnosticsDocumentExportStage.DESTINATION_OPEN)
+                    .getOrThrow()
+            runCatching {
+                stream.use { output -> writeArchive(output) }
+            }.forDocumentStage(DiagnosticsDocumentExportStage.ARCHIVE_WRITE)
+                .getOrThrow()
+        }.exceptionOrNull() ?: return
+
+    val partialDocumentDeleted = runCatching { deleteDocument(destination) }.getOrDefault(false)
+    throw when (failure) {
+        is DiagnosticsDocumentStageException -> {
+            DiagnosticsDocumentExportException(
+                stage = failure.stage,
+                partialDocumentDeleted = partialDocumentDeleted,
+                cause = failure.cause ?: failure,
+            )
         }
-    } catch (error: CancellationException) {
-        runCatching { deleteDocument(destination) }
-        throw error
-    } catch (error: Error) {
-        runCatching { deleteDocument(destination) }
-        throw error
-    } catch (error: DiagnosticsDocumentStageException) {
-        val partialDocumentDeleted = runCatching { deleteDocument(destination) }.getOrDefault(false)
-        throw DiagnosticsDocumentExportException(
-            stage = error.stage,
-            partialDocumentDeleted = partialDocumentDeleted,
-            cause = error.cause ?: error,
-        )
+
+        else -> {
+            failure
+        }
     }
 }
+
+private fun <T> Result<T>.forDocumentStage(stage: DiagnosticsDocumentExportStage): Result<T> =
+    fold(
+        onSuccess = { value -> Result.success(value) },
+        onFailure = { error -> Result.failure(error.forDocumentStage(stage)) },
+    )
+
+private fun Throwable.forDocumentStage(stage: DiagnosticsDocumentExportStage): Throwable =
+    when (this) {
+        is CancellationException, is Error -> this
+        else -> DiagnosticsDocumentStageException(stage, this)
+    }
 
 private class DiagnosticsDocumentStageException(
     val stage: DiagnosticsDocumentExportStage,
