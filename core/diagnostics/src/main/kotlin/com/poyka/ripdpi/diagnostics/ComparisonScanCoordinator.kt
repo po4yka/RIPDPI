@@ -102,7 +102,11 @@ class ComparisonScanCoordinator
             val confidence =
                 when (code) {
                     ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE -> "low"
-                    ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> "medium"
+
+                    ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE,
+                    ConnectivityAssessmentCode.RESOLVER_INTERFERENCE,
+                    -> "medium"
+
                     else -> "high"
                 }
             val controlOutcome =

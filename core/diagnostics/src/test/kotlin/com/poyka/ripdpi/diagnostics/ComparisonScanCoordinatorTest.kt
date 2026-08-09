@@ -86,8 +86,55 @@ class ComparisonScanCoordinatorTest {
             )
 
         assertEquals(ConnectivityAssessmentCode.RESOLVER_INTERFERENCE, assessment.assessmentCode)
+        assertEquals("medium", assessment.confidence)
         assertEquals("dns_record_divergence", assessment.resolverAssessment.strongestSignal)
         assertEquals(listOf("dns_record_divergence"), assessment.resolverAssessment.diagnosisCodes)
+    }
+
+    @Test
+    fun `resolver divergence without diagnosis and with mixed controls does not claim high confidence`() {
+        val report =
+            minimalReport(
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.DNS,
+                            target = "affected.example",
+                            dns =
+                                DnsObservationFact(
+                                    domain = "affected.example",
+                                    status = DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
+                                ),
+                        ),
+                        domainObservation(
+                            host = "healthy-control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.OK,
+                        ),
+                        domainObservation(
+                            host = "failed-control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.UNREACHABLE,
+                        ),
+                        domainObservation(
+                            host = "affected.example",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                        ),
+                    ),
+            )
+
+        val assessment =
+            coordinator.assessConnectivity(
+                rawReports = listOf(report),
+                inPathReport = null,
+                rawPathSessionIds = listOf("raw-1"),
+                inPathSessionId = null,
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RESOLVER_INTERFERENCE, assessment.assessmentCode)
+        assertEquals("medium", assessment.confidence)
+        assertEquals("raw_controls_mixed", assessment.controlOutcome)
+        assertTrue(assessment.resolverAssessment.diagnosisCodes.isEmpty())
     }
 
     @Test
