@@ -27,6 +27,30 @@ PROJECT_CONFIG_PATH = Path("tools/tasking/project.json")
 PROJECT_CONFIG_SCHEMA = 1
 FEDERATION_CONTRACT_VERSION = 1
 FEDERATION_CONTRACT_PATH = Path("tools/tasking/federation-contract-v1.json")
+GENERATED_SKILL_NAMES = (
+    "mdtask",
+    "mdtask-create",
+    "mdtask-next",
+    "openspec-apply-change",
+    "openspec-archive-change",
+    "openspec-explore",
+    "openspec-propose",
+    "openspec-sync-specs",
+    "openspec-update-change",
+    "sdd",
+)
+ALIAS_SKILL_NAMES = (*GENERATED_SKILL_NAMES, "repo-task-board")
+GENERATED_ASSET_PATHS = frozenset(
+    (
+        ".agents/skills/.openspec-target",
+        *(f".agents/skills/{name}/SKILL.md" for name in GENERATED_SKILL_NAMES),
+    )
+)
+COMPATIBILITY_SKILL_ROOTS = {
+    ".claude/skills": "../../.agents/skills",
+    ".codex/skills": "../../.claude/skills",
+    ".github/skills": "../../.agents/skills",
+}
 STATUS_ORDER = ("doing", "review", "blocked", "todo", "backlog")
 STATUSES = frozenset((*STATUS_ORDER, "done", "dropped"))
 KINDS = frozenset(("feature", "bug", "chore", "research", "epic"))
@@ -156,6 +180,13 @@ class Step:
     blockers: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class HistoricalTaskSnapshot:
+    relative: str
+    document: Document
+    text: str
+
+
 def fail(message: str) -> None:
     raise ContractError(message)
 
@@ -165,6 +196,10 @@ def load_project_config(root: Path) -> ProjectConfig:
     if not path.is_file():
         fail(f"missing project task config {PROJECT_CONFIG_PATH}")
     raw = json.loads(path.read_text(encoding="utf-8"))
+    return parse_project_config(raw, path)
+
+
+def parse_project_config(raw: Any, path: Path) -> ProjectConfig:
     required = {
         "schema",
         "federation_contract",
@@ -1060,117 +1095,135 @@ def resolve_terminal_task(root: Path, task_id: str, config: ProjectConfig) -> di
         fail(f"cannot inspect Git history for {root}")
     if (shallow.stdout or "").strip() == "true":
         fail(f"peer checkout {root} is shallow; full history is required")
-    deletions = run_command(
-        ("git", "log", "--format=%H", "--diff-filter=D", "--", "docs/tasks/issues"),
+    config_history = run_command(
+        ("git", "log", "--reverse", "--format=%H", "--", str(PROJECT_CONFIG_PATH)),
         root=root,
     )
-    if deletions.returncode != 0:
-        fail(f"cannot inspect deleted task history in {root}")
-    for deletion in filter(None, (deletions.stdout or "").splitlines()):
-        deleted = run_command(
-            ("git", "diff-tree", "--no-commit-id", "--name-only", "--diff-filter=D", "-r", deletion, "--", "docs/tasks/issues"),
-            root=root,
+    config_revisions = list(filter(None, (config_history.stdout or "").splitlines()))
+    if config_history.returncode != 0 or not config_revisions:
+        fail(f"cannot locate strict task contract history in {root}")
+    start = config_revisions[0]
+    history = run_command(
+        ("git", "rev-list", "--reverse", "--ancestry-path", f"{start}..HEAD"),
+        root=root,
+    )
+    if history.returncode != 0:
+        fail(f"cannot inspect task state transitions in {root}")
+    revisions = [start, *filter(None, (history.stdout or "").splitlines())]
+
+    with tempfile.TemporaryDirectory(prefix="taskctl-federation-history-") as directory:
+        scratch = Path(directory)
+        by_revision = {
+            revision: historical_task_snapshots(root, revision, scratch)
+            for revision in revisions
+        }
+        timeline = [
+            (revision, by_revision[revision].get(task_id))
+            for revision in revisions
+        ]
+        if timeline[-1][1] is not None:
+            return None
+        deletion_indexes = [
+            index
+            for index in range(1, len(timeline))
+            if timeline[index - 1][1] is not None and timeline[index][1] is None
+        ]
+        if not deletion_indexes:
+            return None
+        deletion_index = deletion_indexes[-1]
+        deletion = timeline[deletion_index][0]
+        final_ref, final_snapshot = timeline[deletion_index - 1]
+        assert final_snapshot is not None
+        historical_config = historical_project_config(root, final_ref, scratch)
+        if (
+            historical_config.project != config.project
+            or historical_config.federation_contract != config.federation_contract
+        ):
+            fail(f"{config.project}#{task_id}: historical project contract mismatch")
+        document = final_snapshot.document
+        relative = final_snapshot.relative
+        validate_issue_shape(document, historical_config)
+        outcome = document.values["status"]
+        if outcome not in {"done", "dropped"}:
+            fail(f"{config.project}#{task_id}: deletion lacks a terminal state")
+
+        last_absent = max(
+            (
+                index
+                for index, (_, snapshot) in enumerate(timeline[:deletion_index])
+                if snapshot is None
+            ),
+            default=-1,
         )
-        if deleted.returncode != 0:
-            fail(f"cannot inspect deletion {deletion}")
-        terminal_ref = f"{deletion}^"
-        for relative in filter(None, (deleted.stdout or "").splitlines()):
-            issue_text = git_show_text(root, terminal_ref, relative)
-            if issue_text is None or f"id: {task_id}" not in issue_text:
-                continue
-            with tempfile.TemporaryDirectory(prefix="taskctl-federation-history-") as directory:
-                issue_path = Path(directory) / "issue.md"
-                issue_path.write_text(issue_text, encoding="utf-8")
-                document = read_document(issue_path)
-            if document.task_id != task_id:
-                continue
-            validate_issue_shape(document, config)
-            if document.values["status"] not in {"done", "dropped"}:
-                fail(f"{config.project}#{task_id}: deletion lacks a terminal state")
-            history = run_command(
-                ("git", "log", "--reverse", "--format=%H", terminal_ref, "--", relative),
-                root=root,
+        incarnation = timeline[last_absent + 1 : deletion_index]
+        previous_status: str | None = None
+        terminal_transition: str | None = None
+        terminal_index: int | None = None
+        for index, (revision, snapshot) in enumerate(incarnation):
+            assert snapshot is not None
+            status = snapshot.document.values.get("status")
+            if status in {"done", "dropped"}:
+                terminal_transition = revision
+                terminal_index = index
+                break
+            previous_status = status
+        if terminal_transition is None or terminal_index is None:
+            fail(f"{config.project}#{task_id}: terminal transition commit is missing")
+        initial_strict_terminal = (
+            terminal_index == 0 and incarnation[0][0] == start
+        )
+        if not initial_strict_terminal and (
+            previous_status is None or not transition_allowed(previous_status, outcome)
+        ):
+            fail(
+                f"{config.project}#{task_id}: invalid terminal transition "
+                f"{previous_status or 'missing'} -> {outcome}"
             )
-            if history.returncode != 0:
-                fail(f"{config.project}#{task_id}: cannot inspect state transitions")
-            previous_status: str | None = None
-            terminal_transition: str | None = None
-            terminal_document: Document | None = None
-            terminal_text: str | None = None
-            for revision in filter(None, (history.stdout or "").splitlines()):
-                historical_issue = git_show_text(root, revision, relative)
-                if historical_issue is None:
-                    previous_status = None
-                    terminal_transition = None
-                    terminal_document = None
-                    terminal_text = None
-                    continue
-                with tempfile.TemporaryDirectory(prefix="taskctl-federation-transition-") as directory:
-                    transition_path = Path(directory) / "issue.md"
-                    transition_path.write_text(historical_issue, encoding="utf-8")
-                    transition_document = read_document(transition_path)
-                if transition_document.task_id != task_id:
-                    previous_status = None
-                    terminal_transition = None
-                    terminal_document = None
-                    terminal_text = None
-                    continue
-                current_status = transition_document.values.get("status")
-                if current_status in {"done", "dropped"}:
-                    if previous_status is None or not transition_allowed(previous_status, current_status):
-                        fail(
-                            f"{config.project}#{task_id}: invalid terminal transition "
-                            f"{previous_status or 'missing'} -> {current_status}"
-                        )
-                    if terminal_transition is None:
-                        terminal_transition = revision
-                        terminal_document = transition_document
-                        terminal_text = historical_issue
-                previous_status = current_status
-            if terminal_transition is None or terminal_document is None or terminal_text is None:
-                fail(f"{config.project}#{task_id}: terminal transition commit is missing")
-            if terminal_document.values["status"] != document.values["status"]:
-                fail(f"{config.project}#{task_id}: terminal transition does not match deleted outcome")
-            _, parsed_steps = validate_terminal_snapshot(
-                root,
-                config,
-                relative=relative,
-                terminal_ref=terminal_transition,
-                deletion_ref=deletion,
-                document=terminal_document,
-                issue_text=terminal_text,
-            )
-            done = sum(1 for step in parsed_steps if step.done)
-            terminal_sha_result = run_command(("git", "rev-parse", terminal_transition), root=root)
-            terminal_sha = (terminal_sha_result.stdout or "").strip()
-            if terminal_sha_result.returncode != 0 or not SHA_RE.fullmatch(terminal_sha):
-                fail(f"{config.project}#{task_id}: cannot resolve terminal revision")
-            return {
-                "id": f"{config.project}#{task_id}",
-                "task_id": task_id,
-                "path": relative,
-                "kind": document.values["kind"],
-                "risk": document.values["risk"],
-                "status": document.values["status"],
-                "progress": {"done": done, "total": len(parsed_steps)},
-                "parent": (
-                    qualify_reference(document.values["parent"], config)
-                    if document.values["parent"] is not None
-                    else None
-                ),
-                "blocked_by": sorted(
-                    qualify_reference(value, config) for value in document.values["blocked_by"]
-                ),
-                "related_tasks": sorted(
-                    qualify_reference(value, config)
-                    for value in document.values.get("related_tasks", [])
-                ),
-                "openspec_change": document.values["openspec_change"],
-                "historical": True,
-                "terminal_revision": terminal_sha,
-                "deletion_revision": deletion,
-            }
-    return None
+        for _, snapshot in incarnation[terminal_index:]:
+            assert snapshot is not None
+            if snapshot.document.values.get("status") != outcome:
+                fail(f"{config.project}#{task_id}: task transitioned out of terminal state")
+
+        _, parsed_steps = validate_terminal_snapshot(
+            root,
+            historical_config,
+            relative=relative,
+            terminal_ref=final_ref,
+            deletion_ref=deletion,
+            document=document,
+            issue_text=final_snapshot.text,
+        )
+        done = sum(1 for step in parsed_steps if step.done)
+        terminal_sha_result = run_command(("git", "rev-parse", terminal_transition), root=root)
+        terminal_sha = (terminal_sha_result.stdout or "").strip()
+        if terminal_sha_result.returncode != 0 or not SHA_RE.fullmatch(terminal_sha):
+            fail(f"{config.project}#{task_id}: cannot resolve terminal revision")
+        return {
+            "id": f"{config.project}#{task_id}",
+            "task_id": task_id,
+            "path": relative,
+            "kind": document.values["kind"],
+            "risk": document.values["risk"],
+            "status": outcome,
+            "progress": {"done": done, "total": len(parsed_steps)},
+            "parent": (
+                qualify_reference(document.values["parent"], historical_config)
+                if document.values["parent"] is not None
+                else None
+            ),
+            "blocked_by": sorted(
+                qualify_reference(value, historical_config)
+                for value in document.values["blocked_by"]
+            ),
+            "related_tasks": sorted(
+                qualify_reference(value, historical_config)
+                for value in document.values.get("related_tasks", [])
+            ),
+            "openspec_change": document.values["openspec_change"],
+            "historical": True,
+            "terminal_revision": terminal_sha,
+            "deletion_revision": deletion,
+        }
 
 
 def federation_payload(root: Path, peer_root: Path) -> dict[str, Any]:
@@ -1374,11 +1427,25 @@ def validate_generated_assets(root: Path) -> None:
     if not lock_path.is_file():
         fail("missing tools/tasking/generated-assets.lock.json")
     payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    if payload.get("mdtask") != "0.1.17" or payload.get("openspec") != "1.8.0":
+    if (
+        payload.get("schema") != 1
+        or payload.get("mdtask") != "0.1.17"
+        or payload.get("openspec") != "1.8.0"
+    ):
         fail("generated asset lock does not match pinned tool versions")
     files = payload.get("files")
-    if not isinstance(files, dict) or not files:
-        fail("generated asset lock contains no files")
+    if not isinstance(files, dict) or set(files) != GENERATED_ASSET_PATHS:
+        missing = (
+            sorted(GENERATED_ASSET_PATHS - set(files or {}))
+            if isinstance(files, dict)
+            else sorted(GENERATED_ASSET_PATHS)
+        )
+        extra = (
+            sorted(set(files or {}) - GENERATED_ASSET_PATHS)
+            if isinstance(files, dict)
+            else []
+        )
+        fail(f"generated asset lock has wrong canonical set: missing={missing}, extra={extra}")
     for relative, expected in files.items():
         path = root / relative
         if not path.is_file():
@@ -1386,42 +1453,121 @@ def validate_generated_assets(root: Path) -> None:
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         if actual != expected:
             fail(f"generated asset drift: {relative}")
+    for alias_root, target_root in COMPATIBILITY_SKILL_ROOTS.items():
+        for name in ALIAS_SKILL_NAMES:
+            alias = root / alias_root / name
+            expected = f"{target_root}/{name}"
+            if not alias.is_symlink():
+                fail(
+                    "generated skill alias missing or not a symlink: "
+                    f"{alias.relative_to(root)}"
+                )
+            actual = os.readlink(alias)
+            if actual != expected:
+                fail(
+                    f"generated skill alias retargeted: {alias.relative_to(root)} "
+                    f"expected {expected!r}, got {actual!r}"
+                )
+            if not alias.exists() or not (alias / "SKILL.md").is_file():
+                fail(f"generated skill alias target missing: {alias.relative_to(root)}")
+
+
+def historical_task_snapshots(
+    root: Path,
+    ref: str,
+    scratch: Path,
+) -> dict[str, HistoricalTaskSnapshot]:
+    tree = run_command(
+        ("git", "ls-tree", "-r", "--name-only", ref, "--", "docs/tasks/issues"),
+        root=root,
+    )
+    if tree.returncode != 0:
+        fail(f"cannot inspect task records at {ref}: {(tree.stdout or '').rstrip()}")
+    snapshots: dict[str, HistoricalTaskSnapshot] = {}
+    for index, relative in enumerate(
+        item for item in (tree.stdout or "").splitlines() if item.endswith(".md")
+    ):
+        shown = run_command(("git", "show", f"{ref}:{relative}"), root=root)
+        if shown.returncode != 0:
+            fail(f"cannot read task record {relative} at {ref}")
+        issue = scratch / f"issue-{hashlib.sha256(ref.encode()).hexdigest()[:12]}-{index}.md"
+        issue.write_text(shown.stdout or "", encoding="utf-8")
+        document = read_document(issue)
+        task_id = document.values.get("id")
+        if not isinstance(task_id, str) or ID_RE.fullmatch(task_id) is None:
+            fail(f"{relative} at {ref}: missing or invalid task ID")
+        if task_id in snapshots:
+            fail(f"duplicate historical task ID {task_id} at {ref}")
+        snapshots[task_id] = HistoricalTaskSnapshot(
+            relative=relative,
+            document=document,
+            text=shown.stdout or "",
+        )
+    return snapshots
+
+
+def historical_project_config(root: Path, ref: str, scratch: Path) -> ProjectConfig:
+    shown = run_command(("git", "show", f"{ref}:{PROJECT_CONFIG_PATH}"), root=root)
+    if shown.returncode != 0:
+        fail(f"cannot read historical project config at {ref}")
+    path = scratch / f"project-{hashlib.sha256(ref.encode()).hexdigest()[:12]}.json"
+    path.write_text(shown.stdout or "", encoding="utf-8")
+    try:
+        raw = json.loads(shown.stdout or "")
+    except json.JSONDecodeError as error:
+        fail(f"{PROJECT_CONFIG_PATH} at {ref}: invalid JSON: {error}")
+    return parse_project_config(raw, path)
 
 
 def validate_deleted_history(root: Path, base: str) -> None:
-    result = run_command(
-        ("git", "diff", "--diff-filter=D", "--name-only", f"{base}..HEAD", "--", "docs/tasks/issues/*.md"),
+    ancestry = run_command(("git", "merge-base", "--is-ancestor", base, "HEAD"), root=root)
+    if ancestry.returncode != 0:
+        fail(f"cannot validate task history: {base} is not an ancestor of HEAD")
+    history = run_command(
+        ("git", "rev-list", "--reverse", "--ancestry-path", f"{base}..HEAD"),
         root=root,
     )
-    if result.returncode != 0:
-        fail(f"cannot inspect deleted task history: {(result.stdout or '').rstrip()}")
-    for relative in filter(None, (result.stdout or "").splitlines()):
-        deletion = run_command(
-            ("git", "log", "-1", "--diff-filter=D", "--format=%H", f"{base}..HEAD", "--", relative),
-            root=root,
-        )
-        deletion_sha = (deletion.stdout or "").strip()
-        if not SHA_RE.fullmatch(deletion_sha):
-            fail(f"{relative}: cannot resolve deletion commit")
-        previous_ref = f"{deletion_sha}^"
-        previous = run_command(("git", "show", f"{previous_ref}:{relative}"), root=root)
-        if previous.returncode != 0:
-            fail(f"{relative}: no committed state before deletion")
+    if history.returncode != 0:
+        fail(f"cannot inspect task history: {(history.stdout or '').rstrip()}")
+    revisions = [base, *filter(None, (history.stdout or "").splitlines())]
 
-        with tempfile.TemporaryDirectory(prefix="ripdpi-task-history-") as directory:
-            scratch = Path(directory)
+    with tempfile.TemporaryDirectory(prefix="ripdpi-task-history-") as directory:
+        scratch = Path(directory)
+        by_revision = {
+            revision: historical_task_snapshots(root, revision, scratch)
+            for revision in revisions
+        }
+        head_ids = set(by_revision[revisions[-1]])
+        candidate_ids: set[str] = set()
+        for snapshots in by_revision.values():
+            candidate_ids.update(snapshots)
+        config_cache: dict[str, ProjectConfig] = {}
 
-            def document_at(ref: str) -> tuple[Document, str] | None:
-                shown = run_command(("git", "show", f"{ref}:{relative}"), root=root)
-                if shown.returncode != 0:
-                    return None
-                issue = scratch / f"issue-{len(list(scratch.glob('issue-*')))}.md"
-                issue.write_text(shown.stdout or "", encoding="utf-8")
-                return read_document(issue), shown.stdout or ""
+        def config_at(ref: str) -> ProjectConfig:
+            if ref not in config_cache:
+                config_cache[ref] = historical_project_config(root, ref, scratch)
+            return config_cache[ref]
 
-            final_snapshot = document_at(previous_ref)
+        for task_id in sorted(candidate_ids - head_ids):
+            timeline = [
+                (revision, by_revision[revision].get(task_id))
+                for revision in revisions
+            ]
+            deletion_indexes = [
+                index
+                for index in range(1, len(timeline))
+                if timeline[index - 1][1] is not None and timeline[index][1] is None
+            ]
+            if not deletion_indexes:
+                fail(f"{task_id}: cannot resolve disappearance commit")
+            deletion_index = deletion_indexes[-1]
+            deletion_sha = timeline[deletion_index][0]
+            final_snapshot = timeline[deletion_index - 1][1]
             assert final_snapshot is not None
-            final_document, _ = final_snapshot
+            relative = final_snapshot.relative
+            final_document = final_snapshot.document
+            final_ref = timeline[deletion_index - 1][0]
+            validate_issue_shape(final_document, config_at(final_ref))
             outcome = final_document.values.get("status")
             if outcome not in {"done", "dropped"}:
                 fail(f"{relative}: deleted without a preceding committed terminal state")
@@ -1429,53 +1575,68 @@ def validate_deleted_history(root: Path, base: str) -> None:
                 if not final_document.values.get(field):
                     fail(f"{relative}: terminal state before deletion lacks {field}")
 
-            base_snapshot = document_at(base)
-            terminal_ref: str | None = None
+            terminal_transition_ref: str | None = None
+            terminal_transition_snapshot: HistoricalTaskSnapshot | None = None
             prior_status: str | None = None
-            history = run_command(
-                ("git", "log", "--reverse", "--format=%H", f"{base}..{previous_ref}", "--", relative),
-                root=root,
-            )
-            snapshots = [(base, base_snapshot)]
-            snapshots.extend(
-                (commit, document_at(commit))
-                for commit in filter(None, (history.stdout or "").splitlines())
-            )
             last_absent = max(
-                (index for index, (_, snapshot) in enumerate(snapshots) if snapshot is None),
+                (
+                    index
+                    for index, (_, snapshot) in enumerate(timeline[:deletion_index])
+                    if snapshot is None
+                ),
                 default=-1,
             )
+            incarnation = timeline[last_absent + 1 : deletion_index]
             if (
                 last_absent == -1
-                and base_snapshot
-                and base_snapshot[0].values.get("status") in {"done", "dropped"}
+                and incarnation
+                and incarnation[0][1] is not None
+                and incarnation[0][1].document.values.get("status") in {"done", "dropped"}
             ):
-                terminal_ref = base
+                terminal_transition_ref, terminal_transition_snapshot = incarnation[0]
             else:
-                for commit, snapshot in snapshots[last_absent + 1 :]:
+                for commit, snapshot in incarnation:
                     assert snapshot is not None
-                    status = snapshot[0].values.get("status")
+                    status = snapshot.document.values.get("status")
                     if status in {"done", "dropped"}:
-                        terminal_ref = commit
+                        terminal_transition_ref = commit
+                        terminal_transition_snapshot = snapshot
                         break
                     prior_status = status
-            if terminal_ref is None:
+            if terminal_transition_ref is None or terminal_transition_snapshot is None:
                 fail(f"{relative}: terminal transition commit is missing")
-            if outcome == "done" and prior_status != "review" and terminal_ref != base:
+            validate_issue_shape(
+                terminal_transition_snapshot.document,
+                config_at(terminal_transition_ref),
+            )
+            terminal_index = next(
+                index
+                for index, (revision, _) in enumerate(incarnation)
+                if revision == terminal_transition_ref
+            )
+            for _, snapshot in incarnation[terminal_index:]:
+                assert snapshot is not None
+                if snapshot.document.values.get("status") != outcome:
+                    fail(f"{relative}: task transitioned out of terminal state")
+            if (
+                outcome == "done"
+                and prior_status != "review"
+                and terminal_transition_ref != base
+            ):
                 fail(f"{relative}: invalid terminal transition {prior_status or 'missing'} -> done")
-            if outcome == "dropped" and terminal_ref != base and (
+            if outcome == "dropped" and terminal_transition_ref != base and (
                 prior_status not in STATUSES or not transition_allowed(prior_status, "dropped")
             ):
                 fail(f"{relative}: invalid terminal transition {prior_status or 'missing'} -> dropped")
 
-            terminal_snapshot = document_at(terminal_ref)
-            assert terminal_snapshot is not None
-            terminal_document, terminal_text = terminal_snapshot
+            terminal_ref = final_ref
+            terminal_document = final_document
+            terminal_text = final_snapshot.text
             if terminal_document.values.get("status") != outcome:
                 fail(f"{relative}: terminal transition does not match deleted outcome")
             validate_terminal_snapshot(
                 root,
-                load_project_config(root),
+                config_at(final_ref),
                 relative=relative,
                 terminal_ref=terminal_ref,
                 deletion_ref=deletion_sha,
