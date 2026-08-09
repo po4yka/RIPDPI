@@ -73,10 +73,11 @@ jobs:
           MUTANTS_PACKAGES: ${{ github.event.inputs.packages || '' }}
           MUTANTS_SHARD_COUNT: ${{ steps.mutation-scope.outputs.shard-count }}
           MUTANTS_SHARD_INDEX: ${{ steps.mutation-scope.outputs.shard-index }}
+          MUTANTS_IN_DIFF: ${{ github.event.inputs.in_diff || 'false' }}
           RIPDPI_REPO_ROOT: ${{ github.workspace }}
         run: |
           extra_args=()
-          if [ "${{ github.event.inputs.in_diff || 'false' }}" = "true" ]; then
+          if [ "$MUTANTS_IN_DIFF" = "true" ]; then
             extra_args+=(--in-diff "git diff origin/main...HEAD")
           fi
           bash scripts/ci/run-rust-mutants.sh "${extra_args[@]}"

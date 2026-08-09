@@ -58,7 +58,12 @@ class CiToolPinningTest(unittest.TestCase):
 
         self.assertIn("ripdpi.nativeCmakeVersion=3.31.6", properties)
         self.assertIn("steps.native-toolchain.outputs.cmake", action)
-        self.assertIn('"cmake/${{ steps.native-toolchain.outputs.cmake }}"', action)
+        self.assertIn(
+            "STEPS_NATIVE_TOOLCHAIN_OUTPUTS_CMAKE: "
+            "${{ steps.native-toolchain.outputs.cmake }}",
+            action,
+        )
+        self.assertIn('"cmake/${STEPS_NATIVE_TOOLCHAIN_OUTPUTS_CMAKE}"', action)
         self.assertIn("-cmake-${{ steps.native-toolchain.outputs.cmake }}-", action)
         self.assertNotIn(
             "steps.cache-android-sdk.outputs.cache-hit != 'true'",

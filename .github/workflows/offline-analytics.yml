@@ -40,14 +40,16 @@ jobs:
       - name: Run private corpus analytics pipeline
         if: ${{ inputs.private_corpus_path != '' }}
         run: |
-          if [ -e "${{ inputs.private_corpus_path }}" ]; then
+          if [ -e "${INPUTS_PRIVATE_CORPUS_PATH}" ]; then
             python3 -m scripts.analytics.pipeline run-all \
-              --inputs "${{ inputs.private_corpus_path }}" \
+              --inputs "${INPUTS_PRIVATE_CORPUS_PATH}" \
               --corpus-name private_corpus \
               --output-dir "$RUNNER_TEMP/offline-analytics-private"
           else
             echo "Skipping private corpus run; path not found on runner."
           fi
+        env:
+          INPUTS_PRIVATE_CORPUS_PATH: ${{ inputs.private_corpus_path }}
 
       - name: Upload offline analytics artifacts
         if: always()

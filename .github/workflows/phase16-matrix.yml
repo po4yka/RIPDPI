@@ -47,12 +47,14 @@ jobs:
 
       - id: emit
         name: Emit GitHub matrix
+        env:
+          MATRIX_FILTER: ${{ inputs.matrix_filter || '' }}
         run: |
           include_real_provider=()
           if [[ "${{ inputs.include_real_provider || false }}" == "true" ]]; then
             include_real_provider+=(--include-real-provider)
           fi
-          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "${{ inputs.matrix_filter || '' }}" "${include_real_provider[@]}")"
+          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "$MATRIX_FILTER" "${include_real_provider[@]}")"
           echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
   phase16-matrix:

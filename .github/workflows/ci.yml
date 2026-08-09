@@ -757,9 +757,11 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}"
           )
           ./gradlew "${{ matrix.shard.task }}" "${common_args[@]}" --profile
+        env:
+          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1046,7 +1048,7 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}"
           )
           IFS=',' read -r -a release_tasks <<< "${{ matrix.shard.tasks }}"
           for task in "${release_tasks[@]}"; do
@@ -1066,6 +1068,8 @@ jobs:
             printf "### GitHub Full release instrumentation APK\n\nBuilt: %s\n" \
               "${test_apks[0]}" >> "$GITHUB_STEP_SUMMARY"
           fi
+        env:
+          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1522,7 +1526,7 @@ jobs:
       - name: Fail if baseline files modified
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'baseline' | grep -v '^#'; then
+          if git diff --name-only origin/${GITHUB_BASE_REF}...HEAD | grep -E 'baseline' | grep -v '^#'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi
@@ -1964,21 +1968,24 @@ jobs:
       - name: Resolve baseline profile
         id: baseline-profile
         run: |
-          profile="${{ github.event.inputs.soak_profile }}"
+          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="smoke"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Capture full Phase 0 baseline snapshot
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
+          STEPS_BASELINE_PROFILE_OUTPUTS_PROFILE: ${{ steps.baseline-profile.outputs.profile }}
         run: |
           mkdir -p "$RUNNER_TEMP/phase0-baseline"
-          RIPDPI_SOAK_PROFILE="${{ steps.baseline-profile.outputs.profile }}" \
+          RIPDPI_SOAK_PROFILE="${STEPS_BASELINE_PROFILE_OUTPUTS_PROFILE}" \
             bash scripts/ci/run-phase0-baseline.sh "$RUNNER_TEMP/phase0-baseline" \
             2>&1 | tee "$RUNNER_TEMP/phase0-baseline/phase0-baseline.log"
 
@@ -2041,11 +2048,12 @@ jobs:
       - name: Run macrobenchmarks on managed device
         env:
           RUSTC_WRAPPER: sccache
+          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
         run: |
           ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
@@ -2166,11 +2174,13 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
             -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+        env:
+          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Run Simple experience integration on ${{ matrix.device }}
         run: |
@@ -2182,11 +2192,13 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+        env:
+          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Validate GitHub Full instrumentation evidence on ${{ matrix.device }}
         run: |
@@ -2228,11 +2240,13 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+        env:
+          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Validate JNI strategy instrumentation evidence
         if: matrix.api == 35
@@ -2333,20 +2347,24 @@ jobs:
       - name: Resolve soak profile
         id: soak-profile
         run: |
-          profile="${{ github.event.inputs.soak_profile }}"
+          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="full"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Run native Rust soak suites
         run: |
           mkdir -p "$RUNNER_TEMP/native-soak-artifacts"
-          RIPDPI_SOAK_PROFILE="${{ steps.soak-profile.outputs.profile }}" \
+          RIPDPI_SOAK_PROFILE="${STEPS_SOAK_PROFILE_OUTPUTS_PROFILE}" \
             bash scripts/ci/run-rust-native-soak.sh "$RUNNER_TEMP/native-soak-artifacts" \
             2>&1 | tee "$RUNNER_TEMP/native-soak-artifacts/rust-native-soak.log"
+        env:
+          STEPS_SOAK_PROFILE_OUTPUTS_PROFILE: ${{ steps.soak-profile.outputs.profile }}
 
       - name: Upload native soak artifacts
         if: always()
@@ -2381,20 +2399,24 @@ jobs:
       - name: Resolve load profile
         id: load-profile
         run: |
-          profile="${{ github.event.inputs.soak_profile }}"
+          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="full"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Run native Rust load test suites
         run: |
           mkdir -p "$RUNNER_TEMP/native-load-artifacts"
-          RIPDPI_SOAK_PROFILE="${{ steps.load-profile.outputs.profile }}" \
+          RIPDPI_SOAK_PROFILE="${STEPS_LOAD_PROFILE_OUTPUTS_PROFILE}" \
             bash scripts/ci/run-rust-native-load.sh "$RUNNER_TEMP/native-load-artifacts" \
             2>&1 | tee "$RUNNER_TEMP/native-load-artifacts/rust-native-load.log"
+        env:
+          STEPS_LOAD_PROFILE_OUTPUTS_PROFILE: ${{ steps.load-profile.outputs.profile }}
 
       - name: Upload native load artifacts
         if: always()
@@ -2566,7 +2588,9 @@ jobs:
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
-        run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
+          GITHUB_EVENT_INPUTS_RUN_MAESTRO_SMOKE: ${{ github.event.inputs.run_maestro_smoke }}
+          GITHUB_EVENT_INPUTS_RUN_APPIUM_SMOKE: ${{ github.event.inputs.run_appium_smoke }}
+        run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${GITHUB_EVENT_INPUTS_RUN_MAESTRO_SMOKE}" "${GITHUB_EVENT_INPUTS_RUN_APPIUM_SMOKE}"
 
       - name: Capture fixture state
         if: always()
@@ -2879,7 +2903,7 @@ jobs:
           sudo env \
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             "RIPDPI_RUN_SO_BINDTODEVICE_E2E=1" \
-            "RIPDPI_SO_BIND_TEST_BINARY=${{ steps.so_bind_build.outputs.test_binary }}" \
+            "RIPDPI_SO_BIND_TEST_BINARY=${STEPS_SO_BIND_BUILD_OUTPUTS_TEST_BINARY}" \
             "RIPDPI_SO_BIND_EVIDENCE_PATH=$evidence_dir/manifest.json" \
             "RIPDPI_EVIDENCE_SOURCE_SHA=$GITHUB_SHA" \
             "RIPDPI_EVIDENCE_RUN_ID=$GITHUB_RUN_ID" \
@@ -2887,6 +2911,8 @@ jobs:
             bash scripts/ci/run-so-bindtodevice-e2e.sh || runtime_status=$?
           sudo chown -R "$(id -u):$(id -g)" "$evidence_dir"
           exit "$runtime_status"
+        env:
+          STEPS_SO_BIND_BUILD_OUTPUTS_TEST_BINARY: ${{ steps.so_bind_build.outputs.test_binary }}
 
       - name: Finalize classified SO_BINDTODEVICE evidence
         if: always()
@@ -2942,13 +2968,15 @@ jobs:
       - name: Resolve soak profile
         id: tun-soak-profile
         run: |
-          profile="${{ github.event.inputs.soak_profile }}"
+          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="full"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Install Linux TUN prerequisites
         run: |
@@ -2967,9 +2995,11 @@ jobs:
             "PATH=$HOME/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             "CARGO_HOME=$HOME/.cargo" \
             "RUSTUP_HOME=$HOME/.rustup" \
-            "RIPDPI_SOAK_PROFILE=${{ steps.tun-soak-profile.outputs.profile }}" \
+            "RIPDPI_SOAK_PROFILE=${STEPS_TUN_SOAK_PROFILE_OUTPUTS_PROFILE}" \
             bash scripts/ci/run-linux-tun-soak.sh "$RUNNER_TEMP/linux-tun-soak-artifacts" \
             2>&1 | tee "$RUNNER_TEMP/linux-tun-soak-artifacts/linux-tun-soak.log"
+        env:
+          STEPS_TUN_SOAK_PROFILE_OUTPUTS_PROFILE: ${{ steps.tun-soak-profile.outputs.profile }}
 
       - name: Capture Linux route and interface state
         if: always()
