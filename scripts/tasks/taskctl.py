@@ -23,6 +23,9 @@ from typing import Any, Iterable, Sequence
 
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_CONFIG_PATH = Path("tools/tasking/project.json")
+PROJECT_CONFIG_SCHEMA = 1
+FEDERATION_CONTRACT_VERSION = 1
 STATUS_ORDER = ("doing", "review", "blocked", "todo", "backlog")
 STATUSES = frozenset((*STATUS_ORDER, "done", "dropped"))
 KINDS = frozenset(("feature", "bug", "chore", "research", "epic"))
@@ -75,6 +78,10 @@ STEP_RE = re.compile(r"^- \[([ xX])\] ([A-Z][A-Z0-9]*-\d{16})\s+(.+)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 CHANGE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+PROJECT_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+QUALIFIED_REF_RE = re.compile(
+    r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([A-Z][A-Z0-9]*-\d{16})$"
+)
 
 REQUIRED_FIELDS = (
     "id",
@@ -94,7 +101,7 @@ REQUIRED_FIELDS = (
 OPTIONAL_FIELD_ORDER = (
     "spec_reason",
     "source_wiki_pages",
-    "linked_task",
+    "related_tasks",
     "status_detail",
     "status_note",
     "closed_at",
@@ -107,6 +114,21 @@ ALLOWED_FIELDS = frozenset((*REQUIRED_FIELDS, *OPTIONAL_FIELDS))
 
 class ContractError(RuntimeError):
     """Raised when repository task state violates the contract."""
+
+
+@dataclass(frozen=True)
+class ProjectConfig:
+    schema: int
+    federation_contract: int
+    project: str
+    areas: dict[str, str]
+    evidence_categories: tuple[str, ...]
+    openspec_schema: str
+    allowed_peers: tuple[str, ...]
+
+    @property
+    def prefix_areas(self) -> dict[str, str]:
+        return {prefix: area for area, prefix in self.areas.items()}
 
 
 @dataclass(frozen=True)
@@ -133,6 +155,110 @@ class Step:
 
 def fail(message: str) -> None:
     raise ContractError(message)
+
+
+def load_project_config(root: Path) -> ProjectConfig:
+    path = root / PROJECT_CONFIG_PATH
+    if not path.is_file():
+        fail(f"missing project task config {PROJECT_CONFIG_PATH}")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    required = {
+        "schema",
+        "federation_contract",
+        "project",
+        "areas",
+        "evidence_categories",
+        "openspec_schema",
+        "allowed_peers",
+    }
+    missing = sorted(required - raw.keys()) if isinstance(raw, dict) else sorted(required)
+    unknown = sorted(raw.keys() - required) if isinstance(raw, dict) else []
+    if not isinstance(raw, dict) or missing or unknown:
+        fail(f"{path}: project config fields missing={missing}, unknown={unknown}")
+    if raw["schema"] != PROJECT_CONFIG_SCHEMA:
+        fail(f"{path}: unsupported project config schema {raw['schema']!r}")
+    if raw["federation_contract"] != FEDERATION_CONTRACT_VERSION:
+        fail(f"{path}: unsupported federation contract {raw['federation_contract']!r}")
+    project = raw["project"]
+    if not isinstance(project, str) or not PROJECT_RE.fullmatch(project):
+        fail(f"{path}: project must use owner/repository syntax")
+    areas = raw["areas"]
+    if not isinstance(areas, dict) or not areas:
+        fail(f"{path}: areas must be a non-empty object")
+    if not all(
+        isinstance(area, str)
+        and re.fullmatch(r"[a-z][a-z0-9-]*", area)
+        and isinstance(prefix, str)
+        and re.fullmatch(r"[A-Z][A-Z0-9]*", prefix)
+        for area, prefix in areas.items()
+    ):
+        fail(f"{path}: invalid area or prefix")
+    if len(set(areas.values())) != len(areas):
+        fail(f"{path}: area prefixes must be unique")
+    if areas.get("epic") != "EPC":
+        fail(f"{path}: epic area must use EPC prefix")
+    evidence = raw["evidence_categories"]
+    if (
+        not isinstance(evidence, list)
+        or not evidence
+        or len(evidence) != len(set(evidence))
+        or not all(isinstance(item, str) and re.fullmatch(r"[a-z][a-z0-9_]*", item) for item in evidence)
+    ):
+        fail(f"{path}: evidence_categories must be unique snake-case names")
+    openspec_schema = raw["openspec_schema"]
+    if not isinstance(openspec_schema, str) or not CHANGE_RE.fullmatch(openspec_schema):
+        fail(f"{path}: openspec_schema must be lowercase kebab-case")
+    peers = raw["allowed_peers"]
+    if (
+        not isinstance(peers, list)
+        or len(peers) != len(set(peers))
+        or not all(isinstance(peer, str) and PROJECT_RE.fullmatch(peer) for peer in peers)
+        or project in peers
+    ):
+        fail(f"{path}: allowed_peers must contain unique external owner/repository names")
+    return ProjectConfig(
+        schema=raw["schema"],
+        federation_contract=raw["federation_contract"],
+        project=project,
+        areas=dict(areas),
+        evidence_categories=tuple(evidence),
+        openspec_schema=openspec_schema,
+        allowed_peers=tuple(peers),
+    )
+
+
+def config_for_path(path: Path) -> ProjectConfig:
+    current = path.resolve()
+    if current.is_file():
+        current = current.parent
+    for candidate in (current, *current.parents):
+        if (candidate / PROJECT_CONFIG_PATH).is_file():
+            return load_project_config(candidate)
+    fail(f"cannot find {PROJECT_CONFIG_PATH} above {path}")
+
+
+def reference_parts(value: str, config: ProjectConfig) -> tuple[str, str]:
+    if ID_RE.fullmatch(value):
+        return config.project, value
+    match = QUALIFIED_REF_RE.fullmatch(value)
+    if match is None:
+        fail(f"invalid task reference {value!r}; expected TASK-ID or owner/repository#TASK-ID")
+    project, task_id = match.groups()
+    if project == config.project:
+        fail(f"qualified local reference {value!r} must use {task_id}")
+    if project not in config.allowed_peers:
+        fail(f"task reference {value!r} targets an unapproved project")
+    return project, task_id
+
+
+def qualify_reference(value: str, config: ProjectConfig) -> str:
+    project, task_id = reference_parts(value, config)
+    return f"{project}#{task_id}"
+
+
+def local_reference(value: str, config: ProjectConfig) -> str | None:
+    project, task_id = reference_parts(value, config)
+    return task_id if project == config.project else None
 
 
 def parse_scalar(raw: str) -> Any:
@@ -256,8 +382,11 @@ def git_common_dir(root: Path) -> Path | None:
     return path if path.is_absolute() else (root / path).resolve()
 
 
-def allocate_id(root: Path, area: str, used_suffixes: set[str]) -> str:
-    prefix = AREA_PREFIXES[area]
+def allocate_id(root: Path, area: str, used_suffixes: set[str], config: ProjectConfig | None = None) -> str:
+    config = config or load_project_config(root)
+    if area not in config.areas:
+        fail(f"unknown task area {area!r}")
+    prefix = config.areas[area]
     common_dir = git_common_dir(root)
     reservation_path = common_dir / "taskctl-id-reservations" if common_dir else None
 
@@ -354,7 +483,8 @@ def read_lifecycle_receipt(
     return receipt
 
 
-def validate_issue_shape(document: Document) -> None:
+def validate_issue_shape(document: Document, config: ProjectConfig | None = None) -> None:
+    config = config or config_for_path(document.path)
     values = document.values
     missing = [field for field in REQUIRED_FIELDS if field not in values]
     unknown = sorted(set(values) - ALLOWED_FIELDS)
@@ -369,7 +499,7 @@ def validate_issue_shape(document: Document) -> None:
         fail(f"{document.path}: invalid kind {values['kind']!r}")
     if values["status"] not in STATUSES:
         fail(f"{document.path}: invalid status {values['status']!r}")
-    if values["area"] not in AREA_PREFIXES:
+    if values["area"] not in config.areas:
         fail(f"{document.path}: invalid area {values['area']!r}")
     if values["priority"] not in PRIORITIES:
         fail(f"{document.path}: invalid priority {values['priority']!r}")
@@ -380,7 +510,7 @@ def validate_issue_shape(document: Document) -> None:
     match = ID_RE.fullmatch(str(values["id"]))
     if match is None:
         fail(f"{document.path}: invalid task ID {values['id']!r}")
-    if PREFIX_AREAS.get(match.group(1)) != values["area"]:
+    if config.prefix_areas.get(match.group(1)) != values["area"]:
         fail(f"{document.path}: ID prefix does not match area {values['area']!r}")
     for field in ("created", "updated"):
         raw_date = values[field]
@@ -390,12 +520,21 @@ def validate_issue_shape(document: Document) -> None:
             date.fromisoformat(raw_date)
         except ValueError as error:
             fail(f"{document.path}: invalid {field}: {error}")
-    if values["parent"] is not None and not isinstance(values["parent"], str):
-        fail(f"{document.path}: parent must be an ID or null")
+    if values["parent"] is not None:
+        if not isinstance(values["parent"], str):
+            fail(f"{document.path}: parent must be an ID or null")
+        reference_parts(values["parent"], config)
     if not isinstance(values["blocked_by"], list) or not all(
         isinstance(value, str) for value in values["blocked_by"]
     ):
-        fail(f"{document.path}: blocked_by must be a list of IDs")
+        fail(f"{document.path}: blocked_by must be a list of task references")
+    for blocker in values["blocked_by"]:
+        reference_parts(blocker, config)
+    related = values.get("related_tasks", [])
+    if not isinstance(related, list) or not all(isinstance(value, str) for value in related):
+        fail(f"{document.path}: related_tasks must be a list of task references")
+    for relation in related:
+        reference_parts(relation, config)
     if values["status"] == "blocked" and not values["blocked_by"] and not values.get("status_detail"):
         fail(f"{document.path}: blocked task requires blocked_by or status_detail")
     if values["spec_mode"] not in {"required", "not-required"}:
@@ -413,7 +552,7 @@ def validate_issue_shape(document: Document) -> None:
             fail(f"{document.path}: invalid or missing spec_reason")
         if values["kind"] in {"feature", "epic"}:
             fail(f"{document.path}: {values['kind']} cannot waive OpenSpec")
-    for field in ("source_wiki_pages", "blocked_by"):
+    for field in ("source_wiki_pages", "blocked_by", "related_tasks"):
         value = values.get(field, [])
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             fail(f"{document.path}: {field} must be a string list")
@@ -444,16 +583,17 @@ def assert_acyclic(edges: dict[str, list[str]], label: str) -> None:
         visit(node, [])
 
 
-def evidence_values(path: Path) -> dict[str, Any]:
+def evidence_values(path: Path, config: ProjectConfig | None = None) -> dict[str, Any]:
+    config = config or config_for_path(path)
     document = read_document(path)
     required = {"task_id", "change", "commit_sha"}
-    for category in EVIDENCE_CATEGORIES:
+    for category in config.evidence_categories:
         required.update((category, f"{category}_evidence"))
     missing = sorted(required - document.values.keys())
     unknown = sorted(set(document.values) - required)
     if missing or unknown:
         fail(f"{path}: verification fields missing={missing}, unknown={unknown}")
-    for category in EVIDENCE_CATEGORIES:
+    for category in config.evidence_categories:
         state = document.values[category]
         if state not in EVIDENCE_STATES:
             fail(f"{path}: invalid {category} evidence state {state!r}")
@@ -522,12 +662,13 @@ def expected_execution_path(root: Path, document: Document) -> Path:
     return root / "docs/tasks/work" / f"{document.task_id}.md"
 
 
-def load_state(root: Path) -> tuple[list[Document], list[Step]]:
+def load_state(root: Path, config: ProjectConfig | None = None) -> tuple[list[Document], list[Step]]:
+    config = config or load_project_config(root)
     documents = [read_document(path) for path in issue_paths(root)]
     if not documents:
         fail("portfolio is empty")
     for document in documents:
-        validate_issue_shape(document)
+        validate_issue_shape(document, config)
 
     ids: dict[str, Document] = {}
     suffixes: dict[str, str] = {}
@@ -551,19 +692,30 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
     for document in documents:
         parent = document.values["parent"]
         if parent is not None:
-            if parent == document.task_id or parent not in ids:
+            local_parent = local_reference(parent, config)
+            if local_parent is None:
+                if qualify_reference(parent, config) == f"{config.project}#{document.task_id}":
+                    fail(f"{document.path}: self parent {parent!r}")
+            elif local_parent == document.task_id or local_parent not in ids:
                 fail(f"{document.path}: missing or self parent {parent!r}")
-            if ids[parent].values["kind"] != "epic":
+            elif ids[local_parent].values["kind"] != "epic":
                 fail(f"{document.path}: parent {parent} is not an epic")
-            parent_edges[document.task_id] = [parent]
+            if local_parent is not None:
+                parent_edges[document.task_id] = [local_parent]
         blockers = document.values["blocked_by"]
         for blocker in blockers:
-            if blocker == document.task_id or blocker not in ids:
+            local_blocker = local_reference(blocker, config)
+            if local_blocker is not None and (local_blocker == document.task_id or local_blocker not in ids):
                 fail(f"{document.path}: missing or self blocker {blocker!r}")
-        blocker_edges[document.task_id] = list(blockers)
-        linked = document.values.get("linked_task")
-        if isinstance(linked, str) and ID_RE.fullmatch(linked) and linked not in ids:
-            fail(f"{document.path}: linked_task {linked!r} does not exist")
+        blocker_edges[document.task_id] = [
+            local
+            for blocker in blockers
+            if (local := local_reference(blocker, config)) is not None
+        ]
+        for related in document.values.get("related_tasks", []):
+            local_related = local_reference(related, config)
+            if local_related is not None and (local_related == document.task_id or local_related not in ids):
+                fail(f"{document.path}: missing or self related task {related!r}")
     assert_acyclic(parent_edges, "parent")
     assert_acyclic(blocker_edges, "blocker")
 
@@ -591,7 +743,7 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
             dropped_step_ids = set(raw_dropped_ids)
             for dropped_step_id in dropped_step_ids:
                 prefix = ID_RE.fullmatch(dropped_step_id).group(1)  # type: ignore[union-attr]
-                if PREFIX_AREAS.get(prefix) != document.values["area"]:
+                if config.prefix_areas.get(prefix) != document.values["area"]:
                     fail(f"{document.path}: dropped step prefix does not match task area")
                 if dropped_step_id in all_dropped_step_ids:
                     fail(f"duplicate dropped execution step ID {dropped_step_id}")
@@ -614,7 +766,7 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
                     fail(f"{document.path}: missing {required_path.relative_to(root)}")
             if f"Task ID: `{document.task_id}`" not in proposal.read_text(encoding="utf-8"):
                 fail(f"{proposal}: missing exact portfolio backlink")
-            evidence = evidence_values(verification)
+            evidence = evidence_values(verification, config)
             if evidence["task_id"] != document.task_id or evidence["change"] != document.values["openspec_change"]:
                 fail(f"{verification}: backlink does not match portfolio task")
             archived = change_dir.parent.name == "archive"
@@ -629,7 +781,7 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
             if archived:
                 if any(not step.done for step in steps):
                     fail(f"{change_dir}: archived change contains open execution steps")
-                if any(evidence[category] in {"required", "blocked"} for category in EVIDENCE_CATEGORIES):
+                if any(evidence[category] in {"required", "blocked"} for category in config.evidence_categories):
                     fail(f"{verification}: archived change contains incomplete evidence")
                 if not isinstance(evidence["commit_sha"], str) or not SHA_RE.fullmatch(evidence["commit_sha"]):
                     fail(f"{verification}: archived change lacks an exact commit SHA")
@@ -685,16 +837,313 @@ def progress_by_item(steps: Iterable[Step]) -> dict[str, tuple[int, int]]:
     return {task_id: (values[0], values[1]) for task_id, values in totals.items()}
 
 
+def git_revision(root: Path) -> str:
+    result = run_command(("git", "rev-parse", "HEAD"), root=root)
+    revision = (result.stdout or "").strip()
+    if result.returncode != 0 or not SHA_RE.fullmatch(revision):
+        fail(f"cannot resolve Git revision for {root}")
+    return revision
+
+
+def export_payload(root: Path) -> dict[str, Any]:
+    config = load_project_config(root)
+    documents, steps = load_state(root, config)
+    progress = progress_by_item(steps)
+    tasks: list[dict[str, Any]] = []
+    for document in sorted(documents, key=lambda item: item.task_id):
+        done, total = progress.get(document.task_id, (0, 0))
+        parent = document.values["parent"]
+        tasks.append(
+            {
+                "id": f"{config.project}#{document.task_id}",
+                "task_id": document.task_id,
+                "path": document.path.relative_to(root).as_posix(),
+                "kind": document.values["kind"],
+                "status": document.values["status"],
+                "progress": {"done": done, "total": total},
+                "parent": qualify_reference(parent, config) if parent is not None else None,
+                "blocked_by": sorted(qualify_reference(value, config) for value in document.values["blocked_by"]),
+                "related_tasks": sorted(
+                    qualify_reference(value, config)
+                    for value in document.values.get("related_tasks", [])
+                ),
+                "openspec_change": document.values["openspec_change"],
+                "historical": False,
+            }
+        )
+    return {
+        "contract_version": config.federation_contract,
+        "project": config.project,
+        "revision": git_revision(root),
+        "tasks": tasks,
+    }
+
+
+def git_show_text(root: Path, ref: str, path: str) -> str | None:
+    result = run_command(("git", "show", f"{ref}:{path}"), root=root)
+    return result.stdout if result.returncode == 0 else None
+
+
+def git_tree_paths(root: Path, ref: str, prefix: str) -> list[str]:
+    result = run_command(("git", "ls-tree", "-r", "--name-only", ref, "--", prefix), root=root)
+    if result.returncode != 0:
+        fail(f"cannot inspect Git tree {ref} in {root}")
+    return sorted(filter(None, (result.stdout or "").splitlines()))
+
+
+def historical_execution_path(root: Path, ref: str, document: Document) -> str:
+    if document.values["spec_mode"] == "not-required":
+        return f"docs/tasks/work/{document.task_id}.md"
+    change = document.values["openspec_change"]
+    active = f"openspec/changes/{change}/tasks.md"
+    if git_show_text(root, ref, active) is not None:
+        return active
+    matches = [
+        path
+        for path in git_tree_paths(root, ref, "openspec/changes/archive")
+        if path.endswith(f"-{change}/tasks.md")
+    ]
+    if len(matches) != 1:
+        fail(f"{document.task_id}: terminal history has no unique OpenSpec execution file")
+    return matches[0]
+
+
+def resolve_terminal_task(root: Path, task_id: str, config: ProjectConfig) -> dict[str, Any] | None:
+    shallow = run_command(("git", "rev-parse", "--is-shallow-repository"), root=root)
+    if shallow.returncode != 0:
+        fail(f"cannot inspect Git history for {root}")
+    if (shallow.stdout or "").strip() == "true":
+        fail(f"peer checkout {root} is shallow; full history is required")
+    deletions = run_command(
+        ("git", "log", "--format=%H", "--diff-filter=D", "--", "docs/tasks/issues"),
+        root=root,
+    )
+    if deletions.returncode != 0:
+        fail(f"cannot inspect deleted task history in {root}")
+    for deletion in filter(None, (deletions.stdout or "").splitlines()):
+        deleted = run_command(
+            ("git", "diff-tree", "--no-commit-id", "--name-only", "--diff-filter=D", "-r", deletion, "--", "docs/tasks/issues"),
+            root=root,
+        )
+        if deleted.returncode != 0:
+            fail(f"cannot inspect deletion {deletion}")
+        terminal_ref = f"{deletion}^"
+        for relative in filter(None, (deleted.stdout or "").splitlines()):
+            issue_text = git_show_text(root, terminal_ref, relative)
+            if issue_text is None or f"id: {task_id}" not in issue_text:
+                continue
+            with tempfile.TemporaryDirectory(prefix="taskctl-federation-history-") as directory:
+                issue_path = Path(directory) / "issue.md"
+                issue_path.write_text(issue_text, encoding="utf-8")
+                document = read_document(issue_path)
+            if document.task_id != task_id:
+                continue
+            validate_issue_shape(document, config)
+            if document.values["status"] not in {"done", "dropped"}:
+                fail(f"{config.project}#{task_id}: deletion lacks a terminal state")
+            history = run_command(
+                ("git", "log", "--reverse", "--format=%H", terminal_ref, "--", relative),
+                root=root,
+            )
+            if history.returncode != 0:
+                fail(f"{config.project}#{task_id}: cannot inspect state transitions")
+            previous_status: str | None = None
+            for revision in filter(None, (history.stdout or "").splitlines()):
+                historical_issue = git_show_text(root, revision, relative)
+                if historical_issue is None:
+                    previous_status = None
+                    continue
+                with tempfile.TemporaryDirectory(prefix="taskctl-federation-transition-") as directory:
+                    transition_path = Path(directory) / "issue.md"
+                    transition_path.write_text(historical_issue, encoding="utf-8")
+                    transition_document = read_document(transition_path)
+                if transition_document.task_id != task_id:
+                    previous_status = None
+                    continue
+                current_status = transition_document.values.get("status")
+                if current_status in {"done", "dropped"}:
+                    if previous_status is None or not transition_allowed(previous_status, current_status):
+                        fail(
+                            f"{config.project}#{task_id}: invalid terminal transition "
+                            f"{previous_status or 'missing'} -> {current_status}"
+                        )
+                previous_status = current_status
+            execution_path = historical_execution_path(root, terminal_ref, document)
+            execution_text = git_show_text(root, terminal_ref, execution_path)
+            if execution_text is None:
+                fail(f"{config.project}#{task_id}: terminal execution file is missing")
+            if document.values["spec_mode"] == "required":
+                receipt_path = f"{execution_path.rsplit('/', 1)[0]}/.taskctl-close.json"
+            else:
+                receipt_path = f"docs/tasks/work/{task_id}.close.json"
+            receipt_text = git_show_text(root, terminal_ref, receipt_path)
+            if receipt_text is None:
+                fail(f"{config.project}#{task_id}: terminal close receipt is missing")
+            receipt = json.loads(receipt_text)
+            if receipt.get("task_id") != task_id or receipt.get("outcome") != document.values["status"]:
+                fail(f"{config.project}#{task_id}: terminal close receipt backlink mismatch")
+            if receipt.get("issue_sha256") != hashlib.sha256(issue_text.encode()).hexdigest():
+                fail(f"{config.project}#{task_id}: terminal issue hash mismatch")
+            if receipt.get("execution_sha256") != hashlib.sha256(execution_text.encode()).hexdigest():
+                fail(f"{config.project}#{task_id}: terminal execution hash mismatch")
+            parsed_steps: list[Step] = []
+            with tempfile.TemporaryDirectory(prefix="taskctl-federation-steps-") as directory:
+                execution_temp = Path(directory) / "tasks.md"
+                execution_temp.write_text(execution_text, encoding="utf-8")
+                parsed_steps = read_steps(execution_temp)
+            done = sum(1 for step in parsed_steps if step.done)
+            if document.values["status"] == "done" and done != len(parsed_steps):
+                fail(f"{config.project}#{task_id}: done terminal record contains open steps")
+            if document.values["status"] == "dropped":
+                drop_path = receipt_path.replace(".taskctl-close.json", ".taskctl-drop.json").replace(
+                    f"{task_id}.close.json", f"{task_id}.drop.json"
+                )
+                drop_text = git_show_text(root, terminal_ref, drop_path)
+                if drop_text is None or json.loads(drop_text).get("task_id") != task_id:
+                    fail(f"{config.project}#{task_id}: terminal drop receipt is missing or invalid")
+            if document.values["spec_mode"] == "required":
+                archive_receipt_path = f"{execution_path.rsplit('/', 1)[0]}/.taskctl-archive.json"
+                archive_text = git_show_text(root, terminal_ref, archive_receipt_path)
+                archive_receipt = json.loads(archive_text) if archive_text is not None else {}
+                if (
+                    archive_receipt.get("task_id") != task_id
+                    or archive_receipt.get("change") != document.values["openspec_change"]
+                ):
+                    fail(f"{config.project}#{task_id}: terminal OpenSpec archive receipt is invalid")
+            terminal_sha_result = run_command(("git", "rev-parse", terminal_ref), root=root)
+            terminal_sha = (terminal_sha_result.stdout or "").strip()
+            if terminal_sha_result.returncode != 0 or not SHA_RE.fullmatch(terminal_sha):
+                fail(f"{config.project}#{task_id}: cannot resolve terminal revision")
+            return {
+                "id": f"{config.project}#{task_id}",
+                "task_id": task_id,
+                "path": relative,
+                "kind": document.values["kind"],
+                "status": document.values["status"],
+                "progress": {"done": done, "total": len(parsed_steps)},
+                "parent": (
+                    qualify_reference(document.values["parent"], config)
+                    if document.values["parent"] is not None
+                    else None
+                ),
+                "blocked_by": sorted(
+                    qualify_reference(value, config) for value in document.values["blocked_by"]
+                ),
+                "related_tasks": sorted(
+                    qualify_reference(value, config)
+                    for value in document.values.get("related_tasks", [])
+                ),
+                "openspec_change": document.values["openspec_change"],
+                "historical": True,
+                "terminal_revision": terminal_sha,
+                "deletion_revision": deletion,
+            }
+    return None
+
+
+def federation_payload(root: Path, peer_root: Path) -> dict[str, Any]:
+    roots = {root.resolve(), peer_root.resolve()}
+    if len(roots) != 2:
+        fail("federation requires a distinct peer checkout")
+    exports = [export_payload(candidate) for candidate in sorted(roots, key=str)]
+    configs = {load_project_config(candidate).project: load_project_config(candidate) for candidate in roots}
+    roots_by_project = {load_project_config(candidate).project: candidate for candidate in roots}
+    if len(configs) != 2:
+        fail("federation projects must have distinct identities")
+    for payload in exports:
+        if payload["contract_version"] != FEDERATION_CONTRACT_VERSION:
+            fail(f"{payload['project']}: incompatible federation contract")
+        config = configs[payload["project"]]
+        other_projects = set(configs) - {config.project}
+        if other_projects != set(config.allowed_peers):
+            fail(f"{config.project}: peer allowlist does not match the federation checkout")
+    nodes = {
+        task["id"]: dict(task)
+        for payload in exports
+        for task in payload["tasks"]
+    }
+    pending = {
+        reference
+        for node in nodes.values()
+        for reference in ([node["parent"]] if node["parent"] else [])
+        + node["blocked_by"]
+        + node["related_tasks"]
+    }
+    while True:
+        missing = sorted(pending - nodes.keys())
+        if not missing:
+            break
+        pending = set()
+        for reference in missing:
+            match = QUALIFIED_REF_RE.fullmatch(reference)
+            if match is None or match.group(1) not in roots_by_project:
+                fail(f"unknown federated task reference {reference!r}")
+            project, task_id = match.groups()
+            historical = resolve_terminal_task(roots_by_project[project], task_id, configs[project])
+            if historical is None:
+                fail(f"missing federated task {reference}")
+            nodes[reference] = historical
+            pending.update(
+                ([historical["parent"]] if historical["parent"] else [])
+                + historical["blocked_by"]
+                + historical["related_tasks"]
+            )
+    parent_edges: dict[str, list[str]] = {}
+    blocker_edges: dict[str, list[str]] = {}
+    reverse_blocks: dict[str, list[str]] = {identity: [] for identity in nodes}
+    children: dict[str, list[str]] = {identity: [] for identity in nodes}
+    for identity, node in nodes.items():
+        relations = ([node["parent"]] if node["parent"] else []) + node["blocked_by"] + node["related_tasks"]
+        if identity in relations:
+            fail(f"self federated reference {identity}")
+        if node["parent"] is not None:
+            if nodes[node["parent"]]["kind"] != "epic":
+                fail(f"{identity}: parent {node['parent']} is not an epic")
+            parent_edges[identity] = [node["parent"]]
+            children[node["parent"]].append(identity)
+        blocker_edges[identity] = list(node["blocked_by"])
+        for blocker in node["blocked_by"]:
+            if nodes[blocker]["status"] == "dropped":
+                fail(f"{identity}: blocker {blocker} was dropped")
+            reverse_blocks[blocker].append(identity)
+    assert_acyclic(parent_edges, "federated parent")
+    assert_acyclic(blocker_edges, "federated blocker")
+    graph: list[dict[str, Any]] = []
+    for identity in sorted(nodes):
+        node = dict(nodes[identity])
+        node["blocks"] = sorted(reverse_blocks[identity])
+        node["children"] = sorted(children[identity])
+        graph.append(node)
+    ready = [
+        node
+        for node in graph
+        if not node["historical"]
+        and node["status"] in {"backlog", "todo"}
+        and all(nodes[blocker]["status"] == "done" for blocker in node["blocked_by"])
+    ]
+    return {
+        "contract_version": FEDERATION_CONTRACT_VERSION,
+        "projects": sorted(configs),
+        "revisions": {payload["project"]: payload["revision"] for payload in exports},
+        "tasks": graph,
+        "ready": ready,
+        "valid": True,
+    }
+
+
 def escape_cell(value: Any) -> str:
     return str(value).replace("|", "\\|")
 
 
 def render_board(root: Path, documents: list[Document], steps: list[Step]) -> str:
+    config = load_project_config(root)
     progress = progress_by_item(steps)
     reverse: dict[str, list[str]] = {document.task_id: [] for document in documents}
     for document in documents:
         for blocker in document.values["blocked_by"]:
-            reverse[blocker].append(document.task_id)
+            local_blocker = local_reference(blocker, config)
+            if local_blocker is not None:
+                reverse[local_blocker].append(document.task_id)
     lines = [
         "# Task Board",
         "",
@@ -765,6 +1214,7 @@ def tool_binary(root: Path, name: str) -> Path:
 
 
 def validate_upstreams(root: Path, documents: list[Document]) -> None:
+    config = load_project_config(root)
     mdtask = tool_binary(root, "mdtask")
     for args in (("validate",), ("list", "--all")):
         result = run_command((str(mdtask), *args), root=root)
@@ -774,7 +1224,7 @@ def validate_upstreams(root: Path, documents: list[Document]) -> None:
     if any(document.values["spec_mode"] == "required" for document in documents):
         openspec = tool_binary(root, "openspec")
         commands = (
-            ("schema", "validate", "ripdpi-change", "--json"),
+            ("schema", "validate", config.openspec_schema, "--json"),
             ("validate", "--all", "--strict", "--no-interactive"),
         )
         for args in commands:
@@ -1121,16 +1571,29 @@ def command_show(args: argparse.Namespace) -> int:
 
 
 def command_ready(args: argparse.Namespace) -> int:
-    documents, steps = load_state(args.root)
+    config = load_project_config(args.root)
+    documents, steps = load_state(args.root, config)
     by_id = {document.task_id: document for document in documents}
+    unresolved: dict[str, list[str]] = {}
     ready = [
         document
         for document in documents
         if document.values["status"] in {"backlog", "todo"}
-        and all(by_id[blocker].values["status"] == "done" for blocker in document.values["blocked_by"])
+        and all(
+            (local := local_reference(blocker, config)) is not None
+            and by_id[local].values["status"] == "done"
+            for blocker in document.values["blocked_by"]
+        )
     ]
+    for document in documents:
+        external = [
+            blocker for blocker in document.values["blocked_by"]
+            if local_reference(blocker, config) is None
+        ]
+        if external:
+            unresolved[document.task_id] = external
     if args.json:
-        print(json.dumps({"schema": 1, "ready": [document.values for document in ready]}, ensure_ascii=False, sort_keys=True))
+        print(json.dumps({"schema": 1, "ready": [document.values for document in ready], "unresolved_external": unresolved}, ensure_ascii=False, sort_keys=True))
     else:
         for document in ready:
             print(f"{document.task_id}\t{document.values['priority']}\t{document.values['title']}")
@@ -1138,16 +1601,20 @@ def command_ready(args: argparse.Namespace) -> int:
 
 
 def command_graph(args: argparse.Namespace) -> int:
-    documents, _ = load_state(args.root)
+    config = load_project_config(args.root)
+    documents, _ = load_state(args.root, config)
     reverse: dict[str, list[str]] = {document.task_id: [] for document in documents}
     for document in documents:
         for blocker in document.values["blocked_by"]:
-            reverse[blocker].append(document.task_id)
+            local_blocker = local_reference(blocker, config)
+            if local_blocker is not None:
+                reverse[local_blocker].append(document.task_id)
     graph = [
         {
             "id": document.task_id,
             "parent": document.values["parent"],
             "blocked_by": document.values["blocked_by"],
+            "related_tasks": document.values.get("related_tasks", []),
             "blocks": sorted(reverse[document.task_id]),
         }
         for document in documents
@@ -1160,8 +1627,58 @@ def command_graph(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_export(args: argparse.Namespace) -> int:
+    print(json.dumps(export_payload(args.root), ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+def command_federation(args: argparse.Namespace) -> int:
+    payload = federation_payload(args.root, args.peer_root.resolve())
+    if args.federation_command == "validate":
+        selected: Any = {
+            "contract_version": payload["contract_version"],
+            "projects": payload["projects"],
+            "revisions": payload["revisions"],
+            "tasks": len(payload["tasks"]),
+            "valid": True,
+        }
+    elif args.federation_command == "ready":
+        selected = {
+            "contract_version": payload["contract_version"],
+            "projects": payload["projects"],
+            "ready": payload["ready"],
+        }
+    elif args.federation_command == "graph":
+        selected = {
+            "contract_version": payload["contract_version"],
+            "projects": payload["projects"],
+            "tasks": payload["tasks"],
+        }
+    else:
+        selected = {
+            "contract_version": payload["contract_version"],
+            "projects": payload["projects"],
+            "tasks": [
+                {
+                    key: node[key]
+                    for key in ("id", "status", "kind", "path", "progress", "historical")
+                }
+                for node in payload["tasks"]
+            ],
+        }
+    if args.json:
+        print(json.dumps(selected, ensure_ascii=False, sort_keys=True))
+    elif args.federation_command == "validate":
+        print(f"Federation contracts valid ({selected['tasks']} tasks)")
+    else:
+        for node in selected["ready" if args.federation_command == "ready" else "tasks"]:
+            print(f"{node['id']}\t{node['status']}\t{node['progress']['done']}/{node['progress']['total']}")
+    return 0
+
+
 def command_new(args: argparse.Namespace) -> int:
-    documents, steps = load_state(args.root)
+    config = load_project_config(args.root)
+    documents, steps = load_state(args.root, config)
     used = {
         ID_RE.fullmatch(document.values["id"]).group(2)  # type: ignore[union-attr]
         for document in documents
@@ -1175,7 +1692,11 @@ def command_new(args: argparse.Namespace) -> int:
         fail("spec-not-required task requires --spec-reason")
     if args.spec_mode == "not-required" and args.kind in {"feature", "epic"}:
         fail(f"{args.kind} cannot waive OpenSpec")
-    task_id = allocate_id(args.root, args.area, used)
+    if args.area not in config.areas:
+        fail(f"unknown task area {args.area!r}")
+    if args.parent is not None:
+        reference_parts(args.parent, config)
+    task_id = allocate_id(args.root, args.area, used, config)
     slug = args.slug or slugify(args.title)
     path = args.root / "docs/tasks/issues" / f"{slug}.md"
     if path.exists():
@@ -1197,6 +1718,7 @@ def command_new(args: argparse.Namespace) -> int:
         "owner": args.owner,
         "parent": args.parent,
         "blocked_by": [],
+        "related_tasks": [],
         "spec_mode": args.spec_mode,
         "openspec_change": change,
         "created": today,
@@ -1209,7 +1731,12 @@ def command_new(args: argparse.Namespace) -> int:
     if args.spec_mode == "not-required":
         work = args.root / "docs/tasks/work" / f"{task_id}.md"
         work.parent.mkdir(parents=True, exist_ok=True)
-        step_id = allocate_id(args.root, args.area, used | {ID_RE.fullmatch(task_id).group(2)})  # type: ignore[union-attr]
+        step_id = allocate_id(
+            args.root,
+            args.area,
+            used | {ID_RE.fullmatch(task_id).group(2)},  # type: ignore[union-attr]
+            config,
+        )
         work.write_text(
             f"# {task_id}: {args.title}\n\n## Objective\n\n{args.title}\n\n## Ownership\n\nDeclare owned paths before implementation.\n\n## Execution\n\n- [ ] {step_id} Define implementation and verification #{args.kind}{MDTASK_PRIORITY_TOKENS[args.priority]} @item:{task_id}\n",
             encoding="utf-8",
@@ -1223,7 +1750,7 @@ def command_new(args: argparse.Namespace) -> int:
                 "change",
                 change,
                 "--schema",
-                "ripdpi-change",
+                config.openspec_schema,
                 "--goal",
                 f"{task_id} {args.title}",
                 "--json",
@@ -1283,6 +1810,7 @@ def command_steps(args: argparse.Namespace) -> int:
 
 
 def verify_task(root: Path, document: Document, steps: list[Step], *, archive_ready: bool) -> None:
+    config = load_project_config(root)
     item_steps = [step for step in steps if step.item_id == document.task_id]
     open_steps = [step.task_id for step in item_steps if not step.done]
     if open_steps:
@@ -1295,9 +1823,9 @@ def verify_task(root: Path, document: Document, steps: list[Step], *, archive_re
             result = run_command((str(openspec), "validate", change, "--strict", "--json"), root=root)
             if result.returncode != 0:
                 fail(f"OpenSpec change {change} is invalid:\n{(result.stdout or '').rstrip()}")
-        evidence = evidence_values(execution.parent / "verification.md")
+        evidence = evidence_values(execution.parent / "verification.md", config)
         if archive_ready:
-            if any(evidence[category] in {"required", "blocked"} for category in EVIDENCE_CATEGORIES):
+            if any(evidence[category] in {"required", "blocked"} for category in config.evidence_categories):
                 fail(f"{change}: verification evidence is incomplete")
             if not isinstance(evidence["commit_sha"], str) or not SHA_RE.fullmatch(evidence["commit_sha"]):
                 fail(f"{change}: verification commit_sha must be an exact 40-character SHA")
@@ -1356,7 +1884,7 @@ def command_openspec_archive(args: argparse.Namespace) -> int:
     archives = sorted((args.root / "openspec/changes/archive").glob(f"*-{args.change}"))
     if len(archives) != 1:
         fail(f"archive completed but exactly one archive for {args.change} was not found")
-    evidence = evidence_values(archives[0] / "verification.md")
+    evidence = evidence_values(archives[0] / "verification.md", load_project_config(args.root))
     receipt = {
         "schema": 1,
         "task_id": document.task_id,
@@ -1401,6 +1929,7 @@ def prepare_dropped_execution(
     steps: Sequence[Step],
     reason: str,
 ) -> Path:
+    config = load_project_config(root)
     execution = expected_execution_path(root, document)
     dropped_step_ids = {step.task_id for step in steps if not step.done}
     rewritten: list[str] = []
@@ -1418,7 +1947,7 @@ def prepare_dropped_execution(
         verification = read_document(verification_path)
         values = dict(verification.values)
         values["commit_sha"] = None
-        for category in EVIDENCE_CATEGORIES:
+        for category in config.evidence_categories:
             values[category] = "not_applicable"
             values[f"{category}_evidence"] = f"Task dropped: {safe_reason}"
         body_lines: list[str] = []
@@ -1589,10 +2118,22 @@ def build_parser() -> argparse.ArgumentParser:
     graph.add_argument("--json", action="store_true")
     graph.set_defaults(handler=command_graph)
 
+    export = subparsers.add_parser("export")
+    export.add_argument("--json", action="store_true")
+    export.set_defaults(handler=command_export)
+
+    federation = subparsers.add_parser("federation")
+    federation_sub = federation.add_subparsers(dest="federation_command", required=True)
+    for name in ("list", "ready", "graph", "validate"):
+        federation_command = federation_sub.add_parser(name)
+        federation_command.add_argument("--peer-root", type=Path, required=True)
+        federation_command.add_argument("--json", action="store_true")
+        federation_command.set_defaults(handler=command_federation)
+
     new = subparsers.add_parser("new")
     new.add_argument("--title", required=True)
     new.add_argument("--kind", required=True, choices=sorted(KINDS))
-    new.add_argument("--area", required=True, choices=sorted(AREA_PREFIXES))
+    new.add_argument("--area", required=True)
     new.add_argument("--priority", required=True, choices=PRIORITIES)
     new.add_argument("--owner", default="unassigned")
     new.add_argument("--parent")

@@ -13,7 +13,6 @@ openspec_change: rst-1786264762917304-unpin-russh-after-rsa-advisory-fix
 created: 2026-06-12
 updated: 2026-08-09
 source_wiki_pages: []
-linked_task: null
 ---
 
 ## Motivation

@@ -16,7 +16,6 @@ openspec_change: epc-1786264762917503-epic-june-2026-audit-remediation
 created: 2026-06-10
 updated: 2026-08-09
 source_wiki_pages: []
-linked_task: null
 ---
 
 ## Goal
