@@ -2,7 +2,7 @@
 id: EPC-1786264762917110
 title: Epic - Remove Cloudflare from critical path
 kind: epic
-status: doing
+status: dropped
 area: epic
 priority: critical
 owner: unassigned
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917110-epic-remove-cloudflare-from-critical-path
 created: 2026-05-01
-updated: 2026-06-11
+updated: 2026-08-09
 status_note: code/automation landed across client + deploy; non-Cloudflare hosts await operator provisioning
+closed_at: "2026-08-09T11:12:19Z"
+closed_reason: remaining scope belongs to the deployment repository
+evidence_summary: RIPDPI client implementation is complete; remaining Cloudflare operator and deployment work belongs to ripdpi-vpn-deploy.
 ---
 
 ## Goal

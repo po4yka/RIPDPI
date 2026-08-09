@@ -17,7 +17,7 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 - [x] TRN-1786264762919279 AmneziaWG profile persistence + selection. A dedicated AWG profile store #feature !high @item:TRN-1786264762917775
 - [x] TRN-1786264762919408 Service wiring: AmneziaWgRuntimeSupervisor + composition coordinator #feature !high @item:TRN-1786264762917775
 - [x] TRN-1786264762919506 UI connect path: AmneziaWgProfileViewModel.onSave()/onConnect() → #feature !high @item:TRN-1786264762917775
-- [ ] TRN-1786264762919526 On-device / loopback-fixture interop smoke test against a real AmneziaWG #feature !high @item:TRN-1786264762917775
+- TRN-1786264762919526 DROPPED: On-device / loopback-fixture interop smoke test against a real AmneziaWG #feature !high @item:TRN-1786264762917775
 
 ## Verification
 

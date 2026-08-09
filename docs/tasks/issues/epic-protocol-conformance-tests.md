@@ -2,7 +2,7 @@
 id: EPC-1786264762917455
 title: Epic - Protocol conformance and regression tests
 kind: epic
-status: doing
+status: dropped
 area: epic
 priority: medium
 owner: unassigned
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917455-epic-protocol-conformance-tests
 created: 2026-06-10
-updated: 2026-07-26
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-09T11:12:19Z"
+closed_reason: epic merged into its sole active child
+evidence_summary: Only the Salamander byte-vector conformance task remains, now tracked directly without a one-child epic wrapper.
 ---
 
 ## Goal

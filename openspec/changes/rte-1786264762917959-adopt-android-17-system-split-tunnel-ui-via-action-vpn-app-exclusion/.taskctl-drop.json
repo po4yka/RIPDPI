@@ -1,0 +1,11 @@
+{
+  "change": "rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion",
+  "dropped_step_ids": [
+    "RTE-1786264762918504"
+  ],
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:19Z",
+  "reason": "superseded by the active Android 17 validation task",
+  "schema": 1,
+  "task_id": "RTE-1786264762917959"
+}

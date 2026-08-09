@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-09T11:07:29Z",
+  "change": "dgn-1786264762917684-add-connection-concurrency-evidence-axis",
+  "commit_sha": "4d852cb56c2ba92f27a75c902ebeccdb1784fc30",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DGN-1786264762917684"
+}

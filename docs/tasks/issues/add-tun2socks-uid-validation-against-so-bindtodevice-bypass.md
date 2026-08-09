@@ -2,7 +2,7 @@
 id: VPN-1786264762917166
 title: Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)
 kind: feature
-status: review
+status: done
 area: vpn
 priority: high
 owner: Android VPN security maintainer
@@ -16,6 +16,9 @@ source_wiki_pages:
   - android-so-bindtodevice-vpn-bypass
 linked_task: null
 status_detail: Capability-based eligibility and protocol-specific zero-delivery/RST evidence supersede the brittle pre-5.7 and socket-table checks; implementation and required acceptance evidence are complete.
+closed_at: "2026-08-09T11:07:52Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: UID enforcement is live for TCP, UDP, ICMP, and MapDNS; privileged run 29652023020 and Pixel manifest cb4e9c48 prove zero denied delivery, exact denial outcomes, and liveness.
 ---
 
 ## Motivation

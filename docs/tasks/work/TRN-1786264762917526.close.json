@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "The methodology is complete but execution requires three independent vantages and no repository owner or runner exists.",
+  "execution_sha256": "1a3016730b719936193bea19947f80e676db30b4383e497910f05e32069dd459",
+  "issue_sha256": "f9ca5616da2a5da79a9b800e7b0e0a02dabf584a38a0ad8365154bd86be90e30",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:17Z",
+  "reason": "no owned field campaign is available",
+  "schema": 1,
+  "task_id": "TRN-1786264762917526"
+}

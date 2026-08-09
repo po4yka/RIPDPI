@@ -1,0 +1,12 @@
+{
+  "change": "epc-1786264762917455-epic-protocol-conformance-tests",
+  "dropped_step_ids": [
+    "EPC-1786264762918514",
+    "EPC-1786264762918868"
+  ],
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:19Z",
+  "reason": "epic merged into its sole active child",
+  "schema": 1,
+  "task_id": "EPC-1786264762917455"
+}

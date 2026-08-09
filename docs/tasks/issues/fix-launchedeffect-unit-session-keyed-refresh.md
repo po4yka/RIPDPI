@@ -2,7 +2,7 @@
 id: UIX-1786264762917972
 title: Key session-scoped LaunchedEffect refreshes on the session id, not Unit
 kind: feature
-status: backlog
+status: dropped
 area: ui
 priority: medium
 owner: unassigned
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: required
 openspec_change: uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-09T11:12:15Z"
+closed_reason: audit finding invalidated by current implementation
+evidence_summary: All Unit effects are intentionally one-shot; the audited effect has no VPN-session ownership or session key to reset.
 ---
 
 ## Motivation

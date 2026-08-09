@@ -1,0 +1,12 @@
+{
+  "change": "out-1786264762917619-add-xray-profile-ux-and-import-flow",
+  "dropped_step_ids": [
+    "OUT-1786264762918402",
+    "OUT-1786264762918551"
+  ],
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:18Z",
+  "reason": "superseded by the active Xray diversification task",
+  "schema": 1,
+  "task_id": "OUT-1786264762917619"
+}

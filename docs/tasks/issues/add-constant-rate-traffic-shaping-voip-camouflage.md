@@ -2,7 +2,7 @@
 id: RST-1786264762917193
 title: Add constant-rate traffic shaping with VoIP camouflage profile
 kind: feature
-status: backlog
+status: dropped
 area: rust-native
 priority: medium
 owner: unassigned
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage
 created: 2026-05-16
-updated: 2026-06-11
+updated: 2026-08-09
+closed_at: "2026-08-09T11:12:16Z"
+closed_reason: technical design invalidated by current architecture
+evidence_summary: The proposed stream wrapper targets the wrong ownership layer, reverse operation requires server support, and the named power policy is absent.
 ---
 
 ## Summary

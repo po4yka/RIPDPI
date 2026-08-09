@@ -1,0 +1,15 @@
+{
+  "change": "rst-1786264762917192-split-policyport-trait-selection-learning",
+  "dropped_step_ids": [
+    "RST-1786264762919122",
+    "RST-1786264762919196",
+    "RST-1786264762919348",
+    "RST-1786264762919503",
+    "RST-1786264762919510"
+  ],
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:17Z",
+  "reason": "ungrounded abstraction debt",
+  "schema": 1,
+  "task_id": "RST-1786264762917192"
+}

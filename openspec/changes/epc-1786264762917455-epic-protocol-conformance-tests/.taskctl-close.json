@@ -1,0 +1,11 @@
+{
+  "change": "epc-1786264762917455-epic-protocol-conformance-tests",
+  "evidence_summary": "Only the Salamander byte-vector conformance task remains, now tracked directly without a one-child epic wrapper.",
+  "execution_sha256": "fea6a96beca1c0fab9f100b6d13d406a5cba0bd1244d05a703491d5b5e644fa1",
+  "issue_sha256": "ea7478f562f336213fa6e8e485c9d87ac620ae8278daa03645750e73b32627de",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:19Z",
+  "reason": "epic merged into its sole active child",
+  "schema": 1,
+  "task_id": "EPC-1786264762917455"
+}

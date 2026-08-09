@@ -2,7 +2,7 @@
 id: OUT-1786264762917107
 title: Run Xray as managed VPN relay runtime
 kind: feature
-status: blocked
+status: dropped
 area: outbound
 priority: high
 owner: unassigned
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
 created: 2026-04-24
-updated: 2026-07-26
+updated: 2026-08-09
 status_detail: externally-gated — real gomobile-backed bridge and Android device execution remain unavailable
+closed_at: "2026-08-09T11:12:18Z"
+closed_reason: superseded by the active Xray diversification task
+evidence_summary: Completed scaffolding remains in Git; all remaining deliverables are consolidated under OUT-1786264762917422.
 ---
 
 ## Summary

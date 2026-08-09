@@ -2,7 +2,7 @@
 id: OUT-1786264762917829
 title: Add Xray provider regression matrix
 kind: feature
-status: doing
+status: dropped
 area: outbound
 priority: medium
 owner: unassigned
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917829-add-xray-provider-regression-matrix
 created: 2026-04-24
-updated: 2026-06-10
+updated: 2026-08-09
+closed_at: "2026-08-09T11:12:18Z"
+closed_reason: superseded by the active Xray diversification task
+evidence_summary: Completed implementation remains in Git; all remaining deliverables are consolidated under OUT-1786264762917422.
 ---
 
 ## Summary

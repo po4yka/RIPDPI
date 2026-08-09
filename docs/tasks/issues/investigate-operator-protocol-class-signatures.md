@@ -2,7 +2,7 @@
 id: TRN-1786264762917526
 title: Investigate operator-specific protocol-class signatures (Dec 2025 shift)
 kind: research
-status: blocked
+status: dropped
 area: transport
 priority: medium
 owner: unassigned
@@ -11,12 +11,15 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-05-22
-updated: 2026-07-26
+updated: 2026-08-09
 spec_reason: research-only
 source_wiki_pages:
   - operator-protocol-class-blocking-shift-dec-2025
 linked_task: null
 status_detail: externally-gated — requires sustained measurements across multiple operator-controlled network vantages
+closed_at: "2026-08-09T11:12:17Z"
+closed_reason: no owned field campaign is available
+evidence_summary: The methodology is complete but execution requires three independent vantages and no repository owner or runner exists.
 ---
 
 ## Motivation

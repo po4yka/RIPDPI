@@ -2,7 +2,7 @@
 id: DGN-1786264762917145
 title: Harden remaining diagnostics evidence
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Codex diagnostics completion coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dgn-1786264762917145-harden-remaining-diagnostics-evidence
 created: 2026-07-29
 updated: 2026-08-09
+closed_at: "2026-08-09T11:07:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Declared runtime, presentation, archive, and qualification lanes are in main; targeted Gradle suites and architecture health passed; CI run 31295121189 contains the implementation.
 ---
 
 ## Goal

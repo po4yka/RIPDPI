@@ -2,7 +2,7 @@
 id: RTE-1786264762917959
 title: Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS
 kind: feature
-status: doing
+status: dropped
 area: routing
 priority: medium
 owner: unassigned
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion
 created: 2026-04-25
-updated: 2026-06-11
+updated: 2026-08-09
 status_detail: version-gated delegation + fallback shipped + unit-tested; exclusion persistence across reconnects (OS-owned) is device-gated (needs an Android 17 device)
+closed_at: "2026-08-09T11:12:19Z"
+closed_reason: superseded by the active Android 17 validation task
+evidence_summary: The delegate implementation is complete; remaining device validation is consolidated under RTE-1786264762917255.
 ---
 
 ## Summary

@@ -1,0 +1,14 @@
+{
+  "change": "trn-1786264762917675-wire-hysteria-realm-stun-nat-traversal",
+  "dropped_step_ids": [
+    "TRN-1786264762919290",
+    "TRN-1786264762919599",
+    "TRN-1786264762919833",
+    "TRN-1786264762919850"
+  ],
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:18Z",
+  "reason": "obsolete alpha proposal",
+  "schema": 1,
+  "task_id": "TRN-1786264762917675"
+}

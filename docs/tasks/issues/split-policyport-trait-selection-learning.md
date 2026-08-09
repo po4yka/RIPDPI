@@ -2,7 +2,7 @@
 id: RST-1786264762917192
 title: Split the 12-method PolicyPort trait into selection and learning sub-traits
 kind: feature
-status: backlog
+status: dropped
 area: rust-native
 priority: medium
 owner: unassigned
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917192-split-policyport-trait-selection-learning
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-09T11:12:17Z"
+closed_reason: ungrounded abstraction debt
+evidence_summary: There is one implementation and no narrow consumer requiring PolicyPort; DirectPathLearningPort already owns the concrete boundary.
 ---
 
 ## Motivation

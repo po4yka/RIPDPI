@@ -1,0 +1,11 @@
+{
+  "change": "epc-1786264762917282-epic-transport-obfuscation-research",
+  "evidence_summary": "Spikes and go-no-go work are complete, invalid speculative children are dropped, and the surviving transport race work is tracked independently.",
+  "execution_sha256": "8a2fc67e0684e5d0c5a79905a20d3127fbebe9aad500f03f4e351c59f8153355",
+  "issue_sha256": "3ccdf05f4689d86d4e044de36610471c5e517dd0988033f580d1c37da9f1e07a",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:19Z",
+  "reason": "research holding scope concluded",
+  "schema": 1,
+  "task_id": "EPC-1786264762917282"
+}

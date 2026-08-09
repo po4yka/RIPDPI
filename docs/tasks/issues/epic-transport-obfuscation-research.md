@@ -2,7 +2,7 @@
 id: EPC-1786264762917282
 title: Epic - Transport obfuscation and network-signature research
 kind: epic
-status: backlog
+status: dropped
 area: epic
 priority: medium
 owner: unassigned
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917282-epic-transport-obfuscation-research
 created: 2026-06-10
-updated: 2026-06-11
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-09T11:12:19Z"
+closed_reason: research holding scope concluded
+evidence_summary: Spikes and go-no-go work are complete, invalid speculative children are dropped, and the surviving transport race work is tracked independently.
 ---
 
 ## Goal

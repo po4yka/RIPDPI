@@ -2,16 +2,16 @@
 task_id: RST-1786264762917569
 change: rst-1786264762917569-introduce-ws-transport-port-to-fix-layer-violations
 commit_sha: null
-local: required
-local_evidence: null
-remote_ci: required
-remote_ci_evidence: null
+local: not_applicable
+local_evidence: "Task dropped: obsolete architecture premise"
+remote_ci: not_applicable
+remote_ci_evidence: "Task dropped: obsolete architecture premise"
 device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
+device_evidence: "Task dropped: obsolete architecture premise"
 artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+artifact_evidence: "Task dropped: obsolete architecture premise"
 deployment: not_applicable
-deployment_evidence: RIPDPI changes are not deployed by the task workflow.
+deployment_evidence: "Task dropped: obsolete architecture premise"
 ---
 
 # Verification
@@ -20,8 +20,8 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-RST-1786264762917569-001 | RST-1786264762918873 | Pending | required |
-| REQ-RST-1786264762917569-002 | RST-1786264762918882 | Pending | required |
-| REQ-RST-1786264762917569-003 | RST-1786264762918481 | Pending | required |
-| REQ-RST-1786264762917569-004 | RST-1786264762918579 | Pending | required |
-| REQ-RST-1786264762917569-005 | RST-1786264762918928 | Pending | required |
+| REQ-RST-1786264762917569-001 | RST-1786264762918873 | Dropped: obsolete architecture premise | not_applicable |
+| REQ-RST-1786264762917569-002 | RST-1786264762918882 | Dropped: obsolete architecture premise | not_applicable |
+| REQ-RST-1786264762917569-003 | RST-1786264762918481 | Dropped: obsolete architecture premise | not_applicable |
+| REQ-RST-1786264762917569-004 | RST-1786264762918579 | Dropped: obsolete architecture premise | not_applicable |
+| REQ-RST-1786264762917569-005 | RST-1786264762918928 | Dropped: obsolete architecture premise | not_applicable |

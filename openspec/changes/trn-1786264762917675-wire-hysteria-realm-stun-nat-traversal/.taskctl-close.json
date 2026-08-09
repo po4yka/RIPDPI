@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917675-wire-hysteria-realm-stun-nat-traversal",
+  "evidence_summary": "The Hysteria Realm alpha proposal has no implementation, current contract, deployment owner, or supported topology.",
+  "execution_sha256": "b3fe3e81d84f2974cb629a47e6fa7cf1926d6c407556ca541c27fbbbbd853132",
+  "issue_sha256": "888a3e840e6e3b152dc0199646f309e5fbfb7dd75693ce2823561a4173ef2dc1",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:18Z",
+  "reason": "obsolete alpha proposal",
+  "schema": 1,
+  "task_id": "TRN-1786264762917675"
+}

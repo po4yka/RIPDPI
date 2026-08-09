@@ -1,0 +1,11 @@
+{
+  "change": "vpn-1786264762917166-add-tun2socks-uid-validation-against-so-bindtodevice-bypass",
+  "evidence_summary": "UID enforcement is live for TCP, UDP, ICMP, and MapDNS; privileged run 29652023020 and Pixel manifest cb4e9c48 prove zero denied delivery, exact denial outcomes, and liveness.",
+  "execution_sha256": "912d4228cb5b1789bf25926af1f60cc431c04db782e6bfc7e5b487fa7addcfd0",
+  "issue_sha256": "2416ed52b38761e8cffd4f36724b1d5d5948c75deb16092d707f365b72481655",
+  "outcome": "done",
+  "prepared_at": "2026-08-09T11:07:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1786264762917166"
+}

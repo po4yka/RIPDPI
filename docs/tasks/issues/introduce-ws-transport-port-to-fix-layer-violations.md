@@ -2,7 +2,7 @@
 id: RST-1786264762917569
 title: Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel
 kind: feature
-status: backlog
+status: dropped
 area: rust-native
 priority: medium
 owner: unassigned
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917569-introduce-ws-transport-port-to-fix-layer-violations
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-09T11:12:16Z"
+closed_reason: obsolete architecture premise
+evidence_summary: The compared WebSocket transports are same-peer protocol tiers, and the architecture validator reports zero current violations for this premise.
 ---
 
 ## Motivation

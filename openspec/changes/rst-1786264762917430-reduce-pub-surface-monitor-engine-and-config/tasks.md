@@ -10,10 +10,10 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] RST-1786264762919211 ripdpi-monitor-engine pub-item count meaningfully reduced; no external consumer breaks #feature !low @item:RST-1786264762917430
-- [ ] RST-1786264762919473 ripdpi-config lib.rs documents its true role #feature !low @item:RST-1786264762917430
-- [ ] RST-1786264762919002 Golden-contract tests exist for ripdpi-failure-classifier and ripdpi-config public surfaces #feature !low @item:RST-1786264762917430
-- [ ] RST-1786264762919715 cargo nextest run --locked green workspace-wide; clippy clean #feature !low @item:RST-1786264762917430
+- RST-1786264762919211 DROPPED: ripdpi-monitor-engine pub-item count meaningfully reduced; no external consumer breaks #feature !low @item:RST-1786264762917430
+- RST-1786264762919473 DROPPED: ripdpi-config lib.rs documents its true role #feature !low @item:RST-1786264762917430
+- RST-1786264762919002 DROPPED: Golden-contract tests exist for ripdpi-failure-classifier and ripdpi-config public surfaces #feature !low @item:RST-1786264762917430
+- RST-1786264762919715 DROPPED: cargo nextest run --locked green workspace-wide; clippy clean #feature !low @item:RST-1786264762917430
 
 ## Verification
 

@@ -1,0 +1,14 @@
+{
+  "change": "rst-1786264762917430-reduce-pub-surface-monitor-engine-and-config",
+  "dropped_step_ids": [
+    "RST-1786264762919002",
+    "RST-1786264762919211",
+    "RST-1786264762919473",
+    "RST-1786264762919715"
+  ],
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:17Z",
+  "reason": "audit premise was already resolved",
+  "schema": 1,
+  "task_id": "RST-1786264762917430"
+}

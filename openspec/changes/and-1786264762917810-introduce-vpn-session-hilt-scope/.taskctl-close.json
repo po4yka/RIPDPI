@@ -1,0 +1,11 @@
+{
+  "change": "and-1786264762917810-introduce-vpn-session-hilt-scope",
+  "evidence_summary": "ServiceSessionScope and VPN/Proxy session components landed in a9107d190; docs/service-session-scope.md declares migration complete and the remaining singleton lifetimes intentional.",
+  "execution_sha256": "0c692a96d19ecdb77395282585e8228930e348154bafaf8e2b9517a401aa457f",
+  "issue_sha256": "16c3dbe3f1f57bb12baf592411cfb563ee334c78fe843660c9e42902792ad343",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:08:19Z",
+  "reason": "duplicate of completed service session scope",
+  "schema": 1,
+  "task_id": "AND-1786264762917810"
+}

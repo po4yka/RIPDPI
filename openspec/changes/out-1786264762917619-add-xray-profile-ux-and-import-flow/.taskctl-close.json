@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917619-add-xray-profile-ux-and-import-flow",
+  "evidence_summary": "Completed substrata remain in Git; all remaining deliverables are consolidated under OUT-1786264762917422.",
+  "execution_sha256": "56d7191e8ecb4c42ccf5162815899b2ff89108f170593401413ecfb6343b7845",
+  "issue_sha256": "53bd497aadcc1fcbfe9f7035d46dfb077dff1e9e5108fadd274174214f54ad70",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:18Z",
+  "reason": "superseded by the active Xray diversification task",
+  "schema": 1,
+  "task_id": "OUT-1786264762917619"
+}

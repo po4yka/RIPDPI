@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917694-surface-xray-diagnostics-and-telemetry",
+  "evidence_summary": "Completed transport work remains in Git; all remaining deliverables are consolidated under OUT-1786264762917422.",
+  "execution_sha256": "cb5004c0cde2664fb19b0cbf35e190541c526cbe9e7732f27ea2bab37a0a0228",
+  "issue_sha256": "028954b48c6d30ee1655b1d0d911ac6732e4f8a85a4566759b38252a7e4afe8e",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:18Z",
+  "reason": "superseded by the active Xray diversification task",
+  "schema": 1,
+  "task_id": "OUT-1786264762917694"
+}

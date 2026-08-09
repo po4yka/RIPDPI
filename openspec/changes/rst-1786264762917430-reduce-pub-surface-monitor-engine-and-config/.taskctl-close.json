@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917430-reduce-pub-surface-monitor-engine-and-config",
+  "evidence_summary": "Public-surface snapshots and their enforcement check landed in commit 40031dfce before this migrated task record.",
+  "execution_sha256": "44bc48fa08501eb333b3a260f7ecefe6e1b6c38ca1e1a1bf0ca6e7438d29f772",
+  "issue_sha256": "49581d51d2b5e3a2b0e5052e00b254c41ee0b1df5f8d808c67062951e92c9a50",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:17Z",
+  "reason": "audit premise was already resolved",
+  "schema": 1,
+  "task_id": "RST-1786264762917430"
+}

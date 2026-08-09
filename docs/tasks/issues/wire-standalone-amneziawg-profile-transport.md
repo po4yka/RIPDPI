@@ -2,7 +2,7 @@
 id: TRN-1786264762917775
 title: Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)
 kind: feature
-status: doing
+status: dropped
 area: transport
 priority: high
 owner: unassigned
@@ -11,10 +11,13 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
 created: 2026-06-13
-updated: 2026-06-21
+updated: 2026-08-09
 source_wiki_pages:
   - wireguard-rtk-south-amneziawg-bypass
 linked_task: TRN-1786264762917677
+closed_at: "2026-08-09T11:12:19Z"
+closed_reason: superseded by the active AmneziaWG task
+evidence_summary: Runtime, UI, composition, and protocol fixes already landed; remaining work is consolidated under TRN-1786264762917677.
 ---
 
 ## Motivation

@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917575-spike-dns-morph-bootstrap-fallback-channel",
+  "evidence_summary": "DNS payload morphing lacks the required bridge, fixture, and owned field vantage; the repository should not build the proposed capability.",
+  "execution_sha256": "3c6cb6ed09682adfb0a65a8f7492155ff196d05085673e915b4a0d13ecc755d4",
+  "issue_sha256": "5fe2939c3173cdc6de9cab9dc109489f334e2f30a9237b4237746eb9e10de8ea",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:17Z",
+  "reason": "research concluded with a no-go verdict",
+  "schema": 1,
+  "task_id": "TRN-1786264762917575"
+}

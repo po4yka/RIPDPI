@@ -1,0 +1,11 @@
+{
+  "change": "dgn-1786264762917684-add-connection-concurrency-evidence-axis",
+  "evidence_summary": "Implemented in 0fa837bff; 15 focused Rust tests and targeted Gradle suites passed; full CI run 31295121189 passed on a descendant.",
+  "execution_sha256": "89629ed974e392c6fafb7d1c2bb296bd7192c6d4976f6092210949ec8117cab5",
+  "issue_sha256": "502dd609780efe2b8658cd0210b6d1a901d904ca152017267613aeaf86b569ea",
+  "outcome": "done",
+  "prepared_at": "2026-08-09T11:07:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786264762917684"
+}

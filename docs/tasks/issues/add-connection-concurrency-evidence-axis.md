@@ -2,7 +2,7 @@
 id: DGN-1786264762917684
 title: Add connection-concurrency as an independent evidence axis
 kind: feature
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Codex
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1786264762917684-add-connection-concurrency-evidence-axis
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-08-09
+closed_at: "2026-08-09T11:07:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implemented in 0fa837bff; 15 focused Rust tests and targeted Gradle suites passed; full CI run 31295121189 passed on a descendant.
 ---
 
 ## Goal

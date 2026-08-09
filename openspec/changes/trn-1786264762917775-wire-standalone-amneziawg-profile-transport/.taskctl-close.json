@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917775-wire-standalone-amneziawg-profile-transport",
+  "evidence_summary": "Runtime, UI, composition, and protocol fixes already landed; remaining work is consolidated under TRN-1786264762917677.",
+  "execution_sha256": "0de88fe59785146519002dd486cca7d09a1cc100998ae5127b827d8d5de30be5",
+  "issue_sha256": "3ae63c496f4884fb3c2d42325d6f06b8958d35c623d2748e02724f04141dd24e",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:19Z",
+  "reason": "superseded by the active AmneziaWG task",
+  "schema": 1,
+  "task_id": "TRN-1786264762917775"
+}

@@ -2,7 +2,7 @@
 id: CIC-1786264762917922
 title: Run a recurring real-VPS AmneziaWG and NAT lane
 kind: chore
-status: doing
+status: dropped
 area: ci
 priority: high
 owner: AWG real-VPS lane
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-07-16
-updated: 2026-07-22
+updated: 2026-08-09
 spec_reason: tooling-only
 status_detail: Local systemd execution and fail-closed validators are shipped; real-VPS evidence is blocked by missing operator-owned provider inputs
+closed_at: "2026-08-09T11:12:20Z"
+closed_reason: implementation belongs to the deployment repository
+evidence_summary: The real-VPS harness lives in ripdpi-vpn-deploy; no remaining RIPDPI deliverable is owned by this repository.
 ---
 
 ## Goal

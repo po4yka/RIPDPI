@@ -2,7 +2,7 @@
 id: TRN-1786264762917575
 title: "Spike: DNS-Morph bootstrap as fallback bootstrap channel"
 kind: feature
-status: blocked
+status: dropped
 area: transport
 priority: medium
 owner: unassigned
@@ -11,11 +11,14 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917575-spike-dns-morph-bootstrap-fallback-channel
 created: 2026-05-22
-updated: 2026-07-26
+updated: 2026-08-09
 source_wiki_pages:
   - dns-morph-bootstrap
 linked_task: null
 status_detail: externally-gated — requires a separately operated bridge and measured network vantage
+closed_at: "2026-08-09T11:12:17Z"
+closed_reason: research concluded with a no-go verdict
+evidence_summary: DNS payload morphing lacks the required bridge, fixture, and owned field vantage; the repository should not build the proposed capability.
 ---
 
 ## Motivation

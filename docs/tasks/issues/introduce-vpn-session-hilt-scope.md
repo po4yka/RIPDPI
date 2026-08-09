@@ -2,7 +2,7 @@
 id: AND-1786264762917810
 title: Introduce a VPN-session Hilt scope to reset per-session service state
 kind: feature
-status: backlog
+status: dropped
 area: android
 priority: medium
 owner: unassigned
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: required
 openspec_change: and-1786264762917810-introduce-vpn-session-hilt-scope
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-09
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-09T11:08:19Z"
+closed_reason: duplicate of completed service session scope
+evidence_summary: ServiceSessionScope and VPN/Proxy session components landed in a9107d190; docs/service-session-scope.md declares migration complete and the remaining singleton lifetimes intentional.
 ---
 
 ## Motivation

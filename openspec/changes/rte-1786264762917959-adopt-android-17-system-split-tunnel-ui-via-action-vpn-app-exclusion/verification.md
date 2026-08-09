@@ -2,16 +2,16 @@
 task_id: RTE-1786264762917959
 change: rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion
 commit_sha: null
-local: required
-local_evidence: null
-remote_ci: required
-remote_ci_evidence: null
+local: not_applicable
+local_evidence: "Task dropped: superseded by the active Android 17 validation task"
+remote_ci: not_applicable
+remote_ci_evidence: "Task dropped: superseded by the active Android 17 validation task"
 device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
+device_evidence: "Task dropped: superseded by the active Android 17 validation task"
 artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+artifact_evidence: "Task dropped: superseded by the active Android 17 validation task"
 deployment: not_applicable
-deployment_evidence: RIPDPI changes are not deployed by the task workflow.
+deployment_evidence: "Task dropped: superseded by the active Android 17 validation task"
 ---
 
 # Verification
@@ -20,7 +20,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-RTE-1786264762917959-001 | RTE-1786264762918511 | Pending | required |
-| REQ-RTE-1786264762917959-002 | RTE-1786264762918333 | Pending | required |
-| REQ-RTE-1786264762917959-003 | RTE-1786264762918504 | Pending | required |
-| REQ-RTE-1786264762917959-004 | RTE-1786264762918806 | Pending | required |
+| REQ-RTE-1786264762917959-001 | RTE-1786264762918511 | Dropped: superseded by the active Android 17 validation task | not_applicable |
+| REQ-RTE-1786264762917959-002 | RTE-1786264762918333 | Dropped: superseded by the active Android 17 validation task | not_applicable |
+| REQ-RTE-1786264762917959-003 | RTE-1786264762918504 | Dropped: superseded by the active Android 17 validation task | not_applicable |
+| REQ-RTE-1786264762917959-004 | RTE-1786264762918806 | Dropped: superseded by the active Android 17 validation task | not_applicable |

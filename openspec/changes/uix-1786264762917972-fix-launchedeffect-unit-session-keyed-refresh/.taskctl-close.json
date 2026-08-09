@@ -1,0 +1,11 @@
+{
+  "change": "uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh",
+  "evidence_summary": "All Unit effects are intentionally one-shot; the audited effect has no VPN-session ownership or session key to reset.",
+  "execution_sha256": "436458fe803db297e3a7a36681c0418e418512292eef83c5103dbcec97b8e800",
+  "issue_sha256": "8b5ee7891698d23adb462424185122825824125ffa64b460f866d00a12ef883b",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:15Z",
+  "reason": "audit finding invalidated by current implementation",
+  "schema": 1,
+  "task_id": "UIX-1786264762917972"
+}

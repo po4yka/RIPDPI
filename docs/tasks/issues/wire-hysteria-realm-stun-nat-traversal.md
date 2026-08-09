@@ -2,7 +2,7 @@
 id: TRN-1786264762917675
 title: Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)
 kind: feature
-status: backlog
+status: dropped
 area: transport
 priority: medium
 owner: unassigned
@@ -11,10 +11,13 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917675-wire-hysteria-realm-stun-nat-traversal
 created: 2026-05-22
-updated: 2026-06-05
+updated: 2026-08-09
 source_wiki_pages:
   - hysteria2-tuic
 linked_task: null
+closed_at: "2026-08-09T11:12:18Z"
+closed_reason: obsolete alpha proposal
+evidence_summary: The Hysteria Realm alpha proposal has no implementation, current contract, deployment owner, or supported topology.
 ---
 
 ## Motivation

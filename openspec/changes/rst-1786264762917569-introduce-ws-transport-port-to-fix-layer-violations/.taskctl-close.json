@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917569-introduce-ws-transport-port-to-fix-layer-violations",
+  "evidence_summary": "The compared WebSocket transports are same-peer protocol tiers, and the architecture validator reports zero current violations for this premise.",
+  "execution_sha256": "cd0034b23955db15cabb7fc138bf375f08504f3bd8213f78524be8102df0d36d",
+  "issue_sha256": "76fccc774d50217c30c974c2e7479253ef3aef21b4b2fdc4fb5325ebeaed9d6b",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:16Z",
+  "reason": "obsolete architecture premise",
+  "schema": 1,
+  "task_id": "RST-1786264762917569"
+}

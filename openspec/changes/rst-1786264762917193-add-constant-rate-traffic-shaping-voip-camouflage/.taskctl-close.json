@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage",
+  "evidence_summary": "The proposed stream wrapper targets the wrong ownership layer, reverse operation requires server support, and the named power policy is absent.",
+  "execution_sha256": "673e9decbbd27cf651ca6ed16009afb563d02cd54eb55c83d0d7152614d4935d",
+  "issue_sha256": "314b691a9b74ce90c0585fc4526febfccc3d4aa11856043b90baf311380e07d3",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:16Z",
+  "reason": "technical design invalidated by current architecture",
+  "schema": 1,
+  "task_id": "RST-1786264762917193"
+}

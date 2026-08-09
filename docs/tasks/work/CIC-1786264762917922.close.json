@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "The real-VPS harness lives in ripdpi-vpn-deploy; no remaining RIPDPI deliverable is owned by this repository.",
+  "execution_sha256": "e49f2d55c766d64efcaccfb9fc9a7483448b6bcd81d4b40050631a3cb7e7d8e8",
+  "issue_sha256": "a6c3bbcd581596204e367dad1fa9ccc031cb385c5943df5a6e1823590d088535",
+  "outcome": "dropped",
+  "prepared_at": "2026-08-09T11:12:20Z",
+  "reason": "implementation belongs to the deployment repository",
+  "schema": 1,
+  "task_id": "CIC-1786264762917922"
+}
