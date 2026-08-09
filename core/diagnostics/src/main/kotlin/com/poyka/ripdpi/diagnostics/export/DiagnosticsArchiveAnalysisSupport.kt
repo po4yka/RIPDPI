@@ -280,9 +280,18 @@ private fun buildDetectabilityMetrics(
                 recommendedQuic?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION,
         recommendedWasDowngraded =
             recommendedTcp?.emitterDowngraded == true || recommendedQuic?.emitterDowngraded == true,
+        evidence =
+            listOfNotNull(
+                recommendedTcp?.toDetectabilityEvidence(lane = "tcp"),
+                recommendedQuic?.toDetectabilityEvidence(lane = "quic"),
+            ),
         notes = notes,
     )
 }
+
+private fun StrategyProbeCandidateSummary.toDetectabilityEvidence(lane: String): String =
+    "lane=$lane;candidateId=$id;emitterTier=${emitterTier.name};" +
+        "emitterDowngraded=$emitterDowngraded;exactEmitterRequiresRoot=$exactEmitterRequiresRoot"
 
 private fun buildCapabilitySnapshot(
     candidates: List<StrategyProbeCandidateSummary>,
@@ -311,6 +320,7 @@ private fun buildRolloutGateAssessment(
     latestTelemetry: TelemetrySampleEntity?,
     recommendedLatencyMs: Long?,
 ): DiagnosticsArchiveRolloutGateAssessment {
+    val hasDetectabilityEvidence = detectabilityMetrics.evidence.isNotEmpty()
     val results =
         listOf(
             DiagnosticsArchiveRolloutGateResult(
@@ -348,12 +358,22 @@ private fun buildRolloutGateAssessment(
             DiagnosticsArchiveRolloutGateResult(
                 id = "detectability_budget",
                 passed =
-                    !detectabilityMetrics.recommendedUsesRootedEmitter &&
+                    hasDetectabilityEvidence &&
+                        !detectabilityMetrics.recommendedUsesRootedEmitter &&
                         !detectabilityMetrics.recommendedWasDowngraded,
                 threshold = "recommended winner stays non-root and non-downgraded",
                 actual =
-                    "rooted=${detectabilityMetrics.recommendedUsesRootedEmitter};" +
-                        "downgraded=${detectabilityMetrics.recommendedWasDowngraded}",
+                    if (hasDetectabilityEvidence) {
+                        "rooted=${detectabilityMetrics.recommendedUsesRootedEmitter};" +
+                            "downgraded=${detectabilityMetrics.recommendedWasDowngraded}"
+                    } else {
+                        "unknown"
+                    },
+                rationale =
+                    detectabilityMetrics.evidence
+                        .takeIf(List<String>::isNotEmpty)
+                        ?.joinToString(" | ")
+                        ?: "Recommended candidate emitter evidence was unavailable.",
             ),
             DiagnosticsArchiveRolloutGateResult(
                 id = "android_compat_budget",

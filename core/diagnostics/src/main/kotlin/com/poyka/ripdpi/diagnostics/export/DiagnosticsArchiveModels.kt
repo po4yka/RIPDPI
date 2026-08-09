@@ -475,6 +475,7 @@ internal data class DiagnosticsArchiveDetectabilityMetrics(
     val skippedCandidates: Int = 0,
     val recommendedUsesRootedEmitter: Boolean = false,
     val recommendedWasDowngraded: Boolean = false,
+    val evidence: List<String> = emptyList(),
     val notes: List<String> = emptyList(),
 )
 

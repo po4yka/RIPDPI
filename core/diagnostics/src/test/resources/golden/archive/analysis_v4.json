@@ -40,6 +40,10 @@
         "detectabilityMetrics": {
             "capabilitySkippedCandidates": 1,
             "downgradedCandidates": 0,
+            "evidence": [
+                "lane=tcp;candidateId=tcp-prod;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false",
+                "lane=quic;candidateId=quic-prod;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false"
+            ],
             "exactRootRequiredCandidates": 1,
             "labOnlyCandidates": 0,
             "notes": [
@@ -80,6 +84,7 @@
                     "actual": "rooted=false;downgraded=false",
                     "id": "detectability_budget",
                     "passed": true,
+                    "rationale": "lane=tcp;candidateId=tcp-prod;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false | lane=quic;candidateId=quic-prod;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false",
                     "threshold": "recommended winner stays non-root and non-downgraded"
                 },
                 {

@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCo
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledNativeLibrary
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeAbi
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSigningLineageBand
+import com.poyka.ripdpi.diagnostics.export.buildMeasurementSnapshot
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
@@ -72,6 +73,54 @@ class DiagnosticsArchiveRendererTest {
         assertRenderedEntryContent(entries)
         assertRenderedManifestAndProvenance(entries)
         assertGoldenContracts(entries)
+    }
+
+    @Test
+    fun `measurement snapshot exports evidence for the detectability verdict`() {
+        val selection = buildFullRendererSelection()
+        val strategyProbe = rendererScanReport("session-1").strategyProbeReport
+
+        val snapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry = null)
+
+        assertEquals(
+            listOf(
+                "lane=tcp;candidateId=tcp-prod;emitterTier=NON_ROOT_PRODUCTION;" +
+                    "emitterDowngraded=false;exactEmitterRequiresRoot=false",
+                "lane=quic;candidateId=quic-prod;emitterTier=NON_ROOT_PRODUCTION;" +
+                    "emitterDowngraded=false;exactEmitterRequiresRoot=false",
+            ),
+            snapshot.detectabilityMetrics.evidence,
+        )
+    }
+
+    @Test
+    fun `detectability verdict cites its exported evidence`() {
+        val selection = buildFullRendererSelection()
+        val strategyProbe = rendererScanReport("session-1").strategyProbeReport
+
+        val snapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry = null)
+        val verdict =
+            snapshot.rolloutGateAssessment.results.single { result ->
+                result.id == "detectability_budget"
+            }
+
+        assertEquals(snapshot.detectabilityMetrics.evidence.joinToString(" | "), verdict.rationale)
+    }
+
+    @Test
+    fun `detectability verdict fails closed without recommended candidate evidence`() {
+        val snapshot =
+            buildMeasurementSnapshot(
+                buildFullRendererSelection(),
+                strategyProbe = null,
+                latestTelemetry = null,
+            )
+        val verdict =
+            snapshot.rolloutGateAssessment.results.single { result ->
+                result.id == "detectability_budget"
+            }
+
+        assertFalse(verdict.passed)
     }
 
     @Test
