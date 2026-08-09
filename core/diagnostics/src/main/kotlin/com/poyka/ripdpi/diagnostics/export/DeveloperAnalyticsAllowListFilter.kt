@@ -85,7 +85,8 @@ internal object DeveloperAnalyticsAllowListFilter {
             "lowMemory",
         )
     private val baselineDeltaKeys = setOf("baselineClass", "baselineVersion", "comparisons")
-    private val baselineMetricKeys = setOf("metric", "userValue", "baselineMedian", "verdict")
+    private val baselineMetricKeys = setOf("metric", "userValue", "baseline", "verdict")
+    private val baselineDistributionKeys = setOf("cohort", "sampleCount", "p50", "p95", "asOfDate", "source")
 
     fun filterToJson(
         payload: DeveloperAnalyticsPayload,
@@ -155,7 +156,7 @@ internal object DeveloperAnalyticsAllowListFilter {
             is JsonObject -> {
                 val projected = projectObject(value, baselineDeltaKeys).toMutableMap()
                 value["comparisons"]?.let { comparisons ->
-                    projected["comparisons"] = projectObjectArray(comparisons, baselineMetricKeys)
+                    projected["comparisons"] = projectBaselineMetrics(comparisons)
                 }
                 JsonObject(projected)
             }
@@ -164,6 +165,19 @@ internal object DeveloperAnalyticsAllowListFilter {
                 JsonNull
             }
         }
+
+    private fun projectBaselineMetrics(value: JsonElement): JsonArray =
+        JsonArray(
+            value.jsonArray.mapNotNull { element ->
+                (element as? JsonObject)?.let { metric ->
+                    val projected = projectObject(metric, baselineMetricKeys).toMutableMap()
+                    metric["baseline"]?.let { baseline ->
+                        projected["baseline"] = projectObject(baseline.jsonObject, baselineDistributionKeys)
+                    }
+                    JsonObject(projected)
+                }
+            },
+        )
 
     private fun projectNullableObject(
         value: JsonElement,

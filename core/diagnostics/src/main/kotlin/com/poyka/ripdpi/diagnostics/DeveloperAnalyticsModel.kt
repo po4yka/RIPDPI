@@ -2,7 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.Serializable
 
-const val DeveloperAnalyticsSchemaVersion = 2
+const val DeveloperAnalyticsSchemaVersion = 3
 
 /**
  * Developer-facing analytics payload bundled into the diagnostics share archive as
@@ -149,6 +149,16 @@ data class DeveloperBaselineDelta(
 data class DeveloperBaselineMetric(
     val metric: String,
     val userValue: String?,
-    val baselineMedian: String?,
+    val baseline: DeveloperBaselineDistribution,
     val verdict: String,
+)
+
+@Serializable
+data class DeveloperBaselineDistribution(
+    val cohort: String,
+    val sampleCount: Int,
+    val p50: Double?,
+    val p95: Double?,
+    val asOfDate: String?,
+    val source: String,
 )

@@ -707,6 +707,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                                 appliedSettings = outcome.appliedSettings,
                                 completedStageCount = outcome.completedStageCount,
                                 failedStageCount = outcome.failedStageCount,
+                                totalStageCount = outcome.stageSummaries.size,
                                 cachedAtMs = System.currentTimeMillis(),
                             ),
                         )

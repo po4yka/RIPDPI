@@ -23,11 +23,14 @@ data class CachedProbeOutcome(
     val appliedSettings: List<DiagnosticsAppliedSetting>,
     val completedStageCount: Int,
     val failedStageCount: Int,
+    val totalStageCount: Int? = null,
     val cachedAtMs: Long,
 )
 
 interface ProbeResultCache {
     suspend fun lookup(fingerprintHash: String): CachedProbeOutcome?
+
+    suspend fun snapshot(): List<CachedProbeOutcome>
 
     suspend fun store(outcome: CachedProbeOutcome)
 
@@ -101,6 +104,21 @@ class DefaultProbeResultCache
                     return@withLock null
                 }
                 entry
+            }
+
+        override suspend fun snapshot(): List<CachedProbeOutcome> =
+            mutex.withLock {
+                val map = ensureLoaded()
+                val oldestAllowedTimestamp = System.currentTimeMillis() - TTL_MS
+                val expiredKeys =
+                    map
+                        .filterValues { outcome -> outcome.cachedAtMs < oldestAllowedTimestamp }
+                        .keys
+                if (expiredKeys.isNotEmpty()) {
+                    expiredKeys.forEach(map::remove)
+                    persist(map)
+                }
+                map.values.sortedBy(CachedProbeOutcome::cachedAtMs)
             }
 
         override suspend fun store(outcome: CachedProbeOutcome) =

@@ -25,6 +25,7 @@ import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
+import kotlin.math.ceil
 
 private const val BreadcrumbRingCapacity = 60
 private const val NativeLogTailLines = 80
@@ -33,16 +34,17 @@ private const val BytesPerMb = 1_048_576L
 private const val DeveloperMessagePreviewLimit = 240
 private const val NativeDigestBufferBytes = 16 * 1024
 private const val BatteryPercentMax = 100
-private const val DeveloperBaselineRate = 0.85
-private const val DeveloperAboveBaselineDelta = 0.05
-private const val DeveloperBelowBaselineDelta = 0.15
-private const val DeveloperBaselineVersion = "2026-04-14"
+private const val DeveloperBaselineVersion = "device-local-v1"
 private const val StageSuccessRateMetric = "stage_success_rate"
-private const val BaselineClassDefaultV1 = "default-v1"
+private const val BaselineClassDeviceLocalV1 = "device-local-distinct-networks-v1"
+private const val BaselineSourceDeviceLocalCache = "device_local_probe_result_cache"
+private const val MinimumBaselineSampleCount = 5
+private const val BaselineP50Percentile = 0.50
+private const val BaselineP95Percentile = 0.95
 private const val BaselineAbove = "above_baseline"
-private const val BaselineSignificantlyBelow = "significantly_below_baseline"
 private const val BaselineBelow = "below_baseline"
 private const val BaselineWithin = "within_baseline"
+private const val BaselineInsufficientSample = "insufficient_sample"
 private const val FailureFactPreviewLimit = 5
 private val DeveloperFailureStageKeyPattern = Regex("[a-z0-9_]+")
 
@@ -101,6 +103,82 @@ private fun List<RenderedDeveloperFailureFact>.referencesFor(category: Developer
         .take(FailureFactPreviewLimit)
         .toList()
 
+internal fun buildDeveloperBaselineDelta(
+    context: DeveloperAnalyticsContext,
+    baselineSamples: List<CachedProbeOutcome>,
+): DeveloperBaselineDelta? {
+    val composite =
+        context.homeCompositeOutcome
+            ?.takeIf { outcome -> outcome.stageSummaries.isNotEmpty() }
+            ?: return null
+    val totalStageCount = composite.stageSummaries.size
+    val userValue = composite.completedStageCount.toDouble() / totalStageCount
+    val cohortSamples =
+        baselineSamples
+            .asSequence()
+            .filterNot { sample -> sample.fingerprintHash == composite.fingerprintHash }
+            .filter { sample ->
+                val sampleTotalStageCount = sample.totalStageCount
+                sampleTotalStageCount != null &&
+                    sampleTotalStageCount == totalStageCount &&
+                    sample.completedStageCount in 0..sampleTotalStageCount
+            }.groupBy(CachedProbeOutcome::fingerprintHash)
+            .values
+            .mapNotNull { samples -> samples.maxByOrNull(CachedProbeOutcome::cachedAtMs) }
+            .sortedBy(CachedProbeOutcome::cachedAtMs)
+    val distribution =
+        cohortSamples
+            .mapNotNull { sample ->
+                sample.totalStageCount?.let { sampleTotalStageCount ->
+                    sample.completedStageCount.toDouble() / sampleTotalStageCount
+                }
+            }.sorted()
+    val p50 = distribution.nearestRankPercentile(BaselineP50Percentile)
+    val p95 = distribution.nearestRankPercentile(BaselineP95Percentile)
+    val verdict =
+        when {
+            distribution.size < MinimumBaselineSampleCount || p50 == null || p95 == null -> BaselineInsufficientSample
+            userValue < p50 -> BaselineBelow
+            userValue >= p95 -> BaselineAbove
+            else -> BaselineWithin
+        }
+    val baseline =
+        DeveloperBaselineDistribution(
+            cohort = "device_local_distinct_networks:${totalStageCount}_stages",
+            sampleCount = distribution.size,
+            p50 = p50,
+            p95 = p95,
+            asOfDate = cohortSamples.maxOfOrNull(CachedProbeOutcome::cachedAtMs)?.let(::isoDateUtc),
+            source = BaselineSourceDeviceLocalCache,
+        )
+    return DeveloperBaselineDelta(
+        baselineClass = BaselineClassDeviceLocalV1,
+        baselineVersion = DeveloperBaselineVersion,
+        comparisons =
+            listOf(
+                DeveloperBaselineMetric(
+                    metric = StageSuccessRateMetric,
+                    userValue = "%.2f".format(Locale.US, userValue),
+                    baseline = baseline,
+                    verdict = verdict,
+                ),
+            ),
+    )
+}
+
+private fun List<Double>.nearestRankPercentile(percentile: Double): Double? {
+    if (isEmpty()) return null
+    val index = (ceil(percentile * size).toInt() - 1).coerceIn(indices)
+    return this[index]
+}
+
+private fun isoDateUtc(timestampMs: Long): String =
+    Instant
+        .ofEpochMilli(timestampMs)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .toString()
+
 /**
  * Lightweight in-memory ring buffer for breadcrumbs surfaced into
  * `developer-analytics.json`. Add breadcrumbs from any layer that wants them
@@ -138,6 +216,7 @@ class DefaultDeveloperAnalyticsSource
     constructor(
         @param:ApplicationContext private val appContext: Context,
         private val appSettingsRepository: AppSettingsRepository,
+        private val probeResultCache: ProbeResultCache,
         private val breadcrumbBuffer: DeveloperBreadcrumbBuffer,
         @param:Named("gitCommit") private val gitCommit: String,
         @param:Named("nativeLibVersion") private val nativeLibVersion: String,
@@ -145,6 +224,7 @@ class DefaultDeveloperAnalyticsSource
         override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload =
             withContext(Dispatchers.IO) {
                 val settings = runCatching { appSettingsRepository.settings.first() }.getOrNull()
+                val baselineSamples = runCatching { probeResultCache.snapshot() }.getOrDefault(emptyList())
                 DeveloperAnalyticsPayload(
                     schemaVersion = DeveloperAnalyticsSchemaVersion,
                     generatedAtIsoUtc = isoNowUtc(),
@@ -157,7 +237,7 @@ class DefaultDeveloperAnalyticsSource
                     networkSnapshots = buildNetworkSnapshots(),
                     deviceState = buildDeviceState(),
                     breadcrumbs = breadcrumbBuffer.snapshot(),
-                    baselineDelta = buildBaselineDelta(context),
+                    baselineDelta = buildDeveloperBaselineDelta(context, baselineSamples),
                     notes = buildNotes(),
                 )
             }
@@ -401,34 +481,6 @@ class DefaultDeveloperAnalyticsSource
             )
         }
 
-        private fun buildBaselineDelta(context: DeveloperAnalyticsContext): DeveloperBaselineDelta? {
-            val composite = context.homeCompositeOutcome ?: return null
-            val total = composite.stageSummaries.size
-            return total.takeIf { it > 0 }?.let {
-                val successRate = composite.completedStageCount.toDouble() / it
-                val verdict =
-                    when {
-                        successRate >= DeveloperBaselineRate + DeveloperAboveBaselineDelta -> BaselineAbove
-                        successRate <= DeveloperBaselineRate - DeveloperBelowBaselineDelta -> BaselineSignificantlyBelow
-                        successRate < DeveloperBaselineRate -> BaselineBelow
-                        else -> BaselineWithin
-                    }
-                DeveloperBaselineDelta(
-                    baselineClass = BaselineClassDefaultV1,
-                    baselineVersion = DeveloperBaselineVersion,
-                    comparisons =
-                        listOf(
-                            DeveloperBaselineMetric(
-                                metric = StageSuccessRateMetric,
-                                userValue = "%.2f".format(successRate),
-                                baselineMedian = "%.2f".format(DeveloperBaselineRate),
-                                verdict = verdict,
-                            ),
-                        ),
-                )
-            }
-        }
-
         private fun buildNotes(): List<String> {
             val notes = mutableListOf<String>()
             notes += "Stage wallClockMs reflects the scan session duration (finishedAt - startedAt)."
@@ -436,6 +488,10 @@ class DefaultDeveloperAnalyticsSource
                 "Stage cpuMs is app-process CPU consumed during the stage window; concurrent stage windows may overlap."
             notes += "Protocol phase timings are sums of measurements emitted by individual probes."
             notes += "Failure envelopes are projected from typed probe observations."
+            notes +=
+                "Baseline delta uses cached runs from other device-local network fingerprints " +
+                "with the same stage count; verdicts require at least " +
+                "$MinimumBaselineSampleCount samples."
             return notes
         }
 

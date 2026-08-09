@@ -1227,6 +1227,8 @@ private class RecordingHomeCompositeScanController(
 private class NoOpProbeResultCache : ProbeResultCache {
     override suspend fun lookup(fingerprintHash: String): CachedProbeOutcome? = null
 
+    override suspend fun snapshot(): List<CachedProbeOutcome> = emptyList()
+
     override suspend fun store(outcome: CachedProbeOutcome) = Unit
 
     override suspend fun evict(fingerprintHash: String) = Unit

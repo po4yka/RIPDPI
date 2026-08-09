@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -46,5 +47,35 @@ class ProbeResultCacheTrimTest {
     fun `trimToBackground before any load is safe`() {
         // Must not throw when there is nothing loaded yet.
         newCache().trimToBackground()
+    }
+
+    @Test
+    fun `snapshot exposes persisted outcomes for local baseline aggregation`() =
+        runBlocking {
+            val cache = newCache()
+            cache.clear()
+            cache.store(outcome("fp-baseline"))
+
+            assertEquals(listOf("fp-baseline"), cache.snapshot().map(CachedProbeOutcome::fingerprintHash))
+        }
+
+    @Test
+    fun `legacy cache entry does not invent a total stage count`() {
+        val legacyJson =
+            """
+            {
+              "fingerprintHash": "legacy",
+              "headline": "headline",
+              "summary": "summary",
+              "appliedSettings": [],
+              "completedStageCount": 5,
+              "failedStageCount": 1,
+              "cachedAtMs": 1
+            }
+            """.trimIndent()
+
+        val decoded = Json.decodeFromString<CachedProbeOutcome>(legacyJson)
+
+        assertNull(decoded.totalStageCount)
     }
 }

@@ -148,9 +148,33 @@ class DeveloperAnalyticsAllowListTest {
                             ),
                         ),
                     deviceState = DeveloperDeviceState(locale = "en_US", androidSdk = 33),
+                    baselineDelta = hostileBaselineDelta(),
                     notes = listOf("fixture note"),
                 )
         }
+
+    private fun hostileBaselineDelta() =
+        DeveloperBaselineDelta(
+            baselineClass = "device-local-distinct-networks-v1",
+            baselineVersion = "device-local-v1",
+            comparisons =
+                listOf(
+                    DeveloperBaselineMetric(
+                        metric = "stage_success_rate",
+                        userValue = "0.50",
+                        baseline =
+                            DeveloperBaselineDistribution(
+                                cohort = "device_local_distinct_networks:8_stages",
+                                sampleCount = 5,
+                                p50 = 0.75,
+                                p95 = 1.0,
+                                asOfDate = "2026-04-05",
+                                source = "device_local_probe_result_cache",
+                            ),
+                        verdict = "below_baseline",
+                    ),
+                ),
+        )
 
     private fun hostileFailureEnvelope() =
         DeveloperFailureEnvelopeEntry(
@@ -249,6 +273,7 @@ class DeveloperAnalyticsAllowListTest {
 
         assertNestedDeveloperAnalyticsProjection(obj)
         assertNetworkSnapshotProjection(obj)
+        assertBaselineProjection(obj)
 
         val encoded = readArchiveText(archivePath)
         listOf(
@@ -266,6 +291,29 @@ class DeveloperAnalyticsAllowListTest {
                 encoded.contains(sensitiveValue),
             )
         }
+    }
+
+    private fun assertBaselineProjection(obj: JsonObject) {
+        val comparison =
+            obj
+                .getValue("baselineDelta")
+                .jsonObject
+                .getValue("comparisons")
+                .jsonArray
+                .single()
+                .jsonObject
+        val baseline = comparison.getValue("baseline").jsonObject
+        assertEquals(
+            setOf("cohort", "sampleCount", "p50", "p95", "asOfDate", "source"),
+            baseline.keys,
+        )
+        assertEquals("device_local_distinct_networks:8_stages", baseline.getValue("cohort").jsonPrimitive.content)
+        assertEquals("5", baseline.getValue("sampleCount").jsonPrimitive.content)
+        assertEquals("0.75", baseline.getValue("p50").jsonPrimitive.content)
+        assertEquals("1.0", baseline.getValue("p95").jsonPrimitive.content)
+        assertEquals("2026-04-05", baseline.getValue("asOfDate").jsonPrimitive.content)
+        assertEquals("device_local_probe_result_cache", baseline.getValue("source").jsonPrimitive.content)
+        assertEquals("below_baseline", comparison.getValue("verdict").jsonPrimitive.content)
     }
 
     private fun assertNestedDeveloperAnalyticsProjection(obj: JsonObject) {
