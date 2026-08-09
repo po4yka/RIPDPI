@@ -218,6 +218,7 @@ mod tests {
             strategy_probe_report: None,
             confirm_good_dpi_verdict: None,
             metrics_summary: None::<RecorderSnapshot>,
+            execution_plan: None,
         });
 
         let report = session.take_report_json().expect("take finished report");

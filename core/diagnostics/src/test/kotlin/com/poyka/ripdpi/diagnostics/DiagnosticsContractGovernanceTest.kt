@@ -51,6 +51,8 @@ class DiagnosticsContractGovernanceTest {
         assertEquals(DiagnosticsEngineSchemaVersion, engineRequest.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineReport.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineProgress.schemaVersion)
+        assertEquals("execution_plan_v1", engineReport.executionPlan?.planVersion)
+        assertEquals("18446744073709551615", engineReport.executionPlan?.strategy?.probeSeed)
         assertEquals(1, outcomeTaxonomy["schemaVersion"]?.jsonPrimitive?.content?.toInt())
     }
 

@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.ExecutionPlanSnapshot
 import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbeDetail
@@ -30,9 +31,9 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v5: adds the non-backward-decodable CONNECTION_CONCURRENCY observation kind. Must stay in
-// sync with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 5
+// v6: adds the planned execution inventory to completed and partial reports. Must stay in sync
+// with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
+const val DiagnosticsEngineSchemaVersion = 6
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -137,6 +138,7 @@ data class EngineScanReportWire(
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),
     val logHealthSummary: LogHealthSummary? = null,
+    val executionPlan: ExecutionPlanSnapshot? = null,
 )
 
 @Serializable

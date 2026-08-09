@@ -1,23 +1,29 @@
 use crate::classification::pack_versions_from_refs;
 use crate::observations::ENGINE_ANALYSIS_VERSION;
 use crate::types::{
-    ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus, Diagnosis, ProbeObservation, ProbeResult, ScanCompletionKind,
-    ScanReport, ScanRequest, StrategyProbeReport,
+    ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus, Diagnosis, ExecutionPlanSnapshot, ProbeObservation,
+    ProbeResult, ScanCompletionKind, ScanReport, ScanRequest, StrategyProbeReport,
 };
 use crate::util::{ProbeOutcomeBucket, classify_probe_outcome};
 use ripdpi_telemetry::recorder;
 use std::collections::HashSet;
 
+pub(crate) struct ReportBuildContext {
+    pub(crate) session_id: String,
+    pub(crate) request: ScanRequest,
+    pub(crate) started_at: u64,
+    pub(crate) execution_plan: Option<ExecutionPlanSnapshot>,
+}
+
 pub(crate) fn build_report(
-    session_id: String,
-    request: ScanRequest,
-    started_at: u64,
+    context: ReportBuildContext,
     summary: String,
     results: Vec<ProbeResult>,
     observations: Vec<ProbeObservation>,
     strategy_probe_report: Option<StrategyProbeReport>,
     classifier_version: Option<String>,
 ) -> ScanReport {
+    let ReportBuildContext { session_id, request, started_at, execution_plan } = context;
     let confirm_good_dpi_verdict = strategy_probe_report
         .as_ref()
         .and_then(|report| report.recommendation.transport_pivot.as_ref())
@@ -63,6 +69,7 @@ pub(crate) fn build_report(
         strategy_probe_report,
         confirm_good_dpi_verdict,
         metrics_summary: recorder::snapshot(),
+        execution_plan,
     }
 }
 

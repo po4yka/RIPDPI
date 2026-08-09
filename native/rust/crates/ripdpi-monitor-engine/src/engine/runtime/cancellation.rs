@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::connectivity::{push_event, set_report};
-use crate::engine::report::build_report;
+use crate::engine::report::{ReportBuildContext, build_report};
 use crate::engine::runners::prepare_strategy_probe_report;
 use crate::types::{ScanCompletionKind, ScanTerminationReason, SharedState};
 
@@ -28,9 +28,12 @@ pub(in crate::engine) fn publish_cancelled_run(
     let summary = cancelled_run_summary(has_partial_results).to_string();
     let deadline_exceeded = runtime.is_past_deadline();
     let mut report = build_report(
-        plan.session_id.clone(),
-        plan.request.clone(),
-        plan.started_at,
+        ReportBuildContext {
+            session_id: plan.session_id.clone(),
+            request: plan.request.clone(),
+            started_at: plan.started_at,
+            execution_plan: Some(plan.snapshot()),
+        },
         summary,
         runtime.results,
         runtime.observations,

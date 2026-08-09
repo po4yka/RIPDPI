@@ -898,6 +898,18 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
 
     session.start_scan("session-strategy".to_string(), request.into()).expect("start strategy probe");
     let report = wait_for_report(&session);
+    let execution_plan = report.execution_plan.as_ref().expect("execution plan");
+    let strategy_plan = execution_plan.strategy.as_ref().expect("strategy execution plan");
+    assert_eq!(
+        (
+            strategy_plan.suite_id.as_str(),
+            strategy_plan.inventory_semantics.as_str(),
+            strategy_plan.max_candidates,
+            strategy_plan.tcp_candidates.is_empty(),
+            strategy_plan.quic_candidates.is_empty(),
+        ),
+        ("quick_v1", "ordered_pre_runtime_filter_pool", Some(2), false, false),
+    );
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
     assert_eq!(report.profile_id, "automatic-probing");
@@ -1327,6 +1339,67 @@ fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
     assert!(restarted, "second scan never started after the first finished");
     let report = wait_for_report(&session);
     assert_eq!(report.summary, "0 completed · 0 healthy");
+}
+
+#[test]
+fn monitor_session_report_exports_execution_plan_snapshot() {
+    let request = ScanRequest {
+        profile_id: "default".to_string(),
+        display_name: "Execution plan export".to_string(),
+        path_mode: ScanPathMode::RawPath,
+        kind: ScanKind::Connectivity,
+        family: DiagnosticProfileFamily::General,
+        region_tag: None,
+        manual_only: false,
+        pack_refs: vec!["builtin:default@1".to_string()],
+        proxy_host: None,
+        proxy_port: None,
+        probe_tasks: vec![],
+        domain_targets: vec![],
+        dns_targets: vec![],
+        tcp_targets: vec![],
+        quic_targets: vec![],
+        service_targets: vec![],
+        circumvention_targets: vec![],
+        throughput_targets: vec![],
+        whitelist_sni: vec![],
+        telegram_target: None,
+        strategy_probe: None,
+        confirm_good_dpi_evidence: None,
+        network_snapshot: None,
+        route_probe: None,
+        scan_deadline_ms: Some(12_345),
+        diagnostic_tls_keylog_path: None,
+    };
+    let session = MonitorSession::new();
+    session.start_scan("session-execution-plan".to_string(), request.into()).expect("start scan");
+
+    let report_json = wait_for_report_json(&session);
+    let report: serde_json::Value = serde_json::from_str(&report_json).expect("decode report json");
+    let projection = serde_json::json!({
+        "planVersion": report.pointer("/executionPlan/planVersion"),
+        "scanKind": report.pointer("/executionPlan/scanKind"),
+        "profileFamily": report.pointer("/executionPlan/profileFamily"),
+        "transportKind": report.pointer("/executionPlan/transportKind"),
+        "totalSteps": report.pointer("/executionPlan/totalSteps"),
+        "scanDeadlineMs": report.pointer("/executionPlan/scanDeadlineMs"),
+        "packRefs": report.pointer("/executionPlan/packRefs"),
+        "strategy": report.pointer("/executionPlan/strategy"),
+    });
+
+    assert_eq!(
+        projection,
+        serde_json::json!({
+            "planVersion": "execution_plan_v1",
+            "scanKind": "CONNECTIVITY",
+            "profileFamily": "GENERAL",
+            "transportKind": "direct",
+            "totalSteps": 1,
+            "scanDeadlineMs": 12_345,
+            "packRefs": ["builtin:default@1"],
+            "strategy": null,
+        })
+    );
 }
 
 #[test]

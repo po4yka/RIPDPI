@@ -4,8 +4,8 @@ use ripdpi_telemetry::recorder::RecorderSnapshot;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    ConfirmGoodDpiVerdict, Diagnosis, ProbeObservation, ScanCompletionKind, ScanPathMode, ScanTerminationReason,
-    StrategyProbeReport,
+    ConfirmGoodDpiVerdict, Diagnosis, ExecutionPlanSnapshot, ProbeObservation, ScanCompletionKind, ScanPathMode,
+    ScanTerminationReason, StrategyProbeReport,
 };
 
 use super::result::ProbeResult;
@@ -40,4 +40,6 @@ pub struct ScanReport {
     pub confirm_good_dpi_verdict: Option<ConfirmGoodDpiVerdict>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metrics_summary: Option<RecorderSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_plan: Option<ExecutionPlanSnapshot>,
 }

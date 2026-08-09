@@ -3,11 +3,12 @@ use std::collections::BTreeMap;
 use crate::types::{
     ConfirmGoodDpiEvidence, ConfirmGoodDpiEvidenceSource, ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus,
     ConnectionConcurrencyAssessment, ConnectionConcurrencyCellStatus, ConnectionConcurrencyObservationFact,
-    ConnectionConcurrencyVerdict, ObservationKind, ProbeObservation, STRATEGY_PROBE_METHODOLOGY_VERSION, ScanPathMode,
-    StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
-    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind,
-    StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeTargetSelection, TransportFamily,
-    TransportPivotRecommendation, TransportPivotViability,
+    ConnectionConcurrencyVerdict, DiagnosticProfileFamily, ExecutionPlanSnapshot, ExecutionPlanTargetCounts,
+    ObservationKind, ProbeObservation, ProbeTaskFamily, STRATEGY_PROBE_METHODOLOGY_VERSION, ScanKind, ScanPathMode,
+    StrategyCandidatePlanSnapshot, StrategyEmitterTier, StrategyExecutionPlanSnapshot, StrategyProbeAuditAssessment,
+    StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage,
+    StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport,
+    StrategyProbeTargetSelection, TransportFamily, TransportPivotRecommendation, TransportPivotViability,
 };
 
 use super::{
@@ -295,10 +296,65 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
         diagnoses: vec![],
         classifier_version: Some("1.0".to_string()),
         pack_versions: BTreeMap::from([("core".to_string(), 1)]),
+        execution_plan: Some(execution_plan_fixture()),
     };
 
     let json = serde_json::to_value(&report).expect("serialize report");
     let paths = extract_field_paths(&json);
     let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
     assert_contract_fixture("diagnostics_scan_report_fields.json", &manifest);
+}
+
+fn execution_plan_fixture() -> ExecutionPlanSnapshot {
+    let candidate = StrategyCandidatePlanSnapshot {
+        id: "baseline_current".to_string(),
+        label: "Current strategy".to_string(),
+        family: "baseline_current".to_string(),
+        emitter_tier: StrategyEmitterTier::NonRootProduction,
+        exact_emitter_requires_root: false,
+        approximate_fallback_family: None,
+        quic_layout_family: None,
+        eligibility: "always".to_string(),
+        warmup: "none".to_string(),
+        preserve_adaptive_fake_ttl: false,
+        requires_fake_ttl: false,
+        requires_tcp_fast_open: false,
+        required_capabilities: vec![],
+    };
+    ExecutionPlanSnapshot {
+        plan_version: "execution_plan_v1".to_string(),
+        scan_kind: ScanKind::StrategyProbe,
+        profile_family: DiagnosticProfileFamily::AutomaticAudit,
+        path_mode: ScanPathMode::RawPath,
+        transport_kind: "direct".to_string(),
+        stage_order: vec!["environment".to_string(), "strategy_tcp_candidates".to_string()],
+        total_steps: 2,
+        scan_deadline_ms: 270_000,
+        pack_refs: vec!["ru-global-platforms@1".to_string()],
+        probe_task_families: vec![ProbeTaskFamily::Tcp],
+        target_counts: ExecutionPlanTargetCounts {
+            domain_target_count: 6,
+            dns_target_count: 2,
+            tcp_target_count: 3,
+            quic_target_count: 2,
+            service_target_count: 0,
+            circumvention_target_count: 0,
+            throughput_target_count: 0,
+            whitelist_sni_count: 2,
+            telegram_target_count: 0,
+            strategy_selected_domain_count: 2,
+            strategy_selected_quic_count: 1,
+        },
+        strategy: Some(StrategyExecutionPlanSnapshot {
+            suite_id: "full_matrix_v1".to_string(),
+            inventory_semantics: "ordered_pre_runtime_filter_pool".to_string(),
+            probe_seed: u64::MAX.to_string(),
+            max_candidates: Some(44),
+            tcp_candidates: vec![candidate.clone()],
+            quic_candidates: vec![candidate],
+            short_circuit_hostfake: true,
+            short_circuit_quic_burst: true,
+            family_failure_threshold: 3,
+        }),
+    }
 }

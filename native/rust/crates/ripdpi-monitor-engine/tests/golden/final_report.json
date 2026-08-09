@@ -3,6 +3,42 @@
   "confirmGoodDpiVerdict": null,
   "diagnoses": [],
   "engineAnalysisVersion": "observations_v1",
+  "executionPlan": {
+    "packRefs": [],
+    "pathMode": "RAW_PATH",
+    "planVersion": "execution_plan_v1",
+    "probeTaskFamilies": [],
+    "profileFamily": "GENERAL",
+    "scanDeadlineMs": 360000,
+    "scanKind": "CONNECTIVITY",
+    "stageOrder": [
+      "environment",
+      "dns",
+      "web",
+      "quic",
+      "tcp",
+      "service",
+      "circumvention",
+      "telegram",
+      "throughput",
+      "doh_json_survey"
+    ],
+    "targetCounts": {
+      "circumventionTargetCount": 0,
+      "dnsTargetCount": 0,
+      "domainTargetCount": 1,
+      "quicTargetCount": 0,
+      "serviceTargetCount": 0,
+      "strategySelectedDomainCount": 0,
+      "strategySelectedQuicCount": 0,
+      "tcpTargetCount": 0,
+      "telegramTargetCount": 0,
+      "throughputTargetCount": 0,
+      "whitelistSniCount": 0
+    },
+    "totalSteps": 1,
+    "transportKind": "direct"
+  },
   "finishedAt": 0,
   "observations": [
     {
@@ -189,7 +225,7 @@
       "target": "127.0.0.1"
     }
   ],
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "sessionId": "session-golden",
   "startedAt": 0,
   "strategyProbeReport": null,

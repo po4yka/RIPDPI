@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::engine::{build_report, panic_payload_message};
+use crate::engine::{ReportBuildContext, build_report, panic_payload_message};
 use crate::types::{
     ProbeDetail, ProbeResult, ScanCompletionKind, ScanProgress, ScanRequest, ScanTerminationReason, SharedState,
 };
@@ -20,9 +20,7 @@ pub(super) fn record_panic_terminal_state(
         details: vec![ProbeDetail { key: "error".to_string(), value: msg.clone() }],
     };
     let mut panic_report = build_report(
-        session_id.clone(),
-        request,
-        started_at,
+        ReportBuildContext { session_id: session_id.clone(), request, started_at, execution_plan: None },
         "Diagnostics failed: internal worker error".to_string(),
         vec![panic_result.clone()],
         Vec::new(),

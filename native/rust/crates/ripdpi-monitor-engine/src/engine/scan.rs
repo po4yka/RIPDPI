@@ -9,7 +9,7 @@ use crate::transport::transport_for_request_with_session;
 use crate::types::{ScanCompletionKind, ScanKind, ScanProgress, ScanRequest, ScanTerminationReason, SharedState};
 
 use super::plan::build_execution_plan;
-use super::report::{build_report, connectivity_analytics_summary, connectivity_summary};
+use super::report::{ReportBuildContext, build_report, connectivity_analytics_summary, connectivity_summary};
 use super::runners::execution_coordinator;
 use super::runtime::{ExecutionRuntime, RunnerOutcome, publish_cancelled_run};
 
@@ -26,8 +26,14 @@ pub fn run_engine_scan(
     let mut plan = match build_execution_plan(session_id.clone(), request.clone(), started_at, transport.clone()) {
         Ok(plan) => plan,
         Err(message) => {
-            let mut report =
-                build_report(session_id.clone(), request, started_at, message, Vec::new(), Vec::new(), None, None);
+            let mut report = build_report(
+                ReportBuildContext { session_id: session_id.clone(), request, started_at, execution_plan: None },
+                message,
+                Vec::new(),
+                Vec::new(),
+                None,
+                None,
+            );
             report.completion_kind = ScanCompletionKind::Terminated;
             report.termination_reason = Some(ScanTerminationReason::EngineError);
             set_report(&shared, report);
@@ -115,9 +121,12 @@ pub fn run_engine_scan(
         }
         RunnerOutcome::Failed(message) => {
             let mut report = build_report(
-                plan.session_id.clone(),
-                plan.request.clone(),
-                plan.started_at,
+                ReportBuildContext {
+                    session_id: plan.session_id.clone(),
+                    request: plan.request.clone(),
+                    started_at: plan.started_at,
+                    execution_plan: Some(plan.snapshot()),
+                },
                 message.clone(),
                 runtime.results,
                 runtime.observations,
@@ -161,9 +170,12 @@ pub fn run_engine_scan(
             let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
                 .then(|| connectivity_analytics_summary(&runtime.results, &plan.request.path_mode));
             let report = build_report(
-                plan.session_id.clone(),
-                plan.request.clone(),
-                plan.started_at,
+                ReportBuildContext {
+                    session_id: plan.session_id.clone(),
+                    request: plan.request.clone(),
+                    started_at: plan.started_at,
+                    execution_plan: Some(plan.snapshot()),
+                },
                 summary,
                 runtime.results,
                 runtime.observations,

@@ -99,6 +99,7 @@ mod tests {
         assert!(report.diagnoses.is_empty());
         assert!(report.classifier_version.is_none());
         assert!(report.pack_versions.is_empty());
+        assert!(report.execution_plan.is_none());
     }
 
     #[test]

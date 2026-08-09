@@ -94,6 +94,7 @@ impl From<ScanReport> for EngineScanReportWire {
             diagnoses: value.diagnoses,
             classifier_version: value.classifier_version,
             pack_versions: value.pack_versions,
+            execution_plan: value.execution_plan,
         }
     }
 }

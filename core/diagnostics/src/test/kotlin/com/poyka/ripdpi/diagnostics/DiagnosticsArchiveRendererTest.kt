@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCo
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledNativeLibrary
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeAbi
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSigningLineageBand
+import com.poyka.ripdpi.diagnostics.export.ExecutionPlanArchivePayload
 import com.poyka.ripdpi.diagnostics.export.buildMeasurementSnapshot
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
@@ -528,7 +529,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(5, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(6, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -862,6 +863,28 @@ class DiagnosticsArchiveRendererTest {
         statuses.values.forEach { status ->
             assertFalse(status == DiagnosticsArchiveSectionStatus.TRUNCATED)
         }
+    }
+
+    @Test
+    fun `execution plan sections are unavailable when legacy reports do not contain plan evidence`() {
+        val base = buildFullRendererSelection()
+        val stage = rendererCompositeStage("legacy", emptyList())
+        val selection =
+            base.copy(
+                primaryReport = base.primaryReport?.copy(executionPlan = null),
+                includedFiles = listOf("execution-plan.json", "stages/legacy/execution-plan.json"),
+                compositeStages = listOf(stage.copy(report = stage.report?.copy(executionPlan = null))),
+            )
+
+        val statuses = buildSectionStatuses(selection)
+
+        assertEquals(
+            mapOf(
+                "execution-plan.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "stages/legacy/execution-plan.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+            ),
+            statuses,
+        )
     }
 
     @Test
@@ -1690,8 +1713,11 @@ class DiagnosticsArchiveRendererTest {
         val reportText = entries.getValue("report.json").bytes.decodeToString()
         val analysisText = entries.getValue("analysis.json").bytes.decodeToString()
         val telemetryCsv = entries.getValue("telemetry.csv").bytes.decodeToString()
+        val executionPlanText = entries.getValue("execution-plan.json").bytes.decodeToString()
+        val executionPlan = json.decodeFromString(ExecutionPlanArchivePayload.serializer(), executionPlanText)
         assertTrue(entries.containsKey("summary.txt"))
         assertTrue(entries.containsKey("report.json"))
+        assertTrue(entries.containsKey("execution-plan.json"))
         assertTrue(entries.containsKey("logcat.txt"))
         assertTrue(summaryText.contains("generatedAt=42"))
         assertTrue(summaryText.contains("publicIp=redacted"))
@@ -1714,6 +1740,24 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(telemetryCsv.contains("networkIdentityBucket"))
         assertTrue(telemetryCsv.contains("foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no"))
         assertTrue(telemetryCsv.contains("root_helper_available"))
+        assertEquals("execution_plan_v1", executionPlan.executionPlan?.planVersion)
+        assertEquals(
+            44,
+            executionPlan.executionPlan
+                ?.strategy
+                ?.tcpCandidates
+                ?.size,
+        )
+        assertEquals(
+            8,
+            executionPlan.executionPlan
+                ?.strategy
+                ?.quicCandidates
+                ?.size,
+        )
+        assertEquals(44, executionPlan.executionPlan?.strategy?.maxCandidates)
+        assertFalse(executionPlanText.contains("telegram.org"))
+        assertFalse(executionPlanText.contains("blocked.example"))
     }
 
     private fun assertRenderedManifestAndProvenance(entries: Map<String, DiagnosticsArchiveEntry>) {
@@ -1773,28 +1817,32 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v5.json",
+            "archive/manifest_v6.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v5.json",
+            "archive/archive_provenance_v6.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v5.json",
+            "archive/runtime_config_v6.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v5.json",
+            "archive/analysis_v6.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v5.json",
+            "archive/completeness_v6.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v5.json",
+            "archive/integrity_v6.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/execution_plan_v6.json",
+            entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
     }
 
@@ -2072,7 +2120,84 @@ class DiagnosticsArchiveRendererTest {
                 ),
             classifierVersion = "ru_ooni_v1",
             packVersions = mapOf("ru-independent-media" to 1),
+            executionPlan = rendererExecutionPlan(),
         )
+
+    private fun rendererExecutionPlan() =
+        ExecutionPlanSnapshot(
+            planVersion = "execution_plan_v1",
+            scanKind = ScanKind.STRATEGY_PROBE,
+            profileFamily = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+            pathMode = ScanPathMode.IN_PATH,
+            transportKind = "socks5",
+            stageOrder =
+                listOf(
+                    "environment",
+                    "strategy_dns_baseline",
+                    "strategy_tcp_candidates",
+                    "strategy_quic_candidates",
+                    "strategy_connection_concurrency",
+                    "strategy_recommendation",
+                ),
+            totalSteps = 55,
+            scanDeadlineMs = 270_000,
+            packRefs = listOf("ru-independent-media@1"),
+            probeTaskFamilies = listOf(ExecutionPlanProbeTaskFamily.TCP, ExecutionPlanProbeTaskFamily.QUIC),
+            targetCounts =
+                ExecutionPlanTargetCounts(
+                    domainTargetCount = 6,
+                    dnsTargetCount = 2,
+                    tcpTargetCount = 3,
+                    quicTargetCount = 2,
+                    serviceTargetCount = 0,
+                    circumventionTargetCount = 0,
+                    throughputTargetCount = 0,
+                    whitelistSniCount = 2,
+                    telegramTargetCount = 0,
+                    strategySelectedDomainCount = 2,
+                    strategySelectedQuicCount = 1,
+                ),
+            strategy =
+                StrategyExecutionPlanSnapshot(
+                    suiteId = "full_matrix_v1",
+                    inventorySemantics = "ordered_pre_runtime_filter_pool",
+                    probeSeed = "42",
+                    maxCandidates = 44,
+                    tcpCandidates =
+                        List(44) { index ->
+                            rendererCandidatePlan(
+                                id = "tcp-candidate-${index + 1}",
+                                family = if (index == 0) "baseline_current" else "tlsrec_split",
+                            )
+                        },
+                    quicCandidates =
+                        List(8) { index ->
+                            rendererCandidatePlan(
+                                id = "quic-candidate-${index + 1}",
+                                family = if (index == 7) "quic_disabled" else "quic_sni_split",
+                            )
+                        },
+                    shortCircuitHostfake = true,
+                    shortCircuitQuicBurst = true,
+                    familyFailureThreshold = 3,
+                ),
+        )
+
+    private fun rendererCandidatePlan(
+        id: String,
+        family: String,
+    ) = StrategyCandidatePlanSnapshot(
+        id = id,
+        label = id,
+        family = family,
+        emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+        exactEmitterRequiresRoot = false,
+        eligibility = "always",
+        warmup = "none",
+        preserveAdaptiveFakeTtl = false,
+        requiresFakeTtl = false,
+        requiresTcpFastOpen = false,
+    )
 
     private fun rendererNetworkSnapshotModel() =
         NetworkSnapshotModel(

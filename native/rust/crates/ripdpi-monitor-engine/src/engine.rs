@@ -11,7 +11,7 @@ pub use scan::run_engine_scan;
 
 pub(crate) use contract_fixture::connectivity_partial_report_contract_fixture;
 pub use contract_fixture::{RunnerParityRecord, RunnerStepSnapshot, connectivity_runner_parity_snapshot};
-pub(crate) use report::build_report;
+pub(crate) use report::{ReportBuildContext, build_report};
 pub(crate) use runtime::panic_recovery::panic_payload_message;
 
 #[cfg(test)]

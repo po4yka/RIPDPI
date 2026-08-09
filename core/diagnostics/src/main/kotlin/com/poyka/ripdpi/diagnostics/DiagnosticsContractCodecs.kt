@@ -232,6 +232,7 @@ internal fun EngineScanReportWire.toScanReport(): ScanReport =
         classifierVersion = classifierVersion,
         packVersions = packVersions,
         logHealthSummary = logHealthSummary,
+        executionPlan = executionPlan,
     )
 
 internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
@@ -256,6 +257,7 @@ internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
         classifierVersion = classifierVersion,
         packVersions = packVersions,
         logHealthSummary = logHealthSummary,
+        executionPlan = executionPlan,
     )
 
 private fun com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind.toDomain(): ScanCompletionKind =

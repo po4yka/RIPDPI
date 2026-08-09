@@ -620,6 +620,7 @@ data class ScanReport(
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),
     val logHealthSummary: LogHealthSummary? = null,
+    val executionPlan: ExecutionPlanSnapshot? = null,
 )
 
 @Serializable

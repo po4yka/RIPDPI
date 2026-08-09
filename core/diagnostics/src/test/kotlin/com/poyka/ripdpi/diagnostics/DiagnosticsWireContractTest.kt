@@ -131,8 +131,66 @@ class DiagnosticsWireContractTest {
             engineAnalysisVersion = "1.0",
             classifierVersion = "1.0",
             packVersions = mapOf("core" to 1),
+            executionPlan = sampleExecutionPlan(),
         )
     }
+
+    private fun sampleExecutionPlan() =
+        ExecutionPlanSnapshot(
+            planVersion = "execution_plan_v1",
+            scanKind = ScanKind.STRATEGY_PROBE,
+            profileFamily = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+            pathMode = ScanPathMode.RAW_PATH,
+            transportKind = "direct",
+            stageOrder = listOf("strategy_probe"),
+            totalSteps = 1,
+            scanDeadlineMs = 300_000,
+            packRefs = listOf("default"),
+            probeTaskFamilies = listOf(ExecutionPlanProbeTaskFamily.WEB),
+            targetCounts =
+                ExecutionPlanTargetCounts(
+                    domainTargetCount = 1,
+                    dnsTargetCount = 1,
+                    tcpTargetCount = 1,
+                    quicTargetCount = 1,
+                    serviceTargetCount = 1,
+                    circumventionTargetCount = 1,
+                    throughputTargetCount = 1,
+                    whitelistSniCount = 1,
+                    telegramTargetCount = 1,
+                    strategySelectedDomainCount = 1,
+                    strategySelectedQuicCount = 1,
+                ),
+            strategy =
+                StrategyExecutionPlanSnapshot(
+                    suiteId = "full_matrix_v1",
+                    inventorySemantics = "ordered_pre_runtime_filter_pool",
+                    probeSeed = "18446744073709551615",
+                    maxCandidates = 44,
+                    tcpCandidates = listOf(sampleCandidatePlan("baseline_current")),
+                    quicCandidates = listOf(sampleCandidatePlan("quic_disabled")),
+                    shortCircuitHostfake = true,
+                    shortCircuitQuicBurst = true,
+                    familyFailureThreshold = 2,
+                ),
+        )
+
+    private fun sampleCandidatePlan(id: String) =
+        StrategyCandidatePlanSnapshot(
+            id = id,
+            label = "Candidate",
+            family = "baseline",
+            emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+            exactEmitterRequiresRoot = false,
+            approximateFallbackFamily = "split",
+            quicLayoutFamily = "initial",
+            eligibility = "always",
+            warmup = "none",
+            preserveAdaptiveFakeTtl = false,
+            requiresFakeTtl = false,
+            requiresTcpFastOpen = false,
+            requiredCapabilities = listOf("ttl_write"),
+        )
 
     private fun connectionConcurrencyObservation() =
         ObservationFact(

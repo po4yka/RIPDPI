@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    ConfirmGoodDpiVerdict, Diagnosis, ProbeDetail, ScanCompletionKind, ScanPathMode, ScanTerminationReason,
-    StrategyProbeReport,
+    ConfirmGoodDpiVerdict, Diagnosis, ExecutionPlanSnapshot, ProbeDetail, ScanCompletionKind, ScanPathMode,
+    ScanTerminationReason, StrategyProbeReport,
 };
 
 use super::{EngineObservationWire, ResolverRecommendationWire};
@@ -53,4 +53,6 @@ pub struct EngineScanReportWire {
     pub classifier_version: Option<String>,
     #[serde(default)]
     pub pack_versions: BTreeMap<String, u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_plan: Option<ExecutionPlanSnapshot>,
 }

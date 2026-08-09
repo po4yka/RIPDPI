@@ -14,8 +14,8 @@ pub use report_wire::{EngineProbeResultWire, EngineScanReportWire};
 pub use request_wire::EngineScanRequestWire;
 pub use resolver_recommendation::ResolverRecommendationWire;
 
-// v5: adds the non-backward-decodable CONNECTION_CONCURRENCY observation kind.
-pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 5;
+// v6: adds the planned execution inventory to completed and partial reports.
+pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 6;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;
 pub type EngineProbeTaskWire = ProbeTask;

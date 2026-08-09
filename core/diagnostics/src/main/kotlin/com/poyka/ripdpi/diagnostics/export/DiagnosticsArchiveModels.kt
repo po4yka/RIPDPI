@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.ExecutionPlanSnapshot
 import com.poyka.ripdpi.diagnostics.FileLogSnapshot
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.LogcatSnapshot
@@ -54,9 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 5 makes completeness count scopes explicit and replaces raw
-    // correlation UUIDs with archive-local aliases.
-    const val schemaVersion = 5
+    // Version 6 adds the root and per-stage native execution-plan evidence.
+    const val schemaVersion = 6
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -77,6 +77,7 @@ internal object DiagnosticsArchiveFormat {
             add("summary.txt")
             add("manifest.json")
             add("report.json")
+            add("execution-plan.json")
             add("strategy-matrix.json")
             if (composite) {
                 add("home-analysis.json")
@@ -85,6 +86,7 @@ internal object DiagnosticsArchiveFormat {
                 compositeStageKeys.forEach { stageKey ->
                     val prefix = "stages/$stageKey"
                     add("$prefix/report.json")
+                    add("$prefix/execution-plan.json")
                     add("$prefix/probe-results.csv")
                     add("$prefix/strategy-matrix.json")
                     add("$prefix/network-snapshots.json")
@@ -248,6 +250,13 @@ internal data class StrategyMatrixArchivePayload(
     val sessionId: String?,
     val profileId: String?,
     val strategyProbeReport: StrategyProbeReport? = null,
+)
+
+@Serializable
+internal data class ExecutionPlanArchivePayload(
+    val sessionId: String?,
+    val profileId: String?,
+    val executionPlan: ExecutionPlanSnapshot? = null,
 )
 
 @Serializable

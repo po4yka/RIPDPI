@@ -34,6 +34,11 @@ fn shared_contract_fixtures_decode_successfully() {
     assert_eq!(request.schema_version, DIAGNOSTICS_ENGINE_SCHEMA_VERSION);
     assert_eq!(report.schema_version, DIAGNOSTICS_ENGINE_SCHEMA_VERSION);
     assert_eq!(progress.schema_version, DIAGNOSTICS_ENGINE_SCHEMA_VERSION);
+    assert_eq!(report.execution_plan.as_ref().map(|plan| plan.plan_version.as_str()), Some("execution_plan_v1"));
+    assert_eq!(
+        report.execution_plan.as_ref().and_then(|plan| plan.strategy.as_ref()).map(|plan| plan.probe_seed.as_str()),
+        Some("18446744073709551615")
+    );
     assert_eq!(profile_catalog["schemaVersion"].as_u64(), Some(2));
     assert_eq!(outcome_taxonomy["schemaVersion"].as_u64(), Some(1));
 }

@@ -54,6 +54,18 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             )
             add(
                 jsonEntry(
+                    name = "execution-plan.json",
+                    serializer = ExecutionPlanArchivePayload.serializer(),
+                    value =
+                        ExecutionPlanArchivePayload(
+                            sessionId = selection.primarySession?.id,
+                            profileId = selection.primarySession?.profileId,
+                            executionPlan = redactor.redact(selection.primaryReport)?.executionPlan,
+                        ),
+                ),
+            )
+            add(
+                jsonEntry(
                     name = "strategy-matrix.json",
                     serializer = StrategyMatrixArchivePayload.serializer(),
                     value =
@@ -418,6 +430,18 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     name = "$prefix/report.json",
                     serializer = DiagnosticsArchivePayload.serializer(),
                     value = stagePayload,
+                ),
+            )
+            add(
+                jsonEntry(
+                    name = "$prefix/execution-plan.json",
+                    serializer = ExecutionPlanArchivePayload.serializer(),
+                    value =
+                        ExecutionPlanArchivePayload(
+                            sessionId = stage.session?.id,
+                            profileId = stage.session?.profileId,
+                            executionPlan = redactor.redact(stage.report)?.executionPlan,
+                        ),
                 ),
             )
             add(

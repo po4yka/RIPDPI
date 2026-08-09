@@ -4,6 +4,40 @@
   "confirmGoodDpiVerdict": null,
   "diagnoses": [],
   "engineAnalysisVersion": "observations_v1",
+  "executionPlan": {
+    "packRefs": [],
+    "pathMode": "RAW_PATH",
+    "planVersion": "execution_plan_v1",
+    "probeTaskFamilies": [
+      "DNS",
+      "TCP",
+      "QUIC"
+    ],
+    "profileFamily": "GENERAL",
+    "scanDeadlineMs": 360000,
+    "scanKind": "CONNECTIVITY",
+    "stageOrder": [
+      "environment",
+      "dns",
+      "tcp",
+      "quic"
+    ],
+    "targetCounts": {
+      "circumventionTargetCount": 0,
+      "dnsTargetCount": 1,
+      "domainTargetCount": 1,
+      "quicTargetCount": 2,
+      "serviceTargetCount": 0,
+      "strategySelectedDomainCount": 0,
+      "strategySelectedQuicCount": 0,
+      "tcpTargetCount": 1,
+      "telegramTargetCount": 0,
+      "throughputTargetCount": 0,
+      "whitelistSniCount": 1
+    },
+    "totalSteps": 5,
+    "transportKind": "direct"
+  },
   "finishedAt": 1700000000123,
   "observations": [
     {
@@ -153,7 +187,7 @@
       "target": "fixture-quic-one.example.test"
     }
   ],
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "sessionId": "connectivity-partial-contract",
   "startedAt": 1700000000000,
   "strategyProbeReport": null,

@@ -75,7 +75,7 @@ fn run_scan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::build_report;
+    use crate::engine::{ReportBuildContext, build_report};
     use crate::types::{DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanProgress};
 
     #[test]
@@ -123,9 +123,12 @@ mod tests {
                 strategy_probe_progress: None,
             }),
             report: Some(build_report(
-                "panic-session".to_string(),
-                request.clone(),
-                100,
+                ReportBuildContext {
+                    session_id: "panic-session".to_string(),
+                    request: request.clone(),
+                    started_at: 100,
+                    execution_plan: None,
+                },
                 "Partial".to_string(),
                 vec![partial_result],
                 Vec::new(),

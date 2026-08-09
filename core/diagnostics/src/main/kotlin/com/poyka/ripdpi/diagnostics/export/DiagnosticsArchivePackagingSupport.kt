@@ -242,7 +242,15 @@ internal fun buildSectionStatuses(
                 }
             put(
                 fileName,
-                if (compositeStage != null) {
+                if (fileName == "execution-plan.json" && selection.primaryReport?.executionPlan == null) {
+                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
+                } else if (
+                    compositeStage != null &&
+                    fileName.endsWith("/execution-plan.json") &&
+                    compositeStage.report?.executionPlan == null
+                ) {
+                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
+                } else if (compositeStage != null) {
                     sectionStatusForFileName(
                         fileName = fileName,
                         flags =
@@ -386,6 +394,7 @@ private fun sectionStatusForFileName(
         "summary.txt",
         "manifest.json",
         "report.json",
+        "execution-plan.json",
         "home-analysis.json",
         "stage-index.json",
         "stage-summaries.json",
@@ -444,6 +453,10 @@ private fun stageSectionStatusForFileName(
 ): DiagnosticsArchiveSectionStatus =
     when {
         fileName.endsWith("/report.json") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/execution-plan.json") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 
