@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-09T11:15:38Z",
+  "change": "trn-1786264762917575-spike-dns-morph-bootstrap-fallback-channel",
+  "commit_sha": "7f70068d59fbd07a9d36ddb1de1744d047eac670",
+  "outcome": "dropped",
+  "schema": 1,
+  "task_id": "TRN-1786264762917575"
+}
