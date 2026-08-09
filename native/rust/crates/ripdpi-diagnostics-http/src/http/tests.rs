@@ -1,6 +1,36 @@
 use std::collections::HashMap;
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, TcpListener};
+use std::thread;
+
+use crate::transport::{TargetAddress, TransportConfig};
 
 use super::*;
+
+#[test]
+fn successful_http_probe_records_time_to_first_byte() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind loopback listener");
+    let address = listener.local_addr().expect("listener address");
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept probe");
+        let mut request = [0_u8; 1024];
+        let _ = stream.read(&mut request).expect("read request");
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n").expect("write response");
+    });
+
+    let observation = try_http_request(
+        &TargetAddress::Ip(address.ip()),
+        address.port(),
+        &TransportConfig::Direct { route_experiment: None },
+        "localhost",
+        "/",
+        false,
+    );
+    server.join().expect("server thread");
+
+    assert_eq!(observation.status, "http_ok");
+    assert!(observation.ttfb_ms.is_some());
+}
 
 #[test]
 fn classify_http_response_ok_for_200() {
@@ -153,6 +183,7 @@ fn describe_http_observation_with_response() {
             body: vec![],
         }),
         error: None,
+        ttfb_ms: None,
     };
     assert_eq!(describe_http_observation(&obs), "200 OK nginx");
 }
@@ -163,6 +194,7 @@ fn describe_http_observation_with_error() {
         status: "http_unreachable".to_string(),
         response: None,
         error: Some("connection refused".to_string()),
+        ttfb_ms: None,
     };
     assert_eq!(describe_http_observation(&obs), "connection refused");
 }
@@ -178,19 +210,20 @@ fn describe_http_observation_no_server_header() {
             body: vec![],
         }),
         error: None,
+        ttfb_ms: None,
     };
     assert_eq!(describe_http_observation(&obs), "200 OK server=unknown");
 }
 
 #[test]
 fn is_blockpage_true_for_blockpage_status() {
-    let obs = HttpObservation { status: "http_blockpage".to_string(), response: None, error: None };
+    let obs = HttpObservation { status: "http_blockpage".to_string(), response: None, error: None, ttfb_ms: None };
     assert!(is_blockpage(&obs));
 }
 
 #[test]
 fn is_blockpage_false_for_ok_status() {
-    let obs = HttpObservation { status: "http_ok".to_string(), response: None, error: None };
+    let obs = HttpObservation { status: "http_ok".to_string(), response: None, error: None, ttfb_ms: None };
     assert!(!is_blockpage(&obs));
 }
 

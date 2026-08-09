@@ -365,6 +365,7 @@ internal class DefaultDiagnosticsArchiveExporter
                     primaryProfileId = primarySession?.profileId,
                     pcapFiles = selection.pcapFiles,
                     compositeSessionIds = selection.compositeStages.mapNotNull { it.session?.id },
+                    stageTimings = selection.compositeStages.map(::buildDeveloperStageTimingEvidence),
                 )
             return runCatching { developerAnalyticsSource.collect(analyticsContext) }
                 .getOrDefault(

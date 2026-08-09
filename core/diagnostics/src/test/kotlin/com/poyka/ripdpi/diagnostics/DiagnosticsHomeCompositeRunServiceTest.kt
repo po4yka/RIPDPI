@@ -376,6 +376,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
                             stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
+                            stageCpuTracker = HomeCompositeStageCpuTracker(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -1261,12 +1262,16 @@ class HomeCompositeStageExecutorVpnHaltTest {
             val spec = stageSpec(ScanPathMode.RAW_PATH)
             val progressState = stageProgress(spec)
             timelineSource.sessions.value = listOf(stageSession(spec, status = "running"))
+            val cpuReadings = ArrayDeque(listOf(1_000L, 1_125L))
+            val cpuTracker = HomeCompositeStageCpuTracker { cpuReadings.removeFirst() }
+            cpuTracker.start(SessionId)
             val executor =
                 HomeCompositeStageExecutor(
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
                     stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
+                    stageCpuTracker = cpuTracker,
                 )
 
             val result =
@@ -1286,7 +1291,9 @@ class HomeCompositeStageExecutorVpnHaltTest {
             assertFalse(result.isCompleted)
 
             timelineSource.sessions.value = listOf(stageSession(spec, status = "completed"))
-            assertEquals(SessionId, result.await()?.first)
+            val completed = result.await()
+            assertEquals(SessionId, completed?.sessionId)
+            assertEquals(125L, completed?.cpuMs)
             val sample = stores.telemetryState.value.single()
             assertEquals(RunId, sample.diagnosticsRunId)
             assertEquals(spec.key, sample.diagnosticsStageKey)
@@ -1309,6 +1316,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
                     stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
+                    stageCpuTracker = HomeCompositeStageCpuTracker(),
                 )
 
             val result =

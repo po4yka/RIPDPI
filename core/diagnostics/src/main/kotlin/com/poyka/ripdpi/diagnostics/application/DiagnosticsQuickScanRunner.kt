@@ -24,7 +24,7 @@ internal class DiagnosticsQuickScanRunner(
             HomeCompositeStageSpec,
             Boolean,
             Int?,
-        ) -> Pair<String, DiagnosticScanSession>?,
+        ) -> HomeCompositeStageExecutionResult?,
         runDetectionStage: suspend (String, Int, HomeCompositeStageSpec) -> Unit,
         markStageFailure: (String, Int, String, String) -> Unit,
         updateStage: (
@@ -45,8 +45,9 @@ internal class DiagnosticsQuickScanRunner(
             finalizeRun(runId, null, null, false, false)
             return
         }
-        val (auditSessionId, auditSession) = auditResult
-        val auditSummary = buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json)
+        val (auditSessionId, auditSession, auditCpuMs) = auditResult
+        val auditSummary =
+            buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json, auditCpuMs)
         updateStage(runId, 0) { auditSummary }
         if (auditSummary.status != DiagnosticsHomeCompositeStageStatus.COMPLETED) {
             skipRemaining(runId, from = 1, reason = "audit stage failed", updateStage)
@@ -75,8 +76,8 @@ internal class DiagnosticsQuickScanRunner(
             )
         var auditOutcome: DiagnosticsHomeAuditOutcome? = audit
         if (sResult != null) {
-            val (sId, sSession) = sResult
-            val sSummary = buildCompletedStageSummary(sSpec, sId, sSession, scanRecordStore, json)
+            val (sId, sSession, cpuMs) = sResult
+            val sSummary = buildCompletedStageSummary(sSpec, sId, sSession, scanRecordStore, json, cpuMs)
             updateStage(runId, sIndex) { sSummary }
             if (
                 auditOutcome?.actionable != true &&
@@ -104,8 +105,8 @@ internal class DiagnosticsQuickScanRunner(
             HomeCompositeStageSpec,
             Boolean,
             Int?,
-        ) -> Pair<String, DiagnosticScanSession>?,
-    ): Pair<String, DiagnosticScanSession>? {
+        ) -> HomeCompositeStageExecutionResult?,
+    ): HomeCompositeStageExecutionResult? {
         var result =
             executeStage(
                 runId,

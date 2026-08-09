@@ -48,6 +48,20 @@ private const val TlsErrorPreviewLimit = 5
 private const val DnsErrorPreviewLimit = 5
 private const val HttpErrorPreviewLimit = 5
 
+internal fun buildDeveloperStageTimings(context: DeveloperAnalyticsContext): List<DeveloperStageTimingEntry> =
+    context.stageTimings.map { timing ->
+        DeveloperStageTimingEntry(
+            stageKey = timing.stageKey,
+            wallClockMs = timing.wallClockMs,
+            cpuMs = timing.cpuMs,
+            dnsMs = timing.dnsMs,
+            tcpHandshakeMs = timing.tcpHandshakeMs,
+            tlsHandshakeMs = timing.tlsHandshakeMs,
+            ttfbMs = timing.ttfbMs,
+            notes = timing.notes,
+        )
+    }
+
 /**
  * Lightweight in-memory ring buffer for breadcrumbs surfaced into
  * `developer-analytics.json`. Add breadcrumbs from any layer that wants them
@@ -95,7 +109,7 @@ class DefaultDeveloperAnalyticsSource
                 DeveloperAnalyticsPayload(
                     schemaVersion = 1,
                     generatedAtIsoUtc = isoNowUtc(),
-                    stageTimings = buildStageTimings(context),
+                    stageTimings = buildDeveloperStageTimings(context),
                     failureEnvelopes = buildFailureEnvelopes(context),
                     reproductionContext = buildReproductionContext(),
                     nativeRuntime = buildNativeRuntime(),
@@ -108,23 +122,6 @@ class DefaultDeveloperAnalyticsSource
                     notes = buildNotes(),
                 )
             }
-
-        private fun buildStageTimings(context: DeveloperAnalyticsContext): List<DeveloperStageTimingEntry> {
-            val composite = context.homeCompositeOutcome ?: return emptyList()
-            return composite.stageSummaries.map { stage ->
-                DeveloperStageTimingEntry(
-                    stageKey = stage.stageKey,
-                    wallClockMs = stage.wallClockMs,
-                    cpuMs = null,
-                    notes =
-                        buildList {
-                            if (stage.status == DiagnosticsHomeCompositeStageStatus.SKIPPED) add("skipped")
-                            if (stage.status == DiagnosticsHomeCompositeStageStatus.FAILED) add("failed")
-                            stage.sessionId?.let { add("session=$it") }
-                        },
-                )
-            }
-        }
 
         private fun buildFailureEnvelopes(context: DeveloperAnalyticsContext): List<DeveloperFailureEnvelopeEntry> {
             val composite = context.homeCompositeOutcome ?: return emptyList()
@@ -430,8 +427,10 @@ class DefaultDeveloperAnalyticsSource
 
         private fun buildNotes(): List<String> {
             val notes = mutableListOf<String>()
+            notes += "Stage wallClockMs reflects the scan session duration (finishedAt - startedAt)."
             notes +=
-                "Stage wallClockMs reflects the scan session duration (finishedAt - startedAt); cpuMs is not captured."
+                "Stage cpuMs is app-process CPU consumed during the stage window; concurrent stage windows may overlap."
+            notes += "Protocol phase timings are sums of measurements emitted by individual probes."
             notes += "Failure envelopes are heuristically extracted from the stage summary text."
             return notes
         }

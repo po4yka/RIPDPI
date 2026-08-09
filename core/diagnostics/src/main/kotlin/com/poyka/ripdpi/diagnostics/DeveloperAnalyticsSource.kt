@@ -16,6 +16,18 @@ data class DeveloperAnalyticsContext(
     val primaryProfileId: String? = null,
     val pcapFiles: List<File> = emptyList(),
     val compositeSessionIds: List<String> = emptyList(),
+    val stageTimings: List<DeveloperStageTimingEvidence> = emptyList(),
+)
+
+data class DeveloperStageTimingEvidence(
+    val stageKey: String,
+    val wallClockMs: Long? = null,
+    val cpuMs: Long? = null,
+    val dnsMs: Long? = null,
+    val tcpHandshakeMs: Long? = null,
+    val tlsHandshakeMs: Long? = null,
+    val ttfbMs: Long? = null,
+    val notes: List<String> = emptyList(),
 )
 
 /**

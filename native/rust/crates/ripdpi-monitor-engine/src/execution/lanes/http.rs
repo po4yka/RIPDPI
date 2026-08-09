@@ -68,6 +68,7 @@ pub(super) fn run_http_strategy_probe(
         details.push(ProbeDetail { key: "blockpageFingerprint".to_string(), value: fp.clone() });
     }
     details.push(ProbeDetail { key: "h3Advertised".to_string(), value: h3.to_string() });
+    push_http_timing_details(&mut details, observation.ttfb_ms);
     ProbeSample {
         result: ProbeResult {
             probe_type: "strategy_http".to_string(),
@@ -89,5 +90,27 @@ pub(super) fn run_http_strategy_probe(
             0
         },
         attempt,
+    }
+}
+
+fn push_http_timing_details(details: &mut Vec<ProbeDetail>, ttfb_ms: Option<u64>) {
+    if let Some(ttfb_ms) = ttfb_ms {
+        details.push(ProbeDetail { key: "ttfbMs".to_string(), value: ttfb_ms.to_string() });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn http_probe_exports_measured_ttfb_detail() {
+        let mut details = Vec::new();
+
+        push_http_timing_details(&mut details, Some(23));
+
+        assert_eq!(details.len(), 1);
+        assert_eq!(details[0].key, "ttfbMs");
+        assert_eq!(details[0].value, "23");
     }
 }

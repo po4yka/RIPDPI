@@ -247,6 +247,8 @@ data class DiagnosticsHomeCompositeStageSummary(
     val recommendationContributor: Boolean = false,
     /** Wall-clock duration of the underlying scan session in milliseconds, or null if not yet completed. */
     val wallClockMs: Long? = null,
+    /** App-process CPU consumed during the stage wall-clock window. Concurrent stages can overlap this value. */
+    val cpuMs: Long? = null,
 )
 
 enum class DiagnosticsHomeDetectionVerdict {

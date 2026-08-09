@@ -319,15 +319,13 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             auditIndex: Int,
             auditSpec: HomeCompositeStageSpec,
-            auditCompletedSession: Pair<String, DiagnosticScanSession>,
+            auditCompletedSession: HomeCompositeStageExecutionResult,
         ): DiagnosticsHomeAuditOutcome? {
-            val auditSessionId = auditCompletedSession.first
-            val auditSession = auditCompletedSession.second
+            val auditSessionId = auditCompletedSession.sessionId
             val completedSummary =
                 buildCompletedStageSummary(
                     spec = auditSpec,
-                    sessionId = auditSessionId,
-                    session = auditSession,
+                    result = auditCompletedSession,
                     scanRecordStore = scanRecordStore,
                     json = json,
                 )
@@ -378,14 +376,12 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                                     spec = spec,
                                 )
                             if (result != null) {
-                                val (sessionId, completedSession) = result
                                 val completedSummary =
                                     buildCompletedStageSummary(
-                                        spec,
-                                        sessionId,
-                                        completedSession,
-                                        scanRecordStore,
-                                        json,
+                                        spec = spec,
+                                        result = result,
+                                        scanRecordStore = scanRecordStore,
+                                        json = json,
                                     )
                                 stageExecutor.updateStage(progressState, runId, stageIndex) { completedSummary }
                             }
@@ -444,12 +440,10 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         ),
                 )
             if (result != null) {
-                val (sessionId, session) = result
                 val completedSummary =
                     buildCompletedStageSummary(
                         spec = spec,
-                        sessionId = sessionId,
-                        session = session,
+                        result = result,
                         scanRecordStore = scanRecordStore,
                         json = json,
                     )
@@ -471,7 +465,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): Pair<String, DiagnosticScanSession>? {
+        ): HomeCompositeStageExecutionResult? {
             var result =
                 stageExecutor.executeStageWithTimeout(
                     runId = runId,
@@ -508,6 +502,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 )
             }
             log.i { "stage ${spec.key} started (detection-runner)" }
+            stageExecutor.startNonSessionStageCpu(runId, spec)
             stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.RUNNING)
             val outcome =
                 runCatching {
@@ -521,17 +516,20 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 }.getOrNull()
             if (outcome == null) {
                 log.w { "detection stage failed or timed out" }
+                val cpuMs = stageExecutor.finishNonSessionStageCpu(runId, spec)
                 stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                     current.copy(
                         status = DiagnosticsHomeCompositeStageStatus.FAILED,
                         headline = "${spec.label} failed",
                         summary = "Detection checks did not complete within the allowed time.",
+                        cpuMs = cpuMs,
                     )
                 }
                 stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.FAILED)
                 return
             }
             runDetectionResults[runId] = outcome
+            val cpuMs = stageExecutor.finishNonSessionStageCpu(runId, spec)
             val verdictText =
                 when (outcome.verdict) {
                     DiagnosticsHomeDetectionVerdict.DETECTED -> "VPN likely detectable on this network"
@@ -550,6 +548,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
                     headline = "${spec.label} complete",
                     summary = summaryLine,
+                    cpuMs = cpuMs,
                 )
             }
             stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.COMPLETED)
@@ -587,12 +586,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     spec = dpiStrategySpec,
                 )
             if (dpiStrategyResult != null) {
-                val (dpiStrategySessionId, dpiStrategySession) = dpiStrategyResult
+                val dpiStrategySessionId = dpiStrategyResult.sessionId
                 val dpiStrategySummary =
                     buildCompletedStageSummary(
                         spec = dpiStrategySpec,
-                        sessionId = dpiStrategySessionId,
-                        session = dpiStrategySession,
+                        result = dpiStrategyResult,
                         scanRecordStore = scanRecordStore,
                         json = json,
                     )
