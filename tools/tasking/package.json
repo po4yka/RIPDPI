@@ -1,0 +1,17 @@
+{
+  "name": "@ripdpi/tasking-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repository-pinned mdtask and OpenSpec toolchain for RIPDPI",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "mdtask": "mdtask",
+    "openspec": "openspec"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.8.0",
+    "mdtask": "0.1.17"
+  }
+}

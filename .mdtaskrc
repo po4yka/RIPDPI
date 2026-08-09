@@ -1,0 +1,13 @@
+{
+  "path": ".",
+  "files": {
+    "include": [
+      "docs/tasks/work/*.md",
+      "openspec/changes/*/tasks.md"
+    ],
+    "exclude": [
+      "openspec/changes/archive/**"
+    ]
+  },
+  "excludePrefixes": []
+}

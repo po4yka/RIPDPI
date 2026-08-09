@@ -1,0 +1,65 @@
+name: ripdpi-change
+version: 1
+description: RIPDPI proposal → delta specs → design → mdtask execution → verification workflow
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Motivation, linked portfolio task, capabilities, and impact
+    template: proposal.md
+    instruction: |
+      Link exactly one portfolio Task ID. Explain why the change is needed,
+      list new and modified capabilities, state breaking changes explicitly,
+      and identify affected modules or contracts. Keep implementation detail
+      in design.md.
+    requires: []
+
+  - id: specs
+    generates: specs/**/*.md
+    description: Observable behavior deltas with stable requirement IDs
+    template: spec.md
+    instruction: |
+      Define observable behavior with MUST or SHALL requirements. Give every
+      requirement a stable ID in its heading and at least one four-hash
+      Given/When/Then-style scenario. Use ADDED, MODIFIED, REMOVED, or RENAMED
+      delta sections accepted by OpenSpec strict validation.
+    requires: [proposal]
+
+  - id: design
+    generates: design.md
+    description: Technical boundaries, decisions, migrations, and risks
+    template: design.md
+    instruction: |
+      Describe affected Kotlin modules, Rust crates, public contracts, shared
+      serialized files, migrations, rollback, and validation strategy. Resolve
+      decisions that would change the task breakdown before execution begins.
+    requires: [proposal, specs]
+
+  - id: tasks
+    generates: tasks.md
+    description: mdtask-compatible implementation steps
+    template: tasks.md
+    instruction: |
+      Every top-level checkbox MUST be a valid mdtask record with a globally
+      unique area-prefixed 16-digit ID and an @item:<portfolio-id> backlink.
+      Include owned paths, implementation behavior, tests, and named gates.
+      Do not use OpenSpec's X.Y placeholder numbering.
+    requires: [specs, design]
+
+  - id: verification
+    generates: verification.md
+    description: Requirement-to-step evidence and exact-SHA acceptance record
+    template: verification.md
+    instruction: |
+      Record the linked task and change, exact commit SHA, and evidence states
+      for local tests, remote CI, device or emulator, artifacts, and deployment.
+      Map every requirement to an execution step and observed evidence. Archive
+      is forbidden while any required category remains required or blocked.
+    requires: [tasks]
+
+apply:
+  requires: [verification]
+  tracks: tasks.md
+  instruction: |
+    Work through mdtask steps in an isolated worktree. Mark a step complete only
+    after its behavior and named checks are observed. Portfolio status advances
+    to review, never directly to done.

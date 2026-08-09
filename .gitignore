@@ -52,6 +52,7 @@ ralph.yml
 hats.yml
 PROMPT.md
 /specs/
+/tools/tasking/node_modules/
 /.tmp/
 .worktrees/
 .claude/worktrees/

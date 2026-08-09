@@ -1,0 +1,18 @@
+{
+  "files": {
+    ".agents/skills/.openspec-target": "243b0dc9b847e66c440dca985e10fe0ce9e29c379b018ddd5747ba8948f84cc8",
+    ".agents/skills/mdtask-create/SKILL.md": "f37c66e1a5f57997394c84cad3822119ae4a409c22deaefca18cda325ea2b7fb",
+    ".agents/skills/mdtask-next/SKILL.md": "53d06929552315bada8b5dd965c5454d65ccbffb081420d5980a7d9792aa4433",
+    ".agents/skills/mdtask/SKILL.md": "e838467c6072e3b6ed104b2300b2bf0abd10e23927bdebc52c2483883f0b4fa4",
+    ".agents/skills/openspec-apply-change/SKILL.md": "d6940527357746649ac4a51d0b5bc7ed4c411e491dfd7a6f01a85549bb17c15b",
+    ".agents/skills/openspec-archive-change/SKILL.md": "0a5f94558f472d7f25a856e3c8f0085d577198333e47bc8c5eb2cbeb78d7dd8a",
+    ".agents/skills/openspec-explore/SKILL.md": "d0e881dc1b64d6885bfdc620c67622199e3fed9c9d2fa6419d3f8240165f306d",
+    ".agents/skills/openspec-propose/SKILL.md": "da7dba466fe5878736f0c19dc65d692801172b34d5ebac50aecef2aa50c31cea",
+    ".agents/skills/openspec-sync-specs/SKILL.md": "5a44c7072d678e31bd8181804ac217eb1031dc8d23555de30e68f751af906f6e",
+    ".agents/skills/openspec-update-change/SKILL.md": "78446f1c085638485be4a1cccb59789670a11c98714bd08a576bcf8c6c78f6d9",
+    ".agents/skills/sdd/SKILL.md": "4bd35b4863e02527d1c8a27f6fc9a042ad805eee051386a28f61aebda7d037a2"
+  },
+  "mdtask": "0.1.17",
+  "openspec": "1.8.0",
+  "schema": 1
+}

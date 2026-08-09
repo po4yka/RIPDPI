@@ -1,0 +1,31 @@
+schema: ripdpi-change
+
+context: |
+  RIPDPI is an offline-first Android VPN/proxy application with Kotlin UI and
+  service layers plus repository-owned Rust native modules. Follow AGENTS.md,
+  dedicated-worktree isolation, serialized shared-file ownership, and the
+  distinction between local, hosted CI, device, artifact, and deployment proof.
+  Every change links to exactly one docs/tasks portfolio ID.
+
+rules:
+  proposal:
+    - Include the exact portfolio Task ID.
+    - Separate observable behavior from implementation detail.
+  specs:
+    - Give requirements stable IDs and cover failure, privacy, security, and compatibility paths.
+    - Surface JNI, protobuf, storage, configuration, activation, and migration contracts when applicable.
+  design:
+    - Identify affected modules, crates, serialized shared files, migration, rollback, and exact gates.
+  tasks:
+    - Use mdtask IDs and an @item backlink on every checkbox.
+    - Keep work feature-first and include implementation plus verification in the same slice.
+  verification:
+    - Record exact-SHA evidence and map each requirement to an execution step.
+
+operations:
+  apply:
+    guidance:
+      - Work only in a dedicated worktree and never infer completion from a checkbox alone.
+  archive:
+    guidance:
+      - Archive only through taskctl after strict validation and complete evidence.
