@@ -12,6 +12,7 @@ use super::super::support::{
     pilot_bucket_label, resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment,
     select_safe_or_baseline_candidate_index, stratified_pilot_targets,
 };
+use super::attempts::finalize_strategy_probe_attempts;
 
 pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime) -> bool {
     let Some(strategy_plan) = plan.strategy.as_ref() else {
@@ -107,6 +108,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         .collect();
     let is_partial = runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
         || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len();
+    let attempts = finalize_strategy_probe_attempts(plan, runtime);
     runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {
         suite_id: strategy_plan.suite_id.clone(),
         methodology_version: STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),
@@ -123,6 +125,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         target_selection: plan.request.strategy_probe.as_ref().and_then(|p| p.target_selection.clone()),
         pilot_bucket_labels,
         domain_strategy_seeds: Vec::new(),
+        attempts,
     });
     runtime.strategy.summary = Some(summary);
     true

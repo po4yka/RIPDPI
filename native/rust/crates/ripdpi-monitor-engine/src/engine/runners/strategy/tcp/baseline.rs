@@ -6,7 +6,7 @@ use crate::candidates::StrategyCandidateSpec;
 use crate::classification::{classified_failure_probe_result, classify_strategy_probe_baseline_observations};
 use crate::execution::{CandidateExecution, StrategyLaneExecutor};
 use crate::observations::observations_for_results;
-use crate::types::{DomainTarget, StrategyProbeProgressLane};
+use crate::types::{DomainTarget, StrategyProbeAttemptRound, StrategyProbeProgressLane};
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageRunner, RunnerArtifacts};
 use super::super::support::strategy_probe_live_progress_with_targets;
@@ -38,7 +38,7 @@ pub(super) fn run_baseline_candidate<'a>(
         baseline_spec.label,
         format!("Testing TCP candidate {}", baseline_spec.label),
     );
-    let baseline_execution = runner.lane_executor.execute_tcp_candidate(
+    let mut baseline_execution = runner.lane_executor.execute_tcp_candidate(
         baseline_spec,
         domain_targets,
         strategy_plan.runtime_context.as_ref(),
@@ -47,6 +47,10 @@ pub(super) fn run_baseline_candidate<'a>(
         plan.request.diagnostic_tls_keylog_path.as_deref(),
         runtime.cancel_token(),
     );
+    for attempt in &mut baseline_execution.attempts {
+        attempt.round = StrategyProbeAttemptRound::Baseline;
+    }
+    runtime.strategy.attempts.append(&mut baseline_execution.attempts);
     if baseline_execution.cancelled {
         return None;
     }

@@ -14,7 +14,7 @@ use std::time::Duration;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::candidate_pause_ms;
-use crate::types::StrategyProbeProgressLane;
+use crate::types::{StrategyProbeAttemptRound, StrategyProbeProgressLane};
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
@@ -176,8 +176,12 @@ impl ExecutionStageRunner for StrategyTcpRunner {
 
             // Merge results back into the runtime sequentially.
             let mut any_cancelled = false;
-            for (candidate_index, spec, execution) in exec_results {
+            for (candidate_index, spec, mut execution) in exec_results {
                 if execution.cancelled {
+                    for attempt in &mut execution.attempts {
+                        attempt.round = StrategyProbeAttemptRound::FullMatrix;
+                    }
+                    runtime.strategy.attempts.append(&mut execution.attempts);
                     any_cancelled = true;
                     continue;
                 }

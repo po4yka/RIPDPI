@@ -9,6 +9,7 @@ use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
 };
 
+mod attempts;
 mod report;
 
 pub(in crate::engine) use report::prepare_strategy_probe_report;

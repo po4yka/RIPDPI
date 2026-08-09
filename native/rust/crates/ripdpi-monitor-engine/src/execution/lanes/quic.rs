@@ -81,6 +81,7 @@ pub(super) fn run_quic_strategy_probe(
         Ok(result) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string(), result.connected_addr),
         Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err, None),
     };
+    let attempt_reason = (error != "none").then(|| error.clone());
     let mut details = candidate_probe_details(candidate, "QUIC", latency_ms);
     details.extend([
         ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
@@ -110,5 +111,9 @@ pub(super) fn run_quic_strategy_probe(
             _ => 0,
         },
         latency_ms,
+        started_at_ms: started,
+        retry_count: 0,
+        protocol: "QUIC".to_string(),
+        reason: attempt_reason,
     }
 }

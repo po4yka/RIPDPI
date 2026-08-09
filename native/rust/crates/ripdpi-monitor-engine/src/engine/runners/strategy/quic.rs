@@ -9,7 +9,7 @@ use crate::classification::next_candidate_index;
 use crate::execution::{
     CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, StrategyLaneExecutor, skipped_candidate_summary,
 };
-use crate::types::StrategyProbeProgressLane;
+use crate::types::{StrategyProbeAttemptRound, StrategyProbeProgressLane};
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
@@ -126,13 +126,17 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 continue;
             }
 
-            let execution = self.lane_executor.execute_quic_candidate(
+            let mut execution = self.lane_executor.execute_quic_candidate(
                 &spec,
                 &quic_targets,
                 strategy_plan.runtime_context.as_ref(),
                 strategy_plan.probe_seed,
                 runtime.cancel_token(),
             );
+            for attempt in &mut execution.attempts {
+                attempt.round = StrategyProbeAttemptRound::FullMatrix;
+            }
+            runtime.strategy.attempts.append(&mut execution.attempts);
             if execution.cancelled {
                 return RunnerOutcome::Cancelled;
             }

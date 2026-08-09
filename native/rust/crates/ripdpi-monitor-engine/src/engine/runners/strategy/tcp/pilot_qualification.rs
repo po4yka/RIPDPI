@@ -6,7 +6,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::execution::{CandidateExecution, StrategyLaneExecutor, eliminated_candidate_summary};
-use crate::types::DomainTarget;
+use crate::types::{DomainTarget, StrategyProbeAttemptRound};
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
 use super::super::support::stratified_pilot_targets;
@@ -88,11 +88,15 @@ pub(super) fn qualify_pilot_candidates(
         });
 
         for (spec, maybe_execution) in batch_results {
-            let Some(execution) = maybe_execution else {
+            let Some(mut execution) = maybe_execution else {
                 // Cancelled before starting -- pass through.
                 qualified_specs.push(spec);
                 continue;
             };
+            for attempt in &mut execution.attempts {
+                attempt.round = StrategyProbeAttemptRound::Qualifier;
+            }
+            runtime.strategy.attempts.append(&mut execution.attempts);
             if execution.cancelled || execution.summary.succeeded_targets > 0 {
                 qualified_specs.push(spec);
             } else {

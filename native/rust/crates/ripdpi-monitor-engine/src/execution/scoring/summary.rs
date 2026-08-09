@@ -1,5 +1,8 @@
 use crate::candidates::StrategyCandidateSpec;
-use crate::types::{ProbeResult, StrategyProbeCandidateSummary};
+use crate::types::{
+    ProbeResult, STRATEGY_PROBE_ATTEMPT_VERSION, StrategyProbeAttempt, StrategyProbeAttemptRound,
+    StrategyProbeAttemptStatus, StrategyProbeCandidateSummary, StrategyProbeProgressLane,
+};
 
 use super::score_state::CandidateScore;
 use super::{candidate_notes, candidate_proxy_config_json};
@@ -8,6 +11,7 @@ use super::{candidate_notes, candidate_proxy_config_json};
 pub struct CandidateExecution {
     pub summary: StrategyProbeCandidateSummary,
     pub results: Vec<ProbeResult>,
+    pub attempts: Vec<StrategyProbeAttempt>,
     pub cancelled: bool,
 }
 
@@ -25,6 +29,46 @@ pub fn build_candidate_execution(
     };
     let rationale = format!("{} of {} targets succeeded", score.succeeded_targets, score.total_targets);
     let domain_outcomes = score.domain_outcomes();
+    let average_latency_ms = score.average_latency_ms();
+    let lane = if score.attempt_samples.iter().any(|attempt| attempt.protocol == "QUIC") {
+        StrategyProbeProgressLane::Quic
+    } else {
+        StrategyProbeProgressLane::Tcp
+    };
+    let attempts = score
+        .attempt_samples
+        .into_iter()
+        .map(|attempt| {
+            let timed_out = attempt.reason.as_ref().is_some_and(|reason| {
+                let normalized = reason.to_ascii_lowercase();
+                normalized.contains("timed out") || normalized.contains("timeout")
+            });
+            StrategyProbeAttempt {
+                attempt_version: STRATEGY_PROBE_ATTEMPT_VERSION.to_string(),
+                sequence: 0,
+                candidate_index: 0,
+                candidate_id: spec.id.to_string(),
+                candidate_label: spec.label.to_string(),
+                candidate_family: spec.family.to_string(),
+                lane,
+                target: attempt.target,
+                target_index: 0,
+                is_control: attempt.is_control,
+                protocol: attempt.protocol,
+                round: StrategyProbeAttemptRound::FullMatrix,
+                status: if timed_out {
+                    StrategyProbeAttemptStatus::TimedOut
+                } else {
+                    StrategyProbeAttemptStatus::Executed
+                },
+                started_at_ms: Some(attempt.started_at_ms),
+                duration_ms: Some(attempt.duration_ms),
+                retry_count: attempt.retry_count,
+                outcome: Some(attempt.outcome),
+                reason: attempt.reason,
+            }
+        })
+        .collect();
 
     CandidateExecution {
         summary: StrategyProbeCandidateSummary {
@@ -44,11 +88,12 @@ pub fn build_candidate_execution(
             quality_score: score.quality_score,
             proxy_config_json: candidate_proxy_config_json(spec),
             notes: candidate_notes(spec, &[]),
-            average_latency_ms: score.average_latency_ms(),
+            average_latency_ms,
             skipped: false,
             domain_outcomes,
         },
         results: score.results,
+        attempts,
         cancelled: false,
     }
 }
@@ -92,6 +137,7 @@ pub fn failed_candidate_execution(
             domain_outcomes: vec![],
         },
         results: Vec::new(),
+        attempts: Vec::new(),
         cancelled: false,
     }
 }
@@ -125,6 +171,7 @@ pub fn not_applicable_candidate_execution(
             domain_outcomes: vec![],
         },
         results: Vec::new(),
+        attempts: Vec::new(),
         cancelled: false,
     }
 }

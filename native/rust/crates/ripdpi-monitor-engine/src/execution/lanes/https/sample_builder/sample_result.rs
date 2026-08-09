@@ -7,7 +7,10 @@ pub(super) fn build_https_sample(
     target: &DomainTarget,
     outcome: String,
     details: Vec<ProbeDetail>,
+    started_at_ms: u64,
     latency_ms: u64,
+    retry_count: usize,
+    reason: Option<String>,
 ) -> ProbeSample {
     debug_assert!(matches!(
         outcome.as_str(),
@@ -30,5 +33,9 @@ pub(super) fn build_https_sample(
             _ => 0,
         },
         latency_ms,
+        started_at_ms,
+        retry_count,
+        protocol: "HTTPS".to_string(),
+        reason,
     }
 }

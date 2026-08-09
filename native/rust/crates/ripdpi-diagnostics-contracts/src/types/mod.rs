@@ -4,6 +4,7 @@ mod observation;
 mod request;
 mod scan;
 mod strategy;
+mod strategy_attempt;
 mod target;
 
 pub use confirm_good::*;
@@ -12,6 +13,7 @@ pub use observation::*;
 pub use request::*;
 pub use scan::*;
 pub use strategy::*;
+pub use strategy_attempt::*;
 pub use target::*;
 
 #[derive(Default)]

@@ -99,6 +99,10 @@ pub struct StrategyProbeReport {
     /// seeding API so each domain starts with its optimal strategy override.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub domain_strategy_seeds: Vec<StrategyDomainSeed>,
+    /// Candidate x target x protocol execution evidence, including terminal
+    /// records for planned cells that never reached the network.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attempts: Vec<super::StrategyProbeAttempt>,
 }
 
 /// Records the best strategy probe candidate for a single domain.

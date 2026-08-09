@@ -1,6 +1,6 @@
 use crate::candidates::StrategyCandidateSpec;
 use crate::execution::{CandidateExecution, skipped_candidate_summary};
-use crate::types::StrategyProbeProgressLane;
+use crate::types::{StrategyProbeAttemptRound, StrategyProbeProgressLane};
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};
 use super::super::support::{
@@ -71,9 +71,13 @@ pub(super) fn record_executed_candidate(
     spec: &StrategyCandidateSpec,
     candidate_index: usize,
     tcp_candidate_total: usize,
-    execution: CandidateExecution,
+    mut execution: CandidateExecution,
     capabilities: TcpCapabilities,
 ) -> CandidateRecord {
+    for attempt in &mut execution.attempts {
+        attempt.round = StrategyProbeAttemptRound::FullMatrix;
+    }
+    runtime.strategy.attempts.append(&mut execution.attempts);
     let mut summary = execution.summary;
     annotate_emitter_execution(&mut summary, spec, capabilities.fake_ttl_available, capabilities.ipfrag_caps);
     let hostfake_family_succeeded = summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets;

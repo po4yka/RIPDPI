@@ -711,6 +711,7 @@ data class StrategyProbeReport(
     val targetSelection: StrategyProbeTargetSelection? = null,
     val pilotBucketLabels: List<String> = emptyList(),
     val domainStrategySeeds: List<StrategyDomainSeed> = emptyList(),
+    val attempts: List<StrategyProbeAttempt> = emptyList(),
 )
 
 @Serializable

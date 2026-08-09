@@ -245,9 +245,26 @@ internal fun buildSectionStatuses(
                 if (fileName == "execution-plan.json" && selection.primaryReport?.executionPlan == null) {
                     DiagnosticsArchiveSectionStatus.UNAVAILABLE
                 } else if (
+                    fileName == "attempts.jsonl" &&
+                    selection.primaryReport
+                        ?.strategyProbeReport
+                        ?.attempts
+                        .isNullOrEmpty()
+                ) {
+                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
+                } else if (
                     compositeStage != null &&
                     fileName.endsWith("/execution-plan.json") &&
                     compositeStage.report?.executionPlan == null
+                ) {
+                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
+                } else if (
+                    compositeStage != null &&
+                    fileName.endsWith("/attempts.jsonl") &&
+                    compositeStage.report
+                        ?.strategyProbeReport
+                        ?.attempts
+                        .isNullOrEmpty()
                 ) {
                     DiagnosticsArchiveSectionStatus.UNAVAILABLE
                 } else if (compositeStage != null) {
@@ -395,6 +412,7 @@ private fun sectionStatusForFileName(
         "manifest.json",
         "report.json",
         "execution-plan.json",
+        "attempts.jsonl",
         "home-analysis.json",
         "stage-index.json",
         "stage-summaries.json",
@@ -457,6 +475,10 @@ private fun stageSectionStatusForFileName(
         }
 
         fileName.endsWith("/execution-plan.json") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/attempts.jsonl") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 

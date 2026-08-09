@@ -27,6 +27,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -92,6 +93,36 @@ class DiagnosticsArchiveRendererTest {
             ),
             snapshot.detectabilityMetrics.evidence,
         )
+    }
+
+    @Test
+    fun `renderer exports strategy attempts as privacy safe json lines`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-attempts", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-attempts.zip",
+                createdAt = 43L,
+            )
+
+        val entries = renderer.render(target, buildFullRendererSelection()).associateBy(DiagnosticsArchiveEntry::name)
+        val attempts = entries.getValue("attempts.jsonl").bytes.decodeToString()
+
+        assertTrue(attempts.endsWith('\n'))
+        assertFalse(attempts.contains("telegram.org"))
+        assertFalse(attempts.contains("blocked.example"))
+        assertFalse(attempts.contains("proxyConfigJson"))
+        val rows =
+            attempts
+                .lineSequence()
+                .filter(String::isNotBlank)
+                .map { line -> json.parseToJsonElement(line).jsonObject }
+                .toList()
+        assertEquals(2, rows.size)
+        assertEquals("tcp-prod", rows[0].getValue("candidateId").jsonPrimitive.content)
+        assertEquals("target-1", rows[0].getValue("targetAlias").jsonPrimitive.content)
+        assertEquals("EXECUTED", rows[0].getValue("status").jsonPrimitive.content)
+        assertEquals("target-2", rows[1].getValue("targetAlias").jsonPrimitive.content)
+        assertEquals("SKIPPED", rows[1].getValue("status").jsonPrimitive.content)
     }
 
     @Test
@@ -529,7 +560,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(6, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(7, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -871,8 +902,18 @@ class DiagnosticsArchiveRendererTest {
         val stage = rendererCompositeStage("legacy", emptyList())
         val selection =
             base.copy(
-                primaryReport = base.primaryReport?.copy(executionPlan = null),
-                includedFiles = listOf("execution-plan.json", "stages/legacy/execution-plan.json"),
+                primaryReport =
+                    base.primaryReport?.copy(
+                        executionPlan = null,
+                        strategyProbeReport = base.primaryReport.strategyProbeReport?.copy(attempts = emptyList()),
+                    ),
+                includedFiles =
+                    listOf(
+                        "execution-plan.json",
+                        "attempts.jsonl",
+                        "stages/legacy/execution-plan.json",
+                        "stages/legacy/attempts.jsonl",
+                    ),
                 compositeStages = listOf(stage.copy(report = stage.report?.copy(executionPlan = null))),
             )
 
@@ -881,7 +922,9 @@ class DiagnosticsArchiveRendererTest {
         assertEquals(
             mapOf(
                 "execution-plan.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "attempts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
                 "stages/legacy/execution-plan.json" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
+                "stages/legacy/attempts.jsonl" to DiagnosticsArchiveSectionStatus.UNAVAILABLE,
             ),
             statuses,
         )
@@ -1012,6 +1055,7 @@ class DiagnosticsArchiveRendererTest {
                 events = base.primaryEvents,
                 session = base.primarySession,
             ).copy(
+                report = base.primaryReport,
                 results = base.primaryResults,
                 snapshots = base.primarySnapshots,
                 contexts = base.primaryContexts,
@@ -1058,11 +1102,13 @@ class DiagnosticsArchiveRendererTest {
 
         ZipFile(target.file).use { zip ->
             assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
+            val attemptsEntry = requireNotNull(zip.getEntry("stages/automatic_audit/attempts.jsonl"))
             assertNotNull(zip.getEntry("stages/automatic_audit/native-events.csv"))
             assertNotNull(zip.getEntry("stages/automatic_audit/probe-results.csv"))
             val logcat = zip.getInputStream(zip.getEntry("logcat.txt")).bufferedReader().readText()
             val appLog = zip.getInputStream(zip.getEntry("app-log.txt")).bufferedReader().readText()
             val events = zip.getInputStream(zip.getEntry("native-events.csv")).bufferedReader().readText()
+            val attempts = zip.getInputStream(attemptsEntry).bufferedReader().readText()
             assertFalse(logcat.contains(logFixture.partialLogcatLine))
             assertTrue(logcat.contains(logFixture.newestLogcatLine))
             assertTrue(logcat.contains("I/RIPDPI( 123): <path-redacted>"))
@@ -1071,6 +1117,10 @@ class DiagnosticsArchiveRendererTest {
             assertFalse(events.contains("successfully before retry"))
             assertFalse(events.contains("status=failed"))
             assertTrue(events.contains("ready"))
+            assertTrue(attempts.contains("\"candidateId\":\"tcp-prod\""))
+            assertTrue(attempts.contains("\"targetAlias\":\"target-1\""))
+            assertFalse(attempts.contains("telegram.org"))
+            assertFalse(attempts.contains("blocked.example"))
         }
         assertZipExcludes(target, hostileArchiveValues())
     }
@@ -1817,31 +1867,31 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v6.json",
+            "archive/manifest_v7.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v6.json",
+            "archive/archive_provenance_v7.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v6.json",
+            "archive/runtime_config_v7.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v6.json",
+            "archive/analysis_v7.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v6.json",
+            "archive/completeness_v7.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v6.json",
+            "archive/integrity_v7.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v6.json",
+            "archive/execution_plan_v7.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
     }
@@ -2117,6 +2167,45 @@ class DiagnosticsArchiveRendererTest {
                             quicHosts = listOf("discord.com"),
                         ),
                     pilotBucketLabels = listOf("foreign:cloudflare:ech=yes", "domestic:domesticcdn:ech=no"),
+                    attempts =
+                        listOf(
+                            StrategyProbeAttempt(
+                                attemptVersion = "strategy_attempt_v1",
+                                sequence = 1,
+                                candidateIndex = 1,
+                                candidateId = "tcp-prod",
+                                candidateLabel = "TLS split",
+                                candidateFamily = "tlsrec_split",
+                                lane = StrategyProbeProgressLane.TCP,
+                                target = "telegram.org",
+                                targetIndex = 1,
+                                isControl = false,
+                                protocol = "HTTPS",
+                                round = StrategyProbeAttemptRound.FULL_MATRIX,
+                                status = StrategyProbeAttemptStatus.EXECUTED,
+                                startedAtMs = 10L,
+                                durationMs = 120L,
+                                retryCount = 1,
+                                outcome = "tls_ok",
+                            ),
+                            StrategyProbeAttempt(
+                                attemptVersion = "strategy_attempt_v1",
+                                sequence = 2,
+                                candidateIndex = 2,
+                                candidateId = "tcp-rooted",
+                                candidateLabel = "Rooted seqovl",
+                                candidateFamily = "seqovl",
+                                lane = StrategyProbeProgressLane.TCP,
+                                target = "blocked.example",
+                                targetIndex = 2,
+                                isControl = true,
+                                protocol = "HTTP",
+                                round = StrategyProbeAttemptRound.NOT_STARTED,
+                                status = StrategyProbeAttemptStatus.SKIPPED,
+                                outcome = "capability_skipped",
+                                reason = "Requires root_helper_available for blocked.example",
+                            ),
+                        ),
                 ),
             classifierVersion = "ru_ooni_v1",
             packVersions = mapOf("ru-independent-media" to 1),

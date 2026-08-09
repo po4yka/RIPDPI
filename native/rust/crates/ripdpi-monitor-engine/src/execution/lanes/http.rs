@@ -23,6 +23,7 @@ pub(super) fn run_http_strategy_probe(
     let observation =
         try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
     let latency_ms = now_ms().saturating_sub(started);
+    let attempt_reason = observation.error.clone();
     // Try fingerprint-based classification first, then fall back to heuristics.
     let (outcome, fingerprint_name) = if let Some(response) = &observation.response {
         let (fp_outcome, fp_name) = classify_http_response_with_fingerprints(response, &BLOCKPAGE_FINGERPRINTS);
@@ -89,5 +90,9 @@ pub(super) fn run_http_strategy_probe(
             0
         },
         latency_ms,
+        started_at_ms: started,
+        retry_count: 0,
+        protocol: "HTTP".to_string(),
+        reason: attempt_reason,
     }
 }

@@ -20,6 +20,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private val json: Json,
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
+    private val attemptsEntryBuilder = DiagnosticsArchiveAttemptsEntryBuilder(json)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
@@ -62,6 +63,14 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             profileId = selection.primarySession?.profileId,
                             executionPlan = redactor.redact(selection.primaryReport)?.executionPlan,
                         ),
+                ),
+            )
+            add(
+                attemptsEntryBuilder.build(
+                    name = "attempts.jsonl",
+                    sessionId = selection.primarySession?.id,
+                    profileId = selection.primarySession?.profileId,
+                    report = redactor.redact(selection.primaryReport),
                 ),
             )
             add(
@@ -442,6 +451,14 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             profileId = stage.session?.profileId,
                             executionPlan = redactor.redact(stage.report)?.executionPlan,
                         ),
+                ),
+            )
+            add(
+                attemptsEntryBuilder.build(
+                    name = "$prefix/attempts.jsonl",
+                    sessionId = stage.session?.id,
+                    profileId = stage.session?.profileId,
+                    report = redactor.redact(stage.report),
                 ),
             )
             add(

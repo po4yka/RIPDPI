@@ -2,9 +2,22 @@ use std::collections::BTreeMap;
 
 use crate::types::ProbeResult;
 
+#[derive(Debug)]
+pub struct ProbeAttemptSample {
+    pub target: String,
+    pub is_control: bool,
+    pub protocol: String,
+    pub started_at_ms: u64,
+    pub duration_ms: u64,
+    pub retry_count: usize,
+    pub outcome: String,
+    pub reason: Option<String>,
+}
+
 #[derive(Default)]
 pub struct CandidateScore {
     pub results: Vec<ProbeResult>,
+    pub attempt_samples: Vec<ProbeAttemptSample>,
     pub succeeded_targets: usize,
     pub total_targets: usize,
     pub weighted_success_score: usize,
@@ -34,6 +47,16 @@ impl CandidateScore {
             }
         }
 
+        self.attempt_samples.push(ProbeAttemptSample {
+            target: sample.domain.clone().unwrap_or_else(|| sample.result.target.clone()),
+            is_control: sample.is_control,
+            protocol: sample.protocol,
+            started_at_ms: sample.started_at_ms,
+            duration_ms: sample.latency_ms,
+            retry_count: sample.retry_count,
+            outcome: sample.result.outcome.clone(),
+            reason: sample.reason,
+        });
         self.results.push(sample.result);
         self.total_targets += 1;
         self.total_weight += sample.weight;
@@ -62,6 +85,10 @@ pub struct ProbeSample {
     pub weight: usize,
     pub quality: usize,
     pub latency_ms: u64,
+    pub started_at_ms: u64,
+    pub retry_count: usize,
+    pub protocol: String,
+    pub reason: Option<String>,
     /// The domain this sample was probed against, for per-domain outcome tracking.
     pub domain: Option<String>,
     /// Whether the exact planned domain target is a neutral control.
