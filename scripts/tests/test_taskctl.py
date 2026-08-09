@@ -26,8 +26,20 @@ class TaskctlFixture(unittest.TestCase):
             "tools/tasking",
         ):
             (self.root / relative).mkdir(parents=True, exist_ok=True)
-        asset = self.root / "tools/tasking/generated.txt"
-        asset.write_text("fixture\n", encoding="utf-8")
+        generated_files: dict[str, str] = {}
+        for relative in taskctl.GENERATED_ASSET_PATHS:
+            asset = self.root / relative
+            asset.parent.mkdir(parents=True, exist_ok=True)
+            asset.write_text(f"fixture for {relative}\n", encoding="utf-8")
+            generated_files[relative] = hashlib.sha256(asset.read_bytes()).hexdigest()
+        repository_skill = self.root / ".agents/skills/repo-task-board/SKILL.md"
+        repository_skill.parent.mkdir(parents=True, exist_ok=True)
+        repository_skill.write_text("repository task board fixture\n", encoding="utf-8")
+        for alias_root, target_root in taskctl.COMPATIBILITY_SKILL_ROOTS.items():
+            root = self.root / alias_root
+            root.mkdir(parents=True, exist_ok=True)
+            for name in taskctl.ALIAS_SKILL_NAMES:
+                (root / name).symlink_to(f"{target_root}/{name}")
         self.write_project_config()
         self.write_federation_contract(self.root)
         (self.root / "tools/tasking/generated-assets.lock.json").write_text(
@@ -35,9 +47,8 @@ class TaskctlFixture(unittest.TestCase):
                 {
                     "mdtask": "0.1.17",
                     "openspec": "1.8.0",
-                    "files": {
-                        "tools/tasking/generated.txt": hashlib.sha256(asset.read_bytes()).hexdigest()
-                    },
+                    "schema": 1,
+                    "files": generated_files,
                 }
             )
             + "\n",
@@ -359,10 +370,79 @@ class TaskctlContractTest(TaskctlFixture):
     def test_generated_asset_drift_is_rejected(self) -> None:
         self.add_simple_task()
         self.write_board()
-        (self.root / "tools/tasking/generated.txt").write_text("drift\n", encoding="utf-8")
+        (self.root / ".agents/skills/mdtask/SKILL.md").write_text("drift\n", encoding="utf-8")
 
         with self.assertRaisesRegex(taskctl.ContractError, "generated asset drift"):
             taskctl.validate_repository(self.root, base=None, upstreams=False)
+
+    def test_generated_asset_lock_cannot_omit_canonical_skill(self) -> None:
+        lock_path = self.root / "tools/tasking/generated-assets.lock.json"
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+        del payload["files"][".agents/skills/mdtask/SKILL.md"]
+        lock_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "wrong canonical set"):
+            taskctl.validate_generated_assets(self.root)
+
+    def test_generated_skill_alias_cannot_be_retargeted(self) -> None:
+        alias = self.root / ".codex/skills/repo-task-board"
+        alias.unlink()
+        alias.symlink_to("../../.agents/skills/repo-task-board")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "alias retargeted"):
+            taskctl.validate_generated_assets(self.root)
+
+    def test_generated_skill_alias_cannot_be_omitted(self) -> None:
+        (self.root / ".github/skills/repo-task-board").unlink()
+
+        with self.assertRaisesRegex(taskctl.ContractError, "alias missing"):
+            taskctl.validate_generated_assets(self.root)
+
+    def test_generated_contract_constants_match_independent_literal_oracle(self) -> None:
+        expected_assets = {
+            ".agents/skills/.openspec-target",
+            ".agents/skills/mdtask-create/SKILL.md",
+            ".agents/skills/mdtask-next/SKILL.md",
+            ".agents/skills/mdtask/SKILL.md",
+            ".agents/skills/openspec-apply-change/SKILL.md",
+            ".agents/skills/openspec-archive-change/SKILL.md",
+            ".agents/skills/openspec-explore/SKILL.md",
+            ".agents/skills/openspec-propose/SKILL.md",
+            ".agents/skills/openspec-sync-specs/SKILL.md",
+            ".agents/skills/openspec-update-change/SKILL.md",
+            ".agents/skills/sdd/SKILL.md",
+        }
+        skill_names = {
+            "mdtask",
+            "mdtask-create",
+            "mdtask-next",
+            "openspec-apply-change",
+            "openspec-archive-change",
+            "openspec-explore",
+            "openspec-propose",
+            "openspec-sync-specs",
+            "openspec-update-change",
+            "repo-task-board",
+            "sdd",
+        }
+        expected_aliases = {
+            (f".claude/skills/{name}", f"../../.agents/skills/{name}")
+            for name in skill_names
+        } | {
+            (f".codex/skills/{name}", f"../../.claude/skills/{name}")
+            for name in skill_names
+        } | {
+            (f".github/skills/{name}", f"../../.agents/skills/{name}")
+            for name in skill_names
+        }
+        actual_aliases = {
+            (f"{alias_root}/{name}", f"{target_root}/{name}")
+            for alias_root, target_root in taskctl.COMPATIBILITY_SKILL_ROOTS.items()
+            for name in taskctl.ALIAS_SKILL_NAMES
+        }
+
+        self.assertEqual(expected_assets, taskctl.GENERATED_ASSET_PATHS)
+        self.assertEqual(expected_aliases, actual_aliases)
 
     def test_transition_state_machine_rejects_terminal_shortcut(self) -> None:
         self.assertTrue(taskctl.transition_allowed("doing", "review"))
@@ -665,6 +745,108 @@ class TaskctlHistoryTest(TaskctlFixture):
 
         with self.assertRaisesRegex(taskctl.ContractError, "without a preceding committed terminal"):
             taskctl.validate_deleted_history(self.root, base)
+
+    def test_task_added_and_deleted_within_range_requires_terminal_history(self) -> None:
+        (self.root / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.root, [], []),
+            encoding="utf-8",
+        )
+        base = self.commit_all("bootstrap strict task contract")
+        path = self.add_simple_task(status="review")
+        self.commit_all("add task in reviewed range")
+        path.unlink()
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.unlink()
+        self.commit_all("delete task in reviewed range")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "without a preceding committed terminal"):
+            taskctl.validate_deleted_history(self.root, base)
+
+    def test_malformed_terminal_shape_cannot_satisfy_deletion_guard(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.write_board()
+        base = self.commit_all("add task")
+        self.prepare_simple_terminal(path)
+        document = taskctl.read_document(path)
+        values = dict(document.values)
+        del values["title"]
+        path.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        receipt = work.with_suffix(".close.json")
+        payload = json.loads(receipt.read_text(encoding="utf-8"))
+        payload["issue_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        receipt.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+        self.commit_all("publish malformed terminal task")
+        self.purge_simple_task(path)
+        self.commit_all("purge malformed task")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "title must be a non-empty string"):
+            taskctl.validate_deleted_history(self.root, base)
+
+    def test_terminal_task_cannot_reopen_before_final_purge(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.write_board()
+        base = self.commit_all("add task")
+        self.prepare_simple_terminal(path)
+        self.commit_all("record first terminal state")
+        document = taskctl.read_document(path)
+        values = dict(document.values)
+        values["status"] = "review"
+        for field in ("closed_at", "closed_reason", "evidence_summary"):
+            values.pop(field)
+        path.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.write_text(work.read_text(encoding="utf-8").replace("- [x]", "- [ ]"), encoding="utf-8")
+        work.with_suffix(".close.json").unlink()
+        self.commit_all("reopen terminal task")
+        self.prepare_simple_terminal(path)
+        self.commit_all("record second terminal state")
+        self.purge_simple_task(path)
+        self.commit_all("purge reopened task")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "transitioned out of terminal"):
+            taskctl.validate_deleted_history(self.root, base)
+
+    def test_rename_cannot_hide_disappearing_task_id(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.write_board()
+        base = self.commit_all("add task")
+        replacement = path.with_name("renamed-task.md")
+        path.rename(replacement)
+        replacement.write_text(
+            replacement.read_text(encoding="utf-8").replace(
+                "CIC-1786234567890001", "CIC-1786234567890003"
+            ),
+            encoding="utf-8",
+        )
+        self.commit_all("rename task as replacement identity")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "without a preceding committed terminal"):
+            taskctl.validate_deleted_history(self.root, base)
+
+    def test_modification_cannot_replace_task_id_without_terminal_history(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.write_board()
+        base = self.commit_all("add task")
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "CIC-1786234567890001", "CIC-1786234567890003"
+            ),
+            encoding="utf-8",
+        )
+        self.commit_all("replace task identity in place")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "without a preceding committed terminal"):
+            taskctl.validate_deleted_history(self.root, base)
+
+    def test_rename_preserving_task_id_is_not_a_deletion(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.write_board()
+        base = self.commit_all("add task")
+        path.rename(path.with_name("renamed-task.md"))
+        self.commit_all("rename task without changing identity")
+
+        taskctl.validate_deleted_history(self.root, base)
 
     def test_forged_todo_to_done_history_with_open_step_is_rejected(self) -> None:
         path = self.add_simple_task(status="todo")
@@ -991,6 +1173,36 @@ class TaskctlFederationTest(TaskctlFixture):
         (root / "docs/tasks/board.md").write_text(taskctl.render_board(root, documents, steps), encoding="utf-8")
         return path
 
+    def complete_simple_task(self, root: Path, path: Path) -> None:
+        document = taskctl.read_document(path)
+        values = dict(document.values)
+        values.update(
+            {
+                "status": "done",
+                "closed_at": "2026-08-09T00:00:00Z",
+                "closed_reason": "Verified.",
+                "evidence_summary": "Federation fixture passed.",
+            }
+        )
+        path.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = root / f"docs/tasks/work/{document.task_id}.md"
+        work.write_text(work.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        terminal = taskctl.read_document(path)
+        taskctl.write_lifecycle_receipt(
+            root,
+            terminal,
+            work,
+            "close",
+            {
+                "schema": 1,
+                "task_id": terminal.task_id,
+                "change": None,
+                "outcome": "done",
+                "issue_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "execution_sha256": hashlib.sha256(work.read_bytes()).hexdigest(),
+            },
+        )
+
     def test_export_is_deterministic_and_omits_body_and_evidence(self) -> None:
         self.add_task(self.root, "CIC-1786234567890001")
         self.commit(self.root, "add task")
@@ -1218,6 +1430,93 @@ class TaskctlFederationTest(TaskctlFixture):
         historical = next(node for node in payload["tasks"] if node["id"].endswith(f"#{blocker_id}"))
         self.assertTrue(historical["historical"])
         self.assertEqual("done", historical["status"])
+
+    def test_renamed_done_blocker_resolves_by_id_history(self) -> None:
+        blocker_id = "CIC-1786234567890001"
+        consumer_id = "CIC-1786234567890005"
+        self.add_task(self.peer, "CIC-1786234567890003")
+        blocker = self.add_task(self.peer, blocker_id, status="review")
+        self.commit(self.peer, "add peer tasks")
+        renamed = blocker.with_name("renamed-blocker.md")
+        blocker.rename(renamed)
+        self.commit(self.peer, "rename blocker without changing identity")
+        self.complete_simple_task(self.peer, renamed)
+        self.commit(self.peer, "complete renamed blocker")
+        renamed.unlink()
+        work = self.peer / f"docs/tasks/work/{blocker_id}.md"
+        work.unlink()
+        work.with_suffix(".close.json").unlink()
+        documents, steps = taskctl.load_state(self.peer)
+        (self.peer / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.peer, documents, steps), encoding="utf-8"
+        )
+        self.commit(self.peer, "purge renamed blocker")
+        self.add_task(self.root, consumer_id, blockers=[f"po4yka/ripdpi-vpn-deploy#{blocker_id}"])
+        self.commit(self.root, "add consumer")
+
+        payload = taskctl.federation_payload(self.root, self.peer)
+
+        self.assertIn(
+            f"po4yka/RIPDPI#{consumer_id}",
+            {node["id"] for node in payload["ready"]},
+        )
+
+    def test_replacement_id_cannot_hide_unterminated_federated_blocker(self) -> None:
+        blocker_id = "CIC-1786234567890001"
+        replacement_id = "CIC-1786234567890007"
+        consumer_id = "CIC-1786234567890005"
+        self.add_task(self.peer, "CIC-1786234567890003")
+        blocker = self.add_task(self.peer, blocker_id, status="review")
+        self.commit(self.peer, "add peer tasks")
+        replacement = self.add_task(self.peer, replacement_id)
+        blocker.write_text(replacement.read_text(encoding="utf-8"), encoding="utf-8")
+        replacement.unlink()
+        (self.peer / f"docs/tasks/work/{blocker_id}.md").unlink()
+        documents, steps = taskctl.load_state(self.peer)
+        (self.peer / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.peer, documents, steps), encoding="utf-8"
+        )
+        self.commit(self.peer, "replace blocker identity in place")
+        self.add_task(self.root, consumer_id, blockers=[f"po4yka/ripdpi-vpn-deploy#{blocker_id}"])
+        self.commit(self.root, "add consumer")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "deletion lacks a terminal state"):
+            taskctl.federation_payload(self.root, self.peer)
+
+    def test_reopened_terminal_blocker_cannot_release_federated_consumer(self) -> None:
+        blocker_id = "CIC-1786234567890001"
+        self.add_task(self.peer, "CIC-1786234567890003")
+        blocker = self.add_task(self.peer, blocker_id, status="review")
+        self.commit(self.peer, "add peer tasks")
+        self.complete_simple_task(self.peer, blocker)
+        self.commit(self.peer, "complete blocker first time")
+        document = taskctl.read_document(blocker)
+        values = dict(document.values)
+        values["status"] = "review"
+        for field in ("closed_at", "closed_reason", "evidence_summary"):
+            values.pop(field)
+        blocker.write_text(taskctl.render_document(values, document.body), encoding="utf-8")
+        work = self.peer / f"docs/tasks/work/{blocker_id}.md"
+        work.write_text(work.read_text(encoding="utf-8").replace("- [x]", "- [ ]"), encoding="utf-8")
+        work.with_suffix(".close.json").unlink()
+        self.commit(self.peer, "reopen terminal blocker")
+        self.complete_simple_task(self.peer, blocker)
+        self.commit(self.peer, "complete blocker second time")
+        blocker.unlink()
+        work.unlink()
+        work.with_suffix(".close.json").unlink()
+        documents, steps = taskctl.load_state(self.peer)
+        (self.peer / "docs/tasks/board.md").write_text(
+            taskctl.render_board(self.peer, documents, steps), encoding="utf-8"
+        )
+        self.commit(self.peer, "purge reopened blocker")
+
+        with self.assertRaisesRegex(taskctl.ContractError, "transitioned out of terminal"):
+            taskctl.resolve_terminal_task(
+                self.peer,
+                blocker_id,
+                taskctl.load_project_config(self.peer),
+            )
 
     def test_forged_empty_terminal_history_cannot_release_consumer(self) -> None:
         blocker_id = "CIC-1786234567890001"
