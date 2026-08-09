@@ -4,9 +4,11 @@ mod coordinator;
 pub(crate) mod panic_recovery;
 mod parallel;
 mod plan;
+mod plan_snapshot;
 mod progress;
 mod recording;
 mod stage;
+mod stage_id;
 mod state;
 
 #[cfg(test)]
