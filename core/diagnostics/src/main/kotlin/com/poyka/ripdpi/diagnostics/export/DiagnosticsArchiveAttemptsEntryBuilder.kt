@@ -12,22 +12,26 @@ internal class DiagnosticsArchiveAttemptsEntryBuilder(
         sessionId: String?,
         profileId: String?,
         report: EngineScanReportWire?,
+        rawReport: EngineScanReportWire?,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): DiagnosticsArchiveEntry =
         DiagnosticsArchiveEntry(
             name = name,
-            bytes = buildJsonLines(sessionId, profileId, report).toByteArray(),
+            bytes = buildJsonLines(sessionId, profileId, report, rawReport, targetAliases).toByteArray(),
         )
 
     private fun buildJsonLines(
         sessionId: String?,
         profileId: String?,
         report: EngineScanReportWire?,
+        rawReport: EngineScanReportWire?,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): String =
         report
             ?.strategyProbeReport
             ?.attempts
             .orEmpty()
-            .joinToString(separator = "", postfix = "") { attempt ->
+            .mapIndexed { index, attempt ->
                 val record =
                     StrategyAttemptArchiveRecord(
                         attemptVersion = attempt.attemptVersion,
@@ -39,7 +43,14 @@ internal class DiagnosticsArchiveAttemptsEntryBuilder(
                         candidateLabel = attempt.candidateLabel,
                         candidateFamily = attempt.candidateFamily,
                         lane = attempt.lane,
-                        targetAlias = "target-${attempt.targetIndex}",
+                        targetAlias =
+                            targetAliases.aliasFor(
+                                rawReport
+                                    ?.strategyProbeReport
+                                    ?.attempts
+                                    ?.getOrNull(index)
+                                    ?.target,
+                            ) ?: UnknownTargetAlias,
                         isControl = attempt.isControl,
                         protocol = attempt.protocol,
                         round = attempt.round,
@@ -50,6 +61,10 @@ internal class DiagnosticsArchiveAttemptsEntryBuilder(
                         outcome = attempt.outcome,
                         reason = attempt.reason,
                     )
+                record
+            }.joinToString(separator = "", postfix = "") { record ->
                 json.encodeToJsonElement(StrategyAttemptArchiveRecord.serializer(), record).toString() + "\n"
             }
 }
+
+private const val UnknownTargetAlias = "target-unknown"

@@ -14,16 +14,28 @@ internal class DiagnosticsArchiveStrategyEvidenceEntryBuilder(
     private val protocolMilestonesEntryBuilder = DiagnosticsArchiveProtocolMilestonesEntryBuilder(json)
     private val decisionTraceEntryBuilder = DiagnosticsArchiveDecisionTraceEntryBuilder(json)
 
-    fun buildRoot(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> {
+    fun buildRoot(
+        selection: DiagnosticsArchiveSelection,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
+    ): List<DiagnosticsArchiveEntry> {
         val report = redactor.redact(selection.primaryReport)
         val sessionId = selection.primarySession?.id
         val profileId = selection.primarySession?.profileId
         return buildList {
             add(buildExecutionPlanEntry("execution-plan.json", sessionId, profileId, report))
             add(capabilitiesEntryBuilder.buildRoot(selection, report))
-            add(attemptsEntryBuilder.build("attempts.jsonl", sessionId, profileId, report))
+            add(
+                attemptsEntryBuilder.build(
+                    "attempts.jsonl",
+                    sessionId,
+                    profileId,
+                    report,
+                    selection.primaryReport,
+                    targetAliases,
+                ),
+            )
             add(emissionReceiptsEntryBuilder.buildRoot(selection, report))
-            add(protocolMilestonesEntryBuilder.buildRoot(selection, report))
+            add(protocolMilestonesEntryBuilder.buildRoot(selection, report, targetAliases))
             add(decisionTraceEntryBuilder.build("decision-trace.json", sessionId, profileId, report))
             add(buildStrategyMatrixEntry("strategy-matrix.json", sessionId, profileId, report))
         }
@@ -32,6 +44,7 @@ internal class DiagnosticsArchiveStrategyEvidenceEntryBuilder(
     fun buildStage(
         prefix: String,
         stage: DiagnosticsArchiveCompositeStageSelection,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): List<DiagnosticsArchiveEntry> {
         val report = redactor.redact(stage.report)
         val sessionId = stage.session?.id
@@ -39,9 +52,18 @@ internal class DiagnosticsArchiveStrategyEvidenceEntryBuilder(
         return buildList {
             add(buildExecutionPlanEntry("$prefix/execution-plan.json", sessionId, profileId, report))
             add(capabilitiesEntryBuilder.buildStage(prefix, stage, report))
-            add(attemptsEntryBuilder.build("$prefix/attempts.jsonl", sessionId, profileId, report))
+            add(
+                attemptsEntryBuilder.build(
+                    "$prefix/attempts.jsonl",
+                    sessionId,
+                    profileId,
+                    report,
+                    stage.report,
+                    targetAliases,
+                ),
+            )
             add(emissionReceiptsEntryBuilder.buildStage(prefix, stage, report))
-            add(protocolMilestonesEntryBuilder.buildStage(prefix, stage, report))
+            add(protocolMilestonesEntryBuilder.buildStage(prefix, stage, report, targetAliases))
             add(decisionTraceEntryBuilder.build("$prefix/decision-trace.json", sessionId, profileId, report))
             add(buildStrategyMatrixEntry("$prefix/strategy-matrix.json", sessionId, profileId, report))
         }

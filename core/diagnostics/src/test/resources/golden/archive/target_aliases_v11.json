@@ -1,0 +1,21 @@
+{
+    "aliasVersion": "target_aliases_v1",
+    "aliases": [
+        {
+            "alias": "target-1",
+            "evidenceRefs": [
+                "attempts.jsonl#L2",
+                "probe-results.csv#L2"
+            ],
+            "occurrenceCount": 2
+        },
+        {
+            "alias": "target-2",
+            "evidenceRefs": [
+                "attempts.jsonl#L1"
+            ],
+            "occurrenceCount": 1
+        }
+    ],
+    "scope": "ARCHIVE_LOCAL"
+}

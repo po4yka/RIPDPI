@@ -27,6 +27,7 @@ class DiagnosticsArchiveRenderer
             developerAnalytics: DeveloperAnalyticsPayload = DeveloperAnalyticsPayload(),
         ): List<DiagnosticsArchiveEntry> {
             val archiveSelection = selection.withRedactedBoundedLogs()
+            val targetAliases = DiagnosticsArchiveTargetAliasRegistry.build(archiveSelection)
             val snapshotPayload = jsonEntryBuilder.buildSnapshotPayload(archiveSelection)
             val contextPayload = jsonEntryBuilder.buildContextPayload(archiveSelection)
             val sectionStatuses = buildSectionStatuses(archiveSelection)
@@ -39,7 +40,7 @@ class DiagnosticsArchiveRenderer
                 )
             val compositeEntries =
                 if (archiveSelection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE) {
-                    jsonEntryBuilder.buildCompositeEntries(archiveSelection)
+                    jsonEntryBuilder.buildCompositeEntries(archiveSelection, targetAliases)
                 } else {
                     emptyList()
                 }
@@ -53,6 +54,7 @@ class DiagnosticsArchiveRenderer
                     completeness = completeness,
                     compositeEntries = compositeEntries,
                     developerAnalytics = developerAnalytics,
+                    targetAliases = targetAliases,
                 )
             val correlationRedactor = DiagnosticsArchiveCorrelationRedactor()
             val privacyEntries = baseEntries.map(correlationRedactor::redact)
@@ -77,6 +79,7 @@ class DiagnosticsArchiveRenderer
             completeness: DiagnosticsArchiveCompletenessPayload,
             compositeEntries: List<DiagnosticsArchiveEntry>,
             developerAnalytics: DeveloperAnalyticsPayload,
+            targetAliases: DiagnosticsArchiveTargetAliasRegistry,
         ): List<DiagnosticsArchiveEntry> =
             buildList {
                 addAll(
@@ -89,11 +92,13 @@ class DiagnosticsArchiveRenderer
                         completeness = completeness,
                         compositeEntries = compositeEntries,
                         developerAnalytics = developerAnalytics,
+                        targetAliases = targetAliases,
                     ),
                 )
                 addAll(
                     csvEntryBuilder.buildCsvEntries(
                         selection = selection,
+                        targetAliases = targetAliases,
                     ),
                 )
                 replayArchiveEntryBuilder.build(selection.replayResults)?.let(::add)
@@ -103,9 +108,6 @@ class DiagnosticsArchiveRenderer
             createdAt: Long,
             selection: DiagnosticsArchiveSelection,
         ): String = jsonEntryBuilder.buildSummary(createdAt, selection)
-
-        internal fun buildProbeResultsCsv(results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>): String =
-            csvEntryBuilder.buildProbeResultsCsv(results)
 
         private fun DiagnosticsArchiveSelection.withRedactedBoundedLogs(): DiagnosticsArchiveSelection =
             copy(

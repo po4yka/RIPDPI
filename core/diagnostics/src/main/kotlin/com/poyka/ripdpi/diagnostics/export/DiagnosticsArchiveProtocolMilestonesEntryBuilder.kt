@@ -24,22 +24,28 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
     fun buildRoot(
         selection: DiagnosticsArchiveSelection,
         report: EngineScanReportWire?,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ) = build(
         name = "protocol-milestones.jsonl",
         sessionId = selection.primarySession?.id,
         profileId = selection.primarySession?.profileId,
         report = report,
+        rawReport = selection.primaryReport,
+        targetAliases = targetAliases,
     )
 
     fun buildStage(
         prefix: String,
         stage: DiagnosticsArchiveCompositeStageSelection,
         report: EngineScanReportWire?,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ) = build(
         name = "$prefix/protocol-milestones.jsonl",
         sessionId = stage.session?.id,
         profileId = stage.session?.profileId,
         report = report,
+        rawReport = stage.report,
+        targetAliases = targetAliases,
     )
 
     fun build(
@@ -47,16 +53,20 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         sessionId: String?,
         profileId: String?,
         report: EngineScanReportWire?,
+        rawReport: EngineScanReportWire?,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): DiagnosticsArchiveEntry =
         DiagnosticsArchiveEntry(
             name = name,
-            bytes = buildJsonLines(sessionId, profileId, report).toByteArray(),
+            bytes = buildJsonLines(sessionId, profileId, report, rawReport, targetAliases).toByteArray(),
         )
 
     private fun buildJsonLines(
         sessionId: String?,
         profileId: String?,
         report: EngineScanReportWire?,
+        rawReport: EngineScanReportWire?,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): String =
         report
             ?.observations
@@ -67,6 +77,9 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
                     profileId = profileId,
                     observationIndex = index + 1,
                     observation = observation,
+                    subjectAlias =
+                        targetAliases.aliasFor(rawReport?.observations?.getOrNull(index)?.target)
+                            ?: UnknownProtocolMilestoneTargetAlias,
                 )
             }.mapIndexed { index, record -> record.copy(sequence = index + 1) }
             .joinToString(separator = "", postfix = "") { record ->
@@ -78,17 +91,22 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         profileId: String?,
         observationIndex: Int,
         observation: ObservationFact,
+        subjectAlias: String,
     ): List<ProtocolMilestoneArchiveRecord> {
         val evidencePrefix = "report.json#/observations/${observationIndex - 1}"
         return buildList {
             observation.dns?.let { dns ->
-                addDnsMilestone(dns, evidencePrefix, recordFactory(sessionId, profileId, observationIndex, observation))
+                addDnsMilestone(
+                    dns,
+                    evidencePrefix,
+                    recordFactory(sessionId, profileId, observationIndex, observation, subjectAlias),
+                )
             }
             observation.tcp?.let { tcp ->
                 addTcpMilestones(
                     tcp,
                     evidencePrefix,
-                    recordFactory(sessionId, profileId, observationIndex, observation),
+                    recordFactory(sessionId, profileId, observationIndex, observation, subjectAlias),
                 )
             }
             observation.domain?.let { domain ->
@@ -97,6 +115,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
                     profileId,
                     observationIndex,
                     observation,
+                    subjectAlias,
                     domain,
                     evidencePrefix,
                 )
@@ -105,21 +124,21 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
                 addQuicMilestone(
                     quic,
                     "$evidencePrefix/quic/status",
-                    recordFactory(sessionId, profileId, observationIndex, observation),
+                    recordFactory(sessionId, profileId, observationIndex, observation, subjectAlias),
                 )
             }
             observation.service?.let { service ->
                 addServiceMilestones(
                     service,
                     evidencePrefix,
-                    recordFactory(sessionId, profileId, observationIndex, observation),
+                    recordFactory(sessionId, profileId, observationIndex, observation, subjectAlias),
                 )
             }
             observation.circumvention?.let { circumvention ->
                 addCircumventionMilestones(
                     circumvention,
                     evidencePrefix,
-                    recordFactory(sessionId, profileId, observationIndex, observation),
+                    recordFactory(sessionId, profileId, observationIndex, observation, subjectAlias),
                 )
             }
         }
@@ -130,12 +149,13 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         profileId: String?,
         observationIndex: Int,
         observation: ObservationFact,
+        subjectAlias: String,
         domain: DomainObservationFact,
         evidencePrefix: String,
     ) {
-        addTlsMilestone(sessionId, profileId, observationIndex, observation, domain.tls13Status, true)
-        addTlsMilestone(sessionId, profileId, observationIndex, observation, domain.tls12Status, false)
-        val makeRecord = recordFactory(sessionId, profileId, observationIndex, observation)
+        addTlsMilestone(sessionId, profileId, observationIndex, observation, subjectAlias, domain.tls13Status, true)
+        addTlsMilestone(sessionId, profileId, observationIndex, observation, subjectAlias, domain.tls12Status, false)
+        val makeRecord = recordFactory(sessionId, profileId, observationIndex, observation, subjectAlias)
         if (domain.tlsEchStatus != TlsProbeStatus.NOT_RUN) {
             add(
                 makeRecord(
@@ -329,6 +349,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         profileId: String?,
         observationIndex: Int,
         observation: ObservationFact,
+        subjectAlias: String,
     ): RecordFactory =
         { protocol, milestone, status, outcome, evidenceRef, failureKind ->
             record(
@@ -336,6 +357,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
                 profileId,
                 observationIndex,
                 observation,
+                subjectAlias,
                 protocol,
                 milestone,
                 status,
@@ -350,6 +372,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         profileId: String?,
         observationIndex: Int,
         observation: ObservationFact,
+        subjectAlias: String,
         status: TlsProbeStatus,
         tls13: Boolean,
     ) {
@@ -360,6 +383,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
                 profileId = profileId,
                 observationIndex = observationIndex,
                 observation = observation,
+                subjectAlias = subjectAlias,
                 protocol =
                     if (tls13) {
                         ProtocolMilestoneArchiveProtocol.TLS_1_3
@@ -382,6 +406,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         profileId: String?,
         observationIndex: Int,
         observation: ObservationFact,
+        subjectAlias: String,
         protocol: ProtocolMilestoneArchiveProtocol,
         milestone: ProtocolMilestoneArchiveKind,
         status: ProtocolMilestoneArchiveStatus,
@@ -393,7 +418,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         profileId = profileId,
         sequence = 0,
         observationIndex = observationIndex,
-        subjectAlias = "observation-$observationIndex",
+        subjectAlias = subjectAlias,
         observationKind = observation.kind,
         protocol = protocol,
         milestone = milestone,
@@ -403,6 +428,8 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         evidenceRef = evidenceRef,
     )
 }
+
+private const val UnknownProtocolMilestoneTargetAlias = "target-unknown"
 
 private typealias RecordFactory =
     (

@@ -265,7 +265,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(10, archive.schemaVersion)
+            assertEquals(11, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -776,7 +776,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(10, archive.schemaVersion)
+            assertEquals(11, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -1035,6 +1035,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("home-analysis.json"))
         assertNotNull(zip.getEntry("stage-index.json"))
         assertNotNull(zip.getEntry("stage-summaries.json"))
+        assertNotNull(zip.getEntry("target-aliases.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/execution-plan.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/capabilities.json"))
@@ -1057,7 +1058,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("stages/dpi_full/protocol-milestones.jsonl"))
         assertNotNull(zip.getEntry("stages/dpi_full/decision-trace.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v10.json",
+            "archive/manifest_home_composite_v11.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(
@@ -1067,15 +1068,15 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             },
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/home_analysis_composite_v10.json",
+            "archive/home_analysis_composite_v11.json",
             zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_index_composite_v10.json",
+            "archive/stage_index_composite_v11.json",
             zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_summaries_composite_v10.json",
+            "archive/stage_summaries_composite_v11.json",
             zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
         )
     }

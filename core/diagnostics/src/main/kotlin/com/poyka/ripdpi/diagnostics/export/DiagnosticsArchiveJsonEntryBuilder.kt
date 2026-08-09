@@ -32,6 +32,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         completeness: DiagnosticsArchiveCompletenessPayload,
         compositeEntries: List<DiagnosticsArchiveEntry>,
         developerAnalytics: DeveloperAnalyticsPayload,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): List<DiagnosticsArchiveEntry> =
         buildList {
             add(
@@ -53,7 +54,14 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value = buildRedactedPayload(selection),
                 ),
             )
-            addAll(strategyEvidenceEntryBuilder.buildRoot(selection))
+            add(
+                jsonEntry(
+                    name = "target-aliases.json",
+                    serializer = DiagnosticsArchiveTargetAliasesPayload.serializer(),
+                    value = targetAliases.payload,
+                ),
+            )
+            addAll(strategyEvidenceEntryBuilder.buildRoot(selection, targetAliases))
             addAll(compositeEntries)
             add(
                 jsonEntry(
@@ -238,7 +246,10 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 "latest-live"
             }
 
-    internal fun buildCompositeEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> {
+    internal fun buildCompositeEntries(
+        selection: DiagnosticsArchiveSelection,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
+    ): List<DiagnosticsArchiveEntry> {
         val outcome = selection.homeCompositeOutcome ?: return emptyList()
         return buildList {
             add(
@@ -295,7 +306,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 ),
             )
             selection.compositeStages.forEach { stage ->
-                addAll(buildStageEntries(stage, selection))
+                addAll(buildStageEntries(stage, selection, targetAliases))
             }
         }
     }
@@ -397,6 +408,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private fun buildStageEntries(
         stage: DiagnosticsArchiveCompositeStageSelection,
         selection: DiagnosticsArchiveSelection,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): List<DiagnosticsArchiveEntry> {
         val prefix = "stages/${stage.stageSummary.stageKey}"
         val snapshotPayload = buildStageSnapshotPayload(stage)
@@ -410,11 +422,11 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value = stagePayload,
                 ),
             )
-            addAll(strategyEvidenceEntryBuilder.buildStage(prefix, stage))
+            addAll(strategyEvidenceEntryBuilder.buildStage(prefix, stage, targetAliases))
             add(
                 textEntry(
                     name = "$prefix/probe-results.csv",
-                    content = csvEntryBuilder.buildProbeResultsCsv(stage.results),
+                    content = csvEntryBuilder.buildProbeResultsCsv(stage.results, targetAliases),
                 ),
             )
             add(

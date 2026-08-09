@@ -12,9 +12,17 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
     private val json: Json,
     private val redactor: DiagnosticsArchiveRedactor,
 ) {
-    internal fun buildCsvEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> =
+    internal fun buildCsvEntries(
+        selection: DiagnosticsArchiveSelection,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
+    ): List<DiagnosticsArchiveEntry> =
         buildList {
-            add(textEntry(name = "probe-results.csv", content = buildProbeResultsCsv(selection.primaryResults)))
+            add(
+                textEntry(
+                    name = "probe-results.csv",
+                    content = buildProbeResultsCsv(selection.primaryResults, targetAliases),
+                ),
+            )
             add(
                 textEntry(
                     name = "native-events.csv",
@@ -40,10 +48,17 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
             }
         }
 
-    internal fun buildProbeResultsCsv(results: List<ProbeResultEntity>): String =
+    internal fun buildProbeResultsCsv(
+        results: List<ProbeResultEntity>,
+        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
+    ): String =
         buildString {
             appendLine("sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson")
-            results.map(redactor::redact).forEach { result ->
+            results.forEach { rawResult ->
+                val result =
+                    redactor.redact(rawResult).copy(
+                        target = targetAliases.aliasFor(rawResult.target) ?: UnknownProbeResultTargetAlias,
+                    )
                 appendLine(
                     listOf(
                         csvField(result.sessionId),
@@ -63,3 +78,5 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
             json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
         }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
 }
+
+private const val UnknownProbeResultTargetAlias = "target-unknown"

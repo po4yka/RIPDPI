@@ -122,10 +122,160 @@ class DiagnosticsArchiveRendererTest {
                 .toList()
         assertEquals(2, rows.size)
         assertEquals("tcp-prod", rows[0].getValue("candidateId").jsonPrimitive.content)
-        assertEquals("target-1", rows[0].getValue("targetAlias").jsonPrimitive.content)
+        assertEquals("target-2", rows[0].getValue("targetAlias").jsonPrimitive.content)
         assertEquals("EXECUTED", rows[0].getValue("status").jsonPrimitive.content)
-        assertEquals("target-2", rows[1].getValue("targetAlias").jsonPrimitive.content)
+        assertEquals("target-1", rows[1].getValue("targetAlias").jsonPrimitive.content)
         assertEquals("SKIPPED", rows[1].getValue("status").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `renderer exports archive local target alias inventory without raw targets`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-target-aliases", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-target-aliases.zip",
+                createdAt = 43L,
+            )
+
+        val text =
+            renderer
+                .render(target, buildFullRendererSelection())
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("target-aliases.json")
+                .bytes
+                .decodeToString()
+        val payload = json.parseToJsonElement(text).jsonObject
+        val aliases = payload.getValue("aliases").jsonArray.map { it.jsonObject }
+
+        assertEquals("target_aliases_v1", payload.getValue("aliasVersion").jsonPrimitive.content)
+        assertEquals("ARCHIVE_LOCAL", payload.getValue("scope").jsonPrimitive.content)
+        assertEquals(listOf("target-1", "target-2"), aliases.map { it.getValue("alias").jsonPrimitive.content })
+        assertTrue(aliases.all { it.getValue("evidenceRefs").jsonArray.isNotEmpty() })
+        assertFalse(text.contains("blocked.example"))
+        assertFalse(text.contains("telegram.org"))
+        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v11.json", text)
+    }
+
+    @Test
+    fun `strategy attempt aliases come from the archive registry instead of target index`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-attempt-target-aliases", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-attempt-target-aliases.zip",
+                createdAt = 43L,
+            )
+
+        val entries = renderer.render(target, buildFullRendererSelection()).associateBy(DiagnosticsArchiveEntry::name)
+        val aliases =
+            json
+                .parseToJsonElement(entries.getValue("target-aliases.json").bytes.decodeToString())
+                .jsonObject
+                .getValue("aliases")
+                .jsonArray
+                .map { it.jsonObject }
+        val expectedAlias =
+            aliases
+                .single { alias ->
+                    alias.getValue("evidenceRefs").jsonArray.any { ref ->
+                        ref.jsonPrimitive.content == "attempts.jsonl#L1"
+                    }
+                }.getValue("alias")
+                .jsonPrimitive.content
+        val firstAttempt =
+            entries
+                .getValue("attempts.jsonl")
+                .bytes
+                .decodeToString()
+                .lineSequence()
+                .first()
+                .let(json::parseToJsonElement)
+                .jsonObject
+
+        assertEquals("target-2", expectedAlias)
+        assertEquals(expectedAlias, firstAttempt.getValue("targetAlias").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `protocol milestone subjects use target aliases independent of observation order`() {
+        val base = buildFullRendererSelection()
+        val report = protocolMilestoneReport(requireNotNull(base.primaryReport))
+        val reordered = report.copy(observations = report.observations.reversed())
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-milestone-target-aliases", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-milestone-target-aliases.zip",
+                createdAt = 43L,
+            )
+
+        val entries =
+            renderer
+                .render(target, base.copy(primaryReport = reordered))
+                .associateBy(DiagnosticsArchiveEntry::name)
+        val aliases =
+            json
+                .parseToJsonElement(entries.getValue("target-aliases.json").bytes.decodeToString())
+                .jsonObject
+                .getValue("aliases")
+                .jsonArray
+                .map { it.jsonObject }
+        val expectedAlias =
+            aliases
+                .single { alias ->
+                    alias.getValue("evidenceRefs").jsonArray.any { ref ->
+                        ref.jsonPrimitive.content == "report.json#/observations/0"
+                    }
+                }.getValue("alias")
+                .jsonPrimitive.content
+        val firstMilestone =
+            entries
+                .getValue("protocol-milestones.jsonl")
+                .bytes
+                .decodeToString()
+                .lineSequence()
+                .first()
+                .let(json::parseToJsonElement)
+                .jsonObject
+
+        assertEquals("target-2", expectedAlias)
+        assertEquals(expectedAlias, firstMilestone.getValue("subjectAlias").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `probe result targets use the same archive alias inventory`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-probe-target-aliases", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-probe-target-aliases.zip",
+                createdAt = 43L,
+            )
+
+        val entries = renderer.render(target, buildFullRendererSelection()).associateBy(DiagnosticsArchiveEntry::name)
+        val aliases =
+            json
+                .parseToJsonElement(entries.getValue("target-aliases.json").bytes.decodeToString())
+                .jsonObject
+                .getValue("aliases")
+                .jsonArray
+                .map { it.jsonObject }
+        val expectedAlias =
+            aliases
+                .single { alias ->
+                    alias.getValue("evidenceRefs").jsonArray.any { ref ->
+                        ref.jsonPrimitive.content == "probe-results.csv#L2"
+                    }
+                }.getValue("alias")
+                .jsonPrimitive.content
+        val csv = entries.getValue("probe-results.csv").bytes.decodeToString()
+
+        assertEquals("target-1", expectedAlias)
+        assertTrue(
+            csv
+                .lineSequence()
+                .drop(1)
+                .first()
+                .contains(",\"$expectedAlias\","),
+        )
+        assertFalse(csv.contains("blocked.example"))
     }
 
     @Test
@@ -179,7 +329,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/capabilities_v10.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/capabilities_v11.json", text)
     }
 
     @Test
@@ -220,7 +370,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(rows.all { row -> row.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v10.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v11.jsonl", text)
     }
 
     @Test
@@ -378,7 +528,7 @@ class DiagnosticsArchiveRendererTest {
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("quic.example"))
         assertFalse(text.contains("CLIENT_HELLO"))
-        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v9.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v11.jsonl", text)
     }
 
     @Test
@@ -1070,7 +1220,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(10, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(11, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -1707,6 +1857,7 @@ class DiagnosticsArchiveRendererTest {
             val appLog = zip.getInputStream(zip.getEntry("app-log.txt")).bufferedReader().readText()
             val events = zip.getInputStream(zip.getEntry("native-events.csv")).bufferedReader().readText()
             val attempts = zip.getInputStream(attemptsEntry).bufferedReader().readText()
+            val stageAttemptAlias = targetAliasForEvidenceRef(zip, "stages/automatic_audit/attempts.jsonl#L1")
             assertFalse(logcat.contains(logFixture.partialLogcatLine))
             assertTrue(logcat.contains(logFixture.newestLogcatLine))
             assertTrue(logcat.contains("I/RIPDPI( 123): <path-redacted>"))
@@ -1716,12 +1867,28 @@ class DiagnosticsArchiveRendererTest {
             assertFalse(events.contains("status=failed"))
             assertTrue(events.contains("ready"))
             assertTrue(attempts.contains("\"candidateId\":\"tcp-prod\""))
-            assertTrue(attempts.contains("\"targetAlias\":\"target-1\""))
+            assertTrue(attempts.contains("\"targetAlias\":\"$stageAttemptAlias\""))
             assertFalse(attempts.contains("telegram.org"))
             assertFalse(attempts.contains("blocked.example"))
         }
         assertZipExcludes(target, hostileArchiveValues())
     }
+
+    private fun targetAliasForEvidenceRef(
+        zip: ZipFile,
+        evidenceRef: String,
+    ): String =
+        json
+            .parseToJsonElement(
+                zip.getInputStream(zip.getEntry("target-aliases.json")).bufferedReader().readText(),
+            ).jsonObject
+            .getValue("aliases")
+            .jsonArray
+            .map { it.jsonObject }
+            .single { alias ->
+                alias.getValue("evidenceRefs").jsonArray.any { ref -> ref.jsonPrimitive.content == evidenceRef }
+            }.getValue("alias")
+            .jsonPrimitive.content
 
     private data class TruncatedLogTailFixture(
         val selection: DiagnosticsArchiveSelection,
@@ -2562,35 +2729,35 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v10.json",
+            "archive/manifest_v11.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v10.json",
+            "archive/archive_provenance_v11.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v10.json",
+            "archive/runtime_config_v11.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v10.json",
+            "archive/analysis_v11.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v10.json",
+            "archive/completeness_v11.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v10.json",
+            "archive/integrity_v11.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v10.json",
+            "archive/execution_plan_v11.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/decision_trace_v10.json",
+            "archive/decision_trace_v11.json",
             entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }

@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 10 adds root and per-stage capability evidence and emission receipts.
-    const val schemaVersion = 10
+    // Version 11 adds archive-local stable target aliases.
+    const val schemaVersion = 11
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -77,6 +77,7 @@ internal object DiagnosticsArchiveFormat {
             add("summary.txt")
             add("manifest.json")
             add("report.json")
+            add("target-aliases.json")
             addStrategyEvidenceFiles()
             add("strategy-matrix.json")
             if (composite) {

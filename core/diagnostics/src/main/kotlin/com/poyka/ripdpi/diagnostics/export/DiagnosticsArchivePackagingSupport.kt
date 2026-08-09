@@ -460,6 +460,7 @@ private fun sectionStatusForFileName(
         "summary.txt",
         "manifest.json",
         "report.json",
+        "target-aliases.json",
         "execution-plan.json",
         "capabilities.json",
         "attempts.jsonl",
