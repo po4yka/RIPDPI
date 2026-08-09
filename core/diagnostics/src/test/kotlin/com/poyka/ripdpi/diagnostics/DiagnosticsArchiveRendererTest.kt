@@ -8,12 +8,14 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.export.DecisionTraceArchivePayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifact
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollectionStatus
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledNativeLibrary
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeAbi
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSigningLineageBand
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveStageEvidenceAbsenceReason
 import com.poyka.ripdpi.diagnostics.export.ExecutionPlanArchivePayload
 import com.poyka.ripdpi.diagnostics.export.buildMeasurementSnapshot
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
@@ -154,7 +156,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(aliases.all { it.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v13.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/target_aliases_v14.json", text)
     }
 
     @Test
@@ -330,7 +332,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertJsonGolden("archive/capabilities_v13.json", text)
+        GoldenContractSupport.assertJsonGolden("archive/capabilities_v14.json", text)
     }
 
     @Test
@@ -371,7 +373,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(rows.all { row -> row.getValue("evidenceRefs").jsonArray.isNotEmpty() })
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("telegram.org"))
-        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v13.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/emission_receipts_v14.jsonl", text)
     }
 
     @Test
@@ -529,7 +531,7 @@ class DiagnosticsArchiveRendererTest {
         assertFalse(text.contains("blocked.example"))
         assertFalse(text.contains("quic.example"))
         assertFalse(text.contains("CLIENT_HELLO"))
-        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v13.jsonl", text)
+        GoldenContractSupport.assertTextGolden("archive/protocol_milestones_v14.jsonl", text)
     }
 
     @Test
@@ -814,7 +816,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertFalse(rows[4].containsKey("sessionId"))
         assertResolverTracePrivacy(traceText)
-        GoldenContractSupport.assertTextGolden("archive/resolver_trace_v13.jsonl", traceText)
+        GoldenContractSupport.assertTextGolden("archive/resolver_trace_v14.jsonl", traceText)
     }
 
     @Test
@@ -918,7 +920,7 @@ class DiagnosticsArchiveRendererTest {
                 entries.getValue("integrity.json").bytes.decodeToString(),
             )
 
-        assertEquals(13, manifest.schemaVersion)
+        assertEquals(14, manifest.schemaVersion)
         assertTrue(manifest.includedFiles.contains("resolver-trace.jsonl"))
         assertEquals(
             DiagnosticsArchiveSectionStatus.REDACTED,
@@ -1394,7 +1396,149 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(13, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(14, DiagnosticsArchiveFormat.schemaVersion)
+    }
+
+    @Test
+    fun `completeness reports structured evidence counts for every composite stage`() {
+        val stageKey = "automatic_audit"
+        val sessionId = "$stageKey-session"
+        val report = protocolMilestoneReport(rendererScanReport(sessionId).toEngineScanReportWire())
+        val stage =
+            rendererCompositeStage(
+                stageKey = stageKey,
+                events = listOf(rendererNativeEvent("event-stage", sessionId)),
+                session = rendererScanSession(sessionId),
+            ).copy(
+                report = report,
+                results = listOf(rendererProbeResult(sessionId = sessionId)),
+                snapshots = listOf(rendererNetworkSnapshotEntity(sessionId = sessionId)),
+                contexts = listOf(rendererDiagnosticContextEntity(sessionId = sessionId)),
+                telemetry = listOf(rendererTelemetrySample(publicIp = "198.51.100.8")),
+                sourceSnapshotCount = 1,
+                sourceContextCount = 1,
+                sourceEventCount = 1,
+                sourceTelemetryCount = 1,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-stage-evidence-counts", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-stage-evidence-counts.zip",
+                createdAt = 45L,
+            )
+
+        val entries =
+            renderer
+                .render(
+                    target,
+                    compositeRendererSelection(buildFullRendererSelection(), stage, "run-stage-evidence-counts"),
+                ).associateBy(DiagnosticsArchiveEntry::name)
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+        val decisionTrace =
+            json.decodeFromString(
+                DecisionTraceArchivePayload.serializer(),
+                entries.getValue("stages/$stageKey/decision-trace.json").bytes.decodeToString(),
+            )
+        val evidence = completeness.stageEvidence.single()
+
+        assertEquals(stageKey, evidence.stageKey)
+        assertEquals(2, evidence.counts.plannedAttempts.sourceCount)
+        assertEquals(1, evidence.counts.executedAttempts.sourceCount)
+        assertEquals(2, evidence.counts.observations.sourceCount)
+        assertEquals(1, evidence.counts.diagnoses.sourceCount)
+        assertEquals(
+            decisionTrace.decisions.sumOf { decision -> decision.evidenceRefs.size },
+            evidence.counts.verdictEvidenceRefs.includedCount,
+        )
+        listOf(
+            evidence.counts.snapshots,
+            evidence.counts.contexts,
+            evidence.counts.nativeEvents,
+            evidence.counts.telemetrySamples,
+            evidence.counts.plannedAttempts,
+            evidence.counts.executedAttempts,
+            evidence.counts.observations,
+            evidence.counts.diagnoses,
+            evidence.counts.verdictEvidenceRefs,
+        ).forEach { count -> assertNull(count.absenceReason) }
+    }
+
+    @Test
+    fun `stage evidence completeness assigns a typed reason to every absence`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-stage-evidence-absence", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-stage-evidence-absence.zip",
+                createdAt = 46L,
+            )
+
+        val completeness =
+            renderer
+                .render(target, stageEvidenceAbsenceSelection())
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("completeness.json")
+                .bytes
+                .decodeToString()
+                .let { text -> json.decodeFromString(DiagnosticsArchiveCompletenessPayload.serializer(), text) }
+        val skippedEvidence = completeness.stageEvidence.single { it.stageKey == "skipped" }
+        val missingReportEvidence = completeness.stageEvidence.single { it.stageKey == "missing_report" }
+        val nonStrategyEvidence = completeness.stageEvidence.single { it.stageKey == "non_strategy" }
+
+        listOf(
+            skippedEvidence.counts.snapshots,
+            skippedEvidence.counts.contexts,
+            skippedEvidence.counts.telemetrySamples,
+            skippedEvidence.counts.plannedAttempts,
+            skippedEvidence.counts.executedAttempts,
+            skippedEvidence.counts.observations,
+            skippedEvidence.counts.diagnoses,
+            skippedEvidence.counts.verdictEvidenceRefs,
+        ).forEach { count ->
+            assertEquals(DiagnosticsArchiveStageEvidenceAbsenceReason.STAGE_NOT_EXECUTED, count.absenceReason)
+        }
+        assertEquals(1, skippedEvidence.counts.nativeEvents.includedCount)
+        assertNull(skippedEvidence.counts.nativeEvents.absenceReason)
+        listOf(
+            missingReportEvidence.counts.plannedAttempts,
+            missingReportEvidence.counts.executedAttempts,
+            missingReportEvidence.counts.observations,
+            missingReportEvidence.counts.diagnoses,
+            missingReportEvidence.counts.verdictEvidenceRefs,
+        ).forEach { count ->
+            assertEquals(DiagnosticsArchiveStageEvidenceAbsenceReason.REPORT_UNAVAILABLE, count.absenceReason)
+        }
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NOT_APPLICABLE_FOR_STAGE,
+            nonStrategyEvidence.counts.plannedAttempts.absenceReason,
+        )
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NO_OBSERVATIONS_EMITTED,
+            nonStrategyEvidence.counts.observations.absenceReason,
+        )
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NO_DIAGNOSES_EMITTED,
+            nonStrategyEvidence.counts.diagnoses.absenceReason,
+        )
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NO_SNAPSHOTS_COLLECTED,
+            nonStrategyEvidence.counts.snapshots.absenceReason,
+        )
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NO_CONTEXTS_COLLECTED,
+            nonStrategyEvidence.counts.contexts.absenceReason,
+        )
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NO_NATIVE_EVENTS_COLLECTED,
+            nonStrategyEvidence.counts.nativeEvents.absenceReason,
+        )
+        assertEquals(
+            DiagnosticsArchiveStageEvidenceAbsenceReason.NO_TELEMETRY_SAMPLES_COLLECTED,
+            nonStrategyEvidence.counts.telemetrySamples.absenceReason,
+        )
     }
 
     @Test
@@ -2602,6 +2746,58 @@ class DiagnosticsArchiveRendererTest {
         events = events,
     )
 
+    private fun stageEvidenceAbsenceSelection(): DiagnosticsArchiveSelection {
+        val skipped =
+            rendererCompositeStage(
+                "skipped",
+                listOf(rendererNativeEvent("skipped-event", "skipped-session")),
+            ).let { stage ->
+                stage.copy(stageSummary = stage.stageSummary.copy(status = DiagnosticsHomeCompositeStageStatus.SKIPPED))
+            }
+        val missingReport =
+            rendererCompositeStage(
+                stageKey = "missing_report",
+                events = emptyList(),
+                session = rendererScanSession("missing_report-session"),
+            )
+        val nonStrategyReport =
+            rendererScanReport("non_strategy-session")
+                .toEngineScanReportWire()
+                .copy(
+                    strategyProbeReport = null,
+                    observations = emptyList(),
+                    diagnoses = emptyList(),
+                    executionPlan = rendererExecutionPlan().copy(strategy = null),
+                )
+        val nonStrategy =
+            rendererCompositeStage(
+                stageKey = "non_strategy",
+                events = emptyList(),
+                session = rendererScanSession("non_strategy-session"),
+            ).copy(report = nonStrategyReport)
+        val stages = listOf(skipped, missingReport, nonStrategy)
+        val runId = "run-stage-evidence-absence-reasons"
+        return buildFullRendererSelection().copy(
+            runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+            homeRunId = runId,
+            homeCompositeOutcome =
+                DiagnosticsHomeCompositeOutcome(
+                    runId = runId,
+                    actionable = false,
+                    headline = "Incomplete evidence",
+                    summary = "Incomplete evidence",
+                    stageSummaries = stages.map { it.stageSummary },
+                ),
+            compositeStages = stages,
+            includedFiles =
+                com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                    logcatIncluded = true,
+                    composite = true,
+                    compositeStageKeys = stages.map { it.stageSummary.stageKey },
+                ),
+        )
+    }
+
     private fun protocolMilestoneReport(report: EngineScanReportWire) =
         report.copy(
             observations =
@@ -2985,39 +3181,39 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v13.json",
+            "archive/manifest_v14.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/capture_manifest_v13.json",
+            "archive/capture_manifest_v14.json",
             entries.getValue("capture-manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v13.json",
+            "archive/archive_provenance_v14.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v13.json",
+            "archive/runtime_config_v14.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v13.json",
+            "archive/analysis_v14.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v13.json",
+            "archive/completeness_v14.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v13.json",
+            "archive/integrity_v14.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v13.json",
+            "archive/execution_plan_v14.json",
             entries.getValue("execution-plan.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/decision_trace_v13.json",
+            "archive/decision_trace_v14.json",
             entries.getValue("decision-trace.json").bytes.decodeToString(),
         )
     }

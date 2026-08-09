@@ -391,6 +391,7 @@ internal fun buildCompleteness(
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
+        stageEvidence = selection.buildStageEvidenceCompleteness(),
         collectionWarnings = collectionWarnings,
         truncation = selection.truncation(),
     )

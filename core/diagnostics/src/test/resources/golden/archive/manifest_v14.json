@@ -131,7 +131,7 @@
     ],
     "requestedSessionId": "session-1",
     "runType": "single_session",
-    "schemaVersion": 13,
+    "schemaVersion": 14,
     "scope": "hybrid",
     "sectionStatusSummary": {
         "analysis.json": "included",

@@ -66,6 +66,7 @@
             "snapshots": 1
         }
     },
+    "stageEvidence": [],
     "truncation": {
         "appLog": false,
         "contexts": false,

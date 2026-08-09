@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 internal data class DiagnosticsArchiveCompositeStageSelection(
@@ -63,3 +64,70 @@ internal data class DiagnosticsArchiveStageSummariesPayload(
     val runId: String,
     val stages: List<DiagnosticsArchiveStageIndexEntry>,
 )
+
+@Serializable
+internal data class DiagnosticsArchiveStageEvidenceCompleteness(
+    val stageKey: String,
+    val stageStatus: String,
+    val counts: DiagnosticsArchiveStageEvidenceCounts,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveStageEvidenceCounts(
+    val snapshots: DiagnosticsArchiveStageEvidenceCount,
+    val contexts: DiagnosticsArchiveStageEvidenceCount,
+    val nativeEvents: DiagnosticsArchiveStageEvidenceCount,
+    val telemetrySamples: DiagnosticsArchiveStageEvidenceCount,
+    val plannedAttempts: DiagnosticsArchiveStageEvidenceCount,
+    val executedAttempts: DiagnosticsArchiveStageEvidenceCount,
+    val observations: DiagnosticsArchiveStageEvidenceCount,
+    val diagnoses: DiagnosticsArchiveStageEvidenceCount,
+    val verdictEvidenceRefs: DiagnosticsArchiveStageEvidenceCount,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveStageEvidenceCount(
+    val sourceCount: Int? = null,
+    val includedCount: Int? = null,
+    val truncated: Boolean = false,
+    val absenceReason: DiagnosticsArchiveStageEvidenceAbsenceReason? = null,
+)
+
+@Serializable
+internal enum class DiagnosticsArchiveStageEvidenceAbsenceReason {
+    @SerialName("stage_not_executed")
+    STAGE_NOT_EXECUTED,
+
+    @SerialName("stage_session_unavailable")
+    STAGE_SESSION_UNAVAILABLE,
+
+    @SerialName("report_unavailable")
+    REPORT_UNAVAILABLE,
+
+    @SerialName("not_applicable_for_stage")
+    NOT_APPLICABLE_FOR_STAGE,
+
+    @SerialName("attempt_ledger_unavailable")
+    ATTEMPT_LEDGER_UNAVAILABLE,
+
+    @SerialName("no_executed_attempts")
+    NO_EXECUTED_ATTEMPTS,
+
+    @SerialName("no_observations_emitted")
+    NO_OBSERVATIONS_EMITTED,
+
+    @SerialName("no_diagnoses_emitted")
+    NO_DIAGNOSES_EMITTED,
+
+    @SerialName("no_snapshots_collected")
+    NO_SNAPSHOTS_COLLECTED,
+
+    @SerialName("no_contexts_collected")
+    NO_CONTEXTS_COLLECTED,
+
+    @SerialName("no_native_events_collected")
+    NO_NATIVE_EVENTS_COLLECTED,
+
+    @SerialName("no_telemetry_samples_collected")
+    NO_TELEMETRY_SAMPLES_COLLECTED,
+}

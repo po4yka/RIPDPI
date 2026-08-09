@@ -8,17 +8,17 @@
         {
             "byteCount": 6266,
             "name": "manifest.json",
-            "sha256": "c97cbe6418e6a75d3413757f1cbda7a7a497bff525ec578d430611339a4eb6ba"
+            "sha256": "654b8963d218ea35f0efb6eaf552099ef5bee6d7babed9b770f42ba7e18499bf"
         },
         {
             "byteCount": 295,
             "name": "capture-manifest.json",
-            "sha256": "d27766c1dee02eded21768c6dc67e25dc53eb9439a3b3f5e5119a59b00c86880"
+            "sha256": "f6766dfee8615a9fdb72d6a8a896d858a436fc88abf20eeff8e6453354c9399b"
         },
         {
             "byteCount": 51760,
             "name": "report.json",
-            "sha256": "efc0656b0f51952ababb61742d0b02393aef99108e421cc8d34c45ba8d081835"
+            "sha256": "79d6c3a5fe47b9e619c0cfb9abc0ce2097ad7c36965b1b07ba9e40af37bd5823"
         },
         {
             "byteCount": 514,
@@ -81,9 +81,9 @@
             "sha256": "ecf9c0cf18f0d16bf516d444969dc8671e6910cb99064e49e646992c11f70f53"
         },
         {
-            "byteCount": 2307,
+            "byteCount": 2332,
             "name": "completeness.json",
-            "sha256": "b98b1a329473df28dab84d5a69536859e05982964b14b2c92a516d1e0a9a75c8"
+            "sha256": "dc02913cd9ea67507d8ec511b08acb11893507f4e4a419aa70f66e19b294a420"
         },
         {
             "byteCount": 1647,
@@ -123,5 +123,5 @@
     ],
     "generatedAt": 42,
     "hashAlgorithm": "sha256",
-    "schemaVersion": 13
+    "schemaVersion": 14
 }

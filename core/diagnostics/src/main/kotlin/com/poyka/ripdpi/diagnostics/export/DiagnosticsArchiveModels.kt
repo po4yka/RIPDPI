@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 13 adds a privacy-safe manifest for separate packet-capture artifacts.
-    const val schemaVersion = 13
+    // Version 14 adds per-stage evidence completeness counts and typed absence reasons.
+    const val schemaVersion = 14
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -615,6 +615,7 @@ internal data class DiagnosticsArchiveCompletenessPayload(
     val appliedLimits: DiagnosticsArchiveAppliedLimits,
     val sourceCounts: DiagnosticsArchiveScopedCounts,
     val includedCounts: DiagnosticsArchiveScopedCounts,
+    val stageEvidence: List<DiagnosticsArchiveStageEvidenceCompleteness> = emptyList(),
     val collectionWarnings: List<String> = emptyList(),
     val truncation: DiagnosticsArchiveTruncation = DiagnosticsArchiveTruncation(),
 )

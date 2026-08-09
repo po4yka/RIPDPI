@@ -265,7 +265,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(13, archive.schemaVersion)
+            assertEquals(14, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -776,7 +776,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(13, archive.schemaVersion)
+            assertEquals(14, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -1062,7 +1062,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("stages/dpi_full/resolver-trace.jsonl"))
         assertNotNull(zip.getEntry("stages/dpi_full/decision-trace.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v13.json",
+            "archive/manifest_home_composite_v14.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(
@@ -1072,15 +1072,15 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             },
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/home_analysis_composite_v13.json",
+            "archive/home_analysis_composite_v14.json",
             zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_index_composite_v13.json",
+            "archive/stage_index_composite_v14.json",
             zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_summaries_composite_v13.json",
+            "archive/stage_summaries_composite_v14.json",
             zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
         )
     }
