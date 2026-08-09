@@ -202,17 +202,35 @@ private data class SectionTruncationFlags(
     val appLog: Boolean,
 )
 
+private fun DiagnosticsArchiveSelection.rootNativeEventsTruncated(): Boolean =
+    sourceCounts.primarySession.events > DiagnosticsArchiveFormat.sessionEventLimit ||
+        rootSourceCounts.globalEvents > DiagnosticsArchiveFormat.globalEventLimit
+
+private fun DiagnosticsArchiveSelection.anyNativeEventsTruncated(): Boolean =
+    rootNativeEventsTruncated() ||
+        compositeStages.any { it.sourceEventCount > DiagnosticsArchiveFormat.sessionEventLimit }
+
+private fun DiagnosticsArchiveSelection.anyTelemetryTruncated(): Boolean =
+    rootSourceCounts.telemetrySamples > DiagnosticsArchiveFormat.telemetryLimit ||
+        compositeStages.any { it.sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit }
+
+private fun DiagnosticsArchiveSelection.anySnapshotsTruncated(): Boolean =
+    rootSourceCounts.primarySnapshots > DiagnosticsArchiveFormat.snapshotLimit ||
+        compositeStages.any { it.sourceSnapshotCount > DiagnosticsArchiveFormat.snapshotLimit }
+
+private fun DiagnosticsArchiveSelection.anyContextsTruncated(): Boolean =
+    rootSourceCounts.primaryContexts > DiagnosticsArchiveFormat.snapshotLimit ||
+        compositeStages.any { it.sourceContextCount > DiagnosticsArchiveFormat.snapshotLimit }
+
 internal fun buildSectionStatuses(
     selection: DiagnosticsArchiveSelection,
 ): Map<String, DiagnosticsArchiveSectionStatus> {
     val truncationFlags =
         SectionTruncationFlags(
-            telemetry = selection.sourceCounts.telemetrySamples > DiagnosticsArchiveFormat.telemetryLimit,
-            nativeEvents =
-                selection.sourceCounts.nativeEvents > DiagnosticsArchiveFormat.globalEventLimit ||
-                    selection.sourceCounts.sessionEvents > DiagnosticsArchiveFormat.sessionEventLimit,
-            snapshots = selection.sourceCounts.snapshots > DiagnosticsArchiveFormat.snapshotLimit,
-            contexts = selection.sourceCounts.contexts > DiagnosticsArchiveFormat.snapshotLimit,
+            telemetry = selection.rootSourceCounts.telemetrySamples > DiagnosticsArchiveFormat.telemetryLimit,
+            nativeEvents = selection.rootNativeEventsTruncated(),
+            snapshots = selection.rootSourceCounts.primarySnapshots > DiagnosticsArchiveFormat.snapshotLimit,
+            contexts = selection.rootSourceCounts.primaryContexts > DiagnosticsArchiveFormat.snapshotLimit,
             logcat = selection.logcatSnapshot?.truncated == true,
             appLog = selection.fileLogSnapshot?.truncated == true,
         )
@@ -298,36 +316,49 @@ internal fun buildCompleteness(
                 appLogBytes = com.poyka.ripdpi.diagnostics.FileLogWriter.MAX_LOG_FILE_BYTES,
             ),
         sourceCounts = selection.sourceCounts,
-        includedCounts =
-            DiagnosticsArchiveSourceCounts(
-                telemetrySamples = selection.payload.telemetry.size,
-                nativeEvents = selection.primaryEvents.size + selection.globalEvents.size,
-                snapshots =
-                    snapshotPayload.sessionSnapshots.size +
-                        if (snapshotPayload.latestPassiveSnapshot != null) 1 else 0,
-                contexts =
-                    contextPayload.sessionContexts.size +
-                        if (contextPayload.latestPassiveContext != null) 1 else 0,
-                sessionResults = selection.primaryResults.size,
-                sessionSnapshots = snapshotPayload.sessionSnapshots.size,
-                sessionContexts = contextPayload.sessionContexts.size,
-                sessionEvents = selection.primaryEvents.size,
-            ),
+        includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
         collectionWarnings = collectionWarnings,
-        truncation =
-            DiagnosticsArchiveTruncation(
-                telemetrySamples =
-                    selection.sourceCounts.telemetrySamples > DiagnosticsArchiveFormat.telemetryLimit,
-                nativeEvents =
-                    selection.sourceCounts.nativeEvents > DiagnosticsArchiveFormat.globalEventLimit ||
-                        selection.sourceCounts.sessionEvents > DiagnosticsArchiveFormat.sessionEventLimit,
-                snapshots = selection.sourceCounts.snapshots > DiagnosticsArchiveFormat.snapshotLimit,
-                contexts = selection.sourceCounts.contexts > DiagnosticsArchiveFormat.snapshotLimit,
-                logcat = selection.logcatSnapshot?.truncated == true,
-                appLog = selection.fileLogSnapshot?.truncated == true,
-            ),
+        truncation = selection.truncation(),
     )
 }
+
+private fun DiagnosticsArchiveSelection.includedCounts(
+    snapshotPayload: DiagnosticsArchiveSnapshotPayload,
+    contextPayload: DiagnosticsArchiveContextPayload,
+) = DiagnosticsArchiveScopedCounts(
+    archiveWide =
+        DiagnosticsArchiveArchiveWideCounts(
+            telemetrySamples =
+                (payload.telemetry + compositeStages.flatMap { it.telemetry }).distinctBy { it.id }.size,
+            nativeEvents =
+                (primaryEvents + globalEvents + compositeStages.flatMap { it.events }).distinctBy { it.id }.size,
+            snapshots =
+                (primarySnapshots + listOfNotNull(latestPassiveSnapshot) + compositeStages.flatMap { it.snapshots })
+                    .distinctBy { it.id }
+                    .size,
+            contexts =
+                (primaryContexts + listOfNotNull(latestPassiveContext) + compositeStages.flatMap { it.contexts })
+                    .distinctBy { it.id }
+                    .size,
+        ),
+    primarySession =
+        DiagnosticsArchivePrimarySessionCounts(
+            results = primaryResults.size,
+            snapshots = snapshotPayload.sessionSnapshots.size,
+            contexts = contextPayload.sessionContexts.size,
+            events = primaryEvents.size,
+        ),
+)
+
+private fun DiagnosticsArchiveSelection.truncation() =
+    DiagnosticsArchiveTruncation(
+        telemetrySamples = anyTelemetryTruncated(),
+        nativeEvents = anyNativeEventsTruncated(),
+        snapshots = anySnapshotsTruncated(),
+        contexts = anyContextsTruncated(),
+        logcat = logcatSnapshot?.truncated == true,
+        appLog = fileLogSnapshot?.truncated == true,
+    )
 
 internal fun buildIntegrityPayload(
     target: DiagnosticsArchiveTarget,

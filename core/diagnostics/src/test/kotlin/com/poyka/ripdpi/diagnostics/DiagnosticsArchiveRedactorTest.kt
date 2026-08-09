@@ -343,6 +343,26 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
+    fun `standalone log redactor preserves rust namespaces`() {
+        val raw = "android_support::tracing_layer rustls::client::hs"
+
+        assertEquals(raw, redactDiagnosticsLogcat(raw))
+    }
+
+    @Test
+    fun `standalone log redactor removes rust debug ipv4 addresses`() {
+        val raw = "resolvers=Ipv4Addr([8, 8, 8, 8]), Ipv4Addr([94, 140, 14, 14])"
+
+        val redacted = redactDiagnosticsLogcat(raw)
+
+        assertFalse(redacted.contains("8, 8, 8, 8"))
+        assertFalse(redacted.contains("94"))
+        assertFalse(redacted.contains("140"))
+        assertFalse(redacted.contains("14"))
+        assertTrue(redacted.contains("<ip-redacted>"))
+    }
+
+    @Test
     fun `archive redactor fails closed on truncated pem material`() {
         val privateKeyStart = listOf("-----BEGIN", "PRIVATE KEY-----").joinToString(" ")
         val raw = "before\n$privateKeyStart\ntruncated-private-material\nwithout-end-marker"

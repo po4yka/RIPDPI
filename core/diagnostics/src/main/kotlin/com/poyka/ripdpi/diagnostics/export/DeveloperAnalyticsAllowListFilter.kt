@@ -75,21 +75,14 @@ internal object DeveloperAnalyticsAllowListFilter {
         )
     private val deviceStateKeys =
         setOf(
-            "deviceManufacturer",
-            "deviceModel",
             "androidSdk",
-            "androidSecurityPatch",
             "abi",
-            "locale",
-            "timeZone",
             "batteryPercent",
             "batteryCharging",
             "thermalStatus",
             "dozeModeActive",
             "powerSaveActive",
             "appStandbyBucket",
-            "availableMemoryMb",
-            "totalMemoryMb",
             "lowMemory",
         )
     private val baselineDeltaKeys = setOf("baselineClass", "baselineVersion", "comparisons")

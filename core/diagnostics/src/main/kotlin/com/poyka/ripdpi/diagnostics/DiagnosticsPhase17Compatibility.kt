@@ -25,8 +25,14 @@ internal typealias DiagnosticsArchiveSectionStatus =
 internal typealias DiagnosticsArchiveSelection = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 internal typealias DiagnosticsArchiveSessionSelectionStatus =
     com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSessionSelectionStatus
-internal typealias DiagnosticsArchiveSourceCounts =
-    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceCounts
+internal typealias DiagnosticsArchiveArchiveWideCounts =
+    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveArchiveWideCounts
+internal typealias DiagnosticsArchivePrimarySessionCounts =
+    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePrimarySessionCounts
+internal typealias DiagnosticsArchiveRootSourceCounts =
+    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRootSourceCounts
+internal typealias DiagnosticsArchiveScopedCounts =
+    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveScopedCounts
 internal typealias DiagnosticsArchiveSourceData = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 internal typealias DiagnosticsArchiveTarget = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveTarget
 internal typealias DiagnosticsArchiveZipWriter = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter

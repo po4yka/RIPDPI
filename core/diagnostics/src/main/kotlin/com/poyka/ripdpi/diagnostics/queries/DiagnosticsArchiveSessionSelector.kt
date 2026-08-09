@@ -10,16 +10,19 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveArchiveWideCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePayload
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePrimarySessionCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRootSourceCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRunType
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveScopedCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSessionSelectionStatus
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -69,6 +72,7 @@ class DiagnosticsArchiveSessionSelector
 
             val primaryEvents = primarySession?.id?.let { sessionId -> loadSessionEvents(sessionId) }.orEmpty()
             val primary = buildPrimarySessionData(primarySession, primaryResults, primaryEvents, sourceData)
+            val rootSourceCounts = buildRootSourceCounts(sourceData, primarySession)
             val isComposite = compositeOutcome != null && request.homeRunId != null
             val compositeStages =
                 buildCompositeStages(
@@ -100,6 +104,7 @@ class DiagnosticsArchiveSessionSelector
                 latestPassiveSnapshot = primary.latestPassiveSnapshot,
                 latestPassiveContext = primary.latestPassiveContext,
                 globalEvents = primary.globalEvents,
+                rootSourceCounts = rootSourceCounts,
                 selectedApproachSummary = primary.selectedApproachSummary,
                 latestSnapshotModel = primary.latestSnapshotModel,
                 latestSnapshotSource = primary.latestSnapshotSource,
@@ -115,20 +120,69 @@ class DiagnosticsArchiveSessionSelector
                 appSettings = sourceData.appSettings,
                 replayResults = sourceData.replayResults,
                 sourceCounts =
-                    DiagnosticsArchiveSourceCounts(
-                        telemetrySamples = sourceData.telemetry.size,
-                        nativeEvents = sourceData.events.size,
-                        snapshots = sourceData.snapshots.size,
-                        contexts = sourceData.contexts.size,
-                        sessionResults = primaryResults.size,
-                        sessionSnapshots = primary.snapshots.size,
-                        sessionContexts = primary.contexts.size,
-                        sessionEvents = primaryEvents.size,
+                    buildSourceCounts(
+                        sourceData,
+                        primaryResults,
+                        primaryEvents,
+                        rootSourceCounts,
+                        compositeStages,
                     ),
                 collectionWarnings = sourceData.collectionWarnings,
                 includedFiles = includedFiles,
                 logcatSnapshot = sourceData.logcatSnapshot,
                 fileLogSnapshot = sourceData.fileLogSnapshot,
+            )
+        }
+
+        private fun buildSourceCounts(
+            sourceData: DiagnosticsArchiveSourceData,
+            primaryResults: List<ProbeResultEntity>,
+            primaryEvents: List<NativeSessionEventEntity>,
+            rootSourceCounts: DiagnosticsArchiveRootSourceCounts,
+            compositeStages: List<DiagnosticsArchiveCompositeStageSelection>,
+        ) = DiagnosticsArchiveScopedCounts(
+            archiveWide =
+                DiagnosticsArchiveArchiveWideCounts(
+                    telemetrySamples =
+                        (
+                            sourceData.telemetry.map { it.id } + compositeStages.flatMap { it.sourceTelemetryIds }
+                        ).toSet()
+                            .size,
+                    nativeEvents =
+                        (
+                            sourceData.events.map { it.id } +
+                                primaryEvents.map { it.id } +
+                                compositeStages.flatMap { it.sourceEventIds }
+                        ).toSet()
+                            .size,
+                    snapshots =
+                        (sourceData.snapshots + compositeStages.flatMap { it.snapshots })
+                            .distinctBy { it.id }
+                            .size,
+                    contexts =
+                        (sourceData.contexts + compositeStages.flatMap { it.contexts })
+                            .distinctBy { it.id }
+                            .size,
+                ),
+            primarySession =
+                DiagnosticsArchivePrimarySessionCounts(
+                    results = primaryResults.size,
+                    snapshots = rootSourceCounts.primarySnapshots,
+                    contexts = rootSourceCounts.primaryContexts,
+                    events = primaryEvents.size,
+                ),
+        )
+
+        private fun buildRootSourceCounts(
+            sourceData: DiagnosticsArchiveSourceData,
+            primarySession: ScanSessionEntity?,
+        ): DiagnosticsArchiveRootSourceCounts {
+            val sessionId = primarySession?.id
+            return DiagnosticsArchiveRootSourceCounts(
+                telemetrySamples = sourceData.telemetry.size,
+                primarySnapshots = sourceData.snapshots.count { it.sessionId == sessionId && sessionId != null },
+                primaryContexts = sourceData.contexts.count { it.sessionId == sessionId && sessionId != null },
+                globalEvents = sourceData.events.count { it.sessionId == null },
             )
         }
 
@@ -289,6 +343,8 @@ class DiagnosticsArchiveSessionSelector
                     sourceContextCount = contexts.size,
                     sourceEventCount = events.size,
                     sourceTelemetryCount = telemetry.size,
+                    sourceEventIds = events.mapTo(linkedSetOf()) { it.id },
+                    sourceTelemetryIds = telemetry.mapTo(linkedSetOf()) { it.id },
                 )
             }
         }

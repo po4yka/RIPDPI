@@ -6,7 +6,11 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveContextPayload
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotPayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
+import com.poyka.ripdpi.diagnostics.export.buildCompleteness
+import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.diagnostics.export.buildStageIndexEntries
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
@@ -358,6 +362,80 @@ class DiagnosticsArchiveComponentsTest {
             val primaryIndex = buildStageIndexEntries(selection).first()
             assertTrue(primaryIndex.telemetryTruncated)
             assertEquals(DiagnosticsArchiveFormat.telemetryLimit, primaryIndex.includedTelemetryCount)
+        }
+
+    @Test
+    fun `composite completeness counts raw stage overflow before included limits`() =
+        runTest {
+            val fixture = compositeSelectionFixture()
+            val rawStageEventCount = DiagnosticsArchiveFormat.sessionEventLimit + 1
+            val rawStageTelemetryCount = DiagnosticsArchiveFormat.telemetryLimit + 1
+            val selection =
+                selector.buildSelection(
+                    request =
+                        archiveRequest(sessionId = fixture.primary.id).copy(
+                            homeRunId = fixture.outcome.runId,
+                            sessionIds = listOf(fixture.primary.id, fixture.stage.id),
+                        ),
+                    primarySession = fixture.primary,
+                    primaryResults = emptyList(),
+                    sourceData = fixture.sourceData,
+                    compositeOutcome = fixture.outcome,
+                    compositeSessions = listOf(fixture.primary, fixture.stage),
+                    loadProbeResults = { emptyList() },
+                    loadNativeEvents = { sessionId ->
+                        if (sessionId == fixture.stage.id) {
+                            List(rawStageEventCount) { index ->
+                                nativeEvent(id = "raw-stage-event-$index", sessionId = sessionId)
+                            }
+                        } else {
+                            emptyList()
+                        }
+                    },
+                    loadStageTelemetry = { session, _ ->
+                        if (session.id == fixture.stage.id) {
+                            List(rawStageTelemetryCount) { index ->
+                                telemetrySample(publicIp = null).copy(
+                                    id = "raw-stage-telemetry-$index",
+                                    sessionId = session.id,
+                                    createdAt = session.startedAt + index,
+                                )
+                            }
+                        } else {
+                            emptyList()
+                        }
+                    },
+                )
+
+            val completeness =
+                buildCompleteness(
+                    selection = selection,
+                    sectionStatuses = buildSectionStatuses(selection),
+                    snapshotPayload =
+                        DiagnosticsArchiveSnapshotPayload(
+                            sessionSnapshots = emptyList(),
+                            latestPassiveSnapshot = null,
+                        ),
+                    contextPayload =
+                        DiagnosticsArchiveContextPayload(
+                            sessionContexts = emptyList(),
+                            latestPassiveContext = null,
+                        ),
+                )
+
+            assertEquals(
+                fixture.sourceData.events.size + rawStageEventCount,
+                completeness.sourceCounts.archiveWide.nativeEvents,
+            )
+            assertEquals(rawStageTelemetryCount, completeness.sourceCounts.archiveWide.telemetrySamples)
+            assertEquals(
+                fixture.sourceData.events.size + DiagnosticsArchiveFormat.sessionEventLimit,
+                completeness.includedCounts.archiveWide.nativeEvents,
+            )
+            assertEquals(
+                DiagnosticsArchiveFormat.telemetryLimit,
+                completeness.includedCounts.archiveWide.telemetrySamples,
+            )
         }
 
     @Test

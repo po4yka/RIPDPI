@@ -54,14 +54,16 @@ class DiagnosticsArchiveRenderer
                     compositeEntries = compositeEntries,
                     developerAnalytics = developerAnalytics,
                 )
-            return baseEntries +
+            val correlationRedactor = DiagnosticsArchiveCorrelationRedactor()
+            val privacyEntries = baseEntries.map(correlationRedactor::redact)
+            return privacyEntries +
                 DiagnosticsArchiveEntry(
                     name = "integrity.json",
                     bytes =
                         json
                             .encodeToString(
                                 DiagnosticsArchiveIntegrityPayload.serializer(),
-                                buildIntegrityPayload(target, baseEntries),
+                                buildIntegrityPayload(target, privacyEntries),
                             ).toByteArray(),
                 )
         }
@@ -136,3 +138,19 @@ class DiagnosticsArchiveRenderer
         private fun String.dropLeadingPartialLineIf(truncated: Boolean): String =
             if (truncated) substringAfter('\n', missingDelimiterValue = "") else this
     }
+
+private class DiagnosticsArchiveCorrelationRedactor {
+    private val aliases = linkedMapOf<String, String>()
+
+    fun redact(entry: DiagnosticsArchiveEntry): DiagnosticsArchiveEntry {
+        val text = entry.bytes.decodeToString()
+        val redacted =
+            CorrelationUuidRegex.replace(text) { match ->
+                aliases.getOrPut(match.value.lowercase()) { "correlation-${aliases.size + 1}" }
+            }
+        return entry.copy(bytes = redacted.toByteArray())
+    }
+}
+
+private val CorrelationUuidRegex =
+    Regex("(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b")

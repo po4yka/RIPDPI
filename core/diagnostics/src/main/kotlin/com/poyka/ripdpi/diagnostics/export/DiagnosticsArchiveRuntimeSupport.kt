@@ -50,8 +50,6 @@ internal fun buildArchiveProvenance(
             androidVersion = context?.device?.androidVersion,
             apiLevel = context?.device?.apiLevel,
             primaryAbi = context?.device?.primaryAbi,
-            locale = context?.device?.locale,
-            timezone = context?.device?.timezone,
         )
     return DiagnosticsArchiveProvenancePayload(
         runType = selection.runType,

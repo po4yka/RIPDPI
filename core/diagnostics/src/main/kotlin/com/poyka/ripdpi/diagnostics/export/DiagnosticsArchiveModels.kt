@@ -54,11 +54,10 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Stays at 4: replay-results.json is a purely-additive optional file.
-    // Downstream readers ignore unknown files / unknown payload fields. Bump
-    // to 5 only when an existing contract changes shape.
-    const val schemaVersion = 4
-    const val privacyMode = "redacted_v1"
+    // Version 5 makes completeness count scopes explicit and replaces raw
+    // correlation UUIDs with archive-local aliases.
+    const val schemaVersion = 5
+    const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
     const val maxArchiveAgeMs = 3L * 24L * 60L * 60L * 1000L
@@ -158,6 +157,13 @@ internal data class DiagnosticsArchiveSelection(
     val latestPassiveSnapshot: NetworkSnapshotEntity?,
     val latestPassiveContext: DiagnosticContextEntity?,
     val globalEvents: List<NativeSessionEventEntity>,
+    val rootSourceCounts: DiagnosticsArchiveRootSourceCounts =
+        DiagnosticsArchiveRootSourceCounts(
+            telemetrySamples = payload.telemetry.size,
+            primarySnapshots = primarySnapshots.size,
+            primaryContexts = primaryContexts.size,
+            globalEvents = globalEvents.size,
+        ),
     val selectedApproachSummary: BypassApproachSummary?,
     val latestSnapshotModel: NetworkSnapshotModel?,
     val latestSnapshotSource: DiagnosticsArchiveSnapshotSource? = null,
@@ -172,12 +178,19 @@ internal data class DiagnosticsArchiveSelection(
     val compositeStages: List<DiagnosticsArchiveCompositeStageSelection> = emptyList(),
     val effectiveStrategySignature: BypassStrategySignature?,
     val appSettings: AppSettings,
-    val sourceCounts: DiagnosticsArchiveSourceCounts,
+    val sourceCounts: DiagnosticsArchiveScopedCounts,
     val collectionWarnings: List<String>,
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
     val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
+)
+
+internal data class DiagnosticsArchiveRootSourceCounts(
+    val telemetrySamples: Int,
+    val primarySnapshots: Int,
+    val primaryContexts: Int,
+    val globalEvents: Int,
 )
 
 internal enum class DiagnosticsArchiveSnapshotSource {
@@ -552,15 +565,25 @@ internal data class DiagnosticsArchiveAppliedLimits(
 )
 
 @Serializable
-internal data class DiagnosticsArchiveSourceCounts(
+internal data class DiagnosticsArchiveArchiveWideCounts(
     val telemetrySamples: Int,
     val nativeEvents: Int,
     val snapshots: Int,
     val contexts: Int,
-    val sessionResults: Int,
-    val sessionSnapshots: Int,
-    val sessionContexts: Int,
-    val sessionEvents: Int,
+)
+
+@Serializable
+internal data class DiagnosticsArchivePrimarySessionCounts(
+    val results: Int,
+    val snapshots: Int,
+    val contexts: Int,
+    val events: Int,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveScopedCounts(
+    val archiveWide: DiagnosticsArchiveArchiveWideCounts,
+    val primarySession: DiagnosticsArchivePrimarySessionCounts,
 )
 
 @Serializable
@@ -577,8 +600,8 @@ internal data class DiagnosticsArchiveTruncation(
 internal data class DiagnosticsArchiveCompletenessPayload(
     val sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
     val appliedLimits: DiagnosticsArchiveAppliedLimits,
-    val sourceCounts: DiagnosticsArchiveSourceCounts,
-    val includedCounts: DiagnosticsArchiveSourceCounts,
+    val sourceCounts: DiagnosticsArchiveScopedCounts,
+    val includedCounts: DiagnosticsArchiveScopedCounts,
     val collectionWarnings: List<String> = emptyList(),
     val truncation: DiagnosticsArchiveTruncation = DiagnosticsArchiveTruncation(),
 )

@@ -408,6 +408,68 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `archive privacy removes device identity and aliases correlations consistently`() {
+        val correlationId = "123e4567-e89b-12d3-a456-426614174000"
+        val sensitiveDevice =
+            rendererDiagnosticContextModel().copy(
+                device =
+                    rendererDiagnosticContextModel().device.copy(
+                        manufacturer = "private-manufacturer-marker",
+                        model = "private-model-marker",
+                        locale = "private-locale-marker",
+                        timezone = "private-timezone-marker",
+                    ),
+            )
+        val sessionContext =
+            rendererDiagnosticContextEntity(sessionId = "session-1").copy(
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), sensitiveDevice),
+            )
+        val passiveContext =
+            rendererDiagnosticContextEntity(id = "ctx-passive", sessionId = null).copy(
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), sensitiveDevice),
+            )
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                request = base.request.copy(homeRunId = correlationId),
+                payload =
+                    base.payload.copy(
+                        sessionContexts = listOf(sessionContext),
+                        latestPassiveContext = passiveContext,
+                    ),
+                primaryContexts = listOf(sessionContext),
+                latestPassiveContext = passiveContext,
+                latestContextModel = sensitiveDevice,
+                sessionContextModel = sensitiveDevice,
+                homeRunId = correlationId,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-privacy", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-$correlationId.zip",
+                createdAt = 44L,
+            )
+
+        val archiveText =
+            renderer
+                .render(target, selection)
+                .joinToString("\n") { entry -> entry.bytes.decodeToString() }
+
+        listOf(
+            correlationId,
+            "private-manufacturer-marker",
+            "private-model-marker",
+            "private-locale-marker",
+            "private-timezone-marker",
+        ).forEach { sensitiveValue ->
+            assertFalse("archive must not contain $sensitiveValue", archiveText.contains(sensitiveValue))
+        }
+        val correlationAliases = Regex("correlation-[0-9]+").findAll(archiveText).map { it.value }.toList()
+        assertTrue("correlation alias must be reused across entries", correlationAliases.size > 1)
+        assertEquals("one source UUID must map to one alias", 1, correlationAliases.toSet().size)
+    }
+
+    @Test
     fun `renderer marks truncated collections and decode failures in completeness metadata`() {
         val selection = buildTruncationRendererSelection()
         val target =
@@ -434,6 +496,39 @@ class DiagnosticsArchiveRendererTest {
         assertEquals(DiagnosticsArchiveSectionStatus.TRUNCATED, completeness.sectionStatuses["logcat.txt"])
         assertTrue(completeness.collectionWarnings.any { it.contains("snapshot_decode_failed_count:2") })
         assertTrue(completeness.collectionWarnings.any { it.contains("context_decode_failed_count:2") })
+    }
+
+    @Test
+    fun `completeness counts declare archive and primary session scopes`() {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-completeness-scopes", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-completeness-scopes.zip",
+                createdAt = 44L,
+            )
+        val completeness =
+            renderer
+                .render(target, buildFullRendererSelection())
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("completeness.json")
+                .bytes
+                .decodeToString()
+                .let(json::parseToJsonElement)
+                .jsonObject
+
+        listOf("sourceCounts", "includedCounts").forEach { countSectionName ->
+            val scopedCounts = completeness.getValue(countSectionName).jsonObject
+            assertEquals(setOf("archiveWide", "primarySession"), scopedCounts.keys)
+            assertEquals(
+                setOf("telemetrySamples", "nativeEvents", "snapshots", "contexts"),
+                scopedCounts.getValue("archiveWide").jsonObject.keys,
+            )
+            assertEquals(
+                setOf("results", "snapshots", "contexts", "events"),
+                scopedCounts.getValue("primarySession").jsonObject.keys,
+            )
+        }
+        assertEquals(5, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -545,7 +640,17 @@ class DiagnosticsArchiveRendererTest {
             base.copy(
                 runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
                 sourceCounts =
-                    base.sourceCounts.copy(nativeEvents = DiagnosticsArchiveFormat.globalEventLimit + 1),
+                    base.sourceCounts.copy(
+                        archiveWide =
+                            base.sourceCounts.archiveWide.copy(
+                                nativeEvents =
+                                    DiagnosticsArchiveFormat.globalEventLimit +
+                                        DiagnosticsArchiveFormat.sessionEventLimit +
+                                        1,
+                            ),
+                    ),
+                rootSourceCounts =
+                    base.rootSourceCounts.copy(globalEvents = DiagnosticsArchiveFormat.globalEventLimit + 1),
                 includedFiles =
                     listOf(
                         "native-events.csv",
@@ -580,17 +685,168 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `home composite root events use root quotas instead of archive aggregate`() {
+        val base = buildFullRendererSelection()
+        val primaryEvents =
+            List(DiagnosticsArchiveFormat.sessionEventLimit) { index ->
+                rendererNativeEvent(id = "primary-event-$index", sessionId = "session-1")
+            }
+        val globalEvents =
+            List(DiagnosticsArchiveFormat.globalEventLimit) { index ->
+                rendererNativeEvent(id = "global-event-$index", sessionId = null)
+            }
+        val stages =
+            listOf("stage-one", "stage-two").map { stageKey ->
+                rendererCompositeStage(
+                    stageKey = stageKey,
+                    events =
+                        List(DiagnosticsArchiveFormat.sessionEventLimit) { index ->
+                            rendererNativeEvent(id = "$stageKey-event-$index", sessionId = "$stageKey-session")
+                        },
+                )
+            }
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                payload = base.payload.copy(sessionEvents = primaryEvents, globalEvents = globalEvents),
+                primaryEvents = primaryEvents,
+                globalEvents = globalEvents,
+                sourceCounts =
+                    base.sourceCounts.copy(
+                        archiveWide =
+                            base.sourceCounts.archiveWide.copy(
+                                nativeEvents =
+                                    primaryEvents.size + globalEvents.size + stages.sumOf { it.events.size },
+                            ),
+                        primarySession = base.sourceCounts.primarySession.copy(events = primaryEvents.size),
+                    ),
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "quota-home-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                        stageSummaries = stages.map { it.stageSummary },
+                    ),
+                compositeStages = stages,
+                includedFiles =
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = false,
+                        composite = true,
+                        compositeStageKeys = stages.map { it.stageSummary.stageKey },
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-home-event-quotas", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-home-event-quotas.zip",
+                createdAt = 44L,
+            )
+
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                renderer
+                    .render(target, selection)
+                    .associateBy(DiagnosticsArchiveEntry::name)
+                    .getValue("completeness.json")
+                    .bytes
+                    .decodeToString(),
+            )
+
+        assertEquals(DiagnosticsArchiveSectionStatus.INCLUDED, completeness.sectionStatuses["native-events.csv"])
+        assertFalse(completeness.truncation.nativeEvents)
+    }
+
+    @Test
+    fun `home composite root collections use root quotas instead of archive aggregate`() {
+        val base = buildFullRendererSelection()
+        val rootTelemetry = listOf(rendererTelemetrySample(publicIp = null).copy(id = "root-telemetry"))
+        val rootSnapshots = listOf(rendererNetworkSnapshotEntity(id = "root-snapshot", sessionId = "session-1"))
+        val rootContexts = listOf(rendererDiagnosticContextEntity(id = "root-context", sessionId = "session-1"))
+        val stages =
+            listOf(
+                rendererCompositeCollectionStage(
+                    stageKey = "stage-one",
+                    telemetryCount = DiagnosticsArchiveFormat.telemetryLimit,
+                    artifactCount = DiagnosticsArchiveFormat.snapshotLimit,
+                ),
+                rendererCompositeCollectionStage(stageKey = "stage-two", telemetryCount = 1, artifactCount = 1),
+            )
+        val archiveTelemetryCount = rootTelemetry.size + stages.sumOf { it.telemetry.size }
+        val archiveSnapshotCount = rootSnapshots.size + stages.sumOf { it.snapshots.size }
+        val archiveContextCount = rootContexts.size + stages.sumOf { it.contexts.size }
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                payload =
+                    base.payload.copy(
+                        sessionSnapshots = rootSnapshots,
+                        sessionContexts = rootContexts,
+                        latestPassiveSnapshot = null,
+                        latestPassiveContext = null,
+                        telemetry = rootTelemetry,
+                    ),
+                primarySnapshots = rootSnapshots,
+                primaryContexts = rootContexts,
+                latestPassiveSnapshot = null,
+                latestPassiveContext = null,
+                sourceCounts =
+                    base.sourceCounts.copy(
+                        archiveWide =
+                            base.sourceCounts.archiveWide.copy(
+                                telemetrySamples = archiveTelemetryCount,
+                                snapshots = archiveSnapshotCount,
+                                contexts = archiveContextCount,
+                            ),
+                        primarySession =
+                            base.sourceCounts.primarySession.copy(
+                                snapshots = rootSnapshots.size,
+                                contexts = rootContexts.size,
+                            ),
+                    ),
+                homeCompositeOutcome =
+                    DiagnosticsHomeCompositeOutcome(
+                        runId = "quota-home-run",
+                        actionable = false,
+                        headline = "Complete",
+                        summary = "Complete",
+                        stageSummaries = stages.map { it.stageSummary },
+                    ),
+                compositeStages = stages,
+                includedFiles =
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = false,
+                        composite = true,
+                        compositeStageKeys = stages.map { it.stageSummary.stageKey },
+                    ),
+            )
+        val completeness = renderCompleteness(selection, "archive-home-collection-quotas")
+
+        assertEquals(DiagnosticsArchiveSectionStatus.INCLUDED, completeness.sectionStatuses["telemetry.csv"])
+        assertEquals(DiagnosticsArchiveSectionStatus.REDACTED, completeness.sectionStatuses["network-snapshots.json"])
+        assertEquals(DiagnosticsArchiveSectionStatus.REDACTED, completeness.sectionStatuses["diagnostic-context.json"])
+        assertFalse(completeness.truncation.telemetrySamples)
+        assertFalse(completeness.truncation.snapshots)
+        assertFalse(completeness.truncation.contexts)
+    }
+
+    @Test
     fun `exact collection limits are complete rather than truncated`() {
         val base = buildFullRendererSelection()
         val selection =
             base.copy(
                 sourceCounts =
                     base.sourceCounts.copy(
-                        telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit,
-                        nativeEvents = DiagnosticsArchiveFormat.globalEventLimit,
-                        snapshots = DiagnosticsArchiveFormat.snapshotLimit,
-                        contexts = DiagnosticsArchiveFormat.snapshotLimit,
-                        sessionEvents = DiagnosticsArchiveFormat.sessionEventLimit,
+                        archiveWide =
+                            DiagnosticsArchiveArchiveWideCounts(
+                                telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit,
+                                nativeEvents =
+                                    DiagnosticsArchiveFormat.globalEventLimit +
+                                        DiagnosticsArchiveFormat.sessionEventLimit,
+                                snapshots = DiagnosticsArchiveFormat.snapshotLimit,
+                                contexts = DiagnosticsArchiveFormat.snapshotLimit,
+                            ),
                     ),
                 includedFiles =
                     listOf(
@@ -1257,15 +1513,21 @@ class DiagnosticsArchiveRendererTest {
             effectiveStrategySignature = null,
             appSettings = rendererAppSettings(),
             sourceCounts =
-                DiagnosticsArchiveSourceCounts(
-                    telemetrySamples = 1,
-                    nativeEvents = 2,
-                    snapshots = 2,
-                    contexts = 2,
-                    sessionResults = 1,
-                    sessionSnapshots = 1,
-                    sessionContexts = 1,
-                    sessionEvents = 1,
+                DiagnosticsArchiveScopedCounts(
+                    archiveWide =
+                        DiagnosticsArchiveArchiveWideCounts(
+                            telemetrySamples = 1,
+                            nativeEvents = 2,
+                            snapshots = 2,
+                            contexts = 2,
+                        ),
+                    primarySession =
+                        DiagnosticsArchivePrimarySessionCounts(
+                            results = 1,
+                            snapshots = 1,
+                            contexts = 1,
+                            events = 1,
+                        ),
                 ),
             collectionWarnings = emptyList(),
             includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true),
@@ -1302,6 +1564,48 @@ class DiagnosticsArchiveRendererTest {
         events = events,
     )
 
+    private fun rendererCompositeCollectionStage(
+        stageKey: String,
+        telemetryCount: Int,
+        artifactCount: Int,
+    ) = rendererCompositeStage(stageKey = stageKey, events = emptyList()).copy(
+        telemetry =
+            List(telemetryCount) { index ->
+                rendererTelemetrySample(publicIp = null).copy(id = "$stageKey-telemetry-$index")
+            },
+        snapshots =
+            List(artifactCount) { index ->
+                rendererNetworkSnapshotEntity(id = "$stageKey-snapshot-$index", sessionId = "$stageKey-session")
+            },
+        contexts =
+            List(artifactCount) { index ->
+                rendererDiagnosticContextEntity(id = "$stageKey-context-$index", sessionId = "$stageKey-session")
+            },
+        sourceTelemetryCount = telemetryCount,
+        sourceSnapshotCount = artifactCount,
+        sourceContextCount = artifactCount,
+    )
+
+    private fun renderCompleteness(
+        selection: DiagnosticsArchiveSelection,
+        filePrefix: String,
+    ): DiagnosticsArchiveCompletenessPayload {
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile(filePrefix, ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-$filePrefix.zip",
+                createdAt = 44L,
+            )
+        val content =
+            renderer
+                .render(target, selection)
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("completeness.json")
+                .bytes
+                .decodeToString()
+        return json.decodeFromString(DiagnosticsArchiveCompletenessPayload.serializer(), content)
+    }
+
     private fun buildTruncationRendererSelection(): DiagnosticsArchiveSelection {
         val invalidSnapshot = rendererNetworkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")
         val invalidContext = rendererDiagnosticContextEntity(sessionId = "session-1").copy(payloadJson = "{bad")
@@ -1333,6 +1637,13 @@ class DiagnosticsArchiveRendererTest {
             latestPassiveSnapshot = invalidSnapshot.copy(id = "passive-snap", sessionId = null),
             latestPassiveContext = invalidContext.copy(id = "passive-ctx", sessionId = null),
             globalEvents = listOf(rendererNativeEvent(id = "ev-global", sessionId = null)),
+            rootSourceCounts =
+                DiagnosticsArchiveRootSourceCounts(
+                    telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit + 1,
+                    primarySnapshots = DiagnosticsArchiveFormat.snapshotLimit + 1,
+                    primaryContexts = DiagnosticsArchiveFormat.snapshotLimit + 1,
+                    globalEvents = DiagnosticsArchiveFormat.globalEventLimit + 1,
+                ),
             selectedApproachSummary = null,
             latestSnapshotModel = rendererNetworkSnapshotModel(),
             latestContextModel = rendererDiagnosticContextModel(),
@@ -1342,15 +1653,24 @@ class DiagnosticsArchiveRendererTest {
             effectiveStrategySignature = null,
             appSettings = rendererAppSettings(),
             sourceCounts =
-                DiagnosticsArchiveSourceCounts(
-                    telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit + 1,
-                    nativeEvents = DiagnosticsArchiveFormat.globalEventLimit + 1,
-                    snapshots = DiagnosticsArchiveFormat.snapshotLimit + 1,
-                    contexts = DiagnosticsArchiveFormat.snapshotLimit + 1,
-                    sessionResults = 1,
-                    sessionSnapshots = 1,
-                    sessionContexts = 1,
-                    sessionEvents = 1,
+                DiagnosticsArchiveScopedCounts(
+                    archiveWide =
+                        DiagnosticsArchiveArchiveWideCounts(
+                            telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit + 1,
+                            nativeEvents =
+                                DiagnosticsArchiveFormat.globalEventLimit +
+                                    DiagnosticsArchiveFormat.sessionEventLimit +
+                                    1,
+                            snapshots = DiagnosticsArchiveFormat.snapshotLimit + 1,
+                            contexts = DiagnosticsArchiveFormat.snapshotLimit + 1,
+                        ),
+                    primarySession =
+                        DiagnosticsArchivePrimarySessionCounts(
+                            results = 1,
+                            snapshots = 1,
+                            contexts = 1,
+                            events = 1,
+                        ),
                 ),
             collectionWarnings = listOf("logcat_capture_failed:none"),
             includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true),
@@ -1453,27 +1773,27 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v4.json",
+            "archive/manifest_v5.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v4.json",
+            "archive/archive_provenance_v5.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v4.json",
+            "archive/runtime_config_v5.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v4.json",
+            "archive/analysis_v5.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v4.json",
+            "archive/completeness_v5.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v4.json",
+            "archive/integrity_v5.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
     }

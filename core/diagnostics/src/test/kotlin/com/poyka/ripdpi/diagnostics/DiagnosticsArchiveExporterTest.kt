@@ -242,7 +242,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         }
 
     @Test
-    fun `createArchive persists requested session export and writes schema v4 archive`() =
+    fun `createArchive persists requested session export and writes schema v5 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -265,7 +265,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(4, archive.schemaVersion)
+            assertEquals(5, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -556,6 +556,58 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
             }
         }
 
+    @Test
+    fun `completeness preserves primary session source counts before collection limits`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-over-limit",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Selected session exceeds collection limits",
+                )
+            seedSingleSessionStore(stores, session)
+            val snapshot = stores.snapshotsState.value.single()
+            val context = stores.contextsState.value.single()
+            val sourceCount = DiagnosticsArchiveFormat.snapshotLimit + 1
+            stores.snapshotsState.value =
+                List(sourceCount) { index ->
+                    snapshot.copy(id = "selected-snapshot-$index", capturedAt = index.toLong())
+                }
+            stores.contextsState.value =
+                List(sourceCount) { index ->
+                    context.copy(id = "selected-context-$index", capturedAt = index.toLong())
+                }
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 24L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val completeness =
+                    json.decodeFromString(
+                        DiagnosticsArchiveCompletenessPayload.serializer(),
+                        zip.getInputStream(zip.getEntry("completeness.json")).bufferedReader().readText(),
+                    )
+                assertEquals(sourceCount, completeness.sourceCounts.primarySession.snapshots)
+                assertEquals(sourceCount, completeness.sourceCounts.primarySession.contexts)
+                assertEquals(
+                    DiagnosticsArchiveFormat.snapshotLimit,
+                    completeness.includedCounts.primarySession.snapshots,
+                )
+                assertEquals(
+                    DiagnosticsArchiveFormat.snapshotLimit,
+                    completeness.includedCounts.primarySession.contexts,
+                )
+            }
+        }
+
     private fun assertSingleSessionArchiveContents(
         zip: java.util.zip.ZipFile,
         sessionId: String,
@@ -724,7 +776,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(4, archive.schemaVersion)
+            assertEquals(5, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -967,11 +1019,9 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
         assertEquals(outcome.runId, manifest.homeRunId)
         assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
-        assertEquals(java.io.File(zip.name).name, manifest.fileName)
         assertTrue(
             Regex(
-                "ripdpi-diagnostics-1700000000000-" +
-                    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.zip",
+                "ripdpi-diagnostics-1700000000000-correlation-[0-9]+\\.zip",
             ).matches(manifest.fileName),
         )
         assertNotNull(zip.getEntry("home-analysis.json"))
@@ -981,7 +1031,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v4.json",
+            "archive/manifest_home_composite_v5.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(
@@ -991,15 +1041,15 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             },
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/home_analysis_composite_v4.json",
+            "archive/home_analysis_composite_v5.json",
             zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_index_composite_v4.json",
+            "archive/stage_index_composite_v5.json",
             zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_summaries_composite_v4.json",
+            "archive/stage_summaries_composite_v5.json",
             zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
         )
     }

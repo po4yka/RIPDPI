@@ -23,6 +23,8 @@ internal data class DiagnosticsArchiveCompositeStageSelection(
     val sourceContextCount: Int = contexts.size,
     val sourceEventCount: Int = events.size,
     val sourceTelemetryCount: Int = telemetry.size,
+    val sourceEventIds: Set<String> = events.mapTo(linkedSetOf()) { it.id },
+    val sourceTelemetryIds: Set<String> = telemetry.mapTo(linkedSetOf()) { it.id },
 )
 
 @Serializable

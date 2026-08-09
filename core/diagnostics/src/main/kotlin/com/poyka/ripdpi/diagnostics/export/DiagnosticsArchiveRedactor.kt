@@ -61,6 +61,13 @@ class DiagnosticsArchiveRedactor
 
         fun redact(model: DiagnosticContextModel): DiagnosticContextModel =
             model.copy(
+                device =
+                    model.device.copy(
+                        manufacturer = "redacted",
+                        model = "redacted",
+                        locale = "redacted",
+                        timezone = "redacted",
+                    ),
                 service =
                     model.service.copy(
                         proxyEndpoint =
@@ -419,6 +426,7 @@ internal fun redactDiagnosticsFreeText(value: String): String =
         .replaceWhenContainsAny(BssidRegex, "redacted-bssid", ":")
         .replaceWhenContainsAny(QuotedNetworkNameRegex, "$1=\"redacted\"", "ssid=", "operator=", "carrier=")
         .replaceWhenContainsAny(UnquotedNetworkNameRegex, "$1=redacted", "ssid", "operator", "carrier")
+        .replace(RustIpv4AddrRegex, "<ip-redacted>")
         .replace(Ipv4Regex, "<ip-redacted>")
         .replace(Ipv6Regex, "<ip-redacted>")
 
@@ -516,15 +524,18 @@ private val BssidRegex = Regex("\\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\\b")
 private val QuotedNetworkNameRegex = Regex("(?i)\\b(ssid|operator|carrier)=([\"']).*?\\2")
 private val UnquotedNetworkNameRegex = Regex("(?im)\\b(ssid|operator|carrier)\\s*=\\s*[^,;\\r\\n]+")
 private val UrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
+private const val Ipv4OctetPattern = "(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)"
+private val RustIpv4AddrRegex =
+    Regex("(?i)\\bIpv4Addr\\(\\[\\s*$Ipv4OctetPattern(?:\\s*,\\s*$Ipv4OctetPattern){3}\\s*\\]\\)")
 private val Ipv4Regex =
-    Regex("(?<![A-Za-z0-9])(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}(?![A-Za-z0-9])")
+    Regex("(?<![A-Za-z0-9])$Ipv4OctetPattern(?:\\.$Ipv4OctetPattern){3}(?![A-Za-z0-9])")
 private val Ipv6Regex =
     Regex(
-        "(?i)(?<![0-9a-f:])(?:" +
+        "(?i)(?<![A-Za-z0-9_:])(?:" +
             "(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|" +
             "(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?::" +
             "(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?" +
-            ")(?![0-9a-f:])",
+            ")(?![A-Za-z0-9_:])",
     )
 private val DnsNameRegex =
     Regex(
