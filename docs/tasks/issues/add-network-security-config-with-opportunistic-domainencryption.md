@@ -1,16 +1,18 @@
 ---
+id: DGN-1786264762917626
 title: Add network-security-config with opportunistic domainEncryption
-type: task
+kind: feature
 status: blocked
 area: diagnostics
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
-status_detail: externally-gated — Android 17 physical-device ECH attempt verification remains unavailable
+spec_mode: required
+openspec_change: dgn-1786264762917626-add-network-security-config-with-opportunistic-domainencryption
 created: 2026-04-20
 updated: 2026-07-26
+status_detail: externally-gated — Android 17 physical-device ECH attempt verification remains unavailable
 ---
 
 ## Summary

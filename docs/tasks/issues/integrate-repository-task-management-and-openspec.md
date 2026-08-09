@@ -1,13 +1,15 @@
 ---
+id: CIC-1786264762917931
 title: Integrate repository task management and OpenSpec
-type: task
+kind: feature
 status: doing
 area: ci
 priority: high
 owner: Codex coordinator
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: cic-1786264762917931-integrate-repository-task-management-and-openspec
 created: 2026-08-09
 updated: 2026-08-09
 ---

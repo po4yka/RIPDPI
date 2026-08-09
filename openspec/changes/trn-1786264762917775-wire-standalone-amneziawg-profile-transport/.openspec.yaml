@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-13"
+goal: "TRN-1786264762917775 Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)"
+affected_areas: ["transport"]
+skip_specs: false
+retire_capabilities: false

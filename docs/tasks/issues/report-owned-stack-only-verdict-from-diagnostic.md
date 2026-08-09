@@ -1,13 +1,15 @@
 ---
+id: DGN-1786264762917717
 title: Report OWNED_STACK_ONLY verdict from diagnostic
-type: task
+kind: feature
 status: doing
 area: diagnostics
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: dgn-1786264762917717-report-owned-stack-only-verdict-from-diagnostic
 created: 2026-04-20
 updated: 2026-06-05
 ---

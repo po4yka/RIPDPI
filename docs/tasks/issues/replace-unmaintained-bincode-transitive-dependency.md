@@ -1,13 +1,15 @@
 ---
+id: RST-1786264762917563
 title: Replace unmaintained bincode transitive dependency
-type: task
+kind: feature
 status: backlog
 area: rust-native
 priority: low
 owner: Native security maintainer
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917563-replace-unmaintained-bincode-transitive-dependency
 created: 2026-08-04
 updated: 2026-08-04
 ---

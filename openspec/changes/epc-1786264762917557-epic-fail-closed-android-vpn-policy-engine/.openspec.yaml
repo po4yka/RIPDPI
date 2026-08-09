@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-01"
+goal: "EPC-1786264762917557 Epic - Fail-closed Android VPN policy engine"
+affected_areas: ["epic"]
+skip_specs: false
+retire_capabilities: false

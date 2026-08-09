@@ -1,25 +1,27 @@
 ---
-title: "Wire AmneziaWG RTK South cohort (Jc=4) into Android client"
-type: task
+id: TRN-1786264762917677
+title: Wire AmneziaWG RTK South cohort (Jc=4) into Android client
+kind: feature
 status: doing
 area: transport
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: trn-1786264762917677-wire-amneziawg-rtk-south-jc4-cohort-into-android-client
 created: 2026-05-22
 updated: 2026-06-21
 source_wiki_pages:
-  - "wireguard-rtk-south-amneziawg-bypass"
+  - wireguard-rtk-south-amneziawg-bypass
 linked_task: null
 ---
 
 ## Motivation
 
-Plain WireGuard at Rostelecom South (RTK юг, Rostov Oblast) experiences periodic 20–30 second interruptions every ~30 seconds — TSPU DPI identifies WireGuard via the deterministic 148-byte Initiation packet structure (4-byte type, 4-byte sender index, 32-byte ephemeral public key, 48-byte encrypted static key, 28-byte encrypted timestamp, 16-byte MAC1, 16-byte MAC2). AmneziaWG (AWG) randomizes this signature with junk/header/initialization parameters.
+Plain WireGuard on the observed regional network path experiences periodic 20–30 second interruptions every ~30 seconds — middlebox/device fingerprinting can identify WireGuard via the deterministic 148-byte Initiation packet structure (4-byte type, 4-byte sender index, 32-byte ephemeral public key, 48-byte encrypted static key, 28-byte encrypted timestamp, 16-byte MAC1, 16-byte MAC2). AmneziaWG (AWG) randomizes this signature with junk/header/initialization parameters.
 
-Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H1=1 H2=2 H3=3 H4=4` plus per-deployment `I1-I5`. Connects successfully though sometimes requires 3–4 attempts (probabilistic passing — TSPU rule may be threshold-based rather than a hard block).
+Community-tested working parameters for the observed cohort: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H1=1 H2=2 H3=3 H4=4` plus per-deployment `I1-I5`. Connects successfully though sometimes requires 3–4 attempts (probabilistic passing — the middlebox rule may be threshold-based rather than a hard block).
 
 > [!info] Dedup notes
 > The workspace now contains the AmneziaWG Android/native implementation. The completed `add-wireguard-over-websocket-transport-amneziawg-disguise` task (see git history) covered a DIFFERENT mechanism: WG-over-WebSocket disguise.

@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-04-20"
+goal: "DGN-1786264762917626 Add network-security-config with opportunistic domainEncryption"
+affected_areas: ["diagnostics"]
+skip_specs: false
+retire_capabilities: false

@@ -1,13 +1,15 @@
 ---
+id: RST-1786264762917044
 title: Add optional Cloudflare Workers transport mode
-type: task
+kind: feature
 status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917044-add-cloudflare-workers-transport-mode
 created: 2026-05-16
 updated: 2026-06-10
 ---

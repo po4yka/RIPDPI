@@ -1,13 +1,15 @@
 ---
-title: "Epic - Protocol conformance and regression tests"
-type: epic
+id: EPC-1786264762917455
+title: Epic - Protocol conformance and regression tests
+kind: epic
 status: doing
 area: epic
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: epc-1786264762917455-epic-protocol-conformance-tests
 created: 2026-06-10
 updated: 2026-07-26
 source_wiki_pages: []

@@ -1,18 +1,20 @@
 ---
-title: "Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)"
-type: task
+id: TRN-1786264762917775
+title: Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)
+kind: feature
 status: doing
 area: transport
 priority: high
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
 created: 2026-06-13
 updated: 2026-06-21
 source_wiki_pages:
-  - "wireguard-rtk-south-amneziawg-bypass"
-linked_task: "wire-amneziawg-rtk-south-jc4-cohort-into-android-client"
+  - wireguard-rtk-south-amneziawg-bypass
+linked_task: TRN-1786264762917677
 ---
 
 ## Motivation

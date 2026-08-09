@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-07-13"
+goal: "RST-1786264762917234 Replace unmaintained paste proc-macro dependency"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

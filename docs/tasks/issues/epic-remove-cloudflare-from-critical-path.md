@@ -1,16 +1,18 @@
 ---
+id: EPC-1786264762917110
 title: Epic - Remove Cloudflare from critical path
-type: epic
+kind: epic
 status: doing
 area: epic
 priority: critical
-status_note: code/automation landed across client + deploy; non-Cloudflare hosts await operator provisioning
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: epc-1786264762917110-epic-remove-cloudflare-from-critical-path
 created: 2026-05-01
 updated: 2026-06-11
+status_note: code/automation landed across client + deploy; non-Cloudflare hosts await operator provisioning
 ---
 
 ## Goal

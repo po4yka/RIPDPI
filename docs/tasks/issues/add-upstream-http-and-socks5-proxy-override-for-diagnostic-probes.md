@@ -1,13 +1,15 @@
 ---
+id: RST-1786264762917181
 title: Add upstream HTTP and SOCKS5 proxy override for diagnostic probes
-type: task
+kind: feature
 status: backlog
 area: rust-native
 priority: low
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917181-add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes
 created: 2026-04-25
 updated: 2026-06-05
 ---

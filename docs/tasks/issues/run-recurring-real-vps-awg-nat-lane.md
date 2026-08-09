@@ -1,15 +1,18 @@
 ---
+id: CIC-1786264762917922
 title: Run a recurring real-VPS AmneziaWG and NAT lane
-type: task
+kind: chore
 status: doing
 area: ci
 priority: high
 owner: AWG real-VPS lane
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: not-required
+openspec_change: null
 created: 2026-07-16
 updated: 2026-07-22
+spec_reason: tooling-only
 status_detail: Local systemd execution and fail-closed validators are shipped; real-VPS evidence is blocked by missing operator-owned provider inputs
 ---
 

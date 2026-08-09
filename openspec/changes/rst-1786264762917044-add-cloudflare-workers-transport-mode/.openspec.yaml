@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-16"
+goal: "RST-1786264762917044 Add optional Cloudflare Workers transport mode"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

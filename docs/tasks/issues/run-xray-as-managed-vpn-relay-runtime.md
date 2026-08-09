@@ -1,16 +1,18 @@
 ---
+id: OUT-1786264762917107
 title: Run Xray as managed VPN relay runtime
-type: task
+kind: feature
 status: blocked
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-xray-provider-mode
-blocks: []
+parent: EPC-1786264762917329
 blocked_by: []
-status_detail: externally-gated — real gomobile-backed bridge and Android device execution remain unavailable
+spec_mode: required
+openspec_change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
 created: 2026-04-24
 updated: 2026-07-26
+status_detail: externally-gated — real gomobile-backed bridge and Android device execution remain unavailable
 ---
 
 ## Summary

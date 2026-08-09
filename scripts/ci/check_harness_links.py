@@ -38,6 +38,9 @@ _RE_AGENT_NAME = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9][a-z0-9]*)+)`\s{0,3}ag
 # README.md, ARCHITECTURE.md, etc.) are prose mentions, not harness references,
 # and are intentionally excluded by the [a-z] anchor on the first character.
 _RE_MD_BACKTICK = re.compile(r"`([a-z][a-z0-9_-]*\.md)`", re.ASCII)
+_PLANNING_ARTIFACT_FILENAMES = frozenset(
+    ("proposal.md", "spec.md", "design.md", "tasks.md", "verification.md")
+)
 
 # Pattern 4: bare .claude/-prefixed paths
 _RE_BARE_PATH = re.compile(r"(?<![`\w])\.claude/(?:skills/[^/\s`\"']+/SKILL\.md|rules/[^/\s`\"']+\.md|agents/[^/\s`\"']+\.md)", re.ASCII)
@@ -154,6 +157,11 @@ class HarnessLinkAuditor:
     def _check_md_backtick_refs(self, line: str, src: str, lineno: int) -> None:
         for m in _RE_MD_BACKTICK.finditer(line):
             filename = m.group(1)
+            if (
+                src.startswith(".agents/skills/")
+                and filename in _PLANNING_ARTIFACT_FILENAMES
+            ):
+                continue
             # Only interpret as a rules reference when it's not already caught
             # by the bare-path pattern and looks like a rules file.
             local_path = self.claude_root / "rules" / filename

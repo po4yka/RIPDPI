@@ -1,16 +1,18 @@
 ---
+id: RTE-1786264762917959
 title: Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS
-type: task
+kind: feature
 status: doing
 area: routing
 priority: medium
 owner: unassigned
-parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: version-gated delegation + fallback shipped + unit-tested; exclusion persistence across reconnects (OS-owned) is device-gated (needs an Android 17 device)
-blocks: []
+parent: EPC-1786264762917557
 blocked_by: []
+spec_mode: required
+openspec_change: rte-1786264762917959-adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion
 created: 2026-04-25
 updated: 2026-06-11
+status_detail: version-gated delegation + fallback shipped + unit-tested; exclusion persistence across reconnects (OS-owned) is device-gated (needs an Android 17 device)
 ---
 
 ## Summary

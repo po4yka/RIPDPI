@@ -1,13 +1,15 @@
 ---
-title: "Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates"
-type: task
+id: RST-1786264762917430
+title: Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates
+kind: feature
 status: backlog
 area: rust-native
 priority: low
 owner: unassigned
-parent: epic-june-2026-audit-remediation
-blocks: []
+parent: EPC-1786264762917503
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917430-reduce-pub-surface-monitor-engine-and-config
 created: 2026-06-10
 updated: 2026-06-10
 source_wiki_pages: []

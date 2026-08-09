@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-22"
+goal: "TRN-1786264762917575 Spike: DNS-Morph bootstrap as fallback bootstrap channel"
+affected_areas: ["transport"]
+skip_specs: false
+retire_capabilities: false

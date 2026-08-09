@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-12"
+goal: "RST-1786264762917304 Unpin russh after rsa advisory fix"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

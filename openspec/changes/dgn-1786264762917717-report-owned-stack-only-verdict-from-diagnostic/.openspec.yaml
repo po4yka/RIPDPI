@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-04-20"
+goal: "DGN-1786264762917717 Report OWNED_STACK_ONLY verdict from diagnostic"
+affected_areas: ["diagnostics"]
+skip_specs: false
+retire_capabilities: false

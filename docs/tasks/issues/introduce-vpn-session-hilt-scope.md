@@ -1,13 +1,15 @@
 ---
-title: "Introduce a VPN-session Hilt scope to reset per-session service state"
-type: task
+id: AND-1786264762917810
+title: Introduce a VPN-session Hilt scope to reset per-session service state
+kind: feature
 status: backlog
 area: android
 priority: medium
 owner: unassigned
-parent: epic-june-2026-audit-remediation
-blocks: []
+parent: EPC-1786264762917503
 blocked_by: []
+spec_mode: required
+openspec_change: and-1786264762917810-introduce-vpn-session-hilt-scope
 created: 2026-06-10
 updated: 2026-06-10
 source_wiki_pages: []

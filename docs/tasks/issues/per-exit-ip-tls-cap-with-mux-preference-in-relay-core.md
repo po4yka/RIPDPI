@@ -1,17 +1,19 @@
 ---
-title: "Per-exit-IP TLS cap with true mux-preference in relay-core backend"
-type: task
+id: TRN-1786264762917184
+title: Per-exit-IP TLS cap with true mux-preference in relay-core backend
+kind: feature
 status: todo
 area: transport
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: trn-1786264762917184-per-exit-ip-tls-cap-with-mux-preference-in-relay-core
 created: 2026-06-11
 updated: 2026-06-11
 source_wiki_pages:
-  - "tls-policing-home-isps"
+  - tls-policing-home-isps
 linked_task: null
 ---
 

@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-15"
+goal: "SVC-1786264762917506 Wire NaiveProxy helper probe into manager startup"
+affected_areas: ["service"]
+skip_specs: false
+retire_capabilities: false

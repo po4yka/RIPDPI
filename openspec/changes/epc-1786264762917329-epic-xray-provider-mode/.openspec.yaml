@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-04-24"
+goal: "EPC-1786264762917329 Epic - Xray provider mode"
+affected_areas: ["epic"]
+skip_specs: false
+retire_capabilities: false

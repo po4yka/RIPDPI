@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-04-25"
+goal: "RTE-1786264762917255 Adopt process-based per-package routing via Xray TUN routeOnly"
+affected_areas: ["routing"]
+skip_specs: false
+retire_capabilities: false

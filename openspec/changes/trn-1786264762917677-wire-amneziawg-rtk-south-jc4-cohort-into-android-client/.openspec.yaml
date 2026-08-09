@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-22"
+goal: "TRN-1786264762917677 Wire AmneziaWG RTK South cohort (Jc=4) into Android client"
+affected_areas: ["transport"]
+skip_specs: false
+retire_capabilities: false

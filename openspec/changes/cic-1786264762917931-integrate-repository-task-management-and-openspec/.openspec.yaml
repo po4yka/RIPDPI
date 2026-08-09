@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-08-09"
+goal: "CIC-1786264762917931 Integrate repository task management and OpenSpec"
+affected_areas: ["ci"]
+skip_specs: false
+retire_capabilities: false

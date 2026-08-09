@@ -1,13 +1,15 @@
 ---
+id: OUT-1786264762917619
 title: Add Xray profile UX and import flow
-type: task
+kind: feature
 status: doing
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-xray-provider-mode
-blocks: []
+parent: EPC-1786264762917329
 blocked_by: []
+spec_mode: required
+openspec_change: out-1786264762917619-add-xray-profile-ux-and-import-flow
 created: 2026-04-24
 updated: 2026-06-05
 ---

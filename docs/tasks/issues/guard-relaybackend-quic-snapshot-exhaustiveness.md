@@ -1,13 +1,15 @@
 ---
-title: "Guard RelayBackend manual match arms against silently-omitted QUIC variants"
-type: task
+id: RLY-1786264762917178
+title: Guard RelayBackend manual match arms against silently-omitted QUIC variants
+kind: feature
 status: backlog
 area: relay
 priority: low
 owner: unassigned
-parent: epic-june-2026-audit-remediation
-blocks: []
+parent: EPC-1786264762917503
 blocked_by: []
+spec_mode: required
+openspec_change: rly-1786264762917178-guard-relaybackend-quic-snapshot-exhaustiveness
 created: 2026-06-10
 updated: 2026-06-10
 source_wiki_pages: []

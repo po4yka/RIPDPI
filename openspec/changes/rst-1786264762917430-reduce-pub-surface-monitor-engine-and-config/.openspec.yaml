@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "RST-1786264762917430 Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

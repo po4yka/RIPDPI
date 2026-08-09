@@ -1,19 +1,22 @@
 ---
-title: "Investigate operator-specific protocol-class signatures (Dec 2025 shift)"
-type: task
+id: TRN-1786264762917526
+title: Investigate operator-specific protocol-class signatures (Dec 2025 shift)
+kind: research
 status: blocked
 area: transport
 priority: medium
 owner: unassigned
-parent: epic-transport-obfuscation-research
-blocks: []
+parent: EPC-1786264762917282
 blocked_by: []
-status_detail: externally-gated — requires sustained measurements across multiple operator-controlled network vantages
+spec_mode: not-required
+openspec_change: null
 created: 2026-05-22
 updated: 2026-07-26
+spec_reason: research-only
 source_wiki_pages:
-  - "operator-protocol-class-blocking-shift-dec-2025"
+  - operator-protocol-class-blocking-shift-dec-2025
 linked_task: null
+status_detail: externally-gated — requires sustained measurements across multiple operator-controlled network vantages
 ---
 
 ## Motivation

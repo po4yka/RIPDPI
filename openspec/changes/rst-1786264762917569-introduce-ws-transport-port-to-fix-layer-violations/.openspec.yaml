@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "RST-1786264762917569 Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

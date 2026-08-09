@@ -1,16 +1,19 @@
 ---
+id: TST-1786264762917272
 title: Add Hysteria 2 Salamander obfuscation conformance fixtures
-type: task
+kind: chore
 status: blocked
 area: testing
 priority: medium
 owner: unassigned
-parent: epic-protocol-conformance-tests
-status_detail: externally-gated — harness shipped; the 8 conformance goldens need real apernet/hysteria byte vectors at a pinned tag, which are not available locally and cannot be fabricated
-blocks: []
+parent: EPC-1786264762917455
 blocked_by: []
+spec_mode: not-required
+openspec_change: null
 created: 2026-05-15
 updated: 2026-07-26
+spec_reason: test-only
+status_detail: externally-gated — harness shipped; the 8 conformance goldens need real apernet/hysteria byte vectors at a pinned tag, which are not available locally and cannot be fabricated
 ---
 
 ## Summary

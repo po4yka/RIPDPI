@@ -1,15 +1,18 @@
 ---
+id: TST-1786264762917827
 title: Operate Phase-16 real-provider SIM runner
-type: task
+kind: chore
 status: doing
 area: testing
 priority: high
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: not-required
+openspec_change: null
 created: 2026-05-25
 updated: 2026-06-10
+spec_reason: test-only
 ---
 
 ## Summary

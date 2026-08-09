@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-07-10"
+goal: "TRN-1786264762917886 Add a parallel active-probe race for initial transport selection"
+affected_areas: ["transport"]
+skip_specs: false
+retire_capabilities: false

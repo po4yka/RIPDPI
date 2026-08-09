@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-22"
+goal: "TRN-1786264762917675 Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)"
+affected_areas: ["transport"]
+skip_specs: false
+retire_capabilities: false

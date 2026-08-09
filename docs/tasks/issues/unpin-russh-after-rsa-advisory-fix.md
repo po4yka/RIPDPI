@@ -1,13 +1,15 @@
 ---
-title: "Unpin russh after rsa advisory fix"
-type: task
+id: RST-1786264762917304
+title: Unpin russh after rsa advisory fix
+kind: feature
 status: backlog
 area: rust-native
 priority: low
 owner: Native security maintainer
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917304-unpin-russh-after-rsa-advisory-fix
 created: 2026-06-12
 updated: 2026-08-04
 source_wiki_pages: []

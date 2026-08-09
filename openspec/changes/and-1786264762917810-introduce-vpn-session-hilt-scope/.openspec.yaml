@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "AND-1786264762917810 Introduce a VPN-session Hilt scope to reset per-session service state"
+affected_areas: ["android"]
+skip_specs: false
+retire_capabilities: false

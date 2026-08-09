@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "UIX-1786264762917972 Key session-scoped LaunchedEffect refreshes on the session id, not Unit"
+affected_areas: ["ui"]
+skip_specs: false
+retire_capabilities: false

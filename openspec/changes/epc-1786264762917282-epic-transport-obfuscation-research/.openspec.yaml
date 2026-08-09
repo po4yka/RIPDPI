@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "EPC-1786264762917282 Epic - Transport obfuscation and network-signature research"
+affected_areas: ["epic"]
+skip_specs: false
+retire_capabilities: false

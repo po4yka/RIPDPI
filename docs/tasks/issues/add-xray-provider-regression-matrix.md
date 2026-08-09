@@ -1,13 +1,15 @@
 ---
+id: OUT-1786264762917829
 title: Add Xray provider regression matrix
-type: task
+kind: feature
 status: doing
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-xray-provider-mode
-blocks: []
+parent: EPC-1786264762917329
 blocked_by: []
+spec_mode: required
+openspec_change: out-1786264762917829-add-xray-provider-regression-matrix
 created: 2026-04-24
 updated: 2026-06-10
 ---

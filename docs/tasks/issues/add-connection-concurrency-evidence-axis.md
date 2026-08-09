@@ -1,13 +1,15 @@
 ---
+id: DGN-1786264762917684
 title: Add connection-concurrency as an independent evidence axis
-type: task
+kind: feature
 status: review
 area: diagnostics
 priority: high
 owner: Codex
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: dgn-1786264762917684-add-connection-concurrency-evidence-axis
 created: 2026-07-10
 updated: 2026-07-10
 ---

@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-04-24"
+goal: "OUT-1786264762917829 Add Xray provider regression matrix"
+affected_areas: ["outbound"]
+skip_specs: false
+retire_capabilities: false

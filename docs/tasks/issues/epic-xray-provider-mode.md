@@ -1,16 +1,18 @@
 ---
+id: EPC-1786264762917329
 title: Epic - Xray provider mode
-type: epic
+kind: epic
 status: blocked
 area: epic
 priority: high
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
-status_detail: externally-gated — real gomobile libXray execution, native link, and device egress proof remain unavailable
+spec_mode: required
+openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
 updated: 2026-07-26
+status_detail: externally-gated — real gomobile libXray execution, native link, and device egress proof remain unavailable
 ---
 
 ## Goal

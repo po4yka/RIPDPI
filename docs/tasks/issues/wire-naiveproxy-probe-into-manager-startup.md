@@ -1,13 +1,15 @@
 ---
+id: SVC-1786264762917506
 title: Wire NaiveProxy helper probe into manager startup
-type: task
+kind: feature
 status: doing
 area: service
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: svc-1786264762917506-wire-naiveproxy-probe-into-manager-startup
 created: 2026-05-15
 updated: 2026-06-10
 ---

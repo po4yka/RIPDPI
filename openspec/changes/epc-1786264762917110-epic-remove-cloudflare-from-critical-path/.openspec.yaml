@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-05-01"
+goal: "EPC-1786264762917110 Epic - Remove Cloudflare from critical path"
+affected_areas: ["epic"]
+skip_specs: false
+retire_capabilities: false

@@ -1,13 +1,15 @@
 ---
+id: OUT-1786264762917551
 title: Finish AnyTLS profile editor and compatibility gaps
-type: task
+kind: feature
 status: doing
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-extended-outbound-protocol-support
-blocks: []
+parent: EPC-1786264762917457
 blocked_by: []
+spec_mode: required
+openspec_change: out-1786264762917551-add-anytls-outbound-client-crate-and-profile-editor
 created: 2026-04-24
 updated: 2026-06-05
 ---

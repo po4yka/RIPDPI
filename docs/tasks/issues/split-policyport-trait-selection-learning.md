@@ -1,13 +1,15 @@
 ---
-title: "Split the 12-method PolicyPort trait into selection and learning sub-traits"
-type: task
+id: RST-1786264762917192
+title: Split the 12-method PolicyPort trait into selection and learning sub-traits
+kind: feature
 status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
-parent: epic-june-2026-audit-remediation
-blocks: []
+parent: EPC-1786264762917503
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917192-split-policyport-trait-selection-learning
 created: 2026-06-10
 updated: 2026-06-10
 source_wiki_pages: []

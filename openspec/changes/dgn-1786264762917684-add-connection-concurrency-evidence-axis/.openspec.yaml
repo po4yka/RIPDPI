@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-07-10"
+goal: "DGN-1786264762917684 Add connection-concurrency as an independent evidence axis"
+affected_areas: ["diagnostics"]
+skip_specs: false
+retire_capabilities: false

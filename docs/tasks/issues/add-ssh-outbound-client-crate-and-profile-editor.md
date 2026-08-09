@@ -1,13 +1,15 @@
 ---
+id: OUT-1786264762917254
 title: Add SSH outbound client crate and profile editor
-type: task
+kind: feature
 status: doing
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-extended-outbound-protocol-support
-blocks: []
+parent: EPC-1786264762917457
 blocked_by: []
+spec_mode: required
+openspec_change: out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor
 created: 2026-04-24
 updated: 2026-06-05
 ---
@@ -18,7 +20,7 @@ Add a `ripdpi-ssh` Rust crate that opens direct-tcpip forwarding via SSH (passwo
 
 ## Context
 
-SSH tunnels are a common hobbyist bypass primitive, especially for users who control their own VPS. Use `russh` (or equivalent maintained crate) rather than re-implementing the wire protocol. Multiplexing is optional for v1; single-channel per connection is acceptable, though connection pooling should be left as an extension point.
+SSH tunnels are a common user-managed tunneled outbound option, especially for users who control their own VPS. Use `russh` (or equivalent maintained crate) rather than re-implementing the wire protocol. Multiplexing is optional for v1; single-channel per connection is acceptable, though connection pooling should be left as an extension point.
 
 ## Acceptance criteria
 

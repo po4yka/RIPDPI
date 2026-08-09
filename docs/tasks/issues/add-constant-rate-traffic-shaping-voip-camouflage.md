@@ -1,13 +1,15 @@
 ---
+id: RST-1786264762917193
 title: Add constant-rate traffic shaping with VoIP camouflage profile
-type: task
+kind: feature
 status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
-parent: epic-transport-obfuscation-research
-blocks: []
+parent: EPC-1786264762917282
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage
 created: 2026-05-16
 updated: 2026-06-11
 ---

@@ -1,13 +1,15 @@
 ---
-title: "Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel"
-type: task
+id: RST-1786264762917569
+title: Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel
+kind: feature
 status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
-parent: epic-june-2026-audit-remediation
-blocks: []
+parent: EPC-1786264762917503
 blocked_by: []
+spec_mode: required
+openspec_change: rst-1786264762917569-introduce-ws-transport-port-to-fix-layer-violations
 created: 2026-06-10
 updated: 2026-06-10
 source_wiki_pages: []

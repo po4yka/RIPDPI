@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-04-25"
+goal: "RST-1786264762917181 Add upstream HTTP and SOCKS5 proxy override for diagnostic probes"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

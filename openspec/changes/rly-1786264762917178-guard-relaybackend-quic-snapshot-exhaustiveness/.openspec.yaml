@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "RLY-1786264762917178 Guard RelayBackend manual match arms against silently-omitted QUIC variants"
+affected_areas: ["relay"]
+skip_specs: false
+retire_capabilities: false

@@ -1,19 +1,21 @@
 ---
-title: "Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)"
-type: task
+id: VPN-1786264762917166
+title: Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)
+kind: feature
 status: doing
 area: vpn
 priority: high
 owner: ICMP and MapDNS physical harness lane
-parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: MapDNS and ICMP source policy is shipped; Android ICMP and MapDNS selectors plus physical evidence are being implemented, while pre-5.7 and adb socket-table proof remain open
-blocks: []
+parent: EPC-1786264762917557
 blocked_by: []
+spec_mode: required
+openspec_change: vpn-1786264762917166-add-tun2socks-uid-validation-against-so-bindtodevice-bypass
 created: 2026-05-22
 updated: 2026-07-22
 source_wiki_pages:
-  - "android-so-bindtodevice-vpn-bypass"
+  - android-so-bindtodevice-vpn-bypass
 linked_task: null
+status_detail: MapDNS and ICMP source policy is shipped; Android ICMP and MapDNS selectors plus physical evidence are being implemented, while pre-5.7 and adb socket-table proof remain open
 ---
 
 ## Motivation

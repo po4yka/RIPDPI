@@ -1,18 +1,20 @@
 ---
+id: TRN-1786264762917886
 title: Add a parallel active-probe race for initial transport selection
-type: task
+kind: feature
 status: review
 area: transport
 priority: high
 owner: Codex
-parent: epic-transport-obfuscation-research
-blocks: []
+parent: EPC-1786264762917282
 blocked_by: []
+spec_mode: required
+openspec_change: trn-1786264762917886-parallel-active-probe-race-initial-transport-selection
 created: 2026-07-10
 updated: 2026-07-10
 source_wiki_pages:
-  - "whitelist-dpi-confirm-good-paradigm"
-  - "urltest-dual-transport-fallback"
+  - whitelist-dpi-confirm-good-paradigm
+  - urltest-dual-transport-fallback
 linked_task: null
 ---
 
@@ -48,5 +50,4 @@ Race the simple flavor's seeded VLESS+Reality and Hysteria2+Salamander relay pat
 
 ## References
 
-- `/Users/po4yka/GitRep/censorship-bypass/wikis/tspu-dpi-internals/wiki/concepts/whitelist-dpi-confirm-good-paradigm.md`
-- `/Users/po4yka/GitRep/censorship-bypass/wikis/transport-protocols/wiki/concepts/urltest-dual-transport-fallback.md`
+- Internal transport-selection research notes identified by the `source_wiki_pages` keys above.

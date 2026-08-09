@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-10"
+goal: "RST-1786264762917192 Split the 12-method PolicyPort trait into selection and learning sub-traits"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

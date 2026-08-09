@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-08-04"
+goal: "RST-1786264762917563 Replace unmaintained bincode transitive dependency"
+affected_areas: ["rust-native"]
+skip_specs: false
+retire_capabilities: false

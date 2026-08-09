@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-06-11"
+goal: "TRN-1786264762917184 Per-exit-IP TLS cap with true mux-preference in relay-core backend"
+affected_areas: ["transport"]
+skip_specs: false
+retire_capabilities: false

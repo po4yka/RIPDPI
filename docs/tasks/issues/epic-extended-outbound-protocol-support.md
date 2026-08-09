@@ -1,13 +1,15 @@
 ---
+id: EPC-1786264762917457
 title: Epic - Extended outbound protocol support
-type: epic
+kind: epic
 status: doing
 area: epic
 priority: high
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: epc-1786264762917457-epic-extended-outbound-protocol-support
 created: 2026-04-24
 updated: 2026-06-10
 ---
@@ -25,7 +27,7 @@ Subscription import is only useful if imported protocols can execute. SSH and Mi
 ## Key decisions
 
 - **Native Rust crates, mirroring existing pattern** (`ripdpi-vless`, `ripdpi-hysteria2`, `ripdpi-tuic`, `ripdpi-shadowtls`). No external C/Go binaries in the outbound path for these.
-- **Protocol inclusion bar: must be present in realistic bypass subscriptions.** The remaining matrix is SSH, Mieru, and possibly generic HTTP(S)/SOCKS5 outbound profiles if subscription samples justify them. **Tor is deliberately excluded** from this outbound-compatibility epic because it is a separate anonymity backend decision.
+- **Protocol inclusion bar: must be present in realistic outbound-profile subscriptions.** The remaining matrix is SSH, Mieru, and possibly generic HTTP(S)/SOCKS5 outbound profiles if subscription samples justify them. **Tor is deliberately excluded** from this outbound-compatibility epic because it is a separate anonymity backend decision.
 - **SSH is included** because it remains a common relay for hobbyist network-path compatibility setups, despite low share-count; the existing `ripdpi-warp-core` noise primitives are unrelated — SSH needs its own crypto.
 - **VMess, Trojan-Go, and Hysteria v1 are removed, not stubbed** — see [ADR 0004](../../adr/0004-protocol-support-policy.md). A protocol that becomes legacy and unused is deleted rather than left to rot; the inclusion bar is "current and maintained upstream."
 

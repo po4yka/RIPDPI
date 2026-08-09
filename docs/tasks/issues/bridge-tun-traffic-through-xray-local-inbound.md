@@ -1,13 +1,15 @@
 ---
+id: OUT-1786264762917422
 title: Bridge TUN traffic through Xray local inbound
-type: task
+kind: feature
 status: doing
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-xray-provider-mode
-blocks: []
+parent: EPC-1786264762917329
 blocked_by: []
+spec_mode: required
+openspec_change: out-1786264762917422-bridge-tun-traffic-through-xray-local-inbound
 created: 2026-04-24
 updated: 2026-06-05
 ---

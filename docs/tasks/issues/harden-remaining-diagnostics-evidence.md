@@ -1,13 +1,15 @@
 ---
+id: DGN-1786264762917145
 title: Harden remaining diagnostics evidence
-type: task
+kind: bug
 status: doing
 area: diagnostics
 priority: high
 owner: Codex diagnostics completion coordinator
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: dgn-1786264762917145-harden-remaining-diagnostics-evidence
 created: 2026-07-29
 updated: 2026-07-29
 ---

@@ -1,23 +1,25 @@
 ---
-title: "Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)"
-type: task
+id: TRN-1786264762917675
+title: Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)
+kind: feature
 status: backlog
 area: transport
 priority: medium
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: trn-1786264762917675-wire-hysteria-realm-stun-nat-traversal
 created: 2026-05-22
 updated: 2026-06-05
 source_wiki_pages:
-  - "hysteria2-tuic"
+  - hysteria2-tuic
 linked_task: null
 ---
 
 ## Motivation
 
-sing-box v1.14.0-alpha.22 (2026-05-11) introduced a Hysteria Realm service that enables direct peer-to-peer Hysteria2 QUIC tunnels between two clients behind separate NATs — without a fixed listening server on a foreign datacenter ASN. TSPU policies targeting foreign-DC ASNs (the 15–20 KB freeze, session-volume caps) inherently apply to conventional Hysteria2 deployments; Realm provides structural bypass since the data peer can live on any RU residential or mobile ASN behind NAT.
+sing-box v1.14.0-alpha.22 (2026-05-11) introduced a Hysteria Realm service that enables direct peer-to-peer Hysteria2 QUIC tunnels between two clients behind separate NATs — without a fixed listening server on a datacenter ASN. Datacenter-path QoS policies (including short-transfer stalls and session-volume caps) can affect conventional Hysteria2 deployments; Realm permits alternate peer placement because the data peer can live on a residential or mobile ASN behind NAT.
 
 > [!warning] LOW dedup confidence
 > The `ripdpi-hysteria2` crate already exists. Realm is a new sing-box feature (v1.14.0-alpha.22, 2026-05-11) that the existing crate likely does not yet support; PR description must explicitly confirm Realm functionality was not previously available.
@@ -45,7 +47,7 @@ Extend `ripdpi-hysteria2` (or add a sibling `ripdpi-hysteria-realm` crate) to su
 ## Risks / open questions
 
 - STUN-based hole-punching is unreliable for symmetric NATs (typical RU carrier-grade NAT). Empirical success rate from RU mobile CGNAT is the gating question.
-- Does TSPU drop "unsolicited inbound UDP after outbound STUN burst" as a class? If so, Realm fails at the hole-punch step.
+- Do path middleboxes drop "unsolicited inbound UDP after outbound STUN burst" as a class? If so, Realm fails at the hole-punch step.
 - QUIC connection ID persistence under typical RU CGNAT NAT-table timeouts — sustained connection over 30-min idle followed by burst traffic needs measurement.
 
 ## References

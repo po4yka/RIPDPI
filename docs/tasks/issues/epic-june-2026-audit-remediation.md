@@ -1,13 +1,15 @@
 ---
-title: "Epic - June 2026 full-project audit remediation"
-type: epic
+id: EPC-1786264762917503
+title: Epic - June 2026 full-project audit remediation
+kind: epic
 status: doing
 area: epic
 priority: high
 owner: unassigned
 parent: null
-blocks: []
 blocked_by: []
+spec_mode: required
+openspec_change: epc-1786264762917503-epic-june-2026-audit-remediation
 created: 2026-06-10
 updated: 2026-06-10
 source_wiki_pages: []
