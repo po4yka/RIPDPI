@@ -23,13 +23,15 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn('version: "0.8.17"', ci)
         self.assertIn('uvx --from "zizmor==$zizmor_version"', script)
         for flag in (
-            "--offline",
+            "--no-config",
             "--strict-collection",
             "--persona regular",
             "--no-ignores",
         ):
             self.assertIn(flag, script)
         self.assertIn("run: bash scripts/ci/run-zizmor.sh", ci)
+        self.assertNotIn("--offline", script)
+        self.assertIn("GH_TOKEN: ${{ github.token }}", ci)
         workflow_gate = re.search(
             r"(?ms)^  workflow-only-contracts:\n.*?(?=^  [\w-]+:\n|\Z)", ci
         )

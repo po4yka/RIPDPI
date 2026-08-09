@@ -215,6 +215,8 @@ jobs:
           enable-cache: false
 
       - name: Audit workflow security with pinned zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash scripts/ci/run-zizmor.sh
 
       - name: Validate workflow and release contracts

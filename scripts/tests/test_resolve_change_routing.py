@@ -69,6 +69,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                 "scripts/tests/test_netem_transaction.py",
             ],
             ROUTE_WORKFLOW: [
+                ".github/dependabot.yml",
                 ".github/workflows/codeql.yml",
                 "scripts/ci/run-zizmor.sh",
             ],
@@ -101,7 +102,6 @@ class ResolveChangeRoutingTest(unittest.TestCase):
     def test_unclassified_workflows_fail_closed_to_full_ci(self) -> None:
         for path in (
             ".github/workflows/fuzz-nightly.yml",
-            ".github/dependabot.yml",
             ".github/labeler.yml",
         ):
             with self.subTest(path=path):
@@ -238,6 +238,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         self.assertIn("actionlint .github/workflows/*.yml", source)
         self.assertIn("pinact run --fix=false --no-api", source)
         self.assertIn("run: bash scripts/ci/run-zizmor.sh", source)
+        self.assertIn("GH_TOKEN: ${{ github.token }}", source)
         self.assertIn("scripts.tests.test_release_p1_contracts", source)
         self.assertIn("scripts.tests.test_android_device_session", source)
         self.assertIn("scripts.tests.test_netem_transaction", source)

@@ -5,7 +5,7 @@ readonly zizmor_version="1.29.0"
 repo_root="$(git rev-parse --show-toplevel)"
 readonly repo_root
 readonly -a zizmor_args=(
-  --offline
+  --no-config
   --strict-collection
   --no-progress
   --color never

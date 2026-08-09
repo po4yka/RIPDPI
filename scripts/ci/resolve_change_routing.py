@@ -99,6 +99,7 @@ WORKFLOW_FILES: Final = frozenset(
         ".github/workflows/i18n-locale-drift.yml",
         ".github/workflows/labeler.yml",
         ".github/workflows/secret-scan.yml",
+        ".github/dependabot.yml",
         ".pinact.yaml",
         "scripts/ci/run-zizmor.sh",
         "scripts/tests/test_ci_native_dependency_graph.py",
