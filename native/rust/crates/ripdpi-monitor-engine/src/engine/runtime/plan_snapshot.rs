@@ -65,7 +65,14 @@ fn strategy_snapshot(plan: &StrategyExecutionPlan) -> StrategyExecutionPlanSnaps
     }
 }
 
+const BASELINE_ECH_CAPABILITY: &str = "baseline_ech_capable";
+
 fn candidate_snapshot(candidate: &StrategyCandidateSpec) -> StrategyCandidatePlanSnapshot {
+    let mut required_capabilities =
+        candidate.requires_capabilities.iter().map(|capability| capability.as_str().to_string()).collect::<Vec<_>>();
+    if candidate.eligibility == CandidateEligibility::RequiresEchCapability {
+        required_capabilities.push(BASELINE_ECH_CAPABILITY.to_string());
+    }
     StrategyCandidatePlanSnapshot {
         id: candidate.id.to_string(),
         label: candidate.label.to_string(),
@@ -87,10 +94,6 @@ fn candidate_snapshot(candidate: &StrategyCandidateSpec) -> StrategyCandidatePla
         preserve_adaptive_fake_ttl: candidate.preserve_adaptive_fake_ttl,
         requires_fake_ttl: candidate.requires_fake_ttl,
         requires_tcp_fast_open: candidate.requires_tcp_fast_open,
-        required_capabilities: candidate
-            .requires_capabilities
-            .iter()
-            .map(|capability| capability.as_str().to_string())
-            .collect(),
+        required_capabilities,
     }
 }

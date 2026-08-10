@@ -32,7 +32,7 @@ jobs:
         with:
           toolchain: nightly-2026-06-12
       - name: Install cargo-fuzz
-        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
         with:
           tool: cargo-fuzz@0.13.1
       - name: Run fuzz targets

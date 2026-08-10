@@ -3,7 +3,7 @@
         {
             "decisionType": "SCAN_COMPLETION",
             "evidenceRefs": [
-                "report.json#/completionKind"
+                "report.json#/primaryReport"
             ],
             "outcome": "NORMAL",
             "rationale": "Blocked DNS",
@@ -13,7 +13,7 @@
         {
             "decisionType": "DIAGNOSIS",
             "evidenceRefs": [
-                "report.json#/diagnoses/0"
+                "report.json#/primaryReport/diagnoses/0"
             ],
             "outcome": "dns_tampering",
             "rationale": "DNS answers were substituted",
@@ -24,7 +24,7 @@
         {
             "decisionType": "RESOLVER_SELECTION",
             "evidenceRefs": [
-                "report.json#/resolverRecommendation"
+                "report.json#/primaryReport/resolverRecommendation"
             ],
             "outcome": "SELECTED",
             "rationale": "fallback",

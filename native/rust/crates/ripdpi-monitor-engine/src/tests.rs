@@ -910,6 +910,20 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
         ),
         ("quick_v1", "ordered_pre_runtime_filter_pool", Some(2), false, false),
     );
+    let ech_requirements = strategy_plan
+        .tcp_candidates
+        .iter()
+        .filter(|candidate| candidate.eligibility == "requires_ech_capability")
+        .map(|candidate| (candidate.id.as_str(), candidate.required_capabilities.clone()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ech_requirements,
+        vec![
+            ("ech_split", vec!["baseline_ech_capable".to_string()]),
+            ("ech_tlsrec", vec!["baseline_ech_capable".to_string()]),
+        ],
+        "ECH candidates must export the prerequisite that explains a capability-skipped receipt",
+    );
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
     assert_eq!(report.profile_id, "automatic-probing");

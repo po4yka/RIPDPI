@@ -93,7 +93,7 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
         observation: ObservationFact,
         subjectAlias: String,
     ): List<ProtocolMilestoneArchiveRecord> {
-        val evidencePrefix = "report.json#/observations/${observationIndex - 1}"
+        val evidencePrefix = primaryReportEvidenceRef(pointer = "/observations/${observationIndex - 1}")
         return buildList {
             observation.dns?.let { dns ->
                 addDnsMilestone(
@@ -395,8 +395,11 @@ internal class DiagnosticsArchiveProtocolMilestonesEntryBuilder(
                 outcome = status.name,
                 failureKind = observation.domain?.transportFailure?.withoutNone(),
                 evidenceRef =
-                    "report.json#/observations/${observationIndex - 1}/domain/" +
-                        if (tls13) "tls13Status" else "tls12Status",
+                    primaryReportEvidenceRef(
+                        pointer =
+                            "/observations/${observationIndex - 1}/domain/" +
+                                if (tls13) "tls13Status" else "tls12Status",
+                    ),
             ),
         )
     }

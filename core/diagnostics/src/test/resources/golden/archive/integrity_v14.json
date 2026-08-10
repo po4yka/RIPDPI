@@ -21,9 +21,9 @@
             "sha256": "79d6c3a5fe47b9e619c0cfb9abc0ce2097ad7c36965b1b07ba9e40af37bd5823"
         },
         {
-            "byteCount": 514,
+            "byteCount": 528,
             "name": "target-aliases.json",
-            "sha256": "2c69fd4abb20276ed8127f5c6699e7e59f6af68f3796b5b49d627f5e01b99358"
+            "sha256": "acaffe62bb04dad0b797ea5298173cb05627a970b15ce145d8a5b0f0e92abf54"
         },
         {
             "byteCount": 31326,
@@ -51,14 +51,14 @@
             "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
-            "byteCount": 652,
+            "byteCount": 666,
             "name": "resolver-trace.jsonl",
-            "sha256": "9bc599148b8501c7f85fb930c12ab221575a83f11ef634c90de71a899cae74c8"
+            "sha256": "f842c63307eb960a8acea546bbcfe5c6882018e2d603ebefb36fc5d8af2dffa7"
         },
         {
-            "byteCount": 3089,
+            "byteCount": 3116,
             "name": "decision-trace.json",
-            "sha256": "2151cfd0d3dfea31a27e948af165b904db6bb6e59d0ce4aaa36f50533cc23d1b"
+            "sha256": "2d1f761f4b0335f90919ef36b6d0c4d288baa0ac254e97b874c5bbd2a7772c5f"
         },
         {
             "byteCount": 6338,
@@ -98,7 +98,7 @@
         {
             "byteCount": 154,
             "name": "developer-analytics.json",
-            "sha256": "fd2f1f51e89348bf636830433b766ae3a51c91b764f6ca61d27eef66640430ed"
+            "sha256": "1d97526a76c7471fd402f42d004cf16e367a50be63aef4ac13b6469bb06a0746"
         },
         {
             "byteCount": 222,

@@ -43,7 +43,7 @@ internal class DiagnosticsArchiveDecisionTraceEntryBuilder(
                 outcome = report.completionKind.name,
                 reasonCode = report.terminationReason?.name,
                 rationale = report.summary,
-                evidenceRefs = listOf("report.json#/completionKind"),
+                evidenceRefs = listOf(primaryReportEvidenceRef()),
             ),
         )
     }
@@ -56,7 +56,7 @@ internal class DiagnosticsArchiveDecisionTraceEntryBuilder(
                     outcome = diagnosis.code,
                     reasonCode = diagnosis.severity,
                     rationale = diagnosis.summary,
-                    evidenceRefs = listOf("report.json#/diagnoses/$index"),
+                    evidenceRefs = listOf(primaryReportEvidenceRef(pointer = "/diagnoses/$index")),
                 ),
             )
         }
@@ -75,7 +75,7 @@ internal class DiagnosticsArchiveDecisionTraceEntryBuilder(
                         selection("resolver", resolver.selectedResolverId),
                         selection("protocol", resolver.selectedProtocol),
                     ),
-                evidenceRefs = listOf("report.json#/resolverRecommendation"),
+                evidenceRefs = listOf(primaryReportEvidenceRef(pointer = "/resolverRecommendation")),
             ),
         )
     }
@@ -94,7 +94,7 @@ internal class DiagnosticsArchiveDecisionTraceEntryBuilder(
                         level = recommendation.confidence.name,
                         score = recommendation.evidenceScore,
                     ),
-                evidenceRefs = listOf("report.json#/strategyRecommendation"),
+                evidenceRefs = listOf(primaryReportEvidenceRef(pointer = "/strategyRecommendation")),
             ),
         )
     }
@@ -205,7 +205,7 @@ internal class DiagnosticsArchiveDecisionTraceEntryBuilder(
                 outcome = verdict.result.name,
                 reasonCode = verdict.reasonCode?.name,
                 selections = verdict.transportClass?.let { listOf(selection("transportClass", it.name)) }.orEmpty(),
-                evidenceRefs = listOf("report.json#/directModeVerdict"),
+                evidenceRefs = listOf(primaryReportEvidenceRef(pointer = "/directModeVerdict")),
             ),
         )
     }
@@ -222,7 +222,7 @@ internal class DiagnosticsArchiveDecisionTraceEntryBuilder(
                         selection("stalledFlowCount", verdict.evidence.stalledFlowCount.toString()),
                         selection("distinctTargetCount", verdict.evidence.distinctTargetCount.toString()),
                     ),
-                evidenceRefs = listOf("report.json#/confirmGoodDpiVerdict"),
+                evidenceRefs = listOf(primaryReportEvidenceRef(pointer = "/confirmGoodDpiVerdict")),
             ),
         )
     }
