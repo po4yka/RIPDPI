@@ -52,10 +52,16 @@ internal class DiagnosticsArchiveTargetAliasRegistry private constructor(
             occurrences: MutableMap<String, MutableSet<String>>,
         ) {
             report?.observations.orEmpty().forEachIndexed { index, observation ->
-                occurrences.record(observation.target, "${prefix}report.json#/observations/$index")
+                occurrences.record(
+                    observation.target,
+                    primaryReportEvidenceRef(pointer = "/observations/$index", referencePrefix = prefix),
+                )
             }
             report?.results.orEmpty().forEachIndexed { index, result ->
-                occurrences.record(result.target, "${prefix}report.json#/results/$index")
+                occurrences.record(
+                    result.target,
+                    primaryReportEvidenceRef(pointer = "/results/$index", referencePrefix = prefix),
+                )
             }
             report?.strategyProbeReport?.attempts.orEmpty().forEachIndexed { index, attempt ->
                 occurrences.record(attempt.target, "${prefix}attempts.jsonl#L${index + 1}")

@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -29,7 +32,12 @@ import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -81,6 +89,74 @@ class DiagnosticsArchiveRendererTest {
         assertRenderedEntryContent(entries)
         assertRenderedManifestAndProvenance(entries)
         assertGoldenContracts(entries)
+    }
+
+    @Test
+    fun `every exported evidence reference resolves inside the archive`() {
+        val base = buildFullRendererSelection()
+        val primaryReport = requireNotNull(base.primaryReport)
+        val resolverReport = resolverTraceReport(primaryReport)
+        val report =
+            resolverReport.copy(
+                observations = resolverReport.observations + protocolMilestoneReport(primaryReport).observations,
+                strategyRecommendation =
+                    StrategyRecommendation(
+                        triggerOutcomes = listOf("tls_blocked"),
+                        recommendedFamily = "tlsrec_split",
+                        blockingPattern = "sni_tls_suspect",
+                        rationale = "Use a TLS record split family",
+                    ),
+                directModeVerdict =
+                    DirectModeVerdict(
+                        result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                        reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                        transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                    ),
+                confirmGoodDpiVerdict =
+                    ConfirmGoodDpiVerdict(
+                        status = ConfirmGoodDpiVerdictStatus.SUSPECTED,
+                        evidence =
+                            ConfirmGoodDpiEvidence(
+                                source = ConfirmGoodDpiEvidenceSource.ACTIVE,
+                                stalledFlowCount = 2,
+                                distinctTargetCount = 2,
+                                catalogProfileValidated = true,
+                                realityHandshakeConfirmed = true,
+                                applicationResponseBytes = 0,
+                            ),
+                    ),
+            )
+        val stage =
+            rendererCompositeStage(
+                stageKey = "automatic_audit",
+                events = base.primaryEvents,
+                session = base.primarySession,
+            ).copy(
+                report =
+                    report.copy(
+                        completionKind =
+                            com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind.TERMINATED,
+                    ),
+                results = base.primaryResults,
+                telemetry = base.payload.telemetry,
+            )
+        val selection = compositeRendererSelection(base.copy(primaryReport = report), stage, "evidence-reference-run")
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-evidence-references", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-evidence-references.zip",
+                createdAt = 42L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val references = collectArchiveEvidenceReferences(entries)
+        val unresolved =
+            references
+                .filterNot { reference -> evidenceReferenceResolves(reference, entries) }
+                .map { reference -> "${reference.owner}: ${reference.value}" }
+
+        assertTrue("fixture must emit evidence references", references.isNotEmpty())
+        assertEquals(emptyList<String>(), unresolved)
     }
 
     @Test
@@ -225,7 +301,7 @@ class DiagnosticsArchiveRendererTest {
             aliases
                 .single { alias ->
                     alias.getValue("evidenceRefs").jsonArray.any { ref ->
-                        ref.jsonPrimitive.content == "report.json#/observations/0"
+                        ref.jsonPrimitive.content == "report.json#/primaryReport/observations/0"
                     }
                 }.getValue("alias")
                 .jsonPrimitive.content
@@ -894,7 +970,7 @@ class DiagnosticsArchiveRendererTest {
                 .bytes
                 .decodeToString()
 
-        assertTrue(traceText.contains("stages/automatic_audit/report.json#/resolverRecommendation"))
+        assertTrue(traceText.contains("stages/automatic_audit/report.json#/primaryReport/resolverRecommendation"))
         assertTrue(traceText.contains("stages/automatic_audit/telemetry.csv#L2"))
         assertFalse(traceText.contains("opaque-resolver-endpoint"))
     }
@@ -2208,6 +2284,127 @@ class DiagnosticsArchiveRendererTest {
             }.getValue("alias")
             .jsonPrimitive.content
 
+    private data class ArchiveEvidenceReference(
+        val owner: String,
+        val value: String,
+    )
+
+    private fun collectArchiveEvidenceReferences(
+        entries: Map<String, DiagnosticsArchiveEntry>,
+    ): List<ArchiveEvidenceReference> =
+        entries.values.flatMap { entry ->
+            when {
+                entry.name.endsWith(".json") -> {
+                    collectEvidenceReferences(entry.name, json.parseToJsonElement(entry.bytes.decodeToString()))
+                }
+
+                entry.name.endsWith(".jsonl") -> {
+                    entry.bytes
+                        .decodeToString()
+                        .lineSequence()
+                        .filter(String::isNotBlank)
+                        .flatMap { line ->
+                            collectEvidenceReferences(entry.name, json.parseToJsonElement(line)).asSequence()
+                        }.toList()
+                }
+
+                else -> {
+                    emptyList()
+                }
+            }
+        }
+
+    private fun collectEvidenceReferences(
+        owner: String,
+        element: JsonElement,
+    ): List<ArchiveEvidenceReference> =
+        when (element) {
+            is JsonArray -> {
+                element.flatMap { child -> collectEvidenceReferences(owner, child) }
+            }
+
+            is JsonObject -> {
+                element.flatMap { (key, value) ->
+                    when (key) {
+                        "evidenceRef" -> {
+                            listOfNotNull((value as? JsonPrimitive)?.contentOrNull)
+                                .map { reference -> ArchiveEvidenceReference(owner, reference) }
+                        }
+
+                        "evidenceRefs" -> {
+                            (value as? JsonArray)
+                                ?.mapNotNull { reference -> (reference as? JsonPrimitive)?.contentOrNull }
+                                ?.map { reference -> ArchiveEvidenceReference(owner, reference) }
+                                .orEmpty()
+                        }
+
+                        else -> {
+                            collectEvidenceReferences(owner, value)
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                emptyList()
+            }
+        }
+
+    private fun evidenceReferenceResolves(
+        reference: ArchiveEvidenceReference,
+        entries: Map<String, DiagnosticsArchiveEntry>,
+    ): Boolean {
+        val targetName = reference.value.substringBefore('#')
+        val fragment = reference.value.substringAfter('#', missingDelimiterValue = "")
+        val ownerDirectory = reference.owner.substringBeforeLast('/', missingDelimiterValue = "")
+        val relativeTarget = if (ownerDirectory.isEmpty()) targetName else "$ownerDirectory/$targetName"
+        val target =
+            if (ownerDirectory.isNotEmpty() && '/' !in targetName) {
+                entries[relativeTarget] ?: entries[targetName]
+            } else {
+                entries[targetName] ?: entries[relativeTarget]
+            }
+        return target != null &&
+            when {
+                !reference.value.contains('#') || fragment.isEmpty() -> {
+                    true
+                }
+
+                fragment.matches(archiveLineFragmentRegex) -> {
+                    val lineNumber = fragment.removePrefix("L").toInt()
+                    target.bytes
+                        .decodeToString()
+                        .lineSequence()
+                        .take(lineNumber)
+                        .count() == lineNumber
+                }
+
+                fragment.startsWith('/') -> {
+                    resolveJsonPointer(json.parseToJsonElement(target.bytes.decodeToString()), fragment)
+                }
+
+                else -> {
+                    false
+                }
+            }
+    }
+
+    private fun resolveJsonPointer(
+        root: JsonElement,
+        pointer: String,
+    ): Boolean =
+        pointer
+            .removePrefix("/")
+            .split('/')
+            .map { token -> token.replace("~1", "/").replace("~0", "~") }
+            .fold(root as JsonElement?) { current, token ->
+                when (current) {
+                    is JsonObject -> current[token]
+                    is JsonArray -> current.getOrNull(token.toIntOrNull() ?: -1)
+                    else -> null
+                }
+            } != null
+
     private data class TruncatedLogTailFixture(
         val selection: DiagnosticsArchiveSelection,
         val partialLogcatLine: String,
@@ -2215,6 +2412,10 @@ class DiagnosticsArchiveRendererTest {
         val partialAppLogLine: String,
         val newestAppLogLine: String,
     )
+
+    private companion object {
+        val archiveLineFragmentRegex = Regex("L[1-9][0-9]*")
+    }
 
     private fun truncatedLogTailFixture(selection: DiagnosticsArchiveSelection): TruncatedLogTailFixture {
         val partialLogcatLine = "IPDPI( 123): ABC"

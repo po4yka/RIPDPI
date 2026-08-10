@@ -109,7 +109,10 @@ private fun dnsObservationRecords(
             systemLatencyMs = dns.udpLatencyMs,
             encryptedLatencyMs = dns.encryptedLatencyMs,
             tamperingScore = dns.tamperingScore,
-            evidenceRefs = listOf("${referencePrefix}report.json#/observations/$index/dns"),
+            evidenceRefs =
+                listOf(
+                    primaryReportEvidenceRef(pointer = "/observations/$index/dns", referencePrefix = referencePrefix),
+                ),
         )
     }
 
@@ -134,7 +137,10 @@ private fun resolverAttemptRecords(
                 targetAlias,
                 attemptIndex,
                 attempt,
-                "${referencePrefix}report.json#/results/$resultIndex/details/$detailIndex",
+                primaryReportEvidenceRef(
+                    pointer = "/results/$resultIndex/details/$detailIndex",
+                    referencePrefix = referencePrefix,
+                ),
             )
         }
     }
@@ -186,7 +192,10 @@ private fun resolverRecommendationRecord(
         triggerOutcome = recommendation.triggerOutcome,
         appliedTemporarily = recommendation.appliedTemporarily,
         persistable = recommendation.persistable,
-        evidenceRefs = listOf("${referencePrefix}report.json#/resolverRecommendation"),
+        evidenceRefs =
+            listOf(
+                primaryReportEvidenceRef(pointer = "/resolverRecommendation", referencePrefix = referencePrefix),
+            ),
     )
 }
 

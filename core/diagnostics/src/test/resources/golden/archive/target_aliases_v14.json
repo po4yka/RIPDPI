@@ -6,7 +6,7 @@
             "evidenceRefs": [
                 "attempts.jsonl#L2",
                 "probe-results.csv#L2",
-                "report.json#/results/0"
+                "report.json#/primaryReport/results/0"
             ],
             "occurrenceCount": 3
         },
