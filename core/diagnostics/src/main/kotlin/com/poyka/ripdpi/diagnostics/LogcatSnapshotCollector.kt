@@ -79,6 +79,8 @@ open class LogcatSnapshotCollector
                         val timestamp = formatter.format(Date(sinceTimestampMs))
                         add("-T")
                         add(timestamp)
+                        add("-v")
+                        add("epoch")
                     }
                     // Filter out noisy framework tags (View, Choreographer) that
                     // drown out diagnostic-relevant log lines.
@@ -113,9 +115,56 @@ open class LogcatSnapshotCollector
         }
     }
 
+internal fun LogcatSnapshot.historyCoverageWarnings(requestedSinceTimestampMs: Long?): List<String> =
+    if (requestedSinceTimestampMs == null || captureScope != LogcatSnapshotCollector.TimeBoundSnapshotScope) {
+        emptyList()
+    } else {
+        val oldestRetainedTimestampMs =
+            content
+                .lineSequence()
+                .mapNotNull(::parseEpochLogcatTimestampMs)
+                .firstOrNull()
+        when {
+            oldestRetainedTimestampMs == null -> {
+                listOf("logcat_history_coverage_unverified")
+            }
+
+            oldestRetainedTimestampMs - requestedSinceTimestampMs > LogcatHistoryStartToleranceMs -> {
+                val missingPrefixMs = oldestRetainedTimestampMs - requestedSinceTimestampMs
+                listOf("logcat_history_incomplete:missing_prefix_ms=$missingPrefixMs")
+            }
+
+            else -> {
+                emptyList()
+            }
+        }
+    }
+
+private fun parseEpochLogcatTimestampMs(line: String): Long? =
+    EpochLogcatTimestampRegex
+        .find(line)
+        ?.groupValues
+        ?.get(1)
+        ?.let { token ->
+            token.substringBefore('.').toLongOrNull()?.let { seconds ->
+                val milliseconds =
+                    token
+                        .substringAfter('.', missingDelimiterValue = "")
+                        .padEnd(EpochMillisecondsDigits, '0')
+                        .take(EpochMillisecondsDigits)
+                        .toLongOrNull()
+                        ?: 0L
+                seconds * MillisecondsPerSecond + milliseconds
+            }
+        }
+
 internal const val Utf8ContinuationMask = 0xC0
 internal const val Utf8ContinuationTag = 0x80
 private const val MaxUtf8BytesPerCodePoint = 4
+private const val MillisecondsPerSecond = 1_000L
+private const val LogcatHistoryStartToleranceMs = 5_000L
+private const val EpochMillisecondsDigits = 3
+private val EpochLogcatTimestampRegex = Regex("^\\s*(\\d{10,}(?:\\.\\d+)?)\\s")
 
 private class RollingByteTail(
     private val capacity: Int,
