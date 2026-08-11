@@ -111,6 +111,18 @@
         "targetCohort": "Manual sensitive",
         "winnerCoveragePercent": 75
     },
+    "runtimeSnapshotTimeline": [
+        {
+            "capturedAt": 21,
+            "serviceStatus": "connected",
+            "source": "scan_session"
+        },
+        {
+            "capturedAt": 21,
+            "serviceStatus": "connected",
+            "source": "passive_runtime"
+        }
+    ],
     "strategyExecutionDetail": {
         "completionKind": "NORMAL",
         "quicCandidates": [

@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,6 +73,24 @@ class DiagnosticsContextProviderTest {
         assertEquals("unknown", booleanState(null))
         assertEquals("enabled", booleanState(true))
         assertEquals("disabled", booleanState(false))
+    }
+
+    @Test
+    fun `service runtime assessment serializes telemetry capture timestamp`() {
+        val assessment =
+            buildServiceRuntimeAssessment(
+                serviceStatus = AppStatus.Running,
+                telemetry = ServiceTelemetrySnapshot(updatedAt = 1234L),
+            )
+
+        assertEquals(
+            1234L,
+            Json
+                .encodeToJsonElement(ConnectivityServiceRuntimeAssessment.serializer(), assessment)
+                .jsonObject["capturedAt"]
+                ?.jsonPrimitive
+                ?.long,
+        )
     }
 
     @Test

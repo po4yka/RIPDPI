@@ -249,6 +249,7 @@ data class ConnectivityResolverAssessment(
 @Serializable
 data class ConnectivityServiceRuntimeAssessment(
     val serviceStatus: String = "unavailable",
+    val capturedAt: Long? = null,
     val nativeFailureClass: String = "none",
     val lastNativeErrorHeadline: String = "none",
     val actionable: Boolean = false,

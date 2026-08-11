@@ -542,15 +542,6 @@ internal data class DiagnosticsArchiveStrategyExecutionDetail(
 )
 
 @Serializable
-internal data class DiagnosticsArchiveAnalysisPayload(
-    val failureEnvelope: DiagnosticsArchiveFailureEnvelope,
-    val strategyExecutionDetail: DiagnosticsArchiveStrategyExecutionDetail,
-    val recommendationTrace: DiagnosticsArchiveRecommendationTrace? = null,
-    val measurementSnapshot: DiagnosticsArchiveMeasurementSnapshot = DiagnosticsArchiveMeasurementSnapshot(),
-    val connectivityAssessment: ConnectivityAssessment? = null,
-)
-
-@Serializable
 internal enum class DiagnosticsArchiveSectionStatus {
     @SerialName("included")
     INCLUDED,

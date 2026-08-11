@@ -266,6 +266,7 @@ internal fun buildServiceRuntimeAssessment(
         }
     return ConnectivityServiceRuntimeAssessment(
         serviceStatus = serviceStatus.name,
+        capturedAt = telemetry.updatedAt.takeIf { it > 0L },
         nativeFailureClass = failureClass,
         lastNativeErrorHeadline = lastError,
         actionable = actionable,

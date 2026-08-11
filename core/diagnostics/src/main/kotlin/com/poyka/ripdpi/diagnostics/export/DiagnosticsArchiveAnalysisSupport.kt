@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
+import com.poyka.ripdpi.diagnostics.ConnectivityServiceRuntimeAssessment
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
@@ -54,8 +56,62 @@ internal fun buildAnalysis(
         recommendationTrace = buildRecommendationTrace(selection, projectedReport),
         measurementSnapshot = measurementSnapshot,
         connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
+        runtimeSnapshotTimeline = buildRuntimeSnapshotTimeline(selection, redactor),
     )
 }
+
+private fun buildRuntimeSnapshotTimeline(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+): List<DiagnosticsArchiveRuntimeSnapshotTimelineEntry> {
+    val assessment =
+        redactor
+            .redact(selection.homeCompositeOutcome?.connectivityAssessment)
+            ?.serviceRuntimeAssessment
+    return buildList {
+        selection.primaryContexts.mapNotNullTo(this) { entity ->
+            redactor.decodeDiagnosticContext(entity)?.let(redactor::redact)?.toTimelineEntry(
+                source = "scan_session",
+                capturedAt = entity.capturedAt,
+            )
+        }
+        assessment?.let { add(it.toTimelineEntry()) }
+        selection.latestPassiveContext?.let { entity ->
+            redactor.decodeDiagnosticContext(entity)?.let(redactor::redact)?.let { context ->
+                add(
+                    context.toTimelineEntry(
+                        source = "passive_runtime",
+                        capturedAt = entity.capturedAt,
+                    ),
+                )
+            }
+        }
+    }.sortedWith(compareBy(nullsLast()) { it.capturedAt })
+}
+
+private fun DiagnosticContextModel.toTimelineEntry(
+    source: String,
+    capturedAt: Long,
+) = DiagnosticsArchiveRuntimeSnapshotTimelineEntry(
+    source = source,
+    capturedAt = capturedAt,
+    serviceStatus = service.serviceStatus,
+    proxyHealth = service.proxy?.health,
+    tunnelHealth = service.tunnel?.health,
+    relayHealth = service.relay?.health,
+    warpHealth = service.warp?.health,
+)
+
+private fun ConnectivityServiceRuntimeAssessment.toTimelineEntry() =
+    DiagnosticsArchiveRuntimeSnapshotTimelineEntry(
+        source = "assessment",
+        capturedAt = capturedAt,
+        serviceStatus = serviceStatus,
+        proxyHealth = proxy?.health,
+        tunnelHealth = tunnel?.health,
+        relayHealth = relay?.health,
+        warpHealth = warp?.health,
+    )
 
 private fun buildFailureEnvelope(
     failureSamples: List<TelemetrySampleEntity>,
