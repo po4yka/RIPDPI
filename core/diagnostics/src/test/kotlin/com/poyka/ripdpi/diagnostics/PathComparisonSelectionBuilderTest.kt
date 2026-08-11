@@ -46,18 +46,42 @@ class PathComparisonSelectionBuilderTest {
             assertTrue(requiredSelection.domainTargets.single { it.host == "control.example" }.isControl)
         }
 
+    @Test
+    fun `throttling controls produce path comparison selection`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val control = DomainTarget(host = "control.example", isControl = true)
+            val failed = DomainTarget(host = "failed.example")
+            val report = report(control, failed, profileId = "ru-throttling")
+            stores.profilesState.value = listOf(profile(control, failed, profileId = "ru-throttling"))
+            stores.sessionsState.value = listOf(session(report))
+
+            val selection =
+                buildPathComparisonSelection(
+                    runId = "run",
+                    progressState = progress(report, stageKey = "ru_throttling"),
+                    diagnosticsProfileCatalog = stores,
+                    scanRecordStore = stores,
+                    json = json,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                )
+
+            assertEquals(listOf("failed.example"), requireNotNull(selection).failedTargetLabels)
+        }
+
     private fun profile(
         control: DomainTarget,
         failed: DomainTarget,
+        profileId: String = "ru-dpi-full",
     ) = DiagnosticProfileEntity(
-        id = "ru-dpi-full",
+        id = profileId,
         name = "Russia DPI Full",
         source = "bundled",
         version = 1,
         requestJson =
             diagnosticsProfileRequestJson(
                 json = json,
-                profileId = "ru-dpi-full",
+                profileId = profileId,
                 displayName = "Russia DPI Full",
                 targets = DiagnosticsProfileTargets(domainTargets = listOf(control, failed)),
             ),
@@ -67,9 +91,10 @@ class PathComparisonSelectionBuilderTest {
     private fun report(
         control: DomainTarget,
         failed: DomainTarget,
+        profileId: String = "ru-dpi-full",
     ) = ScanReport(
         sessionId = "dpi-session",
-        profileId = "ru-dpi-full",
+        profileId = profileId,
         pathMode = ScanPathMode.RAW_PATH,
         startedAt = 1L,
         finishedAt = 2L,
@@ -113,26 +138,28 @@ class PathComparisonSelectionBuilderTest {
                 ),
         )
 
-    private fun progress(report: ScanReport) =
-        MutableStateFlow(
-            mapOf(
-                "run" to
-                    DiagnosticsHomeCompositeProgress(
-                        runId = "run",
-                        stages =
-                            listOf(
-                                DiagnosticsHomeCompositeStageSummary(
-                                    stageKey = "dpi_full",
-                                    stageLabel = "DPI full",
-                                    profileId = "ru-dpi-full",
-                                    pathMode = ScanPathMode.RAW_PATH,
-                                    status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                    headline = "Complete",
-                                    summary = report.summary,
-                                    sessionId = report.sessionId,
-                                ),
+    private fun progress(
+        report: ScanReport,
+        stageKey: String = "dpi_full",
+    ) = MutableStateFlow(
+        mapOf(
+            "run" to
+                DiagnosticsHomeCompositeProgress(
+                    runId = "run",
+                    stages =
+                        listOf(
+                            DiagnosticsHomeCompositeStageSummary(
+                                stageKey = stageKey,
+                                stageLabel = "DPI full",
+                                profileId = report.profileId,
+                                pathMode = ScanPathMode.RAW_PATH,
+                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                headline = "Complete",
+                                summary = report.summary,
+                                sessionId = report.sessionId,
                             ),
-                    ),
-            ),
-        )
+                        ),
+                ),
+        ),
+    )
 }
