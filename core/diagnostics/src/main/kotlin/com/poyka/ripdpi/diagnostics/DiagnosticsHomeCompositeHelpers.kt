@@ -39,6 +39,10 @@ internal suspend fun buildCompletedStageSummary(
                 DiagnosticsHomeCompositeStageStatus.FAILED
             }
 
+            completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
+                DiagnosticsHomeCompositeStageStatus.FAILED
+            }
+
             session.status == "completed" -> {
                 DiagnosticsHomeCompositeStageStatus.COMPLETED
             }
