@@ -16,8 +16,14 @@ impl ExecutionPlan {
                 probe_task_families.push(task.family.clone());
             }
         }
-        let strategy_selection =
-            self.request.strategy_probe.as_ref().and_then(|request| request.target_selection.as_ref());
+        let strategy_target_counts = self.request.strategy_probe.as_ref().map_or((0, 0), |request| {
+            request
+                .target_selection
+                .as_ref()
+                .map_or((self.request.domain_targets.len(), self.request.quic_targets.len()), |selection| {
+                    (selection.domain_hosts.len(), selection.quic_hosts.len())
+                })
+        });
         ExecutionPlanSnapshot {
             plan_version: EXECUTION_PLAN_VERSION.to_string(),
             scan_kind: self.request.kind.clone(),
@@ -43,8 +49,8 @@ impl ExecutionPlan {
                 throughput_target_count: self.request.throughput_targets.len(),
                 whitelist_sni_count: self.request.whitelist_sni.len(),
                 telegram_target_count: usize::from(self.request.telegram_target.is_some()),
-                strategy_selected_domain_count: strategy_selection.map_or(0, |selection| selection.domain_hosts.len()),
-                strategy_selected_quic_count: strategy_selection.map_or(0, |selection| selection.quic_hosts.len()),
+                strategy_selected_domain_count: strategy_target_counts.0,
+                strategy_selected_quic_count: strategy_target_counts.1,
             },
             strategy: self.strategy.as_ref().map(strategy_snapshot),
         }

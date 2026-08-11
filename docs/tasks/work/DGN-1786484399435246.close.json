@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "RED: focused regression failed with (0,0) vs (2,1). GREEN: focused test passed. cargo nextest run --locked -p ripdpi-monitor-engine passed 187 tests with 2 skipped; cargo fmt --all -- --check passed; cargo clippy --locked -p ripdpi-monitor-engine --all-targets -- -D warnings passed; connectivity contract and JSON golden tests passed; ./gradlew staticAnalysis --console=plain passed.",
+  "execution_sha256": "476bf5dce80c7de1fcc01fe5e625703cb8ecb7f8e0779ccc65f4e748656392fa",
+  "issue_sha256": "dee6f6ed51e002f65536bd765949ea95263148c2dfc9f8da6baabb48152c89d3",
+  "outcome": "done",
+  "prepared_at": "2026-08-11T21:46:43Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786484399435246"
+}
