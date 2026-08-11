@@ -1,19 +1,19 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use super::coordinator::ExecutionCoordinator;
 use super::recording::{CollectedStageOutcome, CollectedStep};
 use super::stage::ExecutionStageRunner;
 use super::{
-    publish_cancelled_run, ExecutionPlan, ExecutionRuntime, ExecutionStageId, RunnerArtifacts, RunnerOutcome,
-    StrategyExecutionPlan,
+    ExecutionPlan, ExecutionRuntime, ExecutionStageId, RunnerArtifacts, RunnerOutcome, StrategyExecutionPlan,
+    publish_cancelled_run,
 };
 use crate::candidates::build_strategy_probe_suite;
 use crate::transport::direct_transport;
 use crate::types::{
-    DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, SharedState,
-    StrategyEmitterTier, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
-    StrategyProbeRequest,
+    DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, SharedState, StrategyEmitterTier,
+    StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane, StrategyProbeRequest,
 };
 use ripdpi_monitor_adapter::proxy_config::ProxyUiConfig;
 
@@ -59,7 +59,7 @@ fn test_plan() -> ExecutionPlan {
             network_snapshot: None,
             route_probe: None,
             scan_deadline_ms: None,
-                diagnostic_tls_keylog_path: None,
+            diagnostic_tls_keylog_path: None,
         },
         started_at: 0,
         total_steps: 8,
@@ -122,11 +122,7 @@ fn strategy_test_plan() -> ExecutionPlan {
     }
 }
 
-fn candidate_summary(
-    id: &str,
-    family: &str,
-    weighted_success_score: usize,
-) -> StrategyProbeCandidateSummary {
+fn candidate_summary(id: &str, family: &str, weighted_success_score: usize) -> StrategyProbeCandidateSummary {
     StrategyProbeCandidateSummary {
         id: id.to_string(),
         label: id.replace('_', " "),
@@ -186,8 +182,7 @@ impl ExecutionStageRunner for FakeStageRunner {
             outcome: "ok".to_string(),
             details: Vec::new(),
         };
-        let artifacts =
-            RunnerArtifacts::from_results(vec![probe], "fake", "info", format!("{:?} ok", self.stage));
+        let artifacts = RunnerArtifacts::from_results(vec![probe], "fake", "info", format!("{:?} ok", self.stage));
         CollectedStageOutcome::Completed(vec![CollectedStep {
             phase: "fake",
             message: format!("{:?} ok", self.stage),
@@ -234,8 +229,7 @@ fn parallel_runner_panic_terminates_scan_after_recording_sibling_results() {
     assert_eq!(outcomes.iter().filter(|o| **o == "ok").count(), 2, "both healthy runners recorded");
 
     // The panicked runner is surfaced as a failed step keyed to its stage.
-    let panicked: Vec<&ProbeResult> =
-        runtime.results.iter().filter(|r| r.outcome == "runner_panicked").collect();
+    let panicked: Vec<&ProbeResult> = runtime.results.iter().filter(|r| r.outcome == "runner_panicked").collect();
     assert_eq!(panicked.len(), 1, "exactly one runner marked panicked");
     assert!(panicked[0].probe_type.starts_with("Tcp"), "panicked stage is Tcp: {:?}", panicked[0].probe_type);
 }
@@ -265,6 +259,26 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);
     assert_eq!(strategy_probe.recommendation.tcp_candidate_id, "baseline_current");
     assert_eq!(strategy_probe.recommendation.quic_candidate_id, "quic_disabled");
+}
+
+#[test]
+fn deadline_preserves_strategy_report_when_only_tcp_lane_has_results() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
+    let plan = strategy_test_plan();
+    runtime.set_scan_deadline(Instant::now() - Duration::from_millis(1));
+    runtime.strategy.tcp_candidates.push(candidate_summary("baseline_current", "baseline", 80));
+
+    publish_cancelled_run(&plan, &shared, runtime);
+
+    let report = shared.lock().expect("shared").report.clone().expect("deadline report");
+    assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
+    assert_eq!(report.termination_reason, Some(crate::types::ScanTerminationReason::DeadlineExceeded));
+    let strategy_probe = report.strategy_probe_report.expect("TCP-only partial strategy report");
+    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);
+    assert_eq!(strategy_probe.tcp_candidates.len(), 1);
+    assert!(strategy_probe.quic_candidates.is_empty());
 }
 
 #[test]

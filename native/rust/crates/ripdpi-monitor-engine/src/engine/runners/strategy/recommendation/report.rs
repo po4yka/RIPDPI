@@ -1,6 +1,6 @@
 use crate::candidates::{
     build_strategy_probe_summary, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities,
-    probe_tcp_fast_open_capability,
+    probe_tcp_fast_open_capability, strategy_probe_config_json,
 };
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
 use crate::types::{
@@ -21,63 +21,82 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
     if runtime.strategy.strategy_probe_report.is_some() {
         return true;
     }
-    if runtime.strategy.tcp_candidates.is_empty() || runtime.strategy.quic_candidates.is_empty() {
+    if runtime.strategy.tcp_candidates.is_empty() && runtime.strategy.quic_candidates.is_empty() {
         runtime.strategy.summary = Some("Automatic probing finished".to_string());
         return false;
     }
     let fake_ttl_available = probe_fake_ttl_capability();
     let tcp_fast_open_available = probe_tcp_fast_open_capability();
     let ipfrag_caps = probe_ip_fragmentation_capabilities();
-    let Some(wi_tcp) = select_safe_or_baseline_candidate_index(
+    let tcp_w = select_safe_or_baseline_candidate_index(
         &runtime.strategy.tcp_candidates,
         &strategy_plan.suite.tcp_candidates,
         fake_ttl_available,
         tcp_fast_open_available,
         ipfrag_caps,
-    ) else {
-        runtime.strategy.summary = Some("Automatic probing finished without a safe TCP recommendation".to_string());
-        return false;
-    };
-    let Some(wi_quic) = select_safe_or_baseline_candidate_index(
+    )
+    .map(|index| &runtime.strategy.tcp_candidates[index]);
+    let quic_w = select_safe_or_baseline_candidate_index(
         &runtime.strategy.quic_candidates,
         &strategy_plan.suite.quic_candidates,
         fake_ttl_available,
         tcp_fast_open_available,
         ipfrag_caps,
-    ) else {
-        runtime.strategy.summary = Some("Automatic probing finished without a safe QUIC recommendation".to_string());
+    )
+    .map(|index| &runtime.strategy.quic_candidates[index]);
+    let Some(tcp_winner_spec) = tcp_w
+        .and_then(|winner| strategy_plan.suite.tcp_candidates.iter().find(|spec| spec.id == winner.id))
+        .or_else(|| {
+            strategy_plan
+                .suite
+                .tcp_candidates
+                .iter()
+                .find(|spec| matches!(spec.id, "baseline_current" | "baseline_plain_direct"))
+        })
+        .or_else(|| strategy_plan.suite.tcp_candidates.first())
+    else {
+        runtime.strategy.summary = Some("Automatic probing finished".to_string());
         return false;
     };
-    let tcp_w = &runtime.strategy.tcp_candidates[wi_tcp];
-    let quic_w = &runtime.strategy.quic_candidates[wi_quic];
-    let Some(quic_winner_spec) = strategy_plan
-        .suite
-        .quic_candidates
-        .iter()
-        .find(|spec| spec.id == quic_w.id)
+    let Some(quic_winner_spec) = quic_w
+        .and_then(|winner| strategy_plan.suite.quic_candidates.iter().find(|spec| spec.id == winner.id))
+        .or_else(|| strategy_plan.suite.quic_candidates.iter().find(|spec| spec.id == "quic_disabled"))
         .or_else(|| strategy_plan.suite.quic_candidates.first())
     else {
         runtime.strategy.summary = Some("Automatic probing finished".to_string());
         return false;
     };
-    let confirm_good_corroborated =
-        plan.request.confirm_good_dpi_evidence.is_some() && quic_w.succeeded_targets > 0 && !quic_w.skipped;
+    let confirm_good_corroborated = plan.request.confirm_good_dpi_evidence.is_some()
+        && quic_w.is_some_and(|winner| winner.succeeded_targets > 0 && !winner.skipped);
     let recommendation = StrategyProbeRecommendation {
-        tcp_candidate_id: tcp_w.id.clone(),
-        tcp_candidate_label: tcp_w.label.clone(),
-        quic_candidate_id: quic_w.id.clone(),
-        quic_candidate_label: quic_w.label.clone(),
-        quic_candidate_layout_family: quic_w.quic_layout_family.clone(),
-        rationale: if confirm_good_corroborated {
-            "Reality application data stalled after successful handshakes; QUIC succeeded, so pivot transport family"
-                .to_string()
-        } else {
-            format!(
+        tcp_candidate_id: tcp_w.map_or_else(|| tcp_winner_spec.id.to_string(), |winner| winner.id.clone()),
+        tcp_candidate_label: tcp_w.map_or_else(|| tcp_winner_spec.label.to_string(), |winner| winner.label.clone()),
+        quic_candidate_id: quic_w.map_or_else(|| quic_winner_spec.id.to_string(), |winner| winner.id.clone()),
+        quic_candidate_label: quic_w
+            .map_or_else(|| quic_winner_spec.label.to_string(), |winner| winner.label.clone()),
+        quic_candidate_layout_family: quic_w.and_then(|winner| winner.quic_layout_family.clone()),
+        rationale: match (tcp_w, quic_w) {
+            (Some(_), Some(_)) if confirm_good_corroborated =>
+                "Reality application data stalled after successful handshakes; QUIC succeeded, so pivot transport family"
+                    .to_string(),
+            (Some(tcp), Some(quic)) => format!(
                 "{} with {} weighted TCP success and {} weighted QUIC success",
-                tcp_w.label, tcp_w.weighted_success_score, quic_w.weighted_success_score,
-            )
+                tcp.label, tcp.weighted_success_score, quic.weighted_success_score,
+            ),
+            (Some(tcp), None) => format!(
+                "Partial strategy evidence: {} weighted TCP success; QUIC lane did not complete",
+                tcp.weighted_success_score,
+            ),
+            (None, Some(quic)) => format!(
+                "Partial strategy evidence: TCP lane did not complete; {} weighted QUIC success",
+                quic.weighted_success_score,
+            ),
+            (None, None) => "Partial strategy evidence was retained without a promotable lane recommendation".to_string(),
         },
-        recommended_proxy_config_json: resolve_recommended_proxy_config_json(quic_w, quic_winner_spec),
+        recommended_proxy_config_json: quic_w.map_or_else(
+            || strategy_probe_config_json(&quic_winner_spec.config),
+            |winner| resolve_recommended_proxy_config_json(winner, quic_winner_spec),
+        ),
         transport_pivot: confirm_good_corroborated.then(|| TransportPivotRecommendation {
             reason_code: "confirm_good_dpi_suspected".to_string(),
             preferred_family: TransportFamily::UdpQuic,
