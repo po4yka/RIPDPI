@@ -193,6 +193,87 @@ impl ExecutionStageRunner for FakeStageRunner {
     }
 }
 
+struct DeadlineSliceStageRunner {
+    stage: ExecutionStageId,
+    exhausts_stage_budget: bool,
+    observed_deadlines: Arc<Mutex<Vec<(ExecutionStageId, Option<Instant>)>>>,
+}
+
+impl ExecutionStageRunner for DeadlineSliceStageRunner {
+    fn id(&self) -> ExecutionStageId {
+        self.stage.clone()
+    }
+
+    fn phase(&self) -> &'static str {
+        "deadline_slice"
+    }
+
+    fn total_steps(&self, _plan: &ExecutionPlan) -> usize {
+        1
+    }
+
+    fn run(
+        &self,
+        _plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn rustls::client::danger::ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        self.observed_deadlines
+            .lock()
+            .expect("observed deadlines")
+            .push((self.stage.clone(), runtime.scan_deadline()));
+        if self.exhausts_stage_budget {
+            runtime.begin_stage_budget(u32::MAX as usize);
+            assert!(runtime.is_past_deadline(), "fake runner must exhaust only its stage budget");
+            RunnerOutcome::Cancelled
+        } else {
+            RunnerOutcome::Completed
+        }
+    }
+}
+
+#[test]
+fn strategy_stage_budget_reserves_deadline_for_later_stage() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    let global_deadline = Instant::now() + Duration::from_secs(1);
+    runtime.set_scan_deadline(global_deadline);
+
+    let mut plan = strategy_test_plan();
+    plan.stage_order = vec![ExecutionStageId::StrategyTcpCandidates, ExecutionStageId::StrategyQuicCandidates];
+    let observed_deadlines = Arc::new(Mutex::new(Vec::new()));
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(DeadlineSliceStageRunner {
+            stage: ExecutionStageId::StrategyTcpCandidates,
+            exhausts_stage_budget: true,
+            observed_deadlines: Arc::clone(&observed_deadlines),
+        }),
+        Box::new(DeadlineSliceStageRunner {
+            stage: ExecutionStageId::StrategyQuicCandidates,
+            exhausts_stage_budget: false,
+            observed_deadlines: Arc::clone(&observed_deadlines),
+        }),
+    ]);
+
+    let outcome = coordinator.run(&plan, &mut runtime, None);
+    let observed_deadlines = observed_deadlines.lock().expect("observed deadlines");
+    let tcp_deadline = observed_deadlines
+        .iter()
+        .find_map(|(stage, deadline)| (*stage == ExecutionStageId::StrategyTcpCandidates).then_some(*deadline))
+        .flatten();
+    let quic_executed = observed_deadlines
+        .iter()
+        .any(|(stage, _)| *stage == ExecutionStageId::StrategyQuicCandidates);
+
+    assert!(
+        matches!(outcome, RunnerOutcome::Completed)
+            && tcp_deadline.is_some_and(|deadline| deadline < global_deadline)
+            && quic_executed,
+        "TCP must receive a deadline slice before the global deadline without starving QUIC"
+    );
+}
+
 fn connectivity_parallel_plan() -> ExecutionPlan {
     let mut plan = test_plan();
     plan.request.kind = ScanKind::Connectivity;

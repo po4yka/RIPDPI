@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "cargo test -p ripdpi-monitor-engine --locked: 169 unit tests plus integration suites passed; cargo clippy -p ripdpi-monitor-engine --locked --all-targets -- -D warnings passed; cargo fmt --all -- --check passed; ./gradlew staticAnalysis passed (722 tasks); read-only PR review clean",
+  "execution_sha256": "f3cfab34b45fb37fea8e71fc97e253d066f8a82a1814da80011d1458a7403af5",
+  "issue_sha256": "faa28eacfd75ad8fb93d6a89079504f92b61906d49386c40b72c83d687ffd8c1",
+  "outcome": "done",
+  "prepared_at": "2026-08-11T19:28:45Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786474501506331"
+}

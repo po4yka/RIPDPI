@@ -7,6 +7,7 @@ use super::parallel;
 use super::plan::ExecutionPlan;
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
+use crate::types::ScanKind;
 
 pub(in crate::engine) struct ExecutionCoordinator {
     runners: BTreeMap<ExecutionStageId, Box<dyn ExecutionStageRunner + Send + Sync>>,
@@ -35,7 +36,7 @@ impl ExecutionCoordinator {
     ) -> RunnerOutcome {
         let mut parallel_done = HashSet::new();
 
-        for stage in &plan.stage_order {
+        for (stage_index, stage) in plan.stage_order.iter().enumerate() {
             if parallel_done.contains(stage) {
                 continue;
             }
@@ -75,8 +76,24 @@ impl ExecutionCoordinator {
             if runner.total_steps(plan) == 0 {
                 continue;
             }
-            match runner.run(plan, runtime, tls_verifier) {
+            if plan.request.kind == ScanKind::StrategyProbe {
+                let remaining_stages = plan.stage_order[stage_index..]
+                    .iter()
+                    .filter_map(|stage| self.runners.get(stage))
+                    .filter(|runner| runner.total_steps(plan) > 0)
+                    .count();
+                runtime.begin_stage_budget(remaining_stages);
+            }
+            let deadline = runtime.scan_deadline();
+            let outcome = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                runner.run(plan, runtime, tls_verifier)
+            });
+            let stage_budget_exhausted =
+                runtime.is_past_deadline() && !runtime.is_past_scan_deadline() && !runtime.is_cancelled();
+            runtime.clear_stage_budget();
+            match outcome {
                 RunnerOutcome::Completed => {}
+                RunnerOutcome::Cancelled if stage_budget_exhausted => {}
                 RunnerOutcome::Cancelled => return RunnerOutcome::Cancelled,
                 RunnerOutcome::Finished => return RunnerOutcome::Finished,
                 RunnerOutcome::Failed(message) => return RunnerOutcome::Failed(message),

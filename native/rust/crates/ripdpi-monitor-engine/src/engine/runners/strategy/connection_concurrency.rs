@@ -78,7 +78,17 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                 metadata,
                 levels,
                 &profiles,
-                || runtime.is_cancelled() || runtime.is_past_deadline(),
+                || {
+                    if runtime.is_cancelled() {
+                        Some(TargetMatrixStopReason::ScanCancelled)
+                    } else if runtime.is_past_scan_deadline() {
+                        Some(TargetMatrixStopReason::ScanDeadlineExceeded)
+                    } else if runtime.is_past_deadline() {
+                        Some(TargetMatrixStopReason::StageBudgetExhausted)
+                    } else {
+                        None
+                    }
+                },
                 |profile, level| {
                     execute_cell(
                         target,
@@ -95,9 +105,13 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                 record_cell(plan, runtime, cell);
             }
             cells.extend(target_matrix.cells);
-            if target_matrix.cancelled {
+            if let Some(stop_reason) = target_matrix.stop_reason {
                 finalize_assessment(runtime, &cells, &current_profile);
-                return RunnerOutcome::Cancelled;
+                return if stop_reason == TargetMatrixStopReason::StageBudgetExhausted {
+                    RunnerOutcome::Completed
+                } else {
+                    RunnerOutcome::Cancelled
+                };
             }
         }
         finalize_assessment(runtime, &cells, &current_profile);
@@ -107,7 +121,24 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
 
 struct TargetMatrixOutcome {
     cells: Vec<ClassifierCell>,
-    cancelled: bool,
+    stop_reason: Option<TargetMatrixStopReason>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TargetMatrixStopReason {
+    ScanCancelled,
+    ScanDeadlineExceeded,
+    StageBudgetExhausted,
+}
+
+impl TargetMatrixStopReason {
+    fn skip_reason(self) -> &'static str {
+        match self {
+            Self::ScanCancelled => "scan cancelled before cell execution",
+            Self::ScanDeadlineExceeded => "scan deadline exceeded before cell execution",
+            Self::StageBudgetExhausted => "stage budget exhausted before cell execution",
+        }
+    }
 }
 
 fn collect_target_matrix<ShouldStop, Execute>(
@@ -119,14 +150,14 @@ fn collect_target_matrix<ShouldStop, Execute>(
     mut execute: Execute,
 ) -> TargetMatrixOutcome
 where
-    ShouldStop: FnMut() -> bool,
+    ShouldStop: FnMut() -> Option<TargetMatrixStopReason>,
     Execute: FnMut(&str, u16) -> ClassifierCell,
 {
     let mut cells = Vec::new();
     let mut frozen = false;
     for (profile_index, &profile) in profiles.iter().enumerate() {
         for (level_index, &level) in levels.iter().enumerate() {
-            if should_stop() {
+            if let Some(stop_reason) = should_stop() {
                 for (remaining_profile_index, &remaining_profile) in profiles.iter().enumerate().skip(profile_index) {
                     let first_level = if remaining_profile_index == profile_index { level_index } else { 0 };
                     cells.extend(levels.iter().skip(first_level).map(|remaining_level| {
@@ -135,11 +166,11 @@ where
                             &metadata.cohort_id,
                             remaining_profile,
                             *remaining_level,
-                            "scan cancelled before cell execution",
+                            stop_reason.skip_reason(),
                         )
                     }));
                 }
-                return TargetMatrixOutcome { cells, cancelled: true };
+                return TargetMatrixOutcome { cells, stop_reason: Some(stop_reason) };
             }
             let mut cell = if frozen {
                 skipped_cell(target, &metadata.cohort_id, profile, level, "target frozen by failed post-check")
@@ -164,7 +195,7 @@ where
             cells.push(cell);
         }
     }
-    TargetMatrixOutcome { cells, cancelled: false }
+    TargetMatrixOutcome { cells, stop_reason: None }
 }
 
 fn levels_for(plan: &ExecutionPlan) -> &'static [u16] {
@@ -665,7 +696,7 @@ mod tests {
             metadata,
             QUICK_LEVELS,
             &["chrome_stable", "firefox_stable"],
-            || false,
+            || None,
             |profile, level| {
                 calls += 1;
                 let status = if profile == "chrome_stable" && level == 1 && calls > 2 {
@@ -677,7 +708,7 @@ mod tests {
             },
         );
 
-        assert!(!outcome.cancelled);
+        assert!(outcome.stop_reason.is_none());
         assert!(outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
         assert!(outcome.cells.iter().any(|cell| {
             cell.tls_profile_id == "firefox_stable"
@@ -696,15 +727,69 @@ mod tests {
             metadata,
             QUICK_LEVELS,
             &["chrome_stable", "firefox_stable"],
-            || checks.fetch_add(1, Ordering::AcqRel) >= 1,
+            || (checks.fetch_add(1, Ordering::AcqRel) >= 1).then_some(TargetMatrixStopReason::ScanCancelled),
             |profile, level| test_cell(profile, level, ClassifierStatus::Healthy),
         );
 
-        assert!(outcome.cancelled);
+        assert_eq!(outcome.stop_reason, Some(TargetMatrixStopReason::ScanCancelled));
         assert_eq!(outcome.cells.iter().filter(|cell| cell.status == ClassifierStatus::Healthy).count(), 1);
         assert!(outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Skipped));
         let assessment = classify_connection_concurrency_matrix(&outcome.cells, Some("chrome_stable"));
         assert_eq!(assessment.verdict, ClassifierVerdict::Inconclusive);
+    }
+
+    #[test]
+    fn exhausted_stage_deadline_completes_while_scan_deadline_remains() {
+        let request: crate::types::ScanRequest = serde_json::from_str(
+            r#"{
+                "profileId": "deadline-test",
+                "displayName": "Deadline test",
+                "pathMode": "RAW_PATH",
+                "proxyHost": null,
+                "proxyPort": null,
+                "domainTargets": [{
+                    "host": "fixture.test",
+                    "connectIp": "127.0.0.1",
+                    "httpsPort": 443,
+                    "concurrencyProbe": {"cohortId": "fixture", "maxParallelism": 8}
+                }],
+                "dnsTargets": [],
+                "tcpTargets": [],
+                "whitelistSni": []
+            }"#,
+        )
+        .expect("deadline test request");
+        let plan = crate::engine::plan::build_execution_plan(
+            "deadline-test".to_string(),
+            request,
+            0,
+            crate::transport::direct_transport(),
+        )
+        .expect("deadline test plan");
+        let shared = Arc::new(Mutex::new(crate::types::SharedState::default()));
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut runtime = ExecutionRuntime::new(shared, cancel);
+        runtime.set_scan_deadline(Instant::now() + Duration::from_secs(1));
+        runtime.begin_stage_budget(u32::MAX as usize);
+
+        let stage_deadline_expired = runtime.is_past_deadline();
+        let scan_deadline_active = !runtime.is_past_scan_deadline();
+        let outcome = StrategyConnectionConcurrencyRunner.run(&plan, &mut runtime, None);
+        let skip_reasons = runtime
+            .observations
+            .iter()
+            .filter_map(|observation| observation.connection_concurrency.as_ref())
+            .filter_map(|fact| fact.skip_reason.as_deref())
+            .collect::<Vec<_>>();
+
+        assert!(
+            stage_deadline_expired
+                && scan_deadline_active
+                && matches!(outcome, RunnerOutcome::Completed)
+                && !skip_reasons.is_empty()
+                && skip_reasons.iter().all(|reason| *reason == "stage budget exhausted before cell execution"),
+            "an exhausted stage slice must not cancel the remaining scan or falsify skip evidence"
+        );
     }
 
     fn test_cell(profile: &str, level: u16, status: ClassifierStatus) -> ClassifierCell {
