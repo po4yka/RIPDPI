@@ -91,7 +91,7 @@ impl RuntimeTelemetrySink for ListenerAddressCapture {
 #[test]
 fn socks5_tcp_round_trip_reaches_fixture() {
     let _guard = test_guard();
-    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let fixture = start_fixture_with_retry();
     socks5_tcp_round_trip(&fixture);
 }
 
@@ -591,6 +591,22 @@ fn nested_proxy_e2e_enabled() -> bool {
 
 fn ephemeral_fixture_config() -> FixtureConfig {
     dynamic_fixture_config()
+}
+
+fn start_fixture_with_retry() -> FixtureStack {
+    const ATTEMPTS: usize = 4;
+
+    for attempt in 1..=ATTEMPTS {
+        match FixtureStack::start(ephemeral_fixture_config()) {
+            Ok(fixture) => return fixture,
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse && attempt < ATTEMPTS => {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(error) => panic!("start fixture: {error}"),
+        }
+    }
+
+    unreachable!("fixture startup either succeeds or returns its final error")
 }
 
 fn dynamic_fixture_config() -> FixtureConfig {
