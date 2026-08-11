@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "RED reproduced by DiagnosticsHomeAuditOutcomeBuilderTest; focused test, full core diagnostics tests, and staticAnalysis pass",
+  "execution_sha256": "3ed6f48f22a1dd7d519476691034144b7473804708b5d1c7f3dfc88228c9b166",
+  "issue_sha256": "743ab874da79ac396e77d3a3c9a6886829345f184db79c110f5f166d95a59f94",
+  "outcome": "done",
+  "prepared_at": "2026-08-11T16:05:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786463720924576"
+}

@@ -396,6 +396,10 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
                     "All bypass strategies failed on this network"
                 }
 
+                strategyAdequacy == StrategyAdequacy.DNS_ONLY_APPLIED -> {
+                    "DNS settings applied, but no network strategy was confirmed"
+                }
+
                 actionable -> {
                     "Analysis complete and settings applied"
                 }
