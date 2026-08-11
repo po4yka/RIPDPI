@@ -82,7 +82,7 @@ class ComparisonScanCoordinatorTest {
                 .all(summary::contains),
         )
         assertTrue(!summary.contains("network looks broadly broken"))
-        assertTrue(nextAction.contains("check"))
+        assertTrue(nextAction.contains("verify"))
         assertTrue(nextAction.contains("diagnostics"))
         assertTrue(listOf("censorship", "blocking", "treat this as").none(nextAction::contains))
     }
