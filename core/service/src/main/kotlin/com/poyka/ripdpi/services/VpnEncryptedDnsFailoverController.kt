@@ -217,10 +217,11 @@ internal class VpnEncryptedDnsFailoverController(
         state.consecutiveFailureEvents += 1
         log.w { "failure #${state.consecutiveFailureEvents} error=${telemetry.lastDnsError}" }
         val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
+        val error = telemetry.lastDnsError.orEmpty()
         if (queriesSincePathStart <= EagerFailoverMaxQueries &&
-            isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())
+            (isCatastrophicDnsError(error) || isTimeoutDnsError(error))
         ) {
-            log.w { "catastrophic error on bootstrap, eager failover triggered (queries=$queriesSincePathStart)" }
+            log.w { "terminal bootstrap error, eager failover triggered (queries=$queriesSincePathStart)" }
             state.consecutiveFailureEvents = FailoverThreshold
         }
         val thresholdReached = state.consecutiveFailureEvents >= FailoverThreshold
@@ -280,10 +281,14 @@ internal class VpnEncryptedDnsFailoverController(
         return when {
             "connection reset" in lower || "broken pipe" in lower || "connection abort" in lower -> "sni_blocked"
             "invalid peer certificate" in lower || "certificate" in lower -> "sni_blocked"
-            "timed out" in lower || "timeout" in lower -> "timeout"
             "tls" in lower && ("handshake" in lower || "alert" in lower) -> "tls_error"
             else -> null
         }
+    }
+
+    internal fun isTimeoutDnsError(error: String): Boolean {
+        val lower = error.lowercase()
+        return "timed out" in lower || "timeout" in lower
     }
 
     internal fun isCatastrophicDnsError(error: String): Boolean {

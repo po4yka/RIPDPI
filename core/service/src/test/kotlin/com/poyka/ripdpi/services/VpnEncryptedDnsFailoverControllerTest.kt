@@ -30,6 +30,13 @@ class VpnEncryptedDnsFailoverControllerTest {
                 networkScopeKey = env.fingerprint.scopeKey(),
                 telemetry = dnsTelemetry(queries = 0, failures = 0),
             )
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = cloudflareDohDns(),
+                currentDnsSignature = dnsSignature(cloudflareDohDns(), overrideReason = null),
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 3, failures = 0),
+            )
 
             val failoverTriggered =
                 env.controller.evaluate(
@@ -37,7 +44,7 @@ class VpnEncryptedDnsFailoverControllerTest {
                     activeDns = cloudflareDohDns(),
                     currentDnsSignature = dnsSignature(cloudflareDohDns(), overrideReason = null),
                     networkScopeKey = env.fingerprint.scopeKey(),
-                    telemetry = dnsTelemetry(queries = 1, failures = 1, lastDnsError = "resolver timeout"),
+                    telemetry = dnsTelemetry(queries = 4, failures = 1, lastDnsError = "resolver timeout"),
                 )
 
             assertFalse(failoverTriggered)
@@ -62,7 +69,14 @@ class VpnEncryptedDnsFailoverControllerTest {
                 activeDns = currentDns,
                 currentDnsSignature = dnsSignature(currentDns, overrideReason = null),
                 networkScopeKey = env.fingerprint.scopeKey(),
-                telemetry = dnsTelemetry(queries = 1, failures = 1, lastDnsError = "resolver timeout"),
+                telemetry = dnsTelemetry(queries = 3, failures = 0),
+            )
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = currentDns,
+                currentDnsSignature = dnsSignature(currentDns, overrideReason = null),
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 4, failures = 1, lastDnsError = "resolver timeout"),
             )
 
             val failoverTriggered =
@@ -71,7 +85,7 @@ class VpnEncryptedDnsFailoverControllerTest {
                     activeDns = currentDns,
                     currentDnsSignature = dnsSignature(currentDns, overrideReason = null),
                     networkScopeKey = env.fingerprint.scopeKey(),
-                    telemetry = dnsTelemetry(queries = 2, failures = 2, lastDnsError = "resolver timeout"),
+                    telemetry = dnsTelemetry(queries = 5, failures = 2, lastDnsError = "resolver timeout"),
                 )
 
             val override = env.overrides.override.value
@@ -101,14 +115,21 @@ class VpnEncryptedDnsFailoverControllerTest {
                 activeDns = currentDns,
                 currentDnsSignature = signature,
                 networkScopeKey = env.fingerprint.scopeKey(),
-                telemetry = dnsTelemetry(queries = 1, failures = 1, lastDnsError = "resolver timeout"),
+                telemetry = dnsTelemetry(queries = 3, failures = 0),
             )
             env.controller.evaluate(
                 state = env.state,
                 activeDns = currentDns,
                 currentDnsSignature = signature,
                 networkScopeKey = env.fingerprint.scopeKey(),
-                telemetry = dnsTelemetry(queries = 2, failures = 1, lastDnsError = null),
+                telemetry = dnsTelemetry(queries = 4, failures = 1, lastDnsError = "resolver timeout"),
+            )
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = currentDns,
+                currentDnsSignature = signature,
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 5, failures = 1, lastDnsError = null),
             )
 
             val failoverTriggered =
@@ -117,7 +138,7 @@ class VpnEncryptedDnsFailoverControllerTest {
                     activeDns = currentDns,
                     currentDnsSignature = signature,
                     networkScopeKey = env.fingerprint.scopeKey(),
-                    telemetry = dnsTelemetry(queries = 3, failures = 2, lastDnsError = "resolver timeout"),
+                    telemetry = dnsTelemetry(queries = 6, failures = 2, lastDnsError = "resolver timeout"),
                 )
 
             assertFalse(failoverTriggered)
@@ -139,20 +160,21 @@ class VpnEncryptedDnsFailoverControllerTest {
                 dnsTelemetry(queries = 11, failures = 3, lastDnsError = "resolver timeout"),
             )
             evaluateDns(env, currentDns, signature, dnsTelemetry(queries = 0, failures = 0))
+            evaluateDns(env, currentDns, signature, dnsTelemetry(queries = 3, failures = 0))
 
             val firstAfterRestart =
                 evaluateDns(
                     env,
                     currentDns,
                     signature,
-                    dnsTelemetry(queries = 1, failures = 1, lastDnsError = "resolver timeout"),
+                    dnsTelemetry(queries = 4, failures = 1, lastDnsError = "resolver timeout"),
                 )
             val secondAfterRestart =
                 evaluateDns(
                     env,
                     currentDns,
                     signature,
-                    dnsTelemetry(queries = 2, failures = 2, lastDnsError = "resolver timeout"),
+                    dnsTelemetry(queries = 5, failures = 2, lastDnsError = "resolver timeout"),
                 )
 
             assertFalse(firstAfterRestart)
@@ -288,6 +310,53 @@ class VpnEncryptedDnsFailoverControllerTest {
         }
 
     @Test
+    fun `bootstrap timeout eagerly selects next encrypted resolver without persisting block`() =
+        runTest {
+            val env = newEnv()
+            val currentDns = cloudflareDohDns()
+            val currentPathKey = requireNotNull(currentDns.toEncryptedDnsPathCandidate()).pathKey()
+            val expectedNextPathKey =
+                buildEncryptedDnsCandidatePlan(currentDns)
+                    .first { it.pathKey() != currentPathKey }
+                    .pathKey()
+            val signature = dnsSignature(currentDns, overrideReason = null)
+
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = currentDns,
+                currentDnsSignature = signature,
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 0, failures = 0),
+            )
+
+            val failoverTriggered =
+                env.controller.evaluate(
+                    state = env.state,
+                    activeDns = currentDns,
+                    currentDnsSignature = signature,
+                    networkScopeKey = env.fingerprint.scopeKey(),
+                    telemetry = dnsTelemetry(queries = 1, failures = 1, lastDnsError = "operation timed out"),
+                )
+            val overridePathKey =
+                env.overrides.override.value
+                    ?.toActiveDnsSettings()
+                    ?.toEncryptedDnsPathCandidate()
+                    ?.pathKey()
+
+            assertEquals(
+                listOf(true, expectedNextPathKey, true, false, false, false),
+                listOf(
+                    failoverTriggered,
+                    overridePathKey,
+                    currentPathKey in env.state.attemptedPathKeys,
+                    currentPathKey in env.state.blockedPathKeys,
+                    currentPathKey in env.blockedPaths.getBlockedPathKeys(env.fingerprint.scopeKey()),
+                    env.blockedPaths.recorded.any { it.second == currentPathKey },
+                ),
+            )
+        }
+
+    @Test
     fun `non-catastrophic dns error on first query does not trigger immediate failover`() =
         runTest {
             val env = newEnv()
@@ -313,7 +382,7 @@ class VpnEncryptedDnsFailoverControllerTest {
                         dnsTelemetry(
                             queries = 1,
                             failures = 1,
-                            lastDnsError = "resolver timeout",
+                            lastDnsError = "temporary resolver error",
                         ),
                 )
 
