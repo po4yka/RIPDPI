@@ -143,6 +143,9 @@ internal fun buildMeasurementSnapshot(
             recommendedQuic = recommendedQuic,
         )
     val capabilitySnapshot = buildCapabilitySnapshot(allCandidates)
+    val capabilityEvidence = buildDiagnosticsArchiveCapabilityEvidence(selection.primaryReport, referencePrefix = "")
+    val hasCapabilityAssessment = selection.primaryReport?.executionPlan?.strategy != null
+    val instabilityRetryCount = selection.payload.telemetry.maxOfOrNull(TelemetrySampleEntity::retryCount)
     return DiagnosticsArchiveMeasurementSnapshot(
         networkIdentityBucket = resolveNetworkIdentityBucket(selection, latestTelemetry),
         targetBucket = resolveTargetBucket(strategyProbe),
@@ -156,7 +159,9 @@ internal fun buildMeasurementSnapshot(
                 acceptanceMetrics = acceptanceMetrics,
                 detectabilityMetrics = detectabilityMetrics,
                 capabilitySnapshot = capabilitySnapshot,
-                latestTelemetry = latestTelemetry,
+                capabilityEvidence = capabilityEvidence,
+                hasCapabilityAssessment = hasCapabilityAssessment,
+                instabilityRetryCount = instabilityRetryCount,
                 recommendedLatencyMs =
                     listOfNotNull(recommendedTcp?.averageLatencyMs, recommendedQuic?.averageLatencyMs)
                         .maxOrNull(),
@@ -317,7 +322,9 @@ private fun buildRolloutGateAssessment(
     acceptanceMetrics: DiagnosticsArchiveAcceptanceMetrics,
     detectabilityMetrics: DiagnosticsArchiveDetectabilityMetrics,
     capabilitySnapshot: DiagnosticsArchiveCapabilitySnapshot,
-    latestTelemetry: TelemetrySampleEntity?,
+    capabilityEvidence: List<DiagnosticsArchiveCapabilityEvidence>,
+    hasCapabilityAssessment: Boolean,
+    instabilityRetryCount: Long?,
     recommendedLatencyMs: Long?,
 ): DiagnosticsArchiveRolloutGateAssessment {
     val hasDetectabilityEvidence = detectabilityMetrics.evidence.isNotEmpty()
@@ -351,9 +358,9 @@ private fun buildRolloutGateAssessment(
             ),
             DiagnosticsArchiveRolloutGateResult(
                 id = "instability_budget",
-                passed = (latestTelemetry?.retryCount() ?: Long.MAX_VALUE) <= InstabilityRetryBudget,
+                passed = instabilityRetryCount != null && instabilityRetryCount <= InstabilityRetryBudget,
                 threshold = "retryCount <= $InstabilityRetryBudget",
-                actual = latestTelemetry?.retryCount()?.toString() ?: "unknown",
+                actual = instabilityRetryCount?.toString() ?: "unknown",
             ),
             DiagnosticsArchiveRolloutGateResult(
                 id = "detectability_budget",
@@ -375,22 +382,47 @@ private fun buildRolloutGateAssessment(
                         ?.joinToString(" | ")
                         ?: "Recommended candidate emitter evidence was unavailable.",
             ),
-            DiagnosticsArchiveRolloutGateResult(
-                id = "android_compat_budget",
-                passed = capabilitySnapshot.inferredUnavailableCapabilities.isEmpty(),
-                threshold = "no inferred missing runtime capabilities",
-                actual =
-                    capabilitySnapshot.inferredUnavailableCapabilities
-                        .takeIf(List<String>::isNotEmpty)
-                        ?.joinToString("|")
-                        ?: "none",
-            ),
+            buildAndroidCompatibilityGate(capabilitySnapshot, capabilityEvidence, hasCapabilityAssessment),
         )
     return DiagnosticsArchiveRolloutGateAssessment(
         overallPassed = results.all(DiagnosticsArchiveRolloutGateResult::passed),
         results = results,
     )
 }
+
+private fun buildAndroidCompatibilityGate(
+    capabilitySnapshot: DiagnosticsArchiveCapabilitySnapshot,
+    capabilityEvidence: List<DiagnosticsArchiveCapabilityEvidence>,
+    hasCapabilityAssessment: Boolean,
+): DiagnosticsArchiveRolloutGateResult =
+    DiagnosticsArchiveRolloutGateResult(
+        id = "android_compat_budget",
+        passed =
+            hasCapabilityAssessment &&
+                capabilitySnapshot.inferredUnavailableCapabilities.isEmpty() &&
+                capabilityEvidence.all { evidence ->
+                    evidence.status == DiagnosticsArchiveCapabilityStatus.AVAILABLE
+                },
+        threshold = "no inferred missing runtime capabilities",
+        actual =
+            when {
+                !hasCapabilityAssessment -> {
+                    "unknown"
+                }
+
+                capabilitySnapshot.inferredUnavailableCapabilities.isNotEmpty() -> {
+                    capabilitySnapshot.inferredUnavailableCapabilities.joinToString("|")
+                }
+
+                capabilityEvidence.isEmpty() -> {
+                    "none"
+                }
+
+                else -> {
+                    capabilityEvidence.joinToString("|") { "${it.id}:${it.status.name}" }
+                }
+            },
+    )
 
 private fun containsUnavailableCapabilityId(text: String): Boolean = extractCapabilityIds(text).isNotEmpty()
 

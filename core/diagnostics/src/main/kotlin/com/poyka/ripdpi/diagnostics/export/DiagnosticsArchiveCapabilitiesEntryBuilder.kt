@@ -46,98 +46,98 @@ internal class DiagnosticsArchiveCapabilitiesEntryBuilder(
             DiagnosticsArchiveCapabilitiesPayload(
                 sessionId = sessionId,
                 profileId = profileId,
-                capabilities = buildCapabilities(report, referencePrefix),
+                capabilities = buildDiagnosticsArchiveCapabilityEvidence(report, referencePrefix),
             )
         return DiagnosticsArchiveEntry(
             name = name,
             bytes = json.encodeToString(DiagnosticsArchiveCapabilitiesPayload.serializer(), payload).toByteArray(),
         )
     }
+}
 
-    private fun buildCapabilities(
-        report: EngineScanReportWire?,
-        referencePrefix: String,
-    ): List<DiagnosticsArchiveCapabilityEvidence> {
-        val candidates = plannedCandidates(report)
-        val attempts = report?.strategyProbeReport?.attempts.orEmpty()
-        val summaries = candidateSummaries(report)
-        return candidates
-            .flatMap { candidate -> candidate.plan.requiredCapabilities.map { capability -> capability to candidate } }
-            .groupBy(
-                keySelector = Pair<String, PlannedCandidate>::first,
-                valueTransform = Pair<String, PlannedCandidate>::second,
-            ).toSortedMap()
-            .map { (capability, requiredBy) ->
-                buildCapabilityEvidence(capability, requiredBy, summaries, attempts, referencePrefix)
-            }
-    }
+internal fun buildDiagnosticsArchiveCapabilityEvidence(
+    report: EngineScanReportWire?,
+    referencePrefix: String,
+): List<DiagnosticsArchiveCapabilityEvidence> {
+    val candidates = plannedCandidates(report)
+    val attempts = report?.strategyProbeReport?.attempts.orEmpty()
+    val summaries = candidateSummaries(report)
+    return candidates
+        .flatMap { candidate -> candidate.plan.requiredCapabilities.map { capability -> capability to candidate } }
+        .groupBy(
+            keySelector = Pair<String, PlannedCandidate>::first,
+            valueTransform = Pair<String, PlannedCandidate>::second,
+        ).toSortedMap()
+        .map { (capability, requiredBy) ->
+            buildCapabilityEvidence(capability, requiredBy, summaries, attempts, referencePrefix)
+        }
+}
 
-    private fun buildCapabilityEvidence(
-        capability: String,
-        requiredBy: List<PlannedCandidate>,
-        summaries: Map<CandidateKey, IndexedCandidateSummary>,
-        attempts: List<com.poyka.ripdpi.diagnostics.StrategyProbeAttempt>,
-        referencePrefix: String,
-    ): DiagnosticsArchiveCapabilityEvidence {
-        val evidence = mutableListOf<String>()
-        val observations =
-            requiredBy.map { candidate ->
-                evidence += candidate.capabilityEvidenceRef(capability, referencePrefix)
-                val summary = summaries[candidate.key]
-                val candidateAttempts =
-                    attempts.withIndex().filter {
-                        it.value.lane == candidate.lane && it.value.candidateId == candidate.plan.id
-                    }
-                val executed = candidateAttempts.filter { it.value.status == StrategyProbeAttemptStatus.EXECUTED }
-                val unavailable =
-                    summary?.value?.outcome == CapabilitySkippedOutcome ||
-                        candidateAttempts.any { it.value.outcome == CapabilitySkippedOutcome }
-                val available =
-                    executed.isNotEmpty() &&
-                        summary?.value?.emitterDowngraded == false &&
-                        summary.value.emitterTier == candidate.plan.emitterTier &&
-                        summary.value.exactEmitterRequiresRoot == candidate.plan.exactEmitterRequiresRoot
-                when {
-                    unavailable && available -> {
-                        evidence += summary.outcomeEvidenceRef(candidate.lane, referencePrefix)
-                        executed.forEach { evidence += "${referencePrefix}attempts.jsonl#L${it.index + 1}" }
-                        DiagnosticsArchiveCapabilityStatus.UNKNOWN
-                    }
+private fun buildCapabilityEvidence(
+    capability: String,
+    requiredBy: List<PlannedCandidate>,
+    summaries: Map<CandidateKey, IndexedCandidateSummary>,
+    attempts: List<com.poyka.ripdpi.diagnostics.StrategyProbeAttempt>,
+    referencePrefix: String,
+): DiagnosticsArchiveCapabilityEvidence {
+    val evidence = mutableListOf<String>()
+    val observations =
+        requiredBy.map { candidate ->
+            evidence += candidate.capabilityEvidenceRef(capability, referencePrefix)
+            val summary = summaries[candidate.key]
+            val candidateAttempts =
+                attempts.withIndex().filter {
+                    it.value.lane == candidate.lane && it.value.candidateId == candidate.plan.id
+                }
+            val executed = candidateAttempts.filter { it.value.status == StrategyProbeAttemptStatus.EXECUTED }
+            val unavailable =
+                summary?.value?.outcome == CapabilitySkippedOutcome ||
+                    candidateAttempts.any { it.value.outcome == CapabilitySkippedOutcome }
+            val available =
+                executed.isNotEmpty() &&
+                    summary?.value?.emitterDowngraded == false &&
+                    summary.value.emitterTier == candidate.plan.emitterTier &&
+                    summary.value.exactEmitterRequiresRoot == candidate.plan.exactEmitterRequiresRoot
+            when {
+                unavailable && available -> {
+                    evidence += summary.outcomeEvidenceRef(candidate.lane, referencePrefix)
+                    executed.forEach { evidence += "${referencePrefix}attempts.jsonl#L${it.index + 1}" }
+                    DiagnosticsArchiveCapabilityStatus.UNKNOWN
+                }
 
-                    unavailable -> {
-                        summary?.let { evidence += it.outcomeEvidenceRef(candidate.lane, referencePrefix) }
-                        candidateAttempts
-                            .filter { it.value.outcome == CapabilitySkippedOutcome }
-                            .forEach { evidence += "${referencePrefix}attempts.jsonl#L${it.index + 1}" }
-                        DiagnosticsArchiveCapabilityStatus.UNAVAILABLE
-                    }
+                unavailable -> {
+                    summary?.let { evidence += it.outcomeEvidenceRef(candidate.lane, referencePrefix) }
+                    candidateAttempts
+                        .filter { it.value.outcome == CapabilitySkippedOutcome }
+                        .forEach { evidence += "${referencePrefix}attempts.jsonl#L${it.index + 1}" }
+                    DiagnosticsArchiveCapabilityStatus.UNAVAILABLE
+                }
 
-                    available -> {
-                        executed.forEach { evidence += "${referencePrefix}attempts.jsonl#L${it.index + 1}" }
-                        evidence += summary.emitterEvidenceRef(candidate.lane, referencePrefix)
-                        DiagnosticsArchiveCapabilityStatus.AVAILABLE
-                    }
+                available -> {
+                    executed.forEach { evidence += "${referencePrefix}attempts.jsonl#L${it.index + 1}" }
+                    evidence += summary.emitterEvidenceRef(candidate.lane, referencePrefix)
+                    DiagnosticsArchiveCapabilityStatus.AVAILABLE
+                }
 
-                    else -> {
-                        DiagnosticsArchiveCapabilityStatus.UNKNOWN
-                    }
+                else -> {
+                    DiagnosticsArchiveCapabilityStatus.UNKNOWN
                 }
             }
-        return DiagnosticsArchiveCapabilityEvidence(
-            id = capability,
-            status = observations.aggregateCapabilityStatus(),
-            requiredBy =
-                requiredBy.map { candidate ->
-                    DiagnosticsArchiveCapabilityRequirement(
-                        lane = candidate.lane,
-                        candidateId = candidate.plan.id,
-                        emitterTier = candidate.plan.emitterTier,
-                        exactEmitterRequiresRoot = candidate.plan.exactEmitterRequiresRoot,
-                    )
-                },
-            evidenceRefs = evidence.distinct(),
-        )
-    }
+        }
+    return DiagnosticsArchiveCapabilityEvidence(
+        id = capability,
+        status = observations.aggregateCapabilityStatus(),
+        requiredBy =
+            requiredBy.map { candidate ->
+                DiagnosticsArchiveCapabilityRequirement(
+                    lane = candidate.lane,
+                    candidateId = candidate.plan.id,
+                    emitterTier = candidate.plan.emitterTier,
+                    exactEmitterRequiresRoot = candidate.plan.exactEmitterRequiresRoot,
+                )
+            },
+        evidenceRefs = evidence.distinct(),
+    )
 }
 
 private data class CandidateKey(

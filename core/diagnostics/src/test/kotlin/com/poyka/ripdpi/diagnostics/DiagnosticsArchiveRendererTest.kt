@@ -1068,6 +1068,64 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `rollout gates fail closed for reset telemetry and unknown capabilities`() {
+        val base = buildFullRendererSelection()
+        val report = requireNotNull(base.primaryReport)
+        val executionPlan = requireNotNull(report.executionPlan)
+        val strategyPlan = requireNotNull(executionPlan.strategy)
+        val strategyProbe =
+            requireNotNull(report.strategyProbeReport).copy(
+                tcpCandidates = emptyList(),
+                quicCandidates = emptyList(),
+                attempts = emptyList(),
+            )
+        val reportWithUnknownCapability =
+            report.copy(
+                executionPlan =
+                    executionPlan.copy(
+                        strategy =
+                            strategyPlan.copy(
+                                tcpCandidates =
+                                    listOf(
+                                        rendererCandidatePlan("unknown-capability", "tlsrec_split").copy(
+                                            requiredCapabilities = listOf("network_binding"),
+                                        ),
+                                    ),
+                                quicCandidates = emptyList(),
+                            ),
+                    ),
+                strategyProbeReport = strategyProbe,
+            )
+        val latestTelemetry =
+            rendererTelemetrySample(publicIp = null).copy(
+                proxyRouteRetryCount = 0,
+                tunnelRecoveryRetryCount = 0,
+                createdAt = 100L,
+            )
+        val earlierUnstableTelemetry =
+            rendererTelemetrySample(publicIp = null).copy(
+                id = "telemetry-unstable",
+                proxyRouteRetryCount = 6,
+                tunnelRecoveryRetryCount = 4,
+                createdAt = 90L,
+            )
+        val selection =
+            base.copy(
+                payload = base.payload.copy(telemetry = listOf(latestTelemetry, earlierUnstableTelemetry)),
+                primaryReport = reportWithUnknownCapability,
+            )
+
+        val snapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
+
+        assertEquals(
+            setOf("acceptance"),
+            snapshot.rolloutGateAssessment.results
+                .filter { it.passed }
+                .mapTo(mutableSetOf()) { it.id },
+        )
+    }
+
+    @Test
     fun `renderer confines installed artifact fingerprints to provenance entry`() {
         val baseHash = "a".repeat(64)
         val splitHash = "b".repeat(64)
