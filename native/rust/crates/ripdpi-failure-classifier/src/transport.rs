@@ -15,13 +15,17 @@ pub fn classify_transport_error(stage: FailureStage, error: &io::Error) -> Class
             error.to_string(),
         )
         .with_tag("kind", format!("{kind:?}")),
-        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => ClassifiedFailure::new(
+        io::ErrorKind::TimedOut => ClassifiedFailure::new(
             FailureClass::SilentDrop,
             stage,
             FailureAction::RetryWithMatchingGroup,
             error.to_string(),
         )
         .with_tag("kind", format!("{kind:?}")),
+        io::ErrorKind::WouldBlock => {
+            ClassifiedFailure::new(FailureClass::Unknown, stage, FailureAction::SurfaceOnly, error.to_string())
+                .with_tag("kind", format!("{kind:?}"))
+        }
         io::ErrorKind::ConnectionRefused
         | io::ErrorKind::HostUnreachable
         | io::ErrorKind::NetworkUnreachable
@@ -107,10 +111,12 @@ mod tests {
     }
 
     #[test]
-    fn transport_errors_classify_would_block_as_silent_drop() {
+    fn transport_errors_classify_would_block_as_local_transient_unreadiness() {
         let err = io::Error::new(io::ErrorKind::WouldBlock, "would block");
         let f = classify_transport_error(FailureStage::Connect, &err);
-        assert_eq!(f.class, FailureClass::SilentDrop);
+        assert_eq!(f.class, FailureClass::Unknown);
+        assert_eq!(f.action, FailureAction::SurfaceOnly);
+        assert!(f.evidence.tags.iter().any(|tag| tag == "kind=WouldBlock"));
     }
 
     #[test]
