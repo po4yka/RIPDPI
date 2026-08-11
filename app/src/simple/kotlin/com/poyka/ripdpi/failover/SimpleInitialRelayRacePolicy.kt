@@ -344,29 +344,39 @@ internal class SimpleRelayEgressReadinessPolicy
                 return null
             }
             val activeRelayKind = requireNotNull(relayKind)
+            var effectiveRequirements = requirements
 
             if (!seededAwg) {
                 val stored =
                     relayProfileStore.load(profileId)
                         ?: rejectReadiness("Configured embedded relay profile is unavailable")
-                if (
+                val profileMismatch =
                     stored.kind != activeRelayKind ||
-                    (
-                        activeRelayKind == RelayKindVless &&
-                            stored.vlessTransport != RelayVlessTransportXhttp
-                    ) ||
-                    relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) != true ||
-                    (
-                        requirements.udpAssociate &&
-                            !relayProfileSupportsUdpAssociation(
-                                kindId = stored.kind,
-                                udpEnabled = stored.udpEnabled,
-                                vlessTransport = stored.vlessTransport,
-                                vlessFlow = stored.vlessFlow,
-                            )
-                    )
-                ) {
+                        (
+                            activeRelayKind == RelayKindVless &&
+                                stored.vlessTransport != RelayVlessTransportXhttp
+                        )
+                if (profileMismatch) {
                     rejectReadiness("Configured embedded relay cannot satisfy the active egress probe")
+                }
+                val supportsRequestedRequirements =
+                    relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) == true &&
+                        (
+                            !requirements.udpAssociate ||
+                                relayProfileSupportsUdpAssociation(
+                                    kindId = stored.kind,
+                                    udpEnabled = stored.udpEnabled,
+                                    vlessTransport = stored.vlessTransport,
+                                    vlessFlow = stored.vlessFlow,
+                                )
+                        )
+                if (!supportsRequestedRequirements) {
+                    val tcpOnlyRequirements =
+                        requirements.copy(udpAssociate = false, udpAssociateTarget = null)
+                    if (relayTransportCapabilities(activeRelayKind)?.satisfies(tcpOnlyRequirements) != true) {
+                        rejectReadiness("Configured embedded relay cannot satisfy the active egress probe")
+                    }
+                    effectiveRequirements = tcpOnlyRequirements
                 }
             }
 
@@ -401,7 +411,7 @@ internal class SimpleRelayEgressReadinessPolicy
                             relayKind = activeRelayKind,
                         ),
                     ),
-                requirements = requirements,
+                requirements = effectiveRequirements,
                 readinessProbeRequirements =
                     EgressRequirements(
                         tcpConnect = true,
