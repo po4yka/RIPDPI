@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "RED observed expected (0.1.4-simple, githubFull) but actual (0.1.4-debug, debug); focused app regression, DeveloperAnalyticsAllowListTest, app/core diagnostics lint, and staticAnalysis passed.",
+  "execution_sha256": "75fa2292cb92f3ae436f46002de516ba8ba70aeb9a5120f89ef31e6692d9265c",
+  "issue_sha256": "a87fc58de2c57781dc865c42ea2be62f5a8aa8ad6a33ae9f8456443b6e2d6004",
+  "outcome": "done",
+  "prepared_at": "2026-08-11T22:13:36Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786485162657326"
+}

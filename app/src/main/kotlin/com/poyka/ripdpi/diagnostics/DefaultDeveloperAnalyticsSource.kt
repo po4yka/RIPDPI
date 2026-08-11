@@ -245,10 +245,10 @@ class DefaultDeveloperAnalyticsSource
         private fun buildReproductionContext(): DeveloperReproductionContext {
             val digests = computeNativeLibDigests()
             return DeveloperReproductionContext(
-                appVersionName = BuildConfig.VERSION_NAME,
+                appVersionName = installedAppVersionName(),
                 appVersionCode = BuildConfig.VERSION_CODE.toLong(),
                 buildCommit = gitCommit.takeIf { it.isNotBlank() },
-                buildFlavor = BuildConfig.BUILD_TYPE,
+                buildFlavor = BuildConfig.FLAVOR,
                 buildType = BuildConfig.BUILD_TYPE,
                 buildTimestampIsoUtc = null,
                 nativeLibVersion = nativeLibVersion.takeIf { it.isNotBlank() },
@@ -261,6 +261,15 @@ class DefaultDeveloperAnalyticsSource
                 featureFlags = emptyMap(),
             )
         }
+
+        private fun installedAppVersionName(): String =
+            runCatching {
+                appContext.packageManager
+                    .getPackageInfo(appContext.packageName, 0)
+                    .versionName
+            }.getOrNull()
+                ?.takeIf(String::isNotBlank)
+                ?: BuildConfig.VERSION_NAME
 
         private fun computeNativeLibDigests(): Map<String, String> {
             val nativeDir = appContext.applicationInfo.nativeLibraryDir?.let(::File) ?: return emptyMap()
