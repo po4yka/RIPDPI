@@ -1,11 +1,6 @@
 {
     "failureEnvelope": {
-        "failureClassTransitions": [
-            "native:proxy:warning"
-        ],
-        "firstFailureTimestamp": 60,
-        "lastFailureTimestamp": 60,
-        "latestFailureClass": "warning",
+        "failureClassTransitions": [],
         "retryCounters": {
             "proxyRouteRetryCount": 1,
             "totalRetryCount": 1,

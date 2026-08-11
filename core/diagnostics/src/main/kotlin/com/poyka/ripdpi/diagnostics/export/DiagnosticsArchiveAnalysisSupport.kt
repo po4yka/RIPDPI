@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.export
 
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.ObservationFact
@@ -41,11 +40,6 @@ internal fun buildAnalysis(
                 !it.lastFailureClass.isNullOrBlank() ||
                 !it.lastFallbackAction.isNullOrBlank()
         }
-    val failureEvents =
-        (selection.primaryEvents + selection.globalEvents)
-            .filter {
-                it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
-            }.sortedBy { it.createdAt }
     val latestTelemetry =
         selection.payload.telemetry
             .firstOrNull()
@@ -55,7 +49,7 @@ internal fun buildAnalysis(
     val observations = projectedReport?.observations.orEmpty()
     val measurementSnapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
     return DiagnosticsArchiveAnalysisPayload(
-        failureEnvelope = buildFailureEnvelope(failureSamples, failureEvents, latestTelemetry),
+        failureEnvelope = buildFailureEnvelope(failureSamples, latestTelemetry),
         strategyExecutionDetail = buildStrategyExecutionDetail(strategyProbe, observations),
         recommendationTrace = buildRecommendationTrace(selection, projectedReport),
         measurementSnapshot = measurementSnapshot,
@@ -65,25 +59,14 @@ internal fun buildAnalysis(
 
 private fun buildFailureEnvelope(
     failureSamples: List<TelemetrySampleEntity>,
-    failureEvents: List<NativeSessionEventEntity>,
     latestTelemetry: TelemetrySampleEntity?,
-): DiagnosticsArchiveFailureEnvelope =
-    DiagnosticsArchiveFailureEnvelope(
-        firstFailureTimestamp =
-            listOfNotNull(
-                failureSamples.firstOrNull()?.createdAt,
-                failureEvents.firstOrNull()?.createdAt,
-            ).minOrNull(),
-        lastFailureTimestamp =
-            listOfNotNull(
-                failureSamples.lastOrNull()?.createdAt,
-                failureEvents.lastOrNull()?.createdAt,
-            ).maxOrNull(),
-        latestFailureClass =
-            latestTelemetry?.failureClass
-                ?: latestTelemetry?.lastFailureClass
-                ?: failureEvents.lastOrNull()?.message?.let(::redactDiagnosticsArchiveText),
-        lastFallbackAction = latestTelemetry?.lastFallbackAction,
+): DiagnosticsArchiveFailureEnvelope {
+    val latestFailureSample = failureSamples.lastOrNull()
+    return DiagnosticsArchiveFailureEnvelope(
+        firstFailureTimestamp = failureSamples.firstOrNull()?.createdAt,
+        lastFailureTimestamp = latestFailureSample?.createdAt,
+        latestFailureClass = latestFailureSample?.failureClass ?: latestFailureSample?.lastFailureClass,
+        lastFallbackAction = latestFailureSample?.lastFallbackAction,
         retryCounters =
             DiagnosticsArchiveRetryCounters(
                 proxyRouteRetryCount = latestTelemetry?.proxyRouteRetryCount ?: 0,
@@ -91,15 +74,11 @@ private fun buildFailureEnvelope(
                 totalRetryCount = latestTelemetry?.retryCount() ?: 0,
             ),
         failureClassTransitions =
-            (
-                failureSamples.flatMap { sample ->
-                    listOfNotNull(sample.failureClass, sample.lastFailureClass)
-                } +
-                    failureEvents.map { event ->
-                        "native:${event.source}:${redactDiagnosticsArchiveText(event.message)}"
-                    }
-            ).distinctConsecutive(),
+            failureSamples
+                .flatMap { sample -> listOfNotNull(sample.failureClass, sample.lastFailureClass) }
+                .distinctConsecutive(),
     )
+}
 
 private fun buildStrategyExecutionDetail(
     strategyProbe: StrategyProbeReport?,
