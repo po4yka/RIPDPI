@@ -174,23 +174,25 @@ class ComparisonScanCoordinator
             private fun assessmentSummary(code: ConnectivityAssessmentCode): String =
                 when (code) {
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
-                        "Raw-path control targets failed alongside affected targets, so the " +
-                            "network looks broadly broken before RIPDPI enters the path."
+                        "Control and affected-target failures were observed together. This joint " +
+                            "pattern is consistent with a broad raw-path reachability problem, but the " +
+                            "evidence is insufficient and its cause is not established."
                     }
 
                     ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING -> {
-                        "Raw-path controls passed while affected targets still failed, which " +
-                            "points to selective blocking on the direct network path."
+                        "Raw-path controls passed while affected targets failed. This observed " +
+                            "selective-failure pattern is not established as policy filtering or any specific cause."
                     }
 
                     ConnectivityAssessmentCode.VPN_PATH_REGRESSION -> {
-                        "The paired in-path run performed worse than raw path on the same " +
-                            "targets, which points to a RIPDPI in-path regression."
+                        "The paired run showed the same target succeeding raw and failing in-path. " +
+                            "This observed path-dependent association does not identify the responsible " +
+                            "component or establish a root cause."
                     }
 
                     ConnectivityAssessmentCode.RESOLVER_INTERFERENCE -> {
-                        "Resolver divergence was the strongest common signal across failed " +
-                            "targets, so DNS interference is the likely cause."
+                        "Resolver divergence was observed across failed targets. DNS is a " +
+                            "candidate signal, but a causal role is not established by this evidence."
                     }
 
                     ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> {
@@ -211,8 +213,8 @@ class ComparisonScanCoordinator
                     }
 
                     ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING -> {
-                        "Treat this as a direct-network censorship/blocking issue and compare " +
-                            "with a dedicated in-path repro only if the user reports VPN-only breakage."
+                        "Run a paired in-path comparison on the same targets and collect " +
+                            "corroborating resolver and transport evidence before attributing a cause."
                     }
 
                     ConnectivityAssessmentCode.VPN_PATH_REGRESSION -> {
