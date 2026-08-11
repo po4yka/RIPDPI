@@ -1746,6 +1746,52 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer preserves time bound startup and newest markers within utf8 budget`() {
+        val startupMarker = "1700000000.000 123 456 I ripdpi: diagnostics-startup-marker\n"
+        val newestMarker = "1700000999.000 123 456 I ripdpi: diagnostics-newest-marker\n"
+        val content =
+            startupMarker +
+                "ж".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES) +
+                newestMarker
+        val selection =
+            buildTruncationRendererSelection().copy(
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = content,
+                        captureScope = LogcatSnapshotCollector.TimeBoundSnapshotScope,
+                        byteCount = content.toByteArray(Charsets.UTF_8).size,
+                        truncated = true,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-logcat-history-bound", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-logcat-history-bound.zip",
+                createdAt = 44L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val logcatBytes = entries.getValue("logcat.txt").bytes
+        val logcatText = logcatBytes.decodeToString()
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+
+        assertEquals(
+            listOf(true, true, true, true, true),
+            listOf(
+                logcatBytes.size <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                logcatText.contains(startupMarker),
+                logcatText.contains(newestMarker),
+                logcatText.toByteArray(Charsets.UTF_8).contentEquals(logcatBytes),
+                completeness.truncation.logcat,
+            ),
+        )
+    }
+
+    @Test
     fun `decode failure counts subtract successfully decoded artifacts`() {
         val base = buildFullRendererSelection()
         val malformedSnapshot = rendererNetworkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")

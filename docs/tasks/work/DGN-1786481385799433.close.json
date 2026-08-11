@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Architecture health, Cargo metadata, task contracts, and git diff checks passed.",
+  "execution_sha256": "ef23da2c955f3a2f7a4560a92ccefabe85330e618039d0f6d882a15c0208520d",
+  "issue_sha256": "738933744fcd1fed859ba5cb898bc86aaa881b9a6d8b4525da1f4baf629d9f8f",
+  "outcome": "done",
+  "prepared_at": "2026-08-11T21:09:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786481385799433"
+}

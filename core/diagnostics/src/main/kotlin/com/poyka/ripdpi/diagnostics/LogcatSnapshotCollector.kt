@@ -51,7 +51,12 @@ open class LogcatSnapshotCollector
                     null
                 } else {
                     val outputBytes = output.toByteArray(Charsets.UTF_8)
-                    val boundedBytes = tailUtf8Bytes(output, MAX_LOGCAT_BYTES)
+                    val boundedBytes =
+                        if (sinceTimestampMs != null) {
+                            headAndTailUtf8Bytes(output, MAX_LOGCAT_BYTES)
+                        } else {
+                            tailUtf8Bytes(output, MAX_LOGCAT_BYTES)
+                        }
                     val scope =
                         if (sinceTimestampMs != null) TimeBoundSnapshotScope else AppVisibleSnapshotScope
                     LogcatSnapshot(
@@ -94,7 +99,7 @@ open class LogcatSnapshotCollector
             try {
                 process.errorStream.close()
                 return process.inputStream.bufferedReader().use { reader ->
-                    readBounded(reader)
+                    readBounded(reader, preserveStart = sinceTimestampMs != null)
                 }
             } finally {
                 process.destroy()
@@ -102,8 +107,13 @@ open class LogcatSnapshotCollector
             }
         }
 
-        private fun readBounded(reader: java.io.BufferedReader): String {
-            val buffer = RollingByteTail(MAX_LOGCAT_BYTES + MaxUtf8BytesPerCodePoint)
+        private fun readBounded(
+            reader: java.io.BufferedReader,
+            preserveStart: Boolean,
+        ): String {
+            val capacity = MAX_LOGCAT_BYTES + MaxUtf8BytesPerCodePoint
+            val buffer: RollingByteBuffer =
+                if (preserveStart) RollingByteHeadAndTail(capacity) else RollingByteTail(capacity)
             val charBuf = CharArray(READ_BUFFER_CHARS)
             var charsRead = reader.read(charBuf)
             while (charsRead != -1) {
@@ -166,12 +176,18 @@ private const val LogcatHistoryStartToleranceMs = 5_000L
 private const val EpochMillisecondsDigits = 3
 private val EpochLogcatTimestampRegex = Regex("^\\s*(\\d{10,}(?:\\.\\d+)?)\\s")
 
+private interface RollingByteBuffer {
+    fun append(chunk: ByteArray)
+
+    fun toByteArray(): ByteArray
+}
+
 private class RollingByteTail(
     private val capacity: Int,
-) {
+) : RollingByteBuffer {
     private var bytes = ByteArray(0)
 
-    fun append(chunk: ByteArray) {
+    override fun append(chunk: ByteArray) {
         bytes =
             when {
                 chunk.size >= capacity -> {
@@ -189,13 +205,89 @@ private class RollingByteTail(
             }
     }
 
-    fun toByteArray(): ByteArray {
+    override fun toByteArray(): ByteArray {
         var start = 0
         while (start < bytes.size && bytes[start].toInt() and Utf8ContinuationMask == Utf8ContinuationTag) {
             start += 1
         }
         return bytes.copyOfRange(start, bytes.size)
     }
+}
+
+private class RollingByteHeadAndTail(
+    private val capacity: Int,
+) : RollingByteBuffer {
+    private val headCapacity = capacity
+    private val tail = RollingByteTail(capacity / 2 + MaxUtf8BytesPerCodePoint)
+    private var head = ByteArray(0)
+    private var totalByteCount = 0L
+
+    override fun append(chunk: ByteArray) {
+        totalByteCount += chunk.size
+        if (head.size < headCapacity) {
+            head += chunk.copyOfRange(0, minOf(chunk.size, headCapacity - head.size))
+        }
+        tail.append(chunk)
+    }
+
+    override fun toByteArray(): ByteArray =
+        if (totalByteCount <= capacity) {
+            head
+        } else {
+            headAndTailUtf8Bytes(
+                head = head,
+                tail = tail.toByteArray(),
+                maxBytes = capacity,
+            )
+        }
+}
+
+internal fun headAndTailUtf8Bytes(
+    value: String,
+    maxBytes: Int,
+): ByteArray {
+    val bytes = value.toByteArray(Charsets.UTF_8)
+    return headAndTailUtf8Bytes(bytes, bytes, maxBytes)
+}
+
+private fun headAndTailUtf8Bytes(
+    head: ByteArray,
+    tail: ByteArray,
+    maxBytes: Int,
+): ByteArray =
+    when {
+        maxBytes <= 0 -> {
+            byteArrayOf()
+        }
+
+        head === tail && head.size <= maxBytes -> {
+            head
+        }
+
+        maxBytes == 1 -> {
+            utf8PrefixBytes(head, maxBytes)
+        }
+
+        else -> {
+            val contentBudget = maxBytes - 1
+            val headBudget = contentBudget / 2
+            val tailBudget = contentBudget - headBudget
+            val prefix = utf8PrefixBytes(head, headBudget)
+            val suffix = tailUtf8Bytes(tail.toString(Charsets.UTF_8), tailBudget)
+            prefix + byteArrayOf('\n'.code.toByte()) + suffix
+        }
+    }
+
+private fun utf8PrefixBytes(
+    bytes: ByteArray,
+    maxBytes: Int,
+): ByteArray {
+    if (bytes.size <= maxBytes) return bytes
+    var end = maxBytes
+    while (end > 0 && bytes[end].toInt() and Utf8ContinuationMask == Utf8ContinuationTag) {
+        end -= 1
+    }
+    return bytes.copyOfRange(0, end)
 }
 
 internal fun tailUtf8Bytes(

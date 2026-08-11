@@ -96,4 +96,32 @@ class LogcatSnapshotCollectorTest {
             assertTrue(!snapshot.content.contains("oldest-marker"))
             assertTrue(snapshot.byteCount <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
         }
+
+    @Test
+    fun `time bound capture retains startup and newest markers within utf8 budget`() =
+        runTest {
+            val startupMarker = "1700000000.000 123 456 I ripdpi: diagnostics-startup-marker\n"
+            val newestMarker = "1700000999.000 123 456 I ripdpi: diagnostics-newest-marker\n"
+            val output =
+                startupMarker +
+                    "ж".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES) +
+                    newestMarker
+            val collector =
+                object : LogcatSnapshotCollector() {
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String = output
+                }
+
+            val snapshot = requireNotNull(collector.capture(sinceTimestampMs = 1700000000000L))
+
+            assertEquals(
+                listOf(true, true, true, true, true),
+                listOf(
+                    snapshot.truncated,
+                    snapshot.byteCount <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                    snapshot.content.contains(startupMarker),
+                    snapshot.content.contains(newestMarker),
+                    snapshot.content == snapshot.content.toByteArray(Charsets.UTF_8).toString(Charsets.UTF_8),
+                ),
+            )
+        }
 }

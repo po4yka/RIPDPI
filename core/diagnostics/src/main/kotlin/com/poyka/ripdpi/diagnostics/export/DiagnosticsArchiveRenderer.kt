@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
 import com.poyka.ripdpi.diagnostics.FileLogWriter
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import com.poyka.ripdpi.diagnostics.headAndTailUtf8Bytes
 import com.poyka.ripdpi.diagnostics.tailUtf8Bytes
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -113,10 +114,18 @@ class DiagnosticsArchiveRenderer
             copy(
                 logcatSnapshot =
                     logcatSnapshot?.let { snapshot ->
-                        val completeContent = snapshot.content.dropLeadingPartialLineIf(snapshot.truncated)
+                        val preservesRequestedStart =
+                            snapshot.captureScope == LogcatSnapshotCollector.TimeBoundSnapshotScope
+                        val completeContent =
+                            snapshot.content.dropLeadingPartialLineIf(snapshot.truncated && !preservesRequestedStart)
                         val redacted = redactDiagnosticsLogcat(completeContent)
                         val redactedBytes = redacted.toByteArray(Charsets.UTF_8)
-                        val bounded = tailUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+                        val bounded =
+                            if (preservesRequestedStart) {
+                                headAndTailUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+                            } else {
+                                tailUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+                            }
                         snapshot.copy(
                             content = bounded.toString(Charsets.UTF_8),
                             byteCount = bounded.size,
