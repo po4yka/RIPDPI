@@ -169,10 +169,10 @@ pub(crate) fn throughput_status(value: &str) -> ThroughputProbeStatus {
 
 pub(crate) fn strategy_status(value: &str) -> StrategyProbeStatus {
     match value {
-        "http_ok" | "http_redirect" | "tls_ok" | "tls_version_split" | "quic_initial_response" | "quic_response" => {
+        "http_ok" | "http_redirect" | "tls_ok" | "quic_initial_response" | "quic_response" => {
             StrategyProbeStatus::Success
         }
-        "tls_ech_only" => StrategyProbeStatus::Partial,
+        "tls_version_split" | "tls_ech_only" => StrategyProbeStatus::Partial,
         "partial" => StrategyProbeStatus::Partial,
         "skipped" => StrategyProbeStatus::Skipped,
         "not_applicable" => StrategyProbeStatus::NotApplicable,
