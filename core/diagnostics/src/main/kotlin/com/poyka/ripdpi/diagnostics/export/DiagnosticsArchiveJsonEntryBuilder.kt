@@ -276,6 +276,8 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                                         value = redactDiagnosticsArchiveText(setting.value),
                                     )
                                 },
+                            detectionVerdict = outcome.detectionVerdict,
+                            detectionFindings = outcome.detectionFindings.map(::redactDiagnosticsArchiveText),
                             completedStageCount = outcome.completedStageCount,
                             failedStageCount = outcome.failedStageCount,
                             skippedStageCount = outcome.skippedStageCount,

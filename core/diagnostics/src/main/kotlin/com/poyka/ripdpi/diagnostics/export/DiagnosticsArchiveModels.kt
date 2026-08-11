@@ -647,6 +647,9 @@ internal data class DiagnosticsArchiveHomeAnalysisPayload(
     val coverageSummary: String? = null,
     val recommendedSessionId: String? = null,
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+    val detectionVerdict: com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val detectionFindings: List<String> = emptyList(),
     val completedStageCount: Int,
     val failedStageCount: Int,
     val skippedStageCount: Int,
