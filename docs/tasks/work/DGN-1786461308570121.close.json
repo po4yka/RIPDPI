@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "RED reproduced four concurrent profile scans; serialization regression passed; composite-run tests passed; core diagnostics unit tests passed; staticAnalysis passed",
+  "execution_sha256": "cd722553e2b174ff44f470f4c12176066e22bbd1adf0cf6973e36bf17a1530c8",
+  "issue_sha256": "af5a7cd552886bae656c074c7777ed6cce4f2059f9c58c8fc53c7ddb1b9d3e53",
+  "outcome": "done",
+  "prepared_at": "2026-08-11T15:32:23Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786461308570121"
+}

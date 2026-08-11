@@ -5,16 +5,15 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
-import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,9 +24,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -194,11 +195,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             log.i { "started runId=$runId stages=${HomeCompositeStageSpecs.size}" }
             val auditSpec = HomeCompositeStageSpecs[0]
             val auditIndex = 0
-            val networkEvents = mutableListOf<NetworkHandoverEvent>()
+            val networkChangedDuringRun = AtomicBoolean(false)
             val eventCollector =
-                scope.launch {
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
                     networkHandoverMonitor.events.collect { event ->
-                        if (event.isActionable) networkEvents += event
+                        if (event.isActionable) networkChangedDuringRun.set(true)
                     }
                 }
             runJobs.trackChild(runId, eventCollector)
@@ -250,14 +251,14 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 return
             }
 
-            runParallelMiddleStages(runId)
+            runMiddleStages(runId)
 
             val auditOutcome = runDpiStrategyStage(runId, auditOutcomeAfterAudit)
+            yield()
             eventCollector.cancel()
-            val networkChangedDuringRun = networkEvents.isNotEmpty()
             val coverageNote = crossValidateHomeStrategy(runId, progressState, scanRecordStore, json)
             val dnsIssuesDetected = detectHomeRunDnsIssues(runId, progressState, scanRecordStore, json)
-            finalizeRun(runId, auditOutcome, coverageNote, dnsIssuesDetected, networkChangedDuringRun)
+            finalizeRun(runId, auditOutcome, coverageNote, dnsIssuesDetected, networkChangedDuringRun.get())
             log.i {
                 val outcome = completedRuns[runId]
                 "run completed: completed=${outcome?.completedStageCount}" +
@@ -355,39 +356,35 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
-        /** Runs raw-path middle stages in parallel, then performs the targeted in-path comparison leg. */
-        private suspend fun runParallelMiddleStages(runId: String) {
-            coroutineScope {
-                HomeCompositeStageSpecs
-                    .drop(1)
-                    .dropLast(1)
-                    .filterNot { it.key == "path_comparison" }
-                    .forEach { spec ->
-                        val stageIndex = HomeCompositeStageSpecs.indexOf(spec)
-                        launch {
-                            if (spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
-                                runDetectionStage(runId, stageIndex, spec)
-                                return@launch
-                            }
-                            val result =
-                                executeProfileStageWithRetry(
-                                    runId = runId,
-                                    stageIndex = stageIndex,
+        /** Runs raw-path middle stages serially, then performs the targeted in-path comparison leg. */
+        private suspend fun runMiddleStages(runId: String) {
+            HomeCompositeStageSpecs
+                .drop(1)
+                .dropLast(1)
+                .filterNot { it.key == "path_comparison" }
+                .forEach { spec ->
+                    val stageIndex = HomeCompositeStageSpecs.indexOf(spec)
+                    if (spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
+                        runDetectionStage(runId, stageIndex, spec)
+                    } else {
+                        val result =
+                            executeProfileStageWithRetry(
+                                runId = runId,
+                                stageIndex = stageIndex,
+                                spec = spec,
+                            )
+                        if (result != null) {
+                            val completedSummary =
+                                buildCompletedStageSummary(
                                     spec = spec,
+                                    result = result,
+                                    scanRecordStore = scanRecordStore,
+                                    json = json,
                                 )
-                            if (result != null) {
-                                val completedSummary =
-                                    buildCompletedStageSummary(
-                                        spec = spec,
-                                        result = result,
-                                        scanRecordStore = scanRecordStore,
-                                        json = json,
-                                    )
-                                stageExecutor.updateStage(progressState, runId, stageIndex) { completedSummary }
-                            }
+                            stageExecutor.updateStage(progressState, runId, stageIndex) { completedSummary }
                         }
                     }
-            }
+                }
             val pathComparisonIndex = HomeCompositeStageSpecs.indexOfFirst { it.key == "path_comparison" }
             if (pathComparisonIndex >= 0) {
                 runPathComparisonStage(runId, pathComparisonIndex, HomeCompositeStageSpecs[pathComparisonIndex])
