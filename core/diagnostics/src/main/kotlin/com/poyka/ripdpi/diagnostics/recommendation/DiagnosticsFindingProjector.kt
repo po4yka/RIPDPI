@@ -65,8 +65,8 @@ class DiagnosticsFindingProjector
                     Diagnosis(
                         code = "network_connectivity_issue",
                         summary =
-                            "Control domains also failed, indicating a general network problem " +
-                                "rather than targeted blocking",
+                            "Control and affected-domain failures were observed together. This pattern is " +
+                                "consistent with a general reachability problem, but its cause is not established.",
                     ),
                 )
             }
@@ -111,15 +111,19 @@ private fun collectDnsTamperingDiagnoses(
                 when {
                     observation.status == DnsObservationStatus.NXDOMAIN_MISMATCH -> {
                         "record_deletion" to
-                            "DNS records were deleted (NXDOMAIN)"
+                            "Observed DNS NXDOMAIN divergence; record deletion is a candidate pattern, " +
+                            "but its cause is not established"
                     }
 
                     injectionSuspected -> {
-                        "injection" to "DNS response injected in under 5ms with substituted answers"
+                        "injection" to
+                            "Observed substituted DNS response under 5ms; injection is a candidate signal, " +
+                            "but its cause is not established"
                     }
 
                     else -> {
-                        "substitution" to "DNS answers were substituted"
+                        "substitution" to
+                            "Observed DNS answer divergence consistent with substitution; its cause is not established"
                     }
                 }
             pushDiagnosis(
@@ -189,8 +193,8 @@ private fun collectDnsLatencyDiagnoses(
                 Diagnosis(
                     code = "dns_injection_suspected",
                     summary =
-                        "DNS response arrived in under 5ms with substituted answers, " +
-                            "suggesting in-path injection",
+                        "Observed substituted DNS response under 5ms. In-path injection is a candidate " +
+                            "explanation, but injection is not confirmed and its cause is not established.",
                     severity = "negative",
                     target = observation.domain,
                     evidence =
@@ -201,8 +205,8 @@ private fun collectDnsLatencyDiagnoses(
                             addAll(observation.encryptedAddresses)
                         },
                     recommendation =
-                        "DPI equipment is likely injecting forged DNS responses. " +
-                            "Enable encrypted DNS (DoH/DoT) to bypass this injection.",
+                        "Use encrypted DNS (DoH/DoT) to compare this signal on another path; the current " +
+                            "evidence does not establish injection or identify its cause.",
                 ),
             )
         }
@@ -212,7 +216,9 @@ private fun collectDnsLatencyDiagnoses(
                 seen,
                 Diagnosis(
                     code = "dns_latency_anomaly",
-                    summary = "UDP DNS resolution was abnormally slow, suggesting throttling",
+                    summary =
+                        "Observed UDP DNS latency was substantially higher than the encrypted comparison. " +
+                            "Throttling is a candidate explanation, but its cause is not established.",
                     severity = "degraded",
                     target = observation.domain,
                     evidence =
@@ -222,8 +228,8 @@ private fun collectDnsLatencyDiagnoses(
                             if (encMs > 0) add("slowdownRatio=${udpMs / encMs}x")
                         },
                     recommendation =
-                        "Encrypted DNS bypasses this throttling. " +
-                            "Enable DoH or DoT to avoid ISP-injected DNS delays for this domain.",
+                        "Compare the result with encrypted DNS (DoH/DoT) and another network before " +
+                            "attributing the delay to throttling or an in-path mechanism.",
                 ),
             )
         }
@@ -239,11 +245,27 @@ private fun collectDomainDiagnoses(
     domains.forEach { obs ->
         val (code, summary) =
             when (obs.transportFailure) {
-                TransportFailureKind.TIMEOUT -> "tls_clienthello_timeout" to "TLS handshake timed out after ClientHello"
-                TransportFailureKind.RESET -> "tls_clienthello_rst" to "TLS handshake was reset after ClientHello"
-                TransportFailureKind.CLOSE -> "tls_clienthello_close" to "TLS handshake was closed after ClientHello"
-                TransportFailureKind.CERTIFICATE -> "tls_cert_mitm" to "TLS certificate anomaly suggests interception"
-                else -> null to null
+                TransportFailureKind.TIMEOUT -> {
+                    "tls_clienthello_timeout" to "TLS handshake timed out after ClientHello"
+                }
+
+                TransportFailureKind.RESET -> {
+                    "tls_clienthello_rst" to "TLS handshake was reset after ClientHello"
+                }
+
+                TransportFailureKind.CLOSE -> {
+                    "tls_clienthello_close" to "TLS handshake was closed after ClientHello"
+                }
+
+                TransportFailureKind.CERTIFICATE -> {
+                    "tls_cert_mitm" to
+                        "Observed TLS certificate anomaly. Interception is a candidate explanation, " +
+                        "but its cause is not established."
+                }
+
+                else -> {
+                    null to null
+                }
             }
         if (code != null && summary != null) {
             pushDiagnosis(
@@ -258,7 +280,9 @@ private fun collectDomainDiagnoses(
                 seen,
                 Diagnosis(
                     code = "tls_cert_mitm",
-                    summary = "TLS certificate anomaly suggests interception",
+                    summary =
+                        "Observed TLS certificate anomaly. Interception is a candidate explanation, " +
+                            "but its cause is not established.",
                     target = obs.host,
                     evidence = listOf(obs.host),
                 ),
@@ -284,7 +308,8 @@ private fun collectDomainDiagnoses(
                 seen,
                 Diagnosis(
                     code = "tls_ech_only",
-                    summary = "Plain TLS is blocked, but ECH succeeds",
+                    summary =
+                        "Observed plain TLS failures while ECH succeeded; the path-dependent cause is not established",
                     target = obs.host,
                     evidence = listOfNotNull(obs.host, obs.tlsEchVersion, obs.tlsEchError),
                 ),
@@ -311,7 +336,9 @@ private fun addSniInterferenceDiagnosis(
             seen,
             Diagnosis(
                 code = "sni_triggered_tls_interference",
-                summary = "TLS interference appears SNI-triggered while QUIC is also blocked",
+                summary =
+                    "Observed TLS and QUIC failures for the same target. An SNI-triggered pattern is a " +
+                        "candidate explanation, but its cause is not established.",
                 target = observation.host,
                 evidence = listOf(observation.host),
             ),
@@ -364,7 +391,7 @@ private fun collectQuicDiagnoses(
             seen,
             Diagnosis(
                 code = "quic_blocked",
-                summary = "QUIC traffic was blocked or suppressed",
+                summary = "Observed QUIC probe failures or empty responses; blocking is not established",
                 target = obs.host,
                 evidence = listOf(obs.host),
             ),
@@ -382,7 +409,7 @@ private fun collectServiceDiagnoses(
             observation.service,
             observation.bootstrapStatus,
             "service_bootstrap_blocked",
-            "${observation.service} bootstrap endpoint was blocked",
+            "Observed ${observation.service} bootstrap endpoint probe failure; blocking is not established",
             diagnoses,
             seen,
         )
@@ -390,7 +417,7 @@ private fun collectServiceDiagnoses(
             observation.service,
             observation.mediaStatus,
             "service_media_blocked",
-            "${observation.service} media endpoint was blocked",
+            "Observed ${observation.service} media endpoint probe failure; blocking is not established",
             diagnoses,
             seen,
         )
@@ -400,7 +427,7 @@ private fun collectServiceDiagnoses(
                 seen,
                 Diagnosis(
                     code = "quic_blocked",
-                    summary = "QUIC traffic was blocked or suppressed",
+                    summary = "Observed QUIC probe failures or empty responses; blocking is not established",
                     target = observation.service,
                     evidence = listOf(observation.service),
                 ),
@@ -419,7 +446,7 @@ private fun collectCircumventionDiagnoses(
             observation.tool,
             observation.bootstrapStatus,
             "circumvention_bootstrap_blocked",
-            "${observation.tool} bootstrap endpoint was blocked",
+            "Observed ${observation.tool} bootstrap endpoint probe failure; blocking is not established",
             diagnoses,
             seen,
         )
@@ -431,7 +458,9 @@ private fun collectCircumventionDiagnoses(
                 seen,
                 Diagnosis(
                     code = "circumvention_handshake_blocked",
-                    summary = "${observation.tool} handshake endpoint was blocked",
+                    summary =
+                        "Observed ${observation.tool} handshake endpoint probe failure; " +
+                            "blocking is not established",
                     target = observation.tool,
                     evidence = listOf(observation.tool),
                 ),
@@ -487,7 +516,9 @@ private fun collectThroughputDiagnoses(
                 seen,
                 Diagnosis(
                     code = "youtube_throttled",
-                    summary = "YouTube throughput was heavily throttled relative to control traffic",
+                    summary =
+                        "Observed YouTube throughput was substantially lower than control traffic. " +
+                            "Throttling is a candidate explanation, but it is not established.",
                     target = youtube.label,
                     evidence = listOf(youtube.medianBps.toString(), controlMedian.toString()),
                 ),
@@ -507,8 +538,8 @@ private fun collectThroughputDiagnoses(
                     Diagnosis(
                         code = "throttling_suspected",
                         summary =
-                            "Target throughput is significantly lower than control, " +
-                                "suggesting throttling",
+                            "Observed target throughput was substantially lower than control traffic. " +
+                                "Throttling is a candidate explanation, but it is not established.",
                         target = target.label,
                         evidence =
                             listOf(
@@ -563,7 +594,7 @@ private fun collectStrategyDiagnoses(
         seen,
         StrategyProbeProtocol.QUIC,
         code = "quic_total_failure",
-        summary = "QUIC is completely blocked on this network",
+        summary = "All tested QUIC strategy probes failed; this sample does not establish network-wide blocking",
     )
     addProtocolTotalFailureDiagnosis(
         strategyFacts,
@@ -571,7 +602,9 @@ private fun collectStrategyDiagnoses(
         seen,
         StrategyProbeProtocol.HTTP,
         code = "http_network_blocked",
-        summary = "HTTP port 80 is blocked network-wide",
+        summary =
+            "All tested HTTP port 80 strategy probes failed; this sample does not establish " +
+                "network-wide blocking",
     )
     addH3SelectiveBlockingDiagnosis(strategyFacts, diagnoses, seen)
 }
@@ -591,12 +624,13 @@ private fun addStrategyExhaustionDiagnosis(
             seen,
             Diagnosis(
                 code = "strategy_exhaustion",
-                summary = "No desync strategy could recover any blocked target",
+                summary =
+                    "All tested desync candidates failed on the sampled targets; this does not establish blocking",
                 severity = "blocked",
                 evidence = listOf("candidatesTested=${candidateIds.size}"),
                 recommendation =
-                    "No desync strategy worked for any tested target. " +
-                        "Consider using a proxy, tunnel, or VPN for blocked domains.",
+                    "No tested desync candidate succeeded on the sampled targets. Consider a proxy, tunnel, " +
+                        "or VPN while collecting a paired-path comparison before attributing a cause.",
             ),
         )
     }
@@ -619,7 +653,8 @@ private fun addPerDomainStrategyFailureDiagnosis(
                 seen,
                 Diagnosis(
                     code = "strategy_domain_unreachable",
-                    summary = "All tested strategies failed to recover this domain",
+                    summary =
+                        "All tested strategy probes failed for this domain; the cause is not established",
                     severity = "blocked",
                     target = domain,
                     evidence = listOf("strategiesTested=$candidateCount"),
@@ -687,12 +722,14 @@ private fun addH3SelectiveBlockingDiagnosis(
                 seen,
                 Diagnosis(
                     code = "h3_selective_blocking",
-                    summary = "Server advertises HTTP/3 (h3) via Alt-Svc but QUIC is blocked",
+                    summary =
+                        "Observed HTTP/3 advertisement with failed QUIC probes. Selective filtering is a " +
+                            "candidate pattern, but blocking is not established.",
                     target = domain,
                     evidence = listOf("h3Advertised=true", "quicProbes=${quicForDomain.size}", "quicSuccess=0"),
                     recommendation =
-                        "The server supports HTTP/3 but QUIC traffic is being blocked. " +
-                            "This may indicate selective QUIC/UDP filtering by the network.",
+                        "Repeat the same QUIC comparison on another path before attributing selective " +
+                            "QUIC/UDP filtering to the network.",
                 ),
             )
         }

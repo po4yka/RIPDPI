@@ -436,7 +436,7 @@ class DiagnosticsDisplaySummaryTest {
     }
 
     @Test
-    fun `summary projector surfaces no direct solution verdict`() {
+    fun `summary projector qualifies suspected ip filtering cause`() {
         val summary =
             ScanReport(
                 sessionId = "session-no-direct",
@@ -454,7 +454,10 @@ class DiagnosticsDisplaySummaryTest {
                     ),
             ).displaySummary()
 
-        assertEquals("No direct solution: likely IP block for this authority", summary)
+        assertTrue(summary.contains("observed", ignoreCase = true))
+        assertTrue(summary.contains("candidate", ignoreCase = true))
+        assertTrue(summary.contains("not established", ignoreCase = true))
+        assertTrue(!summary.contains("likely IP block", ignoreCase = true))
     }
 
     @Test

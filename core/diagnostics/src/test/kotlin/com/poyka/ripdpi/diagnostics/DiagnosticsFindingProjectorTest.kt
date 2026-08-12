@@ -8,7 +8,7 @@ import org.junit.Test
 
 class DiagnosticsFindingProjectorTest {
     @Test
-    fun `classify emits tls ech only diagnosis when clear tls is blocked`() {
+    fun `classify reports tls ech split without claiming blocking cause`() {
         val diagnoses =
             DiagnosticsFindingProjector().classify(
                 listOf(
@@ -30,11 +30,18 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "tls_ech_only" }
         assertNotNull(diagnosis)
         assertEquals("blocked.example", diagnosis?.target)
-        assertEquals("Plain TLS is blocked, but ECH succeeds", diagnosis?.summary)
+        assertTrue(
+            diagnosis?.summary?.let { summary ->
+                summary.contains("observed", ignoreCase = true) &&
+                    summary.contains("ECH succeeded", ignoreCase = true) &&
+                    summary.contains("cause is not established", ignoreCase = true) &&
+                    !summary.contains("plain TLS is blocked", ignoreCase = true)
+            } == true,
+        )
     }
 
     @Test
-    fun `classify emits strategy_exhaustion when no strategy recovers any target`() {
+    fun `classify scopes strategy exhaustion to tested candidates and targets`() {
         val observations =
             listOf("candidate_a", "candidate_b").flatMap { candidateId ->
                 listOf("blocked.example", "telegram.org").map { domain ->
@@ -53,7 +60,14 @@ class DiagnosticsFindingProjectorTest {
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         val diagnosis = diagnoses.firstOrNull { it.code == "strategy_exhaustion" }
         assertNotNull(diagnosis)
-        assertEquals("No desync strategy could recover any blocked target", diagnosis?.summary)
+        assertTrue(
+            diagnosis?.summary?.let { summary ->
+                summary.contains("tested", ignoreCase = true) &&
+                    summary.contains("failed", ignoreCase = true) &&
+                    summary.contains("does not establish", ignoreCase = true) &&
+                    !summary.contains("blocked target", ignoreCase = true)
+            } == true,
+        )
         assertEquals("blocked", diagnosis?.severity)
         assertNotNull(diagnosis?.recommendation)
         assert(diagnosis!!.recommendation!!.contains("proxy"))
@@ -150,7 +164,7 @@ class DiagnosticsFindingProjectorTest {
     }
 
     @Test
-    fun `classify emits dns_latency_anomaly when UDP DNS is abnormally slow`() {
+    fun `classify reports dns latency anomaly without attributing throttling`() {
         val diagnoses =
             DiagnosticsFindingProjector().classify(
                 listOf(
@@ -177,6 +191,14 @@ class DiagnosticsFindingProjectorTest {
         assert(diagnosis.evidence.contains("encryptedLatencyMs=98"))
         assert(diagnosis.evidence.contains("slowdownRatio=${6021 / 98}x"))
         assertNotNull(diagnosis.recommendation)
+        assertTrue(
+            listOfNotNull(diagnosis.summary, diagnosis.recommendation).joinToString(" ").let { text ->
+                text.contains("observed", ignoreCase = true) &&
+                    text.contains("cause is not established", ignoreCase = true) &&
+                    !text.contains("suggesting throttling", ignoreCase = true) &&
+                    !text.contains("bypasses this throttling", ignoreCase = true)
+            },
+        )
     }
 
     @Test
@@ -203,7 +225,7 @@ class DiagnosticsFindingProjectorTest {
     }
 
     @Test
-    fun `classify emits http_network_blocked when all HTTP probes fail`() {
+    fun `classify scopes total HTTP failure to the tested sample`() {
         val observations =
             listOf("candidate_a", "candidate_b").flatMap { candidateId ->
                 listOf("blocked.example", "signal.org").map { domain ->
@@ -222,7 +244,14 @@ class DiagnosticsFindingProjectorTest {
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         val diagnosis = diagnoses.firstOrNull { it.code == "http_network_blocked" }
         assertNotNull(diagnosis)
-        assertEquals("HTTP port 80 is blocked network-wide", diagnosis?.summary)
+        assertTrue(
+            diagnosis?.summary?.let { summary ->
+                summary.contains("all tested", ignoreCase = true) &&
+                    summary.contains("failed", ignoreCase = true) &&
+                    summary.contains("does not establish", ignoreCase = true) &&
+                    !summary.contains("blocked network-wide", ignoreCase = true)
+            } == true,
+        )
         assert(diagnosis!!.evidence.contains("blocked.example"))
         assert(diagnosis.evidence.contains("signal.org"))
     }
@@ -287,7 +316,7 @@ class DiagnosticsFindingProjectorTest {
     }
 
     @Test
-    fun `classify emits network_connectivity_issue when control domains fail`() {
+    fun `classify does not attribute joint control failures to a general network cause`() {
         val observations =
             listOf(
                 ObservationFact(
@@ -314,6 +343,13 @@ class DiagnosticsFindingProjectorTest {
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         val networkIssue = diagnoses.firstOrNull { it.code == "network_connectivity_issue" }
         assertNotNull(networkIssue)
+        assertTrue(
+            networkIssue?.summary?.let { summary ->
+                summary.contains("observed", ignoreCase = true) &&
+                    summary.contains("cause is not established", ignoreCase = true) &&
+                    !summary.contains("indicating a general network problem", ignoreCase = true)
+            } == true,
+        )
         diagnoses.forEach { assertEquals(false, it.controlValidated) }
     }
 
@@ -336,7 +372,7 @@ class DiagnosticsFindingProjectorTest {
     }
 
     @Test
-    fun `classify emits throttling_suspected when target throughput is much lower than control`() {
+    fun `classify treats throughput delta as a throttling candidate signal`() {
         val observations =
             listOf(
                 ObservationFact(
@@ -369,10 +405,16 @@ class DiagnosticsFindingProjectorTest {
         assertTrue(throttling!!.evidence.any { it.startsWith("targetBps=") })
         assertTrue(throttling.evidence.any { it.startsWith("controlBps=") })
         assertTrue(throttling.evidence.any { it.startsWith("ratio=") })
+        assertTrue(
+            throttling.summary.contains("observed", ignoreCase = true) &&
+                throttling.summary.contains("candidate", ignoreCase = true) &&
+                throttling.summary.contains("not established", ignoreCase = true) &&
+                !throttling.summary.contains("suggesting throttling", ignoreCase = true),
+        )
     }
 
     @Test
-    fun `classify emits h3_selective_blocking when h3 advertised but QUIC blocked`() {
+    fun `classify treats h3 and failed quic as a candidate filtering pattern`() {
         val observations =
             listOf(
                 // HTTP strategy observation advertising h3 for discord.com
@@ -413,7 +455,14 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "h3_selective_blocking" }
         assertNotNull(diagnosis)
         assertEquals("discord.com", diagnosis?.target)
-        assertEquals("Server advertises HTTP/3 (h3) via Alt-Svc but QUIC is blocked", diagnosis?.summary)
+        assertTrue(
+            diagnosis?.summary?.let { summary ->
+                summary.contains("observed", ignoreCase = true) &&
+                    summary.contains("candidate", ignoreCase = true) &&
+                    summary.contains("not established", ignoreCase = true) &&
+                    !summary.contains("quic is blocked", ignoreCase = true)
+            } == true,
+        )
         assertTrue(diagnosis!!.evidence.contains("h3Advertised=true"))
         assertTrue(diagnosis.evidence.contains("quicSuccess=0"))
         assertNotNull(diagnosis.recommendation)
