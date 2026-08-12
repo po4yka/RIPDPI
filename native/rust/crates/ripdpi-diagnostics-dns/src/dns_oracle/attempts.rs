@@ -18,7 +18,7 @@ where
     A: Fn(&T) -> Vec<String>,
 {
     let mut attempts = Vec::new();
-    let mut successes = Vec::new();
+    let mut successes: Vec<DnsOracleCandidate<T>> = Vec::new();
     let endpoints = std::iter::once(primary_endpoint)
         .chain(fallback_endpoints.iter().take(max_fallbacks).cloned())
         .collect::<Vec<_>>();
@@ -38,7 +38,11 @@ where
                     error: None,
                 });
                 if !answers.is_empty() {
+                    let agreement_reached = successes.iter().any(|candidate| candidate.answers == answers);
                     successes.push(DnsOracleCandidate { endpoint, value, answers, is_primary, latency_ms });
+                    if agreement_reached {
+                        break;
+                    }
                 }
             }
             Err(error) => {
