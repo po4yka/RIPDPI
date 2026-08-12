@@ -25,6 +25,7 @@ pub fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {
 
 pub fn set_report(shared: &Arc<Mutex<SharedState>>, report: ScanReport) {
     let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.checkpoint_report = None;
     guard.report = Some(report);
 }
 
@@ -157,7 +158,7 @@ mod tests {
 
     #[test]
     fn set_progress_stores_value() {
-        let shared = Arc::new(Mutex::new(SharedState { progress: None, report: None, log_context: None }));
+        let shared = Arc::new(Mutex::new(SharedState::default()));
         let progress = ScanProgress {
             session_id: "test".to_string(),
             phase: "running".to_string(),

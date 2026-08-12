@@ -20,5 +20,6 @@ pub use target::*;
 pub struct SharedState {
     pub progress: Option<ScanProgress>,
     pub report: Option<ScanReport>,
+    pub checkpoint_report: Option<ScanReport>,
     pub log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
 }

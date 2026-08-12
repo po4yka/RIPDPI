@@ -5,6 +5,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use super::parallel;
 use super::plan::ExecutionPlan;
+use super::publish_partial_run_checkpoint;
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
 use crate::types::ScanKind;
@@ -64,6 +65,7 @@ impl ExecutionCoordinator {
                     if !matches!(outcome, RunnerOutcome::Completed) {
                         return outcome;
                     }
+                    publish_partial_run_checkpoint(plan, runtime);
                     continue;
                 }
             }
@@ -92,7 +94,7 @@ impl ExecutionCoordinator {
                 runtime.is_past_deadline() && !runtime.is_past_scan_deadline() && !runtime.is_cancelled();
             runtime.clear_stage_budget();
             match outcome {
-                RunnerOutcome::Completed => {}
+                RunnerOutcome::Completed => publish_partial_run_checkpoint(plan, runtime),
                 RunnerOutcome::Cancelled if stage_budget_exhausted => {}
                 RunnerOutcome::Cancelled => return RunnerOutcome::Cancelled,
                 RunnerOutcome::Finished => return RunnerOutcome::Finished,

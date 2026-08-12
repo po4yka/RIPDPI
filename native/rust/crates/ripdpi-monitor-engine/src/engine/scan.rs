@@ -18,6 +18,8 @@ pub fn run_engine_scan(
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
+    scan_deadline: std::time::Instant,
+    cancellation_reason: Arc<Mutex<Option<ScanTerminationReason>>>,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
 ) {
@@ -87,12 +89,11 @@ pub fn run_engine_scan(
     );
 
     let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    runtime.set_scan_deadline(
-        std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
-    );
+    runtime.set_scan_deadline(scan_deadline);
     match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
         RunnerOutcome::Cancelled => {
-            publish_cancelled_run(&plan, &shared, runtime);
+            let captured_reason = cancellation_reason.lock().ok().and_then(|reason| reason.clone());
+            publish_cancelled_run(&plan, &shared, runtime, captured_reason);
         }
         RunnerOutcome::Finished => {
             if let Some(report) = runtime.final_report {

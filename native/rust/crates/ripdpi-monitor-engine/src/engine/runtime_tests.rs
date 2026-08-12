@@ -12,8 +12,9 @@ use super::{
 use crate::candidates::build_strategy_probe_suite;
 use crate::transport::direct_transport;
 use crate::types::{
-    DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, SharedState, StrategyEmitterTier,
-    StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane, StrategyProbeRequest,
+    DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, ScanTerminationReason, SharedState,
+    StrategyEmitterTier, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
+    StrategyProbeRequest,
 };
 use ripdpi_monitor_adapter::proxy_config::ProxyUiConfig;
 
@@ -316,6 +317,52 @@ fn parallel_runner_panic_terminates_scan_after_recording_sibling_results() {
 }
 
 #[test]
+fn connectivity_coordinator_checkpoints_completed_stage_evidence() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
+    let mut plan = test_plan();
+    plan.request.kind = ScanKind::Connectivity;
+    plan.stage_order = vec![ExecutionStageId::Environment, ExecutionStageId::Web];
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(FakeStageRunner { stage: ExecutionStageId::Environment, panics: false }),
+        Box::new(FakeStageRunner { stage: ExecutionStageId::Web, panics: false }),
+    ]);
+
+    let outcome = coordinator.run(&plan, &mut runtime, None);
+    let checkpoint = shared.lock().expect("shared state").checkpoint_report.clone();
+
+    assert!(
+        matches!(outcome, RunnerOutcome::Completed)
+            && checkpoint.as_ref().is_some_and(|report| {
+                report.completion_kind == crate::types::ScanCompletionKind::PartialResults
+                    && report.termination_reason.is_none()
+                    && report.results.len() == 2
+            }),
+        "completed connectivity stages must leave a non-terminal partial-report checkpoint"
+    );
+}
+
+#[test]
+fn captured_user_cancellation_outranks_late_deadline() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(true));
+    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
+    runtime.set_scan_deadline(Instant::now() - Duration::from_millis(1));
+    runtime.results.push(ProbeResult {
+        probe_type: "dns_integrity".to_string(),
+        target: "example.com".to_string(),
+        outcome: "dns_match".to_string(),
+        details: Vec::new(),
+    });
+
+    publish_cancelled_run(&test_plan(), &shared, runtime, Some(ScanTerminationReason::UserCancelled));
+
+    let reason = shared.lock().expect("shared state").report.as_ref().and_then(|report| report.termination_reason.clone());
+    assert_eq!(reason, Some(ScanTerminationReason::UserCancelled));
+}
+
+#[test]
 fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     let shared = Arc::new(Mutex::new(SharedState::default()));
     let cancel = Arc::new(AtomicBool::new(true));
@@ -330,7 +377,7 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     runtime.strategy.tcp_candidates.push(candidate_summary("baseline_current", "baseline", 80));
     runtime.strategy.quic_candidates.push(candidate_summary("quic_disabled", "quic_disabled", 70));
 
-    publish_cancelled_run(&plan, &shared, runtime);
+    publish_cancelled_run(&plan, &shared, runtime, None);
 
     let report = shared.lock().expect("shared").report.clone().expect("cancelled report");
     assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
@@ -351,7 +398,7 @@ fn deadline_preserves_strategy_report_when_only_tcp_lane_has_results() {
     runtime.set_scan_deadline(Instant::now() - Duration::from_millis(1));
     runtime.strategy.tcp_candidates.push(candidate_summary("baseline_current", "baseline", 80));
 
-    publish_cancelled_run(&plan, &shared, runtime);
+    publish_cancelled_run(&plan, &shared, runtime, None);
 
     let report = shared.lock().expect("shared").report.clone().expect("deadline report");
     assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
