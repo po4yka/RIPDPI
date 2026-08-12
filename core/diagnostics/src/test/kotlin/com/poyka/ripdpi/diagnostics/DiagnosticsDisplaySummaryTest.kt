@@ -326,7 +326,7 @@ class DiagnosticsDisplaySummaryTest {
         }
 
     @Test
-    fun `approach summary uses partial result wording instead of raw cancelled summary`() {
+    fun `partial report remains unverified for approach validation`() {
         val report =
             ScanReport(
                 sessionId = "session-history",
@@ -335,6 +335,8 @@ class DiagnosticsDisplaySummaryTest {
                 startedAt = 10L,
                 finishedAt = 20L,
                 summary = ScanCancelledSummary,
+                completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED,
                 results = listOf(ProbeResult(probeType = "http", target = "example.org", outcome = "http_ok")),
             )
         val session =
@@ -367,7 +369,16 @@ class DiagnosticsDisplaySummaryTest {
             )
         val approach = summaries.first { it.approachId.value == "strategy-1" }
 
-        assertEquals(ScanCompletedWithPartialResultsSummary, approach.lastValidatedResult)
+        assertEquals(
+            listOf("unverified", 0, 0, null, null),
+            listOf(
+                approach.verificationState,
+                approach.validatedScanCount,
+                approach.validatedSuccessCount,
+                approach.validatedSuccessRate,
+                approach.lastValidatedResult,
+            ),
+        )
     }
 
     @Test

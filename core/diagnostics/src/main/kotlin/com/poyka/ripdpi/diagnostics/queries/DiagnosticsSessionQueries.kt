@@ -226,7 +226,12 @@ internal object DiagnosticsSessionQueries {
         json: Json,
     ): BypassApproachSummary {
         val validatedReports =
-            matchingSessions.mapNotNull { session -> decodeScanReport(json, session.reportJson)?.let { session to it } }
+            matchingSessions.mapNotNull { session ->
+                decodeScanReport(json, session.reportJson)
+                    ?.takeIf { report ->
+                        report.completionKind == ScanCompletionKind.NORMAL && report.terminationReason == null
+                    }?.let { report -> session to report }
+            }
         val allResults = classifyAllResults(validatedReports)
         val successfulReports = countSuccessfulReports(validatedReports)
         val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(RecentUsageLimit)
