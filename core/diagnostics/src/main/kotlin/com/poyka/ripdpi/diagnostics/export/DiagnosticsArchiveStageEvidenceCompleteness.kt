@@ -9,13 +9,22 @@ internal fun DiagnosticsArchiveSelection.buildStageEvidenceCompleteness():
     compositeStages.map { stage ->
         val attempts = stage.report?.strategyProbeReport?.attempts
         val executedAttempts = attempts?.count { it.status == StrategyProbeAttemptStatus.EXECUTED }
-        val verdictEvidenceRefs = stage.report?.verdictEvidenceRefCount()
+        val nonSessionEvidence = stage.session == null && stage.hasStageEvidence()
+        val verdictEvidenceRefs =
+            stage.report?.verdictEvidenceRefCount()
+                ?: if (nonSessionEvidence) {
+                    1 + stage.stageSummary.detectionFindings.size
+                } else {
+                    null
+                }
         val stageAbsenceReason =
             DiagnosticsArchiveStageEvidenceAbsenceReason.STAGE_NOT_EXECUTED
                 .takeIf { stage.stageSummary.status.isNotExecuted() }
         val missingCollectionReason =
             if (stageAbsenceReason != null) {
                 stageAbsenceReason
+            } else if (nonSessionEvidence) {
+                DiagnosticsArchiveStageEvidenceAbsenceReason.NOT_APPLICABLE_FOR_STAGE
             } else if (stage.session == null) {
                 DiagnosticsArchiveStageEvidenceAbsenceReason.STAGE_SESSION_UNAVAILABLE
             } else {
@@ -33,6 +42,7 @@ internal fun DiagnosticsArchiveSelection.buildStageEvidenceCompleteness():
                     verdictEvidenceRefs,
                     missingCollectionReason,
                     stageAbsenceReason,
+                    nonSessionEvidence,
                 ),
         )
     }
@@ -48,6 +58,7 @@ private fun DiagnosticsArchiveCompositeStageSelection.evidenceCounts(
     verdictEvidenceRefCount: Int?,
     missingCollectionReason: DiagnosticsArchiveStageEvidenceAbsenceReason?,
     stageAbsenceReason: DiagnosticsArchiveStageEvidenceAbsenceReason?,
+    nonSessionEvidence: Boolean,
 ) = DiagnosticsArchiveStageEvidenceCounts(
     snapshots =
         collectionEvidenceCount(
@@ -86,30 +97,35 @@ private fun DiagnosticsArchiveCompositeStageSelection.evidenceCounts(
             plannedAttemptCount,
             executed = false,
             stageAbsenceReason = stageAbsenceReason,
+            nonSessionEvidence = nonSessionEvidence,
         ),
     executedAttempts =
         attemptEvidenceCount(
             executedAttemptCount,
             executed = true,
             stageAbsenceReason = stageAbsenceReason,
+            nonSessionEvidence = nonSessionEvidence,
         ),
     observations =
         reportEvidenceCount(
             count = report?.observations?.size,
             emptyReason = DiagnosticsArchiveStageEvidenceAbsenceReason.NO_OBSERVATIONS_EMITTED,
             stageAbsenceReason = stageAbsenceReason,
+            nonSessionEvidence = nonSessionEvidence,
         ),
     diagnoses =
         reportEvidenceCount(
             count = report?.diagnoses?.size,
             emptyReason = DiagnosticsArchiveStageEvidenceAbsenceReason.NO_DIAGNOSES_EMITTED,
             stageAbsenceReason = stageAbsenceReason,
+            nonSessionEvidence = nonSessionEvidence,
         ),
     verdictEvidenceRefs =
         reportEvidenceCount(
             count = verdictEvidenceRefCount,
             emptyReason = DiagnosticsArchiveStageEvidenceAbsenceReason.REPORT_UNAVAILABLE,
             stageAbsenceReason = stageAbsenceReason,
+            nonSessionEvidence = false,
         ),
 )
 
@@ -143,11 +159,16 @@ private fun DiagnosticsArchiveCompositeStageSelection.attemptEvidenceCount(
     count: Int?,
     executed: Boolean,
     stageAbsenceReason: DiagnosticsArchiveStageEvidenceAbsenceReason?,
+    nonSessionEvidence: Boolean,
 ): DiagnosticsArchiveStageEvidenceCount {
     val reason =
         when {
             stageAbsenceReason != null -> {
                 stageAbsenceReason
+            }
+
+            nonSessionEvidence -> {
+                DiagnosticsArchiveStageEvidenceAbsenceReason.NOT_APPLICABLE_FOR_STAGE
             }
 
             report == null -> {
@@ -177,6 +198,7 @@ private fun DiagnosticsArchiveCompositeStageSelection.reportEvidenceCount(
     count: Int?,
     emptyReason: DiagnosticsArchiveStageEvidenceAbsenceReason,
     stageAbsenceReason: DiagnosticsArchiveStageEvidenceAbsenceReason?,
+    nonSessionEvidence: Boolean,
 ): DiagnosticsArchiveStageEvidenceCount =
     evidenceCount(
         sourceCount = count,
@@ -184,6 +206,8 @@ private fun DiagnosticsArchiveCompositeStageSelection.reportEvidenceCount(
         absenceReason =
             if (stageAbsenceReason != null) {
                 stageAbsenceReason
+            } else if (nonSessionEvidence) {
+                DiagnosticsArchiveStageEvidenceAbsenceReason.NOT_APPLICABLE_FOR_STAGE
             } else if (report == null) {
                 DiagnosticsArchiveStageEvidenceAbsenceReason.REPORT_UNAVAILABLE
             } else {

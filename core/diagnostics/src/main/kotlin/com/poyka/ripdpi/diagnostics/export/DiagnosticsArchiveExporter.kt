@@ -328,7 +328,7 @@ internal class DefaultDiagnosticsArchiveExporter
         private fun finalizeSelection(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSelection {
             val missingCompletedStageWarnings =
                 selection.compositeStages
-                    .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && stage.session == null }
+                    .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && !stage.hasStageEvidence() }
                     .map { stage -> "completed_stage_evidence_unavailable:${stage.stageSummary.stageKey}" }
             val selectedSessionStart =
                 (listOfNotNull(selection.primarySession) + selection.compositeStages.mapNotNull { it.session })

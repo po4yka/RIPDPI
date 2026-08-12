@@ -546,6 +546,10 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     headline = "${spec.label} complete",
                     summary = summaryLine,
                     cpuMs = cpuMs,
+                    evidenceSource = DiagnosticsHomeCompositeStageEvidenceSource.DETECTION_RUNNER,
+                    detectionVerdict = outcome.verdict,
+                    detectedSignalCount = outcome.detectedSignalCount,
+                    detectionFindings = outcome.findings,
                 )
             }
             stageExecutor.recordStageTelemetry(runId, spec, state = DiagnosticsHomeCompositeStageStatus.COMPLETED)

@@ -405,6 +405,110 @@ class DiagnosticsHomeCompositeStageSerializationTest {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsHomeDetectionStageProvenanceTest {
+    @Test
+    fun `successful detection runner persists stage provenance in finalized outcome`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            val findings =
+                listOf(
+                    "System resolver differs from the control resolver",
+                    "Tunnel fingerprint was observed",
+                )
+            val scanController =
+                RecordingHomeCompositeScanController(
+                    onStart = { pathMode, profileId, sessionId ->
+                        val session =
+                            diagnosticsSession(
+                                id = sessionId,
+                                profileId = requireNotNull(profileId),
+                                pathMode = pathMode.name,
+                                summary = "$profileId complete",
+                            )
+                        stores.sessionsState.value = stores.sessionsState.value + session
+                        timelineSource.sessions.value =
+                            timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, "completed")
+                    },
+                )
+            val workflowService =
+                object : DiagnosticsHomeWorkflowService {
+                    override suspend fun currentFingerprintHash(): String = "fp-detection-provenance"
+
+                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                        DiagnosticsHomeAuditOutcome(
+                            sessionId = sessionId,
+                            fingerprintHash = "fp-detection-provenance",
+                            actionable = true,
+                            headline = "Analysis complete",
+                            summary = "Reusable settings found.",
+                        )
+
+                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+                        error("unused")
+                }
+            val detectionStageRunner =
+                object : HomeDetectionStageRunner {
+                    override suspend fun run(
+                        onProgress: suspend (label: String, detail: String) -> Unit,
+                    ): HomeDetectionStageOutcome =
+                        HomeDetectionStageOutcome(
+                            verdict = DiagnosticsHomeDetectionVerdict.DETECTED,
+                            detectedSignalCount = 7,
+                            findings = findings,
+                        )
+                }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val service =
+                DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = detectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
+                    diagnosticsHomeWorkflowService = workflowService,
+                    scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = serviceStateStore,
+                    probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
+                    json = diagnosticsTestJson(),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startQuickAnalysis()
+            advanceUntilIdle()
+            val outcome = service.finalizeHomeRun(started.runId)
+            val detectionStage = outcome.stageSummaries.single { it.stageKey == "detection_signals" }
+
+            assertEquals(
+                listOf(
+                    DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                    null,
+                    DiagnosticsHomeCompositeStageEvidenceSource.DETECTION_RUNNER,
+                    DiagnosticsHomeDetectionVerdict.DETECTED,
+                    7,
+                    findings,
+                ),
+                listOf(
+                    detectionStage.status,
+                    detectionStage.sessionId,
+                    detectionStage.evidenceSource,
+                    detectionStage.detectionVerdict,
+                    detectionStage.detectedSignalCount,
+                    detectionStage.detectionFindings,
+                ),
+            )
+        }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsHomeCompositeRunServiceTest {
     @Test
     fun `startHomeAnalysis runs fixed stage order and keeps actionable audit recommendation`() =
@@ -1255,24 +1359,24 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 outcome.summary.contains("DNS issues were detected"),
             )
         }
-
-    private fun diagnosticScanSession(
-        sessionId: String,
-        profileId: String,
-        status: String,
-        summary: String = "Completed",
-    ): DiagnosticScanSession =
-        DiagnosticScanSession(
-            id = sessionId,
-            profileId = profileId,
-            pathMode = ScanPathMode.RAW_PATH.name,
-            serviceMode = "VPN",
-            status = status,
-            summary = summary,
-            startedAt = 10L,
-            finishedAt = if (status == "completed" || status == "failed") 20L else null,
-        )
 }
+
+private fun diagnosticScanSession(
+    sessionId: String,
+    profileId: String,
+    status: String,
+    summary: String = "Completed",
+): DiagnosticScanSession =
+    DiagnosticScanSession(
+        id = sessionId,
+        profileId = profileId,
+        pathMode = ScanPathMode.RAW_PATH.name,
+        serviceMode = "VPN",
+        status = status,
+        summary = summary,
+        startedAt = 10L,
+        finishedAt = if (status == "completed" || status == "failed") 20L else null,
+    )
 
 private class NoOpNetworkHandoverMonitor : NetworkHandoverMonitor {
     override val events = MutableSharedFlow<NetworkHandoverEvent>()

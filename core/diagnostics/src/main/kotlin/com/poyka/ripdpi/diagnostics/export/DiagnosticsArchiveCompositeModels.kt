@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -39,6 +40,14 @@ internal data class DiagnosticsArchiveStageIndexEntry(
     val headline: String,
     val summary: String,
     val recommendationContributor: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val evidenceSource: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val detectionVerdict: com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val detectedSignalCount: Int? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val detectionFindings: List<String> = emptyList(),
     val sourceSnapshotCount: Int = 0,
     val includedSnapshotCount: Int = 0,
     val snapshotsTruncated: Boolean = false,

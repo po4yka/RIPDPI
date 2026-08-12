@@ -20,7 +20,7 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         pathMode = stageSummary.pathMode.name,
         sessionId = stageSummary.sessionId,
         status =
-            if (stageSummary.status.name == "COMPLETED" && session == null) {
+            if (stageSummary.status.name == "COMPLETED" && !hasStageEvidence()) {
                 "evidence_unavailable"
             } else {
                 stageSummary.status.name.lowercase()
@@ -28,6 +28,11 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         headline = redactDiagnosticsArchiveText(stageSummary.headline),
         summary = redactDiagnosticsArchiveText(stageSummary.summary),
         recommendationContributor = stageSummary.recommendationContributor,
+        evidenceSource = stageSummary.evidenceSource?.name?.lowercase(),
+        detectionVerdict = stageSummary.detectionVerdict,
+        detectedSignalCount = stageSummary.detectedSignalCount,
+        detectionFindings =
+            stageSummary.detectionFindings.map(::redactDiagnosticsArchiveText),
         sourceSnapshotCount = sourceSnapshotCount,
         includedSnapshotCount = snapshots.size,
         snapshotsTruncated = sourceSnapshotCount > DiagnosticsArchiveFormat.snapshotLimit,
@@ -41,6 +46,18 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         includedTelemetryCount = telemetry.size,
         telemetryTruncated = sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit,
     )
+
+internal fun DiagnosticsArchiveCompositeStageSelection.hasStageEvidence(): Boolean =
+    session != null ||
+        when (stageSummary.evidenceSource) {
+            com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageEvidenceSource.DETECTION_RUNNER -> {
+                stageSummary.detectionVerdict != null && stageSummary.detectedSignalCount != null
+            }
+
+            null -> {
+                false
+            }
+        }
 
 internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =
     buildTelemetryCsv(
