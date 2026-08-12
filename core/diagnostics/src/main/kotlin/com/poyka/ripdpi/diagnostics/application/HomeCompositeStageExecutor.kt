@@ -234,6 +234,7 @@ internal class HomeCompositeStageExecutor
                     pathMode = spec.pathMode,
                     selectedProfileId = spec.profileId,
                     skipActiveScanCheck = true,
+                    allowSensitiveProfileStart = spec.allowSensitiveProfileStart,
                     scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
