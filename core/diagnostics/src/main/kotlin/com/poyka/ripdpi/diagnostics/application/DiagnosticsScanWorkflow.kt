@@ -9,7 +9,6 @@ import com.poyka.ripdpi.core.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.core.withConnectionConcurrencyPolicy
-import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
@@ -126,14 +125,12 @@ internal object DiagnosticsScanWorkflow {
                 report = report,
                 currentTcpFamily = settings.deriveStrategyLaneFamilies().tcpStrategyFamily,
             )
-        val directModeVerdict =
-            deriveDirectModeVerdict(report)?.takeUnless { verdict ->
-                verdict.result == DirectModeVerdictResult.TRANSPARENT_WORKS &&
-                    (
-                        report.strategyProbeReport?.let(::evaluateBackgroundAutoPersistEligibility)
-                            is BackgroundAutoPersistEligibility.Rejected
-                    )
-            }
+        val strategyEvidenceRejected =
+            (
+                report.strategyProbeReport?.let(::evaluateBackgroundAutoPersistEligibility) is
+                    BackgroundAutoPersistEligibility.Rejected
+            )
+        val directModeVerdict = deriveDirectModeVerdict(report)?.takeUnless { strategyEvidenceRejected }
         val concurrencyDiagnosis =
             strategyProbe?.connectionConcurrencyAssessment?.let { assessment ->
                 Diagnosis(
