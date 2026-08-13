@@ -103,6 +103,7 @@
     <string name="history_title">इतिहास</string>
     <string name="diagnostics_overview_section">अवलोकन</string>
     <string name="diagnostics_dashboard_section">डैशबोर्ड</string>
+    <string name="diagnostics_live_section">लाइव</string>
     <string name="diagnostics_scan_section">स्कैन</string>
     <string name="diagnostics_tools_section">उपकरण</string>
     <string name="diagnostics_approaches_title">तरीके</string>

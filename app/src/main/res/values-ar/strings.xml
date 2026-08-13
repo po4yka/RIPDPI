@@ -104,6 +104,7 @@
     <string name="history_title">السجل</string>
     <string name="diagnostics_overview_section">نظرة عامة</string>
     <string name="diagnostics_dashboard_section">لوحة التحكم</string>
+    <string name="diagnostics_live_section">مباشر</string>
     <string name="diagnostics_scan_section">الفحص</string>
     <string name="diagnostics_tools_section">الأدوات</string>
     <string name="diagnostics_approaches_title">المناهج</string>

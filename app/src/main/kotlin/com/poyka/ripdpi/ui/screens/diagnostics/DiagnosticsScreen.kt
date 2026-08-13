@@ -368,6 +368,10 @@ private fun DiagnosticsScreenPager(
                 )
             }
 
+            DiagnosticsSection.Live -> {
+                LiveSection(live = uiState.live)
+            }
+
             DiagnosticsSection.Scan -> {
                 ScanSection(
                     scan = uiState.scan,

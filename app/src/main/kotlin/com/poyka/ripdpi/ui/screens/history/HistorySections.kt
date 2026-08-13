@@ -235,6 +235,7 @@ internal fun EventsSection(
     }
 
     LazyColumn(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsList),
         state = listState,
         contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.md),

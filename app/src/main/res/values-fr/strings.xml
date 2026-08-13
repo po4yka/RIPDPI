@@ -1334,6 +1334,7 @@ fake_burst 3</string>
     <string name="diagnostics_status_validated">Validé</string>
     <string name="diagnostics_telegram_peak_speed">Vitesse de pointe</string>
     <string name="diagnostics_tools_section">Outils</string>
+    <string name="diagnostics_live_section">En direct</string>
     <string name="dns_active_bootstrap_not_required">Non requis en mode DNS clair</string>
     <string name="dns_active_route_plain_vpn">Les requêtes vont directement à cette IP de résolveur en mode VPN local.</string>
     <string name="dns_custom_bootstrap_helper">Saisissez une ou plusieurs IP de résolveur séparées par des virgules ou des espaces.</string>

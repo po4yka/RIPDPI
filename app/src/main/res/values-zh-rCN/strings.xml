@@ -102,6 +102,7 @@
     <string name="history_title">历史</string>
     <string name="diagnostics_overview_section">概览</string>
     <string name="diagnostics_dashboard_section">仪表板</string>
+    <string name="diagnostics_live_section">实时</string>
     <string name="diagnostics_scan_section">扫描</string>
 
     <string name="diagnostics_tools_section">工具</string>

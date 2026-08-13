@@ -102,6 +102,7 @@
     <string name="history_title">تاریخچه</string>
     <string name="diagnostics_overview_section">نمای کلی</string>
     <string name="diagnostics_dashboard_section">داشبورد</string>
+    <string name="diagnostics_live_section">زنده</string>
     <string name="diagnostics_scan_section">پویش</string>
 
     <string name="diagnostics_tools_section">ابزارها</string>

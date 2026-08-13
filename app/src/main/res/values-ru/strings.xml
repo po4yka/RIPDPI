@@ -103,6 +103,7 @@
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>
     <string name="diagnostics_dashboard_section">Панель</string>
+    <string name="diagnostics_live_section">В реальном времени</string>
     <string name="diagnostics_overview_run_scan_action">Запустить проверку</string>
     <string name="diagnostics_scan_section">Сканирование</string>
     <string name="diagnostics_tools_section">Инструменты</string>

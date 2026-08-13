@@ -104,6 +104,7 @@
     <string name="history_title">History</string>
     <string name="diagnostics_overview_section">Overview</string>
     <string name="diagnostics_dashboard_section">Dashboard</string>
+    <string name="diagnostics_live_section">Live</string>
     <string name="diagnostics_scan_section">Scan</string>
 
     <string name="diagnostics_tools_section">Tools</string>
