@@ -4,9 +4,16 @@ import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class RipDpiManagedDevicesTest {
+    @Test
+    fun `managed device ABI follows the host architecture`() {
+        assertEquals(
+            listOf("arm64-v8a", "arm64-v8a", "x86_64", "x86_64"),
+            listOf("arm64", "aarch64", "x86_64", "amd64").map(::ripDpiManagedDeviceTestedAbi),
+        )
+    }
+
     @Test
     fun `CI device group covers supported Android eras`() {
         val ciDevices = ripDpiManagedDeviceSpecs.filter(RipDpiManagedDeviceSpec::includeInCiGroup)
@@ -26,7 +33,6 @@ class RipDpiManagedDevicesTest {
             mapOf(27 to "aosp", 33 to "aosp-atd", 35 to "google"),
             ciDevices.associate { it.apiLevel to it.systemImageSource },
         )
-        assertTrue(ciDevices.all { it.testedAbi == "x86_64" })
         assertEquals(listOf(34), ripDpiManagedDeviceSpecs.filterNot { it.includeInCiGroup }.map { it.apiLevel })
     }
 
