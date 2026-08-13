@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.byValue
@@ -7,6 +8,8 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.autofill.ContentDataType
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -162,6 +165,7 @@ class RipDpiTextFieldTest {
             RipDpiTheme {
                 RipDpiSecureTextField(
                     state = TextFieldState(initialText = "secret"),
+                    autofillPolicy = RipDpiAutofillPolicy.Disabled,
                     decoration = RipDpiTextFieldDecoration(testTag = TestTag),
                 )
             }
@@ -169,6 +173,47 @@ class RipDpiTextFieldTest {
 
         val semantics = composeRule.onNodeWithTag(TestTag).fetchSemanticsNode().config
         assertTrue(semantics.contains(SemanticsProperties.Password))
+    }
+
+    @Test
+    fun `autofill policy exposes only opted in credential hints`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    RipDpiTextField(
+                        state = TextFieldState(),
+                        decoration = RipDpiTextFieldDecoration(testTag = "disabled"),
+                        autofillPolicy = RipDpiAutofillPolicy.Disabled,
+                    )
+                    RipDpiTextField(
+                        state = TextFieldState(),
+                        decoration = RipDpiTextFieldDecoration(testTag = "username"),
+                        autofillPolicy = RipDpiAutofillPolicy.Username,
+                    )
+                    RipDpiSecureTextField(
+                        state = TextFieldState(),
+                        decoration = RipDpiTextFieldDecoration(testTag = "password"),
+                        autofillPolicy = RipDpiAutofillPolicy.Password,
+                    )
+                }
+            }
+        }
+
+        val actual =
+            listOf("disabled", "username", "password").map { testTag ->
+                val semantics = composeRule.onNodeWithTag(testTag).fetchSemanticsNode().config
+                semantics[SemanticsProperties.ContentDataType] to
+                    semantics.getOrElseNullable(SemanticsProperties.ContentType) { null }
+            }
+
+        assertEquals(
+            listOf(
+                ContentDataType.None to null,
+                ContentDataType.Text to ContentType.Username,
+                ContentDataType.Text to ContentType.Password,
+            ),
+            actual,
+        )
     }
 
     private fun setField(

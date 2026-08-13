@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
@@ -608,6 +609,7 @@ private fun BackupPinEditor(
                     onValueChange = onValueChange,
                     replacementKey = replacementKey,
                 ),
+            autofillPolicy = RipDpiAutofillPolicy.Disabled,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.biometric_prompt_pin_label),

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCongestionControlCubic
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -34,6 +35,7 @@ internal fun TuicRelayFields(
                 value = draft.relayTuicPassword,
                 onValueChange = actions.onRelayTuicPasswordChanged,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Password,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_password)),
     )
     RipDpiSwitch(

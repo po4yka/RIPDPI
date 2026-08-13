@@ -22,6 +22,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -159,13 +160,20 @@ private fun CredentialsSection(
 ) {
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.mieru_section_credentials))
-        PlainField(MieruEditorField.USERNAME, R.string.mieru_field_username, editor, onFieldChanged)
+        PlainField(
+            MieruEditorField.USERNAME,
+            R.string.mieru_field_username,
+            editor,
+            onFieldChanged,
+            autofillPolicy = RipDpiAutofillPolicy.Username,
+        )
         PlainField(
             MieruEditorField.PASSWORD,
             R.string.mieru_field_password,
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Password,
+            autofillPolicy = RipDpiAutofillPolicy.Password,
         )
     }
 }
@@ -211,6 +219,7 @@ private fun PlainField(
     editor: MieruProfileEditorState,
     onFieldChanged: (MieruEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -229,5 +238,6 @@ private fun PlainField(
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             ),
+        autofillPolicy = autofillPolicy,
     )
 }

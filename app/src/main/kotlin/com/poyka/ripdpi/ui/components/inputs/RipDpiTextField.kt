@@ -28,10 +28,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentDataType
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -66,6 +70,12 @@ data class RipDpiTextFieldBehavior(
     val interactionSource: MutableInteractionSource? = null,
 )
 
+enum class RipDpiAutofillPolicy {
+    Disabled,
+    Username,
+    Password,
+}
+
 @Composable
 fun RipDpiTextField(
     state: TextFieldState,
@@ -77,12 +87,14 @@ fun RipDpiTextField(
     outputTransformation: OutputTransformation? = null,
     onKeyboardAction: KeyboardActionHandler? = null,
     trailingContent: (@Composable () -> Unit)? = null,
+    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     RipDpiTextFieldLayout(
         state = state,
         modifier = modifier,
         decoration = decoration,
         behavior = behavior,
+        autofillPolicy = autofillPolicy,
         trailingContent = trailingContent,
     ) { fieldModifier, textStyle, interactionSource, decorator ->
         BasicTextField(
@@ -105,6 +117,7 @@ fun RipDpiTextField(
 @Composable
 fun RipDpiSecureTextField(
     state: TextFieldState,
+    autofillPolicy: RipDpiAutofillPolicy,
     modifier: Modifier = Modifier,
     decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
     behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
@@ -118,6 +131,7 @@ fun RipDpiSecureTextField(
         modifier = modifier,
         decoration = decoration,
         behavior = behavior,
+        autofillPolicy = autofillPolicy,
         trailingContent = trailingContent,
     ) { fieldModifier, textStyle, interactionSource, decorator ->
         BasicSecureTextField(
@@ -142,6 +156,7 @@ private fun RipDpiTextFieldLayout(
     modifier: Modifier,
     decoration: RipDpiTextFieldDecoration,
     behavior: RipDpiTextFieldBehavior,
+    autofillPolicy: RipDpiAutofillPolicy,
     trailingContent: (@Composable () -> Unit)?,
     textField: @Composable (
         Modifier,
@@ -178,6 +193,8 @@ private fun RipDpiTextFieldLayout(
                 .fillMaxWidth()
                 .ripDpiTestTag(decoration.testTag)
                 .semantics {
+                    contentDataType = autofillPolicy.contentDataType
+                    autofillPolicy.contentType?.let { contentType = it }
                     decoration.label?.let { contentDescription = it }
                     decoration.errorText?.let { error(it) }
                 },
@@ -229,6 +246,7 @@ fun RipDpiConfigTextField(
     outputTransformation: OutputTransformation? = null,
     onKeyboardAction: KeyboardActionHandler? = null,
     trailingContent: (@Composable () -> Unit)? = null,
+    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     val components = RipDpiThemeTokens.components
 
@@ -251,8 +269,27 @@ fun RipDpiConfigTextField(
         outputTransformation = outputTransformation,
         onKeyboardAction = onKeyboardAction,
         trailingContent = trailingContent,
+        autofillPolicy = autofillPolicy,
     )
 }
+
+private val RipDpiAutofillPolicy.contentDataType: ContentDataType
+    get() =
+        when (this) {
+            RipDpiAutofillPolicy.Disabled -> ContentDataType.None
+
+            RipDpiAutofillPolicy.Username,
+            RipDpiAutofillPolicy.Password,
+            -> ContentDataType.Text
+        }
+
+private val RipDpiAutofillPolicy.contentType: ContentType?
+    get() =
+        when (this) {
+            RipDpiAutofillPolicy.Disabled -> null
+            RipDpiAutofillPolicy.Username -> ContentType.Username
+            RipDpiAutofillPolicy.Password -> ContentType.Password
+        }
 
 @Composable
 private fun RipDpiTextFieldShell(

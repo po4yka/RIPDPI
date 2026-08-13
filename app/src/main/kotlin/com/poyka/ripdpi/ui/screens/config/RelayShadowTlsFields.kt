@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
@@ -30,6 +31,7 @@ internal fun ShadowTlsRelayFields(
                 value = draft.relayShadowTlsPassword,
                 onValueChange = actions.onRelayShadowTlsPasswordChanged,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Password,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_shadowtls_password)),
     )
 }

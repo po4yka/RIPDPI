@@ -17,6 +17,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.UnsavedChangesDialog
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -123,6 +124,7 @@ internal fun ModeEditorPkcs12Dialog(
                     onValueChange = onPasswordChanged,
                     replacementKey = replacementKey,
                 ),
+            autofillPolicy = RipDpiAutofillPolicy.Disabled,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.config_relay_masque_pkcs12_password),

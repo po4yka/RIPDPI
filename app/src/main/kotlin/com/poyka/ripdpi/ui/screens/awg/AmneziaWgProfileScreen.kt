@@ -22,6 +22,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
@@ -394,6 +395,7 @@ private fun SecretField(
                 value = value,
                 onValueChange = onValueChange,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Disabled,
         modifier = Modifier.fillMaxWidth(),
         decoration =
             RipDpiTextFieldDecoration(

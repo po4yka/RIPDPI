@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
@@ -131,7 +132,13 @@ private fun EndpointSection(
             onFieldChanged,
             keyboardType = KeyboardType.Number,
         )
-        PlainField(SshEditorField.USERNAME, R.string.ssh_field_username, editor, onFieldChanged)
+        PlainField(
+            SshEditorField.USERNAME,
+            R.string.ssh_field_username,
+            editor,
+            onFieldChanged,
+            autofillPolicy = RipDpiAutofillPolicy.Username,
+        )
     }
 }
 
@@ -176,6 +183,7 @@ private fun AuthSection(
                 editor,
                 onFieldChanged,
                 keyboardType = KeyboardType.Password,
+                autofillPolicy = RipDpiAutofillPolicy.Password,
             )
         }
     }
@@ -215,6 +223,7 @@ private fun PlainField(
     editor: SshProfileEditorState,
     onFieldChanged: (SshEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -233,6 +242,7 @@ private fun PlainField(
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             ),
+        autofillPolicy = autofillPolicy,
     )
 }
 
@@ -250,6 +260,7 @@ private fun SecretField(
                 value = value,
                 onValueChange = onValueChange,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Disabled,
         modifier = Modifier.fillMaxWidth(),
         decoration =
             RipDpiTextFieldDecoration(

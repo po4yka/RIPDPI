@@ -8,6 +8,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -27,6 +28,7 @@ internal fun NaiveProxyRelayFields(
                 value = draft.relayNaiveUsername,
                 onValueChange = actions.onRelayNaiveUsernameChanged,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Username,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_naive_username),
@@ -39,6 +41,7 @@ internal fun NaiveProxyRelayFields(
                 value = draft.relayNaivePassword,
                 onValueChange = actions.onRelayNaivePasswordChanged,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Password,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_naive_password),

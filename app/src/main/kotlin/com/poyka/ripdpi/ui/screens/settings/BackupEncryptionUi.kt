@@ -19,6 +19,7 @@ import com.poyka.ripdpi.security.BiometricAuthResult
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -180,6 +181,7 @@ private fun SecureBackupTextField(
                 onValueChange = onValueChange,
                 replacementKey = replacementKey,
             ),
+        autofillPolicy = RipDpiAutofillPolicy.Disabled,
         decoration = RipDpiTextFieldDecoration(label = label, errorText = error),
     )
 }

@@ -36,6 +36,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -396,6 +397,7 @@ private fun BiometricPromptPinInput(
                     value = pin,
                     onValueChange = onPinChanged,
                 ),
+            autofillPolicy = RipDpiAutofillPolicy.Disabled,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.biometric_prompt_pin_label),

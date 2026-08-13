@@ -14,6 +14,7 @@ import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -102,6 +103,7 @@ private fun EndpointSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Password,
+            autofillPolicy = RipDpiAutofillPolicy.Password,
         )
     }
 }
@@ -127,6 +129,7 @@ private fun PlainField(
     editor: AnyTlsProfileEditorState,
     onFieldChanged: (AnyTlsEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -145,5 +148,6 @@ private fun PlainField(
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             ),
+        autofillPolicy = autofillPolicy,
     )
 }
