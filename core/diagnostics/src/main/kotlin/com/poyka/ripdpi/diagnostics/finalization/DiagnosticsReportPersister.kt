@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.diagnostics.hasAuthoritativeManualConflictCancellation
+import com.poyka.ripdpi.diagnostics.nativeRuntimeEventsForDiagnostics
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -161,7 +162,8 @@ internal object DiagnosticsReportPersister {
         serviceTelemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
         artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) {
-        (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+        serviceTelemetry
+            .nativeRuntimeEventsForDiagnostics()
             .forEach { event ->
                 artifactWriteStore.insertNativeSessionEvent(
                     NativeSessionEventEntity(

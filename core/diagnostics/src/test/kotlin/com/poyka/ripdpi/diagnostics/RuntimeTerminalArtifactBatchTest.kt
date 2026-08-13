@@ -12,6 +12,45 @@ import org.junit.Test
 
 class RuntimeTerminalArtifactBatchTest {
     @Test
+    fun `terminal batch retains relay lifecycle telemetry without producer details`() {
+        val canary = "privacy-canary-relay-detail"
+        val batch =
+            buildPrivacySafeTerminalArtifactBatch(
+                connectionSessionId = "session-relay",
+                typedEvents = emptyList(),
+                nativeEvents =
+                    listOf(
+                        NativeRuntimeEvent(
+                            source = "relay",
+                            level = "info",
+                            message = "listener stopped endpoint=$canary",
+                            createdAt = 13L,
+                            kind = "runtime_stopped",
+                            runtimeId = canary,
+                            mode = canary,
+                            policySignature = canary,
+                            fingerprintHash = canary,
+                            subsystem = "relay",
+                        ),
+                    ),
+                telemetrySample = null,
+            )
+
+        val event = batch.events.single()
+        assertEquals(
+            listOf("session-relay", "relay", "info", "event=relay_runtime_stopped", "relay"),
+            listOf(
+                event.connectionSessionId,
+                event.source,
+                event.level,
+                event.message,
+                event.subsystem,
+            ),
+        )
+        assertFalse(RuntimeHistoryJson.encodeToString(batch).contains(canary))
+    }
+
+    @Test
     fun `terminal batch normalizes runtime protect failures without producer details`() {
         val canary = "privacy-canary-protect-detail"
         val batch =

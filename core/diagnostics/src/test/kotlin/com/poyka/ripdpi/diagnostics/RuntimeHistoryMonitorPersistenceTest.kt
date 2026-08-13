@@ -181,6 +181,82 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
         }
 
     @Test
+    fun `relay native event is persisted for diagnostic export`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            val telemetry =
+                ServiceTelemetrySnapshot(
+                    relayTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "relay",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "relay",
+                                        level = "info",
+                                        message = "listener stopped",
+                                        createdAt = 42L,
+                                        kind = "runtime_stopped",
+                                        runtimeId = "relay-runtime",
+                                        subsystem = "relay",
+                                    ),
+                                ),
+                        ),
+                    updatedAt = 42L,
+                )
+
+            persister.persistRuntimeEvents(telemetry, connectionSessionId = "conn-relay")
+
+            val relayEvent = stores.nativeEventsState.value.single { event -> event.source == "relay" }
+            assertEquals(
+                listOf("conn-relay", "listener stopped event_kind=runtime_stopped", "relay-runtime", "relay"),
+                listOf(
+                    relayEvent.connectionSessionId,
+                    relayEvent.message,
+                    relayEvent.runtimeId,
+                    relayEvent.subsystem,
+                ),
+            )
+        }
+
+    @Test
+    fun `scan finalization persists relay native event for diagnostic export`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val telemetry =
+                ServiceTelemetrySnapshot(
+                    relayTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "relay",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "relay",
+                                        level = "warn",
+                                        message = "relay unavailable",
+                                        createdAt = 43L,
+                                        runtimeId = "relay-finalization",
+                                        subsystem = "relay",
+                                    ),
+                                ),
+                        ),
+                    updatedAt = 43L,
+                )
+
+            com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister.persistServiceNativeEvents(
+                serviceTelemetry = telemetry,
+                artifactWriteStore = stores,
+            )
+
+            val relayEvent = stores.nativeEventsState.value.single { event -> event.source == "relay" }
+            assertEquals(
+                listOf("relay unavailable", "relay-finalization", "relay"),
+                listOf(relayEvent.message, relayEvent.runtimeId, relayEvent.subsystem),
+            )
+        }
+
+    @Test
     fun `status before telemetry persists final data plane event on active session`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

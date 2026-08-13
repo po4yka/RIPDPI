@@ -110,7 +110,8 @@ class RuntimeArtifactPersister
                     connectionSessionId = sessionId,
                 )
             }
-            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+            serviceTelemetry
+                .nativeRuntimeEventsForDiagnostics()
                 .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEach { event ->
                     persistRuntimeEvent(
@@ -132,7 +133,8 @@ class RuntimeArtifactPersister
                 serviceTelemetry = serviceTelemetry,
                 connectionSessionId = connectionSessionId,
             )
-            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+            serviceTelemetry
+                .nativeRuntimeEventsForDiagnostics()
                 .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEachIndexed { index, event ->
                     persistRuntimeEvent(
@@ -179,7 +181,7 @@ class RuntimeArtifactPersister
             return buildPrivacySafeTerminalArtifactBatch(
                 connectionSessionId = connectionSessionId,
                 typedEvents = typedEvents,
-                nativeEvents = telemetry.proxyTelemetry.nativeEvents + telemetry.tunnelTelemetry.nativeEvents,
+                nativeEvents = telemetry.nativeRuntimeEventsForDiagnostics(),
                 telemetrySample = telemetrySample,
             )
         }
@@ -581,4 +583,6 @@ private val PersistedRuntimeEventKinds =
         "data_plane_counter_reset",
         "data_plane_final",
         "protect_failure",
+        "runtime_ready",
+        "runtime_stopped",
     )

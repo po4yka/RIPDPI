@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+
+internal fun ServiceTelemetrySnapshot.nativeRuntimeEventsForDiagnostics(): List<NativeRuntimeEvent> =
+    proxyTelemetry.nativeEvents + relayTelemetry.nativeEvents + tunnelTelemetry.nativeEvents
 
 internal fun NativeRuntimeEvent.toPrivacySafePersistedRuntimeEvent(): NativeRuntimeEvent? =
     when (kind) {

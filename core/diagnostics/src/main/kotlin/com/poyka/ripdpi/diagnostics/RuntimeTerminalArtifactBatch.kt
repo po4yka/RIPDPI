@@ -62,9 +62,28 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
     return when (kind) {
         "data_plane_final" -> toPrivacySafeDataPlaneEvent(connectionSessionId, tokens)
         "protect_failure" -> toPrivacySafeProtectEvent(connectionSessionId, index, tokens)
+        "runtime_ready", "runtime_stopped" -> toPrivacySafeRelayLifecycleEvent(connectionSessionId, index)
         else -> null
     }
 }
+
+private fun NativeRuntimeEvent.toPrivacySafeRelayLifecycleEvent(
+    connectionSessionId: String,
+    index: Int,
+): NativeSessionEventEntity? =
+    kind
+        ?.takeIf { source == "relay" && subsystem == "relay" }
+        ?.let { lifecycleKind ->
+            terminalEvent(
+                connectionSessionId = connectionSessionId,
+                id = "runtime_terminal_event:$connectionSessionId:$index",
+                source = "relay",
+                level = "info",
+                message = "event=relay_$lifecycleKind",
+                createdAt = createdAt,
+                subsystem = "relay",
+            )
+        }
 
 private fun Map<String, String>.toPrivacySafeDnsMessage(): String? {
     val state = get("state")?.takeIf { it in DnsRuntimeStates }
@@ -129,6 +148,7 @@ private fun NativeRuntimeEvent.toPrivacySafeProtectEvent(
 private fun terminalEvent(
     connectionSessionId: String,
     id: String,
+    source: String = "service",
     level: String,
     message: String,
     createdAt: Long,
@@ -138,7 +158,7 @@ private fun terminalEvent(
         id = id,
         sessionId = null,
         connectionSessionId = connectionSessionId,
-        source = "service",
+        source = source,
         level = level,
         message = message,
         createdAt = createdAt,
