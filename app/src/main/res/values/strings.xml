@@ -2953,6 +2953,15 @@ Source: %2$s</string>
     <string name="import_profile_confirm_empty_body">This link does not contain a usable proxy profile.</string>
     <string name="import_confirm_add_action">Add</string>
     <string name="import_profile_confirm_error">This profile could not be imported. Check that the link is complete and valid.</string>
+    <string name="import_profile_check_action">Check profile</string>
+    <string name="import_profile_check_success">The profile reached the test target during this check. This does not verify VPN traffic.</string>
+    <string name="import_profile_check_unsupported">This profile cannot be checked before import.</string>
+    <string name="import_profile_check_service_busy">Stop VPN or proxy service before checking the profile.</string>
+    <string name="import_profile_check_startup_failure">The temporary profile check could not start. The cause was not established.</string>
+    <string name="import_profile_check_probe_failure">The test target was not reached during this check. The cause was not established.</string>
+    <string name="import_profile_check_timeout">The profile check timed out.</string>
+    <string name="import_profile_check_cancelled">The profile check was cancelled.</string>
+    <string name="import_profile_check_cleanup_failure">The temporary check could not finish cleanup safely. Try again later.</string>
     <string name="relay_editor_activation_failed">Couldn\'t activate this profile. Check the details and try again.</string>
     <string name="import_confirm_done_action">Added</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>

@@ -2800,6 +2800,15 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_body">این پیوند شامل نمایهٔ پراکسی قابل‌استفاده‌ای نیست.</string>
     <string name="import_confirm_add_action">افزودن</string>
     <string name="import_profile_confirm_error">این نمایه وارد نشد. بررسی کنید که پیوند کامل و معتبر باشد.</string>
+    <string name="import_profile_check_action">بررسی نمایه</string>
+    <string name="import_profile_check_success">نمایه در این بررسی به مقصد آزمایشی رسید. این نتیجه ترافیک VPN را تأیید نمی‌کند.</string>
+    <string name="import_profile_check_unsupported">این نمایه پیش از درون‌ریزی قابل بررسی نیست.</string>
+    <string name="import_profile_check_service_busy">پیش از بررسی نمایه، سرویس VPN یا پراکسی را متوقف کنید.</string>
+    <string name="import_profile_check_startup_failure">بررسی موقت نمایه آغاز نشد. علت مشخص نشده است.</string>
+    <string name="import_profile_check_probe_failure">در این بررسی مقصد آزمایشی در دسترس نبود. علت مشخص نشده است.</string>
+    <string name="import_profile_check_timeout">زمان بررسی نمایه به پایان رسید.</string>
+    <string name="import_profile_check_cancelled">بررسی نمایه لغو شد.</string>
+    <string name="import_profile_check_cleanup_failure">پاک‌سازی بررسی موقت با ایمنی کامل نشد. بعداً دوباره تلاش کنید.</string>
     <string name="relay_editor_activation_failed">این نمایه فعال نشد. جزئیات را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="import_confirm_done_action">افزوده شد</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>

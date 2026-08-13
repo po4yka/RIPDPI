@@ -2747,6 +2747,15 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_body">هذا الرابط لا يحتوي على ملف بروكسي صالح للاستخدام.</string>
     <string name="import_confirm_add_action">إضافة</string>
     <string name="import_profile_confirm_error">تعذّر استيراد هذا الملف الشخصي. تأكد من أن الرابط كامل وصالح.</string>
+    <string name="import_profile_check_action">فحص الملف الشخصي</string>
+    <string name="import_profile_check_success">وصل الملف الشخصي إلى هدف الاختبار أثناء هذا الفحص. لا يؤكد ذلك عمل حركة VPN.</string>
+    <string name="import_profile_check_unsupported">لا يمكن فحص هذا الملف الشخصي قبل الاستيراد.</string>
+    <string name="import_profile_check_service_busy">أوقف خدمة VPN أو الوكيل قبل فحص الملف الشخصي.</string>
+    <string name="import_profile_check_startup_failure">تعذّر بدء الفحص المؤقت للملف الشخصي. لم يُحدّد السبب.</string>
+    <string name="import_profile_check_probe_failure">لم يتم الوصول إلى هدف الاختبار أثناء هذا الفحص. لم يُحدّد السبب.</string>
+    <string name="import_profile_check_timeout">انتهت مهلة فحص الملف الشخصي.</string>
+    <string name="import_profile_check_cancelled">أُلغي فحص الملف الشخصي.</string>
+    <string name="import_profile_check_cleanup_failure">تعذّر إنهاء الفحص المؤقت بأمان. حاول لاحقًا.</string>
     <string name="relay_editor_activation_failed">تعذّر تفعيل هذا الملف الشخصي. تحقق من التفاصيل وأعد المحاولة.</string>
     <string name="import_confirm_done_action">تمت الإضافة</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>

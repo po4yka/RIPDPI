@@ -22,7 +22,7 @@ class ProfileImportConfirmScreenshotTest {
     fun populatedState() {
         capture(
             "populatedState",
-            ProfileImportConfirmUiState(profile = sampleVlessProfile),
+            ProfileImportConfirmUiState(profile = sampleVlessProfile, checkSupported = true),
         )
     }
 
@@ -33,6 +33,7 @@ class ProfileImportConfirmScreenshotTest {
             ProfileImportConfirmUiState(
                 profile = sampleShadowsocksProfile,
                 importing = true,
+                checkSupported = true,
             ),
         )
     }
@@ -54,13 +55,16 @@ class ProfileImportConfirmScreenshotTest {
         const val FQN = "com.poyka.ripdpi.ui.screenshot.ProfileImportConfirmScreenshotTest"
 
         val sampleVlessProfile =
-            ProxyProfile.Vless(
+            ProxyProfile.VlessReality(
                 id = "profile-vless-0001",
                 displayName = "Frankfurt VLESS",
                 groupId = "group-import-0001",
                 server = "203.0.113.10",
                 serverPort = 443,
                 uuid = "11111111-2222-3333-4444-555555555555",
+                realityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s=",
+                realityShortId = "abcd1234",
+                serverName = "www.example.com",
             )
 
         val sampleShadowsocksProfile =

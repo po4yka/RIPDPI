@@ -65,6 +65,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     networkHandoverMonitor: NetworkHandoverMonitor,
     private val policyHandoverEventStore: PolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
+    private val runtimeAdmissionInterlock: ServiceRuntimeAdmissionInterlock = ServiceRuntimeAdmissionInterlock(),
     protected val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     protected val clock: ServiceClock = SystemServiceClock,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
@@ -119,7 +120,11 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         )
     }
 
-    suspend fun start(stopSelfStartId: Int? = null) = sessionLifecycle.start(stopSelfStartId = stopSelfStartId)
+    suspend fun start(stopSelfStartId: Int? = null) {
+        runtimeAdmissionInterlock.runServiceStart {
+            sessionLifecycle.start(stopSelfStartId = stopSelfStartId)
+        }
+    }
 
     suspend fun stop(
         stopSelfStartId: Int? = null,

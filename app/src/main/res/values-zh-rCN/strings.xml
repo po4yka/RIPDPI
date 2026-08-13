@@ -2791,6 +2791,15 @@ fake_burst 3</string>
     <string name="import_profile_confirm_empty_body">此链接不包含可用的代理配置文件。</string>
     <string name="import_confirm_add_action">添加</string>
     <string name="import_profile_confirm_error">无法导入此配置文件。请检查链接是否完整且有效。</string>
+    <string name="import_profile_check_action">检查配置文件</string>
+    <string name="import_profile_check_success">本次检查中配置文件已连接到测试目标。这不代表 VPN 流量已验证。</string>
+    <string name="import_profile_check_unsupported">导入前无法检查此配置文件。</string>
+    <string name="import_profile_check_service_busy">检查配置文件前请停止 VPN 或代理服务。</string>
+    <string name="import_profile_check_startup_failure">无法启动临时配置文件检查。原因尚未确定。</string>
+    <string name="import_profile_check_probe_failure">本次检查未连接到测试目标。原因尚未确定。</string>
+    <string name="import_profile_check_timeout">配置文件检查超时。</string>
+    <string name="import_profile_check_cancelled">配置文件检查已取消。</string>
+    <string name="import_profile_check_cleanup_failure">临时检查无法安全完成清理。请稍后重试。</string>
     <string name="relay_editor_activation_failed">无法激活此配置文件。请检查详细信息后重试。</string>
     <string name="import_confirm_done_action">已添加</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>

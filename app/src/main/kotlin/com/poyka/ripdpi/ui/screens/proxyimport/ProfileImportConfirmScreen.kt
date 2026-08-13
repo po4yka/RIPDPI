@@ -15,6 +15,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -55,6 +56,7 @@ fun ProfileImportConfirmRoute(
         uiState = uiState,
         onBack = onBack,
         onConfirm = viewModel::confirm,
+        onCheck = viewModel::checkProfile,
         modifier = modifier,
     )
 }
@@ -64,6 +66,7 @@ internal fun ProfileImportConfirmScreen(
     uiState: ProfileImportConfirmUiState,
     onBack: () -> Unit,
     onConfirm: () -> Unit,
+    onCheck: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     RipDpiContentScreenScaffold(
@@ -95,15 +98,60 @@ internal fun ProfileImportConfirmScreen(
                 RipDpiPanelHeader(title = stringResource(errorRes))
             }
         }
+        val renderedCheckState =
+            if (uiState.checkSupported && !uiState.serviceHalted && uiState.checkState == ProfileCheckState.Idle) {
+                ProfileCheckState.ServiceBusy
+            } else {
+                uiState.checkState
+            }
+        checkResultText(renderedCheckState)?.let { resultText ->
+            RipDpiCard {
+                RipDpiPanelHeader(title = resultText)
+            }
+        }
+        if (uiState.checkSupported) {
+            RipDpiButton(
+                text = stringResource(R.string.import_profile_check_action),
+                onClick = onCheck,
+                variant = RipDpiButtonVariant.Secondary,
+                enabled = uiState.serviceHalted && !uiState.importing,
+                loading = uiState.checkState == ProfileCheckState.Checking,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         RipDpiButton(
             text = stringResource(R.string.import_confirm_add_action),
             onClick = onConfirm,
-            enabled = !uiState.importing,
+            enabled = !uiState.importing && uiState.checkState != ProfileCheckState.Checking,
             loading = uiState.importing,
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
+
+@Composable
+private fun checkResultText(state: ProfileCheckState): String? =
+    when (state) {
+        ProfileCheckState.Idle,
+        ProfileCheckState.Checking,
+        -> null
+
+        ProfileCheckState.Succeeded -> stringResource(R.string.import_profile_check_success)
+
+        ProfileCheckState.Unsupported -> stringResource(R.string.import_profile_check_unsupported)
+
+        ProfileCheckState.ServiceBusy -> stringResource(R.string.import_profile_check_service_busy)
+
+        ProfileCheckState.StartupFailure -> stringResource(R.string.import_profile_check_startup_failure)
+
+        ProfileCheckState.ProbeFailure -> stringResource(R.string.import_profile_check_probe_failure)
+
+        ProfileCheckState.TimedOut -> stringResource(R.string.import_profile_check_timeout)
+
+        ProfileCheckState.Cancelled -> stringResource(R.string.import_profile_check_cancelled)
+
+        ProfileCheckState.CleanupFailure -> stringResource(R.string.import_profile_check_cleanup_failure)
+    }
 
 @Composable
 private fun profileSummary(profile: ProxyProfile): String =

@@ -2795,6 +2795,15 @@ Quelle: %2$s</string>
     <string name="import_profile_confirm_empty_body">Dieser Link enthält kein verwendbares Proxy-Profil.</string>
     <string name="import_confirm_add_action">Hinzufügen</string>
     <string name="import_profile_confirm_error">Dieses Profil konnte nicht importiert werden. Prüfe, ob der Link vollständig und gültig ist.</string>
+    <string name="import_profile_check_action">Profil prüfen</string>
+    <string name="import_profile_check_success">Das Profil hat das Testziel bei dieser Prüfung erreicht. VPN-Datenverkehr ist damit nicht bestätigt.</string>
+    <string name="import_profile_check_unsupported">Dieses Profil kann vor dem Import nicht geprüft werden.</string>
+    <string name="import_profile_check_service_busy">Beende den VPN- oder Proxy-Dienst vor der Profilprüfung.</string>
+    <string name="import_profile_check_startup_failure">Die temporäre Profilprüfung konnte nicht starten. Die Ursache wurde nicht ermittelt.</string>
+    <string name="import_profile_check_probe_failure">Das Testziel wurde bei dieser Prüfung nicht erreicht. Die Ursache wurde nicht ermittelt.</string>
+    <string name="import_profile_check_timeout">Zeitüberschreitung bei der Profilprüfung.</string>
+    <string name="import_profile_check_cancelled">Die Profilprüfung wurde abgebrochen.</string>
+    <string name="import_profile_check_cleanup_failure">Die temporäre Prüfung konnte nicht sicher beendet werden. Versuche es später erneut.</string>
     <string name="relay_editor_activation_failed">Dieses Profil konnte nicht aktiviert werden. Prüfe die Angaben und versuche es erneut.</string>
     <string name="import_confirm_done_action">Hinzugefügt</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>

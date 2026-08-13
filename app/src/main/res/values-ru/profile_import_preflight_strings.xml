@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="import_profile_check_action">Проверить профиль</string>
+    <string name="import_profile_check_success">Во время этой проверки профиль достиг тестового узла. Это не подтверждает работу VPN-трафика.</string>
+    <string name="import_profile_check_unsupported">Этот профиль нельзя проверить до импорта.</string>
+    <string name="import_profile_check_service_busy">Перед проверкой профиля остановите VPN или прокси-сервис.</string>
+    <string name="import_profile_check_startup_failure">Не удалось запустить временную проверку профиля. Причина не установлена.</string>
+    <string name="import_profile_check_probe_failure">Во время проверки тестовый узел не был достигнут. Причина не установлена.</string>
+    <string name="import_profile_check_timeout">Время проверки профиля истекло.</string>
+    <string name="import_profile_check_cancelled">Проверка профиля отменена.</string>
+    <string name="import_profile_check_cleanup_failure">Не удалось безопасно завершить временную проверку. Повторите позже.</string>
+</resources>
