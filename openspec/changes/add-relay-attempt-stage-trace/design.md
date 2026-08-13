@@ -70,6 +70,14 @@ the new archive entry requires schema version 15 and updated fixtures.
 - `RuntimeArtifactPersister` includes relay native events in live and terminal
   persistence. Kotlin assigns the owning `connectionSessionId` at persistence
   time; native code does not need to know the Room session key.
+- Archive runtime configuration exposes `effectiveConfigFingerprint`, computed
+  as a versioned full SHA-256 digest of a canonical privacy projection derived
+  from `BypassStrategySignature`. Free-form DNS labels, fake SNI values, and QUIC
+  fake hosts are removed before hashing; raw native configuration, relay
+  credentials, endpoints, network fingerprints, and the connection-policy
+  signature are never hash inputs. The signature object stays absent from
+  production archives so custom strategy values cannot escape as adjacent
+  plaintext evidence.
 - `NativeSessionEventEntity` stores typed fields rather than requiring message
   parsing. Room advances from version 10 to 11 with nullable columns and an
   explicit migration. Existing rows remain valid with null attempt fields.
@@ -127,19 +135,23 @@ the new archive entry requires schema version 15 and updated fixtures.
 1. First persist the relay events already present in runtime snapshots through
    live and terminal/outbox paths and expose them through the existing redacted
    `native-events.csv`. This slice changes no native, Room, or archive schema.
-2. Add optional native event fields, allowlisted span inheritance,
+2. Export the effective allowlisted strategy fingerprint through the existing
+   `runtime-config.json` payload and teach offline analytics to consume it while
+   retaining fallback support for older archives. This additive field requires
+   no native, Room, or archive schema-version change.
+3. Add optional native event fields, allowlisted span inheritance,
    runtime-scoped relay draining, and drop accounting using focused RED/GREEN
    Rust tests.
-3. Emit the direct and multiplexed VLESS/SOCKS stage transitions with one
+4. Emit the direct and multiplexed VLESS/SOCKS stage transitions with one
    attempt-local sequence and focused success, reset, cancellation, reuse, and
    one-shot response tests.
-4. Mirror optional fields in Kotlin, prove older/missing-field decoding, add the
+5. Mirror optional fields in Kotlin, prove older/missing-field decoding, add the
    Room 10-to-11 migration, and persist relay events in live and terminal paths.
-5. Add redaction and ordered `relay-attempt-traces.jsonl` rendering, advance the
+6. Add redaction and ordered `relay-attempt-traces.jsonl` rendering, advance the
    archive schema to 15, and update completeness and archive fixtures. Golden
    fixture regeneration requires explicit user authorization for the affected
    telemetry/archive fixture family.
-6. Run focused Rust tests with `--locked`, Kotlin contract/migration/service/
+7. Run focused Rust tests with `--locked`, Kotlin contract/migration/service/
    archive tests, privacy checks, `cargo fmt`, affected Clippy gates,
    `./gradlew staticAnalysis`, architecture health, task/OpenSpec validation,
    and owner-style review. Hosted CI, physical-device proof, artifact

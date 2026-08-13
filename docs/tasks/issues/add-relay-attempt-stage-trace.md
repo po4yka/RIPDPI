@@ -45,6 +45,10 @@ Logcat text.
 - Existing relay lifecycle events are persisted in live and terminal paths and
   therefore appear in the current redacted `native-events.csv` export before
   typed attempt-stage fields are introduced.
+- `runtime-config.json` exports a versioned fingerprint of the effective
+  allowlisted strategy projection so archives can be compared without exposing
+  the projection, raw runtime JSON, endpoints, network identifiers, or
+  credentials.
 - Collection is bounded and non-blocking, emits no per-packet events, and never
   includes UUIDs, credentials, raw endpoints, ClientHello bytes, payloads, or
   device/network identifiers.

@@ -145,7 +145,7 @@ internal fun buildRuntimeConfig(
                 ?.cmdArgs
                 ?.takeIf { it.isNotBlank() }
                 ?.let { "redacted" },
-        effectiveStrategySignature = null,
+        effectiveConfigFingerprint = selection.effectiveStrategySignature?.effectiveConfigFingerprint(),
         proxyRuntime = context?.service?.proxy?.redactedRuntimeAddresses(),
         tunnelRuntime = context?.service?.tunnel?.redactedRuntimeAddresses(),
         relayRuntime = context?.service?.relay?.redactedRuntimeAddresses(),

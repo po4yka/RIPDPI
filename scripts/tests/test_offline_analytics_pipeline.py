@@ -12,7 +12,7 @@ from scripts.analytics.cluster import (
     run_cluster,
 )
 from scripts.analytics.common import ROOT, load_json
-from scripts.analytics.extract import run_extract
+from scripts.analytics.extract import extract_winner_summary, run_extract
 from scripts.analytics.publish import publish_outputs
 
 
@@ -40,6 +40,19 @@ def analytics_record(
 
 
 class OfflineAnalyticsPipelineTest(unittest.TestCase):
+    def test_extract_prefers_exported_effective_config_fingerprint(self) -> None:
+        exported_fingerprint = "effective-config-v1:" + ("a" * 64)
+
+        summary = extract_winner_summary(
+            {
+                "effectiveConfigFingerprint": exported_fingerprint,
+                "effectiveStrategySignature": {"mode": "legacy"},
+            },
+            [],
+        )
+
+        self.assertEqual(exported_fingerprint, summary["signatureHash"])
+
     def test_extract_classifies_sample_corpus(self) -> None:
         extracted = run_extract(sample_inputs())
 

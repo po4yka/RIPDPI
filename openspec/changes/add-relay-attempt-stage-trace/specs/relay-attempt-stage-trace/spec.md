@@ -76,3 +76,15 @@ requiring a native, Room, or archive schema change.
 
 - **WHEN** the current relay telemetry snapshot contains a `runtime_stopped` native event
 - **THEN** the event remains associated with the owning connection session and is available to the redacted `native-events.csv` diagnostic export after the session stops
+
+### Requirement: REQ-DGN-1786592449526581-007 — Effective configuration has a privacy-safe fingerprint
+
+The implementation MUST export a deterministic, versioned SHA-256 fingerprint
+of the effective allowlisted strategy projection and MUST NOT export the
+projection itself, raw runtime configuration, endpoints, network identifiers,
+or credentials as fingerprint material or adjacent evidence.
+
+#### Scenario: Two archives used the same effective strategy
+
+- **WHEN** two diagnostic archives contain the same effective allowlisted strategy projection
+- **THEN** `runtime-config.json` contains the same effective-configuration fingerprint in both archives and contains no raw signature fields or sensitive source values

@@ -1313,6 +1313,106 @@ class DiagnosticsArchiveRendererTest {
         assertEquals(40L, runtimeConfig.terminalContextCapturedAt)
     }
 
+    @Test
+    fun `runtime config exports a stable safe fingerprint for the effective strategy signature`() {
+        val fakeSniCanary = "fakeSniValue-canary"
+        val signature =
+            BypassStrategySignature(
+                mode = "vpn",
+                configSource = "ui",
+                hostAutolearn = "disabled",
+                desyncMethod = "none",
+                chainSummary = "canary-chain",
+                protocolToggles = listOf("tcp"),
+                tlsRecordSplitEnabled = false,
+                fakeSniMode = "fixed",
+                fakeSniValue = fakeSniCanary,
+            )
+        val selection = buildFullRendererSelection().copy(effectiveStrategySignature = signature)
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-effective-config-fingerprint", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-effective-config-fingerprint.zip",
+                createdAt = 50L,
+            )
+
+        fun runtimeConfigJson(): String =
+            renderer
+                .render(target, selection)
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("runtime-config.json")
+                .bytes
+                .decodeToString()
+
+        val firstJson = runtimeConfigJson()
+        val secondJson = runtimeConfigJson()
+        val firstPayload = json.parseToJsonElement(firstJson).jsonObject
+        val secondPayload = json.parseToJsonElement(secondJson).jsonObject
+        val firstFingerprint = firstPayload["effectiveConfigFingerprint"]?.jsonPrimitive?.contentOrNull
+        val secondFingerprint = secondPayload["effectiveConfigFingerprint"]?.jsonPrimitive?.contentOrNull
+
+        assertNotNull("effectiveConfigFingerprint must be exported", firstFingerprint)
+        assertEquals(firstFingerprint, secondFingerprint)
+        assertTrue(firstFingerprint!!.matches(Regex("effective-config-v1:[0-9a-f]{64}")))
+        assertFalse(firstPayload.containsKey("effectiveStrategySignature"))
+        assertNull(
+            json
+                .decodeFromString(
+                    DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                    firstJson,
+                ).effectiveStrategySignature,
+        )
+        assertFalse(firstJson.contains(fakeSniCanary))
+    }
+
+    @Test
+    fun `effective config fingerprint excludes custom host values from hash material`() {
+        val baseSignature =
+            BypassStrategySignature(
+                mode = "vpn",
+                configSource = "ui",
+                hostAutolearn = "disabled",
+                desyncMethod = "none",
+                chainSummary = "canary-chain",
+                protocolToggles = listOf("udp"),
+                tlsRecordSplitEnabled = false,
+                fakeSniMode = "fixed",
+                fakeSniValue = "first-sni.example",
+                quicFakeProfile = "realistic_initial",
+                quicFakeHost = "first-quic.example",
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-effective-config-private-fields", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-effective-config-private-fields.zip",
+                createdAt = 50L,
+            )
+
+        fun fingerprint(signature: BypassStrategySignature): String? =
+            renderer
+                .render(target, buildFullRendererSelection().copy(effectiveStrategySignature = signature))
+                .associateBy(DiagnosticsArchiveEntry::name)
+                .getValue("runtime-config.json")
+                .bytes
+                .decodeToString()
+                .let(json::parseToJsonElement)
+                .jsonObject["effectiveConfigFingerprint"]
+                ?.jsonPrimitive
+                ?.contentOrNull
+
+        val firstFingerprint = fingerprint(baseSignature)
+        val secondFingerprint =
+            fingerprint(
+                baseSignature.copy(
+                    fakeSniValue = "second-sni.example",
+                    quicFakeHost = "second-quic.example",
+                ),
+            )
+
+        assertNotNull("effectiveConfigFingerprint must be exported", firstFingerprint)
+        assertEquals(firstFingerprint, secondFingerprint)
+    }
+
     private fun assertMixedRuntimeContext(entries: Map<String, DiagnosticsArchiveEntry>) {
         val runtimeConfig =
             json.decodeFromString(

@@ -274,7 +274,19 @@ def extract_winner_summary(runtime_config: dict[str, Any], telemetry_rows: list[
     tcp_family = normalize_winner_family(latest_row.get("winningTcpStrategyFamily"))
     quic_family = normalize_winner_family(latest_row.get("winningQuicStrategyFamily"))
     signature = runtime_config.get("effectiveStrategySignature")
-    signature_hash = stable_hash(json_like(signature))[:16] if signature else None
+    exported_fingerprint = runtime_config.get("effectiveConfigFingerprint")
+    fingerprint_prefix = "effective-config-v1:"
+    has_valid_exported_fingerprint = (
+        isinstance(exported_fingerprint, str)
+        and exported_fingerprint.startswith(fingerprint_prefix)
+        and len(exported_fingerprint) == len(fingerprint_prefix) + 64
+        and all(character in "0123456789abcdef" for character in exported_fingerprint.removeprefix(fingerprint_prefix))
+    )
+    signature_hash = (
+        exported_fingerprint
+        if has_valid_exported_fingerprint
+        else stable_hash(json_like(signature))[:16] if signature else None
+    )
     return {
         "family": family,
         "tcpFamily": tcp_family,

@@ -385,6 +385,7 @@ internal data class DiagnosticsArchiveRuntimeConfigPayload(
     val roamingState: String = "unavailable",
     val commandLineSettingsEnabled: Boolean = false,
     val commandLineArgsHash: String? = null,
+    val effectiveConfigFingerprint: String? = null,
     val effectiveStrategySignature: BypassStrategySignature? = null,
     val proxyRuntime: RuntimeComponentSummary? = null,
     val tunnelRuntime: RuntimeComponentSummary? = null,
