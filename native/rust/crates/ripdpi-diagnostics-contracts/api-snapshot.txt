@@ -452,6 +452,7 @@ pub ripdpi_diagnostics_contracts::types::ServiceTarget::tcp_endpoint_ip: core::o
 pub ripdpi_diagnostics_contracts::types::ServiceTarget::tcp_endpoint_port: u16
 pub ripdpi_diagnostics_contracts::types::ServiceTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::types::SharedState
+pub ripdpi_diagnostics_contracts::types::SharedState::checkpoint_report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::types::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::types::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::types::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
@@ -1389,6 +1390,7 @@ pub ripdpi_diagnostics_contracts::ServiceTarget::tcp_endpoint_ip: core::option::
 pub ripdpi_diagnostics_contracts::ServiceTarget::tcp_endpoint_port: u16
 pub ripdpi_diagnostics_contracts::ServiceTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::SharedState
+pub ripdpi_diagnostics_contracts::SharedState::checkpoint_report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
