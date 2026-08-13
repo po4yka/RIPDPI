@@ -1,15 +1,15 @@
 ---
 task_id: RLY-1786618247484998
 change: add-safe-imported-profile-preflight
-commit_sha: null
+commit_sha: e1a53419a7455b43156020b406114640a79e0780
 local: required
 local_evidence: Targeted app/service tests, authorized Roborazzi verification, Android lint, staticAnalysis, architecture health, strict OpenSpec validation, task validation, and diff checks passed on the job branch before rebase.
 remote_ci: required
 remote_ci_evidence: null
 device: required
-device_evidence: null
+device_evidence: Partial on Pixel 7 (panther, Android 17): controlled failure was truthful, the transient listener stopped, no crash/socket/service remained, and durable hashes were unchanged; owner-relay success remains required.
 artifact: required
-artifact_evidence: null
+artifact_evidence: githubFullDebug arm64-v8a APK for e1a53419a, package com.poyka.ripdpi 0.1.4 (20000012), SHA-256 02464f8f839e79341a331d353afae5a1c72b4ac95df1cae5e52f409208931f82.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -47,7 +47,22 @@ Local, hosted-CI, physical-device, and APK artifact evidence are separate gates.
 - The preflight, interlock, proxy coordinator, VPN coordinator, and service-session module tests passed.
 - The narrow `ProfileImportConfirmScreenshotTest` Roborazzi verify task passed after the explicitly authorized four-fixture update; empty-state fixtures were unchanged.
 - `:app:lintGithubFullDebug`, `:core:service:lintDebug`, `staticAnalysis`, architecture health, strict OpenSpec validation, task generation/validation, and `git diff --check` passed.
-- No physical Pixel 7 was connected during local verification; `adb devices -l` exposed only `emulator-5554`, so device evidence remains unobserved.
+- A physical Pixel 7 (`panther`, Android 17) was selected explicitly by serial. The exact arm64-v8a APK was installed without clearing app data.
+
+## Observed Pixel 7 evidence
+
+- A structurally valid non-routable VLESS/REALITY fixture opened the import-confirmation screen with separate enabled `Check profile` and `Add` actions.
+- One check opened listener `127.0.0.1:38489`, reported that the test target was not reached and that the cause was not established, then logged one listener stop about ten seconds later.
+- After completion, no `com.poyka.ripdpi` service, relay listening socket, Java/Kotlin crash, or native crash was observed.
+- SHA-256 values for app-owned `files/datastore/app_settings.pb` and `databases/ripdpi.db` were identical before and after the repeated check.
+- The successful owner-controlled relay scenario remains unobserved. The device gate is partial and the change remains active.
+
+## Observed artifact evidence
+
+- Commit: `e1a53419a7455b43156020b406114640a79e0780`.
+- Variant/ABI: `githubFullDebug`, `arm64-v8a`.
+- Package/version: `com.poyka.ripdpi`, `0.1.4` (`20000012`).
+- APK SHA-256: `02464f8f839e79341a331d353afae5a1c72b4ac95df1cae5e52f409208931f82`.
 
 ## Required external evidence
 
