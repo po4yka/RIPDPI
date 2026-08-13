@@ -48,12 +48,13 @@ fun DiagnosticsRoute(
     callbacks: DiagnosticsRouteCallbacks = DiagnosticsRouteCallbacks(),
     modifier: Modifier = Modifier,
     initialSection: DiagnosticsSection? = null,
+    autoStartScan: Boolean? = null,
     viewModel: DiagnosticsViewModel = hiltViewModel(),
     pcapCaptureViewModel: PcapCaptureViewModel? = null,
     topBarExtraActions: @Composable () -> Unit = {},
 ) {
-    LaunchedEffect(viewModel) {
-        viewModel.initialize()
+    LaunchedEffect(viewModel, autoStartScan) {
+        viewModel.initialize(autoStartScan)
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val toolsStateFlow = remember(viewModel) { viewModel.toolsRouteStateFlow() }

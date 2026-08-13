@@ -21,6 +21,9 @@ class MainCrashReportActions(
 class MainAppLockActions(
     private val coordinator: MainAppLockLifecycleCoordinator,
 ) {
+    val isAuthenticated: Boolean
+        get() = coordinator.isAuthenticated
+
     fun onAuthenticated() {
         coordinator.onAuthenticated()
     }

@@ -202,7 +202,7 @@ class DiagnosticsViewModel
 
         private val shareActions = DiagnosticsShareActions(mutations, scanLifecycleState)
 
-        fun initialize() {
+        fun initialize(autoStartScan: Boolean? = null) {
             if (initialized) {
                 return
             }
@@ -211,7 +211,7 @@ class DiagnosticsViewModel
                 scope = viewModelScope,
                 initializeScanActions = scanActions::initialize,
             )
-            if (autoStartScan && !autoStartScanHandled) {
+            if ((autoStartScan ?: this.autoStartScan) && !autoStartScanHandled) {
                 autoStartScanHandled = true
                 runScan()
             }

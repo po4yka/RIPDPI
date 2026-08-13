@@ -24,14 +24,17 @@ class MainAppLockLifecycleCoordinatorTest {
         )
 
         assertFalse(observer.isAuthenticated())
+        assertFalse(coordinator.isAuthenticated)
         assertTrue(observer.isBiometricEnabled())
 
         coordinator.onAuthenticated()
         assertTrue(observer.isAuthenticated())
+        assertTrue(coordinator.isAuthenticated)
 
         observer.onRelockNeeded?.invoke()
 
         assertFalse(observer.isAuthenticated())
+        assertFalse(coordinator.isAuthenticated)
         assertEquals(1, relockCount)
 
         biometricEnabled = false

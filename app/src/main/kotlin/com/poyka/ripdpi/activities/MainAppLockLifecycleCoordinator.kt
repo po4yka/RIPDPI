@@ -10,6 +10,9 @@ class MainAppLockLifecycleCoordinator
     ) {
         private var authenticated = false
 
+        val isAuthenticated: Boolean
+            get() = authenticated
+
         fun start(
             isBiometricEnabled: () -> Boolean,
             onRelockNeeded: () -> Unit,

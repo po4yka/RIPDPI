@@ -66,6 +66,14 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `external navigation is deferred until startup gate is complete`() {
+        assertFalse(canHandleExternalNavigation(null))
+        assertFalse(canHandleExternalNavigation(Route.Onboarding.stableRoute))
+        assertFalse(canHandleExternalNavigation(Route.BiometricPrompt.stableRoute))
+        assertTrue(canHandleExternalNavigation(Route.Home.stableRoute))
+    }
+
+    @Test
     fun `history route stays off the bottom navigation`() {
         assertTrue(Route.all.contains(Route.History))
         assertFalse(Route.topLevel.contains(Route.History))
@@ -108,23 +116,14 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
-    fun `route registry and stable matchers cover every NavHost destination`() {
+    fun `route registry covers every Navigation 3 entry`() {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
         val registeredDestinationTypes =
-            Regex("""composable<Route\.([A-Za-z0-9_]+)>""")
+            Regex("""entry<Route\.([A-Za-z0-9_]+)>""")
                 .findAll(navHostSource)
                 .map { match -> match.groupValues[1] }
                 .toList()
         val registeredRouteTypes = Route.all.map { route -> route::class.java.simpleName }
-        val matcherPairs =
-            Regex(
-                """Route\.([A-Za-z0-9_]+)(?:\(\))?\.stableRoute to \{ hasRoute<Route\.([A-Za-z0-9_]+)>\(\) }""",
-            ).findAll(
-                navHostSource
-                    .substringAfter("private val stableRouteMatchers")
-                    .substringBefore("internal fun shouldNavigateToHomeFromLaunchRequest"),
-            ).map { match -> match.groupValues[1] to match.groupValues[2] }
-                .toList()
 
         assertEquals(
             "NavHost declares duplicate destination types",
@@ -144,20 +143,10 @@ class RipDpiNavHostLogicTest {
                 .toSet()
                 .size,
         )
-        assertEquals("Stable route matcher count drifted", registeredDestinationTypes.size, matcherPairs.size)
-        assertTrue(
-            "Stable route matcher keys must match their typed destination: $matcherPairs",
-            matcherPairs.all { (keyType, destinationType) -> keyType == destinationType },
-        )
         assertEquals(
             "Route.all drifted from NavHost",
             registeredDestinationTypes.toSet(),
             registeredRouteTypes.toSet(),
-        )
-        assertEquals(
-            "Stable route matchers drifted from NavHost",
-            registeredDestinationTypes.toSet(),
-            matcherPairs.map { it.second }.toSet(),
         )
     }
 
@@ -190,15 +179,15 @@ class RipDpiNavHostLogicTest {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
         val pcapRoute =
             navHostSource
-                .substringAfter("composable<Route.PcapCaptureList>")
-                .substringBefore("composable<Route.ReplayHistory>")
+                .substringAfter("entry<Route.PcapCaptureList>")
+                .substringBefore("entry<Route.ReplayHistory>")
         val replayRoute =
             navHostSource
-                .substringAfter("composable<Route.ReplayHistory>")
-                .substringBefore("composable<Route.OwnedStackBrowser>")
+                .substringAfter("entry<Route.ReplayHistory>")
+                .substringBefore("entry<Route.OwnedStackBrowser>")
 
-        assertTrue(pcapRoute.contains("navController.navigateUp()"))
-        assertTrue(replayRoute.contains("navController.navigateUp()"))
+        assertTrue(pcapRoute.contains("navigator.goBack()"))
+        assertTrue(replayRoute.contains("navigator.goBack()"))
     }
 
     @Test

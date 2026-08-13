@@ -45,6 +45,7 @@ internal class MainActivityShellController(
         MutableStateFlow(
             MainActivityShellState(
                 launchHomeRequested = requestsHomeTab(initialIntent),
+                launchRouteRequested = navigationRouteFrom(initialIntent)?.stableRoute,
                 sharedDiagnosticFragmentRequested = diagnosticShareFragment(initialIntent),
                 importRouteRequested = importRouteFrom(initialIntent),
                 startConfiguredModeRequested = requestsConfiguredStart(initialIntent),
@@ -65,6 +66,8 @@ internal class MainActivityShellController(
         _state.update { current ->
             current.copy(
                 launchHomeRequested = current.launchHomeRequested || requestsHomeTab(intent),
+                launchRouteRequested =
+                    navigationRouteFrom(intent)?.stableRoute ?: current.launchRouteRequested,
                 sharedDiagnosticFragmentRequested =
                     diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
                 importRouteRequested =

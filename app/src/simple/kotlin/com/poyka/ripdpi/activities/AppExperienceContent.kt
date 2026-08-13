@@ -13,6 +13,7 @@ import com.poyka.ripdpi.ui.screens.simple.SimpleHomeScreen
 @Composable
 internal fun AppExperienceContent(
     @Suppress("UNUSED_PARAMETER") startDestination: Route,
+    @Suppress("UNUSED_PARAMETER") isSessionAuthenticated: Boolean,
     viewModel: MainViewModel,
     @Suppress("UNUSED_PARAMETER") controller: MainActivityShellController,
     @Suppress("UNUSED_PARAMETER") shellState: MainActivityShellState,

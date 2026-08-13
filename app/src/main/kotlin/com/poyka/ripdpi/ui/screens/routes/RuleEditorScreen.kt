@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,10 +49,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 
 /**
- * @param ruleId informational for callers/NavHost; the ViewModel reads it from [SavedStateHandle],
- *   so it is intentionally not consumed here.
+ * @param ruleId identifier carried by the Navigation 3 route key.
  */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun RuleEditorRoute(
     ruleId: Long,
@@ -59,6 +58,9 @@ fun RuleEditorRoute(
     modifier: Modifier = Modifier,
     viewModel: RuleEditorViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(viewModel, ruleId) {
+        viewModel.initialize(ruleId)
+    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     RuleEditorScreen(
         state = state,
