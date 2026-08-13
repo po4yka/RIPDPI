@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Подключено</string>
+    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Локальные процессы запущены</string>
     <string name="simple_title">RIPDPI Быстрое подключение</string>
     <string name="simple_connect">Подключиться</string>
     <string name="simple_disconnect">Отключиться</string>

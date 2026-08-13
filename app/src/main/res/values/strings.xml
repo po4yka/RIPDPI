@@ -610,6 +610,9 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">Diagnostic Scan</string>
     <string name="home_mode_card_connected_format">Connected %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">Local processes are running; checking VPN connectivity</string>
+    <string name="home_connection_actuator_state_vpn_unverified">Local processes are running; VPN connectivity is unverified</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">Local processes are running; VPN connectivity is unavailable</string>
     <string name="home_mode_card_connecting">Starting...</string>
     <string name="home_mode_card_remote_relay_disabled">Relay disabled</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
@@ -2879,7 +2882,7 @@ Source: %2$s</string>
     <string name="settings_reset_dialog_title">Reset all settings?</string>
     <string name="settings_reset_dialog_body">This will restore all settings to their default values. Your connection will be stopped and all customizations will be lost.</string>
     <string name="settings_reset_confirm">Reset</string>
-    <string name="qs_tile_label_connected">RIPDPI: Connected</string>
+    <string name="qs_tile_label_connected">RIPDPI: Local runtime active</string>
     <string name="qs_tile_label_disconnected" translatable="false">RIPDPI</string>
     <string name="qs_tile_subtitle_tap_connect">Tap to connect</string>
     <string name="qs_tile_subtitle_tap_disconnect">Tap to disconnect</string>
@@ -3124,7 +3127,7 @@ Source: %2$s</string>
     <string name="widget_description_mode_picker">Mode Picker</string>
     <string name="widget_action_connect">Connect</string>
     <string name="widget_action_disconnect">Disconnect</string>
-    <string name="widget_status_running">Running</string>
+    <string name="widget_status_running">Local processes running</string>
     <string name="widget_status_halted">Halted</string>
     <string name="widget_status_connecting">Connecting</string>
     <string name="widget_status_reconnecting">Reconnecting</string>

@@ -32,6 +32,7 @@ enum class AppStatus {
      */
     Reconnecting,
 
+    /** Local service processes are running; this does not assert that the selected mode carries traffic. */
     Running,
 }
 

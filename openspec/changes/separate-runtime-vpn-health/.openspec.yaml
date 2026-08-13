@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-08-13
+goal: SVC-1786597927063162 Separate local runtime readiness from VPN connectivity

@@ -597,6 +597,9 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">डायग्नोस्टिक स्कैन</string>
     <string name="home_mode_card_connected_format">कनेक्ट है %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी जाँची जा रही है</string>
+    <string name="home_connection_actuator_state_vpn_unverified">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी सत्यापित नहीं है</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी उपलब्ध नहीं है</string>
     <string name="home_mode_card_connecting">शुरू हो रहा है...</string>
     <string name="home_mode_card_remote_relay_disabled">रिले अक्षम</string>
     <string name="home_mode_card_remote_relay_disabled_hint">इसे चालू करने के लिए Configure में कोई रिले सक्षम करें</string>

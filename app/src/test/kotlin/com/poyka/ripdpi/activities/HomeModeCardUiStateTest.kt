@@ -287,6 +287,7 @@ class HomeModeCardUiStateTest {
             activeMode = activeMode,
             configuredMode = configuredMode,
             connectionState = connectionState,
+            vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
             connectionDuration = connectionDuration,
             homeDiagnostics = homeDiagnostics,
             stringResolver = stringResolver,

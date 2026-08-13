@@ -955,7 +955,7 @@
     <string name="settings_reset_dialog_title">सभी सेटिंग्स रीसेट करें?</string>
     <string name="settings_reset_dialog_body">यह सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित कर देगा। आपका कनेक्शन रोक दिया जाएगा और सभी अनुकूलन खो जाएँगे।</string>
     <string name="settings_reset_confirm">रीसेट करें</string>
-    <string name="qs_tile_label_connected">RIPDPI: कनेक्टेड</string>
+    <string name="qs_tile_label_connected">RIPDPI: स्थानीय प्रक्रियाएँ सक्रिय हैं</string>
     <string name="qs_tile_subtitle_tap_connect">कनेक्ट करने के लिए टैप करें</string>
     <string name="qs_tile_subtitle_tap_disconnect">डिस्कनेक्ट करने के लिए टैप करें</string>
     <string name="semantic_state_on">चालू</string>
@@ -1186,7 +1186,7 @@
     <string name="widget_description_mode_picker">मोड चयनकर्ता</string>
     <string name="widget_action_connect">कनेक्ट करें</string>
     <string name="widget_action_disconnect">डिस्कनेक्ट करें</string>
-    <string name="widget_status_running">चल रहा है</string>
+    <string name="widget_status_running">स्थानीय प्रक्रियाएँ चल रही हैं</string>
     <string name="widget_status_halted">रुका हुआ</string>
     <string name="widget_status_connecting">कनेक्ट हो रहा है</string>
     <string name="widget_status_reconnecting">पुनः कनेक्ट हो रहा है</string>

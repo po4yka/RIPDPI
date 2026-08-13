@@ -357,7 +357,7 @@
     <string name="permissions_battery_body">Autorisez RIPDPI à ignorer l\'optimisation de batterie d\'Android afin que Doze risque moins d\'interrompre le VPN local ou le proxy en arrière-plan.</string>
     <string name="permissions_vpn_body">Android demandera à créer un VPN local. Cela achemine le trafic via l\'application sur votre appareil — rien n\'est envoyé à l\'extérieur.</string>
     <string name="permissions_vpn_title">Autorisation VPN locale</string>
-    <string name="qs_tile_label_connected">RIPDPI : Connecté</string>
+    <string name="qs_tile_label_connected">RIPDPI : Processus locaux actifs</string>
     <string name="quic_fake_host_builtin_body">Le préréglage réaliste continuera d\'utiliser le faux hôte intégré de RIPDPI jusqu\'à ce que vous enregistriez un remplacement personnalisé.</string>
     <string name="quic_fake_host_error">Utilisez un domaine simple comme video.example.org. Les adresses IP littérales et les noms d\'hôtes non valides sont ignorés.</string>
     <string name="quic_fake_preset_off_title">Désactivé</string>
@@ -1394,6 +1394,9 @@ fake_burst 3</string>
     <string name="home_diagnostics_verified_sheet_title">Résultat VPN vérifié</string>
     <string name="home_diagnostics_vpn_starting">Démarrage du VPN…</string>
     <string name="home_mode_card_connected_format">Connecté %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">Les processus locaux sont actifs ; vérification de la connectivité VPN</string>
+    <string name="home_connection_actuator_state_vpn_unverified">Les processus locaux sont actifs ; la connectivité VPN n’est pas vérifiée</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">Les processus locaux sont actifs ; la connectivité VPN est indisponible</string>
     <string name="home_mode_card_diagnostic_status_review">Examiner le dernier audit</string>
     <string name="home_mode_card_remote_relay_disabled">Relais désactivé</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
@@ -2964,7 +2967,7 @@ Source : %2$s</string>
     <string name="widget_description_mode_picker">Sélecteur de mode</string>
     <string name="widget_action_connect">Connecter</string>
     <string name="widget_action_disconnect">Déconnecter</string>
-    <string name="widget_status_running">Actif</string>
+    <string name="widget_status_running">Processus locaux actifs</string>
     <string name="widget_status_halted">Arrêté</string>
     <string name="widget_status_connecting">Connexion en cours</string>
     <string name="widget_status_reconnecting">Reconnexion</string>

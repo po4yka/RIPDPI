@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Verbunden</string>
+    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Lokale Prozesse aktiv</string>
     <string name="simple_title">RIPDPI Schnellverbindung</string>
     <string name="simple_connect">Verbinden</string>
     <string name="simple_disconnect">Trennen</string>

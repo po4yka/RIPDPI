@@ -189,6 +189,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Disconnected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -208,6 +209,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connecting,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime =
                     ConnectionRuntimeState(
                         connectionState = ConnectionState.Connecting,
@@ -231,6 +233,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.Proxy,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -255,6 +258,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Disconnected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -271,6 +275,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Disconnected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -294,6 +299,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -318,6 +324,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry =
                     ServiceTelemetrySnapshot(
@@ -351,6 +358,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry = ServiceTelemetrySnapshot(), // relayTelemetry stays idle, 0 sessions
                 approachSummary = null,
@@ -419,6 +427,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -442,6 +451,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Error,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Error),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
@@ -464,6 +474,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry =
                     ServiceTelemetrySnapshot(
@@ -498,6 +509,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 // The relay died after connecting: relayTelemetry is idle (0 sessions) and the
                 // explicit relayFailed signal is set. Status must read Degraded + Direct, never
@@ -535,6 +547,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry =
                     ServiceTelemetrySnapshot(
@@ -559,6 +572,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Error,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Error),
                 telemetry =
                     ServiceTelemetrySnapshot(

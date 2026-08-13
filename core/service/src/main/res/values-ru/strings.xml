@@ -1,6 +1,6 @@
 <resources>
     <string name="proxy_channel_name">Прокси</string>
-    <string name="vpn_notification_content">VPN работает</string>
+    <string name="vpn_notification_content">Локальные процессы VPN запущены</string>
     <string name="proxy_notification_content">Прокси работает</string>
     <string name="notification_stop">Остановить</string>
 </resources>

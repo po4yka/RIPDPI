@@ -874,7 +874,7 @@
     <string name="permissions_battery_title">电池优化</string>
     <string name="permissions_vpn_body">Android 会请求创建本地 VPN。此操作通过应用在你的设备上路由流量 — 不会发送到外部。</string>
     <string name="permissions_vpn_not_now">暂不</string>
-    <string name="qs_tile_label_connected">RIPDPI:已连接</string>
+    <string name="qs_tile_label_connected">RIPDPI: 本地进程正在运行</string>
     <string name="quic_fake_host_body">仅适用于 realistic 预设。留空以使用生成的 QUIC Initial 中内置的假主机。</string>
     <string name="quic_fake_host_custom_title">自定义主机覆盖已激活</string>
     <string name="quic_fake_preset_compat_body">为 QUIC fake 负载发出固定的 620 字节兼容性数据块。</string>
@@ -2454,6 +2454,9 @@ fake_burst 3</string>
     <string name="home_diagnostics_verification_failed">无法启动短时验证探测。</string>
     <string name="home_history_body">历史记录保留持久的连接会话、采样的运行时诊断,以及实时诊断工具之外的原生故障。</string>
     <string name="home_mode_card_connected_format">已连接 %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">本地进程正在运行；正在检查 VPN 连接</string>
+    <string name="home_connection_actuator_state_vpn_unverified">本地进程正在运行；VPN 连接尚未验证</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">本地进程正在运行；VPN 连接不可用</string>
     <string name="home_mode_card_diagnostic_status_complete_format">已完成 %1$d/%2$d 个阶段</string>
     <string name="home_mode_card_disable">禁用</string>
     <string name="home_mode_card_run_scan">运行扫描</string>
@@ -2960,7 +2963,7 @@ fake_burst 3</string>
     <string name="widget_description_mode_picker">模式选择器</string>
     <string name="widget_action_connect">连接</string>
     <string name="widget_action_disconnect">断开</string>
-    <string name="widget_status_running">运行中</string>
+    <string name="widget_status_running">本地进程正在运行</string>
     <string name="widget_status_halted">已停止</string>
     <string name="widget_status_connecting">连接中</string>
     <string name="widget_status_reconnecting">正在重新连接</string>

@@ -54,4 +54,7 @@
     <string name="diagnostics_archive_database_failed">Не удалось прочитать записи диагностики для экспорта. Запустите диагностику заново и сохраните новый результат.</string>
     <string name="diagnostics_archive_inconsistent_result_failed">Результат диагностики изменился до завершения экспорта. Запустите диагностику заново и сохраните новый результат.</string>
     <string name="diagnostics_support_details_copied">Сведения об ошибке диагностики скопированы</string>
+    <string name="home_connection_actuator_state_vpn_checking">Локальные процессы запущены; подключение VPN проверяется</string>
+    <string name="home_connection_actuator_state_vpn_unverified">Локальные процессы запущены; работа VPN не подтверждена</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">Локальные процессы запущены; подключение VPN недоступно</string>
 </resources>

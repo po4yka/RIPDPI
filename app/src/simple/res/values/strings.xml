@@ -3,7 +3,7 @@
     <string name="app_name" translatable="false">RIPDPI Quick Connect</string>
     <string name="notification_title" translatable="false">RIPDPI Quick Connect</string>
     <string name="qs_tile_label_disconnected" translatable="false">RIPDPI Quick Connect</string>
-    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Connected</string>
+    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Local runtime active</string>
     <string name="simple_title">RIPDPI Quick Connect</string>
     <string name="simple_connect">Connect</string>
     <string name="simple_disconnect">Disconnect</string>
