@@ -544,6 +544,17 @@ fn proxy_snapshot_field_manifest_matches_contract_fixture() {
             policy_signature: Some("sig".to_string()),
             fingerprint_hash: Some("hash".to_string()),
             subsystem: Some("proxy".to_string()),
+            attempt_id: None,
+            attempt_sequence: None,
+            stage: None,
+            outcome: None,
+            duration_ms: None,
+            failure_stage: None,
+            failure_class: None,
+            io_error_kind: None,
+            os_error_code: None,
+            peer_close_phase: None,
+            carrier_disposition: None,
         }],
         latency_distributions: Some(LatencyDistributions {
             dns_resolution: Some(ripdpi_telemetry::LatencyPercentiles {
@@ -597,6 +608,17 @@ fn proxy_event_field_manifest_matches_contract_fixture() {
         fingerprint_hash: Some("hash".to_string()),
         diagnostics_session_id: Some("diag-1".to_string()),
         subsystem: Some("proxy".to_string()),
+        attempt_id: None,
+        attempt_sequence: None,
+        stage: None,
+        outcome: None,
+        duration_ms: None,
+        failure_stage: None,
+        failure_class: None,
+        io_error_kind: None,
+        os_error_code: None,
+        peer_close_phase: None,
+        carrier_disposition: None,
     });
 
     let json = serde_json::to_value(&event).expect("serialize event");

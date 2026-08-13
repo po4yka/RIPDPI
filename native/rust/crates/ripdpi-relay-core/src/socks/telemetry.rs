@@ -7,6 +7,8 @@ pub(crate) struct SocksSessionConfig {
 }
 
 pub(crate) trait SocksTelemetry {
+    fn next_attempt_id(&self) -> u64;
+
     fn record_target(&self, target: String);
 
     fn record_handshake_error(&self, error: String);

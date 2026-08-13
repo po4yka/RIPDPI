@@ -996,7 +996,7 @@ class DiagnosticsArchiveRendererTest {
                 entries.getValue("integrity.json").bytes.decodeToString(),
             )
 
-        assertEquals(14, manifest.schemaVersion)
+        assertEquals(15, manifest.schemaVersion)
         assertTrue(manifest.includedFiles.contains("resolver-trace.jsonl"))
         assertEquals(
             DiagnosticsArchiveSectionStatus.REDACTED,
@@ -1630,7 +1630,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(14, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(15, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -3586,11 +3586,11 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v14.json",
+            "archive/manifest_v15.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/capture_manifest_v14.json",
+            "archive/capture_manifest_v15.json",
             entries.getValue("capture-manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -3606,11 +3606,11 @@ class DiagnosticsArchiveRendererTest {
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v14.json",
+            "archive/completeness_v15.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v14.json",
+            "archive/integrity_v15.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(

@@ -409,6 +409,21 @@ internal fun buildCompleteness(
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
         stageEvidence = selection.buildStageEvidenceCompleteness(),
+        relayAttemptTraces =
+            DiagnosticsArchiveRelayTraceCompleteness(
+                retainedEventCount =
+                    (selection.primaryEvents + selection.globalEvents).count { event ->
+                        !event.connectionSessionId.isNullOrBlank() &&
+                            !event.runtimeId.isNullOrBlank() &&
+                            event.attemptId != null &&
+                            event.attemptSequence != null
+                    },
+                droppedEventCount =
+                    (selection.payload.telemetry + selection.compositeStages.flatMap { it.telemetry })
+                        .groupBy { it.connectionSessionId ?: it.sessionId ?: it.id }
+                        .values
+                        .sumOf { samples -> samples.maxOfOrNull { it.relayNativeEventsDropped } ?: 0 },
+            ),
         collectionWarnings = collectionWarnings,
         truncation = selection.truncation(),
     )

@@ -1,0 +1,10 @@
+{
+    "archiveSchemaVersion": 15,
+    "captureFileLimit": 4,
+    "captureManifestVersion": "capture_manifest_v1",
+    "captures": [],
+    "discoveryDisposition": "empty",
+    "discoveryScope": "recent_completed_packet_captures",
+    "hashAlgorithm": "sha256",
+    "rawArtifactsEmbedded": false
+}

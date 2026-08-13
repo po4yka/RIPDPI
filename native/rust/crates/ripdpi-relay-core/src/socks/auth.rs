@@ -6,6 +6,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
 
 use crate::backend::RelayBackend;
 use crate::socks::connect::handle_connect;
@@ -87,7 +88,11 @@ where
     match command {
         0x01 => {
             telemetry.record_target(target.to_string());
-            handle_connect(client, backend, target, config.confirm_good_eligible, telemetry, cancel).await
+            let traced = config.backend_kind == "vless_reality";
+            let attempt_id = telemetry.next_attempt_id();
+            handle_connect(client, backend, target, config.confirm_good_eligible, traced, telemetry, cancel)
+                .instrument(tracing::info_span!("relay_attempt", attempt_id))
+                .await
         }
         0x03 => handle_udp_associate(client, backend, config, telemetry, cancel).await,
         _ => {

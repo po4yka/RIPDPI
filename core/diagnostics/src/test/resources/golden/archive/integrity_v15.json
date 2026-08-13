@@ -1,0 +1,132 @@
+{
+    "files": [
+        {
+            "byteCount": 2194,
+            "name": "summary.txt",
+            "sha256": "e0767751cf1ebbefe54af4926af34ccd01b14b807a226714313c3632a9833f47"
+        },
+        {
+            "byteCount": 6354,
+            "name": "manifest.json",
+            "sha256": "02ba44646836ff8d0f759c2cd8bd69149bf269d5f6d7f6fb7deee821281099e0"
+        },
+        {
+            "byteCount": 295,
+            "name": "capture-manifest.json",
+            "sha256": "d0865adf7481bb46c72ff850aaecd1389ead8e6f550973b1018a83031cbcc581"
+        },
+        {
+            "byteCount": 51803,
+            "name": "report.json",
+            "sha256": "7159050d42d8d3dfe83668313e76f957b6f2a7b094e48548c2873cdb191c0dcd"
+        },
+        {
+            "byteCount": 528,
+            "name": "target-aliases.json",
+            "sha256": "acaffe62bb04dad0b797ea5298173cb05627a970b15ce145d8a5b0f0e92abf54"
+        },
+        {
+            "byteCount": 31326,
+            "name": "execution-plan.json",
+            "sha256": "2b55a47ef2e4c979553ea3f27626272491a6cf8963004639be3021903d0b780c"
+        },
+        {
+            "byteCount": 130,
+            "name": "capabilities.json",
+            "sha256": "72aa1483d410a724a049d618bcc628d5846cf2ffd65ab78efae6963bb77ed07d"
+        },
+        {
+            "byteCount": 819,
+            "name": "attempts.jsonl",
+            "sha256": "971ae866b66b420079bca35145c2282772caae36532fc05423cb4f947f8ea197"
+        },
+        {
+            "byteCount": 23139,
+            "name": "emission-receipts.jsonl",
+            "sha256": "cf99d15af5adf57ef9d40680f1b07044920f4e04621bb6b21e19f641841ac9e9"
+        },
+        {
+            "byteCount": 0,
+            "name": "protocol-milestones.jsonl",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "byteCount": 666,
+            "name": "resolver-trace.jsonl",
+            "sha256": "f842c63307eb960a8acea546bbcfe5c6882018e2d603ebefb36fc5d8af2dffa7"
+        },
+        {
+            "byteCount": 3116,
+            "name": "decision-trace.json",
+            "sha256": "2d1f761f4b0335f90919ef36b6d0c4d288baa0ac254e97b874c5bbd2a7772c5f"
+        },
+        {
+            "byteCount": 6338,
+            "name": "strategy-matrix.json",
+            "sha256": "eec2938cbb14d034f092fae29f597ae8ae9d0b7d83391ae7078652501fc67c21"
+        },
+        {
+            "byteCount": 994,
+            "name": "archive-provenance.json",
+            "sha256": "9c8cd25501ee71d7869c9f85f2e56909a42ef24f419a649974f2c0abb0b3b537"
+        },
+        {
+            "byteCount": 1413,
+            "name": "runtime-config.json",
+            "sha256": "fdb0fb546b8f4e701524fe6cdecb1d421c3cb6f94cd3067e5d817f8510b4f3dc"
+        },
+        {
+            "byteCount": 7737,
+            "name": "analysis.json",
+            "sha256": "419822adfc1f404cd455e05dfb14a37bdda9ea31849a7dba30d02533fc66d24e"
+        },
+        {
+            "byteCount": 2481,
+            "name": "completeness.json",
+            "sha256": "fcda24aef1074943377cb1459c3ea7feee8b68772f0535aead5020c7e1964b53"
+        },
+        {
+            "byteCount": 1647,
+            "name": "network-snapshots.json",
+            "sha256": "74d700181908a41f68bad11f690d064268bd12c547fa867a9d5b98cd5d925dd9"
+        },
+        {
+            "byteCount": 3701,
+            "name": "diagnostic-context.json",
+            "sha256": "e22d8bf7235ea5f31d4edc28149ad93e24b986efac6581a1c02c370e1478cbf3"
+        },
+        {
+            "byteCount": 154,
+            "name": "developer-analytics.json",
+            "sha256": "1d97526a76c7471fd402f42d004cf16e367a50be63aef4ac13b6469bb06a0746"
+        },
+        {
+            "byteCount": 222,
+            "name": "probe-results.csv",
+            "sha256": "c359a80e4a4b2875f757d124e90c774479cdf377a3bb215857619cd418c65de2"
+        },
+        {
+            "byteCount": 228,
+            "name": "native-events.csv",
+            "sha256": "37ce8d8d0d007dae0924b291cfe39c6b8e09135ba4344c075673b764e95daf0e"
+        },
+        {
+            "byteCount": 0,
+            "name": "relay-attempt-traces.jsonl",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "byteCount": 1231,
+            "name": "telemetry.csv",
+            "sha256": "9f3a0e0842d45b757ce40fdaf8dc9bba6b9b8ec8204e22bf8edc8c1686481c94"
+        },
+        {
+            "byteCount": 47,
+            "name": "logcat.txt",
+            "sha256": "4d66941470cbc7509a74eafca81b9084f11328aea4b80be39fe1e3c875e2c9be"
+        }
+    ],
+    "generatedAt": 42,
+    "hashAlgorithm": "sha256",
+    "schemaVersion": 15
+}

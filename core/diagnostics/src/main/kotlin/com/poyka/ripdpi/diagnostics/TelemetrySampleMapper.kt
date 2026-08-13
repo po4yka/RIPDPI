@@ -61,5 +61,6 @@ internal fun ServiceTelemetrySnapshot.toTelemetrySampleEntity(
         nativeHeapBytes = nativeHeapBytes,
         processRssBytes = processRssBytes,
         relayProtocolKind = relayTelemetry.protocolKind,
+        relayNativeEventsDropped = relayTelemetry.nativeEventsDropped,
         createdAt = createdAt,
     )

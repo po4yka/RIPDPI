@@ -201,6 +201,12 @@ where
 /// Reality uses its own auth model on top of TLS 1.3; the
 /// authentication is the sealed session_id that the patched
 /// BoringSSL callback writes into the ClientHello.
+///
+/// # Cancel safety
+///
+/// conditionally cancel-safe: cancellation may leave a partial TLS handshake
+/// at the peer, but this future exclusively owns and drops the incomplete TCP
+/// stream, which is never resumed or pooled.
 pub async fn connect_reality_tls(
     tcp: TcpStream,
     config: &VlessRealityConfig,
@@ -210,6 +216,12 @@ pub async fn connect_reality_tls(
 
 /// Connect Reality TLS over an arbitrary async transport. Used for
 /// chain-relay (VLESS-over-VLESS).
+///
+/// # Cancel safety
+///
+/// conditionally cancel-safe: cancellation may leave partial TLS bytes on the
+/// supplied transport; the caller must discard it and must not resume or pool
+/// it.
 pub async fn connect_reality_tls_over<S>(transport: S, config: &VlessRealityConfig) -> io::Result<RealityTlsStream<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -217,10 +229,11 @@ where
     connect_reality_tls_inner(transport, config).await
 }
 
-// NOT cancel-safe: if this future is dropped mid-handshake the partial TLS
-// handshake state and the in-flight `tls_stream` are discarded; the caller must
-// restart the connection from scratch rather than resume. (Telemetry only fires
-// after a fully-completed handshake, so a cancelled handshake never miscounts.)
+/// # Cancel safety
+///
+/// conditionally cancel-safe: this function exclusively owns the in-progress
+/// TLS stream. Dropping it discards that stream, and a retry starts from a
+/// fresh transport; no shared TLS state is published before completion.
 async fn connect_reality_tls_inner<S>(stream: S, config: &VlessRealityConfig) -> io::Result<RealityTlsStream<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin,

@@ -1,4 +1,6 @@
 use std::fmt;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use tracing::Subscriber;
 use tracing_subscriber::layer::{Context, Layer};
@@ -17,6 +19,9 @@ where
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
         let mut visitor = MessageFieldFormatter::default();
         event.record(&mut visitor);
+        if visitor.kind().as_deref() == Some("relay_attempt_stage") {
+            return;
+        }
         let metadata = event.metadata();
         let message = visitor.finish(metadata.target());
 
@@ -49,9 +54,33 @@ impl<S> Layer<S> for EventRingLayer
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-    fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
+    fn on_new_span(&self, attrs: &tracing::span::Attributes<'_>, id: &tracing::span::Id, ctx: Context<'_, S>) {
+        let Some(span) = ctx.span(id) else {
+            return;
+        };
         let mut visitor = MessageFieldFormatter::default();
+        attrs.record(&mut visitor);
+        span.extensions_mut().insert(InheritedEventFields::from(&visitor));
+    }
+
+    fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
+        let mut visitor = MessageFieldFormatter::default();
+        let mut attempt_sequence = None;
+        if let Some(scope) = ctx.event_scope(event) {
+            for span in scope.from_root() {
+                if let Some(fields) = span.extensions().get::<InheritedEventFields>() {
+                    visitor.inherit(fields);
+                    if fields.attempt_id.is_some() {
+                        attempt_sequence.clone_from(&fields.attempt_sequence);
+                    }
+                }
+            }
+        }
         event.record(&mut visitor);
+        if visitor.attempt_id.is_some() && visitor.attempt_sequence.is_none() {
+            visitor.attempt_sequence =
+                attempt_sequence.map(|sequence| sequence.fetch_add(1, Ordering::Relaxed).saturating_add(1));
+        }
         let metadata = event.metadata();
         let Some(ring) = visitor.ring().as_deref().and_then(EventRing::from_routing_field) else {
             return;
@@ -71,8 +100,42 @@ where
                 fingerprint_hash: visitor.fingerprint_hash(),
                 diagnostics_session_id: visitor.diagnostics_session_id(),
                 subsystem: visitor.subsystem().or_else(|| Some(ring.default_subsystem().to_string())),
+                attempt_id: visitor.attempt_id,
+                attempt_sequence: visitor.attempt_sequence,
+                stage: visitor.stage.clone(),
+                outcome: visitor.outcome.clone(),
+                duration_ms: visitor.duration_ms,
+                failure_stage: visitor.failure_stage.clone(),
+                failure_class: visitor.failure_class.clone(),
+                io_error_kind: visitor.io_error_kind.clone(),
+                os_error_code: visitor.os_error_code,
+                peer_close_phase: visitor.peer_close_phase.clone(),
+                carrier_disposition: visitor.carrier_disposition.clone(),
             },
         );
+    }
+}
+
+#[derive(Clone, Default)]
+struct InheritedEventFields {
+    ring: Option<String>,
+    subsystem: Option<String>,
+    source: Option<String>,
+    runtime_id: Option<String>,
+    attempt_id: Option<u64>,
+    attempt_sequence: Option<Arc<AtomicU64>>,
+}
+
+impl From<&MessageFieldFormatter> for InheritedEventFields {
+    fn from(visitor: &MessageFieldFormatter) -> Self {
+        Self {
+            ring: visitor.ring.clone(),
+            subsystem: visitor.subsystem.clone(),
+            source: visitor.source.clone(),
+            runtime_id: visitor.runtime_id.clone(),
+            attempt_id: visitor.attempt_id,
+            attempt_sequence: visitor.attempt_id.map(|_| Arc::new(AtomicU64::new(0))),
+        }
     }
 }
 
@@ -93,6 +156,17 @@ pub(crate) struct MessageFieldFormatter {
     policy_signature: Option<String>,
     fingerprint_hash: Option<String>,
     diagnostics_session_id: Option<String>,
+    attempt_id: Option<u64>,
+    attempt_sequence: Option<u64>,
+    stage: Option<String>,
+    outcome: Option<String>,
+    duration_ms: Option<u64>,
+    failure_stage: Option<String>,
+    failure_class: Option<String>,
+    io_error_kind: Option<String>,
+    os_error_code: Option<i32>,
+    peer_close_phase: Option<String>,
+    carrier_disposition: Option<String>,
 }
 
 impl MessageFieldFormatter {
@@ -184,6 +258,24 @@ impl MessageFieldFormatter {
         self.diagnostics_session_id.clone()
     }
 
+    fn inherit(&mut self, inherited: &InheritedEventFields) {
+        if inherited.ring.is_some() {
+            self.ring.clone_from(&inherited.ring);
+        }
+        if inherited.subsystem.is_some() {
+            self.subsystem.clone_from(&inherited.subsystem);
+        }
+        if inherited.source.is_some() {
+            self.source.clone_from(&inherited.source);
+        }
+        if inherited.runtime_id.is_some() {
+            self.runtime_id.clone_from(&inherited.runtime_id);
+        }
+        if inherited.attempt_id.is_some() {
+            self.attempt_id = inherited.attempt_id;
+        }
+    }
+
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
     fn record_value(&mut self, field: &str, value: String) {
         if field != "message" && value.trim().is_empty() {
@@ -203,6 +295,17 @@ impl MessageFieldFormatter {
             "policy_signature" | "policySignature" => self.policy_signature = Some(value),
             "fingerprint_hash" | "fingerprintHash" => self.fingerprint_hash = Some(value),
             "diagnostics_session_id" | "diagnosticsSessionId" => self.diagnostics_session_id = Some(value),
+            "attempt_id" | "attemptId" => self.attempt_id = value.parse().ok(),
+            "attempt_sequence" | "attemptSequence" => self.attempt_sequence = value.parse().ok(),
+            "stage" => self.stage = Some(value),
+            "outcome" => self.outcome = Some(value),
+            "duration_ms" | "durationMs" => self.duration_ms = value.parse().ok(),
+            "failure_stage" | "failureStage" => self.failure_stage = Some(value),
+            "failure_class" | "failureClass" => self.failure_class = Some(value),
+            "io_error_kind" | "ioErrorKind" => self.io_error_kind = Some(value),
+            "os_error_code" | "osErrorCode" => self.os_error_code = value.parse().ok(),
+            "peer_close_phase" | "peerClosePhase" => self.peer_close_phase = Some(value),
+            "carrier_disposition" | "carrierDisposition" => self.carrier_disposition = Some(value),
             _ => self.visible_fields.push((field.to_string(), value)),
         }
     }
@@ -215,6 +318,14 @@ impl tracing::field::Visit for MessageFieldFormatter {
 
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
         self.record_named_str(field.name(), value);
+    }
+
+    fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+        self.record_value(field.name(), value.to_string());
+    }
+
+    fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
+        self.record_value(field.name(), value.to_string());
     }
 }
 

@@ -12,6 +12,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration7To8,
             migration8To9,
             migration9To10,
+            migration10To11,
         )
 }
 
@@ -76,5 +77,24 @@ private val migration9To10 =
                 ON telemetry_samples(diagnosticsRunId, diagnosticsStageKey, createdAt)
                 """.trimIndent(),
             )
+        }
+    }
+
+/** v10 → v11: persist privacy-safe VLESS/Reality relay attempt stage evidence. */
+private val migration10To11 =
+    object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN relayNativeEventsDropped INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN attemptId INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN attemptSequence INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN stage TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN outcome TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN durationMs INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN failureStage TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN failureClass TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN ioErrorKind TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN osErrorCode INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN peerClosePhase TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN carrierDisposition TEXT")
         }
     }

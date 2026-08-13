@@ -147,6 +147,7 @@ enum ResponseHeaderState {
     Header { bytes: [u8; 2], filled: usize },
     Addons { remaining: usize },
     Payload,
+    Failed,
 }
 
 /// Removes the VLESS response header lazily from the first downlink read.
@@ -160,56 +161,113 @@ enum ResponseHeaderState {
 pub struct ResponseHeaderStream<S> {
     inner: S,
     state: ResponseHeaderState,
+    trace_response: bool,
+    stage_started: Option<std::time::Instant>,
+}
+
+impl<S> Drop for ResponseHeaderStream<S> {
+    fn drop(&mut self) {
+        if let Some(started) = self.stage_started.take() {
+            crate::emit_stage("vless_response", "cancelled", started, None, None);
+        }
+    }
 }
 
 impl<S> ResponseHeaderStream<S> {
     pub fn new(inner: S) -> Self {
-        Self { inner, state: ResponseHeaderState::Header { bytes: [0; 2], filled: 0 } }
+        Self {
+            inner,
+            state: ResponseHeaderState::Header { bytes: [0; 2], filled: 0 },
+            trace_response: false,
+            stage_started: None,
+        }
+    }
+
+    pub(crate) fn new_traced(inner: S) -> Self {
+        Self {
+            inner,
+            state: ResponseHeaderState::Header { bytes: [0; 2], filled: 0 },
+            trace_response: true,
+            stage_started: None,
+        }
     }
 }
 
 impl<S: AsyncRead + Unpin> AsyncRead for ResponseHeaderStream<S> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, output: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
+        if output.remaining() == 0 {
+            return Pin::new(&mut this.inner).poll_read(cx, output);
+        }
+        if this.trace_response && this.stage_started.is_none() && !matches!(this.state, ResponseHeaderState::Payload) {
+            let started = std::time::Instant::now();
+            crate::emit_stage("vless_response", "started", started, None, None);
+            this.stage_started = Some(started);
+        }
         loop {
             match &mut this.state {
                 ResponseHeaderState::Header { bytes, filled } => {
                     let mut header = ReadBuf::new(&mut bytes[*filled..]);
-                    ready!(Pin::new(&mut this.inner).poll_read(cx, &mut header))?;
+                    if let Err(error) = ready!(Pin::new(&mut this.inner).poll_read(cx, &mut header)) {
+                        return Poll::Ready(Err(this.fail_response(error, None)));
+                    }
                     let read = header.filled().len();
                     if read == 0 {
-                        return Poll::Ready(Err(io::Error::new(
-                            io::ErrorKind::UnexpectedEof,
-                            "VLESS response ended before its header",
-                        )));
+                        let error =
+                            io::Error::new(io::ErrorKind::UnexpectedEof, "VLESS response ended before its header");
+                        return Poll::Ready(Err(this.fail_response(error, Some("before_vless_response_header"))));
                     }
                     *filled += read;
                     if *filled == bytes.len() {
-                        validate_response_version(bytes[0])
-                            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+                        if let Err(error) = validate_response_version(bytes[0]) {
+                            let error = io::Error::new(io::ErrorKind::InvalidData, error);
+                            return Poll::Ready(Err(this.fail_response(error, Some("during_vless_response_header"))));
+                        }
                         this.state = ResponseHeaderState::Addons { remaining: usize::from(bytes[1]) };
                     }
                 }
                 ResponseHeaderState::Addons { remaining } if *remaining > 0 => {
                     let mut scratch = [0_u8; u8::MAX as usize];
                     let mut addons = ReadBuf::new(&mut scratch[..*remaining]);
-                    ready!(Pin::new(&mut this.inner).poll_read(cx, &mut addons))?;
+                    if let Err(error) = ready!(Pin::new(&mut this.inner).poll_read(cx, &mut addons)) {
+                        return Poll::Ready(Err(this.fail_response(error, None)));
+                    }
                     let read = addons.filled().len();
                     if read == 0 {
-                        return Poll::Ready(Err(io::Error::new(
-                            io::ErrorKind::UnexpectedEof,
-                            "VLESS response ended before its addons",
-                        )));
+                        let error =
+                            io::Error::new(io::ErrorKind::UnexpectedEof, "VLESS response ended before its addons");
+                        return Poll::Ready(Err(this.fail_response(error, Some("during_vless_response_addons"))));
                     }
                     *remaining -= read;
                 }
                 ResponseHeaderState::Addons { remaining: 0 } => {
                     this.state = ResponseHeaderState::Payload;
+                    this.trace_response = false;
+                    if let Some(started) = this.stage_started.take() {
+                        crate::emit_stage("vless_response", "succeeded", started, None, None);
+                    }
                 }
                 ResponseHeaderState::Payload => return Pin::new(&mut this.inner).poll_read(cx, output),
+                ResponseHeaderState::Failed => {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        "VLESS response validation already failed",
+                    )));
+                }
                 ResponseHeaderState::Addons { .. } => unreachable!("guard handles non-empty VLESS addons"),
             }
         }
+    }
+}
+
+impl<S> ResponseHeaderStream<S> {
+    fn fail_response(&mut self, error: io::Error, peer_close_phase: Option<&'static str>) -> io::Error {
+        self.state = ResponseHeaderState::Failed;
+        self.trace_response = false;
+        if let Some(started) = self.stage_started.take() {
+            crate::emit_stage("vless_response", "failed", started, Some(&error), peer_close_phase);
+        }
+        error
     }
 }
 
@@ -488,8 +546,13 @@ fn format_target(host: &str, port: u16) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
-    use tokio::io::AsyncWriteExt;
+    use android_support::{EventRingBuffers, EventRingLayer};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tracing::{Instrument as _, instrument::WithSubscriber as _};
+    use tracing_subscriber::prelude::*;
 
     #[test]
     fn xray_vless_request_version_is_zero() {
@@ -689,6 +752,95 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("unsupported VLESS response version 1"));
+    }
+
+    #[tokio::test]
+    async fn traced_lazy_response_drop_before_read_emits_no_response_stage() {
+        let buffers = EventRingBuffers::default();
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let attempt = tracing::dispatcher::with_default(&dispatch, || relay_attempt_span("lazy-unread"));
+
+        async move {
+            let (client, _server) = tokio::io::duplex(8);
+            drop(ResponseHeaderStream::new_traced(client));
+        }
+        .instrument(attempt)
+        .with_subscriber(dispatch)
+        .await;
+
+        assert!(buffers.drain_relay_for_runtime("lazy-unread").events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn traced_lazy_response_resumes_partial_header_and_emits_one_success() {
+        let buffers = EventRingBuffers::default();
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let attempt = tracing::dispatcher::with_default(&dispatch, || relay_attempt_span("lazy-resume"));
+
+        async move {
+            let (client, mut server) = tokio::io::duplex(16);
+            server.write_all(&[RESPONSE_VERSION]).await.expect("write partial response header");
+            let mut stream = ResponseHeaderStream::new_traced(client);
+            let mut payload = [0_u8; 5];
+            assert!(tokio::time::timeout(Duration::from_millis(5), stream.read(&mut payload)).await.is_err());
+            server.write_all(&[0]).await.expect("finish response header");
+            server.write_all(b"hello").await.expect("write response payload");
+            stream.read_exact(&mut payload).await.expect("resume after cancelled read");
+            assert_eq!(&payload, b"hello");
+        }
+        .instrument(attempt)
+        .with_subscriber(dispatch)
+        .await;
+
+        let outcomes = buffers
+            .drain_relay_for_runtime("lazy-resume")
+            .events
+            .into_iter()
+            .filter(|event| event.stage.as_deref() == Some("vless_response"))
+            .map(|event| event.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes, [Some("started".to_string()), Some("succeeded".to_string())]);
+    }
+
+    #[tokio::test]
+    async fn traced_lazy_response_drop_while_pending_emits_one_cancelled() {
+        let buffers = EventRingBuffers::default();
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let attempt = tracing::dispatcher::with_default(&dispatch, || relay_attempt_span("lazy-cancelled"));
+
+        async move {
+            let (client, _server) = tokio::io::duplex(8);
+            let mut stream = ResponseHeaderStream::new_traced(client);
+            let mut payload = [0_u8; 1];
+            assert!(tokio::time::timeout(Duration::from_millis(5), stream.read(&mut payload)).await.is_err());
+            drop(stream);
+        }
+        .instrument(attempt)
+        .with_subscriber(dispatch)
+        .await;
+
+        let outcomes = buffers
+            .drain_relay_for_runtime("lazy-cancelled")
+            .events
+            .into_iter()
+            .filter(|event| event.stage.as_deref() == Some("vless_response"))
+            .map(|event| event.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes, [Some("started".to_string()), Some("cancelled".to_string())]);
+    }
+
+    fn relay_attempt_span(runtime_id: &'static str) -> tracing::Span {
+        tracing::info_span!(
+            "relay_attempt",
+            ring = "relay",
+            source = "ripdpi-vless",
+            subsystem = "relay",
+            runtime_id,
+            attempt_id = 1_u64,
+        )
     }
 
     #[test]

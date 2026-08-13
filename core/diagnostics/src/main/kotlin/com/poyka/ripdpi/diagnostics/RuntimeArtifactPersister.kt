@@ -513,6 +513,10 @@ private fun runtimeEventDedupeKey(event: NativeSessionEventEntity): String =
         event.fingerprintHash.orEmpty(),
         event.message,
         event.createdAt.toString(),
+        event.attemptId?.toString().orEmpty(),
+        event.attemptSequence?.toString().orEmpty(),
+        event.stage.orEmpty(),
+        event.outcome.orEmpty(),
     ).joinToString(separator = "|")
 
 private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
@@ -543,6 +547,17 @@ private fun NativeRuntimeEvent.toSessionEvent(
         policySignature = policySignature,
         fingerprintHash = fingerprintHash,
         subsystem = subsystem,
+        attemptId = attemptId,
+        attemptSequence = attemptSequence,
+        stage = stage,
+        outcome = outcome,
+        durationMs = durationMs,
+        failureStage = failureStage,
+        failureClass = failureClass,
+        ioErrorKind = ioErrorKind,
+        osErrorCode = osErrorCode,
+        peerClosePhase = peerClosePhase,
+        carrierDisposition = carrierDisposition,
     )
 
 private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {

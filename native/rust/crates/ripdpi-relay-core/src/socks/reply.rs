@@ -3,6 +3,11 @@ use std::net::SocketAddr;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
+/// # Cancel safety
+///
+/// NOT cancel-safe: dropping during `write_all` may leave a prefix of the
+/// SOCKS reply on `stream`; callers must close the stream instead of retrying
+/// the reply on the same connection.
 pub(crate) async fn write_reply<S>(stream: &mut S, reply_code: u8, bound: SocketAddr) -> io::Result<()>
 where
     S: AsyncWrite + Unpin,

@@ -46,7 +46,7 @@ internal class DiagnosticsArchiveCaptureManifestTest : DiagnosticsArchiveExporte
                         zip.getInputStream(zip.getEntry("capture-manifest.json")).bufferedReader().readText(),
                     )
                 assertEquals("capture_manifest_v1", captureManifest.captureManifestVersion)
-                assertEquals(14, captureManifest.archiveSchemaVersion)
+                assertEquals(15, captureManifest.archiveSchemaVersion)
                 assertFalse(captureManifest.rawArtifactsEmbedded)
                 assertEquals(DiagnosticsArchiveCaptureDisposition.CAPTURED, captureManifest.discoveryDisposition)
                 val entry = captureManifest.captures.single()
