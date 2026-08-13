@@ -358,12 +358,15 @@ private fun buildCoordinator(
     return CoordinatorFixture(coordinator, controller, clock, awgSelection, transportFailoverApplyTracker)
 }
 
-private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
+private class RecordingSimpleEgressHealthMemory(
+    private val clock: FailoverClock? = null,
+) : SimpleEgressHealthMemory {
     data class Failure(
         val networkScopeKey: String?,
         val proof: EgressProof,
         val relayKind: String,
         val profileId: String,
+        val recordedAt: Long = 0L,
     )
 
     val failures = mutableListOf<Failure>()
@@ -372,7 +375,17 @@ private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
         networkScopeKey: String?,
         proof: EgressProof,
         candidate: com.poyka.ripdpi.services.InitialRelayCandidate,
-    ): Boolean = false
+    ): Boolean =
+        clock?.let { failoverClock ->
+            failures.any { failure ->
+                failure.networkScopeKey == networkScopeKey &&
+                    failure.proof == proof &&
+                    failure.relayKind == candidate.relayKind &&
+                    failure.profileId == candidate.profileId &&
+                    failoverClock.nowMillis() - failure.recordedAt in
+                    0 until SimpleEgressHealthCache.NegativeCooldownMillis
+            }
+        } ?: false
 
     override fun readWinner(
         networkScopeKey: String?,
@@ -393,7 +406,7 @@ private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
         relayKind: String,
         profileId: String,
     ) {
-        failures += Failure(networkScopeKey, proof, relayKind, profileId)
+        failures += Failure(networkScopeKey, proof, relayKind, profileId, clock?.nowMillis() ?: 0L)
     }
 }
 
@@ -1151,6 +1164,101 @@ class FailoverCoordinatorTest {
             assertEquals(0, controller.startCalls.size)
 
             coordinator.stopObserving()
+        }
+
+    @Test
+    fun `failed active probe quarantines exact effective relay tuple until scoped cooldown expires`() =
+        runTest {
+            val clock = FakeFailoverClock(now = 1_000L)
+            val memory = RecordingSimpleEgressHealthMemory(clock)
+            val relayProfiles =
+                listOf(
+                    RelayProfileRecord(
+                        id = "tcp-only-reality",
+                        kind = RelayKindVlessReality,
+                        udpEnabled = false,
+                    ),
+                    RelayProfileRecord(
+                        id = "udp-fallback",
+                        kind = RelayKindHysteria2,
+                        udpEnabled = true,
+                    ),
+                )
+
+            fun coordinatorFor(
+                networkScopeKey: String,
+                probeSucceeds: Boolean,
+            ): Pair<FailoverCoordinator, FakeServiceStateStore> {
+                val stateStore = FakeServiceStateStore()
+                stateStore.emitTelemetry(runningTelemetry(networkScopeKey = networkScopeKey))
+                val coordinator =
+                    buildCoordinator(
+                        stateStore = stateStore,
+                        clock = clock,
+                        settings = FakeAppSettingsRepository(udpAssociateEnabled = true),
+                        relayProfiles = relayProfiles,
+                        egressProbe =
+                            FailoverEgressProbe { _, requirements ->
+                                assertFalse(requirements.udpAssociate)
+                                FailoverEgressProbeResult(
+                                    succeeded = probeSucceeds,
+                                    failure = "tcp_connect_failed",
+                                )
+                            },
+                        egressHealthMemory = memory,
+                    ).coordinator
+                coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+                return coordinator to stateStore
+            }
+
+            val (failingCoordinator, failingStateStore) =
+                coordinatorFor(networkScopeKey = "network-hash-a", probeSucceeds = false)
+            failingStateStore.emitTelemetry(
+                runningTelemetry(relayHealth = "failed", networkScopeKey = "network-hash-a"),
+            )
+
+            assertEquals(
+                listOf(
+                    RecordingSimpleEgressHealthMemory.Failure(
+                        networkScopeKey = "network-hash-a",
+                        proof = EgressProof.TcpOnly,
+                        relayKind = RelayKindVlessReality,
+                        profileId = "tcp-only-reality",
+                        recordedAt = 1_000L,
+                    ),
+                ),
+                memory.failures,
+            )
+            failingCoordinator.stopObserving()
+            runCurrent()
+
+            val (sameNetworkCoordinator, _) =
+                coordinatorFor(networkScopeKey = "network-hash-a", probeSucceeds = true)
+            val sameNetworkCandidate = sameNetworkCoordinator.activeCandidate.value
+            check(sameNetworkCandidate is FailoverCandidate.Relay)
+            assertEquals("udp-fallback", sameNetworkCandidate.profileId)
+            sameNetworkCoordinator.stopObserving()
+            runCurrent()
+
+            val (otherNetworkCoordinator, otherNetworkStateStore) =
+                coordinatorFor(networkScopeKey = "network-hash-b", probeSucceeds = true)
+            val otherNetworkCandidate = otherNetworkCoordinator.activeCandidate.value
+            check(otherNetworkCandidate is FailoverCandidate.Relay)
+            assertEquals("tcp-only-reality", otherNetworkCandidate.profileId)
+            otherNetworkStateStore.emitTelemetry(
+                runningTelemetry(relayHealth = "failed", networkScopeKey = "network-hash-b"),
+            )
+            assertEquals("A successful confirmation must not add negative evidence", 1, memory.failures.size)
+            otherNetworkCoordinator.stopObserving()
+            runCurrent()
+
+            clock.advance(SimpleEgressHealthCache.NegativeCooldownMillis)
+            val (expiredCoordinator, _) =
+                coordinatorFor(networkScopeKey = "network-hash-a", probeSucceeds = true)
+            val expiredCandidate = expiredCoordinator.activeCandidate.value
+            check(expiredCandidate is FailoverCandidate.Relay)
+            assertEquals("tcp-only-reality", expiredCandidate.profileId)
+            expiredCoordinator.stopObserving()
         }
 
     @Test

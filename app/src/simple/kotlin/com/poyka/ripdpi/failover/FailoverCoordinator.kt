@@ -643,18 +643,6 @@ class FailoverCoordinator
                 return
             }
 
-            if (sustainedXudpFailure && !snapshot.isNetworkHandover()) {
-                val activeRelay = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay
-                if (activeRelay?.relayKind == RelayKindVlessReality) {
-                    egressHealthCache.recordConfirmedFailure(
-                        networkScopeKey = snapshot.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
-                        proof = EgressProof.TcpUdp,
-                        relayKind = activeRelay.relayKind,
-                        profileId = activeRelay.profileId,
-                    )
-                }
-            }
-
             // Still failing. If every candidate was already tried this cycle with none healthy,
             // stay quiet until a healthy emission (above) resets the budget.
             if (backedOff) return
@@ -723,6 +711,14 @@ class FailoverCoordinator
                     FailoverEgressProbeResult(succeeded = false, failure = "probe_error")
                 }
             if (!result.succeeded) {
+                if (!snapshot.isNetworkHandover()) {
+                    egressHealthCache.recordConfirmedFailure(
+                        networkScopeKey = snapshot.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                        proof = EgressProof.from(probeRequirements),
+                        relayKind = active.relayKind,
+                        profileId = active.profileId,
+                    )
+                }
                 Logger.w {
                     "FailoverCoordinator: egress probe failed kind=" +
                         candidates.getOrNull(activeCandidateIndex)?.transportKind().orEmpty() +
