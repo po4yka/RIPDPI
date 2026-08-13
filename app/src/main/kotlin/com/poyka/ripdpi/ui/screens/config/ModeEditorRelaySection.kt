@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -108,8 +109,11 @@ private fun ModeEditorRelayEnabledFields(
     actions: ModeEditorActions,
 ) {
     RipDpiTextField(
-        value = draft.relayProfileId,
-        onValueChange = actions.onRelayProfileIdChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayProfileId,
+                onValueChange = actions.onRelayProfileIdChanged,
+            ),
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_profile_id),
@@ -327,8 +331,11 @@ private fun ModeEditorRelayLocalPortField(
     actions: ModeEditorActions,
 ) {
     RipDpiTextField(
-        value = draft.relayLocalSocksPort,
-        onValueChange = actions.onRelayLocalSocksPortChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayLocalSocksPort,
+                onValueChange = actions.onRelayLocalSocksPortChanged,
+            ),
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_local_port),

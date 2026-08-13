@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.byValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,6 +36,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -43,6 +48,10 @@ import kotlinx.collections.immutable.persistentListOf
 private const val RecoveryActionsStackFontScale = 1.3f
 private val RecoveryActionsSideBySideMinWidth = 320.dp
 private val StrategyConfigActionsSideBySideMinWidth = 320.dp
+private val LuaPathInputTransformation =
+    InputTransformation.byValue { _, proposed -> proposed.toString().boundedUtf8(StrategyConfigMaxLuaPathBytes) }
+private val LuaFunctionInputTransformation =
+    InputTransformation.byValue { _, proposed -> proposed.toString().boundedUtf8(StrategyConfigMaxLuaFunctionBytes) }
 
 internal enum class StrategyConfigSource {
     BuiltIn,
@@ -68,6 +77,7 @@ internal data class StrategyConfigScreenState(
     val isHydrating: Boolean = false,
     val hasHydrationError: Boolean = false,
     val isFinalizingSave: Boolean = false,
+    val replacementRevision: Long = 0,
 )
 
 @Composable
@@ -281,8 +291,12 @@ private fun TextStrategyConfigCard(
                 color = RipDpiThemeTokens.colors.foreground,
             )
             RipDpiConfigTextField(
-                value = state.configText,
-                onValueChange = onConfigTextChanged,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = state.configText,
+                        onValueChange = onConfigTextChanged,
+                        replacementKey = state.replacementRevision,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         placeholder = stringResource(R.string.config_placeholder_chain_dsl),
@@ -297,7 +311,11 @@ private fun TextStrategyConfigCard(
                                 imeAction = ImeAction.Done,
                             ),
                     ),
-                multiline = true,
+                inputTransformation =
+                    InputTransformation.byValue { _, proposed ->
+                        proposed.toString().boundedUtf8(StrategyConfigMaxImportBytes)
+                    },
+                lineLimits = TextFieldLineLimits.MultiLine(),
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.config_save),
@@ -332,11 +350,17 @@ private fun LuaStrategyConfigCard(
     onSave: () -> Unit,
 ) {
     val editingEnabled = !state.isHydrating && !state.isFinalizingSave
+    val (luaPathState, luaFunctionState) =
+        rememberLuaStrategyTextFields(state, onLuaPathChanged, onLuaFunctionChanged)
+    val configTextStyle =
+        RipDpiThemeTokens.type.monoConfig.copy(
+            textAlign = TextAlign.Start,
+            textDirection = TextDirection.Ltr,
+        )
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiConfigTextField(
-                value = state.luaPath,
-                onValueChange = onLuaPathChanged,
+                state = luaPathState,
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.strategy_config_lua_path_label),
@@ -346,17 +370,13 @@ private fun LuaStrategyConfigCard(
                 behavior =
                     RipDpiTextFieldBehavior(
                         enabled = editingEnabled,
-                        textStyle =
-                            RipDpiThemeTokens.type.monoConfig.copy(
-                                textAlign = TextAlign.Start,
-                                textDirection = TextDirection.Ltr,
-                            ),
+                        textStyle = configTextStyle,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     ),
+                inputTransformation = LuaPathInputTransformation,
             )
             RipDpiConfigTextField(
-                value = state.luaFunction,
-                onValueChange = onLuaFunctionChanged,
+                state = luaFunctionState,
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.strategy_config_lua_function_label),
@@ -366,17 +386,14 @@ private fun LuaStrategyConfigCard(
                 behavior =
                     RipDpiTextFieldBehavior(
                         enabled = editingEnabled,
-                        textStyle =
-                            RipDpiThemeTokens.type.monoConfig.copy(
-                                textAlign = TextAlign.Start,
-                                textDirection = TextDirection.Ltr,
-                            ),
+                        textStyle = configTextStyle,
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
                     ),
+                inputTransformation = LuaFunctionInputTransformation,
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.strategy_config_validate_action),
@@ -404,6 +421,23 @@ private fun LuaStrategyConfigCard(
         }
     }
 }
+
+@Composable
+private fun rememberLuaStrategyTextFields(
+    state: StrategyConfigScreenState,
+    onLuaPathChanged: (String) -> Unit,
+    onLuaFunctionChanged: (String) -> Unit,
+): Pair<TextFieldState, TextFieldState> =
+    rememberRipDpiTextFieldState(
+        state.luaPath,
+        onLuaPathChanged,
+        replacementKey = state.replacementRevision,
+    ) to
+        rememberRipDpiTextFieldState(
+            state.luaFunction,
+            onLuaFunctionChanged,
+            replacementKey = state.replacementRevision,
+        )
 
 @Composable
 private fun StrategyConfigActionRows(

@@ -43,6 +43,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldReplacementScope
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -108,34 +110,36 @@ internal fun ModeEditorBody(
     val layout = RipDpiThemeTokens.layout
     val draft = uiState.editingPreset?.draft ?: uiState.draft
 
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(colors.background),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
+    RipDpiTextFieldReplacementScope(replacementKey = uiState.textFieldReplacementRevision) {
+        Box(
             modifier =
-                Modifier
+                modifier
                     .fillMaxSize()
-                    .widthIn(max = layout.formMaxWidth)
-                    .verticalScroll(rememberScrollState())
-                    .padding(
-                        start = layout.horizontalPadding,
-                        top = spacing.sm,
-                        end = layout.horizontalPadding,
-                        bottom = spacing.sm,
-                    ),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                    .background(colors.background),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            ModeEditorIntroCard(uiState = uiState)
-            ModeEditorRecoveryPersistenceBanner(uiState = uiState)
-            ModeEditorValidationBanner(uiState = uiState)
-            ModeEditorModeSection(draft = draft, actions = actions)
-            ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
-            ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
-            ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .widthIn(max = layout.formMaxWidth)
+                        .verticalScroll(rememberScrollState())
+                        .padding(
+                            start = layout.horizontalPadding,
+                            top = spacing.sm,
+                            end = layout.horizontalPadding,
+                            bottom = spacing.sm,
+                        ),
+                verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+            ) {
+                ModeEditorIntroCard(uiState = uiState)
+                ModeEditorRecoveryPersistenceBanner(uiState = uiState)
+                ModeEditorValidationBanner(uiState = uiState)
+                ModeEditorModeSection(draft = draft, actions = actions)
+                ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
+                ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
+                ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
+            }
         }
     }
 }
@@ -237,8 +241,11 @@ private fun ModeEditorNetworkSection(
                 color = colors.mutedForeground,
             )
             RipDpiTextField(
-                value = draft.proxyIp,
-                onValueChange = actions.onProxyIpChanged,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = draft.proxyIp,
+                        onValueChange = actions.onProxyIpChanged,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.bye_dpi_proxy_ip_setting),
@@ -249,8 +256,11 @@ private fun ModeEditorNetworkSection(
                     ),
             )
             RipDpiTextField(
-                value = draft.proxyPort,
-                onValueChange = actions.onProxyPortChanged,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = draft.proxyPort,
+                        onValueChange = actions.onProxyPortChanged,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.ripdpi_proxy_port_setting),
@@ -308,8 +318,11 @@ private fun ModeEditorEngineFields(
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         RipDpiTextField(
-            value = draft.maxConnections,
-            onValueChange = actions.onMaxConnectionsChanged,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = draft.maxConnections,
+                    onValueChange = actions.onMaxConnectionsChanged,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.ripdpi_max_connections_setting),
@@ -323,8 +336,11 @@ private fun ModeEditorEngineFields(
                 ),
         )
         RipDpiTextField(
-            value = draft.bufferSize,
-            onValueChange = actions.onBufferSizeChanged,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = draft.bufferSize,
+                    onValueChange = actions.onBufferSizeChanged,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.ripdpi_buffer_size_setting),
@@ -339,8 +355,11 @@ private fun ModeEditorEngineFields(
         )
         ModeEditorChainFields(draft = draft, uiState = uiState, actions = actions)
         RipDpiTextField(
-            value = draft.defaultTtl,
-            onValueChange = actions.onDefaultTtlChanged,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = draft.defaultTtl,
+                    onValueChange = actions.onDefaultTtlChanged,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.ripdpi_default_ttl_setting),
@@ -423,8 +442,11 @@ private fun ModeEditorOverrideFields(
             }
         }
         RipDpiConfigTextField(
-            value = draft.commandLineArgs,
-            onValueChange = actions.onCommandLineArgsChanged,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = draft.commandLineArgs,
+                    onValueChange = actions.onCommandLineArgsChanged,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.command_line_arguments),

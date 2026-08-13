@@ -35,7 +35,7 @@ internal class DiagnosticsByohCompatibilityController(
     }
 
     fun setUrlPath(value: String) {
-        _tool.value = _tool.value.copy(urlPath = value.ifBlank { "/" }, errorMessage = null)
+        _tool.value = _tool.value.copy(urlPath = value, errorMessage = null)
     }
 
     fun setSyntheticFixtureEnabled(enabled: Boolean) {

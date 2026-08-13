@@ -11,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.fragment.app.FragmentActivity
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.backup.BackupVariant
@@ -20,9 +19,12 @@ import com.poyka.ripdpi.security.BiometricAuthResult
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiSecureTextFieldState
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -125,6 +127,7 @@ internal fun BackupPassphraseDialog(
     onDismiss: () -> Unit,
     confirmation: String? = null,
     onConfirmationChange: (String) -> Unit = {},
+    replacementKey: Any? = null,
 ) {
     val valid =
         passphrase.length >= MinimumBackupPassphraseLength &&
@@ -145,6 +148,7 @@ internal fun BackupPassphraseDialog(
                 value = passphrase,
                 onValueChange = onPassphraseChange,
                 label = stringResource(R.string.backup_encryption_passphrase),
+                replacementKey = replacementKey,
             )
             if (confirmation != null) {
                 SecureBackupTextField(
@@ -154,6 +158,7 @@ internal fun BackupPassphraseDialog(
                     error =
                         stringResource(R.string.backup_encryption_passphrase_mismatch)
                             .takeIf { confirmation.isNotEmpty() && confirmation != passphrase },
+                    replacementKey = replacementKey,
                 )
             }
         }
@@ -166,11 +171,15 @@ private fun SecureBackupTextField(
     onValueChange: (String) -> Unit,
     label: String,
     error: String? = null,
+    replacementKey: Any? = null,
 ) {
-    RipDpiTextField(
-        value = value,
-        onValueChange = onValueChange,
+    RipDpiSecureTextField(
+        state =
+            rememberRipDpiSecureTextFieldState(
+                value = value,
+                onValueChange = onValueChange,
+                replacementKey = replacementKey,
+            ),
         decoration = RipDpiTextFieldDecoration(label = label, errorText = error),
-        behavior = RipDpiTextFieldBehavior(visualTransformation = PasswordVisualTransformation()),
     )
 }

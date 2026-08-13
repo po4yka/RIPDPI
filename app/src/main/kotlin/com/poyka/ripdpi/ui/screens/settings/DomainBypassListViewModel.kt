@@ -19,6 +19,7 @@ data class DomainBypassListUiState(
     val text: String = "",
     val hasRule: Boolean = false,
     val isDraftInitialized: Boolean = false,
+    val replacementRevision: Long = 0,
 )
 
 /**
@@ -46,6 +47,7 @@ class DomainBypassListViewModel
                                 text = boundedDomainBypassDraft(DomainBypassList.toEditorText(rule)),
                                 hasRule = rule != null,
                                 isDraftInitialized = true,
+                                replacementRevision = current.replacementRevision + 1,
                             )
                         }
                     }
@@ -63,7 +65,17 @@ class DomainBypassListViewModel
         }
 
         fun clearDraft() {
-            updateDraft("")
+            replaceDraft("")
+        }
+
+        fun replaceDraft(text: String) {
+            _uiState.update {
+                it.copy(
+                    text = boundedDomainBypassDraft(text),
+                    isDraftInitialized = true,
+                    replacementRevision = it.replacementRevision + 1,
+                )
+            }
         }
 
         /** Compiles and persists the retained draft as the single managed bypass rule. */

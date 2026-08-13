@@ -41,6 +41,9 @@ private fun createBaseActions(
         onMaxConnectionsChanged = { viewModel.updateDraft { copy(maxConnections = it) } },
         onBufferSizeChanged = { viewModel.updateDraft { copy(bufferSize = it) } },
         onChainDslChanged = viewModel::updateChainDsl,
+        onChainDslReplaced = { value ->
+            viewModel.updateDraft(isTextFieldReplacement = true) { withChainDsl(value) }
+        },
         onDefaultTtlChanged = { viewModel.updateDraft { copy(defaultTtl = it) } },
         onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
         onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },

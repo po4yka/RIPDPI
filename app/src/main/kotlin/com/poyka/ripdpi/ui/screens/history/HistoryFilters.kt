@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -18,6 +22,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -46,6 +51,7 @@ internal fun FilterCard(
     autoScrollTestTag: String? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    var searchReplacementRevision by remember { mutableLongStateOf(0L) }
     val hasActiveFilters =
         searchValue.isNotBlank() || primaryFilter.selected != null || secondaryFilter.selected != null
 
@@ -67,15 +73,24 @@ internal fun FilterCard(
                     color = RipDpiThemeTokens.colors.info,
                     modifier =
                         Modifier
-                            .ripDpiClickable(role = Role.Button, onClick = onClearFilters)
-                            .padding(horizontal = spacing.sm, vertical = spacing.xs)
+                            .ripDpiClickable(
+                                role = Role.Button,
+                                onClick = {
+                                    searchReplacementRevision++
+                                    onClearFilters()
+                                },
+                            ).padding(horizontal = spacing.sm, vertical = spacing.xs)
                             .ripDpiTestTag(RipDpiTestTags.HistoryFilterClearAll),
                 )
             }
         }
         RipDpiTextField(
-            value = searchValue,
-            onValueChange = onSearch,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = searchValue,
+                    onValueChange = onSearch,
+                    replacementKey = searchReplacementRevision,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.diagnostics_search_label),

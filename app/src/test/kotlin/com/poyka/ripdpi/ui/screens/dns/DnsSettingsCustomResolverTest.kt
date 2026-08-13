@@ -79,6 +79,7 @@ class DnsSettingsCustomResolverTest {
         composeRule.setContent {
             RipDpiTheme {
                 CustomEncryptedDnsSection(
+                    replacementKey = testDnsReplacementKey(),
                     uiState =
                         SettingsUiState(
                             dns =
@@ -126,6 +127,7 @@ class DnsSettingsCustomResolverTest {
         composeRule.setContent {
             RipDpiTheme {
                 CustomEncryptedDnsSection(
+                    replacementKey = testDnsReplacementKey(),
                     uiState =
                         SettingsUiState(
                             dns =
@@ -168,3 +170,16 @@ class DnsSettingsCustomResolverTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
     }
 }
+
+private fun testDnsReplacementKey() =
+    DnsSettingsReplacementKey(
+        plainDns = Unit,
+        dohUrl = Unit,
+        dotHost = Unit,
+        dnsCryptHost = Unit,
+        port = Unit,
+        tlsServerName = Unit,
+        bootstrap = Unit,
+        dnsCryptProvider = Unit,
+        dnsCryptPublicKey = Unit,
+    )

@@ -72,6 +72,7 @@ data class AmneziaWgProfileUiState(
      * when the service layer cannot reach readiness; the next edit or Connect tap clears it.
      */
     val activationStatus: AwgActivationStatus = AwgActivationStatus.Idle,
+    val editorReplacementRevision: Long = 0,
 )
 
 /**
@@ -120,7 +121,10 @@ class AmneziaWgProfileViewModel
          * and clears a stale [AwgActivationStatus.Failed] (the user is changing input, so the
          * previous failure no longer describes the current form).
          */
-        private inline fun mutateEditor(crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState) {
+        private inline fun mutateEditor(
+            isReplacement: Boolean = false,
+            crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState,
+        ) {
             _uiState.update {
                 val nextEditor = transform(it.editor)
                 it.copy(
@@ -132,6 +136,8 @@ class AmneziaWgProfileViewModel
                         } else {
                             it.activationStatus
                         },
+                    editorReplacementRevision =
+                        it.editorReplacementRevision + if (isReplacement && nextEditor != it.editor) 1 else 0,
                 )
             }
         }
@@ -157,7 +163,7 @@ class AmneziaWgProfileViewModel
                 return
             }
             val preset = catalog.find(cohortId) ?: return
-            mutateEditor { it.selectCohort(preset) }
+            mutateEditor(isReplacement = true) { it.selectCohort(preset) }
         }
 
         /**
@@ -173,7 +179,7 @@ class AmneziaWgProfileViewModel
          * vanilla WireGuard config leaves the editor unchanged.
          */
         fun onConfPasted(conf: String) {
-            mutateEditor { it.populateFromConf(conf, catalog) }
+            mutateEditor(isReplacement = true) { it.populateFromConf(conf, catalog) }
         }
 
         /**

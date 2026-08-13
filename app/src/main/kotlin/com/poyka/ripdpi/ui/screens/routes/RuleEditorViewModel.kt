@@ -47,6 +47,7 @@ data class RuleEditorUiState(
     val outboundTargets: ImmutableList<OutboundTarget> = persistentListOf(),
     val installedApps: ImmutableList<InstalledAppItem> = persistentListOf(),
     val loaded: Boolean = false,
+    val textFieldReplacementRevision: Long = 0,
 ) {
     /**
      * True when every matcher field is empty. An empty rule cannot be saved even when it has a name
@@ -113,6 +114,7 @@ class RuleEditorViewModel
                             outboundTargets = targets.toImmutableList(),
                             installedApps = apps.toImmutableList(),
                             loaded = true,
+                            textFieldReplacementRevision = current.textFieldReplacementRevision + 1,
                         )
                     } else {
                         current.copy(
@@ -120,6 +122,7 @@ class RuleEditorViewModel
                             outboundTargets = targets.toImmutableList(),
                             installedApps = apps.toImmutableList(),
                             loaded = true,
+                            textFieldReplacementRevision = current.textFieldReplacementRevision + 1,
                         )
                     }
                 }

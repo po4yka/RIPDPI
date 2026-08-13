@@ -8,8 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.byValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,7 +23,6 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.LanguagePickerSheet
@@ -35,15 +35,20 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiSecureTextFieldState
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
+
+private const val SettingsBackupPinLength = 4
 
 @Composable
 internal fun SettingsConnectivitySection(
@@ -268,6 +273,7 @@ private fun SecurityToggleRows(
     ) {
         BackupPinEditor(
             value = localState.backupPinDraft,
+            replacementKey = localState.backupPinReplacementRevision,
             errorText = localState.pinErrorText,
             hasSavedPin = uiState.hasBackupPin,
             onValueChange = localState.onBackupPinDraftChanged,
@@ -451,9 +457,11 @@ internal fun SettingsPermissionsSection(
 @Composable
 internal fun SettingsSupportSection(
     communityApiUrlDraft: String,
+    communityApiUrlReplacementKey: Any,
     appVersionName: String,
     actions: SettingsScreenActions,
     onCommunityApiUrlDraftChanged: (String) -> Unit,
+    onCommunityApiUrlDraftReset: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
 
@@ -482,10 +490,11 @@ internal fun SettingsSupportSection(
         )
         CommunityApiUrlEditor(
             value = communityApiUrlDraft,
+            replacementKey = communityApiUrlReplacementKey,
             onValueChange = onCommunityApiUrlDraftChanged,
             onSave = { actions.onCommunityApiUrlChanged(communityApiUrlDraft) },
             onReset = {
-                onCommunityApiUrlDraftChanged("")
+                onCommunityApiUrlDraftReset()
                 actions.onCommunityApiUrlChanged("")
             },
         )
@@ -569,6 +578,7 @@ private fun SettingsSection(
 @Composable
 private fun BackupPinEditor(
     value: String,
+    replacementKey: Any,
     errorText: String?,
     hasSavedPin: Boolean,
     onValueChange: (String) -> Unit,
@@ -591,19 +601,18 @@ private fun BackupPinEditor(
             style = type.body,
             color = colors.mutedForeground,
         )
-        RipDpiTextField(
-            value = value,
-            onValueChange = onValueChange,
+        RipDpiSecureTextField(
+            state =
+                rememberRipDpiSecureTextFieldState(
+                    value = value,
+                    onValueChange = onValueChange,
+                    replacementKey = replacementKey,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.biometric_prompt_pin_label),
                     placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
-                    helperText =
-                        if (hasSavedPin && errorText == null && value.length == 4) {
-                            stringResource(R.string.settings_backup_pin_helper_saved)
-                        } else {
-                            stringResource(R.string.biometric_prompt_pin_helper)
-                        },
+                    helperText = backupPinHelperText(hasSavedPin, errorText, value),
                     errorText = errorText,
                     testTag = RipDpiTestTags.SettingsBackupPinField,
                 ),
@@ -614,16 +623,16 @@ private fun BackupPinEditor(
                             keyboardType = KeyboardType.NumberPassword,
                             imeAction = ImeAction.Done,
                         ),
-                    keyboardActions =
-                        KeyboardActions(
-                            onDone = {
-                                if (canSave) {
-                                    onSave()
-                                }
-                            },
-                        ),
-                    visualTransformation = PasswordVisualTransformation(),
                 ),
+            onKeyboardAction = {
+                if (canSave) {
+                    onSave()
+                }
+            },
+            inputTransformation =
+                InputTransformation.byValue { _, proposed ->
+                    proposed.filter(Char::isDigit).take(SettingsBackupPinLength)
+                },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -654,6 +663,20 @@ private fun BackupPinEditor(
 }
 
 @Composable
+private fun backupPinHelperText(
+    hasSavedPin: Boolean,
+    errorText: String?,
+    value: String,
+): String =
+    stringResource(
+        if (hasSavedPin && errorText == null && value.length == SettingsBackupPinLength) {
+            R.string.settings_backup_pin_helper_saved
+        } else {
+            R.string.biometric_prompt_pin_helper
+        },
+    )
+
+@Composable
 private fun FullTunnelHelperFooter(
     visible: Boolean,
     @StringRes textRes: Int,
@@ -676,6 +699,7 @@ private fun FullTunnelHelperFooter(
 @Composable
 private fun CommunityApiUrlEditor(
     value: String,
+    replacementKey: Any,
     onValueChange: (String) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
@@ -691,8 +715,12 @@ private fun CommunityApiUrlEditor(
             color = colors.foreground,
         )
         RipDpiTextField(
-            value = value,
-            onValueChange = onValueChange,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = value,
+                    onValueChange = onValueChange,
+                    replacementKey = replacementKey,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.settings_community_api_url_label),
@@ -706,11 +734,8 @@ private fun CommunityApiUrlEditor(
                             keyboardType = KeyboardType.Uri,
                             imeAction = ImeAction.Done,
                         ),
-                    keyboardActions =
-                        KeyboardActions(
-                            onDone = { onSave() },
-                        ),
                 ),
+            onKeyboardAction = { onSave() },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),

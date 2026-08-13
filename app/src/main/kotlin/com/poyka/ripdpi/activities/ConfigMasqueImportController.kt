@@ -184,6 +184,7 @@ private fun updateConfigDraftForSession(
             current.copy(
                 draft = requireNotNull(current.draft).transform(),
                 draftRevision = current.draftRevision + 1,
+                masqueCredentialReplacementRevision = current.masqueCredentialReplacementRevision + 1,
             )
         if (editorSession.compareAndSet(current, updated)) return true
     }

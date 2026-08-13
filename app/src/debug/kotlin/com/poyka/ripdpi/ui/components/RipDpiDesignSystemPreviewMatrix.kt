@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,6 +52,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteAvailabilityState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityKind
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityPill
@@ -256,8 +258,11 @@ private fun RipDpiDesignSystemCatalog(
                         add(
                             "Enabled" to {
                                 RipDpiConfigTextField(
-                                    value = "127.0.0.1",
-                                    onValueChange = {},
+                                    state =
+                                        rememberRipDpiTextFieldState(
+                                            value = "127.0.0.1",
+                                            onValueChange = {},
+                                        ),
                                     decoration =
                                         RipDpiTextFieldDecoration(
                                             label = "Proxy IP",
@@ -269,8 +274,11 @@ private fun RipDpiDesignSystemCatalog(
                         add(
                             "Disabled" to {
                                 RipDpiConfigTextField(
-                                    value = "127.0.0.1",
-                                    onValueChange = {},
+                                    state =
+                                        rememberRipDpiTextFieldState(
+                                            value = "127.0.0.1",
+                                            onValueChange = {},
+                                        ),
                                     decoration =
                                         RipDpiTextFieldDecoration(
                                             label = "Proxy IP",
@@ -284,8 +292,11 @@ private fun RipDpiDesignSystemCatalog(
                             add(
                                 "Focused" to {
                                     RipDpiConfigTextField(
-                                        value = "127.0.0.1",
-                                        onValueChange = {},
+                                        state =
+                                            rememberRipDpiTextFieldState(
+                                                value = "127.0.0.1",
+                                                onValueChange = {},
+                                            ),
                                         decoration =
                                             RipDpiTextFieldDecoration(
                                                 label = "Proxy IP",
@@ -302,8 +313,11 @@ private fun RipDpiDesignSystemCatalog(
                         add(
                             "Error" to {
                                 RipDpiConfigTextField(
-                                    value = "999.0.0.1",
-                                    onValueChange = {},
+                                    state =
+                                        rememberRipDpiTextFieldState(
+                                            value = "999.0.0.1",
+                                            onValueChange = {},
+                                        ),
                                     decoration =
                                         RipDpiTextFieldDecoration(
                                             label = "Proxy IP",
@@ -322,20 +336,26 @@ private fun RipDpiDesignSystemCatalog(
                         add(
                             "Enabled" to {
                                 RipDpiConfigTextField(
-                                    value = "--dpi-desync=fake --dpi-desync-ttl=5",
-                                    onValueChange = {},
+                                    state =
+                                        rememberRipDpiTextFieldState(
+                                            value = "--dpi-desync=fake --dpi-desync-ttl=5",
+                                            onValueChange = {},
+                                        ),
                                     decoration = RipDpiTextFieldDecoration(label = "Command line"),
-                                    multiline = true,
+                                    lineLimits = TextFieldLineLimits.MultiLine(),
                                 )
                             },
                         )
                         add(
                             "Disabled" to {
                                 RipDpiConfigTextField(
-                                    value = "--dpi-desync=fake --dpi-desync-ttl=5",
-                                    onValueChange = {},
+                                    state =
+                                        rememberRipDpiTextFieldState(
+                                            value = "--dpi-desync=fake --dpi-desync-ttl=5",
+                                            onValueChange = {},
+                                        ),
                                     decoration = RipDpiTextFieldDecoration(label = "Command line"),
-                                    multiline = true,
+                                    lineLimits = TextFieldLineLimits.MultiLine(),
                                     behavior = RipDpiTextFieldBehavior(enabled = false),
                                 )
                             },
@@ -344,10 +364,13 @@ private fun RipDpiDesignSystemCatalog(
                             add(
                                 "Focused" to {
                                     RipDpiConfigTextField(
-                                        value = "--dpi-desync=fake --dpi-desync-ttl=5",
-                                        onValueChange = {},
+                                        state =
+                                            rememberRipDpiTextFieldState(
+                                                value = "--dpi-desync=fake --dpi-desync-ttl=5",
+                                                onValueChange = {},
+                                            ),
                                         decoration = RipDpiTextFieldDecoration(label = "Command line"),
-                                        multiline = true,
+                                        lineLimits = TextFieldLineLimits.MultiLine(),
                                         behavior =
                                             RipDpiTextFieldBehavior(
                                                 interactionSource = rememberPreviewInteractionSource(focused = true),
@@ -359,14 +382,17 @@ private fun RipDpiDesignSystemCatalog(
                         add(
                             "Error" to {
                                 RipDpiConfigTextField(
-                                    value = "--broken",
-                                    onValueChange = {},
+                                    state =
+                                        rememberRipDpiTextFieldState(
+                                            value = "--broken",
+                                            onValueChange = {},
+                                        ),
                                     decoration =
                                         RipDpiTextFieldDecoration(
                                             label = "Command line",
                                             errorText = "Option is not supported in this mode",
                                         ),
-                                    multiline = true,
+                                    lineLimits = TextFieldLineLimits.MultiLine(),
                                 )
                             },
                         )
@@ -429,8 +455,11 @@ private fun RipDpiDesignSystemCatalog(
                         },
                         "Text Field" to {
                             RipDpiConfigTextField(
-                                value = "",
-                                onValueChange = {},
+                                state =
+                                    rememberRipDpiTextFieldState(
+                                        value = "",
+                                        onValueChange = {},
+                                    ),
                                 decoration =
                                     RipDpiTextFieldDecoration(
                                         label = "Custom startup command",
@@ -438,7 +467,7 @@ private fun RipDpiDesignSystemCatalog(
                                             "Long commands wrap, but supporting text should remain readable " +
                                                 "at larger scales.",
                                     ),
-                                multiline = true,
+                                lineLimits = TextFieldLineLimits.MultiLine(),
                                 behavior = RipDpiTextFieldBehavior(density = RipDpiControlDensity.Compact),
                             )
                         },

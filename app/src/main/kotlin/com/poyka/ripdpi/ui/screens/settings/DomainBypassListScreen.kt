@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.byValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +39,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -53,6 +57,7 @@ internal data class DomainBypassListScreenState(
     val errors: List<DomainBypassList.BypassListError>,
     val cleanCount: Int,
     val hasRule: Boolean,
+    val replacementRevision: Long = 0,
 )
 
 @Composable
@@ -81,6 +86,7 @@ fun DomainBypassListRoute(
                 errors = compiled.errors,
                 cleanCount = compiled.cleanLines.size,
                 hasRule = uiState.hasRule,
+                replacementRevision = uiState.replacementRevision,
             ),
         onBack = onBack,
         onTextChanged = viewModel::updateDraft,
@@ -106,7 +112,7 @@ fun DomainBypassListRoute(
             if (pasted.isNullOrBlank()) {
                 Toast.makeText(context, R.string.domain_bypass_clipboard_empty, Toast.LENGTH_SHORT).show()
             } else {
-                viewModel.updateDraft(if (uiState.text.isBlank()) pasted else "${uiState.text}\n$pasted")
+                viewModel.replaceDraft(if (uiState.text.isBlank()) pasted else "${uiState.text}\n$pasted")
             }
         },
         onCopyToClipboard = {
@@ -210,8 +216,12 @@ private fun DomainBypassEditorCard(
                 color = RipDpiThemeTokens.colors.foreground,
             )
             RipDpiConfigTextField(
-                value = state.text,
-                onValueChange = onTextChanged,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = state.text,
+                        onValueChange = onTextChanged,
+                        replacementKey = state.replacementRevision,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         placeholder = stringResource(R.string.domain_bypass_placeholder),
@@ -227,7 +237,9 @@ private fun DomainBypassEditorCard(
                                 imeAction = ImeAction.Default,
                             ),
                     ),
-                multiline = true,
+                inputTransformation =
+                    InputTransformation.byValue { _, proposed -> boundedDomainBypassDraft(proposed.toString()) },
+                lineLimits = TextFieldLineLimits.MultiLine(),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),

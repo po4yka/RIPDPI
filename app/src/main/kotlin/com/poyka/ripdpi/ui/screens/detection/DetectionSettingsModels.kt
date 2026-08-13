@@ -168,6 +168,7 @@ data class DetectionSettingsUiState(
     val dnsDirectServers: String = "",
     val dnsDohUrl: String = "",
     val dnsDohBootstrapIps: String = "",
+    val dnsTextReplacementRevision: Long = 0,
     val dnsRouteThroughProxy: Boolean = false,
     val diagnosticRandomHostnamesEnabled: Boolean = false,
     val tlsKeylogPath: String = "",

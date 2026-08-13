@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Text
@@ -48,6 +49,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -70,7 +72,7 @@ internal fun ModeEditorChainBlockEditor(
             draft = draft,
             chainState = chainState,
             enabled = !chainOverridden,
-            onChainChanged = actions.onChainDslChanged,
+            onChainChanged = actions.onChainDslReplaced,
         )
         if (chainOverridden) {
             Text(
@@ -88,8 +90,11 @@ internal fun ModeEditorChainBlockEditor(
         )
         if (showRawEditor) {
             RipDpiConfigTextField(
-                value = draft.chainDsl,
-                onValueChange = actions.onChainDslChanged,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = draft.chainDsl,
+                        onValueChange = actions.onChainDslChanged,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         label =
@@ -105,7 +110,7 @@ internal fun ModeEditorChainBlockEditor(
                             validationMessage(uiState.validationErrors[ConfigFieldStrategyChain] ?: chainState.error),
                         testTag = RipDpiTestTags.ModeEditorChainDsl,
                     ),
-                multiline = true,
+                lineLimits = TextFieldLineLimits.MultiLine(),
                 behavior =
                     RipDpiTextFieldBehavior(
                         enabled = !chainOverridden,

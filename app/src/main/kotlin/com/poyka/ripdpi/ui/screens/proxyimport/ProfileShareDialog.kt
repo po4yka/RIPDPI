@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,6 +26,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -139,11 +141,15 @@ private fun ShareContent(
         )
     }
     RipDpiTextField(
-        value = shareUri,
-        onValueChange = {},
+        state =
+            rememberRipDpiTextFieldState(
+                value = shareUri,
+                onValueChange = {},
+            ),
         modifier = Modifier.fillMaxWidth(),
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.profile_share_uri_label)),
-        behavior = RipDpiTextFieldBehavior(readOnly = true, singleLine = false),
+        behavior = RipDpiTextFieldBehavior(readOnly = true),
+        lineLimits = TextFieldLineLimits.MultiLine(),
     )
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         RipDpiButton(

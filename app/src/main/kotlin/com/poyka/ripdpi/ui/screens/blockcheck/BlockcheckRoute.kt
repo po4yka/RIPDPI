@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -99,13 +101,17 @@ internal fun BlockcheckScreen(
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 BlockcheckHeader(state = state, onRun = onRun, onCancel = onCancel)
                 RipDpiTextField(
-                    value = state.domains.joinToString("\n"),
-                    onValueChange = onDomainsChanged,
+                    state =
+                        rememberRipDpiTextFieldState(
+                            value = state.domainsText,
+                            onValueChange = onDomainsChanged,
+                        ),
                     decoration =
                         RipDpiTextFieldDecoration(
                             label = stringResource(R.string.blockcheck_domains_label),
                         ),
-                    behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp),
+                    behavior = RipDpiTextFieldBehavior(minHeight = 96.dp),
+                    lineLimits = TextFieldLineLimits.MultiLine(),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (state.isRunning) {

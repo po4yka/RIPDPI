@@ -22,6 +22,7 @@ internal data class StrategyConfigSaveRequest(
 internal data class StrategyConfigEditorSession(
     val baseline: StrategyConfigDraft,
     val draft: StrategyConfigDraft = baseline,
+    val replacementRevision: Long = 0,
     private val nextSaveId: Long = 1L,
     private val activeSaveId: Long? = null,
 ) {
@@ -51,20 +52,33 @@ internal data class StrategyConfigEditorSession(
         source: StrategyConfigSource,
         builtInConfigText: String,
     ): StrategyConfigEditorSession =
-        update {
-            copy(
-                source = source,
-                configText = if (source == StrategyConfigSource.BuiltIn) builtInConfigText else configText,
-            )
-        }
+        copy(
+            draft =
+                draft
+                    .copy(
+                        source = source,
+                        configText =
+                            if (source ==
+                                StrategyConfigSource.BuiltIn
+                            ) {
+                                builtInConfigText
+                            } else {
+                                draft.configText
+                            },
+                    ).bounded(),
+            replacementRevision = replacementRevision + 1,
+        )
 
     fun importConfig(configText: String): StrategyConfigEditorSession =
-        update {
-            copy(
-                source = StrategyConfigSource.CustomYaml,
-                configText = configText,
-            )
-        }
+        copy(
+            draft =
+                draft
+                    .copy(
+                        source = StrategyConfigSource.CustomYaml,
+                        configText = configText,
+                    ).bounded(),
+            replacementRevision = replacementRevision + 1,
+        )
 
     fun toScreenState(
         activePath: String,
@@ -84,15 +98,25 @@ internal data class StrategyConfigEditorSession(
             isHydrating = isHydrating,
             hasHydrationError = hasHydrationError,
             isFinalizingSave = isFinalizingSave,
+            replacementRevision = replacementRevision,
         )
 
     fun syncCleanBuiltIn(configText: String): StrategyConfigEditorSession {
         if (isDirty || draft.source != StrategyConfigSource.BuiltIn) return this
         val synced = draft.copy(configText = configText)
-        return copy(baseline = synced, draft = synced)
+        return copy(
+            baseline = synced,
+            draft = synced,
+            replacementRevision = if (synced == draft) replacementRevision else replacementRevision + 1,
+        )
     }
 
-    fun discardDraft(): StrategyConfigEditorSession = copy(draft = baseline, activeSaveId = null)
+    fun discardDraft(): StrategyConfigEditorSession =
+        copy(
+            draft = baseline,
+            activeSaveId = null,
+            replacementRevision = replacementRevision + 1,
+        )
 
     fun beginSave(): Pair<StrategyConfigEditorSession, StrategyConfigSaveRequest>? {
         if (isSaving) return null

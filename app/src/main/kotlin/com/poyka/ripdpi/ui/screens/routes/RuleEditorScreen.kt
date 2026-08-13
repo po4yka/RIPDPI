@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -152,8 +154,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.identitySection(
     item(key = "rule_editor_identity") {
         RipDpiCard {
             RipDpiTextField(
-                value = state.name,
-                onValueChange = onNameChange,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = state.name,
+                        onValueChange = onNameChange,
+                        replacementKey = state.textFieldReplacementRevision,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.rule_editor_name_label),
@@ -190,24 +196,28 @@ private fun androidx.compose.foundation.lazy.LazyListScope.matchersSection(
                 onValueChange = onDomainsChange,
                 label = stringResource(R.string.rule_editor_domains_label),
                 helperText = stringResource(R.string.rule_editor_domains_helper),
+                replacementKey = state.textFieldReplacementRevision,
             )
             MultilineMatcher(
                 value = state.ipCidrs,
                 onValueChange = onIpCidrsChange,
                 label = stringResource(R.string.rule_editor_ip_label),
                 helperText = stringResource(R.string.rule_editor_ip_helper),
+                replacementKey = state.textFieldReplacementRevision,
             )
             MultilineMatcher(
                 value = state.ports,
                 onValueChange = onPortsChange,
                 label = stringResource(R.string.rule_editor_ports_label),
                 helperText = stringResource(R.string.rule_editor_ports_helper),
+                replacementKey = state.textFieldReplacementRevision,
             )
             MultilineMatcher(
                 value = state.sourcePorts,
                 onValueChange = onSourcePortsChange,
                 label = stringResource(R.string.rule_editor_source_ports_label),
                 helperText = stringResource(R.string.rule_editor_ports_helper),
+                replacementKey = state.textFieldReplacementRevision,
             )
         }
     }
@@ -228,8 +238,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSection(
                 label = stringResource(R.string.rule_editor_network_label),
             )
             RipDpiTextField(
-                value = state.processName,
-                onValueChange = onProcessNameChange,
+                state =
+                    rememberRipDpiTextFieldState(
+                        value = state.processName,
+                        onValueChange = onProcessNameChange,
+                        replacementKey = state.textFieldReplacementRevision,
+                    ),
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.rule_editor_process_label),
@@ -301,10 +315,15 @@ private fun MultilineMatcher(
     onValueChange: (String) -> Unit,
     label: String,
     helperText: String,
+    replacementKey: Any,
 ) {
     RipDpiConfigTextField(
-        value = value,
-        onValueChange = onValueChange,
+        state =
+            rememberRipDpiTextFieldState(
+                value = value,
+                onValueChange = onValueChange,
+                replacementKey = replacementKey,
+            ),
         decoration =
             RipDpiTextFieldDecoration(
                 label = label,
@@ -314,7 +333,7 @@ private fun MultilineMatcher(
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             ),
-        multiline = true,
+        lineLimits = TextFieldLineLimits.MultiLine(),
     )
 }
 

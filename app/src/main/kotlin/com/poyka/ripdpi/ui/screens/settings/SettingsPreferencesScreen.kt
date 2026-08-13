@@ -169,9 +169,11 @@ internal fun SettingsScreen(
         item {
             SettingsSupportSection(
                 communityApiUrlDraft = localState.communityApiUrlDraft,
+                communityApiUrlReplacementKey = localState.communityApiUrlReplacementKey,
                 appVersionName = BuildConfig.VERSION_NAME,
                 actions = actions,
                 onCommunityApiUrlDraftChanged = localState.onCommunityApiUrlDraftChanged,
+                onCommunityApiUrlDraftReset = localState.onCommunityApiUrlDraftReset,
             )
         }
         item { SettingsBackupSection(actions = actions) }

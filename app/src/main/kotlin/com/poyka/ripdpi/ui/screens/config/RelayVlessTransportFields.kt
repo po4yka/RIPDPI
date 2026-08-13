@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -55,8 +56,11 @@ internal fun VlessUuidField(
     actions: RelayVlessActions,
 ) {
     RipDpiTextField(
-        value = draft.relayVlessUuid,
-        onValueChange = actions.onRelayVlessUuidChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayVlessUuid,
+                onValueChange = actions.onRelayVlessUuidChanged,
+            ),
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_vless_uuid)),
     )
 }
@@ -67,13 +71,19 @@ private fun XhttpFields(
     actions: RelayVlessActions,
 ) {
     RipDpiTextField(
-        value = draft.relayXhttpPath,
-        onValueChange = actions.onRelayXhttpPathChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayXhttpPath,
+                onValueChange = actions.onRelayXhttpPathChanged,
+            ),
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_xhttp_path)),
     )
     RipDpiTextField(
-        value = draft.relayXhttpHost,
-        onValueChange = actions.onRelayXhttpHostChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayXhttpHost,
+                onValueChange = actions.onRelayXhttpHostChanged,
+            ),
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_xhttp_host)),
     )
     Text(

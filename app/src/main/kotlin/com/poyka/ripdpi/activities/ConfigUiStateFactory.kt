@@ -119,6 +119,8 @@ internal class ConfigUiStateFactory(
             isEditorSaving = projection.editorState.saveInFlight,
             isEditorImporting = projection.editorState.importInFlight,
             hasEditorRecoveryPersistenceError = projection.editorState.recoveryPersistenceError,
+            textFieldReplacementRevision = projection.editorState.session.textFieldReplacementRevision,
+            masqueCredentialReplacementRevision = projection.editorState.session.masqueCredentialReplacementRevision,
         )
     }
 

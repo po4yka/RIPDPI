@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun MasqueRelayFields(
@@ -18,21 +19,27 @@ internal fun MasqueRelayFields(
     actions: RelayMasqueActions,
 ) {
     RipDpiTextField(
-        value = draft.relayMasqueUrl,
-        onValueChange = actions.onRelayMasqueUrlChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayMasqueUrl,
+                onValueChange = actions.onRelayMasqueUrlChanged,
+            ),
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_url)),
     )
     MasqueAuthModeRow(draft = draft, uiState = uiState, actions = actions)
     MasquePrivacyPassStatus(uiState)
     if (draft.showsMasqueTokenField()) {
         RipDpiTextField(
-            value = draft.relayMasqueAuthToken,
-            onValueChange = actions.onRelayMasqueAuthTokenChanged,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = draft.relayMasqueAuthToken,
+                    onValueChange = actions.onRelayMasqueAuthTokenChanged,
+                ),
             decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_token)),
         )
     }
     if (draft.relayMasqueAuthMode == RelayMasqueAuthModeCloudflareMtls) {
-        MasqueCloudflareMtlsFields(draft = draft, actions = actions)
+        MasqueCloudflareMtlsFields(draft = draft, uiState = uiState, actions = actions)
     }
     RipDpiSwitch(
         checked = draft.relayMasqueUseHttp2Fallback,

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun WebTunnelRelayFields(
@@ -13,8 +14,11 @@ internal fun WebTunnelRelayFields(
     actions: RelayMiscKindActions,
 ) {
     RipDpiTextField(
-        value = draft.relayWebTunnelUrl,
-        onValueChange = actions.onRelayWebTunnelUrlChanged,
+        state =
+            rememberRipDpiTextFieldState(
+                value = draft.relayWebTunnelUrl,
+                onValueChange = actions.onRelayWebTunnelUrlChanged,
+            ),
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.relay_webtunnel_url_label)),
     )
 }

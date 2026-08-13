@@ -5,7 +5,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -302,8 +302,12 @@ private fun PlainDnsEditor(
         color = colors.mutedForeground,
     )
     RipDpiTextField(
-        value = input.plainDnsInput,
-        onValueChange = input.onPlainDnsInputChange,
+        state =
+            rememberRipDpiTextFieldState(
+                value = input.plainDnsInput,
+                onValueChange = input.onPlainDnsInputChange,
+                replacementKey = input.replacementKey.plainDns,
+            ),
         decoration =
             RipDpiTextFieldDecoration(
                 testTag = RipDpiTestTags.DnsPlainAddress,
@@ -329,15 +333,12 @@ private fun PlainDnsEditor(
                         keyboardType = KeyboardType.Ascii,
                         imeAction = ImeAction.Done,
                     ),
-                keyboardActions =
-                    KeyboardActions(
-                        onDone = {
-                            if (validation.plainDnsValid && validation.plainDnsDirty) {
-                                onSavePlainDns(validation.trimmedPlainDns)
-                            }
-                        },
-                    ),
             ),
+        onKeyboardAction = {
+            if (validation.plainDnsValid && validation.plainDnsDirty) {
+                onSavePlainDns(validation.trimmedPlainDns)
+            }
+        },
     )
     RipDpiButton(
         text = stringResource(R.string.config_save),
@@ -372,6 +373,7 @@ private fun EncryptedDnsEditor(
     }
     CustomEncryptedDnsSection(
         uiState = uiState,
+        replacementKey = input.replacementKey,
         dohUrl = input.customDohUrl,
         onDohUrlChange = input.onCustomDohUrlChange,
         dotHost = input.customDotHost,

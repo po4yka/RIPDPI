@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
 
@@ -64,8 +65,11 @@ internal fun ByohCompatibilityCard(
             color = colors.mutedForeground,
         )
         RipDpiTextField(
-            value = tool.dstIp,
-            onValueChange = onDstIpChange,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = tool.dstIp,
+                    onValueChange = onDstIpChange,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.diagnostics_byoh_destination_ip_label),
@@ -74,8 +78,11 @@ internal fun ByohCompatibilityCard(
             behavior = RipDpiTextFieldBehavior(enabled = tool.state != DiagnosticsByohCompatibilityState.Running),
         )
         RipDpiTextField(
-            value = tool.urlPath,
-            onValueChange = onUrlPathChange,
+            state =
+                rememberRipDpiTextFieldState(
+                    value = tool.urlPath,
+                    onValueChange = onUrlPathChange,
+                ),
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.diagnostics_byoh_url_path_label),
