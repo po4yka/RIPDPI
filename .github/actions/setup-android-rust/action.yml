@@ -54,6 +54,10 @@ inputs:
     description: Whether to install the Android NDK when Android SDK setup is enabled
     required: false
     default: "true"
+  android-sdk-cache-enabled:
+    description: Whether to restore or save the Android CLI state cache
+    required: false
+    default: "true"
   embedded-relay-bundle-base64:
     description: Base64-encoded private embedded relay bundle for simple Android variants
     required: false
@@ -130,7 +134,7 @@ runs:
     # from ANDROID_HOME, and a ~/.android cache hit is not installation evidence.
     # A hash of this action file invalidates stale CLI state when commands change.
     - name: Cache Android SDK and NDK
-      if: inputs.skip-android-sdk-ndk != 'true'
+      if: inputs.skip-android-sdk-ndk != 'true' && inputs.android-sdk-cache-enabled == 'true'
       id: cache-android-sdk
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:

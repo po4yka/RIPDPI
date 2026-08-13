@@ -51,6 +51,21 @@ jobs:
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
+      # Cache-aware setup must complete before the pinned external emitter is
+      # checked out and run. This job only consumes caches, but the Android SDK
+      # cache action has a save post-step, so disable it for this boundary.
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          java-version: "21"
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: rust-fleet-fixtures
+          rust-cache-save: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
+          android-sdk-cache-enabled: "false"
+          gradle-cache-read-only: "true"
+
       - name: Check out pinned ripdpi-vpn-deploy emitter
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,17 +94,6 @@ jobs:
         run: |
           scripts/refresh-fleet-fixtures.sh --write
           git diff --exit-code -- core/data/src/test/resources/fleet-fixtures
-
-      - uses: ./.github/actions/setup-android-rust
-        with:
-          java-version: "21"
-          rust-components: ""
-          rust-targets: ""
-          rust-cache-shared-key: rust-fleet-fixtures
-          rust-cache-save: "false"
-          setup-rust: "false"
-          setup-android-ndk: "false"
-          gradle-cache-read-only: "true"
 
       - name: Parse materialized fleet bundles through the app contract
         run: >-
