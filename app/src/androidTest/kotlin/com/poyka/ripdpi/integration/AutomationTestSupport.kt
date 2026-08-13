@@ -10,11 +10,12 @@ import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.automation.AutomationLaunchContract
 import com.poyka.ripdpi.automation.AutomationPermissionPreset
 import com.poyka.ripdpi.automation.AutomationServicePreset
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as createV2AndroidComposeTestRule
 
 internal fun createAutomationComposeRule(
     intent: Intent,
 ): AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity> =
-    AndroidComposeTestRule(
+    createV2AndroidComposeTestRule(
         ActivityScenarioRule<MainActivity>(intent),
     ) { rule ->
         var activity: MainActivity? = null

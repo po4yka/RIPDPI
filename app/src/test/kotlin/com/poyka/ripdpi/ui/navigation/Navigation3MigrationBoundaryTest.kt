@@ -6,6 +6,31 @@ import java.io.File
 
 class Navigation3MigrationBoundaryTest {
     @Test
+    fun `androidTest Compose rule factories use v2 APIs`() {
+        val androidTestRoot = File("src/androidTest")
+        val composeRuleImports =
+            androidTestRoot
+                .walkTopDown()
+                .filter { file -> file.isFile && file.extension == "kt" }
+                .flatMap { file ->
+                    file
+                        .readLines()
+                        .asSequence()
+                        .filter { line -> ComposeRuleFactoryImport.matches(line) }
+                        .map { line -> "${file.relativeTo(androidTestRoot).path}: $line" }
+                }.sorted()
+                .toList()
+
+        assertEquals(
+            "androidTest Compose rule factories must import the v2 test environment APIs",
+            emptyList<String>(),
+            composeRuleImports.filterNot { import ->
+                import.substringAfter(": ").startsWith("import androidx.compose.ui.test.junit4.v2.")
+            },
+        )
+    }
+
+    @Test
     fun `app navigation uses Navigation 3 and keeps typed route keys complete`() {
         val versionCatalog = File("../gradle/libs.versions.toml").readText()
         val appBuild = File("build.gradle.kts").readText()
@@ -82,6 +107,12 @@ class Navigation3MigrationBoundaryTest {
     }
 
     private companion object {
+        val ComposeRuleFactoryImport =
+            Regex(
+                """import androidx\.compose\.ui\.test\.junit4(?:\.v2)?\.""" +
+                    """create(?:Android|Empty)?ComposeRule""",
+            )
+
         val LegacyNavigationApi =
             Regex(
                 listOf(

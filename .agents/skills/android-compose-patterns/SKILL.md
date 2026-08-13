@@ -7,7 +7,7 @@ description: Compose UI, ViewModels, navigation, state, and app-module theming.
 
 ## Overview
 
-RIPDPI uses Jetpack Compose with Material 3 and a sealed-class navigation system. State flows from DataStore through ViewModels to Composables via `StateFlow` + `collectAsStateWithLifecycle()`.
+RIPDPI uses Jetpack Compose with Material 3 and an app-owned Navigation 3 back stack. State flows from DataStore through ViewModels to Composables via `StateFlow` + `collectAsStateWithLifecycle()`.
 
 Diagnostics UI is a current hotspot in this repo. It layers internal UI models over shared diagnostics contracts, exposes stable automation tags through `RipDpiTestTags`, and routes callback-style actions such as opening Advanced Settings or candidate-detail sheets through screen-level parameters.
 
@@ -21,20 +21,24 @@ One-shot effects -> Channel<Effect> -> receiveAsFlow() -> LaunchedEffect collect
 
 ## Navigation
 
-Routes are defined as a sealed class in `app/.../ui/navigation/Route.kt`.
+Routes are serializable `NavKey` leaves in the sealed `Route` hierarchy under `app/.../ui/navigation/Route.kt`. `RipDpiNavigationState` owns the saveable top-level and gate stacks, `RipDpiNavigator` is the only mutation API, and `NavDisplay` renders typed entries from `RipDpiNavHost`.
 
 ### Adding a New Screen
 
-1. Add route to `Route` sealed class with `route` string, `@StringRes titleRes`, optional `icon`
+1. Add an `@Serializable` route leaf with `stableRoute`, `@StringRes titleRes`, and optional `icon`
 2. If top-level: add to `Route.topLevel` list
 3. Add to `Route.all` list
-4. Add `composable(Route.YourRoute.route) { ... }` in `RipDpiNavHost.kt`
-5. Navigate: `navController.navigate(Route.YourRoute.route) { launchSingleTop = true; restoreState = true }`
+4. Add `entry<Route.YourRoute> { ... }` to the `entryProvider` in `RipDpiNavHost.kt`
+5. Route navigation through a screen callback backed by `RipDpiNavigator.navigate(Route.YourRoute)`
+6. Update route-coverage and automation contracts when the destination is externally reachable
 
 ### Navigation Conventions
 
-- Use `launchSingleTop = true` and `restoreState = true` for all navigations
-- Bottom bar shows only for `isTopLevelDestination()` routes
+- Use `navigateTopLevel()` for the four retained top-level stacks; use `navigate(..., singleTop = true)` only when duplicate child entries are invalid
+- Keep onboarding and biometric routes in the separate gate stack; external requests must not bypass an active gate
+- Use `goBack()`, `resetToHome()`, and `replaceAll()` instead of mutating a back stack from a screen
+- Keep route keys serializable and free of secrets; credential-bearing imports pass only opaque process-local tokens
+- Preserve entry saveable state and ViewModel scopes through the Navigation 3 decorators
 - Pass ViewModels to route composables, not raw state
 
 ## ViewModel Pattern
@@ -69,9 +73,16 @@ class ExampleViewModel(application: Application) : AndroidViewModel(application)
 ```kotlin
 // Route composable: connects ViewModel to screen
 @Composable
-fun ExampleRoute(viewModel: ExampleViewModel, navController: NavController) {
+fun ExampleRoute(
+    viewModel: ExampleViewModel,
+    onBack: () -> Unit,
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    ExampleScreen(uiState = uiState, onAction = viewModel::onAction)
+    ExampleScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        onBack = onBack,
+    )
 }
 
 // Screen composable: pure UI, no ViewModel reference

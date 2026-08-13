@@ -6,7 +6,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -396,6 +396,21 @@ class MainActivityNavigationInstrumentedTest {
         }
 
         composeRule.tapBottomNav(Route.Settings)
+        composeRule.assertScreenVisible(Route.Settings)
+    }
+
+    @Test
+    fun activityRecreationPreservesSettingsDnsBackStack() {
+        composeRule.tapBottomNav(Route.Settings)
+        composeRule.assertScreenVisible(Route.Settings)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.assertScreenVisible(Route.DnsSettings)
+
+        composeRule.activityRule.scenario.recreate()
+
+        composeRule.assertScreenVisible(Route.DnsSettings)
+        composeRule.pressBack()
         composeRule.assertScreenVisible(Route.Settings)
     }
 

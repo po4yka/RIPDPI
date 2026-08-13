@@ -360,12 +360,14 @@ class ModeEditorScreenTest {
                     snackbarHostState = SnackbarHostState(),
                     actions =
                         if (stateful) {
+                            val updateChainDsl: (String) -> Unit = {
+                                val updatedDraft = draft.withChainDsl(it)
+                                draft = updatedDraft
+                                onStatefulDraftChanged(updatedDraft)
+                            }
                             actions.copy(
-                                onChainDslChanged = {
-                                    val updatedDraft = draft.withChainDsl(it)
-                                    draft = updatedDraft
-                                    onStatefulDraftChanged(updatedDraft)
-                                },
+                                onChainDslChanged = updateChainDsl,
+                                onChainDslReplaced = updateChainDsl,
                                 onRelayXhttpModeChanged = {
                                     val updatedDraft = draft.copy(relayXhttpMode = it)
                                     draft = updatedDraft
