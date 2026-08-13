@@ -78,6 +78,15 @@ the new archive entry requires schema version 15 and updated fixtures.
   signature are never hash inputs. The signature object stays absent from
   production archives so custom strategy values cannot escape as adjacent
   plaintext evidence.
+- Archive analysis exposes one failure-path provenance record per typed runtime
+  failure sample. Correlation is fail-closed: the snapshot must have
+  `snapshotKind=failure`, the same non-null `connectionSessionId`, and exactly
+  the same `capturedAt` as the telemetry sample. No nearest, passive, or current
+  snapshot fallback is allowed. The projection reuses the identifier-free
+  `NetworkPathSnapshotPair` contract and redacted telemetry fields; raw Android
+  network handles, interfaces, addresses, DNS endpoints, SSIDs, carriers, and
+  network fingerprints remain absent. An unmatched sample is retained with an
+  explicit `unavailable` correlation state.
 - `NativeSessionEventEntity` stores typed fields rather than requiring message
   parsing. Room advances from version 10 to 11 with nullable columns and an
   explicit migration. Existing rows remain valid with null attempt fields.
@@ -139,19 +148,24 @@ the new archive entry requires schema version 15 and updated fixtures.
    `runtime-config.json` payload and teach offline analytics to consume it while
    retaining fallback support for older archives. This additive field requires
    no native, Room, or archive schema-version change.
-3. Add optional native event fields, allowlisted span inheritance,
+3. Correlate persisted failure telemetry with only its exact same-session,
+   same-timestamp failure network snapshot, export the privacy-safe projection
+   through `analysis.json`, and preserve it in offline analytics. This uses
+   existing persistence and requires no native, Room, or archive schema-version
+   change.
+4. Add optional native event fields, allowlisted span inheritance,
    runtime-scoped relay draining, and drop accounting using focused RED/GREEN
    Rust tests.
-4. Emit the direct and multiplexed VLESS/SOCKS stage transitions with one
+5. Emit the direct and multiplexed VLESS/SOCKS stage transitions with one
    attempt-local sequence and focused success, reset, cancellation, reuse, and
    one-shot response tests.
-5. Mirror optional fields in Kotlin, prove older/missing-field decoding, add the
+6. Mirror optional fields in Kotlin, prove older/missing-field decoding, add the
    Room 10-to-11 migration, and persist relay events in live and terminal paths.
-6. Add redaction and ordered `relay-attempt-traces.jsonl` rendering, advance the
+7. Add redaction and ordered `relay-attempt-traces.jsonl` rendering, advance the
    archive schema to 15, and update completeness and archive fixtures. Golden
    fixture regeneration requires explicit user authorization for the affected
    telemetry/archive fixture family.
-7. Run focused Rust tests with `--locked`, Kotlin contract/migration/service/
+8. Run focused Rust tests with `--locked`, Kotlin contract/migration/service/
    archive tests, privacy checks, `cargo fmt`, affected Clippy gates,
    `./gradlew staticAnalysis`, architecture health, task/OpenSpec validation,
    and owner-style review. Hosted CI, physical-device proof, artifact

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
+import com.poyka.ripdpi.data.networkPathMtuBand
 import com.poyka.ripdpi.diagnostics.ConnectivityServiceRuntimeAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.ObservationFact
@@ -17,6 +18,7 @@ private const val AcceptanceMatrixCoverageMin = 75
 private const val AcceptanceWinnerCoverageMin = 60
 private const val RecommendedLatencyBudgetMs = 250L
 private const val InstabilityRetryBudget = 2L
+private const val FailureSnapshotKind = "failure"
 private val KnownRuntimeCapabilityIds =
     setOf(
         "ttl_write",
@@ -57,8 +59,67 @@ internal fun buildAnalysis(
         measurementSnapshot = measurementSnapshot,
         connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
         runtimeSnapshotTimeline = buildRuntimeSnapshotTimeline(selection, redactor),
+        failurePathProvenance = buildFailurePathProvenance(selection, redactor),
     )
 }
+
+private fun buildFailurePathProvenance(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+): List<DiagnosticsArchiveFailurePathProvenanceEntry> =
+    selection.payload.telemetry
+        .asSequence()
+        .filter(TelemetrySampleEntity::isFailureSample)
+        .sortedBy(TelemetrySampleEntity::createdAt)
+        .map { rawSample ->
+            val connectionSessionId = rawSample.connectionSessionId
+            val snapshot =
+                connectionSessionId?.let { owningSessionId ->
+                    selection.recentSnapshots.firstOrNull { candidate ->
+                        candidate.snapshotKind == FailureSnapshotKind &&
+                            candidate.connectionSessionId == owningSessionId &&
+                            candidate.capturedAt == rawSample.createdAt
+                    }
+                }
+            val path =
+                redactor
+                    .decodeNetworkSnapshot(snapshot)
+                    ?.let(redactor::redact)
+                    ?.toFailureNetworkPath()
+            rawSample.redactForArchive().toFailurePathProvenance(snapshot, path)
+        }.toList()
+
+private fun TelemetrySampleEntity.isFailureSample(): Boolean =
+    !failureClass.isNullOrBlank() || !lastFailureClass.isNullOrBlank() || !lastFallbackAction.isNullOrBlank()
+
+private fun TelemetrySampleEntity.toFailurePathProvenance(
+    snapshot: com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity?,
+    networkPath: DiagnosticsArchiveFailureNetworkPath?,
+) = DiagnosticsArchiveFailurePathProvenanceEntry(
+    failureTimestamp = createdAt,
+    failureClass = failureClass ?: lastFailureClass,
+    activeMode = activeMode,
+    networkType = networkType,
+    resolverId = resolverId,
+    resolverProtocol = resolverProtocol,
+    resolverLatencyMs = resolverLatencyMs,
+    networkHandoverClass = networkHandoverClass,
+    networkHandoverState = networkHandoverState,
+    snapshotCorrelation = if (snapshot != null && networkPath != null) "exact" else "unavailable",
+    snapshotCapturedAt = snapshot?.capturedAt.takeIf { networkPath != null },
+    networkPath = networkPath,
+)
+
+private fun com.poyka.ripdpi.diagnostics.NetworkSnapshotModel.toFailureNetworkPath() =
+    DiagnosticsArchiveFailureNetworkPath(
+        transport = transport,
+        networkValidated = networkValidated,
+        captivePortalDetected = captivePortalDetected,
+        mtuBand = networkPathMtuBand(mtu),
+        privateDnsMode = redactPrivateDnsMode(privateDnsMode),
+        pathValidation = pathValidation,
+        pathSnapshots = pathSnapshots,
+    )
 
 private fun buildRuntimeSnapshotTimeline(
     selection: DiagnosticsArchiveSelection,

@@ -190,6 +190,7 @@ internal data class DiagnosticsArchiveSelection(
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
     val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
+    val recentSnapshots: List<NetworkSnapshotEntity> = emptyList(),
 )
 
 internal data class DiagnosticsArchiveRootSourceCounts(

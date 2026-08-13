@@ -1,10 +1,15 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveArchiveWideCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildProvenance
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFailureEnvelope
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFailureNetworkPath
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFailurePathProvenanceEntry
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeLibraryProvenance
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePayload
@@ -23,6 +28,101 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DiagnosticsArchiveAnalysisSupportTest {
+    @Test
+    fun `buildAnalysis binds a failure to its exact privacy safe network path snapshot`() {
+        val expectedSnapshot =
+            networkSnapshotModel(
+                transport = "WIFI",
+                captureGeneration = 11L,
+                vpnGeneration = 7L,
+                underlayGeneration = 8L,
+            )
+        val analysis =
+            buildAnalysis(
+                selectionWithExactFailurePath(expectedSnapshot),
+                DiagnosticsArchiveRedactor(diagnosticsTestJson()),
+            )
+
+        assertEquals(
+            listOf(
+                DiagnosticsArchiveFailurePathProvenanceEntry(
+                    failureTimestamp = 100L,
+                    failureClass = "socket_reset",
+                    activeMode = "VPN",
+                    networkType = "WIFI",
+                    resolverId = "cloudflare",
+                    resolverProtocol = "doh",
+                    resolverLatencyMs = 42L,
+                    networkHandoverClass = "stable",
+                    networkHandoverState = "same_network",
+                    snapshotCorrelation = "exact",
+                    snapshotCapturedAt = 100L,
+                    networkPath =
+                        DiagnosticsArchiveFailureNetworkPath(
+                            transport = "WIFI",
+                            networkValidated = true,
+                            captivePortalDetected = false,
+                            mtuBand = "standard",
+                            privateDnsMode = "strict",
+                            pathValidation = expectedSnapshot.pathValidation,
+                            pathSnapshots = expectedSnapshot.pathSnapshots,
+                        ),
+                ),
+            ),
+            analysis.failurePathProvenance,
+        )
+    }
+
+    @Test
+    fun `buildAnalysis marks path provenance unavailable instead of substituting a newer snapshot`() {
+        val base = selectionWithEvents(emptyList())
+        val failureTelemetry =
+            TelemetrySampleEntity(
+                id = "failure-telemetry",
+                connectionSessionId = "relay-session",
+                connectionState = "Failed",
+                networkType = "WIFI",
+                failureClass = "socket_reset",
+                txPackets = 0L,
+                txBytes = 0L,
+                rxPackets = 0L,
+                rxBytes = 0L,
+                createdAt = 100L,
+            )
+        val newerSnapshot =
+            networkSnapshot(
+                id = "newer-failure-snapshot",
+                connectionSessionId = "relay-session",
+                snapshotKind = "failure",
+                capturedAt = 200L,
+                model = networkSnapshotModel(transport = "CELLULAR", captureGeneration = 12L),
+            )
+        val analysis =
+            buildAnalysis(
+                base.copy(
+                    payload = base.payload.copy(telemetry = listOf(failureTelemetry)),
+                    recentSnapshots = listOf(newerSnapshot),
+                ),
+                DiagnosticsArchiveRedactor(diagnosticsTestJson()),
+            )
+
+        assertEquals(
+            diagnosticsTestJson().parseToJsonElement(
+                """
+                [
+                  {
+                    "failureTimestamp":100,
+                    "failureClass":"socket_reset",
+                    "networkType":"WIFI",
+                    "snapshotCorrelation":"unavailable"
+                  }
+                ]
+                """.trimIndent(),
+            ),
+            diagnosticsTestJson().encodeToJsonElement(analysis).jsonObject["failurePathProvenance"],
+        )
+    }
+
     @Test
     fun `buildAnalysis orders runtime snapshots with temporal provenance`() {
         val analysis =
@@ -60,6 +160,50 @@ class DiagnosticsArchiveAnalysisSupportTest {
                 selectionWithEvents(events),
                 DiagnosticsArchiveRedactor(diagnosticsTestJson()),
             ).failureEnvelope,
+        )
+    }
+
+    private fun selectionWithExactFailurePath(failureSnapshotModel: NetworkSnapshotModel): DiagnosticsArchiveSelection {
+        val base = selectionWithEvents(emptyList())
+        val failureTimestamp = 100L
+        val failureTelemetry =
+            TelemetrySampleEntity(
+                id = "failure-telemetry",
+                connectionSessionId = "relay-session",
+                activeMode = "VPN",
+                connectionState = "Failed",
+                networkType = "WIFI",
+                failureClass = "socket_reset",
+                resolverId = "cloudflare",
+                resolverProtocol = "doh",
+                resolverLatencyMs = 42L,
+                networkHandoverClass = "stable",
+                networkHandoverState = "same_network",
+                txPackets = 1L,
+                txBytes = 2L,
+                rxPackets = 3L,
+                rxBytes = 4L,
+                createdAt = failureTimestamp,
+            )
+        return base.copy(
+            payload = base.payload.copy(telemetry = listOf(failureTelemetry)),
+            recentSnapshots =
+                listOf(
+                    networkSnapshot(
+                        id = "newer-passive-snapshot",
+                        connectionSessionId = null,
+                        snapshotKind = "passive",
+                        capturedAt = 200L,
+                        model = networkSnapshotModel(transport = "CELLULAR", captureGeneration = 12L),
+                    ),
+                    networkSnapshot(
+                        id = "failure-snapshot",
+                        connectionSessionId = "relay-session",
+                        snapshotKind = "failure",
+                        capturedAt = failureTimestamp,
+                        model = failureSnapshotModel,
+                    ),
+                ),
         )
     }
 
@@ -289,4 +433,87 @@ class DiagnosticsArchiveAnalysisSupportTest {
         message = message,
         createdAt = createdAt,
     )
+
+    private fun networkSnapshot(
+        id: String,
+        connectionSessionId: String?,
+        snapshotKind: String,
+        capturedAt: Long,
+        model: NetworkSnapshotModel,
+    ) = NetworkSnapshotEntity(
+        id = id,
+        sessionId = null,
+        connectionSessionId = connectionSessionId,
+        snapshotKind = snapshotKind,
+        payloadJson = diagnosticsTestJson().encodeToString(NetworkSnapshotModel.serializer(), model),
+        capturedAt = capturedAt,
+    )
+
+    private fun networkSnapshotModel(
+        transport: String,
+        captureGeneration: Long,
+        vpnGeneration: Long = 70L,
+        underlayGeneration: Long = 80L,
+    ): NetworkSnapshotModel {
+        val vpn =
+            NetworkPathObservation(
+                association = "active_default",
+                generation = vpnGeneration,
+                transport = "VPN",
+                hasInternet = true,
+                validated = true,
+                captivePortal = false,
+                metered = false,
+                addressFamilies = listOf("ipv4"),
+                defaultRouteFamilies = listOf("ipv4"),
+                dnsServerFamilies = listOf("ipv4"),
+                privateDnsCategory = "strict",
+                mtuBand = "standard",
+            )
+        val underlay =
+            NetworkPathObservation(
+                association = "service_binder",
+                generation = underlayGeneration,
+                transport = transport,
+                hasInternet = true,
+                validated = true,
+                captivePortal = false,
+                metered = false,
+                addressFamilies = listOf("ipv4"),
+                defaultRouteFamilies = listOf("ipv4"),
+                dnsServerFamilies = listOf("ipv4"),
+                privateDnsCategory = "strict",
+                mtuBand = "standard",
+            )
+        return NetworkSnapshotModel(
+            transport = transport,
+            capabilities = listOf("INTERNET", "VALIDATED"),
+            dnsServers = listOf("198.51.100.53"),
+            privateDnsMode = "strict.example.invalid",
+            mtu = 1_500,
+            localAddresses = listOf("192.0.2.10"),
+            publicIp = "203.0.113.10",
+            publicAsn = "AS64500",
+            captivePortalDetected = false,
+            networkValidated = true,
+            pathValidation =
+                NetworkPathValidationEvidence(
+                    captureStatus = "captured",
+                    underlayAssociation = "service_binder",
+                    underlayGeneration = underlayGeneration,
+                    underlayPresent = true,
+                    underlayTransport = transport,
+                    underlayInternet = true,
+                    underlayValidated = true,
+                    underlayCaptivePortal = false,
+                    vpnAssociation = "active_default",
+                    vpnPresent = true,
+                    vpnInternet = true,
+                    vpnValidated = true,
+                    vpnCaptivePortal = false,
+                ),
+            pathSnapshots = NetworkPathSnapshotPair(captureGeneration, vpn, underlay),
+            capturedAt = 999L,
+        )
+    }
 }

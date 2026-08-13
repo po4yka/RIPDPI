@@ -49,6 +49,11 @@ Logcat text.
   allowlisted strategy projection so archives can be compared without exposing
   the projection, raw runtime JSON, endpoints, network identifiers, or
   credentials.
+- `analysis.json` associates every exported runtime failure sample with only an
+  exact same-session, same-timestamp `failure` network snapshot; the projection
+  contains identifier-free VPN/underlay path observations plus available DNS
+  latency and handover state, and marks unmatched evidence unavailable instead
+  of substituting a later snapshot.
 - Collection is bounded and non-blocking, emits no per-packet events, and never
   includes UUIDs, credentials, raw endpoints, ClientHello bytes, payloads, or
   device/network identifiers.

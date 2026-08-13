@@ -133,6 +133,7 @@ class DiagnosticsArchiveSessionSelector
                 includedFiles = includedFiles,
                 logcatSnapshot = sourceData.logcatSnapshot,
                 fileLogSnapshot = sourceData.fileLogSnapshot,
+                recentSnapshots = sourceData.snapshots.take(DiagnosticsArchiveFormat.snapshotLimit),
             )
         }
 

@@ -88,3 +88,17 @@ or credentials as fingerprint material or adjacent evidence.
 
 - **WHEN** two diagnostic archives contain the same effective allowlisted strategy projection
 - **THEN** `runtime-config.json` contains the same effective-configuration fingerprint in both archives and contains no raw signature fields or sensitive source values
+
+### Requirement: REQ-DGN-1786592449526581-008 — Runtime failures retain exact network-path provenance
+
+The implementation MUST associate each exported runtime failure sample only
+with a persisted `failure` network snapshot that has the same connection
+session and capture timestamp, MUST export the snapshot's identifier-free
+VPN/underlay path observations together with available resolver latency and
+network-handover telemetry, and MUST mark provenance unavailable when that exact
+evidence is absent instead of substituting a later network state.
+
+#### Scenario: The runtime stops after a failed relay attempt
+
+- **WHEN** a failure sample and its persisted `failure` network snapshot share an owning connection session and timestamp, while a newer passive snapshot describes a different path
+- **THEN** `analysis.json` correlates the failure with the exact persisted snapshot, excludes raw network identifiers, and does not attribute the newer path to the earlier failure
