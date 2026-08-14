@@ -2093,7 +2093,11 @@ jobs:
       - name: Run Simple experience integration on ${{ matrix.device }}
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple
+          # The preceding Full invocation removes AndroidX Test Orchestrator
+          # packages from the shared emulator. Re-run this invocation's task
+          # graph so AGP installs its test utility before starting Simple.
           ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
+            --rerun-tasks \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
