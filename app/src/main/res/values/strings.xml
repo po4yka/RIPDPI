@@ -435,23 +435,6 @@
     <string name="home_setup_health_collapsed_format">Items needing attention: %1$d</string>
     <string name="home_setup_health_expanded">Review setup items and recovery actions.</string>
     <string name="home_connection_button_connecting">Connecting\u2026</string>
-    <string name="home_connection_actuator_direct">Direct</string>
-    <string name="home_connection_actuator_relay">Relay</string>
-    <string name="home_connection_actuator_state_open">Secure line disengaged</string>
-    <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
-    <string name="home_connection_actuator_state_locked">Secure line locked</string>
-    <string name="home_connection_actuator_state_direct">Direct line locked</string>
-    <string name="home_connection_actuator_state_degraded">Secure line locked, warning at %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Direct line locked, warning at %1$s</string>
-    <string name="home_connection_actuator_state_fault">Secure line fault at %1$s</string>
-    <string name="home_connection_actuator_action_activate">Engage secure line</string>
-    <string name="home_connection_actuator_action_deactivate">Release secure line</string>
-    <string name="home_connection_actuator_action_confirm_release">Tap again to release</string>
-    <string name="home_connection_stage_network">Network</string>
-    <string name="home_connection_stage_dns" translatable="false">DNS</string>
-    <string name="home_connection_stage_handshake">Handshake</string>
-    <string name="home_connection_stage_tunnel">Tunnel</string>
-    <string name="home_connection_stage_route">Route</string>
     <string name="home_overview_title">Overview</string>
     <string name="home_approach_title">Optimization approach</string>
     <string name="home_approach_cta">Open Diagnostics and review approach analytics</string>
@@ -3340,7 +3323,6 @@ Source: %2$s</string>
     <string name="diagnostics_pcap_captures_description">Browse and export recorded PCAP files</string>
     <string name="diagnostics_past_replays_label">Past replays</string>
     <string name="diagnostics_past_replays_description">Review archived replay sessions</string>
-    <string name="home_connection_actuator_action_android_managed">Managed by Android lockdown</string>
     <string name="home_hard_kill_switch_enabled_summary">Android owns the hard kill switch. Disconnect controls are limited while lockdown keeps the VPN lifecycle managed by the system.</string>
     <string name="home_hard_kill_switch_enabled_title">System lockdown enabled</string>
     <string name="home_hard_kill_switch_not_enabled_summary">RIPDPI can run, but Android is not blocking traffic outside the VPN if the tunnel stops.</string>
@@ -3677,11 +3659,6 @@ Source: %2$s</string>
     <string name="stale_tier_aging">aging</string>
     <string name="stale_tier_stale">stale</string>
     <string name="stale_tier_expired">expired</string>
-    <string name="home_connection_stage_state_pending">pending</string>
-    <string name="home_connection_stage_state_active">active</string>
-    <string name="home_connection_stage_state_complete">complete</string>
-    <string name="home_connection_stage_state_warning">warning</string>
-    <string name="home_connection_stage_state_failed">failed</string>
     <string name="cd_port_matrix_cell">%1$s port %2$s %3$s</string>
     <string name="clipboard_label_log_entry">Log entry</string>
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_direct">مباشر</string>
+    <string name="home_connection_actuator_relay">الترحيل</string>
+    <string name="home_connection_actuator_state_open">الخط الآمن غير مُفعّل</string>
+    <string name="home_connection_actuator_state_engaging">الخط الآمن يتصل</string>
+    <string name="home_connection_actuator_state_locked">الخط الآمن مقفل</string>
+    <string name="home_connection_actuator_state_direct">الخط المباشر مقفل</string>
+    <string name="home_connection_actuator_state_degraded">الخط الآمن مقفل، تحذير عند %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">الخط المباشر مقفل، تحذير عند %1$s</string>
+    <string name="home_connection_actuator_state_fault">عطل في الخط الآمن عند %1$s</string>
+    <string name="home_connection_actuator_action_activate">تفعيل الخط الآمن</string>
+    <string name="home_connection_actuator_action_deactivate">تعطيل الخط الآمن</string>
+    <string name="home_connection_actuator_action_confirm_release">اضغط مرة أخرى للتعطيل</string>
+    <string name="home_connection_stage_network">الشبكة</string>
+    <string name="home_connection_stage_handshake">المصافحة</string>
+    <string name="home_connection_stage_tunnel">النفق</string>
+    <string name="home_connection_stage_route">المسار</string>
+    <string name="home_connection_actuator_action_android_managed">مُدار بواسطة قفل Android</string>
+    <string name="home_connection_stage_state_pending">قيد الانتظار</string>
+    <string name="home_connection_stage_state_active">نشط</string>
+    <string name="home_connection_stage_state_complete">مكتمل</string>
+    <string name="home_connection_stage_state_warning">تحذير</string>
+    <string name="home_connection_stage_state_failed">فاشل</string>
+</resources>

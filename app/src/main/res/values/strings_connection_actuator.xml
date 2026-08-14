@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_direct">Direct</string>
+    <string name="home_connection_actuator_relay">Relay</string>
+    <string name="home_connection_actuator_state_open">Secure line disengaged</string>
+    <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
+    <string name="home_connection_actuator_state_locked">Secure line locked</string>
+    <string name="home_connection_actuator_state_direct">Direct line locked</string>
+    <string name="home_connection_actuator_state_degraded">Secure line locked, warning at %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Direct line locked, warning at %1$s</string>
+    <string name="home_connection_actuator_state_fault">Secure line fault at %1$s</string>
+    <string name="home_connection_actuator_action_activate">Engage secure line</string>
+    <string name="home_connection_actuator_action_deactivate">Release secure line</string>
+    <string name="home_connection_actuator_action_confirm_release">Tap again to release</string>
+    <string name="home_connection_stage_network">Network</string>
+    <string name="home_connection_stage_dns" translatable="false">DNS</string>
+    <string name="home_connection_stage_handshake">Handshake</string>
+    <string name="home_connection_stage_tunnel">Tunnel</string>
+    <string name="home_connection_stage_route">Route</string>
+    <string name="home_connection_actuator_action_android_managed">Managed by Android lockdown</string>
+    <string name="home_connection_stage_state_pending">pending</string>
+    <string name="home_connection_stage_state_active">active</string>
+    <string name="home_connection_stage_state_complete">complete</string>
+    <string name="home_connection_stage_state_warning">warning</string>
+    <string name="home_connection_stage_state_failed">failed</string>
+</resources>

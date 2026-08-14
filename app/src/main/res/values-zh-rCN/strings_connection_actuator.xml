@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_direct">直连</string>
+    <string name="home_connection_actuator_relay">中继</string>
+    <string name="home_connection_actuator_state_open">安全线路未启用</string>
+    <string name="home_connection_actuator_state_engaging">安全线路正在接合</string>
+    <string name="home_connection_actuator_state_locked">安全线路已锁定</string>
+    <string name="home_connection_actuator_state_direct">直连线路已锁定</string>
+    <string name="home_connection_actuator_state_degraded">安全线路已锁定，警告于 %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">直连线路已锁定，警告于 %1$s</string>
+    <string name="home_connection_actuator_state_fault">安全线路故障于 %1$s</string>
+    <string name="home_connection_actuator_action_activate">接合安全线路</string>
+    <string name="home_connection_actuator_action_deactivate">释放安全线路</string>
+    <string name="home_connection_actuator_action_confirm_release">再次点按以释放</string>
+    <string name="home_connection_stage_network">网络</string>
+    <string name="home_connection_stage_handshake">握手</string>
+    <string name="home_connection_stage_tunnel">隧道</string>
+    <string name="home_connection_stage_route">路由</string>
+    <string name="home_connection_actuator_action_android_managed">由 Android 锁定管理</string>
+    <string name="home_connection_stage_state_pending">等待中</string>
+    <string name="home_connection_stage_state_active">进行中</string>
+    <string name="home_connection_stage_state_complete">已完成</string>
+    <string name="home_connection_stage_state_warning">警告</string>
+    <string name="home_connection_stage_state_failed">失败</string>
+</resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_action_deactivate">Liberar línea segura</string>
+    <string name="home_connection_actuator_action_confirm_release">Toca de nuevo para liberar</string>
+    <string name="home_connection_actuator_state_engaging">Activando línea segura</string>
+    <string name="home_connection_actuator_state_fault">Fallo de línea segura en %1$s</string>
+    <string name="home_connection_stage_handshake">Handshake</string>
+    <string name="home_connection_actuator_state_locked">Línea segura bloqueada</string>
+    <string name="home_connection_actuator_state_direct">Línea directa bloqueada</string>
+    <string name="home_connection_stage_network">Red</string>
+    <string name="home_connection_actuator_direct">Directo</string>
+    <string name="home_connection_actuator_relay">Relay</string>
+    <string name="home_connection_actuator_state_open">Línea segura desactivada</string>
+    <string name="home_connection_stage_route">Ruta</string>
+    <string name="home_connection_actuator_action_activate">Activar línea segura</string>
+    <string name="home_connection_actuator_state_degraded">Línea segura bloqueada, advertencia a las %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Línea directa bloqueada, advertencia a las %1$s</string>
+    <string name="home_connection_stage_tunnel">Túnel</string>
+    <string name="home_connection_actuator_action_android_managed">Gestionado por bloqueo de Android</string>
+    <string name="home_connection_stage_state_pending">pendiente</string>
+    <string name="home_connection_stage_state_active">activo</string>
+    <string name="home_connection_stage_state_complete">completado</string>
+    <string name="home_connection_stage_state_warning">advertencia</string>
+    <string name="home_connection_stage_state_failed">con error</string>
+</resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_action_deactivate">Libérer la ligne sécurisée</string>
+    <string name="home_connection_actuator_action_confirm_release">Appuyez à nouveau pour libérer</string>
+    <string name="home_connection_actuator_state_engaging">Ligne sécurisée en cours d\'engagement</string>
+    <string name="home_connection_actuator_state_fault">Défaillance de la ligne sécurisée à %1$s</string>
+    <string name="home_connection_stage_handshake">Handshake</string>
+    <string name="home_connection_actuator_state_locked">Ligne sécurisée verrouillée</string>
+    <string name="home_connection_actuator_state_direct">Ligne directe verrouillée</string>
+    <string name="home_connection_stage_network">Réseau</string>
+    <string name="home_connection_actuator_direct">Direct</string>
+    <string name="home_connection_actuator_relay">Relais</string>
+    <string name="home_connection_actuator_state_open">Ligne sécurisée désactivée</string>
+    <string name="home_connection_stage_route">Route</string>
+    <string name="home_connection_actuator_action_activate">Activer la liaison sécurisée</string>
+    <string name="home_connection_actuator_state_degraded">Liaison sécurisée verrouillée, avertissement à %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Liaison directe verrouillée, avertissement à %1$s</string>
+    <string name="home_connection_stage_tunnel">Tunnel</string>
+    <string name="home_connection_actuator_action_android_managed">Géré par le verrouillage Android</string>
+    <string name="home_connection_stage_state_pending">en attente</string>
+    <string name="home_connection_stage_state_active">actif</string>
+    <string name="home_connection_stage_state_complete">terminé</string>
+    <string name="home_connection_stage_state_warning">avertissement</string>
+    <string name="home_connection_stage_state_failed">en échec</string>
+</resources>

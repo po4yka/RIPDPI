@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_action_deactivate">Sichere Leitung freigeben</string>
+    <string name="home_connection_actuator_action_confirm_release">Zum Freigeben erneut tippen</string>
+    <string name="home_connection_actuator_state_engaging">Sichere Leitung wird aufgebaut</string>
+    <string name="home_connection_actuator_state_fault">Sichere Leitung Fehler bei %1$s</string>
+    <string name="home_connection_stage_handshake">Handshake</string>
+    <string name="home_connection_actuator_state_locked">Sichere Verbindung gesperrt</string>
+    <string name="home_connection_actuator_state_direct">Direkte Verbindung gesperrt</string>
+    <string name="home_connection_stage_network">Netzwerk</string>
+    <string name="home_connection_actuator_direct">Direkt</string>
+    <string name="home_connection_actuator_relay">Relay</string>
+    <string name="home_connection_actuator_state_open">Sichere Leitung deaktiviert</string>
+    <string name="home_connection_stage_route">Route</string>
+    <string name="home_connection_actuator_action_activate">Sichere Leitung aktivieren</string>
+    <string name="home_connection_actuator_state_degraded">Sichere Leitung gesperrt, Warnung bei %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Direkte Leitung gesperrt, Warnung bei %1$s</string>
+    <string name="home_connection_stage_tunnel">Tunnel</string>
+    <string name="home_connection_actuator_action_android_managed">Von Android-Sperre verwaltet</string>
+    <string name="home_connection_stage_state_pending">ausstehend</string>
+    <string name="home_connection_stage_state_active">aktiv</string>
+    <string name="home_connection_stage_state_complete">abgeschlossen</string>
+    <string name="home_connection_stage_state_warning">Warnung</string>
+    <string name="home_connection_stage_state_failed">fehlgeschlagen</string>
+</resources>

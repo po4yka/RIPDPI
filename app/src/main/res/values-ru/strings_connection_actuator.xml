@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_action_activate">Замкнуть защищённую линию</string>
+    <string name="home_connection_actuator_action_deactivate">Разомкнуть защищённую линию</string>
+    <string name="home_connection_actuator_action_confirm_release">Нажмите ещё раз, чтобы разомкнуть</string>
+    <string name="home_connection_actuator_direct">Напрямую</string>
+    <string name="home_connection_actuator_relay">Реле</string>
+    <string name="home_connection_actuator_state_degraded">Защищённая линия заблокирована, предупреждение в %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Прямая линия заблокирована, предупреждение в %1$s</string>
+    <string name="home_connection_actuator_state_engaging">Защищённая линия замыкается</string>
+    <string name="home_connection_actuator_state_fault">Сбой защищённой линии в %1$s</string>
+    <string name="home_connection_actuator_state_locked">Защищённая линия заблокирована</string>
+    <string name="home_connection_actuator_state_direct">Прямая линия заблокирована</string>
+    <string name="home_connection_actuator_state_open">Защищённая линия отключена</string>
+    <string name="home_connection_stage_handshake">Рукопожатие</string>
+    <string name="home_connection_stage_network">Сеть</string>
+    <string name="home_connection_stage_route">Маршрут</string>
+    <string name="home_connection_stage_tunnel">Туннель</string>
+    <string name="home_connection_actuator_action_android_managed">Управляется блокировкой Android</string>
+    <string name="home_connection_stage_state_pending">ожидание</string>
+    <string name="home_connection_stage_state_active">активно</string>
+    <string name="home_connection_stage_state_complete">завершено</string>
+    <string name="home_connection_stage_state_warning">предупреждение</string>
+    <string name="home_connection_stage_state_failed">сбой</string>
+</resources>

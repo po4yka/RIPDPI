@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_direct">مستقیم</string>
+    <string name="home_connection_actuator_relay">رله</string>
+    <string name="home_connection_actuator_state_open">خط امن غیرفعال است</string>
+    <string name="home_connection_actuator_state_engaging">خط امن در حال درگیر شدن است</string>
+    <string name="home_connection_actuator_state_locked">خط امن قفل است</string>
+    <string name="home_connection_actuator_state_direct">خط مستقیم قفل است</string>
+    <string name="home_connection_actuator_state_degraded">خط امن قفل است، هشدار در %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">خط مستقیم قفل است، هشدار در %1$s</string>
+    <string name="home_connection_actuator_state_fault">خرابی خط امن در %1$s</string>
+    <string name="home_connection_actuator_action_activate">درگیر کردن خط امن</string>
+    <string name="home_connection_actuator_action_deactivate">رها کردن خط امن</string>
+    <string name="home_connection_actuator_action_confirm_release">برای رها کردن دوباره ضربه بزنید</string>
+    <string name="home_connection_stage_network">شبکه</string>
+    <string name="home_connection_stage_handshake">دست‌دهی</string>
+    <string name="home_connection_stage_tunnel">تونل</string>
+    <string name="home_connection_stage_route">مسیر</string>
+    <string name="home_connection_actuator_action_android_managed">مدیریت‌شده توسط قفل Android</string>
+    <string name="home_connection_stage_state_pending">در انتظار</string>
+    <string name="home_connection_stage_state_active">فعال</string>
+    <string name="home_connection_stage_state_complete">کامل</string>
+    <string name="home_connection_stage_state_warning">هشدار</string>
+    <string name="home_connection_stage_state_failed">ناموفق</string>
+</resources>

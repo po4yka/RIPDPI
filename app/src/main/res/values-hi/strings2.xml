@@ -1401,7 +1401,6 @@
     <string name="diagnostics_pcap_captures_description">रिकॉर्ड की गई PCAP फ़ाइलें ब्राउज़ और निर्यात करें</string>
     <string name="diagnostics_past_replays_label">पिछले रीप्ले</string>
     <string name="diagnostics_past_replays_description">संग्रहित रीप्ले सत्रों की समीक्षा करें</string>
-    <string name="home_connection_actuator_action_android_managed">Android lockdown द्वारा प्रबंधित</string>
     <string name="home_hard_kill_switch_enabled_summary">हार्ड किल स्विच का स्वामित्व Android के पास है। जब तक lockdown VPN जीवनचक्र को सिस्टम द्वारा प्रबंधित रखता है, तब तक डिस्कनेक्ट नियंत्रण सीमित रहते हैं।</string>
     <string name="home_hard_kill_switch_enabled_title">सिस्टम lockdown सक्षम</string>
     <string name="home_hard_kill_switch_not_enabled_summary">RIPDPI चल सकता है, लेकिन यदि टनल रुक जाए तो Android VPN के बाहर के ट्रैफ़िक को अवरुद्ध नहीं कर रहा है।</string>
@@ -1715,11 +1714,6 @@
     <string name="stale_tier_aging">पुराना होता हुआ</string>
     <string name="stale_tier_stale">बासी</string>
     <string name="stale_tier_expired">समय-समाप्त</string>
-    <string name="home_connection_stage_state_pending">लंबित</string>
-    <string name="home_connection_stage_state_active">सक्रिय</string>
-    <string name="home_connection_stage_state_complete">पूर्ण</string>
-    <string name="home_connection_stage_state_warning">चेतावनी</string>
-    <string name="home_connection_stage_state_failed">विफल</string>
     <string name="cd_port_matrix_cell">%1$s पोर्ट %2$s %3$s</string>
     <string name="clipboard_label_log_entry">लॉग प्रविष्टि</string>
 
