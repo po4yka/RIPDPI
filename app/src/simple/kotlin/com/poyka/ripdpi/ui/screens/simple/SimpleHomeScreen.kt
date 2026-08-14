@@ -406,11 +406,14 @@ internal fun SimpleDiagnosticsStatus(
                     enabled = !sheet.shareBusy,
                     variant = RipDpiButtonVariant.Outline,
                 )
+                // Saving is fire-and-forget: it emits an effect that hands the archive to
+                // the system save dialog, which is itself the feedback. There is no save
+                // busy state to reflect, and shareBusy belongs to the share flow -- gating
+                // on it only disabled this button while an unrelated share was in flight.
                 RipDpiButton(
                     modifier = Modifier.fillMaxWidth(),
                     text = stringResource(R.string.diagnostics_save_archive_action),
                     onClick = onSaveReport,
-                    enabled = !sheet.shareBusy,
                     variant = RipDpiButtonVariant.Outline,
                 )
             }

@@ -440,6 +440,43 @@ class SimpleHomeScreenTest {
     }
 
     @Test
+    fun `saving stays available while a share is in flight`() {
+        var saveClicks = 0
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                analysisSheet =
+                    HomeDiagnosticsAnalysisSheetUiState(
+                        runId = "run-1",
+                        headline = "Network analysis complete",
+                        summary = "Two recommended settings are ready to review.",
+                        shareBusy = true,
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                    onSaveReport = { saveClicks += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Share Logs & Results").assertIsNotEnabled()
+        composeRule.onNodeWithText("Save archive").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, saveClicks) }
+    }
+
+    @Test
     @Config(qualifiers = "en-w1200dp-h900dp")
     fun `expanded window splits connection and report into two columns`() {
         composeRule.setContent {
