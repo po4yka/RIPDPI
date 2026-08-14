@@ -32,6 +32,7 @@ internal fun buildHomeDiagnosticsUiState(
             HomeDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_run_analysis),
                 supportingText = availability.analysisSupportingText,
+                stageAnnouncement = availability.analysisStageAnnouncement,
                 enabled = availability.analysisEnabled,
                 busy = availability.analysisBusy,
             ),
@@ -82,6 +83,7 @@ private data class HomeDiagnosticsAvailability(
     val verificationBusy: Boolean,
     val analysisEnabled: Boolean,
     val analysisSupportingText: String,
+    val analysisStageAnnouncement: String,
     val verificationEnabled: Boolean,
     val verificationSupportingText: String,
     val latestAudit: HomeDiagnosticsLatestAuditUiState?,
@@ -117,6 +119,8 @@ private fun resolveHomeDiagnosticsAvailability(
                 verificationBusy,
                 stringResolver,
             ),
+        analysisStageAnnouncement =
+            if (analysisBusy) runtime.analysisStageAnnouncement(stringResolver) else "",
         verificationEnabled =
             !busy && appStatus == AppStatus.Halted && connectionState != ConnectionState.Connecting &&
                 runtime.latestCompositeOutcome?.actionable == true && !fingerprintMismatch,
@@ -194,6 +198,33 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
             )
         }
     return listOfNotNull(stagePrefix, activeRunStageProgress ?: stageLabel)
+        .joinToString(" · ")
+        .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
+}
+
+/**
+ * The screen-reader form of [analysisProgressLabel].
+ *
+ * Deliberately drops `activeRunStageProgress`: that detail ticks continuously, and a
+ * polite live region bound to it would talk over itself. The stage name is kept, so a
+ * screen-reader user hears what is being tested rather than only a counter.
+ */
+private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver: StringResolver): String {
+    if (analysisStarting) {
+        return stringResolver.getString(R.string.home_diagnostics_analysis_starting)
+    }
+    val progress = activeRunProgress
+    val activeStageIndex = progress?.activeStageIndex
+    val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+    val stagePrefix =
+        activeStageIndex?.let {
+            stringResolver.getString(
+                R.string.home_diagnostics_stage_counter,
+                it + 1,
+                progress.stages.size,
+            )
+        }
+    return listOfNotNull(stagePrefix, stageLabel)
         .joinToString(" · ")
         .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
 }

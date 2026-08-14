@@ -215,6 +215,7 @@ class SimpleHomeScreenTest {
                 analysisAction =
                     HomeDiagnosticsActionUiState(
                         supportingText = "Stage 2 of 4 · Testing TLS",
+                        stageAnnouncement = "Stage 2 of 4 · Testing TLS",
                         busy = true,
                     ),
                 analysisProgress =
@@ -254,11 +255,13 @@ class SimpleHomeScreenTest {
             assertEquals(1, toggleClicks)
         }
         composeRule.onNodeWithText("Cancel active scan").assertIsEnabled().performClick()
+        // The stage name survives into the announcement: a screen-reader user hears what is
+        // being tested, not just the counter.
         composeRule
             .onNode(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.StateDescription,
-                    "Stage 2 of 4",
+                    "Stage 2 of 4 · Testing TLS",
                 ),
             ).assert(
                 SemanticsMatcher.expectValue(
@@ -310,6 +313,7 @@ class SimpleHomeScreenTest {
                 analysisAction =
                     HomeDiagnosticsActionUiState(
                         supportingText = "Stage 2 of 4 · Testing TLS",
+                        stageAnnouncement = "Stage 2 of 4 · Testing TLS",
                         busy = true,
                     ),
                 analysisProgress =
@@ -344,7 +348,10 @@ class SimpleHomeScreenTest {
         val scanStatusY =
             composeRule
                 .onNode(
-                    SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Stage 2 of 4"),
+                    SemanticsMatcher.expectValue(
+                        SemanticsProperties.StateDescription,
+                        "Stage 2 of 4 · Testing TLS",
+                    ),
                 ).fetchSemanticsNode()
                 .positionInRoot.y
 

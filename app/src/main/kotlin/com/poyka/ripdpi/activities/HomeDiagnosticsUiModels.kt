@@ -12,6 +12,16 @@ import kotlinx.collections.immutable.persistentListOf
 data class HomeDiagnosticsActionUiState(
     val label: String = "",
     val supportingText: String = "",
+    /**
+     * What a screen reader should hear while the action runs.
+     *
+     * [supportingText] carries a per-stage progress detail that ticks continuously, which
+     * a polite live region would announce over and over. This holds the coarse form --
+     * stage counter plus stage name -- so it changes only when the stage does. Blank when
+     * the action is not running a staged operation, in which case [supportingText] stands
+     * on its own.
+     */
+    val stageAnnouncement: String = "",
     val enabled: Boolean = false,
     val busy: Boolean = false,
 )

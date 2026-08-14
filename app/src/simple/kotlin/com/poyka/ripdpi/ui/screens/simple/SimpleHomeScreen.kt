@@ -363,12 +363,11 @@ internal fun SimpleDiagnosticsStatus(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        val announcement =
-            if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
-                statusLabel.substringBefore(" · ")
-            } else {
-                statusLabel
-            }
+        // The announcement comes from state, not from re-parsing the display string. The
+        // old split on a literal " · " broke in any locale that separates differently and
+        // threw away the stage name, so a screen-reader user heard the counter but never
+        // what was being tested.
+        val announcement = diagnostics.analysisAction.stageAnnouncement.ifBlank { statusLabel }
         val statusModifier =
             if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
                 Modifier.clearAndSetSemantics {
