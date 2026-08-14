@@ -30,7 +30,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -40,11 +39,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
-import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
@@ -96,7 +92,6 @@ fun HomeScreen(
     val colors = RipDpiThemeTokens.colors
     val context = LocalContext.current
     val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
-    val performHaptic = rememberRipDpiHapticPerformer()
 
     RipDpiDashboardScaffold(
         modifier =
@@ -106,29 +101,23 @@ fun HomeScreen(
                 .background(colors.background),
         topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
     ) {
+        // The failure message rides with the control that reports the fault. A
+        // banner underneath repeated the rail's own styling and the pipeline's
+        // failed stage, so one error occupied three surfaces while only the
+        // message and its copy action belonged to the banner exclusively.
+        val faultDetail = uiState.connectionActuator.faultDetail
+        val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
         RipDpiConnectionActuator(
             state = uiState.connectionActuator,
             onActivate = onToggleConnection,
             onDeactivate = onToggleConnection,
             modifier = Modifier.fillMaxWidth(),
+            onCopyFaultDetail =
+                faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
+                    { clipboardManager?.setPrimaryClip(ClipData.newPlainText(errorClipboardLabel, message)) }
+                },
             testTag = RipDpiTestTags.ConnectionActuatorButton,
         )
-
-        if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
-            val errorMessage = uiState.errorMessage
-            val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
-            WarningBanner(
-                title = stringResource(R.string.home_status_error_title),
-                message = errorMessage,
-                tone = WarningBannerTone.Error,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    clipboardManager?.setPrimaryClip(ClipData.newPlainText(errorClipboardLabel, errorMessage))
-                    performHaptic(RipDpiHapticFeedback.Acknowledge)
-                },
-                testTag = RipDpiTestTags.HomeErrorBanner,
-            )
-        }
 
         HomeSetupHealthRow(
             uiState = uiState,
@@ -400,7 +389,7 @@ private fun buildHomeSetupHealthItems(
     }
     // Gated on relevance to the configured path only. Requiring an active VPN
     // card withheld the advisory in exactly the states where it can still be
-    // acted on -- idle, connecting, and a tunnel that just failed.
+    // acted on -- idle, connecting, and a path that just failed.
     if (uiState.hardKillSwitch.visible) {
         items +=
             HomeSetupHealthItem(

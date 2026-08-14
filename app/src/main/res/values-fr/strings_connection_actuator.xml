@@ -2,6 +2,7 @@
 <resources>
     <string name="home_connection_actuator_action_deactivate">Libérer la ligne sécurisée</string>
     <string name="home_connection_actuator_action_confirm_release">Appuyez à nouveau pour libérer</string>
+    <string name="home_connection_actuator_fault_copy">Copier l\'erreur</string>
     <string name="home_connection_actuator_state_engaging">Ligne sécurisée en cours d\'engagement</string>
     <string name="home_connection_actuator_state_fault">Défaillance de la ligne sécurisée à %1$s</string>
     <string name="home_connection_stage_handshake">Handshake</string>

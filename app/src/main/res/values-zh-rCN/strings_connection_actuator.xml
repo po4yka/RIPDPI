@@ -12,6 +12,7 @@
     <string name="home_connection_actuator_action_activate">接合安全线路</string>
     <string name="home_connection_actuator_action_deactivate">释放安全线路</string>
     <string name="home_connection_actuator_action_confirm_release">再次点按以释放</string>
+    <string name="home_connection_actuator_fault_copy">复制错误信息</string>
     <string name="home_connection_stage_network">网络</string>
     <string name="home_connection_stage_handshake">握手</string>
     <string name="home_connection_stage_tunnel">隧道</string>

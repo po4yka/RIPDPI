@@ -3,6 +3,7 @@
     <string name="home_connection_actuator_action_activate">Замкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_deactivate">Разомкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_confirm_release">Нажмите ещё раз, чтобы разомкнуть</string>
+    <string name="home_connection_actuator_fault_copy">Скопировать ошибку</string>
     <string name="home_connection_actuator_direct">Напрямую</string>
     <string name="home_connection_actuator_relay">Реле</string>
     <string name="home_connection_actuator_state_degraded">Защищённая линия заблокирована, предупреждение в %1$s</string>

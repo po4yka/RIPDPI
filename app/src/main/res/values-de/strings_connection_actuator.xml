@@ -2,6 +2,7 @@
 <resources>
     <string name="home_connection_actuator_action_deactivate">Sichere Leitung freigeben</string>
     <string name="home_connection_actuator_action_confirm_release">Zum Freigeben erneut tippen</string>
+    <string name="home_connection_actuator_fault_copy">Fehler kopieren</string>
     <string name="home_connection_actuator_state_engaging">Sichere Leitung wird aufgebaut</string>
     <string name="home_connection_actuator_state_fault">Sichere Leitung Fehler bei %1$s</string>
     <string name="home_connection_stage_handshake">Handshake</string>

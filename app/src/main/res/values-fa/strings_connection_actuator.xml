@@ -12,6 +12,7 @@
     <string name="home_connection_actuator_action_activate">درگیر کردن خط امن</string>
     <string name="home_connection_actuator_action_deactivate">رها کردن خط امن</string>
     <string name="home_connection_actuator_action_confirm_release">برای رها کردن دوباره ضربه بزنید</string>
+    <string name="home_connection_actuator_fault_copy">کپی کردن خطا</string>
     <string name="home_connection_stage_network">شبکه</string>
     <string name="home_connection_stage_handshake">دست‌دهی</string>
     <string name="home_connection_stage_tunnel">تونل</string>

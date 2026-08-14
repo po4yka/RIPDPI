@@ -12,6 +12,7 @@
     <string name="home_connection_actuator_action_activate">सुरक्षित लाइन जोड़ें</string>
     <string name="home_connection_actuator_action_deactivate">सुरक्षित लाइन छोड़ें</string>
     <string name="home_connection_actuator_action_confirm_release">छोड़ने के लिए फिर से टैप करें</string>
+    <string name="home_connection_actuator_fault_copy">त्रुटि कॉपी करें</string>
     <string name="home_connection_stage_network">नेटवर्क</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>

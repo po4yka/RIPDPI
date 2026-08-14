@@ -12,6 +12,7 @@
     <string name="home_connection_actuator_action_activate">Engage secure line</string>
     <string name="home_connection_actuator_action_deactivate">Release secure line</string>
     <string name="home_connection_actuator_action_confirm_release">Tap again to release</string>
+    <string name="home_connection_actuator_fault_copy">Copy the error</string>
     <string name="home_connection_stage_network">Network</string>
     <string name="home_connection_stage_dns" translatable="false">DNS</string>
     <string name="home_connection_stage_handshake">Handshake</string>

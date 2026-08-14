@@ -92,7 +92,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `error banner copies message on click`() {
+    fun `actuator fault detail copies the message on click`() {
         val error = "Failed to start VPN"
         composeRule.setContent {
             RipDpiTheme {
@@ -101,6 +101,11 @@ class HomeScreenTest {
                         MainUiState(
                             connectionState = ConnectionState.Error,
                             errorMessage = error,
+                            connectionActuator =
+                                HomeConnectionActuatorUiState(
+                                    status = HomeConnectionActuatorStatus.Fault,
+                                    faultDetail = error,
+                                ),
                         ),
                     onToggleConnection = {},
                     onOpenDiagnostics = {},
@@ -112,7 +117,7 @@ class HomeScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeErrorBanner)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
             .performClick()
 
         val clipboard =
@@ -260,8 +265,13 @@ class HomeScreenTest {
         assertTrue(actuator.boundsInRoot.bottom <= setupWarning.boundsInRoot.top)
     }
 
+    /**
+     * The message used to sit in a banner of its own below the actuator, which
+     * made a single failure occupy three surfaces. It now belongs to the
+     * control that reports the fault, so it has to render inside it.
+     */
     @Test
-    fun `fault actuator stays above error recovery banner`() {
+    fun `fault detail renders inside the actuator, not beside it`() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -274,6 +284,7 @@ class HomeScreenTest {
                                     status = HomeConnectionActuatorStatus.Fault,
                                     statusDescription = "Secure line fault at Tunnel",
                                     actionLabel = "Retry secure line",
+                                    faultDetail = "Tunnel failed",
                                 ),
                             modeCards = modeCards(),
                         ),
@@ -286,9 +297,10 @@ class HomeScreenTest {
             }
         }
 
-        val actuator = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode()
-        val error = composeRule.onNodeWithTag(RipDpiTestTags.HomeErrorBanner).fetchSemanticsNode()
-        assertTrue(actuator.boundsInRoot.bottom <= error.boundsInRoot.top)
+        val rail = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode()
+        val detail = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail).fetchSemanticsNode()
+        composeRule.onNodeWithText("Tunnel failed").assertIsDisplayed()
+        assertTrue(rail.boundsInRoot.bottom <= detail.boundsInRoot.top)
     }
 
     @Test

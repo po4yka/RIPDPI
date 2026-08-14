@@ -12,6 +12,7 @@
     <string name="home_connection_actuator_action_activate">تفعيل الخط الآمن</string>
     <string name="home_connection_actuator_action_deactivate">تعطيل الخط الآمن</string>
     <string name="home_connection_actuator_action_confirm_release">اضغط مرة أخرى للتعطيل</string>
+    <string name="home_connection_actuator_fault_copy">نسخ الخطأ</string>
     <string name="home_connection_stage_network">الشبكة</string>
     <string name="home_connection_stage_handshake">المصافحة</string>
     <string name="home_connection_stage_tunnel">النفق</string>

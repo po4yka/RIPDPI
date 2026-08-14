@@ -211,6 +211,19 @@ private fun buildHomePermissionSummary(
         backgroundGuidanceDismissed = settings.backgroundGuidanceDismissed,
     )
 
+/**
+ * The failure's own words, carried by the actuator rather than by a banner
+ * beside it. Empty outside a fault, so the control has nothing to render.
+ */
+private fun actuatorFaultDetail(
+    status: HomeConnectionActuatorStatus,
+    runtime: ConnectionRuntimeState,
+): String =
+    runtime.errorMessage
+        .orEmpty()
+        .takeIf { status == HomeConnectionActuatorStatus.Fault }
+        .orEmpty()
+
 @Suppress("LongParameterList")
 internal fun buildConnectionActuatorUiState(
     settings: AppSettings,
@@ -286,6 +299,7 @@ internal fun buildConnectionActuatorUiState(
         actionLabel =
             hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
                 ?: actuatorActionLabel(status, stringResolver),
+        faultDetail = actuatorFaultDetail(status, runtime),
         carriageFraction =
             actuatorCarriageFraction(
                 status = status,

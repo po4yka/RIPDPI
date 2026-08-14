@@ -2,6 +2,7 @@
 <resources>
     <string name="home_connection_actuator_action_deactivate">Liberar línea segura</string>
     <string name="home_connection_actuator_action_confirm_release">Toca de nuevo para liberar</string>
+    <string name="home_connection_actuator_fault_copy">Copiar el error</string>
     <string name="home_connection_actuator_state_engaging">Activando línea segura</string>
     <string name="home_connection_actuator_state_fault">Fallo de línea segura en %1$s</string>
     <string name="home_connection_stage_handshake">Handshake</string>

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -99,6 +100,7 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.labelRes
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStageRole
@@ -170,6 +172,7 @@ fun RipDpiConnectionActuator(
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     modifier: Modifier = Modifier,
+    onCopyFaultDetail: (() -> Unit)? = null,
     testTag: String? = null,
 ) {
     val motion = RipDpiThemeTokens.motion
@@ -241,22 +244,114 @@ fun RipDpiConnectionActuator(
                 interactionModifier = interactionModifier,
             )
         }
-        // The pipeline used to be composed conditionally, so it appeared when the
-        // line started coming up and vanished once it was locked. Everything
-        // below the actuator jumped twice per connection cycle. It now expands
-        // and collapses in place, and the transitions are already no-ops when
-        // animations are off.
-        AnimatedVisibility(
-            visible = state.status.showsPipeline,
-            enter = motion.sectionEnterTransition(),
-            exit = motion.sectionExitTransition(),
-        ) {
-            ActuatorPipeline(
-                modifier = Modifier.padding(top = RipDpiThemeTokens.spacing.sm),
-                stages = state.stages,
-                useAccessibilityLayout = useAccessibilityLayout,
-            )
-        }
+        ActuatorProgressAndFault(
+            state = state,
+            stateStyle = stateStyle,
+            useAccessibilityLayout = useAccessibilityLayout,
+            onCopyFaultDetail = onCopyFaultDetail,
+        )
+    }
+}
+
+/**
+ * What the rail reports underneath itself: the stage pipeline while the line is
+ * moving, and the failure's own words when it is not.
+ *
+ * Both are shown in some states and not others, and both used to be composed
+ * conditionally, so they entered and left the tree in a single frame and
+ * everything below the actuator jumped. They now expand and collapse in place;
+ * the transitions are already no-ops when animations are off. Each carries the
+ * gap above it, so the gap collapses with the block.
+ */
+@Composable
+private fun ColumnScope.ActuatorProgressAndFault(
+    state: HomeConnectionActuatorUiState,
+    stateStyle: RipDpiActuatorStateStyle,
+    useAccessibilityLayout: Boolean,
+    onCopyFaultDetail: (() -> Unit)?,
+) {
+    val motion = RipDpiThemeTokens.motion
+    val gap = Modifier.padding(top = RipDpiThemeTokens.spacing.sm)
+
+    AnimatedVisibility(
+        visible = state.status.showsPipeline,
+        enter = motion.sectionEnterTransition(),
+        exit = motion.sectionExitTransition(),
+    ) {
+        ActuatorPipeline(
+            modifier = gap,
+            stages = state.stages,
+            useAccessibilityLayout = useAccessibilityLayout,
+        )
+    }
+    AnimatedVisibility(
+        visible = state.faultDetail.isNotEmpty(),
+        enter = motion.sectionEnterTransition(),
+        exit = motion.sectionExitTransition(),
+    ) {
+        ActuatorFaultDetail(
+            modifier = gap,
+            detail = state.faultDetail,
+            stateStyle = stateStyle,
+            onCopy = onCopyFaultDetail,
+        )
+    }
+}
+
+/**
+ * The failure's own words, under the control that reports it.
+ *
+ * Tapping copies, which is what the banner this replaces was for: a tunnel
+ * error is the one string on this screen a user is likely to want to paste
+ * somewhere. The row is left out of the switch's semantics entirely — it is a
+ * sibling of the rail, not part of it.
+ */
+@Composable
+private fun ActuatorFaultDetail(
+    detail: String,
+    stateStyle: RipDpiActuatorStateStyle,
+    onCopy: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
+    val copyLabel = stringResource(R.string.home_connection_actuator_fault_copy)
+
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
+                .clip(shape)
+                .then(
+                    if (onCopy != null) {
+                        Modifier.ripDpiClickable(
+                            role = Role.Button,
+                            onClickLabel = copyLabel,
+                            hapticFeedback = RipDpiHapticFeedback.Acknowledge,
+                            onClick = onCopy,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ).background(stateStyle.rail, shape)
+                .border(RipDpiStroke.Thin, stateStyle.railBorder, shape)
+                .padding(horizontal = spacing.sm, vertical = spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = RipDpiIcons.Error,
+            contentDescription = null,
+            modifier = Modifier.size(RipDpiIconSizes.Small),
+            tint = stateStyle.label,
+        )
+        Spacer(modifier = Modifier.width(spacing.xs))
+        Text(
+            modifier = Modifier.weight(1f),
+            text = detail,
+            style = RipDpiThemeTokens.type.caption,
+            color = stateStyle.label,
+        )
     }
 }
 

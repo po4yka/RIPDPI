@@ -84,6 +84,11 @@ data class HomeConnectionActuatorUiState(
     val statusDescription: String = "",
     val actionLabel: String = "",
     val carriageFraction: Float = 0f,
+    /**
+     * What actually went wrong, carried by the control that reports the fault
+     * rather than by a banner beside it. Empty in every state but a fault.
+     */
+    val faultDetail: String = "",
     val stages: ImmutableList<HomeConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,
     val deactivationEnabled: Boolean? = null,
 ) {
