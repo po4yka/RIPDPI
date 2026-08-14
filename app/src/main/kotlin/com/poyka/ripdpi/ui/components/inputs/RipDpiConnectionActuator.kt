@@ -7,7 +7,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -51,12 +51,14 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
@@ -137,6 +139,7 @@ fun RipDpiConnectionActuator(
         rememberActuatorInteractionModifier(
             state = state,
             dragEnabled = !useAccessibilityLayout,
+            nodeTestTag = testTag,
             onActivate = onActivate,
             onDeactivate = onDeactivate,
             performHaptic = performHaptic,
@@ -146,28 +149,26 @@ fun RipDpiConnectionActuator(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .then(interactionModifier.modifier)
-                    .ripDpiTestTag(testTag),
-            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-        ) {
-            ActuatorHeadline(state = state, stateStyle = stateStyle)
-            if (useAccessibilityLayout) {
-                ActuatorFallbackAction(state = state, stateStyle = stateStyle)
-            } else {
-                ActuatorRailLayout(
-                    state = state,
-                    stateStyle = stateStyle,
-                    railColor = railColor,
-                    terminalColor = terminalColor,
-                    carriageColor = carriageColor,
-                    baseFraction = baseFraction,
-                    interactionModifier = interactionModifier,
-                )
-            }
+        // The headline and route stay outside the switch so a screen reader can
+        // read them as their own items. Merging them into the control made the
+        // route the control's name and buried its state in a paragraph.
+        ActuatorHeadline(state = state, stateStyle = stateStyle)
+        if (useAccessibilityLayout) {
+            ActuatorFallbackAction(
+                state = state,
+                stateStyle = stateStyle,
+                modifier = interactionModifier.modifier,
+            )
+        } else {
+            ActuatorRailLayout(
+                state = state,
+                stateStyle = stateStyle,
+                railColor = railColor,
+                terminalColor = terminalColor,
+                carriageColor = carriageColor,
+                baseFraction = baseFraction,
+                interactionModifier = interactionModifier,
+            )
         }
         if (state.status.showsPipeline) {
             ActuatorPipeline(
@@ -196,7 +197,7 @@ private fun ActuatorRailLayout(
             Modifier
                 .fillMaxWidth()
                 .height(metrics.railHeight)
-                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail),
+                .then(interactionModifier.modifier),
     ) {
         val endpointLayout =
             rememberActuatorEndpointLayout(
@@ -269,6 +270,7 @@ private fun ActuatorTrackSurface(
         modifier =
             Modifier
                 .fillMaxSize()
+                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
                 .clip(shape)
                 .drawBehind {
                     drawRect(railColor.value)
@@ -423,6 +425,7 @@ private fun ActuatorHeadline(
 private fun ActuatorFallbackAction(
     state: HomeConnectionActuatorUiState,
     stateStyle: RipDpiActuatorStateStyle,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
@@ -430,7 +433,7 @@ private fun ActuatorFallbackAction(
 
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
                 .clip(shape)
@@ -459,6 +462,7 @@ private fun ActuatorFallbackAction(
 private fun rememberActuatorInteractionModifier(
     state: HomeConnectionActuatorUiState,
     dragEnabled: Boolean,
+    nodeTestTag: String?,
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -477,7 +481,9 @@ private fun rememberActuatorInteractionModifier(
         Modifier
             .then(
                 if (actionEnabled) {
-                    Modifier.clickable(
+                    Modifier.triStateToggleable(
+                        state = state.status.toToggleableState(),
+                        enabled = true,
                         role = Role.Switch,
                         onClick = {
                             invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
@@ -486,10 +492,18 @@ private fun rememberActuatorInteractionModifier(
                 } else {
                     Modifier
                 },
-            ).semantics(mergeDescendants = true) {
+            )
+            // Every semantics property is declared here, in one block. Two
+            // semantics sources on this node produce two platform accessibility
+            // nodes: one interactive but nameless, one named but inert, which is
+            // how TalkBack ended up announcing an unlabelled switch. Clearing
+            // first collapses them, so role and the click action have to be
+            // restated rather than inherited from triStateToggleable.
+            .clearAndSetSemantics {
+                nodeTestTag?.let { testTag = it }
                 role = Role.Switch
                 toggleableState = state.status.toToggleableState()
-                contentDescription = state.routeLabel
+                contentDescription = state.actionLabel
                 stateDescription = state.statusDescription
                 liveRegion = LiveRegionMode.Polite
                 if (actionEnabled) {

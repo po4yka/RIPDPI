@@ -164,6 +164,30 @@ class RipDpiConnectionActuatorTest {
         }
     }
 
+    /**
+     * The control is named by what it does, and the headline and route stay
+     * addressable on their own. Merging them into the switch made the route the
+     * control's name and split the platform accessibility node into an
+     * interactive but nameless half plus a named inert one.
+     */
+    @Test
+    fun `switch is named by its action and leaves headline and route outside`() {
+        val status = HomeConnectionActuatorStatus.Open
+        setActuator(state = actuatorState(status))
+
+        val node =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+                .fetchSemanticsNode()
+        assertEquals(
+            listOf("Action $status"),
+            node.config[SemanticsProperties.ContentDescription],
+        )
+
+        composeRule.onNodeWithText("State $status").assertExists()
+        composeRule.onNodeWithText("Local VPN").assertExists()
+    }
+
     @Test
     fun `open actuator exposes off switch state`() {
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Open))
