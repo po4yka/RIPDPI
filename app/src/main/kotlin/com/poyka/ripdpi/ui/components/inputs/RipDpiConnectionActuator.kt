@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -109,21 +110,13 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/**
- * How much of the carriage's travel a drag has to cover before it commits, in
- * either direction.
- *
- * Releasing used to clear at 0.28 while engaging took 0.72, which inverts the
- * risk the rail is built around: the outcome worth guarding is a line dropped
- * by accident, not one raised by accident, and that was the cheaper of the two
- * gestures by a factor of two and a half.
- */
-private const val CommitDragThreshold = 0.72f
 private const val ActiveStagePulseAlpha = 0.72f
 private const val WarningStagePulseAlpha = 0.82f
 private const val StripeStepPx = 10f
@@ -132,6 +125,14 @@ private const val CarriageGripCount = 3
 private const val EndpointLabelHorizontalGapCount = 2
 private const val AccessibilityLayoutFontScale = 1.5f
 private const val TrackFillAlpha = 0.22f
+
+/**
+ * Track fill once the drag has covered enough travel to commit. The step up
+ * from [TrackFillAlpha] is the visible half of the detent: a gesture that has
+ * done enough used to look exactly like one that had not until the finger came
+ * off, so the user learned the outcome only after it was too late to back out.
+ */
+private const val CommittedTrackFillAlpha = 0.55f
 private const val GripAlpha = 0.42f
 private const val LaneLabelRestFraction = 0.5f
 
@@ -141,20 +142,6 @@ private const val LaneLabelRestFraction = 0.5f
  * its travel, which is where it would otherwise start rendering underneath it.
  */
 private const val LabelFadeGain = 2.5f
-
-/**
- * How far the carriage pulls back when a release tap arms instead of committing.
- * Far enough to read as the control answering the tap and pointing at the
- * gesture, well short of the threshold that gesture would have to clear.
- */
-private const val ArmedNudgeFraction = 0.18f
-
-/** How long an armed release waits for the tap that confirms it. */
-private const val ArmWindowMillis = 4_000L
-
-/** Keys that count as an explicit commit on a focused rail. */
-private val ActuatorCommitKeys =
-    setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
 /**
  * Single actuator for the connection lifecycle: the rail *is* the control.
@@ -308,9 +295,21 @@ private fun ActuatorRailLayout(
             (baseFraction.value + dragFraction).coerceIn(0f, 1f)
         }
 
+        val fillAlpha =
+            animateFloatAsState(
+                targetValue =
+                    if (interactionModifier.pastThreshold.value) {
+                        CommittedTrackFillAlpha
+                    } else {
+                        TrackFillAlpha
+                    },
+                animationSpec = RipDpiThemeTokens.motion.quickTween(),
+                label = "actuatorTrackFillAlpha",
+            )
         ActuatorTrackSurface(
             railColor = railColor,
-            fillColor = stateStyle.carriage.copy(alpha = TrackFillAlpha),
+            fillColor = stateStyle.carriage,
+            fillAlpha = fillAlpha,
             borderColor = stateStyle.railBorder,
             insetPx = insetPx,
             travelPx = travelPx,
@@ -351,6 +350,7 @@ private fun ActuatorRailLayout(
 private fun ActuatorTrackSurface(
     railColor: State<Color>,
     fillColor: Color,
+    fillAlpha: State<Float>,
     borderColor: Color,
     insetPx: Float,
     travelPx: Float,
@@ -374,7 +374,7 @@ private fun ActuatorTrackSurface(
                     val originX =
                         if (layoutDirection == LayoutDirection.Rtl) size.width - fillWidth else 0f
                     drawRect(
-                        color = fillColor,
+                        color = fillColor.copy(alpha = fillAlpha.value),
                         topLeft = Offset(originX, 0f),
                         size = Size(fillWidth, size.height),
                     )
@@ -595,317 +595,6 @@ private fun ActuatorFallbackAction(
         )
     }
 }
-
-/**
- * The one commit path every input shares: tap, keypress and semantics action all
- * come through here, so the arm-then-confirm step cannot be true for one of them
- * and false for another.
- *
- * Returns true whenever the input was handled, arming included — an arming tap
- * is an answer, not a dropped gesture.
- */
-@Composable
-private fun rememberActuatorCommit(
-    state: HomeConnectionActuatorUiState,
-    requiresConfirmation: Boolean,
-    armed: MutableState<Boolean>,
-    carriage: Animatable<Float, AnimationVector1D>,
-    travelPx: State<Float>,
-    performHaptic: (RipDpiHapticFeedback) -> Unit,
-    onActivate: () -> Unit,
-    onDeactivate: () -> Unit,
-): () -> Boolean {
-    val scope = rememberCoroutineScope()
-    val nudgeSpec = RipDpiThemeTokens.motion.quickTween<Float>()
-
-    // An armed release expires on its own, so a control left alone goes back to
-    // reporting the line instead of sitting on a stale prompt.
-    LaunchedEffect(armed.value) {
-        if (armed.value) {
-            delay(ArmWindowMillis)
-            armed.value = false
-        }
-    }
-
-    return {
-        if (requiresConfirmation && !armed.value) {
-            armed.value = true
-            performHaptic(RipDpiHapticFeedback.Toggle)
-            scope.launch {
-                // The carriage answers by pulling towards the gesture it wants and
-                // settling back, so the first tap teaches the drag rather than
-                // looking like the control ignored it.
-                carriage.animateTo(-travelPx.value * ArmedNudgeFraction, nudgeSpec)
-                carriage.animateTo(0f, nudgeSpec)
-            }
-            true
-        } else {
-            armed.value = false
-            invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
-        }
-    }
-}
-
-@Composable
-private fun rememberActuatorInteractionModifier(
-    state: HomeConnectionActuatorUiState,
-    dragEnabled: Boolean,
-    nodeTestTag: String?,
-    armed: MutableState<Boolean>,
-    onActivate: () -> Unit,
-    onDeactivate: () -> Unit,
-    performHaptic: (RipDpiHapticFeedback) -> Unit,
-): ActuatorInteractionModifier {
-    // Re-keyed on status: once the new status lands, the base fraction owns the
-    // carriage again and this offset starts over at zero.
-    val dragOffsetPx = remember(state.status) { Animatable(0f) }
-    val travelPx = remember { mutableFloatStateOf(0f) }
-    val scope = rememberCoroutineScope()
-    val returnSpec = RipDpiThemeTokens.motion.quickTween<Float>()
-    val actionEnabled = state.isActivationAvailable || state.isDeactivationAvailable
-    // Only a release asks to be confirmed, and only where a rail exists to drag
-    // instead. See the commit-model note on [RipDpiConnectionActuator].
-    val requiresConfirmation = actionEnabled && dragEnabled && !state.isActivationAvailable
-    val focusRequester = remember { FocusRequester() }
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val commit =
-        rememberActuatorCommit(
-            state = state,
-            requiresConfirmation = requiresConfirmation,
-            armed = armed,
-            carriage = dragOffsetPx,
-            travelPx = travelPx,
-            performHaptic = performHaptic,
-            onActivate = onActivate,
-            onDeactivate = onDeactivate,
-        )
-
-    val draggableState =
-        rememberDraggableState { delta ->
-            val orientedDelta = if (isRtl) -delta else delta
-            scope.launch {
-                dragOffsetPx.snapTo(
-                    (dragOffsetPx.value + orientedDelta)
-                        .coerceIn(-travelPx.floatValue, travelPx.floatValue),
-                )
-            }
-        }
-    val modifier =
-        Modifier
-            .actuatorTapCommit(
-                enabled = actionEnabled,
-                toggleableState = state.status.toToggleableState(),
-                onCommit = { commit() },
-            ).actuatorSemantics(
-                state = state,
-                nodeTestTag = nodeTestTag,
-                actionEnabled = actionEnabled,
-                armed = armed.value,
-                focusRequester = focusRequester,
-                onCommit = commit,
-            ).actuatorKeyCommit(
-                enabled = actionEnabled,
-                focusRequester = focusRequester,
-                onCommit = commit,
-            ).draggable(
-                state = draggableState,
-                orientation = Orientation.Horizontal,
-                enabled = actionEnabled,
-                onDragStarted = {
-                    // A drag is the other way to commit the same action, so it
-                    // takes the control back from a pending confirmation.
-                    armed.value = false
-                },
-                onDragStopped = {
-                    // The gesture is always consumed so a horizontal swipe never
-                    // degrades into a tap, but it only commits where a rail exists.
-                    val committed =
-                        dragEnabled &&
-                            handleActuatorDragStop(
-                                state = state,
-                                dragDeltaPx = dragOffsetPx.value,
-                                travelPx = travelPx.floatValue,
-                                performHaptic = performHaptic,
-                                onActivate = onActivate,
-                                onDeactivate = onDeactivate,
-                            )
-                    // A committed gesture holds the carriage where the finger left
-                    // it and waits for the status to land. Zeroing here instead
-                    // rewound the carriage to the start of the drag for as long as
-                    // the ViewModel took to answer, so a successful drag visibly
-                    // undid itself before the connection began.
-                    if (!committed) {
-                        dragOffsetPx.animateTo(targetValue = 0f, animationSpec = returnSpec)
-                    }
-                },
-            )
-
-    return ActuatorInteractionModifier(
-        modifier = modifier,
-        dragDeltaPx = dragOffsetPx.asState(),
-        onTravelChanged = { distancePx -> travelPx.floatValue = distancePx },
-    )
-}
-
-/**
- * The platform tap. A release now routes it through the arm-then-confirm step
- * rather than being denied one, so this is mounted in every state the action is
- * available instead of only where a tap was allowed to commit outright.
- */
-private fun Modifier.actuatorTapCommit(
-    enabled: Boolean,
-    toggleableState: ToggleableState,
-    onCommit: () -> Unit,
-): Modifier =
-    if (enabled) {
-        triStateToggleable(
-            state = toggleableState,
-            enabled = true,
-            role = Role.Switch,
-            onClick = onCommit,
-        )
-    } else {
-        this
-    }
-
-/**
- * Every semantics property for the rail, declared in one block.
- *
- * Two semantics sources on this node produce two platform accessibility nodes:
- * one interactive but nameless, one named but inert, which is how TalkBack
- * ended up announcing an unlabelled switch. Clearing first collapses them, so
- * role and the click action are restated here rather than inherited from
- * `triStateToggleable`.
- */
-private fun Modifier.actuatorSemantics(
-    state: HomeConnectionActuatorUiState,
-    nodeTestTag: String?,
-    actionEnabled: Boolean,
-    armed: Boolean,
-    focusRequester: FocusRequester,
-    onCommit: () -> Boolean,
-): Modifier =
-    clearAndSetSemantics {
-        nodeTestTag?.let { testTag = it }
-        role = Role.Switch
-        toggleableState = state.status.toToggleableState()
-        contentDescription = state.actionLabel
-        // No stateDescription here: this string is already the visible headline,
-        // which is its own node, so carrying it on the switch too made TalkBack
-        // read the status twice on every landing and every transition. Role plus
-        // toggleableState still announce on/off; the headline owns the prose.
-        if (actionEnabled) {
-            onClick(label = state.actionLabel) { onCommit() }
-        }
-        // The live region is scoped to the pending confirmation for the same
-        // reason: the headline still reports the line rather than the prompt, so
-        // arming is the one change on this node with no other surface to
-        // announce it.
-        if (armed) {
-            liveRegion = LiveRegionMode.Polite
-        }
-        // The reset above drops the toggleable's own RequestFocus action, so the
-        // focus entry point is restated here against the same requester the tap
-        // is mounted with. Without it the rail is unreachable by keyboard.
-        if (actionEnabled) {
-            requestFocus {
-                focusRequester.requestFocus()
-                true
-            }
-        }
-    }
-
-/**
- * Keyboard and D-pad commit, plus the focus target the semantics reset above
- * points at. `triStateToggleable` carries key activation of its own, but only
- * for a node that is focusable through its own semantics; clearing them leaves
- * this the one handler that fires, which is also what keeps a single keypress
- * from arming and committing in one go.
- */
-private fun Modifier.actuatorKeyCommit(
-    enabled: Boolean,
-    focusRequester: FocusRequester,
-    onCommit: () -> Boolean,
-): Modifier =
-    if (enabled) {
-        focusRequester(focusRequester)
-            .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyUp && event.key in ActuatorCommitKeys) {
-                    onCommit()
-                } else {
-                    false
-                }
-            }.focusable()
-    } else {
-        this
-    }
-
-private fun HomeConnectionActuatorStatus.toToggleableState(): ToggleableState =
-    when (this) {
-        HomeConnectionActuatorStatus.Open,
-        HomeConnectionActuatorStatus.Fault,
-        -> ToggleableState.Off
-
-        HomeConnectionActuatorStatus.Locked,
-        HomeConnectionActuatorStatus.Degraded,
-        -> ToggleableState.On
-
-        HomeConnectionActuatorStatus.Engaging -> ToggleableState.Indeterminate
-    }
-
-private fun invokeActuatorClick(
-    state: HomeConnectionActuatorUiState,
-    performHaptic: (RipDpiHapticFeedback) -> Unit,
-    onActivate: () -> Unit,
-    onDeactivate: () -> Unit,
-): Boolean {
-    if (state.isActivationAvailable) {
-        performHaptic(RipDpiHapticFeedback.Action)
-        onActivate()
-    } else {
-        performHaptic(RipDpiHapticFeedback.Toggle)
-        onDeactivate()
-    }
-    return true
-}
-
-/** Returns true when the gesture committed, so the caller can hold the carriage. */
-private fun handleActuatorDragStop(
-    state: HomeConnectionActuatorUiState,
-    dragDeltaPx: Float,
-    travelPx: Float,
-    performHaptic: (RipDpiHapticFeedback) -> Unit,
-    onActivate: () -> Unit,
-    onDeactivate: () -> Unit,
-): Boolean {
-    if (travelPx <= 0f) return false
-    val commitDistance = travelPx * CommitDragThreshold
-    val activated = state.isActivationAvailable && dragDeltaPx >= commitDistance
-    val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -commitDistance
-    return when {
-        activated -> {
-            performHaptic(RipDpiHapticFeedback.Action)
-            onActivate()
-            true
-        }
-
-        deactivated -> {
-            performHaptic(RipDpiHapticFeedback.Toggle)
-            onDeactivate()
-            true
-        }
-
-        else -> {
-            false
-        }
-    }
-}
-
-private class ActuatorInteractionModifier(
-    val modifier: Modifier,
-    val dragDeltaPx: State<Float>,
-    val onTravelChanged: (Float) -> Unit,
-)
 
 /**
  * Read-only exit indicator at the end of the rail.
