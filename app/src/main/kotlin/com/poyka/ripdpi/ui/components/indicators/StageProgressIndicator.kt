@@ -118,7 +118,7 @@ private fun StageProgressSummary(
     val summaryParts =
         buildList {
             if (completedCount > 0) {
-                add(StageSummaryPart(completedCount, R.plurals.stage_passed_chip, colors.success))
+                add(StageSummaryPart(completedCount, R.plurals.stage_passed_count, colors.success))
             }
             if (failedCount > 0) {
                 add(StageSummaryPart(failedCount, R.plurals.stage_failed_chip, colors.destructive))

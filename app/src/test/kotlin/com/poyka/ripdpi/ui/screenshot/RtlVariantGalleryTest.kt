@@ -1,9 +1,6 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.ui.graphics.ImageBitmap
-import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeMetadata
-import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeShareCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiSectionHeader
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import org.junit.Ignore
@@ -54,43 +51,6 @@ class RtlVariantGalleryTest {
                         footerBudget = "Next attempt budget 2.0 s",
                     ),
             )
-        }
-    }
-
-    @Test
-    fun rtlQrCodeShareCard() {
-        captureThreeVariants(
-            name = "rtlQrCodeShareCard",
-            widthDp = 700,
-            heightDp = 320,
-            testClassFqn = testClassFqn,
-        ) {
-            RipDpiQrCodeShareCard(
-                qrBitmap = ImageBitmap(160, 160),
-                metadata =
-                    RipDpiQrCodeMetadata(
-                        eyebrow = "QR share · v3",
-                        title = "Bundle 0a · 4 endpoints",
-                        versionLabel = "QR-3 (29x29)",
-                        payloadLabel = "184 chars",
-                        schemaLabel = "v1",
-                        eccLabel = "M · 15%",
-                        caption = "Scan with another RIPDPI install to import this diagnostic — no network traffic.",
-                        captionEmphasis = "no network traffic",
-                    ),
-            )
-        }
-    }
-
-    @Test
-    fun rtlSectionHeader() {
-        captureThreeVariants(
-            name = "rtlSectionHeader",
-            widthDp = 360,
-            heightDp = 120,
-            testClassFqn = testClassFqn,
-        ) {
-            RipDpiSectionHeader(title = "Connection")
         }
     }
 }

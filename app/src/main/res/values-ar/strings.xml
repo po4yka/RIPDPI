@@ -2924,11 +2924,6 @@ fakeddisorder endhost</string>
     <string name="vpn_export_consent_redact_label">تعتيم عناوين IP للنقاط على 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">إلغاء</string>
     <string name="vpn_export_consent_confirm">تصدير</string>
-    <string name="whats_new_title">بطاقة المستجدات</string>
-    <string name="whats_new_subtitle">نافذة ملاحظات الإصدار · 3 فئات</string>
-    <string name="whats_new_badge">المستجدات</string>
-    <string name="whats_new_later">لاحقاً</string>
-    <string name="whats_new_acknowledge">فهمت</string>
     <string name="vpn_replay_rec_rst_after_client_hello">احتمال RST + فحص SNI · جرّب tlsrec_split_host بدلاً من ذلك</string>
     <string name="vpn_replay_rec_dns_tampered">يبدو أن DNS مُعبَّث به · جرّب محلل DNS-over-HTTPS</string>
     <string name="vpn_replay_rec_tcp_unreachable">منفذ TCP الهدف غير متاح · تحقق من الوجهة</string>
@@ -3303,14 +3298,6 @@ fakeddisorder endhost</string>
         <item quantity="many">اجتاز %d</item>
         <item quantity="other">اجتاز %d</item>
     </plurals>
-    <plurals name="stage_passed_chip">
-        <item quantity="zero">لا شيء اجتاز</item>
-        <item quantity="one">اجتاز %d</item>
-        <item quantity="two">اجتاز %d</item>
-        <item quantity="few">اجتاز %d</item>
-        <item quantity="many">اجتاز %d</item>
-        <item quantity="other">اجتاز %d</item>
-    </plurals>
     <plurals name="stage_failed_chip">
         <item quantity="zero">لا شيء فشل</item>
         <item quantity="one">فشل %d</item>
@@ -3544,19 +3531,9 @@ fakeddisorder endhost</string>
     <string name="xray_provider_probe_not_applicable">غير منطبق</string>
     <string name="xray_skip_single_relay_only">تم تفعيل الخادم الأول فقط (مرحّل واحد في كل مرة).</string>
     <string name="xray_import_error_activation_failed">تعذّر تفعيل الملف المستورد. يرجى المحاولة مرة أخرى.</string>
-    <string name="action_clear">مسح</string>
     <string name="cd_collapse">طي</string>
     <string name="cd_expand">توسيع</string>
     <string name="cd_loading">جارٍ التحميل</string>
-    <string name="cd_slider">شريط تمرير</string>
-    <string name="cd_decrement">إنقاص</string>
-    <string name="cd_increment">زيادة</string>
-    <string name="cd_coach_mark">تلميح إرشادي: %1$s. %2$s</string>
-    <string name="cd_heartbeat_state">نبض %1$s</string>
-    <string name="heartbeat_state_healthy">سليم</string>
-    <string name="heartbeat_state_degraded">متدهور</string>
-    <string name="heartbeat_state_failed">فاشل</string>
-    <string name="heartbeat_state_idle">خامل</string>
     <string name="cd_progress_percent">التقدم %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s، بيانات %2$s</string>
     <string name="stale_tier_fresh">حديثة</string>
@@ -3646,12 +3623,6 @@ fakeddisorder endhost</string>
     <string name="config_import_pkcs12_failed">فشل استيراد PKCS#12.</string>
     <string name="config_presets_loading_title">جارٍ تحميل الملفات الشخصية…</string>
     <string name="config_presets_loading_body">جارٍ استعادة ملفات التهيئة المحفوظة.</string>
-    <string name="brand_badge_content_description">RIPDPI</string>
-    <string name="cidr_input_family_ipv4">IPv4</string>
-    <string name="cidr_input_family_ipv6">IPv6</string>
-    <string name="cidr_input_invalid_ipv4">‏CIDR غير صالح — المتوقع رباعي منقّط/0..32</string>
-    <string name="cidr_input_invalid_ipv6">‏CIDR غير صالح — المتوقع ست عشري بنقطتين/0..128</string>
-    <string name="cidr_input_label">CIDR</string>
     <string name="config_chain_step_detail_tcp_send">خطوة إرسال TCP</string>
     <string name="config_chain_step_detail_tls_prelude">مقدمة TLS</string>
     <string name="config_chain_step_detail_udp_quic">خطوة UDP/QUIC</string>
@@ -4051,13 +4022,8 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_request_failed">فشل طلب المكدّس المملوك.</string>
     <string name="port_matrix_host_port_header">المضيف / المنفذ</string>
     <string name="profile_share_setup_sheet_template">RIPDPI ورقة الإعداد\n\nالملف: %1$s\nالنوع: %2$s\n\nرابط الاشتراك/الملف:\n%3$s\n\nHiddify:\n1. افتح Hiddify.\n2. اختر إضافة ملف.\n3. امسح رمز QR أو الصق الرابط أعلاه.\n\nAmneziaVPN:\n1. افتح AmneziaVPN.\n2. اختر إضافة خادم من رابط أو QR.\n3. امسح رمز QR أو الصق الرابط أعلاه.\n\nاحتفظ بهذه الورقة خاصة. يحتوي رمز QR والرابط على بيانات الاعتماد.</string>
-    <string name="qr_share_spec_ecc">ECC</string>
-    <string name="a11y_share_qr_code">رمز QR لمشاركة التشخيص</string>
     <string name="a11y_loading">جارٍ التحميل</string>
     <string name="percent_value">%1$d%%</string>
-    <string name="qr_share_spec_payload">PAYLOAD</string>
-    <string name="qr_share_spec_schema">SCHEMA</string>
-    <string name="qr_share_spec_version">VERSION</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
     <string name="relay_kind_snowflake_label">Snowflake</string>

@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -326,9 +325,6 @@ fun ripDpiSurfaceTokens(
     colors: RipDpiExtendedColors,
     colorScheme: ColorScheme,
 ): RipDpiSurfaceTokens = RipDpiSurfaceTokens(colors = colors, colorScheme = colorScheme)
-
-@Composable
-fun ripDpiSurfaceStyle(role: RipDpiSurfaceRole): RipDpiSurfaceStyle = RipDpiThemeTokens.surfaces.resolve(role)
 
 internal val LocalRipDpiSurfaceTokens =
     staticCompositionLocalOf {

@@ -1562,10 +1562,6 @@ Source : %2$s</string>
         <item quantity="one">%d réussi</item>
         <item quantity="other">%d réussis</item>
     </plurals>
-    <plurals name="stage_passed_chip">
-        <item quantity="one">%d réussi</item>
-        <item quantity="other">%d réussis</item>
-    </plurals>
     <plurals name="stage_failed_chip">
         <item quantity="one">%d échec</item>
         <item quantity="other">%d échecs</item>
@@ -3046,11 +3042,6 @@ Source : %2$s</string>
     <string name="vpn_export_consent_confirm">Exporter</string>
 
     <!-- What's-new card -->
-    <string name="whats_new_title">Nouveautés</string>
-    <string name="whats_new_subtitle">Notes de version · 3 catégories</string>
-    <string name="whats_new_badge">Nouveau</string>
-    <string name="whats_new_later">Plus tard</string>
-    <string name="whats_new_acknowledge">Compris</string>
 
     <!-- Replay recommendations -->
     <string name="vpn_replay_rec_rst_after_client_hello">RST + inspection SNI possible · essayez tlsrec_split_host</string>
@@ -3524,19 +3515,9 @@ Source : %2$s</string>
     <string name="xray_provider_probe_not_applicable">Non applicable</string>
     <string name="xray_skip_single_relay_only">Seul le premier serveur a été activé (un relais à la fois).</string>
     <string name="xray_import_error_activation_failed">Impossible d\'activer le profil importé. Veuillez réessayer.</string>
-    <string name="action_clear">Effacer</string>
     <string name="cd_collapse">Réduire</string>
     <string name="cd_expand">Développer</string>
     <string name="cd_loading">Chargement</string>
-    <string name="cd_slider">Curseur</string>
-    <string name="cd_decrement">Diminuer</string>
-    <string name="cd_increment">Augmenter</string>
-    <string name="cd_coach_mark">Repère d\'aide : %1$s. %2$s</string>
-    <string name="cd_heartbeat_state">Battement %1$s</string>
-    <string name="heartbeat_state_healthy">sain</string>
-    <string name="heartbeat_state_degraded">dégradé</string>
-    <string name="heartbeat_state_failed">en échec</string>
-    <string name="heartbeat_state_idle">inactif</string>
     <string name="cd_progress_percent">Progression %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, données %2$s</string>
     <string name="stale_tier_fresh">récentes</string>
@@ -3626,12 +3607,6 @@ Source : %2$s</string>
     <string name="config_import_pkcs12_failed">Échec de l\'import PKCS#12.</string>
     <string name="config_presets_loading_title">Chargement des profils…</string>
     <string name="config_presets_loading_body">Restauration de vos profils de configuration enregistrés.</string>
-    <string name="brand_badge_content_description">RIPDPI</string>
-    <string name="cidr_input_family_ipv4">IPv4</string>
-    <string name="cidr_input_family_ipv6">IPv6</string>
-    <string name="cidr_input_invalid_ipv4">CIDR invalide — format attendu : quadruplet pointé/0..32</string>
-    <string name="cidr_input_invalid_ipv6">CIDR invalide — format attendu : hex-deux-points/0..128</string>
-    <string name="cidr_input_label">CIDR</string>
     <string name="config_chain_step_detail_tcp_send">Étape d\'envoi TCP</string>
     <string name="config_chain_step_detail_tls_prelude">Prélude TLS</string>
     <string name="config_chain_step_detail_udp_quic">Étape UDP/QUIC</string>
@@ -4023,13 +3998,8 @@ Source : %2$s</string>
     <string name="owned_stack_browser_request_failed">La requête de pile gérée a échoué.</string>
     <string name="port_matrix_host_port_header">HÔTE / PORT</string>
     <string name="profile_share_setup_sheet_template">Fiche de configuration RIPDPI\n\nProfil : %1$s\nType : %2$s\n\nLien d\'abonnement/de profil :\n%3$s\n\nHiddify :\n1. Ouvrez Hiddify.\n2. Choisissez Ajouter un profil.\n3. Scannez le QR code ou collez le lien ci-dessus.\n\nAmneziaVPN :\n1. Ouvrez AmneziaVPN.\n2. Choisissez Ajouter un serveur depuis un lien ou un QR.\n3. Scannez le QR code ou collez le lien ci-dessus.\n\nGardez cette fiche privée. Le QR code et le lien contiennent des identifiants.</string>
-    <string name="qr_share_spec_ecc">ECC</string>
-    <string name="a11y_share_qr_code">Code QR de partage du diagnostic</string>
     <string name="a11y_loading">Chargement</string>
     <string name="percent_value">%1$d%%</string>
-    <string name="qr_share_spec_payload">PAYLOAD</string>
-    <string name="qr_share_spec_schema">SCHEMA</string>
-    <string name="qr_share_spec_version">VERSION</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
     <string name="relay_kind_snowflake_label">Snowflake</string>

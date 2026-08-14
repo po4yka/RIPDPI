@@ -13,54 +13,24 @@ import com.poyka.ripdpi.activities.LogEntry
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.ui.components.cards.PresetCard
-import com.poyka.ripdpi.ui.components.cards.RipDpiLinkPreviewCard
-import com.poyka.ripdpi.ui.components.cards.RipDpiLinkPreviewStrings
-import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeMetadata
-import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeShareCard
-import com.poyka.ripdpi.ui.components.cards.sampleLinkPreviewState
-import com.poyka.ripdpi.ui.components.chrome.RipDpiSectionHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDiffKind
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDiffLine
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDiffViewer
-import com.poyka.ripdpi.ui.components.feedback.RipDpiJsonNode
-import com.poyka.ripdpi.ui.components.feedback.RipDpiJsonTree
-import com.poyka.ripdpi.ui.components.feedback.RipDpiLogEntry
-import com.poyka.ripdpi.ui.components.feedback.RipDpiLogLevel
-import com.poyka.ripdpi.ui.components.feedback.RipDpiLogStream
 import com.poyka.ripdpi.ui.components.feedback.RipDpiTooltip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiTooltipRich
 import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.LogRow
 import com.poyka.ripdpi.ui.components.indicators.LogRowTone
-import com.poyka.ripdpi.ui.components.indicators.RipDpiActuatorStatesGallery
-import com.poyka.ripdpi.ui.components.indicators.RipDpiBrandBadge
-import com.poyka.ripdpi.ui.components.indicators.RipDpiBrandBadgeSize
-import com.poyka.ripdpi.ui.components.indicators.RipDpiHeartbeatIndicator
-import com.poyka.ripdpi.ui.components.indicators.RipDpiHeartbeatState
-import com.poyka.ripdpi.ui.components.indicators.RipDpiKbdShortcut
-import com.poyka.ripdpi.ui.components.indicators.RipDpiLiveCounter
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricPill
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
-import com.poyka.ripdpi.ui.components.indicators.RipDpiSkeletonBox
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleTier
 import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
-import com.poyka.ripdpi.ui.components.inputs.RipDpiCidrInput
-import com.poyka.ripdpi.ui.components.inputs.RipDpiCidrValue
-import com.poyka.ripdpi.ui.components.inputs.RipDpiCombobox
-import com.poyka.ripdpi.ui.components.inputs.RipDpiFilter
-import com.poyka.ripdpi.ui.components.inputs.RipDpiFilterBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
-import com.poyka.ripdpi.ui.components.inputs.RipDpiSlider
-import com.poyka.ripdpi.ui.components.inputs.RipDpiStepper
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
-import com.poyka.ripdpi.ui.components.inputs.RipDpiToggleAlternatives
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryScreen
@@ -94,33 +64,6 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 class RdsComponentsScreenshotTest {
     // capture helpers live in RoborazziCaptureHelpers.kt (same package)
-
-    @Test
-    fun brandBadgeAllSizes() {
-        captureBothThemes("brandBadgeAllSizes", widthDp = 360, heightDp = 120) {
-            RipDpiBrandBadge(size = RipDpiBrandBadgeSize.AppBarCompact)
-        }
-    }
-
-    @Test
-    fun qrCodeShareCard() {
-        captureBothThemes("qrCodeShareCard", widthDp = 700, heightDp = 320) {
-            RipDpiQrCodeShareCard(
-                qrBitmap = ImageBitmap(160, 160),
-                metadata =
-                    RipDpiQrCodeMetadata(
-                        eyebrow = "QR share · v3",
-                        title = "Bundle 0a · 4 endpoints",
-                        versionLabel = "QR-3 (29x29)",
-                        payloadLabel = "184 chars",
-                        schemaLabel = "v1",
-                        eccLabel = "M · 15%",
-                        caption = "Scan with another RIPDPI install to import this diagnostic — no network traffic.",
-                        captionEmphasis = "no network traffic",
-                    ),
-            )
-        }
-    }
 
     @Test
     fun handshakeTimeline() {
@@ -230,30 +173,9 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    fun kbdShortcut() {
-        captureBothThemes("kbdShortcut", widthDp = 360, heightDp = 120) {
-            RipDpiKbdShortcut(keys = persistentListOf("⌘", "K"))
-        }
-    }
-
-    @Test
-    fun sectionHeader() {
-        captureBothThemes("sectionHeader", widthDp = 360, heightDp = 120) {
-            RipDpiSectionHeader(title = "Connection")
-        }
-    }
-
-    @Test
     fun staleDataBadge() {
         captureBothThemes("staleDataBadge", widthDp = 360, heightDp = 120) {
             RipDpiStaleDataBadge(label = "14 s ago", tier = RipDpiStaleTier.Recent)
-        }
-    }
-
-    @Test
-    fun liveCounter() {
-        captureBothThemes("liveCounter", widthDp = 360, heightDp = 120) {
-            RipDpiLiveCounter(value = 1234, suffix = " ms")
         }
     }
 
@@ -268,13 +190,6 @@ class RdsComponentsScreenshotTest {
     fun progressBar() {
         captureBothThemes("progressBar", widthDp = 360, heightDp = 120) {
             RipDpiProgressBar(progress = 0.6f)
-        }
-    }
-
-    @Test
-    fun skeletonBox() {
-        captureBothThemes("skeletonBox", widthDp = 360, heightDp = 120) {
-            RipDpiSkeletonBox(height = 14.dp)
         }
     }
 
@@ -301,30 +216,18 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    fun slider() {
-        captureBothThemes("slider", widthDp = 360, heightDp = 120) {
-            RipDpiSlider(value = 0.5f, onValueChange = {})
-        }
-    }
-
-    @Test
-    fun stepper() {
-        captureBothThemes("stepper", widthDp = 360, heightDp = 120) {
-            RipDpiStepper(value = 3, onValueChange = {}, valueRange = 0..10)
-        }
-    }
-
-    @Test
-    fun toggleAlternatives() {
-        captureBothThemes("toggleAlternatives", widthDp = 360, heightDp = 120) {
-            RipDpiToggleAlternatives(selectedIndex = 0, onSelect = {})
-        }
-    }
-
-    @Test
     fun tooltip() {
         captureBothThemes("tooltip", widthDp = 360, heightDp = 120) {
             RipDpiTooltip(text = "Reconnect tunnel") { Text("Reconnect") }
+        }
+    }
+
+    @Test
+    fun tooltipRich() {
+        captureBothThemes("tooltipRich", widthDp = 360, heightDp = 120) {
+            RipDpiTooltipRich(title = "Stale data", body = "Last probe 18m ago") {
+                Text("18m ago")
+            }
         }
     }
 
@@ -340,99 +243,11 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    fun filterBar() {
-        captureBothThemes("filterBar", widthDp = 360, heightDp = 120) {
-            RipDpiFilterBar(
-                filters = persistentListOf(RipDpiFilter("a", "All"), RipDpiFilter("b", "Errors")),
-                selectedKeys = persistentSetOf("b"),
-                onToggle = {},
-            )
-        }
-    }
-
-    @Test
-    fun heartbeatIndicator() {
-        captureBothThemes("heartbeatIndicator", widthDp = 360, heightDp = 120) {
-            RipDpiHeartbeatIndicator(state = RipDpiHeartbeatState.Healthy)
-        }
-    }
-
-    @Test
-    fun actuatorStatesGallery() {
-        captureBothThemes("actuatorStatesGallery", widthDp = 360, heightDp = 1000) {
-            RipDpiActuatorStatesGallery()
-        }
-    }
-
-    @Test
-    fun cidrInput() {
-        captureBothThemes("cidrInput", widthDp = 360, heightDp = 120) {
-            RipDpiCidrInput(value = RipDpiCidrValue("10.0.0.0", 8), onValueChange = {})
-        }
-    }
-
-    @Test
     fun commandPalettePlaceholder() {
         captureBothThemes("commandPalettePlaceholder", widthDp = 360, heightDp = 120) {
             Text(
                 "Command palette is a modal; capture inside Dialog requires runtime context.",
             )
-        }
-    }
-
-    @Test
-    fun combobox() {
-        captureBothThemes("combobox", widthDp = 360, heightDp = 120) {
-            RipDpiCombobox(
-                value = "rel",
-                onValueChange = {},
-                suggestions = persistentListOf("relay.example.com"),
-            )
-        }
-    }
-
-    @Test
-    fun diffViewer() {
-        captureBothThemes("diffViewer", widthDp = 360, heightDp = 200) {
-            RipDpiDiffViewer(
-                lines =
-                    persistentListOf(
-                        RipDpiDiffLine(RipDpiDiffKind.Added, "x", null, 1),
-                        RipDpiDiffLine(RipDpiDiffKind.Removed, "y", 1, null),
-                    ),
-            )
-        }
-    }
-
-    @Test
-    fun jsonTree() {
-        captureBothThemes("jsonTree", widthDp = 360, heightDp = 200) {
-            RipDpiJsonTree(
-                root =
-                    RipDpiJsonNode.Branch(
-                        null,
-                        persistentListOf(RipDpiJsonNode.Leaf("k", "v", RipDpiJsonNode.Leaf.Kind.String)),
-                        isArray = false,
-                    ),
-            )
-        }
-    }
-
-    @Test
-    fun logStream() {
-        captureBothThemes("logStream", widthDp = 360, heightDp = 200) {
-            RipDpiLogStream(
-                entries = persistentListOf(RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "core", "tunnel up")),
-            )
-        }
-    }
-
-    @Test
-    fun tooltipRich() {
-        captureBothThemes("tooltipRich", widthDp = 360, heightDp = 120) {
-            RipDpiTooltipRich(title = "Stale data", body = "Last probe 18m ago") {
-                Text("18m ago")
-            }
         }
     }
 
@@ -597,33 +412,6 @@ class RdsComponentsScreenshotTest {
             ProfileVariantsScreen(
                 state = sampleProfileVariantsState(),
                 onBack = {},
-            )
-        }
-    }
-
-    @Test
-    fun linkPreviewCard() {
-        captureBothThemes("linkPreviewCard", widthDp = 360, heightDp = 480) {
-            RipDpiLinkPreviewCard(
-                state =
-                    sampleLinkPreviewState(
-                        RipDpiLinkPreviewStrings(
-                            eyebrowLink = "Generated link",
-                            eyebrowPayload = "Fragment payload",
-                            copyLabel = "Copy",
-                            rowVersion = "Schema version — currently %1\$s",
-                            rowAsnFormat = "Origin ASN — %1\$s",
-                            rowAsnRedacted = "Origin ASN — redacted",
-                            rowTimestampFormat = "Timestamp, in minutes since %1\$s",
-                            rowCommitFormat = "Strategy-bundle hash — %1\$s",
-                            rowItemsFormat = "Per-endpoint {alive, dpi} tuples — %1\$d",
-                            privacyTitle = "Stays on device",
-                            privacyMessage =
-                                "The fragment never leaves the device — it's decoded locally " +
-                                    "by the recipient. Hostnames are hashed unless redaction is off.",
-                            privacyEmphasis = "never leaves the device",
-                        ),
-                    ),
             )
         }
     }

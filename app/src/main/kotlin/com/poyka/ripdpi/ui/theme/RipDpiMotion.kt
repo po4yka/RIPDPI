@@ -205,32 +205,6 @@ data class RipDpiMotion(
             repeatMode = RepeatMode.Restart,
         )
 
-    /**
-     * Slow inner-core breathe for the Tunneling state.
-     * Scale 1.0 ↔ 0.92, opacity 0.12 ↔ 0.22, 1.6 s ease-in-out, infinite reverse.
-     * Animate a Float 0f → 1f with `RepeatMode.Reverse` and use it to interpolate
-     * scale and alpha. Callers MUST guard subscription with
-     * `motion.allowsInfiniteMotion`.
-     */
-    fun tunnelBreatheSpec(): InfiniteRepeatableSpec<Float> =
-        infiniteRepeatable(
-            animation = tween(durationMillis = 1_600, easing = EaseInOutEasing),
-            repeatMode = RepeatMode.Reverse,
-        )
-
-    /**
-     * Asymmetric two-step wobble flash for the Degraded state.
-     * 1.2 s total, two opacity flashes inside the cycle, scaled border ring.
-     * The infinite repeatable just paces; the consumer reads progress (Float)
-     * and applies the keyframe shape: opacity 0 → 0.5 (20-50%) → 0 (60-100%).
-     * Callers MUST guard subscription with `motion.allowsInfiniteMotion`.
-     */
-    fun degradedWobbleSpec(): InfiniteRepeatableSpec<Float> =
-        infiniteRepeatable(
-            animation = tween(durationMillis = 1_200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        )
-
     // === Data-ticker motion (motion-data-ticker.html) ===
 
     /**

@@ -1804,10 +1804,6 @@ fakeddisorder endhost</string>
         <item quantity="one">%d موفق</item>
         <item quantity="other">%d موفق</item>
     </plurals>
-    <plurals name="stage_passed_chip">
-        <item quantity="one">%d موفق</item>
-        <item quantity="other">%d موفق</item>
-    </plurals>
     <plurals name="stage_failed_chip">
         <item quantity="one">%d ناموفق</item>
         <item quantity="other">%d ناموفق</item>
@@ -3051,11 +3047,6 @@ fakeddisorder endhost</string>
     <string name="vpn_export_consent_confirm">برون‌برد</string>
 
     <!-- What's-new card -->
-    <string name="whats_new_title">تازه‌ها</string>
-    <string name="whats_new_subtitle">یادداشت‌های انتشار · ۳ دسته</string>
-    <string name="whats_new_badge">تازه‌ها</string>
-    <string name="whats_new_later">بعداً</string>
-    <string name="whats_new_acknowledge">باشد</string>
 
     <!-- Replay recommendations -->
     <string name="vpn_replay_rec_rst_after_client_hello">احتمالاً RST + بازرسی SNI · tlsrec_split_host را امتحان کنید</string>
@@ -3529,19 +3520,9 @@ fakeddisorder endhost</string>
     <string name="xray_provider_probe_not_applicable">قابل اجرا نیست</string>
     <string name="xray_skip_single_relay_only">فقط اولین سرور فعال شد (هر بار یک رله).</string>
     <string name="xray_import_error_activation_failed">فعال‌سازی نمایه واردشده ناموفق بود. لطفاً دوباره تلاش کنید.</string>
-    <string name="action_clear">پاک کردن</string>
     <string name="cd_collapse">جمع کردن</string>
     <string name="cd_expand">باز کردن</string>
     <string name="cd_loading">در حال بارگذاری</string>
-    <string name="cd_slider">لغزنده</string>
-    <string name="cd_decrement">کاهش</string>
-    <string name="cd_increment">افزایش</string>
-    <string name="cd_coach_mark">نشانه راهنما: %1$s. %2$s</string>
-    <string name="cd_heartbeat_state">ضربان %1$s</string>
-    <string name="heartbeat_state_healthy">سالم</string>
-    <string name="heartbeat_state_degraded">افت‌کرده</string>
-    <string name="heartbeat_state_failed">ناموفق</string>
-    <string name="heartbeat_state_idle">بی‌کار</string>
     <string name="cd_progress_percent">پیشرفت %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s، داده‌های %2$s</string>
     <string name="stale_tier_fresh">تازه</string>
@@ -3631,12 +3612,6 @@ fakeddisorder endhost</string>
     <string name="config_import_pkcs12_failed">وارد کردن PKCS#12 ناموفق بود.</string>
     <string name="config_presets_loading_title">در حال بارگذاری نمایه‌ها…</string>
     <string name="config_presets_loading_body">در حال بازیابی نمایه‌های پیکربندی ذخیره‌شده شما.</string>
-    <string name="brand_badge_content_description">RIPDPI</string>
-    <string name="cidr_input_family_ipv4">IPv4</string>
-    <string name="cidr_input_family_ipv6">IPv6</string>
-    <string name="cidr_input_invalid_ipv4">CIDR نامعتبر — قالب چهارتایی نقطه‌دار/۰..۳۲ انتظار می‌رود</string>
-    <string name="cidr_input_invalid_ipv6">CIDR نامعتبر — قالب هگز با دونقطه/۰..۱۲۸ انتظار می‌رود</string>
-    <string name="cidr_input_label">CIDR</string>
     <string name="config_chain_step_detail_tcp_send">گام ارسال TCP</string>
     <string name="config_chain_step_detail_tls_prelude">پیش‌درآمد TLS</string>
     <string name="config_chain_step_detail_udp_quic">گام UDP/QUIC</string>
@@ -4028,13 +4003,8 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_request_failed">درخواست پشتهٔ تحت‌اختیار ناموفق بود.</string>
     <string name="port_matrix_host_port_header">میزبان / پورت</string>
     <string name="profile_share_setup_sheet_template">برگهٔ راه‌اندازی RIPDPI\n\nپروفایل: %1$s\nنوع: %2$s\n\nپیوند اشتراک/پروفایل:\n%3$s\n\nHiddify:\n۱. Hiddify را باز کنید.\n۲. افزودن پروفایل را انتخاب کنید.\n۳. کد QR را اسکن کنید یا پیوند بالا را جای‌گذاری کنید.\n\nAmneziaVPN:\n۱. AmneziaVPN را باز کنید.\n۲. افزودن سرور از پیوند یا QR را انتخاب کنید.\n۳. کد QR را اسکن کنید یا پیوند بالا را جای‌گذاری کنید.\n\nاین برگه را خصوصی نگه دارید. کد QR و پیوند حاوی اعتبارنامه هستند.</string>
-    <string name="qr_share_spec_ecc">ECC</string>
-    <string name="a11y_share_qr_code">کد QR اشتراک‌گذاری تشخیص</string>
     <string name="a11y_loading">در حال بارگذاری</string>
     <string name="percent_value">%1$d%%</string>
-    <string name="qr_share_spec_payload">PAYLOAD</string>
-    <string name="qr_share_spec_schema">SCHEMA</string>
-    <string name="qr_share_spec_version">VERSION</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
     <string name="relay_kind_snowflake_label">Snowflake</string>

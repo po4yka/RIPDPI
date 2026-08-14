@@ -2553,12 +2553,6 @@ fakeddisorder endhost</string>
         <item quantity="many">%d успешных</item>
         <item quantity="other">%d успешных</item>
     </plurals>
-    <plurals name="stage_passed_chip">
-        <item quantity="one">%d успешный</item>
-        <item quantity="few">%d успешных</item>
-        <item quantity="many">%d успешных</item>
-        <item quantity="other">%d успешных</item>
-    </plurals>
     <plurals name="stage_failed_chip">
         <item quantity="one">%d сбой</item>
         <item quantity="few">%d сбоя</item>
@@ -3019,11 +3013,6 @@ fakeddisorder endhost</string>
     <string name="vpn_export_consent_redact_label">Скрыть IP-адреса как 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Отмена</string>
     <string name="vpn_export_consent_confirm">Экспортировать</string>
-    <string name="whats_new_title">Что нового</string>
-    <string name="whats_new_subtitle">Заметки о выпуске · 3 категории</string>
-    <string name="whats_new_badge">Что нового</string>
-    <string name="whats_new_later">Позже</string>
-    <string name="whats_new_acknowledge">Понятно</string>
     <string name="vpn_replay_rec_rst_after_client_hello">Возможен RST + инспекция SNI · попробуйте tlsrec_split_host</string>
     <string name="vpn_replay_rec_dns_tampered">DNS похоже подменяется · попробуйте резолвер DNS-over-HTTPS</string>
     <string name="vpn_replay_rec_tcp_unreachable">Целевой TCP-порт недоступен · проверьте адрес назначения</string>
@@ -3428,19 +3417,9 @@ fakeddisorder endhost</string>
     <string name="xray_provider_probe_not_applicable">Неприменимо</string>
     <string name="xray_skip_single_relay_only">Активирован только первый сервер (один релей одновременно).</string>
     <string name="xray_import_error_activation_failed">Не удалось активировать импортированный профиль. Повторите попытку.</string>
-    <string name="action_clear">Очистить</string>
     <string name="cd_collapse">Свернуть</string>
     <string name="cd_expand">Развернуть</string>
     <string name="cd_loading">Загрузка</string>
-    <string name="cd_slider">Ползунок</string>
-    <string name="cd_decrement">Уменьшить</string>
-    <string name="cd_increment">Увеличить</string>
-    <string name="cd_coach_mark">Подсказка: %1$s. %2$s</string>
-    <string name="cd_heartbeat_state">Пульс %1$s</string>
-    <string name="heartbeat_state_healthy">в норме</string>
-    <string name="heartbeat_state_degraded">ухудшен</string>
-    <string name="heartbeat_state_failed">сбой</string>
-    <string name="heartbeat_state_idle">бездействие</string>
     <string name="cd_progress_percent">Прогресс %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, данные %2$s</string>
     <string name="stale_tier_fresh">свежие</string>
@@ -3530,12 +3509,6 @@ fakeddisorder endhost</string>
     <string name="config_import_pkcs12_failed">Не удалось импортировать PKCS#12.</string>
     <string name="config_presets_loading_title">Загрузка профилей…</string>
     <string name="config_presets_loading_body">Восстановление сохранённых профилей конфигурации.</string>
-    <string name="brand_badge_content_description">RIPDPI</string>
-    <string name="cidr_input_family_ipv4">IPv4</string>
-    <string name="cidr_input_family_ipv6">IPv6</string>
-    <string name="cidr_input_invalid_ipv4">Неверный CIDR — ожидается четыре октета/0..32</string>
-    <string name="cidr_input_invalid_ipv6">Неверный CIDR — ожидается hex-через-двоеточие/0..128</string>
-    <string name="cidr_input_label">CIDR</string>
     <string name="config_chain_step_detail_tcp_send">Шаг отправки TCP</string>
     <string name="config_chain_step_detail_tls_prelude">Прелюдия TLS</string>
     <string name="config_chain_step_detail_udp_quic">Шаг UDP/QUIC</string>
@@ -3931,13 +3904,8 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_request_failed">Запрос к собственному стеку не удался.</string>
     <string name="port_matrix_host_port_header">ХОСТ / ПОРТ</string>
     <string name="profile_share_setup_sheet_template">Лист настройки RIPDPI\n\nПрофиль: %1$s\nТип: %2$s\n\nСсылка на подписку/профиль:\n%3$s\n\nHiddify:\n1. Откройте Hiddify.\n2. Выберите «Добавить профиль».\n3. Отсканируйте QR-код или вставьте ссылку выше.\n\nAmneziaVPN:\n1. Откройте AmneziaVPN.\n2. Выберите «Добавить сервер по ссылке или QR».\n3. Отсканируйте QR-код или вставьте ссылку выше.\n\nХраните этот лист в тайне. QR-код и ссылка содержат учётные данные.</string>
-    <string name="qr_share_spec_ecc">ECC</string>
-    <string name="a11y_share_qr_code">QR-код для обмена диагностикой</string>
     <string name="a11y_loading">Загрузка</string>
     <string name="percent_value">%1$d%%</string>
-    <string name="qr_share_spec_payload">PAYLOAD</string>
-    <string name="qr_share_spec_schema">SCHEMA</string>
-    <string name="qr_share_spec_version">VERSION</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
     <string name="relay_kind_snowflake_label">Snowflake</string>

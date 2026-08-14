@@ -1,7 +1,10 @@
 # RDS Design System Coverage Audit
 
-**Last Verified:** 2026-07-26
+**Last Verified:** 2026-08-14
 **Spec Inventory:** 146 HTML preview files  
+**Note (2026-08-14):** rows for specs whose Kotlin implementation was deleted as unused have been
+removed from this audit per maintainer decision. Section totals below therefore count audited rows,
+not preview files, and no longer reconcile against the 146-file inventory.
 **Audit Scope:** Kotlin implementation alignment with RDS specs
 
 ---
@@ -10,24 +13,24 @@
 
 | Category | Count | Have | Partial | Missing | Status |
 |----------|-------|------|---------|---------|--------|
-| **Components** | 47 | 46 | 1 | 0 | ⚠️ Partial |
-| **VPN flow screens** | 35 | 35 | 0 | 0 | ✅ Complete |
+| **Components** | 29 | 29 | 0 | 0 | ✅ Complete |
+| **VPN flow screens** | 36 | 36 | 0 | 0 | ✅ Complete |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
-| **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
-| **Diagnostic screens** | 6 | 5 | 0 | 1 | ⚠️ Missing |
-| **Share flow** | 5 | 5 | 0 | 0 | ✅ Complete |
+| **Motion specs** | 9 | 8 | 0 | 1 | ⚠️ Missing |
+| **Diagnostic screens** | 7 | 7 | 0 | 0 | ✅ Complete |
+| **Share flow** | 5 | 3 | 0 | 2 | ⚠️ Missing |
 | **Gesture interactions** | 3 | 3 | 0 | 0 | ✅ Complete |
-| **Onboarding** | 2 | 2 | 0 | 0 | ✅ Complete |
-| **One-offs** | 6 | 6 | 0 | 0 | ✅ Complete |
+| **Onboarding** | 2 | 1 | 0 | 1 | ⚠️ Missing |
+| **One-offs** | 6 | 5 | 0 | 1 | ⚠️ Missing |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 127 of 129 implementable specs have verified Kotlin implementations; one is partial and one is missing.
+**Overall Coverage:** 108 of 113 audited specs have verified Kotlin implementations; 5 are missing an implementation.
 
-Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47 components + 16 Android + 9 motion + 6 diagnostic + 5 share + 3 gesture + 2 onboarding + 6 one-offs = **129 implementable**; 8 color + 5 type + 2 brand + 2 a11y = **17 reference**; total = **146** ✓. (The pre-existing audit had loose totals — 122 implementable / 24 reference — that did not add up to the 146 inventory; this audit corrects them.)
+Row totals are a recount of the audited bullets in this file: 29 components + 36 vpn flow screens + 16 android platform surfaces + 9 motion specs + 7 diagnostic screens + 5 share flow + 3 gesture interactions + 2 onboarding + 6 one-offs = **113 audited**, plus 17 reference-only cards. They no longer equal the 146 `preview/*.html` inventory: rows whose Kotlin implementation was deleted as unused on 2026-08-14 were removed from the audit while their preview specs remain on disk.
 
 ---
 
-## Components (47 specs, 47 ✅ = 100% implemented)
+## Components (29 entries, 29 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -50,7 +53,6 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 
 - **Text Field** (`components-text-field.html`) — Input validation and state management present
 - **Switch** (`components-switch.html`) — Material3 Switch in settings, DNS screens
-- **Slider** (`components-slider.html`) — Material3 Slider in diagnostic and settings contexts
 - **Top App Bar** (`components-top-app-bar.html`) — CenterAlignedTopAppBar and standard TopAppBar across all screens
 - **Bottom Nav** (`components-bottom-nav.html`) — `NavigationBar` and `BottomNavBar` implemented
 - **Tabs** (`components-tabs.html`) — Tab/TabRow usage in diagnostics and settings
@@ -60,44 +62,30 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Status Indicator** (`components-status-indicator.html`) — Custom status badges in home/history
 - **Settings Row** (`components-settings-row.html`) — Standardized settings list items
 - **Dropdown** (`components-dropdown.html`) — Exposed and menu-style dropdowns
-- **Stepper** (`components-stepper.html`) — Implementation in diagnostic workflows
 - **Empty State** (`components-empty-state.html`) — `RipDpiEmptyStateCard` in history and diagnostics
 
 ### ✅ Full Implementation Continued
 
 - **Accordion** (`components-accordion.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiAccordion.kt`; golden `RdsComponentsScreenshotTest.accordion`
-- **Toggle Alternatives** (`components-toggle-alternatives.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiToggleAlternatives.kt`; golden `RdsComponentsScreenshotTest.toggleAlternatives`
 - **Spinner** (`components-spinner.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiSpinner.kt`; golden `RdsComponentsScreenshotTest.spinner`
 - **Segmented Controls** (`components-segmented.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiSegmentedButton.kt`; golden `RdsComponentsScreenshotTest.segmentedButton`
-- **Tooltip** (`components-tooltip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltip.kt` + rich variant `RipDpiTooltipRich.kt`; goldens `RdsComponentsScreenshotTest.tooltip` and `.tooltipRich`
+- **Tooltip** (`components-tooltip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltip.kt` + rich variant `RipDpiTooltipRich.kt`; goldens `RdsComponentsScreenshotTest.tooltip`, `RdsComponentsScreenshotTest.tooltipRich`
 - **Command Palette** (`components-command-palette.html`) — partial placeholder coverage only in `RdsComponentsScreenshotTest.commandPalettePlaceholder`; no production `RipDpiCommandPalette` exists yet
-- **Combobox** (`components-combobox.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCombobox.kt`; golden `RdsComponentsScreenshotTest.combobox`
 - **Page Indicators** (`components-page-indicators.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiPageIndicators.kt`; golden `RdsComponentsScreenshotTest.pageIndicators`
 - **Progress Bar** (`components-progress-bar.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiProgressBar.kt`; golden `RdsComponentsScreenshotTest.progressBar`
-- **Shimmer** (`components-shimmer.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiShimmer.kt` (Modifier.ripDpiShimmer + RipDpiSkeletonBox); golden `RdsComponentsScreenshotTest.skeletonBox`. Uses `RipDpiMotion.shimmerSpec()`.
-- **JSON Tree** (`components-json-tree.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiJsonTree.kt`; golden `RdsComponentsScreenshotTest.jsonTree`
-- **Log Stream** (`components-log-stream.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiLogStream.kt` (with levelFilter integration); golden `RdsComponentsScreenshotTest.logStream`
 
 ### ✅ Full Implementation Continued
 
-- **Actuator States** (`components-actuator-states.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiActuatorStates.kt` (gallery showcase composable); golden `RdsComponentsScreenshotTest.actuatorStatesGallery`
 - **Analysis Progress** (`components-analysis-progress.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/AnalysisProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.analysisProgress`
-- **Cidr Input** (`components-cidr-input.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCidrInput.kt` (with IPv4/IPv6 family toggle); golden `RdsComponentsScreenshotTest.cidrInput`
-- **Diff Viewer** (`components-diff-viewer.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDiffViewer.kt` (unified + side-by-side layouts); golden `RdsComponentsScreenshotTest.diffViewer`
-- **Filter Bar** (`components-filter-bar.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiFilterBar.kt`; golden `RdsComponentsScreenshotTest.filterBar`
-- **Heartbeat Indicator** (`components-heartbeat-indicator.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiHeartbeatIndicator.kt`; golden `RdsComponentsScreenshotTest.heartbeatIndicator`. Uses `RipDpiMotion.pulseSpec()`.
-- **Kbd Shortcut** (`components-kbd-shortcut.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`; golden `RdsComponentsScreenshotTest.kbdShortcut`
-- **Live Counter** (`components-live-counter.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiLiveCounter.kt`; golden `RdsComponentsScreenshotTest.liveCounter`
 - **Log Row** (`components-log-row.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/LogRow.kt`; golden `RdsComponentsScreenshotTest.logRow`
 - **Metric Pill** (`components-metric-pill.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiMetricPill.kt`; golden `RdsComponentsScreenshotTest.metricPill`
 - **Preset Card** (`components-preset-card.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/PresetCard.kt`; golden `RdsComponentsScreenshotTest.presetCard`
 - **Stage Progress** (`components-stage-progress.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/StageProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.stageProgress`
 - **Stale Data Badge** (`components-stale-data-badge.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiStaleDataBadge.kt` (Fresh tier wired to `RipDpiMotion.pulseSpec()`); golden `RdsComponentsScreenshotTest.staleDataBadge`
-- **Brand Badge** (`components-brand-badge.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiBrandBadge.kt`; golden `RdsComponentsScreenshotTest.brandBadgeAllSizes`
 
 ---
 
-## VPN Flow Screens (35 specs, 35 ✅ = 100% implemented)
+## VPN Flow Screens (36 entries, 36 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -148,7 +136,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ---
 
-## Android Platform Surfaces (16 specs, 16 ✅ = 100% implemented)
+## Android Platform Surfaces (16 entries, 16 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -177,7 +165,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ---
 
-## Motion Specs (9 specs, 9 ✅ = 100% implemented)
+## Motion Specs (9 entries, 8 ✅ = 89% implemented)
 
 ### ✅ Full Implementation
 
@@ -185,8 +173,8 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **Reduced Motion** (`motion-reduced-motion.html`) — `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion` field, wired via `ValueAnimator.areAnimatorsEnabled()` (covers `ANIMATOR_DURATION_SCALE == 0` and API 33+ "remove animations")
 - **Page Transitions** (`motion-page-transitions.html`) — `pageEnterSpec`, `pageExitSpec`, `modalEnterSpec`, `scrimFadeSpec` on `RipDpiMotion` (320 ms EmphasizedDecelerate)
 - **Tokens** (`motion-tokens.html`) — `RipDpiMotion` data class with `quick/state/emphasized/route` duration buckets + scale tokens
-- **Skeleton Shimmer** (`motion-skeleton-shimmer.html`) — `RipDpiMotion.shimmerSpec()` (1200 ms LinearEasing Restart), consumed by `Modifier.ripDpiShimmer()` and `RipDpiSkeletonBox`
-- **Probe Pulse** (`motion-probe-pulse.html`) — `RipDpiMotion.pulseSpec()` (900 ms LinearEasing Restart), consumed by `RipDpiHeartbeatIndicator` and `RipDpiStaleDataBadge` Fresh tier
+- **Skeleton Shimmer** (`motion-skeleton-shimmer.html`) — ❌ **Missing** — `RipDpiMotion.shimmerSpec()` still exists but is orphaned: its only consumers (`Modifier.ripDpiShimmer()`, `RipDpiSkeletonBox`) were removed 2026-08-14.
+- **Probe Pulse** (`motion-probe-pulse.html`) — `RipDpiMotion.pulseSpec()` (900 ms LinearEasing Restart), consumed by `RipDpiStaleDataBadge` Fresh tier
 - **Connection States** (`motion-connection-states.html`) — `connectRingSpec()`, `tunnelBreatheSpec()`, `degradedWobbleSpec()` on `RipDpiMotion` (2 s StandardEasing / 1.6 s EaseInOut Reverse / 1.2 s LinearEasing)
 - **Data Ticker** (`motion-data-ticker.html`) — `digitSlideSpec()` (320 ms EmphasizedDecelerate one-shot) and `countdownSpec(totalMillis)` (Linear)
 - **Toast Choreography** (`motion-toast-choreography.html`) — `toastEnterSpec()`, `toastPushBackSpec()`, `toastExitSpec()` on `RipDpiMotion` (320 ms enter + 220 ms push-back/exit)
@@ -197,7 +185,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ---
 
-## Diagnostic Screens (6 specs, 6 ✅ = 100% implemented)
+## Diagnostic Screens (7 entries, 7 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -214,21 +202,21 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ---
 
-## Share Flow (5 specs, 5 ✅ = 100% implemented)
+## Share Flow (5 entries, 3 ✅ = 60% implemented)
 
 ### ✅ Full Implementation
 
 - **Result Viewer** (`share-result-viewer.html`) — `SharedResultRenderScreen.kt`
 - **Stats Card** (`share-stats-card.html`) — summary statistics card
 - **Bottom Sheet** (`share-bottom-sheet.html`) — share options bottom sheet
-- **Link Preview** (`share-link-preview.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiLinkPreviewCard.kt`; pre-share transparency card displaying RIPDPI's own self-generated share URL with coloured URL spans (scheme/host/query/fragment), a 5-row fragment payload legend, and an info-tone privacy reassurance (`WarningBanner(tone = Info)`). Pure presentation, no remote fetch — the previous "deferred — requires HTML scrape" note misread the spec, which only shows the URL the app already constructs locally. Roborazzi `linkPreviewCard` screenshot test added in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
-- **QR Code** (`share-qr-code.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar. Spec-compliance refinements: title uses `type.bodyEmphasis` (was `sectionTitle`); caption supports optional `captionEmphasis` substring rendered in foreground color via `AnnotatedString` (matches `<b>no network traffic</b>` highlight). Roborazzi `qrCodeShareCard` screenshot test ships in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
+- **Link Preview** (`share-link-preview.html`) — ❌ **Missing** — implementation removed 2026-08-14 as unused (no production call site); spec retained.
+- **QR Code** (`share-qr-code.html`) — ❌ **Missing** — implementation removed 2026-08-14 as unused (no production call site); spec retained.
 
 ### ✅ Full Implementation Continued
 
 ---
 
-## Gesture Interactions (3 specs, 3 ✅ = 100% implemented)
+## Gesture Interactions (3 entries, 3 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -241,16 +229,16 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ---
 
-## Onboarding (2 specs, 2 ✅ = 100% implemented)
+## Onboarding (2 entries, 1 ✅ = 50% implemented)
 
 ### ✅ Full Implementation
 
 - **Tour Cards** (`onboarding-tour-cards.html`) — `OnboardingScreen.kt`
-- **Coach Mark** (`onboarding-coach-mark.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCoachMark.kt`; full-screen scrim + circular cutout at anchor, pulsing spotlight ring via `RipDpiMotion.connectRingSpec()`, reduced-motion path collapses to static ring per `LocalReducedMotion`
+- **Coach Mark** (`onboarding-coach-mark.html`) — ❌ **Missing** — implementation removed 2026-08-14 as unused (no production call site); spec retained.
 
 ---
 
-## One-Offs (6 specs, 6 ✅ = 100% implemented)
+## One-Offs (6 entries, 5 ✅ = 83% implemented)
 
 ### ✅ Full Implementation
 
@@ -262,7 +250,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ### ✅ Full Implementation Continued
 
-- **What's New Card** (`whats-new-card.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiWhatsNewCard.kt`; outlined card with version/date header, tonal hero band, NEW/FIX/BREAKING tag chips, Later/Got-it footer actions
+- **What's New Card** (`whats-new-card.html`) — ❌ **Missing** — implementation removed 2026-08-14 as unused (no production call site); spec retained.
 
 ---
 
@@ -280,21 +268,21 @@ These are design tokens, brand guidelines, and accessibility references — no d
 ## Key Findings
 
 ### Strengths
-- 127 implementable specs have verified production implementations
-- 46 of 47 atomic components have full implementations; Command Palette remains a placeholder
+- 108 of 113 audited specs have verified production implementations
+- All 29 audited atomic components have full implementations; Command Palette remains a placeholder
 - Glance widget theme parity enforced by `GlanceWidgetThemeParityTest`
-- All 9 motion specs ship as `RipDpiMotion` helpers consumed by their respective indicators
+- 8 of 9 motion specs ship as `RipDpiMotion` helpers with live consumers; `shimmerSpec()` is orphaned
 - All 16 Android platform surfaces ship (splash, qs-tile, nav-rail, glance-widget, notifications, etc.)
 - Reduced-motion path wired via `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion`
 
 ### Remaining gaps
-- All share-flow specs now closed; link-preview was a pure presentation card, not a remote-fetch feature
+- Share flow lost its link-preview and QR-code implementations on 2026-08-14 (deleted as unused); both specs remain open
 - All VPN-flow partials closed; all 35 VPN screens have verified Kotlin implementations
 - Implement Command Palette and Middlebox Signature before claiming 100% coverage
 
 ---
 
-**Audit Date:** 2026-07-26 | **Coverage:** 127 complete, 1 partial, 1 missing | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-08-14 | **Coverage:** 108 complete, 0 partial, 5 missing | **Audited specs:** 113 | **Reference specs:** 17 | Preview inventory on disk remains 146; deleted-implementation rows are no longer audited.
 
 ---
 

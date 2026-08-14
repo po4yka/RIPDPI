@@ -2829,10 +2829,6 @@ Source: %2$s</string>
         <item quantity="one">%d passed</item>
         <item quantity="other">%d passed</item>
     </plurals>
-    <plurals name="stage_passed_chip">
-        <item quantity="one">%d passed</item>
-        <item quantity="other">%d passed</item>
-    </plurals>
     <plurals name="stage_failed_chip">
         <item quantity="one">%d failed</item>
         <item quantity="other">%d failed</item>
@@ -3206,11 +3202,6 @@ Source: %2$s</string>
     <string name="vpn_export_consent_confirm">Export</string>
 
     <!-- What's-new card -->
-    <string name="whats_new_title">What\'s new card</string>
-    <string name="whats_new_subtitle">Release notes pop-up · 3 categories</string>
-    <string name="whats_new_badge">What\'s new</string>
-    <string name="whats_new_later">Later</string>
-    <string name="whats_new_acknowledge">Got it</string>
 
     <!-- Replay recommendations -->
     <string name="vpn_replay_rec_rst_after_client_hello">Possible RST + SNI inspection · try tlsrec_split_host instead</string>
@@ -3642,19 +3633,9 @@ Source: %2$s</string>
     <string name="xray_import_error_activation_failed">Couldn\'t activate the imported profile. Please try again.</string>
 
     <!-- l10n-sweep: accessibility / shared component strings -->
-    <string name="action_clear">Clear</string>
     <string name="cd_collapse">Collapse</string>
     <string name="cd_expand">Expand</string>
     <string name="cd_loading">Loading</string>
-    <string name="cd_slider">Slider</string>
-    <string name="cd_decrement">Decrement</string>
-    <string name="cd_increment">Increment</string>
-    <string name="cd_coach_mark">Coach mark: %1$s. %2$s</string>
-    <string name="cd_heartbeat_state">Heartbeat %1$s</string>
-    <string name="heartbeat_state_healthy">healthy</string>
-    <string name="heartbeat_state_degraded">degraded</string>
-    <string name="heartbeat_state_failed">failed</string>
-    <string name="heartbeat_state_idle">idle</string>
     <string name="cd_progress_percent">Progress %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, %2$s data</string>
     <string name="stale_tier_fresh">fresh</string>
@@ -3756,12 +3737,6 @@ Source: %2$s</string>
     <string name="config_import_pkcs12_failed">PKCS#12 import failed.</string>
     <string name="config_presets_loading_title">Loading profiles…</string>
     <string name="config_presets_loading_body">Restoring your saved configuration profiles.</string>
-    <string name="brand_badge_content_description">RIPDPI</string>
-    <string name="cidr_input_family_ipv4">IPv4</string>
-    <string name="cidr_input_family_ipv6">IPv6</string>
-    <string name="cidr_input_invalid_ipv4">Invalid CIDR — expected dotted-quad/0..32</string>
-    <string name="cidr_input_invalid_ipv6">Invalid CIDR — expected hex-colon/0..128</string>
-    <string name="cidr_input_label">CIDR</string>
     <string name="config_chain_step_detail_tcp_send">TCP send step</string>
     <string name="config_chain_step_detail_tls_prelude">TLS prelude</string>
     <string name="config_chain_step_detail_udp_quic">UDP/QUIC step</string>
@@ -4153,13 +4128,8 @@ Source: %2$s</string>
     <string name="owned_stack_browser_request_failed">Owned-stack request failed.</string>
     <string name="port_matrix_host_port_header">HOST / PORT</string>
     <string name="profile_share_setup_sheet_template">RIPDPI setup sheet\n\nProfile: %1$s\nType: %2$s\n\nSubscription/profile link:\n%3$s\n\nHiddify:\n1. Open Hiddify.\n2. Choose Add profile.\n3. Scan the QR code or paste the link above.\n\nAmneziaVPN:\n1. Open AmneziaVPN.\n2. Choose Add server from link or QR.\n3. Scan the QR code or paste the link above.\n\nKeep this sheet private. The QR code and link contain credentials.</string>
-    <string name="qr_share_spec_ecc">ECC</string>
-    <string name="a11y_share_qr_code">Diagnostic share QR code</string>
     <string name="a11y_loading">Loading</string>
     <string name="percent_value">%1$d%%</string>
-    <string name="qr_share_spec_payload">PAYLOAD</string>
-    <string name="qr_share_spec_schema">SCHEMA</string>
-    <string name="qr_share_spec_version">VERSION</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
     <string name="relay_kind_snowflake_label">Snowflake</string>

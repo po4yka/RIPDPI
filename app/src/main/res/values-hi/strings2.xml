@@ -920,10 +920,6 @@
         <item quantity="one">%d सफल</item>
         <item quantity="other">%d सफल</item>
     </plurals>
-    <plurals name="stage_passed_chip">
-        <item quantity="one">%d सफल</item>
-        <item quantity="other">%d सफल</item>
-    </plurals>
     <plurals name="stage_failed_chip">
         <item quantity="one">%d विफल</item>
         <item quantity="other">%d विफल</item>
@@ -1282,11 +1278,6 @@
     <string name="vpn_export_consent_confirm">निर्यात करें</string>
 
     <!-- What's-new card -->
-    <string name="whats_new_title">नया क्या है कार्ड</string>
-    <string name="whats_new_subtitle">रिलीज़ नोट्स पॉप-अप · 3 श्रेणियाँ</string>
-    <string name="whats_new_badge">नया क्या है</string>
-    <string name="whats_new_later">बाद में</string>
-    <string name="whats_new_acknowledge">समझ गया</string>
 
     <!-- Replay recommendations -->
     <string name="vpn_replay_rec_rst_after_client_hello">संभावित RST + SNI निरीक्षण · इसके बजाय tlsrec_split_host आज़माएँ</string>
@@ -1694,19 +1685,9 @@
     <string name="xray_import_error_activation_failed">आयातित प्रोफ़ाइल सक्रिय नहीं हो सकी। कृपया फिर से प्रयास करें।</string>
 
     <!-- l10n-sweep: accessibility / shared component strings -->
-    <string name="action_clear">साफ़ करें</string>
     <string name="cd_collapse">संक्षिप्त करें</string>
     <string name="cd_expand">विस्तृत करें</string>
     <string name="cd_loading">लोड हो रहा है</string>
-    <string name="cd_slider">स्लाइडर</string>
-    <string name="cd_decrement">घटाएँ</string>
-    <string name="cd_increment">बढ़ाएँ</string>
-    <string name="cd_coach_mark">कोच मार्क: %1$s. %2$s</string>
-    <string name="cd_heartbeat_state">हार्टबीट %1$s</string>
-    <string name="heartbeat_state_healthy">स्वस्थ</string>
-    <string name="heartbeat_state_degraded">कमज़ोर</string>
-    <string name="heartbeat_state_failed">विफल</string>
-    <string name="heartbeat_state_idle">निष्क्रिय</string>
     <string name="cd_progress_percent">प्रगति %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, %2$s डेटा</string>
     <string name="stale_tier_fresh">ताज़ा</string>
@@ -1798,12 +1779,6 @@
     <string name="config_import_pkcs12_failed">PKCS#12 आयात विफल रहा।</string>
     <string name="config_presets_loading_title">प्रोफ़ाइल लोड हो रही हैं…</string>
     <string name="config_presets_loading_body">आपकी सहेजी गई कॉन्फ़िगरेशन प्रोफ़ाइलें पुनर्स्थापित की जा रही हैं।</string>
-    <string name="brand_badge_content_description">RIPDPI</string>
-    <string name="cidr_input_family_ipv4">IPv4</string>
-    <string name="cidr_input_family_ipv6">IPv6</string>
-    <string name="cidr_input_invalid_ipv4">अमान्य CIDR — dotted-quad/0..32 अपेक्षित</string>
-    <string name="cidr_input_invalid_ipv6">अमान्य CIDR — hex-colon/0..128 अपेक्षित</string>
-    <string name="cidr_input_label">CIDR</string>
     <string name="config_chain_step_detail_tcp_send">TCP भेजने का चरण</string>
     <string name="config_chain_step_detail_tls_prelude">TLS प्रस्तावना</string>
     <string name="config_chain_step_detail_udp_quic">UDP/QUIC चरण</string>
@@ -2196,13 +2171,8 @@
     <string name="owned_stack_browser_request_failed">Owned-stack अनुरोध विफल रहा।</string>
     <string name="port_matrix_host_port_header">HOST / PORT</string>
     <string name="profile_share_setup_sheet_template">RIPDPI सेटअप शीट\n\nप्रोफ़ाइल: %1$s\nप्रकार: %2$s\n\nसब्सक्रिप्शन/प्रोफ़ाइल लिंक:\n%3$s\n\nHiddify:\n1. Hiddify खोलें।\n2. प्रोफ़ाइल जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nAmneziaVPN:\n1. AmneziaVPN खोलें।\n2. लिंक या QR से सर्वर जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nइस शीट को निजी रखें। QR कोड और लिंक में क्रेडेंशियल होते हैं।</string>
-    <string name="qr_share_spec_ecc">ECC</string>
-    <string name="a11y_share_qr_code">डायग्नोस्टिक शेयर QR कोड</string>
     <string name="a11y_loading">लोड हो रहा है</string>
     <string name="percent_value">%1$d%%</string>
-    <string name="qr_share_spec_payload">PAYLOAD</string>
-    <string name="qr_share_spec_schema">SCHEMA</string>
-    <string name="qr_share_spec_version">VERSION</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
     <string name="relay_kind_snowflake_label">Snowflake</string>

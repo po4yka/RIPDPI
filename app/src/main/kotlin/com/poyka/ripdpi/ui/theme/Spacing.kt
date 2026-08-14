@@ -92,11 +92,6 @@ data class RipDpiInputMetrics(
     val switchTrackHeight: Dp = 32.dp,
     val switchThumbSize: Dp = 24.dp,
     val switchThumbPadding: Dp = 4.dp,
-    val stepperOuterPadding: Dp = 2.dp,
-    val stepperButtonSize: Dp = 32.dp,
-    val stepperButtonCornerRadius: Dp = 6.dp,
-    val stepperValueMinWidth: Dp = 48.dp,
-    val stepperIconSize: Dp = 16.dp,
 )
 
 @Immutable
@@ -168,22 +163,6 @@ data class RipDpiFeedbackMetrics(
 )
 
 @Immutable
-data class RipDpiDiffMetrics(
-    val rowGap: Dp = 1.dp,
-    val rowVerticalPadding: Dp = 2.dp,
-    val unifiedHorizontalPadding: Dp = 6.dp,
-    val unifiedColumnGap: Dp = 8.dp,
-    val sideBySideColumnGap: Dp = 4.dp,
-    val sideBySideHorizontalPadding: Dp = 4.dp,
-)
-
-@Immutable
-data class RipDpiJsonTreeMetrics(
-    val rowVerticalPadding: Dp = 2.dp,
-    val chevronSize: Dp = 14.dp,
-)
-
-@Immutable
 data class RipDpiTooltipMetrics(
     val richMaxWidth: Dp = 320.dp,
 )
@@ -204,8 +183,6 @@ data class RipDpiComponents(
     val navigation: RipDpiNavigationMetrics = RipDpiNavigationMetrics(),
     val indicators: RipDpiIndicatorMetrics = RipDpiIndicatorMetrics(),
     val feedback: RipDpiFeedbackMetrics = RipDpiFeedbackMetrics(),
-    val diff: RipDpiDiffMetrics = RipDpiDiffMetrics(),
-    val jsonTree: RipDpiJsonTreeMetrics = RipDpiJsonTreeMetrics(),
     val tooltip: RipDpiTooltipMetrics = RipDpiTooltipMetrics(),
     val content: RipDpiContentMetrics = RipDpiContentMetrics(),
 )
