@@ -67,6 +67,7 @@ fun SimpleHomeScreen(
     SimpleHomeContent(
         connectionState = uiState.connectionState,
         blocksDisconnect = uiState.hardKillSwitch.blocksDisconnect,
+        disconnectBlockedReason = uiState.hardKillSwitch.summary,
         diagnostics = diagnostics,
         activeTransport = activeTransport,
         snackbarHostState = snackbarHostState,
@@ -85,6 +86,7 @@ fun SimpleHomeScreen(
 internal fun SimpleHomeContent(
     connectionState: ConnectionState,
     blocksDisconnect: Boolean = false,
+    disconnectBlockedReason: String = "",
     diagnostics: HomeDiagnosticsUiState,
     activeTransport: ActiveTransportDescriptor?,
     snackbarHostState: SnackbarHostState,
@@ -182,6 +184,21 @@ internal fun SimpleHomeContent(
                     enabled = !disconnectBlocked,
                     variant = RipDpiButtonVariant.Primary,
                 )
+
+                // A disabled primary action must say why. The lockdown owner is the only
+                // thing that can disable it, and it carries its own explanation.
+                if (disconnectBlocked && disconnectBlockedReason.isNotBlank()) {
+                    Text(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = spacing.sm),
+                        text = disconnectBlockedReason,
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                        textAlign = TextAlign.Center,
+                    )
+                }
 
                 RipDpiButton(
                     modifier =

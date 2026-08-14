@@ -77,6 +77,7 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Connected,
                     blocksDisconnect = true,
+                    disconnectBlockedReason = "Always-on VPN owns this connection",
                     diagnostics = HomeDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
@@ -88,7 +89,30 @@ class SimpleHomeScreenTest {
         }
 
         composeRule.onNodeWithText("Disconnect").assertIsNotEnabled()
+        composeRule.onNodeWithText("Always-on VPN owns this connection").assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, toggleClicks) }
+    }
+
+    @Test
+    fun `lockdown explanation stays hidden while disconnect is available`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Connected,
+                    blocksDisconnect = false,
+                    disconnectBlockedReason = "Always-on VPN owns this connection",
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Disconnect").assertIsEnabled()
+        composeRule.onNodeWithText("Always-on VPN owns this connection").assertDoesNotExist()
     }
 
     @Test
