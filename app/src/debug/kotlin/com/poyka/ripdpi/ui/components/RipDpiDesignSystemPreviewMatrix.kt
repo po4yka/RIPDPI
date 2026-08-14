@@ -1004,6 +1004,12 @@ internal fun homePreviewActuatorState(status: HomeConnectionActuatorStatus): Hom
             } else {
                 "Engage secure line"
             },
+        // The fault carries its own message now, as it does in the app: the
+        // resolver fills this field and the screen no longer has a banner to
+        // put it in. Without it the error screens document a failure that says
+        // nothing about what failed.
+        faultDetail =
+            if (status == HomeConnectionActuatorStatus.Fault) "Failed to start VPN" else "",
         carriageFraction =
             when (status) {
                 HomeConnectionActuatorStatus.Open -> 0f
