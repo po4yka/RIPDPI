@@ -103,7 +103,6 @@
     <string name="history_title">इतिहास</string>
     <string name="diagnostics_overview_section">अवलोकन</string>
     <string name="diagnostics_dashboard_section">डैशबोर्ड</string>
-    <string name="diagnostics_live_section">लाइव</string>
     <string name="diagnostics_scan_section">स्कैन</string>
     <string name="diagnostics_tools_section">उपकरण</string>
     <string name="diagnostics_approaches_title">तरीके</string>
@@ -426,7 +425,6 @@
     <string name="home_setup_health_collapsed_format">ध्यान देने योग्य आइटम: %1$d</string>
     <string name="home_setup_health_expanded">सेटअप आइटम और रिकवरी कार्रवाइयाँ देखें।</string>
     <string name="home_connection_button_connecting">कनेक्ट हो रहा है…</string>
-    <string name="home_connection_actuator_open">खोलें</string>
     <string name="home_connection_actuator_secure">सुरक्षित</string>
     <string name="home_connection_actuator_direct">सीधा</string>
     <string name="home_connection_actuator_state_open">सुरक्षित लाइन निष्क्रिय है</string>
@@ -598,9 +596,6 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">डायग्नोस्टिक स्कैन</string>
     <string name="home_mode_card_connected_format">कनेक्ट है %1$s</string>
-    <string name="home_connection_actuator_state_vpn_checking">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी जाँची जा रही है</string>
-    <string name="home_connection_actuator_state_vpn_unverified">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी सत्यापित नहीं है</string>
-    <string name="home_connection_actuator_state_vpn_unavailable">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी उपलब्ध नहीं है</string>
     <string name="home_mode_card_connecting">शुरू हो रहा है...</string>
     <string name="home_mode_card_remote_relay_disabled">रिले अक्षम</string>
     <string name="home_mode_card_remote_relay_disabled_hint">इसे चालू करने के लिए Configure में कोई रिले सक्षम करें</string>

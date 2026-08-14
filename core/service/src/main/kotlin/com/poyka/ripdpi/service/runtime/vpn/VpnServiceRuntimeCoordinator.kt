@@ -35,7 +35,6 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
-import com.poyka.ripdpi.services.ServiceRuntimeAdmissionInterlock
 import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
 import com.poyka.ripdpi.services.ServiceRuntimeModeHooks
 import com.poyka.ripdpi.services.ServiceRuntimePermissionHooks
@@ -101,7 +100,6 @@ internal class VpnServiceRuntimeCoordinator(
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
-    runtimeAdmissionInterlock: ServiceRuntimeAdmissionInterlock = ServiceRuntimeAdmissionInterlock(),
     private val vpnProtectFailureMonitor: VpnProtectFailureMonitor,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val resolverRefreshPlanner: VpnResolverRefreshPlanner,
@@ -136,7 +134,6 @@ internal class VpnServiceRuntimeCoordinator(
         networkHandoverMonitor = networkHandoverMonitor,
         policyHandoverEventStore = policyHandoverEventStore,
         permissionWatchdog = permissionWatchdog,
-        runtimeAdmissionInterlock = runtimeAdmissionInterlock,
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {

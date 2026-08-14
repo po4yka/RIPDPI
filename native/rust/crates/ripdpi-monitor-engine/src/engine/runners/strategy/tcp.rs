@@ -19,7 +19,6 @@ use crate::types::StrategyProbeProgressLane;
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
 };
-use super::attempt_recording::record_full_matrix_candidate_attempts;
 use super::support::FamilyFailureTracker;
 
 use self::baseline::run_baseline_candidate;
@@ -177,9 +176,8 @@ impl ExecutionStageRunner for StrategyTcpRunner {
 
             // Merge results back into the runtime sequentially.
             let mut any_cancelled = false;
-            for (candidate_index, spec, mut execution) in exec_results {
+            for (candidate_index, spec, execution) in exec_results {
                 if execution.cancelled {
-                    record_full_matrix_candidate_attempts(runtime, &mut execution);
                     any_cancelled = true;
                     continue;
                 }

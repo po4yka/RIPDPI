@@ -36,7 +36,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -298,11 +297,8 @@ private fun AssetProviderPickerCard(
             }
             if (selected == CustomAssetProviderId) {
                 RipDpiTextField(
-                    state =
-                        rememberRipDpiTextFieldState(
-                            value = state.customBaseUrl,
-                            onValueChange = onCustomUrlChanged,
-                        ),
+                    value = state.customBaseUrl,
+                    onValueChange = onCustomUrlChanged,
                     decoration =
                         RipDpiTextFieldDecoration(
                             label = stringResource(R.string.asset_provider_custom_url_label),

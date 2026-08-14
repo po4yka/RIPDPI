@@ -11,7 +11,6 @@ pub fn android_support::EventRingBuffers::drain_diagnostics(&self) -> alloc::vec
 pub fn android_support::EventRingBuffers::drain_diagnostics_for_session(&self, &str) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::drain_proxy(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::drain_relay(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
-pub fn android_support::EventRingBuffers::drain_relay_for_runtime(&self, &str) -> android_support::RelayEventDrain
 pub fn android_support::EventRingBuffers::drain_tunnel(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::drain_warp(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::EventRingBuffers::new(android_support::RingConfig) -> Self
@@ -23,7 +22,6 @@ pub fn android_support::EventRingLayer::global() -> Self
 pub fn android_support::EventRingLayer::new(android_support::EventRingBuffers) -> Self
 impl<S> tracing_subscriber::layer::Layer<S> for android_support::EventRingLayer where S: tracing_core::subscriber::Subscriber + for<'span> tracing_subscriber::registry::LookupSpan<'span>
 pub fn android_support::EventRingLayer::on_event(&self, &tracing_core::event::Event<'_>, tracing_subscriber::layer::context::Context<'_, S>)
-pub fn android_support::EventRingLayer::on_new_span(&self, &tracing_core::span::Attributes<'_>, &tracing_core::span::Id, tracing_subscriber::layer::context::Context<'_, S>)
 pub struct android_support::HandleRegistry<T>
 impl<T> android_support::HandleRegistry<T>
 pub fn android_support::HandleRegistry<T>::get(&self, u64) -> core::option::Option<alloc::sync::Arc<T>>
@@ -33,31 +31,17 @@ pub fn android_support::HandleRegistry<T>::remove(&self, u64) -> core::option::O
 impl<T> core::default::Default for android_support::HandleRegistry<T>
 pub fn android_support::HandleRegistry<T>::default() -> Self
 pub struct android_support::NativeEventRecord
-pub android_support::NativeEventRecord::attempt_id: core::option::Option<u64>
-pub android_support::NativeEventRecord::attempt_sequence: core::option::Option<u64>
-pub android_support::NativeEventRecord::carrier_disposition: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::created_at: u64
 pub android_support::NativeEventRecord::diagnostics_session_id: core::option::Option<alloc::string::String>
-pub android_support::NativeEventRecord::duration_ms: core::option::Option<u64>
-pub android_support::NativeEventRecord::failure_class: core::option::Option<alloc::string::String>
-pub android_support::NativeEventRecord::failure_stage: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::fingerprint_hash: core::option::Option<alloc::string::String>
-pub android_support::NativeEventRecord::io_error_kind: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::kind: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::level: alloc::string::String
 pub android_support::NativeEventRecord::message: alloc::string::String
 pub android_support::NativeEventRecord::mode: core::option::Option<alloc::string::String>
-pub android_support::NativeEventRecord::os_error_code: core::option::Option<i32>
-pub android_support::NativeEventRecord::outcome: core::option::Option<alloc::string::String>
-pub android_support::NativeEventRecord::peer_close_phase: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::policy_signature: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::runtime_id: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::source: alloc::string::String
-pub android_support::NativeEventRecord::stage: core::option::Option<alloc::string::String>
 pub android_support::NativeEventRecord::subsystem: core::option::Option<alloc::string::String>
-pub struct android_support::RelayEventDrain
-pub android_support::RelayEventDrain::dropped_event_count: u64
-pub android_support::RelayEventDrain::events: alloc::vec::Vec<android_support::NativeEventRecord>
 pub struct android_support::RingConfig
 pub android_support::RingConfig::diagnostics_capacity: usize
 pub android_support::RingConfig::proxy_capacity: usize
@@ -81,7 +65,6 @@ pub fn android_support::clear_diagnostics_events()
 pub fn android_support::clear_diagnostics_events_for_session(&str)
 pub fn android_support::clear_proxy_events()
 pub fn android_support::clear_relay_events()
-pub fn android_support::clear_relay_events_for_runtime(&str)
 pub fn android_support::clear_tunnel_events()
 pub fn android_support::clear_warp_events()
 pub fn android_support::default_android_log_level() -> log::LevelFilter
@@ -90,7 +73,6 @@ pub fn android_support::drain_diagnostics_events() -> alloc::vec::Vec<android_su
 pub fn android_support::drain_diagnostics_events_for_session(&str) -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::drain_proxy_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::drain_relay_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
-pub fn android_support::drain_relay_events_for_runtime(&str) -> android_support::RelayEventDrain
 pub fn android_support::drain_tunnel_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::drain_warp_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
 pub fn android_support::ffi_boundary<T, F>(T, F) -> T where F: core::ops::function::FnOnce() -> T

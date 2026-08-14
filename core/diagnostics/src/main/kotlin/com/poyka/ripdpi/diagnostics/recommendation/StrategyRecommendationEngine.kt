@@ -239,10 +239,10 @@ internal object StrategyRecommendationEngine {
             }
 
         return buildString {
-            append("Observed probe outcomes match a candidate $patternLabel pattern")
+            append("Detected $patternLabel")
             if (tcpCount > 0) append(" on $tcpCount TCP probe(s)")
-            if (serviceCount > 0) append(" with $serviceCount failed service probe(s)")
-            append("; the mechanism and cause are not established. Recommend switching to $familyLabel.")
+            if (serviceCount > 0) append(" with $serviceCount blocked service(s)")
+            append(". Recommend switching to $familyLabel.")
         }
     }
 
@@ -256,15 +256,15 @@ internal object StrategyRecommendationEngine {
     private enum class SignalCategory(
         val label: String,
     ) {
-        TCP_RST("TCP RST observations"),
-        THRESHOLD_BLOCK("16KB threshold failure observations"),
-        SILENT_DROP("Timeout or drop observations"),
-        TLS_INTERFERENCE("TLS handshake failure observations"),
-        DOMAIN_BLOCKED("Domain failure observations"),
-        SERVICE_BLOCKED("Service failure observations"),
-        CIRCUMVENTION_BLOCKED("Circumvention tool failure observations"),
-        THROUGHPUT_BLOCKED("Throughput failure observations"),
-        QUIC_BLOCKED("QUIC failure observations"),
+        TCP_RST("TCP RST injection"),
+        THRESHOLD_BLOCK("Threshold blocking (16KB+)"),
+        SILENT_DROP("Silent packet drop"),
+        TLS_INTERFERENCE("TLS handshake interference"),
+        DOMAIN_BLOCKED("Domain unreachable"),
+        SERVICE_BLOCKED("Service blocked"),
+        CIRCUMVENTION_BLOCKED("Circumvention tool blocked"),
+        THROUGHPUT_BLOCKED("Throughput throttled"),
+        QUIC_BLOCKED("QUIC blocked"),
     }
 
     private fun ScanReport.hasActionableStrategyEvidence(signals: List<BlockingSignal>): Boolean =

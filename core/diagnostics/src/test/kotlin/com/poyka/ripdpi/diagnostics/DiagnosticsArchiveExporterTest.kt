@@ -1,14 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.DefaultServiceStateStore
-import com.poyka.ripdpi.data.NativeRuntimeEvent
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
-import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -35,19 +28,9 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
     protected val json = diagnosticsTestJson()
     protected val compositeRunService = ArchiveCompositeRunService()
 
-    protected fun createArchiveExporter(
-        stores: FakeDiagnosticsHistoryStores,
-        developerAnalyticsSource: DeveloperAnalyticsSource = NoopDeveloperAnalyticsSource,
-    ): DefaultDiagnosticsArchiveExporter {
+    protected fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
         val context = TestContext()
-        return createArchiveExporterForTest(
-            stores = stores,
-            context = context,
-            rootModeEnabled = false,
-            compositeRunService = compositeRunService,
-            json = json,
-            developerAnalyticsSource = developerAnalyticsSource,
-        )
+        return createArchiveExporter(stores, context = context, rootModeEnabled = false)
     }
 
     protected fun createArchiveExporter(
@@ -200,75 +183,6 @@ internal class ArchiveCompositeRunService : DiagnosticsHomeCompositeRunService {
 
 internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBase() {
     @Test
-    fun `home archive passes typed stage failures to developer analytics`() =
-        runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            seedCompositeSessionStores(stores)
-            val failedSession = stores.sessionsState.value.first { it.id == "dpi-session" }
-            val report =
-                EngineScanReportWire(
-                    sessionId = failedSession.id,
-                    profileId = failedSession.profileId,
-                    pathMode = ScanPathMode.RAW_PATH,
-                    startedAt = 10,
-                    finishedAt = 20,
-                    summary = "Typed DNS failure",
-                    observations =
-                        listOf(
-                            ObservationFact(
-                                kind = ObservationKind.DNS,
-                                target = "blocked.example",
-                                dns =
-                                    DnsObservationFact(
-                                        domain = "blocked.example",
-                                        status = DnsObservationStatus.NXDOMAIN_MISMATCH,
-                                    ),
-                            ),
-                        ),
-                )
-            stores.sessionsState.value =
-                stores.sessionsState.value.map { session ->
-                    if (session.id == failedSession.id) {
-                        session.copy(reportJson = json.encodeToString(EngineScanReportWire.serializer(), report))
-                    } else {
-                        session
-                    }
-                }
-            val outcome = buildSampleCompositeOutcome()
-            compositeRunService.putCompletedRun(outcome)
-            var capturedContext: DeveloperAnalyticsContext? = null
-            val analyticsSource =
-                object : DeveloperAnalyticsSource {
-                    override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload {
-                        capturedContext = context
-                        return DeveloperAnalyticsPayload()
-                    }
-                }
-            val exporter = createArchiveExporter(stores, developerAnalyticsSource = analyticsSource)
-
-            exporter.createArchive(
-                DiagnosticsArchiveRequest(
-                    sessionIds = outcome.bundleSessionIds,
-                    homeRunId = outcome.runId,
-                    reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
-                    requestedAt = 24,
-                ),
-            )
-
-            assertEquals(
-                listOf(
-                    DeveloperFailureFactEvidence(
-                        category = DeveloperFailureCategory.DNS,
-                        observationIndex = 0,
-                        field = DeveloperFailureFactField.DNS_STATUS,
-                        value = DnsObservationStatus.NXDOMAIN_MISMATCH,
-                    ),
-                ),
-                requireNotNull(capturedContext).failureEnvelopes.single().facts,
-            )
-        }
-
-    @Test
     fun `writeArchive reports io failure without leaving a cache archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -328,7 +242,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         }
 
     @Test
-    fun `createArchive persists requested session export and writes schema v10 archive`() =
+    fun `createArchive persists requested session export and writes schema v6 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -351,7 +265,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(15, archive.schemaVersion)
+            assertEquals(6, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -862,7 +776,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(15, archive.schemaVersion)
+            assertEquals(6, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -1105,14 +1019,6 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
         assertEquals(outcome.runId, manifest.homeRunId)
         assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
-        assertEquals(
-            manifest.includedFiles,
-            zip
-                .entries()
-                .asSequence()
-                .map { entry -> entry.name }
-                .toList(),
-        )
         assertTrue(
             Regex(
                 "ripdpi-diagnostics-1700000000000-correlation-[0-9]+\\.zip",
@@ -1121,34 +1027,14 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("home-analysis.json"))
         assertNotNull(zip.getEntry("stage-index.json"))
         assertNotNull(zip.getEntry("stage-summaries.json"))
-        assertNotNull(zip.getEntry("target-aliases.json"))
-        assertNotNull(zip.getEntry("resolver-trace.jsonl"))
         assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
         assertNotNull(zip.getEntry("stages/automatic_audit/execution-plan.json"))
-        assertNotNull(zip.getEntry("stages/automatic_audit/capabilities.json"))
-        assertNotNull(zip.getEntry("stages/automatic_audit/attempts.jsonl"))
-        assertNotNull(zip.getEntry("stages/automatic_audit/emission-receipts.jsonl"))
-        assertNotNull(zip.getEntry("stages/automatic_audit/protocol-milestones.jsonl"))
-        assertNotNull(zip.getEntry("stages/automatic_audit/resolver-trace.jsonl"))
-        assertNotNull(zip.getEntry("stages/automatic_audit/decision-trace.json"))
         assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
         assertNotNull(zip.getEntry("stages/default_connectivity/execution-plan.json"))
-        assertNotNull(zip.getEntry("stages/default_connectivity/capabilities.json"))
-        assertNotNull(zip.getEntry("stages/default_connectivity/attempts.jsonl"))
-        assertNotNull(zip.getEntry("stages/default_connectivity/emission-receipts.jsonl"))
-        assertNotNull(zip.getEntry("stages/default_connectivity/protocol-milestones.jsonl"))
-        assertNotNull(zip.getEntry("stages/default_connectivity/resolver-trace.jsonl"))
-        assertNotNull(zip.getEntry("stages/default_connectivity/decision-trace.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/execution-plan.json"))
-        assertNotNull(zip.getEntry("stages/dpi_full/capabilities.json"))
-        assertNotNull(zip.getEntry("stages/dpi_full/attempts.jsonl"))
-        assertNotNull(zip.getEntry("stages/dpi_full/emission-receipts.jsonl"))
-        assertNotNull(zip.getEntry("stages/dpi_full/protocol-milestones.jsonl"))
-        assertNotNull(zip.getEntry("stages/dpi_full/resolver-trace.jsonl"))
-        assertNotNull(zip.getEntry("stages/dpi_full/decision-trace.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v15.json",
+            "archive/manifest_home_composite_v6.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(
@@ -1158,15 +1044,15 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
             },
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/home_analysis_composite_v14.json",
+            "archive/home_analysis_composite_v6.json",
             zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_index_composite_v14.json",
+            "archive/stage_index_composite_v6.json",
             zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_summaries_composite_v14.json",
+            "archive/stage_summaries_composite_v6.json",
             zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
         )
     }

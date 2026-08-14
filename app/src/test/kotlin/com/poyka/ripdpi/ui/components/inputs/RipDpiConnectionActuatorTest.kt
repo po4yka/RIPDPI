@@ -512,7 +512,6 @@ class RipDpiConnectionActuatorTest {
     private fun actuatorState(status: HomeConnectionActuatorStatus): HomeConnectionActuatorUiState =
         HomeConnectionActuatorUiState(
             status = status,
-            leadingLabel = "Open",
             trailingLabel = "Secure",
             routeLabel = "Local VPN",
             statusDescription = "State $status",

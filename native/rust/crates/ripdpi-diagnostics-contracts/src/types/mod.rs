@@ -4,7 +4,6 @@ mod observation;
 mod request;
 mod scan;
 mod strategy;
-mod strategy_attempt;
 mod target;
 
 pub use confirm_good::*;
@@ -13,13 +12,11 @@ pub use observation::*;
 pub use request::*;
 pub use scan::*;
 pub use strategy::*;
-pub use strategy_attempt::*;
 pub use target::*;
 
 #[derive(Default)]
 pub struct SharedState {
     pub progress: Option<ScanProgress>,
     pub report: Option<ScanReport>,
-    pub checkpoint_report: Option<ScanReport>,
     pub log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
 }

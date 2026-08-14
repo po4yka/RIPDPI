@@ -29,14 +29,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest,cargo-mutants
 
@@ -73,11 +72,10 @@ jobs:
           MUTANTS_PACKAGES: ${{ github.event.inputs.packages || '' }}
           MUTANTS_SHARD_COUNT: ${{ steps.mutation-scope.outputs.shard-count }}
           MUTANTS_SHARD_INDEX: ${{ steps.mutation-scope.outputs.shard-index }}
-          MUTANTS_IN_DIFF: ${{ github.event.inputs.in_diff || 'false' }}
           RIPDPI_REPO_ROOT: ${{ github.workspace }}
         run: |
           extra_args=()
-          if [ "$MUTANTS_IN_DIFF" = "true" ]; then
+          if [ "${{ github.event.inputs.in_diff || 'false' }}" = "true" ]; then
             extra_args+=(--in-diff "git diff origin/main...HEAD")
           fi
           bash scripts/ci/run-rust-mutants.sh "${extra_args[@]}"

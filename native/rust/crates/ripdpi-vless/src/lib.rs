@@ -27,11 +27,10 @@ mod yamux_session;
 pub use mux::{MuxConfigError, VlessMuxConfig, VlessMuxProtocol};
 pub use yamux_session::VlessYamuxSession;
 
-use std::future::Future;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::AsRawFd;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use socket2::{SockRef, TcpKeepalive};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -67,41 +66,23 @@ impl VlessRealityClient {
     /// sing-mux/yamux session. The carrier's VLESS destination is fixed by the
     /// upstream protocol; individual destinations are requested on yamux
     /// substreams afterwards.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: dropping this future discards its exclusively
-    /// owned incomplete carrier; partial remote handshake/request bytes cannot
-    /// be resumed or returned to the pool.
     pub async fn connect_mux(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessYamuxSession> {
         let mux = config.mux.ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "VLESS mux session requested without mux config")
         })?;
-        let tcp = trace_io_stage("tcp_connect", connect_tcp(config, bind_ip)).await?;
-        let tls = trace_io_stage("reality_tls", reality::connect_reality_tls(tcp, config)).await?;
+        let tcp = connect_tcp(config, bind_ip).await?;
+        let tls = reality::connect_reality_tls(tcp, config).await?;
         let carrier = Self::vless_handshake_and_wrap(tls, config, mux::SING_MUX_DESTINATION).await?;
         VlessYamuxSession::establish(Box::new(carrier), mux.max_concurrent_streams).await
     }
 
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: delegates to
-    /// `connect_with_optional_bind`, which drops rather than resumes its
-    /// exclusively owned incomplete carrier.
     pub async fn connect(config: &VlessRealityConfig, target: &str) -> io::Result<VlessRealityStream> {
         Self::connect_with_optional_bind(config, None, target).await
     }
 
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream` while binding
     /// the underlying TCP socket to a specific local IP.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: delegates to
-    /// `connect_with_optional_bind`, which drops rather than resumes its
-    /// exclusively owned incomplete carrier.
     pub async fn connect_with_bind(
         config: &VlessRealityConfig,
         bind_ip: IpAddr,
@@ -110,20 +91,15 @@ impl VlessRealityClient {
         Self::connect_with_optional_bind(config, Some(bind_ip), target).await
     }
 
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: dropping at the `connect_tcp`, Reality TLS,
-    /// or VLESS-request `.await` may leave the peer with a partial
-    /// handshake/request, but the in-progress carrier is exclusively owned and
-    /// dropped and is never resumed or returned to a pool; the stage guard
-    /// emits one `cancelled` record.
     async fn connect_with_optional_bind(
         config: &VlessRealityConfig,
         bind_ip: Option<IpAddr>,
         target: &str,
     ) -> io::Result<VlessRealityStream> {
-        let tcp = trace_io_stage("tcp_connect", connect_tcp(config, bind_ip)).await?;
-        let tls = trace_io_stage("reality_tls", reality::connect_reality_tls(tcp, config)).await?;
+        tracing::debug!("VLESS+Reality: connecting");
+
+        let tcp = connect_tcp(config, bind_ip).await?;
+        let tls = reality::connect_reality_tls(tcp, config).await?;
         Self::vless_handshake_and_wrap(tls, config, target).await
     }
 
@@ -132,9 +108,8 @@ impl VlessRealityClient {
     ///
     /// # Cancel safety
     ///
-    /// conditionally cancel-safe: dropping at the TCP connect, Reality TLS, or
-    /// VLESS request awaits may leave only a partial peer-side handshake; the
-    /// exclusively owned local carrier is dropped and never resumed or pooled.
+    /// NOT cancel-safe: cancellation discards the in-progress TCP/TLS/VLESS
+    /// handshake and its carrier. Retrying always starts a fresh association.
     pub async fn connect_xudp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessXudpSession> {
         if config.flow == crate::addons::VlessFlow::None {
             return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS XUDP requires an XTLS Vision flow"));
@@ -152,12 +127,6 @@ impl VlessRealityClient {
     /// Used for chain relay: the `transport` is the output of a previous
     /// `VlessRealityClient::connect()` call (first hop), and we layer a second
     /// VLESS+Reality connection on top of it to reach the final destination.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: cancellation may leave partial Reality/VLESS
-    /// bytes on `transport`; the caller must discard that transport and must
-    /// not resume or pool it.
     pub async fn connect_over<S>(
         config: &VlessRealityConfig,
         transport: S,
@@ -174,12 +143,6 @@ impl VlessRealityClient {
 
     /// Send the VLESS request and wrap the stream for lazy response-header
     /// validation plus the selected Vision flow.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: delegates to
-    /// `vless_handshake_and_wrap_command`; cancellation is safe only while the
-    /// exclusively owned incomplete stream is discarded.
     async fn vless_handshake_and_wrap<S>(
         tls: S,
         config: &VlessRealityConfig,
@@ -191,12 +154,8 @@ impl VlessRealityClient {
         Self::vless_handshake_and_wrap_command(tls, config, wire::VlessCommand::Tcp, Some(target)).await
     }
 
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: `write_all(&request).await` may write a prefix
-    /// before cancellation; this is safe only because `tls` is exclusively
-    /// owned, dropped with the future, and never resumed or pooled. The stage
-    /// guard emits one `cancelled` terminal transition.
+    /// NOT cancel-safe: cancellation may leave a partial request on `tls`,
+    /// which is consumed and dropped with this future rather than reused.
     async fn vless_handshake_and_wrap_command<S>(
         mut tls: S,
         config: &VlessRealityConfig,
@@ -211,12 +170,12 @@ impl VlessRealityClient {
         // that advertise `flow: ""` or `xtls-rprx-vision-udp443`. See
         // [`crate::addons::VlessFlow`] and audit finding C3.
         let request = wire::encode_command_request(&config.uuid, config.flow.as_addons_bytes(), command, target)?;
-        trace_io_stage("vless_request", tls.write_all(&request)).await?;
+        tls.write_all(&request).await?;
 
         // xray-core buffers its response header until the first outbound
         // payload is available. Strip it lazily on read so the caller can
         // first send the request that makes the server flush that header.
-        let response = ResponseHeaderStream::new_traced(tls);
+        let response = ResponseHeaderStream::new(tls);
 
         // Wrap for the selected flow: real XTLS Vision framing for
         // `xtls-rprx-vision[-udp443]`, or a transparent passthrough for
@@ -237,126 +196,6 @@ impl VlessRealityClient {
     }
 }
 
-/// # Cancel safety
-///
-/// conditionally cancel-safe: this wrapper inherits `future`'s cancel safety;
-/// dropping at `future.await` emits exactly one `cancelled` transition but
-/// does not make a non-cancel-safe inner future safe.
-async fn trace_io_stage<T>(stage: &'static str, future: impl Future<Output = io::Result<T>>) -> io::Result<T> {
-    let mut guard = RelayStageGuard::new(stage);
-    match future.await {
-        Ok(value) => {
-            guard.finish("succeeded", None, None);
-            Ok(value)
-        }
-        Err(error) => {
-            guard.finish("failed", Some(&error), None);
-            Err(error)
-        }
-    }
-}
-
-pub(crate) struct RelayStageGuard {
-    stage: &'static str,
-    started: Instant,
-    finished: bool,
-}
-
-impl RelayStageGuard {
-    pub(crate) fn new(stage: &'static str) -> Self {
-        let started = Instant::now();
-        emit_stage(stage, "started", started, None, None);
-        Self { stage, started, finished: false }
-    }
-
-    pub(crate) fn finish(
-        &mut self,
-        outcome: &'static str,
-        error: Option<&io::Error>,
-        peer_close_phase: Option<&'static str>,
-    ) {
-        if self.finished {
-            return;
-        }
-        emit_stage(self.stage, outcome, self.started, error, peer_close_phase);
-        self.finished = true;
-    }
-}
-
-impl Drop for RelayStageGuard {
-    fn drop(&mut self) {
-        if !self.finished {
-            emit_stage(self.stage, "cancelled", self.started, None, None);
-        }
-    }
-}
-
-pub(crate) fn emit_stage(
-    stage: &'static str,
-    outcome: &'static str,
-    started: Instant,
-    error: Option<&io::Error>,
-    peer_close_phase: Option<&'static str>,
-) {
-    let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let io_error_kind = error.map(|value| io_error_kind_name(value.kind()));
-    let os_error_code = error.and_then(io::Error::raw_os_error);
-    tracing::info!(
-        kind = "relay_attempt_stage",
-        stage,
-        outcome,
-        duration_ms,
-        failure_stage = error.map(|_| stage),
-        failure_class = error.map(failure_class),
-        io_error_kind,
-        os_error_code,
-        peer_close_phase,
-        "relay attempt stage transition"
-    );
-}
-
-fn failure_class(error: &io::Error) -> &'static str {
-    match error.kind() {
-        io::ErrorKind::ConnectionReset => "connection_reset",
-        io::ErrorKind::ConnectionRefused => "connection_refused",
-        io::ErrorKind::TimedOut => "timeout",
-        io::ErrorKind::UnexpectedEof => "peer_closed",
-        _ => "io_error",
-    }
-}
-
-fn io_error_kind_name(kind: io::ErrorKind) -> &'static str {
-    match kind {
-        io::ErrorKind::NotFound => "not_found",
-        io::ErrorKind::PermissionDenied => "permission_denied",
-        io::ErrorKind::ConnectionRefused => "connection_refused",
-        io::ErrorKind::ConnectionReset => "connection_reset",
-        io::ErrorKind::HostUnreachable => "host_unreachable",
-        io::ErrorKind::NetworkUnreachable => "network_unreachable",
-        io::ErrorKind::ConnectionAborted => "connection_aborted",
-        io::ErrorKind::NotConnected => "not_connected",
-        io::ErrorKind::AddrInUse => "address_in_use",
-        io::ErrorKind::AddrNotAvailable => "address_not_available",
-        io::ErrorKind::BrokenPipe => "broken_pipe",
-        io::ErrorKind::AlreadyExists => "already_exists",
-        io::ErrorKind::WouldBlock => "would_block",
-        io::ErrorKind::InvalidInput => "invalid_input",
-        io::ErrorKind::InvalidData => "invalid_data",
-        io::ErrorKind::TimedOut => "timed_out",
-        io::ErrorKind::WriteZero => "write_zero",
-        io::ErrorKind::Interrupted => "interrupted",
-        io::ErrorKind::Unsupported => "unsupported",
-        io::ErrorKind::UnexpectedEof => "unexpected_eof",
-        io::ErrorKind::OutOfMemory => "out_of_memory",
-        _ => "other",
-    }
-}
-
-/// # Cancel safety
-///
-/// conditionally cancel-safe: resolver and socket-connect progress is
-/// abandoned by dropping the exclusively owned socket; retry starts with a
-/// fresh protected socket and never resumes the partial connect.
 async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
     let socket_protection = config.socket_protection;
     let address = endpoint_resolver::resolve_server_addr(
@@ -394,7 +233,10 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
         };
         socket.bind(bind_addr)?;
     }
-    let stream = socket.connect(address).await?;
+    let stream = socket
+        .connect(address)
+        .await
+        .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect failed: {e}")))?;
     stream.set_nodelay(true)?;
     Ok(stream)
 }

@@ -6,7 +6,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun VlessRealityRelayFields(
@@ -24,19 +23,13 @@ private fun RealityTlsFields(
     actions: RelayVlessActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayRealityPublicKey,
-                onValueChange = actions.onRelayRealityPublicKeyChanged,
-            ),
+        value = draft.relayRealityPublicKey,
+        onValueChange = actions.onRelayRealityPublicKeyChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_public_key)),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayRealityShortId,
-                onValueChange = actions.onRelayRealityShortIdChanged,
-            ),
+        value = draft.relayRealityShortId,
+        onValueChange = actions.onRelayRealityShortIdChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_short_id)),
     )
 }

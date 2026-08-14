@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,7 +52,6 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -86,6 +84,7 @@ fun BackupRestoreRoute(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var importPassphrase by remember { mutableStateOf("") }
 
     // Export wiring (launcher + effect + variant sheet) lives in its own composable
     // so this route stays small; it returns the click handler for the export button.
@@ -144,11 +143,23 @@ fun BackupRestoreRoute(
         )
     }
 
-    EncryptedImportPassphraseDialog(
-        visible = uiState.encryptedImportPending,
-        onUnlock = viewModel::unlockEncryptedImport,
-        onCancel = viewModel::cancelEncryptedImport,
-    )
+    if (uiState.encryptedImportPending) {
+        BackupPassphraseDialog(
+            title = stringResource(R.string.backup_encryption_unlock_title),
+            message = stringResource(R.string.backup_encryption_unlock_body),
+            passphrase = importPassphrase,
+            onPassphraseChange = { importPassphrase = it },
+            confirmLabel = stringResource(R.string.backup_encryption_unlock_action),
+            onConfirm = {
+                viewModel.unlockEncryptedImport(importPassphrase.toCharArray())
+                importPassphrase = ""
+            },
+            onDismiss = {
+                importPassphrase = ""
+                viewModel.cancelEncryptedImport()
+            },
+        )
+    }
 
     uiState.importPreview?.let { preview ->
         BackupImportPreviewSheet(
@@ -159,36 +170,6 @@ fun BackupRestoreRoute(
             onRoutesToggle = viewModel::setRoutesSelected,
             onSettingsToggle = viewModel::setSettingsSelected,
             onConfirm = viewModel::confirmRestore,
-        )
-    }
-}
-
-@Composable
-private fun EncryptedImportPassphraseDialog(
-    visible: Boolean,
-    onUnlock: (CharArray) -> Unit,
-    onCancel: () -> Unit,
-) {
-    var importPassphrase by remember { mutableStateOf("") }
-    var replacementRevision by remember { mutableLongStateOf(0L) }
-    if (visible) {
-        BackupPassphraseDialog(
-            title = stringResource(R.string.backup_encryption_unlock_title),
-            message = stringResource(R.string.backup_encryption_unlock_body),
-            passphrase = importPassphrase,
-            onPassphraseChange = { importPassphrase = it },
-            confirmLabel = stringResource(R.string.backup_encryption_unlock_action),
-            onConfirm = {
-                onUnlock(importPassphrase.toCharArray())
-                importPassphrase = ""
-                replacementRevision++
-            },
-            onDismiss = {
-                importPassphrase = ""
-                replacementRevision++
-                onCancel()
-            },
-            replacementKey = replacementRevision,
         )
     }
 }
@@ -518,11 +499,8 @@ private fun BackupResetConfirmationDialog(
             ),
     ) {
         com.poyka.ripdpi.ui.components.inputs.RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = input,
-                    onValueChange = onInputChange,
-                ),
+            value = input,
+            onValueChange = onInputChange,
             decoration =
                 com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration(
                     placeholder = com.poyka.ripdpi.backup.ResetConfirmationToken,
@@ -531,6 +509,7 @@ private fun BackupResetConfirmationDialog(
             behavior =
                 com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior(
                     enabled = !resetting,
+                    singleLine = true,
                 ),
         )
     }

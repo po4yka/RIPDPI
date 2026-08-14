@@ -23,9 +23,9 @@ class AppExperienceContractTest {
         val expectedName = if (isSimple) "RIPDPI Quick Connect" else "RIPDPI"
         val expectedConnected =
             if (isSimple) {
-                "RIPDPI Quick Connect: Local runtime active"
+                "RIPDPI Quick Connect: Connected"
             } else {
-                "RIPDPI: Local runtime active"
+                "RIPDPI: Connected"
             }
         val notificationTitleId =
             context.resources.getIdentifier("notification_title", "string", context.packageName)
@@ -35,27 +35,6 @@ class AppExperienceContractTest {
         assertEquals(expectedName, context.getString(notificationTitleId))
         assertEquals(expectedName, context.getString(R.string.qs_tile_label_disconnected))
         assertEquals(expectedConnected, context.getString(R.string.qs_tile_label_connected))
-    }
-
-    @Test
-    fun `running system surfaces describe local runtime without claiming vpn connectivity`() {
-        val expectedTileLabel =
-            if (BuildConfig.APP_EXPERIENCE == "simple") {
-                "RIPDPI Quick Connect: Local runtime active"
-            } else {
-                "RIPDPI: Local runtime active"
-            }
-
-        assertEquals(
-            listOf(
-                expectedTileLabel,
-                "Local processes running",
-            ),
-            listOf(
-                context.getString(R.string.qs_tile_label_connected),
-                context.getString(R.string.widget_status_running),
-            ),
-        )
     }
 
     @Test

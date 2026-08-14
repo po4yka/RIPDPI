@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
             automationController
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
-        automationConfig?.startRoute?.let(shellController::setLaunchRouteRequest)
+        shellController.setLaunchRouteRequest(automationConfig?.startRoute)
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
         shellController.onNewIntent(intent)
-        automationConfig?.startRoute?.let(shellController::setLaunchRouteRequest)
+        shellController.setLaunchRouteRequest(automationConfig?.startRoute)
     }
 
     private fun applySelectorSelection(intent: Intent?) {
@@ -216,23 +216,6 @@ internal fun selectorProfileIdFrom(intent: Intent?): String? =
     intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectProfileId)
 
 internal fun diagnosticShareFragment(intent: Intent?): String? = DiagnosticShareLinkDeepLink.fragmentFrom(intent)
-
-/** Maps the stable RIPDPI deep-link contract to an app-owned Navigation 3 key. */
-internal fun navigationRouteFrom(intent: Intent?): Route? {
-    val uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data
-    return if (uri?.scheme.equals("ripdpi", ignoreCase = true)) {
-        when (uri?.host?.lowercase()) {
-            "connect" -> Route.Home
-            "config" -> Route.Config
-            "diagnostics" -> Route.Diagnostics()
-            "settings" -> Route.Settings
-            "subscription-failover" -> Route.SubscriptionFailover
-            else -> null
-        }
-    } else {
-        null
-    }
-}
 
 @Suppress("ReturnCount")
 internal fun importRouteFrom(intent: Intent?): Route? {

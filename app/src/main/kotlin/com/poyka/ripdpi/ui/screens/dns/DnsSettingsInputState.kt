@@ -19,7 +19,6 @@ private const val dnsPortMax = 65535
 private val DnsCryptPublicKeyPattern = Regex("^[0-9a-fA-F]{64}$")
 
 internal data class DnsSettingsInputState(
-    val replacementKey: DnsSettingsReplacementKey,
     val plainDnsInput: String,
     val onPlainDnsInputChange: (String) -> Unit,
     val customDohUrl: String,
@@ -38,18 +37,6 @@ internal data class DnsSettingsInputState(
     val onDnscryptProviderInputChange: (String) -> Unit,
     val dnscryptPublicKeyInput: String,
     val onDnscryptPublicKeyInputChange: (String) -> Unit,
-)
-
-internal data class DnsSettingsReplacementKey(
-    val plainDns: Any,
-    val dohUrl: Any,
-    val dotHost: Any,
-    val dnsCryptHost: Any,
-    val port: Any,
-    val tlsServerName: Any,
-    val bootstrap: Any,
-    val dnsCryptProvider: Any,
-    val dnsCryptPublicKey: Any,
 )
 
 internal data class DnsSettingsValidation(
@@ -125,7 +112,6 @@ internal fun rememberDnsSettingsInputState(dns: DnsUiState): DnsSettingsInputSta
         )
     }
     return DnsSettingsInputState(
-        replacementKey = dns.toInputReplacementKey(),
         plainDnsInput = plainDnsInput,
         onPlainDnsInputChange = { plainDnsInput = it },
         customDohUrl = customDohUrl,
@@ -146,19 +132,6 @@ internal fun rememberDnsSettingsInputState(dns: DnsUiState): DnsSettingsInputSta
         onDnscryptPublicKeyInputChange = { dnscryptPublicKeyInput = it },
     )
 }
-
-private fun DnsUiState.toInputReplacementKey() =
-    DnsSettingsReplacementKey(
-        plainDns = dnsMode to dnsIp,
-        dohUrl = Triple(encryptedDnsProtocol, dnsProviderId, encryptedDnsDohUrl),
-        dotHost = encryptedDnsProtocol to encryptedDnsHost,
-        dnsCryptHost = encryptedDnsProtocol to encryptedDnsHost,
-        port = encryptedDnsProtocol to encryptedDnsPort,
-        tlsServerName = encryptedDnsProtocol to encryptedDnsTlsServerName,
-        bootstrap = Triple(dnsMode, encryptedDnsProtocol, encryptedDnsBootstrapIps),
-        dnsCryptProvider = encryptedDnsProtocol to encryptedDnsDnscryptProviderName,
-        dnsCryptPublicKey = encryptedDnsProtocol to encryptedDnsDnscryptPublicKey,
-    )
 
 @Composable
 internal fun rememberDnsSettingsValidation(

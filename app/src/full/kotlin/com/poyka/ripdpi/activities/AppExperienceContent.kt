@@ -15,7 +15,6 @@ import com.poyka.ripdpi.ui.navigation.Route
 @Composable
 internal fun AppExperienceContent(
     startDestination: Route,
-    isSessionAuthenticated: Boolean,
     viewModel: MainViewModel,
     controller: MainActivityShellController,
     shellState: MainActivityShellState,
@@ -23,7 +22,6 @@ internal fun AppExperienceContent(
 ) {
     RipDpiNavHost(
         startDestination = startDestination,
-        isSessionAuthenticated = isSessionAuthenticated,
         mainViewModel = viewModel,
         actions =
             RipDpiNavHostActions(

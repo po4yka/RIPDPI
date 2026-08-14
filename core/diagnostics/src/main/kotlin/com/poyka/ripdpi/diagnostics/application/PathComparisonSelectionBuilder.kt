@@ -149,7 +149,7 @@ private suspend fun resolvePathComparisonSelection(
 ): PathComparisonSelection? {
     val rawStageSpecs =
         HomeCompositeStageSpecs.filter { spec ->
-            spec.key in setOf("default_connectivity", "ru_throttling", "ru_circumvention", "dpi_full")
+            spec.key in setOf("default_connectivity", "ru_circumvention", "dpi_full")
         }
     val catalogs = buildTargetCatalogs(rawStageSpecs, diagnosticsProfileCatalog, json)
     val reports =

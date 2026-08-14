@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.InputTransformation
-import androidx.compose.foundation.text.input.byValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +35,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -359,12 +356,8 @@ private fun DetectionDnsSettingsSection(
             onSelect = onDnsPresetChange,
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = state.dnsDirectServers,
-                    onValueChange = onDnsDirectServersChange,
-                    replacementKey = state.dnsTextReplacementRevision,
-                ),
+            value = state.dnsDirectServers,
+            onValueChange = onDnsDirectServersChange,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.detection_settings_dns_direct_servers_label),
@@ -373,12 +366,8 @@ private fun DetectionDnsSettingsSection(
             modifier = Modifier.fillMaxWidth(),
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = state.dnsDohUrl,
-                    onValueChange = onDnsDohUrlChange,
-                    replacementKey = state.dnsTextReplacementRevision,
-                ),
+            value = state.dnsDohUrl,
+            onValueChange = onDnsDohUrlChange,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.detection_settings_dns_doh_url_label),
@@ -391,12 +380,8 @@ private fun DetectionDnsSettingsSection(
             modifier = Modifier.fillMaxWidth(),
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = state.dnsDohBootstrapIps,
-                    onValueChange = onDnsDohBootstrapIpsChange,
-                    replacementKey = state.dnsTextReplacementRevision,
-                ),
+            value = state.dnsDohBootstrapIps,
+            onValueChange = onDnsDohBootstrapIpsChange,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.detection_settings_dns_doh_bootstrap_label),
@@ -484,11 +469,8 @@ private fun DetectionDiagnosticProbeSettingsSection(
         )
         if (state.tlsKeylogPathVisible) {
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = state.tlsKeylogPath,
-                        onValueChange = onTlsKeylogPathChange,
-                    ),
+                value = state.tlsKeylogPath,
+                onValueChange = onTlsKeylogPathChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.detection_settings_tls_keylog_path_label),
@@ -624,13 +606,8 @@ private fun PortTextField(
     modifier: Modifier,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = value,
-                onValueChange = onValueChange,
-            ),
-        inputTransformation =
-            InputTransformation.byValue { _, proposed -> proposed.filter(Char::isDigit) },
+        value = value,
+        onValueChange = { onValueChange(it.filter(Char::isDigit)) },
         decoration = RipDpiTextFieldDecoration(label = label),
         behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
         modifier = modifier.padding(top = RipDpiThemeTokens.spacing.xs),

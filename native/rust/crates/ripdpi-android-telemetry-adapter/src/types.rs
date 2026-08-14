@@ -26,28 +26,6 @@ pub(crate) struct NativeRuntimeEvent {
     pub(crate) fingerprint_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) subsystem: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) attempt_id: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) attempt_sequence: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) stage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) outcome: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) duration_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) failure_stage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) failure_class: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) io_error_kind: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) os_error_code: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) peer_close_phase: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) carrier_disposition: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -208,17 +186,6 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
             policy_signature: value.policy_signature,
             fingerprint_hash: value.fingerprint_hash,
             subsystem: value.subsystem,
-            attempt_id: value.attempt_id,
-            attempt_sequence: value.attempt_sequence,
-            stage: value.stage,
-            outcome: value.outcome,
-            duration_ms: value.duration_ms,
-            failure_stage: value.failure_stage,
-            failure_class: value.failure_class,
-            io_error_kind: value.io_error_kind,
-            os_error_code: value.os_error_code,
-            peer_close_phase: value.peer_close_phase,
-            carrier_disposition: value.carrier_disposition,
         }
     }
 }

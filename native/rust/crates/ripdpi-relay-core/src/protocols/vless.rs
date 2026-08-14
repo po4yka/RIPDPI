@@ -1,8 +1,6 @@
 use std::io;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
@@ -17,7 +15,6 @@ pub(crate) struct VlessRealitySession {
     pub(crate) config: ripdpi_vless::config::VlessRealityConfig,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) mux: Option<ripdpi_vless::VlessYamuxSession>,
-    pub(crate) mux_carrier_used: AtomicBool,
     pub(crate) udp_enabled: bool,
 }
 
@@ -26,31 +23,10 @@ impl RelaySession for VlessRealitySession {
     type Datagram = ripdpi_vless::VlessXudpSession;
     type Error = io::Error;
 
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: the direct branch drops its exclusively
-    /// owned carrier. The mux branch depends on `VlessYamuxSession::open_stream`
-    /// dropping an incomplete logical stream by resetting only that substream
-    /// while leaving the shared carrier codec synchronized;
-    /// `CarrierReuseGuard` guarantees one terminal telemetry event.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         if let Some(mux) = &self.mux {
-            let reused = self.mux_carrier_used.swap(true, Ordering::AcqRel);
-            let mut guard = reused.then(CarrierReuseGuard::new);
-            return match mux.open_stream(target).await {
-                Ok(stream) => {
-                    if let Some(guard) = &mut guard {
-                        guard.finish("succeeded", None);
-                    }
-                    Ok(Box::new(stream))
-                }
-                Err(error) => {
-                    if let Some(guard) = &mut guard {
-                        guard.finish("failed", Some(&error));
-                    }
-                    Err(error)
-                }
-            };
+            let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(mux.open_stream(target).await?);
+            return Ok(stream);
         }
         let stream = match self.outbound_bind_ip {
             Some(bind_ip) => ripdpi_vless::VlessRealityClient::connect_with_bind(&self.config, bind_ip, target).await?,
@@ -66,48 +42,6 @@ impl RelaySession for VlessRealitySession {
         }
         ripdpi_vless::VlessRealityClient::connect_xudp(&self.config, self.outbound_bind_ip).await
     }
-}
-
-struct CarrierReuseGuard {
-    started: Instant,
-    finished: bool,
-}
-
-impl CarrierReuseGuard {
-    fn new() -> Self {
-        Self { started: Instant::now(), finished: false }
-    }
-
-    fn finish(&mut self, outcome: &'static str, error: Option<&io::Error>) {
-        emit_carrier_reuse(outcome, self.started, error);
-        self.finished = true;
-    }
-}
-
-impl Drop for CarrierReuseGuard {
-    fn drop(&mut self) {
-        if !self.finished {
-            emit_carrier_reuse("cancelled", self.started, None);
-        }
-    }
-}
-
-fn emit_carrier_reuse(outcome: &'static str, started: Instant, error: Option<&io::Error>) {
-    let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let io_error_kind = error.map(|value| format!("{:?}", value.kind()).to_ascii_lowercase());
-    let os_error_code = error.and_then(io::Error::raw_os_error);
-    tracing::info!(
-        kind = "relay_attempt_stage",
-        stage = "vless_request",
-        outcome,
-        duration_ms,
-        failure_stage = error.map(|_| "vless_request"),
-        failure_class = error.map(|_| "io_error"),
-        io_error_kind,
-        os_error_code,
-        carrier_disposition = "carrier_reused",
-        "relay attempt reused an existing VLESS carrier"
-    );
 }
 
 impl RelaySessionFactory for VlessRealitySessionFactory {
@@ -130,12 +64,6 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
         } else {
             None
         };
-        Ok(Arc::new(VlessRealitySession {
-            config,
-            outbound_bind_ip,
-            mux,
-            mux_carrier_used: AtomicBool::new(false),
-            udp_enabled: self.udp_enabled,
-        }))
+        Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip, mux, udp_enabled: self.udp_enabled }))
     }
 }

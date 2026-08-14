@@ -86,12 +86,19 @@ internal fun buildMainUiState(
 ): MainUiState {
     val settings = inputs.settings
     val (status, activeMode) = inputs.statusAndMode
+    val runtime = inputs.runtime
     val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
-    val permissionSummary = buildHomePermissionSummary(inputs.permissions, settings, configuredMode, stringResolver)
+    val permissionSummary =
+        buildHomePermissionSummary(
+            permissions = inputs.permissions,
+            settings = settings,
+            configuredMode = configuredMode,
+            stringResolver = stringResolver,
+        )
     val effectiveConnectionState =
         resolveEffectiveConnectionState(
             appStatus = status,
-            runtimeConnectionState = inputs.runtime.connectionState,
+            runtimeConnectionState = runtime.connectionState,
         )
     val hardKillSwitch =
         buildHardKillSwitchUiState(
@@ -101,38 +108,23 @@ internal fun buildMainUiState(
             appStatus = status,
             stringResolver = stringResolver,
         )
-    val homeDiagnostics = HomeDiagnosticsUiState()
-    val vpnDataPlaneStatus =
-        resolveVpnDataPlaneStatus(
-            appStatus = status,
-            activeMode = activeMode,
-            evidence = inputs.pathValidation,
-        )
+    val homeDiagnosticsUiState = HomeDiagnosticsUiState()
     val connectionActuator =
-        buildConnectionActuatorUiState(
-            settings = settings,
-            activeMode = activeMode,
+        buildMainConnectionActuator(
+            inputs = inputs,
             configuredMode = configuredMode,
             connectionState = effectiveConnectionState,
-            vpnDataPlaneStatus = vpnDataPlaneStatus,
-            runtime = inputs.runtime,
-            telemetry = inputs.telemetry,
             approachSummary = approachSummary,
             hardKillSwitch = hardKillSwitch,
             stringResolver = stringResolver,
         )
     val modeCards =
-        buildHomeModeCards(
-            HomeModeCardsInput(
-                settings = settings,
-                activeMode = activeMode,
-                configuredMode = configuredMode,
-                connectionState = effectiveConnectionState,
-                vpnDataPlaneStatus = vpnDataPlaneStatus,
-                connectionDuration = inputs.runtime.connectionDuration,
-                homeDiagnostics = homeDiagnostics,
-                stringResolver = stringResolver,
-            ),
+        buildMainModeCards(
+            inputs = inputs,
+            configuredMode = configuredMode,
+            connectionState = effectiveConnectionState,
+            homeDiagnostics = homeDiagnosticsUiState,
+            stringResolver = stringResolver,
         )
     return MainUiState(
         settingsLoaded = true,
@@ -144,13 +136,13 @@ internal fun buildMainUiState(
         theme = settings.appTheme.ifEmpty { "system" },
         connectionState = effectiveConnectionState,
         connectionActuator = connectionActuator,
-        connectionDuration = inputs.runtime.connectionDuration,
-        dataTransferred = inputs.runtime.dataTransferred,
-        errorMessage = inputs.runtime.errorMessage,
+        connectionDuration = runtime.connectionDuration,
+        dataTransferred = runtime.dataTransferred,
+        errorMessage = runtime.errorMessage,
         permissionSummary = permissionSummary,
         hardKillSwitch = hardKillSwitch,
         approachSummary = approachSummary,
-        homeDiagnostics = homeDiagnostics,
+        homeDiagnostics = homeDiagnosticsUiState,
         modeCards = modeCards,
         controlPlaneHealthSummary =
             stringResolver.buildControlPlaneHealthSummary(
@@ -162,6 +154,44 @@ internal fun buildMainUiState(
         xrayProviderSnapshot = inputs.telemetry.xrayProviderSnapshot,
     )
 }
+
+private fun buildMainModeCards(
+    inputs: MainUiInputs,
+    configuredMode: Mode,
+    connectionState: ConnectionState,
+    homeDiagnostics: HomeDiagnosticsUiState,
+    stringResolver: StringResolver,
+) = buildHomeModeCards(
+    HomeModeCardsInput(
+        settings = inputs.settings,
+        activeMode = inputs.statusAndMode.second,
+        configuredMode = configuredMode,
+        connectionState = connectionState,
+        connectionDuration = inputs.runtime.connectionDuration,
+        homeDiagnostics = homeDiagnostics,
+        stringResolver = stringResolver,
+    ),
+)
+
+private fun buildMainConnectionActuator(
+    inputs: MainUiInputs,
+    configuredMode: Mode,
+    connectionState: ConnectionState,
+    approachSummary: HomeApproachSummaryUiState?,
+    hardKillSwitch: HardKillSwitchUiState,
+    stringResolver: StringResolver,
+): HomeConnectionActuatorUiState =
+    buildConnectionActuatorUiState(
+        settings = inputs.settings,
+        activeMode = inputs.statusAndMode.second,
+        configuredMode = configuredMode,
+        connectionState = connectionState,
+        runtime = inputs.runtime,
+        telemetry = inputs.telemetry,
+        approachSummary = approachSummary,
+        hardKillSwitch = hardKillSwitch,
+        stringResolver = stringResolver,
+    )
 
 private fun buildHomePermissionSummary(
     permissions: PermissionRuntimeState,
@@ -187,7 +217,6 @@ internal fun buildConnectionActuatorUiState(
     activeMode: Mode,
     configuredMode: Mode,
     connectionState: ConnectionState,
-    vpnDataPlaneStatus: VpnDataPlaneStatus,
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: HomeApproachSummaryUiState?,
@@ -197,8 +226,9 @@ internal fun buildConnectionActuatorUiState(
     val mode = if (connectionState == ConnectionState.Connected) activeMode else configuredMode
     val routeLabel = approachSummary?.title ?: routeLabelForMode(mode, settings, stringResolver)
     val egressBacked = isForeignExitLive(settings, telemetry)
-    val vpnDataPlaneWarning = vpnDataPlaneWarning(connectionState, vpnDataPlaneStatus)
-    val warningStage = actuatorWarningStage(connectionState, vpnDataPlaneWarning, telemetry)
+    val warningStage =
+        telemetryWarningStage(telemetry)
+            .takeIf { connectionState == ConnectionState.Connected }
     val failedStage =
         telemetryFailureStage(telemetry)
             .takeIf { connectionState == ConnectionState.Error }
@@ -231,14 +261,12 @@ internal fun buildConnectionActuatorUiState(
 
     return HomeConnectionActuatorUiState(
         status = status,
-        leadingLabel = stringResolver.getString(R.string.home_connection_actuator_open),
         trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
         routeLabel = routeLabel,
         statusDescription =
             actuatorStatusDescription(
                 status = status,
                 egressBacked = egressBacked,
-                vpnDataPlaneStatus = vpnDataPlaneWarning,
                 warningStage = warningStage,
                 failedStage = failedStage,
                 stringResolver = stringResolver,
@@ -277,26 +305,6 @@ internal fun buildConnectionActuatorUiState(
         deactivationEnabled = false.takeIf { hardKillSwitch.blocksDisconnect },
     )
 }
-
-private fun vpnDataPlaneWarning(
-    connectionState: ConnectionState,
-    status: VpnDataPlaneStatus,
-): VpnDataPlaneStatus? =
-    status.takeIf {
-        connectionState == ConnectionState.Connected &&
-            it != VpnDataPlaneStatus.Working &&
-            it != VpnDataPlaneStatus.NotApplicable
-    }
-
-private fun actuatorWarningStage(
-    connectionState: ConnectionState,
-    vpnDataPlaneWarning: VpnDataPlaneStatus?,
-    telemetry: ServiceTelemetrySnapshot,
-): HomeConnectionActuatorStage? =
-    (
-        HomeConnectionActuatorStage.Route.takeIf { vpnDataPlaneWarning != null }
-            ?: telemetryWarningStage(telemetry)
-    ).takeIf { connectionState == ConnectionState.Connected }
 
 private fun routeLabelForMode(
     mode: Mode,
@@ -397,7 +405,6 @@ private fun stageState(
 private fun actuatorStatusDescription(
     status: HomeConnectionActuatorStatus,
     egressBacked: Boolean,
-    vpnDataPlaneStatus: VpnDataPlaneStatus?,
     warningStage: HomeConnectionActuatorStage?,
     failedStage: HomeConnectionActuatorStage?,
     stringResolver: StringResolver,
@@ -422,33 +429,14 @@ private fun actuatorStatusDescription(
         }
 
         HomeConnectionActuatorStatus.Degraded -> {
-            when (vpnDataPlaneStatus) {
-                VpnDataPlaneStatus.Checking -> {
-                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_checking)
-                }
-
-                VpnDataPlaneStatus.Unverified -> {
-                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_unverified)
-                }
-
-                VpnDataPlaneStatus.Unavailable -> {
-                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_unavailable)
-                }
-
-                VpnDataPlaneStatus.NotApplicable,
-                VpnDataPlaneStatus.Working,
-                null,
-                -> {
-                    stringResolver.getString(
-                        if (egressBacked) {
-                            R.string.home_connection_actuator_state_degraded
-                        } else {
-                            R.string.home_connection_actuator_state_direct_degraded
-                        },
-                        warningStage?.label(stringResolver).orEmpty(),
-                    )
-                }
-            }
+            stringResolver.getString(
+                if (egressBacked) {
+                    R.string.home_connection_actuator_state_degraded
+                } else {
+                    R.string.home_connection_actuator_state_direct_degraded
+                },
+                warningStage?.label(stringResolver).orEmpty(),
+            )
         }
 
         HomeConnectionActuatorStatus.Fault -> {

@@ -64,7 +64,6 @@ class DiagnosticsArchiveSessionSelector
             loadStageTelemetry: suspend (ScanSessionEntity, Set<String>) -> List<TelemetrySampleEntity> = { _, _ ->
                 emptyList()
             },
-            loadRunStageTelemetry: suspend (String, String) -> List<TelemetrySampleEntity> = { _, _ -> emptyList() },
         ): DiagnosticsArchiveSelection {
             val eventCache = mutableMapOf<String, List<NativeSessionEventEntity>>()
 
@@ -84,7 +83,6 @@ class DiagnosticsArchiveSessionSelector
                     loadProbeResults,
                     ::loadSessionEvents,
                     loadStageTelemetry,
-                    loadRunStageTelemetry,
                 )
             val includedFiles = buildIncludedFiles(isComposite, compositeStages, sourceData)
             val payload = buildArchivePayload(primarySession, primaryResults, primary, sourceData)
@@ -133,7 +131,6 @@ class DiagnosticsArchiveSessionSelector
                 includedFiles = includedFiles,
                 logcatSnapshot = sourceData.logcatSnapshot,
                 fileLogSnapshot = sourceData.fileLogSnapshot,
-                recentSnapshots = sourceData.snapshots.take(DiagnosticsArchiveFormat.snapshotLimit),
             )
         }
 
@@ -303,19 +300,9 @@ class DiagnosticsArchiveSessionSelector
             loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
             loadNativeEvents: suspend (String) -> List<NativeSessionEventEntity>,
             loadStageTelemetry: suspend (ScanSessionEntity, Set<String>) -> List<TelemetrySampleEntity>,
-            loadRunStageTelemetry: suspend (String, String) -> List<TelemetrySampleEntity>,
         ): List<DiagnosticsArchiveCompositeStageSelection> {
             if (!isComposite || compositeOutcome == null) return emptyList()
             return compositeOutcome.stageSummaries.map { stageSummary ->
-                val explicitlyScopedTelemetry =
-                    (
-                        loadRunStageTelemetry(compositeOutcome.runId, stageSummary.stageKey) +
-                            sourceData.telemetry.filter { sample ->
-                                sample.diagnosticsRunId == compositeOutcome.runId &&
-                                    sample.diagnosticsStageKey == stageSummary.stageKey
-                            }
-                    ).distinctBy(TelemetrySampleEntity::id)
-                        .sortedByDescending(TelemetrySampleEntity::createdAt)
                 val session = compositeSessions.firstOrNull { it.id == stageSummary.sessionId }
                 if (session == null) {
                     return@map DiagnosticsArchiveCompositeStageSelection(
@@ -326,9 +313,6 @@ class DiagnosticsArchiveSessionSelector
                         snapshots = emptyList(),
                         contexts = emptyList(),
                         events = emptyList(),
-                        telemetry = explicitlyScopedTelemetry.take(DiagnosticsArchiveFormat.telemetryLimit),
-                        sourceTelemetryCount = explicitlyScopedTelemetry.size,
-                        sourceTelemetryIds = explicitlyScopedTelemetry.mapTo(linkedSetOf()) { it.id },
                     )
                 }
                 val report =
@@ -345,10 +329,7 @@ class DiagnosticsArchiveSessionSelector
                         contexts.mapNotNullTo(this) { it.connectionSessionId }
                         events.mapNotNullTo(this) { it.connectionSessionId }
                     }
-                val telemetry =
-                    (loadStageTelemetry(session, connectionSessionIds) + explicitlyScopedTelemetry)
-                        .distinctBy(TelemetrySampleEntity::id)
-                        .sortedByDescending(TelemetrySampleEntity::createdAt)
+                val telemetry = loadStageTelemetry(session, connectionSessionIds)
                 DiagnosticsArchiveCompositeStageSelection(
                     stageSummary = stageSummary,
                     session = session,

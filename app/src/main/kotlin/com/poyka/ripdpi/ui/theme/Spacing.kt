@@ -101,15 +101,15 @@ data class RipDpiInputMetrics(
 
 @Immutable
 data class RipDpiActuatorMetrics(
-    val height: Dp = 116.dp,
-    val railHeight: Dp = 48.dp,
-    val carriageWidth: Dp = 128.dp,
-    val carriageHeight: Dp = 52.dp,
-    val terminalSlotWidth: Dp = 72.dp,
-    val terminalSlotHeight: Dp = 56.dp,
+    val railHeight: Dp = 56.dp,
+    val trackInset: Dp = 6.dp,
+    val carriageWidth: Dp = 76.dp,
+    val carriageHeight: Dp = 44.dp,
+    val terminalSlotWidth: Dp = 56.dp,
+    val terminalSlotHeight: Dp = 44.dp,
     val pipelineHeight: Dp = 28.dp,
     val gripWidth: Dp = 2.dp,
-    val gripHeight: Dp = 20.dp,
+    val gripHeight: Dp = 16.dp,
     val stageIconSize: Dp = 12.dp,
     val stageHorizontalPadding: Dp = 5.dp,
     val stageIconGap: Dp = 3.dp,

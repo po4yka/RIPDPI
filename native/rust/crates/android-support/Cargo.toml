@@ -9,7 +9,6 @@ workspace = true
 
 [dependencies]
 android_logger = { workspace = true }
-crossbeam-queue = { workspace = true }
 flume = { workspace = true }
 jni = { workspace = true }
 log = { workspace = true }

@@ -101,7 +101,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
       - id: resolve
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -138,20 +137,11 @@ jobs:
   task-contracts:
     name: Task and OpenSpec contract gate
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
-
-      - name: Check out federated deploy portfolio
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: po4yka/ripdpi-vpn-deploy
-          path: .task-peers/ripdpi-vpn-deploy
-          fetch-depth: 0
-          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -168,7 +158,7 @@ jobs:
             scripts.tests.test_taskctl \
             scripts.tests.test_check_harness_links
 
-      - name: Validate local and federated task contracts
+      - name: Validate portfolio, mdtask, OpenSpec, and deletion history
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -181,18 +171,14 @@ jobs:
             args+=(--base "$PUSH_BEFORE_SHA")
           fi
           ./taskctl validate "${args[@]}"
-          ./taskctl federation validate --peer-root .task-peers/ripdpi-vpn-deploy
 
   workflow-only-contracts:
     name: Workflow-only contract gate
     needs: change-routing
     if: needs.change-routing.outputs.run_workflow_ci == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Install pinned workflow linters
         run: |
@@ -207,17 +193,6 @@ jobs:
             .github/workflows/*.yml \
             .github/actions/setup-android-rust/action.yml \
             .github/actions/upload-build-observability/action.yml
-
-      - name: Install pinned uv for zizmor
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: "0.8.17"
-          enable-cache: false
-
-      - name: Audit workflow security with pinned zizmor
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: bash scripts/ci/run-zizmor.sh
 
       - name: Validate workflow and release contracts
         run: |
@@ -249,8 +224,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Validate repository fixtures
         run: |
@@ -264,8 +237,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Run Android E2E result contract tests
         run: |
@@ -281,8 +252,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -303,8 +272,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Run architecture health unit tests
         run: python3 -m unittest scripts.tests.test_architecture_health
@@ -350,8 +317,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Install pinned release-gate contract dependencies
         run: python3 -m pip install --disable-pip-version-check jsonschema==4.26.0
@@ -406,8 +371,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Release expensive jobs after required gates pass
         env:
@@ -441,8 +404,6 @@ jobs:
           - { name: x86,         rust-target: i686-linux-android }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -538,8 +499,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -639,8 +598,6 @@ jobs:
       manifest_sha256: ${{ steps.digest.outputs.manifest_sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -707,8 +664,6 @@ jobs:
           - { id: play, task: ':app:assemblePlayFullDebug' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -769,11 +724,9 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}"
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
           ./gradlew "${{ matrix.shard.task }}" "${common_args[@]}" --profile
-        env:
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -812,8 +765,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -903,8 +854,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -952,8 +901,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -989,8 +936,6 @@ jobs:
           - { id: play, tasks: ':app:assemblePlayFullRelease,:app:assemblePlaySimpleRelease' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -1060,7 +1005,7 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}"
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
           IFS=',' read -r -a release_tasks <<< "${{ matrix.shard.tasks }}"
           for task in "${release_tasks[@]}"; do
@@ -1080,8 +1025,6 @@ jobs:
             printf "### GitHub Full release instrumentation APK\n\nBuilt: %s\n" \
               "${test_apks[0]}" >> "$GITHUB_STEP_SUMMARY"
           fi
-        env:
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1162,8 +1105,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -1174,7 +1115,7 @@ jobs:
           setup-gradle: "false"
 
       - name: Install cargo-bloat
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-bloat
 
@@ -1221,15 +1162,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: nightly
           components: miri,rust-src
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1246,11 +1185,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-deny@0.19.8
 
@@ -1272,11 +1209,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-deny@0.19.8
 
@@ -1296,15 +1231,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1342,8 +1275,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
@@ -1351,7 +1282,7 @@ jobs:
           toolchain: "1.96.0"
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1382,8 +1313,6 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -1413,15 +1342,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1433,7 +1360,7 @@ jobs:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest
 
@@ -1465,15 +1392,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: nightly
           components: rust-src
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: |
             native/rust -> target
@@ -1483,7 +1408,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-fuzz
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-fuzz
 
@@ -1502,12 +1427,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0" # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1516,7 +1439,7 @@ jobs:
       - name: Install rustdoc JSON toolchain for cargo-public-api
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-public-api@0.52.0
       - name: Check Rust public API snapshots
@@ -1533,12 +1456,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Fail if baseline files modified
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" | grep -E 'baseline' | grep -v '^#'; then
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'baseline' | grep -v '^#'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi
@@ -1588,15 +1510,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1604,7 +1524,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest
 
@@ -1621,15 +1541,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1637,7 +1555,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest
 
@@ -1653,15 +1571,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1692,15 +1608,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1708,7 +1622,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest
 
@@ -1729,8 +1643,6 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -1788,8 +1700,6 @@ jobs:
       RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -1804,7 +1714,7 @@ jobs:
           setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-llvm-cov
 
@@ -1837,15 +1747,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1955,8 +1863,6 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -1980,24 +1886,21 @@ jobs:
       - name: Resolve baseline profile
         id: baseline-profile
         run: |
-          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
+          profile="${{ github.event.inputs.soak_profile }}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="smoke"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Capture full Phase 0 baseline snapshot
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
-          STEPS_BASELINE_PROFILE_OUTPUTS_PROFILE: ${{ steps.baseline-profile.outputs.profile }}
         run: |
           mkdir -p "$RUNNER_TEMP/phase0-baseline"
-          RIPDPI_SOAK_PROFILE="${STEPS_BASELINE_PROFILE_OUTPUTS_PROFILE}" \
+          RIPDPI_SOAK_PROFILE="${{ steps.baseline-profile.outputs.profile }}" \
             bash scripts/ci/run-phase0-baseline.sh "$RUNNER_TEMP/phase0-baseline" \
             2>&1 | tee "$RUNNER_TEMP/phase0-baseline/phase0-baseline.log"
 
@@ -2020,8 +1923,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2060,12 +1961,11 @@ jobs:
       - name: Run macrobenchmarks on managed device
         env:
           RUSTC_WRAPPER: sccache
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
         run: |
           ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
@@ -2121,8 +2021,6 @@ jobs:
             system-image: google_apis
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2186,13 +2084,11 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-        env:
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Run Simple experience integration on ${{ matrix.device }}
         run: |
@@ -2204,13 +2100,11 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-        env:
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Validate GitHub Full instrumentation evidence on ${{ matrix.device }}
         run: |
@@ -2252,13 +2146,11 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest \
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             --profile \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-        env:
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Validate JNI strategy instrumentation evidence
         if: matrix.api == 35
@@ -2316,15 +2208,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2343,15 +2233,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2359,24 +2247,20 @@ jobs:
       - name: Resolve soak profile
         id: soak-profile
         run: |
-          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
+          profile="${{ github.event.inputs.soak_profile }}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="full"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Run native Rust soak suites
         run: |
           mkdir -p "$RUNNER_TEMP/native-soak-artifacts"
-          RIPDPI_SOAK_PROFILE="${STEPS_SOAK_PROFILE_OUTPUTS_PROFILE}" \
+          RIPDPI_SOAK_PROFILE="${{ steps.soak-profile.outputs.profile }}" \
             bash scripts/ci/run-rust-native-soak.sh "$RUNNER_TEMP/native-soak-artifacts" \
             2>&1 | tee "$RUNNER_TEMP/native-soak-artifacts/rust-native-soak.log"
-        env:
-          STEPS_SOAK_PROFILE_OUTPUTS_PROFILE: ${{ steps.soak-profile.outputs.profile }}
 
       - name: Upload native soak artifacts
         if: always()
@@ -2395,15 +2279,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2411,24 +2293,20 @@ jobs:
       - name: Resolve load profile
         id: load-profile
         run: |
-          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
+          profile="${{ github.event.inputs.soak_profile }}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="full"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Run native Rust load test suites
         run: |
           mkdir -p "$RUNNER_TEMP/native-load-artifacts"
-          RIPDPI_SOAK_PROFILE="${STEPS_LOAD_PROFILE_OUTPUTS_PROFILE}" \
+          RIPDPI_SOAK_PROFILE="${{ steps.load-profile.outputs.profile }}" \
             bash scripts/ci/run-rust-native-load.sh "$RUNNER_TEMP/native-load-artifacts" \
             2>&1 | tee "$RUNNER_TEMP/native-load-artifacts/rust-native-load.log"
-        env:
-          STEPS_LOAD_PROFILE_OUTPUTS_PROFILE: ${{ steps.load-profile.outputs.profile }}
 
       - name: Upload native load artifacts
         if: always()
@@ -2448,8 +2326,6 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2488,8 +2364,6 @@ jobs:
       RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2504,7 +2378,7 @@ jobs:
           setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c # v2.85.9
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-llvm-cov
 
@@ -2533,8 +2407,6 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2600,9 +2472,7 @@ jobs:
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
-          GITHUB_EVENT_INPUTS_RUN_MAESTRO_SMOKE: ${{ github.event.inputs.run_maestro_smoke }}
-          GITHUB_EVENT_INPUTS_RUN_APPIUM_SMOKE: ${{ github.event.inputs.run_appium_smoke }}
-        run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${GITHUB_EVENT_INPUTS_RUN_MAESTRO_SMOKE}" "${GITHUB_EVENT_INPUTS_RUN_APPIUM_SMOKE}"
+        run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
 
       - name: Capture fixture state
         if: always()
@@ -2671,8 +2541,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2754,8 +2622,6 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -2835,15 +2701,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2876,15 +2740,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2915,7 +2777,7 @@ jobs:
           sudo env \
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             "RIPDPI_RUN_SO_BINDTODEVICE_E2E=1" \
-            "RIPDPI_SO_BIND_TEST_BINARY=${STEPS_SO_BIND_BUILD_OUTPUTS_TEST_BINARY}" \
+            "RIPDPI_SO_BIND_TEST_BINARY=${{ steps.so_bind_build.outputs.test_binary }}" \
             "RIPDPI_SO_BIND_EVIDENCE_PATH=$evidence_dir/manifest.json" \
             "RIPDPI_EVIDENCE_SOURCE_SHA=$GITHUB_SHA" \
             "RIPDPI_EVIDENCE_RUN_ID=$GITHUB_RUN_ID" \
@@ -2923,8 +2785,6 @@ jobs:
             bash scripts/ci/run-so-bindtodevice-e2e.sh || runtime_status=$?
           sudo chown -R "$(id -u):$(id -g)" "$evidence_dir"
           exit "$runtime_status"
-        env:
-          STEPS_SO_BIND_BUILD_OUTPUTS_TEST_BINARY: ${{ steps.so_bind_build.outputs.test_binary }}
 
       - name: Finalize classified SO_BINDTODEVICE evidence
         if: always()
@@ -2964,15 +2824,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.96.0"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2980,15 +2838,13 @@ jobs:
       - name: Resolve soak profile
         id: tun-soak-profile
         run: |
-          profile="${GITHUB_EVENT_INPUTS_SOAK_PROFILE}"
+          profile="${{ github.event.inputs.soak_profile }}"
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
             profile="full"
           elif [ -z "$profile" ]; then
             profile="smoke"
           fi
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_INPUTS_SOAK_PROFILE: ${{ github.event.inputs.soak_profile }}
 
       - name: Install Linux TUN prerequisites
         run: |
@@ -3007,11 +2863,9 @@ jobs:
             "PATH=$HOME/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             "CARGO_HOME=$HOME/.cargo" \
             "RUSTUP_HOME=$HOME/.rustup" \
-            "RIPDPI_SOAK_PROFILE=${STEPS_TUN_SOAK_PROFILE_OUTPUTS_PROFILE}" \
+            "RIPDPI_SOAK_PROFILE=${{ steps.tun-soak-profile.outputs.profile }}" \
             bash scripts/ci/run-linux-tun-soak.sh "$RUNNER_TEMP/linux-tun-soak-artifacts" \
             2>&1 | tee "$RUNNER_TEMP/linux-tun-soak-artifacts/linux-tun-soak.log"
-        env:
-          STEPS_TUN_SOAK_PROFILE_OUTPUTS_PROFILE: ${{ steps.tun-soak-profile.outputs.profile }}
 
       - name: Capture Linux route and interface state
         if: always()

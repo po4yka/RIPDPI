@@ -13,5 +13,4 @@ pub struct HttpObservation {
     pub status: String,
     pub response: Option<HttpResponse>,
     pub error: Option<String>,
-    pub ttfb_ms: Option<u64>,
 }

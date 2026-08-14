@@ -49,11 +49,6 @@ where
     F: RelaySessionFactory<Error = io::Error>,
     <F::Session as RelaySession>::Stream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: inherits `RelayMux::open_stream`; an
-    /// incomplete logical stream must be reset without corrupting a reused
-    /// carrier.
     pub(crate) async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
         let stream = self.mux.open_stream(&target.to_connect_target()).await?;
         Ok(Box::new(stream))

@@ -32,8 +32,7 @@ pub(super) fn record_panic_terminal_state(
     let Ok(mut state) = shared.lock() else {
         return;
     };
-    let existing_report = state.report.take().or_else(|| state.checkpoint_report.take());
-    if let Some(mut report) = existing_report {
+    if let Some(report) = state.report.as_mut() {
         if !report.results.iter().any(|result| result.outcome == "worker_panicked") {
             report.results.push(panic_result);
         }
@@ -41,7 +40,6 @@ pub(super) fn record_panic_terminal_state(
         report.summary = "Diagnostics failed: internal worker error".to_string();
         report.completion_kind = ScanCompletionKind::PartialResults;
         report.termination_reason = Some(ScanTerminationReason::WorkerPanicked);
-        state.report = Some(report);
     } else {
         state.report = Some(panic_report);
     }

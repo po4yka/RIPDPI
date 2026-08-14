@@ -1,23 +1,22 @@
 ---
 id: OUT-1786264762917254
-title: Add an interactive SSH host-key trust flow
+title: Add SSH outbound client crate and profile editor
 kind: feature
-status: todo
+status: doing
 area: outbound
-priority: high
-risk: high
-owner: Outbound protocol maintainer
+priority: medium
+owner: unassigned
 parent: EPC-1786264762917457
 blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917254-add-ssh-outbound-client-crate-and-profile-editor
 created: 2026-04-24
-updated: 2026-08-09
+updated: 2026-06-05
 ---
 
 ## Summary
 
-Complete first connection for SSH profiles by surfacing the observed host key and requiring an explicit accept or reject decision before the fingerprint is persisted.
+Add a `ripdpi-ssh` Rust crate that opens direct-tcpip forwarding via SSH (password or private-key auth), plus a `SshProfileScreen` editor.
 
 ## Context
 

@@ -114,6 +114,7 @@ private fun ReadyMainActivityContent(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
     MainActivityEffects(
         viewModel = viewModel,
         controller = controller,
@@ -133,7 +134,6 @@ private fun ReadyMainActivityContent(
             // the "simple" source set renders the two-action SimpleHomeScreen.
             AppExperienceContent(
                 startDestination = startupState.startDestination,
-                isSessionAuthenticated = viewModel.appLock.isAuthenticated,
                 viewModel = viewModel,
                 controller = controller,
                 shellState = shellState,

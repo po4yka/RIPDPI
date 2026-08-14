@@ -7,13 +7,13 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   check-kotlin-codeql:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read
       issues: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

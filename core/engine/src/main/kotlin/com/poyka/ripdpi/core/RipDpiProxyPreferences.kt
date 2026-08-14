@@ -104,28 +104,6 @@ fun RipDpiProxyPreferences.isUdpAssociateEnabled(): Boolean =
         }
     }
 
-/** Applies a session-local SOCKS5 UDP ASSOCIATE override without mutating stored settings. */
-fun RipDpiProxyPreferences.withUdpAssociateEnabled(enabled: Boolean): RipDpiProxyPreferences =
-    when (this) {
-        is RipDpiProxyUIPreferences -> {
-            withProtocolConfig(protocols.copy(udpAssociateEnabled = enabled))
-        }
-
-        is RipDpiProxyUiSessionPreferences -> {
-            val protocols = preferences.protocols.copy(udpAssociateEnabled = enabled)
-            copy(preferences = preferences.withProtocolConfig(protocols))
-        }
-
-        is RipDpiProxyJsonPreferences -> {
-            withUdpAssociateEnabled(enabled)
-        }
-
-        is RipDpiProxyCmdPreferences -> {
-            require(enabled) { "Command-line proxy preferences do not support a session UDP override" }
-            this
-        }
-    }
-
 fun RipDpiProxyPreferences.withRelayRuntimeSelection(
     selectedConfig: RipDpiRelayConfig,
     localSocksHost: String,
@@ -146,19 +124,9 @@ fun RipDpiProxyPreferences.withRelayRuntimeSelection(
 }
 
 private fun RipDpiProxyUIPreferences.withRelayConfig(relayConfig: RipDpiRelayConfig): RipDpiProxyUIPreferences =
-    withRuntimeConfig(protocols, relayConfig)
-
-private fun RipDpiProxyUIPreferences.withProtocolConfig(
-    protocolConfig: RipDpiProtocolConfig,
-): RipDpiProxyUIPreferences = withRuntimeConfig(protocolConfig, relay)
-
-private fun RipDpiProxyUIPreferences.withRuntimeConfig(
-    protocolConfig: RipDpiProtocolConfig,
-    relayConfig: RipDpiRelayConfig,
-): RipDpiProxyUIPreferences =
     RipDpiProxyUIPreferences(
         listen = listen,
-        protocols = protocolConfig,
+        protocols = protocols,
         chains = chains,
         fakePackets = fakePackets,
         parserEvasions = parserEvasions,
@@ -414,24 +382,6 @@ class RipDpiProxyJsonPreferences(
             awg = awg,
         )
     }
-
-    internal fun withUdpAssociateEnabled(enabled: Boolean): RipDpiProxyPreferences =
-        RipDpiProxyJsonPreferences(
-            configJson = RipDpiProxyJsonCodec.rewriteUdpAssociateEnabled(configJson, enabled),
-            hostAutolearnStorePath = hostAutolearnStorePath,
-            networkScopeKey = networkScopeKey,
-            runtimeContext = runtimeContext,
-            logContext = logContext,
-            rootMode = rootMode,
-            rootHelperSocketPath = rootHelperSocketPath,
-            geoipDbPath = geoipDbPath,
-            geositeDbPath = geositeDbPath,
-            localListenPortOverride = localListenPortOverride,
-            localAuthToken = localAuthToken,
-            environmentKind = environmentKind,
-            relayRuntimeSelection = relayRuntimeSelection,
-            awg = awg,
-        )
 
     internal fun withAwgEgressPort(port: Int): RipDpiProxyPreferences {
         val routed =

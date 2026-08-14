@@ -269,7 +269,6 @@ def main() -> int:
             "status": old["status"],
             "area": old["area"],
             "priority": old["priority"],
-            "risk": "high" if spec_mode == "required" else "standard",
             "owner": old["owner"],
             "parent": ids.get(old["parent"]) if old["parent"] is not None else None,
             "blocked_by": [ids[value] for value in old["blocked_by"]],
@@ -283,6 +282,9 @@ def main() -> int:
         for optional in ("source_wiki_pages", "status_detail", "status_note"):
             if optional in old:
                 values[optional] = old[optional]
+        if "linked_task" in old:
+            linked = old["linked_task"]
+            values["linked_task"] = ids.get(linked, linked) if linked is not None else None
         task.document.path.write_text(
             taskctl.render_document(values, task.document.body, preserve_body=True), encoding="utf-8"
         )

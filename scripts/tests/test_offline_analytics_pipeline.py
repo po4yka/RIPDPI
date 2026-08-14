@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,7 +12,7 @@ from scripts.analytics.cluster import (
     run_cluster,
 )
 from scripts.analytics.common import ROOT, load_json
-from scripts.analytics.extract import extract_winner_summary, run_extract
+from scripts.analytics.extract import run_extract
 from scripts.analytics.publish import publish_outputs
 
 
@@ -41,80 +40,6 @@ def analytics_record(
 
 
 class OfflineAnalyticsPipelineTest(unittest.TestCase):
-    def test_extract_preserves_only_allowlisted_failure_path_provenance(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            archive_root = Path(temp_dir)
-            (archive_root / "analysis.json").write_text(
-                json.dumps(
-                    {
-                        "failurePathProvenance": [
-                            {
-                                "failureTimestamp": 100,
-                                "failureClass": "socket_reset",
-                                "networkType": "WIFI",
-                                "snapshotCorrelation": "exact",
-                                "snapshotCapturedAt": 100,
-                                "connectionSessionId": "must-not-export",
-                                "networkPath": {
-                                    "transport": "WIFI",
-                                    "networkValidated": True,
-                                    "captivePortalDetected": False,
-                                    "mtuBand": "standard",
-                                    "privateDnsMode": "strict",
-                                    "rawAddress": "192.0.2.10",
-                                    "pathSnapshots": {
-                                        "captureGeneration": 11,
-                                        "vpn": {"association": "active_default", "generation": 7},
-                                        "underlay": {"association": "service_binder", "generation": 8},
-                                    },
-                                },
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-            record = run_extract([archive_root])["records"][0]
-
-        self.assertEqual(
-            [
-                {
-                    "failureTimestamp": 100,
-                    "failureClass": "socket_reset",
-                    "networkType": "WIFI",
-                    "snapshotCorrelation": "exact",
-                    "snapshotCapturedAt": 100,
-                    "networkPath": {
-                        "transport": "WIFI",
-                        "networkValidated": True,
-                        "captivePortalDetected": False,
-                        "mtuBand": "standard",
-                        "privateDnsMode": "strict",
-                        "pathSnapshots": {
-                            "captureGeneration": 11,
-                            "vpn": {"association": "active_default", "generation": 7},
-                            "underlay": {"association": "service_binder", "generation": 8},
-                        },
-                    },
-                }
-            ],
-            record["failurePathProvenance"],
-        )
-
-    def test_extract_prefers_exported_effective_config_fingerprint(self) -> None:
-        exported_fingerprint = "effective-config-v1:" + ("a" * 64)
-
-        summary = extract_winner_summary(
-            {
-                "effectiveConfigFingerprint": exported_fingerprint,
-                "effectiveStrategySignature": {"mode": "legacy"},
-            },
-            [],
-        )
-
-        self.assertEqual(exported_fingerprint, summary["signatureHash"])
-
     def test_extract_classifies_sample_corpus(self) -> None:
         extracted = run_extract(sample_inputs())
 

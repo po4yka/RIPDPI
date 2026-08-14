@@ -1,10 +1,15 @@
 use crate::candidates::StrategyCandidateSpec;
-use crate::types::StrategyProbeCandidateSummary;
+use crate::types::{ProbeResult, StrategyProbeCandidateSummary};
 
-use super::attempts::build_strategy_probe_attempts;
-use super::candidate_execution::CandidateExecution;
 use super::score_state::CandidateScore;
 use super::{candidate_notes, candidate_proxy_config_json};
+
+#[derive(Debug)]
+pub struct CandidateExecution {
+    pub summary: StrategyProbeCandidateSummary,
+    pub results: Vec<ProbeResult>,
+    pub cancelled: bool,
+}
 
 pub fn build_candidate_execution(
     spec: &StrategyCandidateSpec,
@@ -20,8 +25,6 @@ pub fn build_candidate_execution(
     };
     let rationale = format!("{} of {} targets succeeded", score.succeeded_targets, score.total_targets);
     let domain_outcomes = score.domain_outcomes();
-    let average_latency_ms = score.average_latency_ms();
-    let attempts = build_strategy_probe_attempts(spec, score.attempt_samples);
 
     CandidateExecution {
         summary: StrategyProbeCandidateSummary {
@@ -41,14 +44,23 @@ pub fn build_candidate_execution(
             quality_score: score.quality_score,
             proxy_config_json: candidate_proxy_config_json(spec),
             notes: candidate_notes(spec, &[]),
-            average_latency_ms,
+            average_latency_ms: score.average_latency_ms(),
             skipped: false,
             domain_outcomes,
         },
         results: score.results,
-        attempts,
         cancelled: false,
     }
+}
+
+pub(in crate::execution) fn cancelled_candidate_execution(
+    spec: &StrategyCandidateSpec,
+    score: CandidateScore,
+    quality_floor: usize,
+) -> CandidateExecution {
+    let mut execution = build_candidate_execution(spec, score, quality_floor);
+    execution.cancelled = true;
+    execution
 }
 
 pub fn failed_candidate_execution(
@@ -80,7 +92,6 @@ pub fn failed_candidate_execution(
             domain_outcomes: vec![],
         },
         results: Vec::new(),
-        attempts: Vec::new(),
         cancelled: false,
     }
 }
@@ -114,7 +125,6 @@ pub fn not_applicable_candidate_execution(
             domain_outcomes: vec![],
         },
         results: Vec::new(),
-        attempts: Vec::new(),
         cancelled: false,
     }
 }

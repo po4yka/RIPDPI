@@ -5,16 +5,14 @@ kind: epic
 status: blocked
 area: epic
 priority: high
-risk: high
-owner: Xray provider maintainer
+owner: unassigned
 parent: null
-blocked_by:
-  - OUT-1786264762917422
+blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
-updated: 2026-08-09
-status_detail: Production code and offline/fake proof are landed; a reproducible gomobile artifact, onboarding validation, and physical-device egress/protect evidence remain blocked.
+updated: 2026-07-26
+status_detail: externally-gated — real gomobile libXray execution, native link, and device egress proof remain unavailable
 ---
 
 ## Goal

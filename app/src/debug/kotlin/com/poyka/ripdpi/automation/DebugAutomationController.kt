@@ -2,8 +2,6 @@ package com.poyka.ripdpi.automation
 
 import android.content.Intent
 import androidx.test.platform.app.InstrumentationRegistry
-import com.poyka.ripdpi.AppStartupReadiness
-import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
@@ -15,15 +13,10 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
-import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -44,13 +37,10 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceAutomationController
 import dagger.Binds
-import dagger.Lazy
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.concurrent.atomic.AtomicReference
@@ -62,10 +52,6 @@ private val AutomationIntentAction = "${BuildConfig.APPLICATION_ID}.automation.A
 private val AutomationIntentKindExtra = "${BuildConfig.APPLICATION_ID}.automation.KIND"
 private const val AutomaticAuditProfileId = "automatic-audit"
 private const val AutomationReportDemoSessionId = "automation-report-demo-session"
-private const val AutomationLiveDemoConnectionId = "automation-live-demo-connection"
-private const val AutomationLiveDemoEventCount = 48
-private const val AutomationLiveDemoTelemetryCount = 24
-private const val AutomationStartupReadinessTimeoutMs = 10_000L
 
 private enum class AutomationIntentKind {
     VpnConsent,
@@ -86,9 +72,6 @@ class DebugAutomationController
         private val serviceStateStore: ServiceStateStore,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val historyResetStore: DiagnosticsHistoryResetStore,
-        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
-        private val bypassUsageHistoryStore: BypassUsageHistoryStore,
-        private val appStartupReadiness: Lazy<AppStartupReadiness>,
         @param:Named("diagnosticsJson")
         private val diagnosticsJson: Json,
     ) : AutomationController,
@@ -129,13 +112,6 @@ class DebugAutomationController
                         preset = config.servicePreset,
                         configuredMode = Mode.fromString(seededSettings.ripdpiMode),
                     )
-                    if (
-                        config.dataPreset == AutomationDataPreset.DiagnosticsDemo ||
-                        config.dataPreset == AutomationDataPreset.DiagnosticsReportDemo
-                    ) {
-                        awaitStartupReadiness()
-                        seedDiagnosticsTimelineDemo()
-                    }
                     if (config.dataPreset == AutomationDataPreset.DiagnosticsReportDemo) {
                         seedDiagnosticsReportDemo()
                     }
@@ -401,88 +377,6 @@ class DebugAutomationController
                     triggerOccurredAt = startedAt,
                 ),
             )
-        }
-
-        private suspend fun seedDiagnosticsTimelineDemo() {
-            val now = System.currentTimeMillis()
-            bypassUsageHistoryStore.upsertBypassUsageSession(
-                BypassUsageSessionEntity(
-                    id = AutomationLiveDemoConnectionId,
-                    startedAt = now - 60_000,
-                    finishedAt = null,
-                    updatedAt = now,
-                    serviceMode = Mode.VPN.name,
-                    connectionState = "Running",
-                    health = "healthy",
-                    approachProfileId = null,
-                    approachProfileName = null,
-                    strategyId = "automation-live",
-                    strategyLabel = "Automation live diagnostics",
-                    strategyJson = "",
-                    networkType = "wifi",
-                    txBytes = 8_388_608,
-                    rxBytes = 16_777_216,
-                    totalErrors = 2,
-                    routeChanges = 1,
-                    restartCount = 0,
-                    endedReason = null,
-                ),
-            )
-
-            repeat(AutomationLiveDemoTelemetryCount) { index ->
-                artifactWriteStore.insertTelemetrySample(
-                    TelemetrySampleEntity(
-                        id = "automation-live-telemetry-$index",
-                        connectionSessionId = null,
-                        activeMode = Mode.VPN.name,
-                        connectionState = "Running",
-                        networkType = "wifi",
-                        proxyRttBand = "low",
-                        resolverRttBand = "low",
-                        resolverId = "cloudflare",
-                        resolverProtocol = "doh",
-                        resolverEndpoint = "https://cloudflare-dns.com/dns-query",
-                        resolverLatencyMs = 18L + index,
-                        txPackets = 1_000L + index * 100L,
-                        txBytes = 1_048_576L + index * 65_536L,
-                        rxPackets = 1_500L + index * 120L,
-                        rxBytes = 2_097_152L + index * 98_304L,
-                        createdAt = now - index * 1_000L,
-                    ),
-                )
-            }
-
-            repeat(AutomationLiveDemoEventCount) { index ->
-                artifactWriteStore.insertNativeSessionEvent(
-                    NativeSessionEventEntity(
-                        id = "automation-live-event-$index",
-                        connectionSessionId = null,
-                        source = if (index % 2 == 0) "tunnel" else "proxy",
-                        level =
-                            when (index % 6) {
-                                0 -> "warning"
-                                1 -> "debug"
-                                else -> "info"
-                            },
-                        message = "Automation runtime event ${index + 1}",
-                        createdAt = now - index * 750L,
-                        mode = Mode.VPN.name,
-                        subsystem = if (index % 2 == 0) "tunnel" else "proxy",
-                    ),
-                )
-            }
-        }
-
-        private suspend fun awaitStartupReadiness() {
-            val terminalState =
-                withTimeout(AutomationStartupReadinessTimeoutMs) {
-                    appStartupReadiness.get().readiness.first { state ->
-                        state != AppStartupReadinessState.Pending
-                    }
-                }
-            check(terminalState == AppStartupReadinessState.Ready) {
-                "Cannot seed diagnostics automation data while app startup is $terminalState"
-            }
         }
 
         private fun automationProbeResults(): List<EngineProbeResultWire> =

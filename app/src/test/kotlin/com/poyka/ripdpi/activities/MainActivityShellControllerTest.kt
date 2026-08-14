@@ -267,22 +267,6 @@ class MainActivityShellControllerTest {
         val controller = MainActivityShellController(intent)
 
         assertFalse(controller.state.value.stopConfiguredModeRequested)
-        assertNull(controller.state.value.launchRouteRequested)
-    }
-
-    @Test
-    fun `navigation deep links become Navigation 3 launch requests`() {
-        val controller =
-            MainActivityShellController(
-                Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config")),
-            )
-
-        assertEquals(Route.Config.stableRoute, controller.state.value.launchRouteRequested)
-
-        controller.consumeLaunchRouteRequest()
-        controller.onNewIntent(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://subscription-failover")))
-
-        assertEquals(Route.SubscriptionFailover.stableRoute, controller.state.value.launchRouteRequested)
     }
 
     @Test

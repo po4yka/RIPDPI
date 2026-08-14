@@ -20,8 +20,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private val json: Json,
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
-    private val strategyEvidenceEntryBuilder = DiagnosticsArchiveStrategyEvidenceEntryBuilder(redactor, json)
-    private val captureManifestEntryBuilder = DiagnosticsArchiveCaptureManifestEntryBuilder(json)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
@@ -33,7 +31,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         completeness: DiagnosticsArchiveCompletenessPayload,
         compositeEntries: List<DiagnosticsArchiveEntry>,
         developerAnalytics: DeveloperAnalyticsPayload,
-        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): List<DiagnosticsArchiveEntry> =
         buildList {
             add(
@@ -48,7 +45,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     bytes = encodeManifest(target, selection, sectionStatuses).toByteArray(),
                 ),
             )
-            add(captureManifestEntryBuilder.build(selection))
             add(
                 jsonEntry(
                     name = "report.json",
@@ -58,12 +54,28 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             )
             add(
                 jsonEntry(
-                    name = "target-aliases.json",
-                    serializer = DiagnosticsArchiveTargetAliasesPayload.serializer(),
-                    value = targetAliases.payload,
+                    name = "execution-plan.json",
+                    serializer = ExecutionPlanArchivePayload.serializer(),
+                    value =
+                        ExecutionPlanArchivePayload(
+                            sessionId = selection.primarySession?.id,
+                            profileId = selection.primarySession?.profileId,
+                            executionPlan = redactor.redact(selection.primaryReport)?.executionPlan,
+                        ),
                 ),
             )
-            addAll(strategyEvidenceEntryBuilder.buildRoot(selection, targetAliases))
+            add(
+                jsonEntry(
+                    name = "strategy-matrix.json",
+                    serializer = StrategyMatrixArchivePayload.serializer(),
+                    value =
+                        StrategyMatrixArchivePayload(
+                            sessionId = selection.primarySession?.id,
+                            profileId = selection.primarySession?.profileId,
+                            strategyProbeReport = redactor.redact(selection.primaryReport)?.strategyProbeReport,
+                        ),
+                ),
+            )
             addAll(compositeEntries)
             add(
                 jsonEntry(
@@ -248,10 +260,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 "latest-live"
             }
 
-    internal fun buildCompositeEntries(
-        selection: DiagnosticsArchiveSelection,
-        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
-    ): List<DiagnosticsArchiveEntry> {
+    internal fun buildCompositeEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> {
         val outcome = selection.homeCompositeOutcome ?: return emptyList()
         return buildList {
             add(
@@ -276,8 +285,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                                         value = redactDiagnosticsArchiveText(setting.value),
                                     )
                                 },
-                            detectionVerdict = outcome.detectionVerdict,
-                            detectionFindings = outcome.detectionFindings.map(::redactDiagnosticsArchiveText),
                             completedStageCount = outcome.completedStageCount,
                             failedStageCount = outcome.failedStageCount,
                             skippedStageCount = outcome.skippedStageCount,
@@ -310,7 +317,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 ),
             )
             selection.compositeStages.forEach { stage ->
-                addAll(buildStageEntries(stage, selection, targetAliases))
+                addAll(buildStageEntries(stage, selection))
             }
         }
     }
@@ -412,7 +419,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private fun buildStageEntries(
         stage: DiagnosticsArchiveCompositeStageSelection,
         selection: DiagnosticsArchiveSelection,
-        targetAliases: DiagnosticsArchiveTargetAliasRegistry,
     ): List<DiagnosticsArchiveEntry> {
         val prefix = "stages/${stage.stageSummary.stageKey}"
         val snapshotPayload = buildStageSnapshotPayload(stage)
@@ -426,11 +432,34 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     value = stagePayload,
                 ),
             )
-            addAll(strategyEvidenceEntryBuilder.buildStage(prefix, stage, targetAliases))
+            add(
+                jsonEntry(
+                    name = "$prefix/execution-plan.json",
+                    serializer = ExecutionPlanArchivePayload.serializer(),
+                    value =
+                        ExecutionPlanArchivePayload(
+                            sessionId = stage.session?.id,
+                            profileId = stage.session?.profileId,
+                            executionPlan = redactor.redact(stage.report)?.executionPlan,
+                        ),
+                ),
+            )
+            add(
+                jsonEntry(
+                    name = "$prefix/strategy-matrix.json",
+                    serializer = StrategyMatrixArchivePayload.serializer(),
+                    value =
+                        StrategyMatrixArchivePayload(
+                            sessionId = stage.session?.id,
+                            profileId = stage.session?.profileId,
+                            strategyProbeReport = redactor.redact(stage.report)?.strategyProbeReport,
+                        ),
+                ),
+            )
             add(
                 textEntry(
                     name = "$prefix/probe-results.csv",
-                    content = csvEntryBuilder.buildProbeResultsCsv(stage.results, targetAliases),
+                    content = csvEntryBuilder.buildProbeResultsCsv(stage.results),
                 ),
             )
             add(

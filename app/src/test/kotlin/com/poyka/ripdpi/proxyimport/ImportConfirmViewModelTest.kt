@@ -5,7 +5,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
-import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -26,10 +25,6 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ImportedRelayProfilePreflight
-import com.poyka.ripdpi.services.ImportedRelayProfilePreflightRequest
-import com.poyka.ripdpi.services.ImportedRelayProfilePreflightResult
-import com.poyka.ripdpi.ui.screens.proxyimport.ProfileCheckState
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -57,60 +52,6 @@ import org.junit.Test
 class ImportConfirmViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
-
-    @Test
-    fun `checking a supported profile projects transient material without importing it`() =
-        runTest {
-            val repository = FakeProxyGroupRepository()
-            val profileStore = FakeRelayProfileStore()
-            val credentialStore = FakeRelayCredentialStore()
-            val requests = mutableListOf<ImportedRelayProfilePreflightRequest>()
-            val profile =
-                ProxyProfile.VlessReality(
-                    id = "candidate",
-                    displayName = "Candidate",
-                    groupId = "",
-                    server = "relay.example",
-                    serverPort = 443,
-                    uuid = "11111111-2222-3333-4444-555555555555",
-                    realityPublicKey = ValidRealityPublicKey,
-                    realityShortId = "abcd1234",
-                    serverName = "target.example",
-                )
-            val viewModel =
-                ProfileImportConfirmViewModel(
-                    repository = repository,
-                    relayActivator =
-                        RelayProfileActivator(
-                            profileStore,
-                            credentialStore,
-                            FakeAppSettingsRepository(),
-                        ),
-                    preflight =
-                        ImportedRelayProfilePreflight { request ->
-                            requests += request
-                            ImportedRelayProfilePreflightResult.ReachedTarget
-                        },
-                    serviceStateStore = DefaultServiceStateStore(),
-                )
-
-            viewModel.setProfile(profile)
-            viewModel.checkProfile()
-            advanceUntilIdle()
-
-            assertEquals(
-                listOf(ProfileCheckState.Succeeded, 1, "import-preflight", profile.uuid, 0, null, null),
-                listOf(
-                    viewModel.uiState.value.checkState,
-                    requests.size,
-                    requests.single().profile.id,
-                    requests.single().credentials.vlessUuid,
-                    repository.list().size,
-                    profileStore.load("import-preflight"),
-                    credentialStore.load("import-preflight"),
-                ),
-            )
-        }
 
     @Test
     fun `confirming a plain vless import that activates no relay surfaces an error and persists nothing`() =

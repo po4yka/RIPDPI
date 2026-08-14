@@ -24,7 +24,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
 
@@ -61,11 +60,8 @@ internal fun DpiProbeSuiteCard(
         DpiProbeSuiteRows(tool = tool)
         DpiProbeSuiteKindToggles(tool = tool, running = running, onProbeEnabledChange = onProbeEnabledChange)
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = tool.customDomainsInput,
-                    onValueChange = onCustomDomainsChange,
-                ),
+            value = tool.customDomainsInput,
+            onValueChange = onCustomDomainsChange,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.diagnostics_dpi_suite_custom_domains_label),

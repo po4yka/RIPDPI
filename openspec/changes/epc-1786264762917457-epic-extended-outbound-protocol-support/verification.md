@@ -20,9 +20,9 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-EPC-1786264762917457-001 | EPC-1786266573979241 | Child acceptance evidence | required |
-| REQ-EPC-1786264762917457-002 | EPC-1786266573979241 | Child acceptance evidence | required |
-| REQ-EPC-1786264762917457-003 | EPC-1786266573979241 | Child acceptance evidence | required |
-| REQ-EPC-1786264762917457-004 | EPC-1786266573979087 | Combined regression evidence | required |
+| REQ-EPC-1786264762917457-001 | EPC-1786264762918286 | Pending | required |
+| REQ-EPC-1786264762917457-002 | EPC-1786264762918536 | Pending | required |
+| REQ-EPC-1786264762917457-003 | EPC-1786264762918979 | Pending | required |
+| REQ-EPC-1786264762917457-004 | EPC-1786264762918523 | Pending | required |
 | REQ-EPC-1786264762917457-005 | EPC-1786266573979241 | Pending | required |
 | REQ-EPC-1786264762917457-006 | EPC-1786266573979087 | Pending | required |

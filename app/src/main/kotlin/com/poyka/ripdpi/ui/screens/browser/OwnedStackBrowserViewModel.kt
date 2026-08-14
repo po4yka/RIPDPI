@@ -71,7 +71,6 @@ class OwnedStackBrowserViewModel
                         state.copy(
                             inputUrl = page.finalUrl,
                             page = page.toUiModel(),
-                            navigationRevision = state.navigationRevision + 1,
                             isLoading = false,
                             errorMessage = null,
                         )
@@ -98,7 +97,6 @@ data class OwnedStackBrowserUiState(
     val isLoading: Boolean = false,
     val page: OwnedStackBrowserPageUiModel? = null,
     val errorMessage: String? = null,
-    val navigationRevision: Long = 0,
 )
 
 data class OwnedStackBrowserPageUiModel(

@@ -103,7 +103,6 @@
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>
     <string name="diagnostics_dashboard_section">Панель</string>
-    <string name="diagnostics_live_section">В реальном времени</string>
     <string name="diagnostics_overview_run_scan_action">Запустить проверку</string>
     <string name="diagnostics_scan_section">Сканирование</string>
     <string name="diagnostics_tools_section">Инструменты</string>
@@ -2375,7 +2374,6 @@ fakeddisorder endhost</string>
     <string name="home_connection_actuator_action_activate">Замкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_deactivate">Разомкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_wait">Защищённая линия замыкается</string>
-    <string name="home_connection_actuator_open">Открыто</string>
     <string name="home_connection_actuator_secure">Защищено</string>
     <string name="home_connection_actuator_direct">Напрямую</string>
     <string name="home_connection_actuator_state_degraded">Защищённая линия заблокирована, предупреждение в %1$s</string>
@@ -2468,7 +2466,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_test_running">Проверка соединения…</string>
     <string name="onboarding_setup_test_success">Подключено за %1$d мс</string>
     <string name="onboarding_setup_test_title">Проверить соединение</string>
-    <string name="qs_tile_label_connected">RIPDPI: Локальные процессы запущены</string>
+    <string name="qs_tile_label_connected">RIPDPI: Подключено</string>
     <string name="qs_tile_subtitle_tap_connect">Нажмите для подключения</string>
     <string name="qs_tile_subtitle_tap_disconnect">Нажмите для отключения</string>
     <string name="ripdpi_http_host_extra_space_setting">Дополнительный пробел в Host</string>
@@ -2945,7 +2943,7 @@ fakeddisorder endhost</string>
     <string name="widget_description_mode_picker">Выбор режима</string>
     <string name="widget_action_connect">Подключить</string>
     <string name="widget_action_disconnect">Отключить</string>
-    <string name="widget_status_running">Локальные процессы запущены</string>
+    <string name="widget_status_running">Работает</string>
     <string name="widget_status_halted">Остановлен</string>
     <string name="widget_status_connecting">Подключение</string>
     <string name="widget_status_reconnecting">Переподключение</string>

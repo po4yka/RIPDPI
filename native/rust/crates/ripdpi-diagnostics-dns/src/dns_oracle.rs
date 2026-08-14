@@ -91,48 +91,6 @@ mod tests {
     }
 
     #[test]
-    fn trusted_agreement_stops_before_later_timeout_fallbacks() {
-        let primary = endpoint("primary");
-        let fallback_a = endpoint("fallback-a");
-        let fallback_b = endpoint("fallback-b");
-        let fallback_c = endpoint("fallback-c");
-        let answers = BTreeMap::from([
-            ("primary".to_string(), Ok(StubAnswer { answers: vec!["1.1.1.1".to_string()] })),
-            ("fallback-a".to_string(), Err("timeout".to_string())),
-            ("fallback-b".to_string(), Ok(StubAnswer { answers: vec!["1.1.1.1".to_string()] })),
-            ("fallback-c".to_string(), Err("timeout".to_string())),
-        ]);
-
-        let assessment = evaluate_dns_oracles(
-            primary,
-            &[fallback_a, fallback_b, fallback_c],
-            3,
-            |endpoint| {
-                answers
-                    .get(endpoint.resolver_id.as_deref().unwrap_or_default())
-                    .cloned()
-                    .unwrap_or_else(|| Err("missing".to_string()))
-            },
-            |answer| answer.answers.clone(),
-        );
-
-        assert_eq!(
-            (
-                assessment.trust,
-                assessment
-                    .attempts
-                    .iter()
-                    .map(|attempt| (attempt.resolver_id.as_str(), attempt.error.as_deref()))
-                    .collect::<Vec<_>>(),
-            ),
-            (
-                DnsOracleTrust::TrustedAgreement,
-                vec![("primary", None), ("fallback-a", Some("timeout")), ("fallback-b", None)],
-            )
-        );
-    }
-
-    #[test]
     fn disagreement_stays_untrusted_when_oracles_do_not_converge() {
         let primary = endpoint("primary");
         let fallback_a = endpoint("fallback-a");

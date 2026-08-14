@@ -270,7 +270,6 @@ class ConfigSetupHealthScreenshotTest {
     private fun engagingActuatorState() =
         HomeConnectionActuatorUiState(
             status = HomeConnectionActuatorStatus.Engaging,
-            leadingLabel = "Open",
             trailingLabel = "Secure",
             routeLabel = "VLESS Reality via local VPN",
             statusDescription = "Secure line engaging",

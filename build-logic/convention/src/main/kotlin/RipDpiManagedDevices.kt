@@ -4,14 +4,9 @@ internal data class RipDpiManagedDeviceSpec(
     val name: String,
     val apiLevel: Int,
     val systemImageSource: String,
+    val testedAbi: String = "x86_64",
     val includeInCiGroup: Boolean,
 )
-
-internal fun ripDpiManagedDeviceTestedAbi(hostArchitecture: String): String =
-    when (hostArchitecture.lowercase()) {
-        "aarch64", "arm64" -> "arm64-v8a"
-        else -> "x86_64"
-    }
 
 internal val ripDpiManagedDeviceSpecs =
     listOf(
@@ -59,7 +54,6 @@ internal val ripDpiManagedDeviceSpecs =
  */
 internal fun CommonExtension.configureRipDpiManagedDevices(includeCiDevices: Boolean = true) {
     val devices = testOptions.managedDevices.localDevices
-    val testedAbi = ripDpiManagedDeviceTestedAbi(System.getProperty("os.arch"))
     val selectedSpecs =
         ripDpiManagedDeviceSpecs.filter { spec -> includeCiDevices || !spec.includeInCiGroup }
     selectedSpecs.forEach { spec ->
@@ -67,7 +61,7 @@ internal fun CommonExtension.configureRipDpiManagedDevices(includeCiDevices: Boo
             device = "Pixel 6"
             apiLevel = spec.apiLevel
             systemImageSource = spec.systemImageSource
-            this.testedAbi = testedAbi
+            testedAbi = spec.testedAbi
         }
     }
     if (includeCiDevices) {

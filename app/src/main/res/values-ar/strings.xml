@@ -104,7 +104,6 @@
     <string name="history_title">السجل</string>
     <string name="diagnostics_overview_section">نظرة عامة</string>
     <string name="diagnostics_dashboard_section">لوحة التحكم</string>
-    <string name="diagnostics_live_section">مباشر</string>
     <string name="diagnostics_scan_section">الفحص</string>
     <string name="diagnostics_tools_section">الأدوات</string>
     <string name="diagnostics_approaches_title">المناهج</string>
@@ -423,7 +422,6 @@
     <string name="home_setup_health_collapsed_format">عناصر تحتاج إلى انتباه: %1$d</string>
     <string name="home_setup_health_expanded">راجع عناصر الإعداد وإجراءات الاسترداد.</string>
     <string name="home_connection_button_connecting">جارٍ الاتصال\u2026</string>
-    <string name="home_connection_actuator_open">مفتوح</string>
     <string name="home_connection_actuator_secure">آمن</string>
     <string name="home_connection_actuator_direct">مباشر</string>
     <string name="home_connection_actuator_state_open">الخط الآمن غير مُفعّل</string>
@@ -596,9 +594,6 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">فحص تشخيصي</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>
-    <string name="home_connection_actuator_state_vpn_checking">العمليات المحلية قيد التشغيل؛ جارٍ التحقق من اتصال VPN</string>
-    <string name="home_connection_actuator_state_vpn_unverified">العمليات المحلية قيد التشغيل؛ لم يتم التحقق من اتصال VPN</string>
-    <string name="home_connection_actuator_state_vpn_unavailable">العمليات المحلية قيد التشغيل؛ اتصال VPN غير متاح</string>
     <string name="home_mode_card_connecting">جارٍ البدء...</string>
     <string name="home_mode_card_remote_relay_disabled">الترحيل معطّل</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
@@ -2687,7 +2682,7 @@ fakeddisorder endhost</string>
     <string name="settings_reset_dialog_title">إعادة تعيين جميع الإعدادات؟</string>
     <string name="settings_reset_dialog_body">سيُعيد هذا جميع الإعدادات إلى قيمها الافتراضية. سيتوقف الاتصال وستُفقد جميع التخصيصات.</string>
     <string name="settings_reset_confirm">إعادة تعيين</string>
-    <string name="qs_tile_label_connected">RIPDPI: العمليات المحلية قيد التشغيل</string>
+    <string name="qs_tile_label_connected">RIPDPI: متصل</string>
     <string name="qs_tile_subtitle_tap_connect">انقر للاتصال</string>
     <string name="qs_tile_subtitle_tap_disconnect">انقر لقطع الاتصال</string>
     <string name="semantic_state_on">تشغيل</string>
@@ -2748,15 +2743,6 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_body">هذا الرابط لا يحتوي على ملف بروكسي صالح للاستخدام.</string>
     <string name="import_confirm_add_action">إضافة</string>
     <string name="import_profile_confirm_error">تعذّر استيراد هذا الملف الشخصي. تأكد من أن الرابط كامل وصالح.</string>
-    <string name="import_profile_check_action">فحص الملف الشخصي</string>
-    <string name="import_profile_check_success">وصل الملف الشخصي إلى هدف الاختبار أثناء هذا الفحص. لا يؤكد ذلك عمل حركة VPN.</string>
-    <string name="import_profile_check_unsupported">لا يمكن فحص هذا الملف الشخصي قبل الاستيراد.</string>
-    <string name="import_profile_check_service_busy">أوقف خدمة VPN أو الوكيل قبل فحص الملف الشخصي.</string>
-    <string name="import_profile_check_startup_failure">تعذّر بدء الفحص المؤقت للملف الشخصي. لم يُحدّد السبب.</string>
-    <string name="import_profile_check_probe_failure">لم يتم الوصول إلى هدف الاختبار أثناء هذا الفحص. لم يُحدّد السبب.</string>
-    <string name="import_profile_check_timeout">انتهت مهلة فحص الملف الشخصي.</string>
-    <string name="import_profile_check_cancelled">أُلغي فحص الملف الشخصي.</string>
-    <string name="import_profile_check_cleanup_failure">تعذّر إنهاء الفحص المؤقت بأمان. حاول لاحقًا.</string>
     <string name="relay_editor_activation_failed">تعذّر تفعيل هذا الملف الشخصي. تحقق من التفاصيل وأعد المحاولة.</string>
     <string name="import_confirm_done_action">تمت الإضافة</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
@@ -2859,7 +2845,7 @@ fakeddisorder endhost</string>
     <string name="widget_description_mode_picker">منتقي الوضع</string>
     <string name="widget_action_connect">اتصال</string>
     <string name="widget_action_disconnect">قطع الاتصال</string>
-    <string name="widget_status_running">العمليات المحلية قيد التشغيل</string>
+    <string name="widget_status_running">يعمل</string>
     <string name="widget_status_halted">متوقف</string>
     <string name="widget_status_connecting">جارٍ الاتصال</string>
     <string name="widget_status_reconnecting">إعادة الاتصال</string>

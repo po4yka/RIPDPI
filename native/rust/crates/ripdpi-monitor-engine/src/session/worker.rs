@@ -1,54 +1,25 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Instant;
 
 use log::LevelFilter;
 use rustls::client::danger::ServerCertVerifier;
 
+use crate::engine::run_engine_scan;
 use crate::types::{ScanRequest, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
 use super::panic_state::record_panic_terminal_state;
-use run::run_scan;
-
-mod run;
-
-pub(super) struct ScanWorkerConfig {
-    scan_deadline: Instant,
-    cancellation_reason: Arc<Mutex<Option<crate::types::ScanTerminationReason>>>,
-    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-    platform_bridge: Arc<dyn MonitorPlatformBridge>,
-    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
-    native_log_level: Option<LevelFilter>,
-}
-
-impl ScanWorkerConfig {
-    pub(super) fn new(
-        scan_deadline: Instant,
-        cancellation_reason: Arc<Mutex<Option<crate::types::ScanTerminationReason>>>,
-        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-        platform_bridge: Arc<dyn MonitorPlatformBridge>,
-        candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
-        native_log_level: Option<LevelFilter>,
-    ) -> Self {
-        Self {
-            scan_deadline,
-            cancellation_reason,
-            tls_verifier,
-            platform_bridge,
-            candidate_runtime_launcher,
-            native_log_level,
-        }
-    }
-}
 
 pub(super) fn spawn_scan_worker(
     shared: Arc<Mutex<SharedState>>,
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
-    config: ScanWorkerConfig,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    platform_bridge: Arc<dyn MonitorPlatformBridge>,
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    native_log_level: Option<LevelFilter>,
 ) -> JoinHandle<()> {
     let shared_panic = shared.clone();
     let session_id_panic = session_id.clone();
@@ -56,7 +27,16 @@ pub(super) fn spawn_scan_worker(
     thread::spawn(move || {
         let started_at = crate::util::now_ms();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_scan(shared, cancel, session_id, request, config);
+            run_scan(
+                shared,
+                cancel,
+                session_id,
+                request,
+                tls_verifier,
+                platform_bridge,
+                candidate_runtime_launcher,
+                native_log_level,
+            );
         }));
         if let Err(panic_payload) = result {
             record_panic_terminal_state(shared_panic, session_id_panic, request_panic, started_at, panic_payload);
@@ -75,6 +55,21 @@ pub(super) fn join_finished_worker_locked(worker_guard: &mut Option<JoinHandle<(
             let _ = handle.join();
         }
     }
+}
+
+fn run_scan(
+    shared: Arc<Mutex<SharedState>>,
+    cancel: Arc<AtomicBool>,
+    session_id: String,
+    request: ScanRequest,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    platform_bridge: Arc<dyn MonitorPlatformBridge>,
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    native_log_level: Option<LevelFilter>,
+) {
+    let _log_scope =
+        native_log_level.map(|level| platform_bridge.scoped_log_level("diagnostics_native".to_string(), level));
+    run_engine_scan(shared, cancel, session_id, request, tls_verifier, candidate_runtime_launcher);
 }
 
 #[cfg(test)]
@@ -127,8 +122,7 @@ mod tests {
                 latest_probe_outcome: None,
                 strategy_probe_progress: None,
             }),
-            report: None,
-            checkpoint_report: Some(build_report(
+            report: Some(build_report(
                 ReportBuildContext {
                     session_id: "panic-session".to_string(),
                     request: request.clone(),
@@ -162,67 +156,6 @@ mod tests {
         let progress = state.progress.as_ref().expect("terminal progress");
         assert_eq!((progress.completed_steps, progress.total_steps), (3, 8));
         assert!(progress.is_finished);
-    }
-
-    #[test]
-    fn worker_panic_preserves_existing_terminal_report_evidence() {
-        let request = request();
-        let shared = Arc::new(Mutex::new(SharedState {
-            progress: Some(ScanProgress {
-                session_id: "panic-session".to_string(),
-                phase: "finishing".to_string(),
-                completed_steps: 8,
-                total_steps: 8,
-                message: "Publishing completion".to_string(),
-                is_finished: false,
-                latest_probe_target: None,
-                latest_probe_outcome: None,
-                strategy_probe_progress: None,
-            }),
-            report: Some(build_report(
-                ReportBuildContext {
-                    session_id: "panic-session".to_string(),
-                    request: request.clone(),
-                    started_at: 100,
-                    execution_plan: None,
-                },
-                "Diagnostics completed".to_string(),
-                vec![ProbeResult {
-                    probe_type: "dns_integrity".to_string(),
-                    target: "example.com".to_string(),
-                    outcome: "dns_match".to_string(),
-                    details: Vec::new(),
-                }],
-                Vec::new(),
-                None,
-                None,
-            )),
-            checkpoint_report: None,
-            log_context: None,
-        }));
-
-        record_panic_terminal_state(
-            shared.clone(),
-            "panic-session".to_string(),
-            request,
-            100,
-            Box::new("probe exploded".to_string()),
-        );
-
-        let state = shared.lock().expect("shared state");
-        let report = state.report.as_ref().expect("terminal partial report");
-        assert_eq!(
-            (
-                report.results.iter().map(|result| result.outcome.as_str()).collect::<Vec<_>>(),
-                report.completion_kind.clone(),
-                report.termination_reason.clone(),
-            ),
-            (
-                vec!["dns_match", "worker_panicked"],
-                crate::types::ScanCompletionKind::PartialResults,
-                Some(crate::types::ScanTerminationReason::WorkerPanicked),
-            ),
-        );
     }
 
     fn request() -> ScanRequest {

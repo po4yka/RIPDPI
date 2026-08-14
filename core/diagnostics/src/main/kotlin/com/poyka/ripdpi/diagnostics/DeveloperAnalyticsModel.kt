@@ -2,8 +2,6 @@ package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.Serializable
 
-const val DeveloperAnalyticsSchemaVersion = 3
-
 /**
  * Developer-facing analytics payload bundled into the diagnostics share archive as
  * `developer-analytics.json`. Each section is nullable / defaulted so the payload
@@ -11,7 +9,7 @@ const val DeveloperAnalyticsSchemaVersion = 3
  */
 @Serializable
 data class DeveloperAnalyticsPayload(
-    val schemaVersion: Int = DeveloperAnalyticsSchemaVersion,
+    val schemaVersion: Int = 1,
     val generatedAtIsoUtc: String? = null,
     val stageTimings: List<DeveloperStageTimingEntry> = emptyList(),
     val failureEnvelopes: List<DeveloperFailureEnvelopeEntry> = emptyList(),
@@ -48,7 +46,6 @@ data class DeveloperFailureEnvelopeEntry(
     val tlsErrors: List<String> = emptyList(),
     val dnsErrors: List<String> = emptyList(),
     val httpErrors: List<String> = emptyList(),
-    val quicErrors: List<String> = emptyList(),
 )
 
 @Serializable
@@ -149,16 +146,6 @@ data class DeveloperBaselineDelta(
 data class DeveloperBaselineMetric(
     val metric: String,
     val userValue: String?,
-    val baseline: DeveloperBaselineDistribution,
+    val baselineMedian: String?,
     val verdict: String,
-)
-
-@Serializable
-data class DeveloperBaselineDistribution(
-    val cohort: String,
-    val sampleCount: Int,
-    val p50: Double?,
-    val p95: Double?,
-    val asOfDate: String?,
-    val source: String,
 )

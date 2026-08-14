@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.navigation
 
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,10 +16,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation3.runtime.EntryProviderScope
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.ui.NavDisplay
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.navigation
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
+import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
@@ -29,6 +36,7 @@ import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
@@ -80,6 +88,20 @@ import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.serialization.Serializable
+
+private const val DeepLinkScheme = "ripdpi"
+
+/**
+ * Marker used by [NavGraphBuilder.navigation] so the Config graph has a type-safe key that
+ * [NavHostController.getBackStackEntry] can match. Declared here (rather than in [Route])
+ * because graphs are wrappers, not destinations that ever appear in the back stack as leaves.
+ */
+@Serializable
+internal data object ConfigGraph
+
+@Serializable
+internal data object SettingsGraph
 
 data class RipDpiNavHostActions(
     val onSaveLogs: () -> Unit = {},
@@ -109,40 +131,58 @@ fun RipDpiNavHost(
     mainViewModel: MainViewModel,
     modifier: Modifier = Modifier,
     startDestination: Route = Route.Home,
-    isSessionAuthenticated: Boolean = false,
     actions: RipDpiNavHostActions = RipDpiNavHostActions(),
     launchRequests: RipDpiNavHostLaunchRequests = RipDpiNavHostLaunchRequests(),
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    val navigationState =
-        rememberRipDpiNavigationState(
-            startRoute = startDestination,
-            initialGateActive = shouldStartNavigationGate(startDestination, isSessionAuthenticated),
-        )
-    val navigator = remember(navigationState) { RipDpiNavigator(navigationState) }
+    val navController = rememberNavController()
     val diagnosticsInitialSection = rememberSaveable { mutableStateOf<DiagnosticsSection?>(null) }
-    val currentRoute = navigator.currentRoute
-    val selectedTopLevel = currentRoute.selectedTopLevel()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = currentBackStackEntry?.destination
+    val currentStableRoute = currentDestination?.stableRouteKey()
+    val selectedTopLevel =
+        currentDestination?.let { destination ->
+            Route.topLevel.firstOrNull { destination.matchesRoute(it) }
+                ?: when (currentStableRoute) {
+                    in configSubRouteStableKeys -> Route.Config
+                    Route.Logs.stableRoute -> Route.Diagnostics()
+                    else -> null
+                }
+        }
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
     HandleLaunchRequests(
         launchRequests = launchRequests,
-        currentStableRoute = currentRoute.stableRoute,
-        navigateHome = navigator::resetToHome,
+        currentStableRoute = currentStableRoute,
+        navigateHome = { navController.navigateHome() },
         navigateToRoute = { destination ->
-            if (destination in Route.topLevel) {
-                navigator.navigateTopLevel(destination)
+            if (Route.topLevel.contains(destination)) {
+                navController.navigateTopLevel(destination)
             } else {
-                navigator.navigate(destination, singleTop = true)
+                navController.navigate(destination) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
             }
         },
         navigateToSharedDiagnostic = { fragment ->
-            navigator.navigate(Route.SharedDiagnosticResult(fragment = fragment), singleTop = true)
+            navController.navigate(Route.SharedDiagnosticResult(fragment = fragment)) {
+                launchSingleTop = true
+            }
         },
-        navigateToImportRoute = { destination -> navigator.navigate(destination, singleTop = true) },
-        relockToRoute = navigator::replaceAll,
+        navigateToImportRoute = { destination ->
+            navController.navigate(destination) {
+                launchSingleTop = true
+            }
+        },
+        relockToRoute = { destination ->
+            navController.navigate(destination) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        },
     )
 
     val isWideScreen = rememberIsWideScreen()
@@ -161,7 +201,7 @@ fun RipDpiNavHost(
             if (!isWideScreen) {
                 TopLevelBottomBar(
                     selectedTopLevel = selectedTopLevel,
-                    onNavigate = navigator::navigateTopLevel,
+                    onNavigate = { destination -> navController.navigateTopLevel(destination) },
                 )
             }
         },
@@ -170,8 +210,8 @@ fun RipDpiNavHost(
             isWideScreen = isWideScreen,
             selectedTopLevel = selectedTopLevel,
             innerPadding = innerPadding,
-            navigationState = navigationState,
-            navigator = navigator,
+            navController = navController,
+            startDestination = startDestination,
             motion = motion,
             actions = actions,
             mainViewModel = mainViewModel,
@@ -187,8 +227,8 @@ private fun ResponsiveNavContent(
     isWideScreen: Boolean,
     selectedTopLevel: Route?,
     innerPadding: PaddingValues,
-    navigationState: RipDpiNavigationState,
-    navigator: RipDpiNavigator,
+    navController: NavHostController,
+    startDestination: Route,
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
@@ -196,19 +236,6 @@ private fun ResponsiveNavContent(
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
-    val content: @Composable (PaddingValues) -> Unit = { contentPadding ->
-        RipDpiNavGraph(
-            innerPadding = contentPadding,
-            navigationState = navigationState,
-            navigator = navigator,
-            motion = motion,
-            actions = actions,
-            mainViewModel = mainViewModel,
-            permissionSummary = permissionSummary,
-            diagnosticsInitialSection = diagnosticsInitialSection,
-            onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
-        )
-    }
     if (isWideScreen && selectedTopLevel != null) {
         Row(
             modifier =
@@ -218,14 +245,34 @@ private fun ResponsiveNavContent(
         ) {
             RipDpiNavRail(
                 selectedRoute = selectedTopLevel,
-                onNavigate = navigator::navigateTopLevel,
+                onNavigate = { destination -> navController.navigateTopLevel(destination) },
             )
             Box(modifier = Modifier.weight(1f)) {
-                content(PaddingValues())
+                RipDpiNavGraph(
+                    startDestination = startDestination,
+                    innerPadding = PaddingValues(),
+                    navController = navController,
+                    motion = motion,
+                    actions = actions,
+                    mainViewModel = mainViewModel,
+                    permissionSummary = permissionSummary,
+                    diagnosticsInitialSection = diagnosticsInitialSection,
+                    onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
+                )
             }
         }
     } else {
-        content(innerPadding)
+        RipDpiNavGraph(
+            startDestination = startDestination,
+            innerPadding = innerPadding,
+            navController = navController,
+            motion = motion,
+            actions = actions,
+            mainViewModel = mainViewModel,
+            permissionSummary = permissionSummary,
+            diagnosticsInitialSection = diagnosticsInitialSection,
+            onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
+        )
     }
 }
 
@@ -240,7 +287,7 @@ private fun HandleLaunchRequests(
     relockToRoute: (Route) -> Unit,
 ) {
     LaunchedEffect(launchRequests.launchHomeRequested, currentStableRoute) {
-        if (!launchRequests.launchHomeRequested || launchRequests.relockRequested || currentStableRoute == null) {
+        if (!launchRequests.launchHomeRequested || currentStableRoute == null) {
             return@LaunchedEffect
         }
         when {
@@ -256,10 +303,8 @@ private fun HandleLaunchRequests(
     }
 
     LaunchedEffect(launchRequests.launchRouteRequested, currentStableRoute) {
-        if (launchRequests.relockRequested) return@LaunchedEffect
         val requestedStableRoute = launchRequests.launchRouteRequested ?: return@LaunchedEffect
         val resolvedCurrentRoute = currentStableRoute ?: return@LaunchedEffect
-        if (!canHandleExternalNavigation(resolvedCurrentRoute)) return@LaunchedEffect
         if (requestedStableRoute == resolvedCurrentRoute) {
             launchRequests.onLaunchRouteHandled()
             return@LaunchedEffect
@@ -270,9 +315,8 @@ private fun HandleLaunchRequests(
     }
 
     LaunchedEffect(launchRequests.sharedDiagnosticFragmentRequested, currentStableRoute) {
-        if (launchRequests.relockRequested) return@LaunchedEffect
         val fragment = launchRequests.sharedDiagnosticFragmentRequested ?: return@LaunchedEffect
-        if (!canHandleExternalNavigation(currentStableRoute)) {
+        if (currentStableRoute == null) {
             return@LaunchedEffect
         }
         navigateToSharedDiagnostic(fragment)
@@ -280,9 +324,8 @@ private fun HandleLaunchRequests(
     }
 
     LaunchedEffect(launchRequests.importRouteRequested, currentStableRoute) {
-        if (launchRequests.relockRequested) return@LaunchedEffect
         val destination = launchRequests.importRouteRequested ?: return@LaunchedEffect
-        if (!canHandleExternalNavigation(currentStableRoute)) {
+        if (currentStableRoute == null) {
             return@LaunchedEffect
         }
         navigateToImportRoute(destination)
@@ -311,9 +354,9 @@ private fun TopLevelBottomBar(
 
 @Composable
 private fun RipDpiNavGraph(
-    innerPadding: PaddingValues,
-    navigationState: RipDpiNavigationState,
-    navigator: RipDpiNavigator,
+    startDestination: Route,
+    innerPadding: androidx.compose.foundation.layout.PaddingValues,
+    navController: NavHostController,
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
@@ -321,147 +364,156 @@ private fun RipDpiNavGraph(
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
-    val entryProvider =
-        entryProvider<NavKey> {
-            addPrimaryRoutes(
-                navigator = navigator,
-                actions = actions,
-                mainViewModel = mainViewModel,
-                diagnosticsInitialSection = diagnosticsInitialSection,
-                onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
-            )
-            addConfigRoutes(navigator = navigator)
-            addSettingsRoutes(
-                navigator = navigator,
-                actions = actions,
-                mainViewModel = mainViewModel,
-                permissionSummary = permissionSummary,
-            )
-            entry<Route.About> {
-                AboutRoute(onBack = navigator::goBack)
-            }
-        }
-    NavDisplay(
-        entries = navigationState.toEntries(entryProvider),
+    NavHost(
+        navController = navController,
+        startDestination = startDestination,
         modifier =
             Modifier
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
-        onBack = navigator::goBack,
-        transitionSpec = {
-            motion.routeEnterTransition() togetherWith motion.routeExitTransition()
-        },
-        popTransitionSpec = {
-            motion.routeEnterTransition(initialScale = 0.992f) togetherWith motion.routePopExitTransition()
-        },
-        predictivePopTransitionSpec = {
-            motion.routeEnterTransition(initialScale = 0.992f) togetherWith motion.routePopExitTransition()
-        },
-    )
+        enterTransition = { motion.routeEnterTransition() },
+        exitTransition = { motion.routeExitTransition() },
+        popEnterTransition = { motion.routeEnterTransition(initialScale = 0.992f) },
+        popExitTransition = { motion.routePopExitTransition() },
+    ) {
+        addPrimaryRoutes(
+            navController = navController,
+            actions = actions,
+            mainViewModel = mainViewModel,
+            diagnosticsInitialSection = diagnosticsInitialSection,
+            onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
+        )
+        addConfigRoutes(navController = navController)
+        addSettingsRoutes(
+            navController = navController,
+            actions = actions,
+            mainViewModel = mainViewModel,
+            permissionSummary = permissionSummary,
+        )
+        composable<Route.About> {
+            AboutRoute(onBack = { navController.popBackStack() })
+        }
+    }
 }
 
-private fun EntryProviderScope<NavKey>.addPrimaryRoutes(
-    navigator: RipDpiNavigator,
+private fun NavGraphBuilder.addPrimaryRoutes(
+    navController: NavHostController,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
-    entry<Route.Onboarding> {
+    composable<Route.Onboarding> {
         OnboardingRoute(
-            onComplete = navigator::resetToHome,
-            onOpenAdvancedDns = { navigator.navigateFromGate(Route.DnsSettings) },
+            onComplete = {
+                navController.navigate(Route.Home) {
+                    popUpTo<Route.Onboarding> { inclusive = true }
+                }
+            },
+            onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
         )
     }
-    addHomeRoute(navigator, mainViewModel, onDiagnosticsInitialSectionChanged)
-    entry<Route.Diagnostics> { route ->
+    addHomeRoute(navController, mainViewModel, onDiagnosticsInitialSectionChanged)
+    composable<Route.Diagnostics>(
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://diagnostics" }),
+    ) { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.Diagnostics>()
         val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
         val pcapCaptureViewModel: PcapCaptureViewModel = hiltViewModel()
         DiagnosticsRoute(
             callbacks =
                 diagnosticsRouteCallbacks(
-                    navigator = navigator,
+                    navController = navController,
                     actions = actions,
                     mainViewModel = mainViewModel,
                     onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
                 ),
             initialSection = diagnosticsInitialSection ?: DiagnosticsSection.Scan.takeIf { route.autoStartScan },
-            autoStartScan = route.autoStartScan,
             viewModel = diagnosticsViewModel,
             pcapCaptureViewModel = pcapCaptureViewModel,
             topBarExtraActions = {
                 StrategyTunerTopBarAction(
-                    onOpen = { navigator.navigate(Route.StrategyTuner, singleTop = true) },
+                    onOpen = { navController.navigate(Route.StrategyTuner) { launchSingleTop = true } },
                 )
             },
         )
     }
-    entry<Route.History> {
-        HistoryRoute(onBack = { navigator.goBack() })
+    composable<Route.History> {
+        HistoryRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.Logs> {
+    composable<Route.Logs> {
         LogsRoute(
             onSaveLogs = actions.onSaveLogs,
             onShareSupportBundle = actions.onShareDebugBundle,
         )
     }
-    entry<Route.ConnectionHealth> {
-        ConnectionHealthRoute(onBack = { navigator.goBack() })
+    composable<Route.ConnectionHealth> {
+        ConnectionHealthRoute(onBack = { navController.popBackStack() })
     }
-    addSubscriptionFailoverRoute(navigator)
-    addSubscriptionStatusRoute(navigator)
-    entry<Route.StrategyTuner> {
-        StrategyTunerRoute(onBack = { navigator.goBack() })
+    addSubscriptionFailoverRoute(navController)
+    addSubscriptionStatusRoute(navController)
+    composable<Route.StrategyTuner> {
+        StrategyTunerRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.BiometricPrompt> {
+    composable<Route.BiometricPrompt> {
         BiometricPromptRoute(
             onAuthenticated = {
                 mainViewModel.appLock.onAuthenticated()
-                navigator.resetToHome()
+                navController.navigate(Route.Home) {
+                    popUpTo<Route.BiometricPrompt> { inclusive = true }
+                    launchSingleTop = true
+                }
             },
         )
     }
 }
 
-private fun EntryProviderScope<NavKey>.addHomeRoute(
-    navigator: RipDpiNavigator,
+private fun NavGraphBuilder.addHomeRoute(
+    navController: NavHostController,
     mainViewModel: MainViewModel,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
-    entry<Route.Home> {
+    composable<Route.Home>(
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
+    ) {
         HomeRoute(
             onOpenDiagnostics = {
                 onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
-                navigator.navigate(Route.Diagnostics(), singleTop = true)
+                navController.navigate(Route.Diagnostics()) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
             },
-            onOpenHistory = { navigator.navigate(Route.History, singleTop = true) },
-            onOpenConnectionHealth = { navigator.navigate(Route.ConnectionHealth, singleTop = true) },
-            onOpenSubscriptionStatus = { navigator.navigate(Route.SubscriptionStatus, singleTop = true) },
-            onOpenAdvancedSettings = { navigator.navigate(Route.AdvancedSettings) },
-            onOpenModeEditor = { navigator.navigate(Route.ModeEditor) },
-            onOpenOwnedStackBrowser = { url -> navigator.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
-            onOpenLocalBypassConfig = { navigator.navigateConfigSubRoute(Route.LocalBypassConfig) },
-            onOpenVpnConfig = { navigator.navigateConfigSubRoute(Route.VpnConfig) },
+            onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
+            onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) { launchSingleTop = true } },
+            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+            onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+            onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
+            onOpenLocalBypassConfig = { navController.navigateConfigSubRoute(Route.LocalBypassConfig) },
+            onOpenVpnConfig = { navController.navigateConfigSubRoute(Route.VpnConfig) },
             onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
             viewModel = mainViewModel,
         )
     }
 }
 
-private fun EntryProviderScope<NavKey>.addSubscriptionFailoverRoute(navigator: RipDpiNavigator) {
-    entry<Route.SubscriptionFailover> {
-        SubscriptionFailoverRoute(onBack = { navigator.goBack() })
+private fun NavGraphBuilder.addSubscriptionFailoverRoute(navController: NavHostController) {
+    composable<Route.SubscriptionFailover>(
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://subscription-failover" }),
+    ) {
+        SubscriptionFailoverRoute(onBack = { navController.popBackStack() })
     }
 }
 
-private fun EntryProviderScope<NavKey>.addSubscriptionStatusRoute(navigator: RipDpiNavigator) {
-    entry<Route.SubscriptionStatus> {
-        SubscriptionStatusRoute(onBack = { navigator.goBack() })
+private fun NavGraphBuilder.addSubscriptionStatusRoute(navController: NavHostController) {
+    composable<Route.SubscriptionStatus> {
+        SubscriptionStatusRoute(onBack = { navController.popBackStack() })
     }
 }
 
 private fun diagnosticsRouteCallbacks(
-    navigator: RipDpiNavigator,
+    navController: NavHostController,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
@@ -471,116 +523,132 @@ private fun diagnosticsRouteCallbacks(
         onSaveArchive = actions.onSaveDiagnosticsArchive,
         onShareSummary = actions.onShareDiagnosticsSummary,
         onSaveLogs = actions.onSaveLogs,
-        onOpenLogs = { navigator.navigate(Route.Logs, singleTop = true) },
-        onOpenConnectionHealth = { navigator.navigate(Route.ConnectionHealth, singleTop = true) },
-        onOpenAdvancedSettings = { navigator.navigate(Route.AdvancedSettings) },
-        onOpenDnsSettings = { navigator.navigate(Route.DnsSettings) },
-        onOpenDetectionCheck = { navigator.navigate(Route.DetectionCheck) },
+        onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
+        onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
+        onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+        onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+        onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
-        onOpenHistory = { navigator.navigate(Route.History, singleTop = true) },
-        onOpenModeEditor = { navigator.navigate(Route.ModeEditor) },
-        onOpenOwnedStackBrowser = { url -> navigator.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
-        onOpenPcapCaptureList = { navigator.navigate(Route.PcapCaptureList) },
-        onOpenPastReplays = { navigator.navigate(Route.ReplayHistory) },
+        onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+        onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+        onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
+        onOpenPcapCaptureList = { navController.navigate(Route.PcapCaptureList) },
+        onOpenPastReplays = { navController.navigate(Route.ReplayHistory) },
         onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
     )
 
-private fun EntryProviderScope<NavKey>.addConfigRoutes(navigator: RipDpiNavigator) {
-    entry<Route.Config>(clazzContentKey = { ConfigScopeContentKey }) {
-        val configViewModel: ConfigViewModel = hiltViewModel()
-        ConfigRoute(
-            onOpenModeEditor = { navigator.navigate(Route.ModeEditor) },
-            onOpenLocalBypassEditor = { navigator.navigate(Route.StrategyConfig) },
-            onOpenDnsSettings = { navigator.navigate(Route.DnsSettings) },
-            onRetestStrategies = { navigator.navigate(Route.Diagnostics(autoStartScan = true)) },
-            onScanServer = { navigator.navigate(Route.QrScanner) },
-            route = Route.Config,
-            initialModeSection = ConfigModeSection.LocalBypass,
-            viewModel = configViewModel,
-            onProfileImport = { request -> navigator.navigateProfileImport(request) },
-            onProfileShare = { profileId -> navigator.navigate(Route.ProfileShare(profileId = profileId)) },
-        )
-    }
-    entry<Route.LocalBypassConfig>(metadata = ConfigScopeMetadata) {
-        val configViewModel: ConfigViewModel = sharedHiltViewModel()
-        ConfigRoute(
-            onOpenModeEditor = { navigator.navigate(Route.ModeEditor) },
-            onOpenLocalBypassEditor = { navigator.navigate(Route.StrategyConfig) },
-            onOpenDnsSettings = { navigator.navigate(Route.DnsSettings) },
-            onRetestStrategies = { navigator.navigate(Route.Diagnostics(autoStartScan = true)) },
-            onScanServer = { navigator.navigate(Route.QrScanner) },
-            route = Route.LocalBypassConfig,
-            initialModeSection = ConfigModeSection.LocalBypass,
-            viewModel = configViewModel,
-            onProfileImport = { request -> navigator.navigateProfileImport(request) },
-            onProfileShare = { profileId -> navigator.navigate(Route.ProfileShare(profileId = profileId)) },
-        )
-    }
-    entry<Route.VpnConfig>(metadata = ConfigScopeMetadata) {
-        val configViewModel: ConfigViewModel = sharedHiltViewModel()
-        ConfigRoute(
-            onOpenModeEditor = { navigator.navigate(Route.ModeEditor) },
-            onOpenLocalBypassEditor = { navigator.navigate(Route.StrategyConfig) },
-            onOpenDnsSettings = { navigator.navigate(Route.DnsSettings) },
-            onRetestStrategies = { navigator.navigate(Route.Diagnostics(autoStartScan = true)) },
-            onScanServer = { navigator.navigate(Route.QrScanner) },
-            route = Route.VpnConfig,
-            initialModeSection = ConfigModeSection.Vpn,
-            viewModel = configViewModel,
-            onProfileImport = { request -> navigator.navigateProfileImport(request) },
-            onProfileShare = { profileId -> navigator.navigate(Route.ProfileShare(profileId = profileId)) },
-        )
-    }
-    entry<Route.ModeEditor>(metadata = ConfigScopeMetadata) {
-        val configViewModel: ConfigViewModel = sharedHiltViewModel()
-        ModeEditorRoute(
-            onBack = { navigator.goBack() },
-            viewModel = configViewModel,
-        )
+private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
+    navigation<ConfigGraph>(
+        startDestination = Route.Config,
+    ) {
+        composable<Route.Config>(
+            deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://config" }),
+        ) {
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            ConfigRoute(
+                onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
+                onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
+                onScanServer = { navController.navigate(Route.QrScanner) },
+                route = Route.Config,
+                initialModeSection = ConfigModeSection.LocalBypass,
+                viewModel = configViewModel,
+                onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
+            )
+        }
+        composable<Route.LocalBypassConfig> {
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            ConfigRoute(
+                onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
+                onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
+                onScanServer = { navController.navigate(Route.QrScanner) },
+                route = Route.LocalBypassConfig,
+                initialModeSection = ConfigModeSection.LocalBypass,
+                viewModel = configViewModel,
+                onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
+            )
+        }
+        composable<Route.VpnConfig> {
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            ConfigRoute(
+                onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
+                onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
+                onScanServer = { navController.navigate(Route.QrScanner) },
+                route = Route.VpnConfig,
+                initialModeSection = ConfigModeSection.Vpn,
+                viewModel = configViewModel,
+                onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
+            )
+        }
+        composable<Route.ModeEditor> {
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            ModeEditorRoute(
+                onBack = { navController.popBackStack() },
+                viewModel = configViewModel,
+            )
+        }
     }
 }
 
-private fun EntryProviderScope<NavKey>.addSettingsRoutes(
-    navigator: RipDpiNavigator,
+private fun NavGraphBuilder.addSettingsRoutes(
+    navController: NavHostController,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
     permissionSummary: PermissionSummaryUiState,
 ) {
-    entry<Route.Settings>(clazzContentKey = { SettingsScopeContentKey }) {
-        SettingsHomeRoute(
-            navigator = navigator,
-            actions = actions,
-            mainViewModel = mainViewModel,
-            permissionSummary = permissionSummary,
-        )
+    navigation<SettingsGraph>(
+        startDestination = Route.Settings,
+    ) {
+        composable<Route.Settings>(
+            deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://settings" }),
+        ) {
+            SettingsHomeRoute(navController, it, actions, mainViewModel, permissionSummary)
+        }
+        addAdvancedSettingsRoutes(navController, mainViewModel)
+        addDetectionSettingsRoutes(navController)
     }
-    addAdvancedSettingsRoutes(navigator, mainViewModel)
-    addDetectionSettingsRoutes(navigator)
 }
 
 @Composable
 private fun SettingsHomeRoute(
-    navigator: RipDpiNavigator,
+    navController: NavHostController,
+    backStackEntry: NavBackStackEntry,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
     permissionSummary: PermissionSummaryUiState,
 ) {
-    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val settingsGraphEntry =
+        remember(navController, backStackEntry) {
+            navController.getBackStackEntry<SettingsGraph>()
+        }
+    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
     SettingsRoute(
-        onOpenDnsSettings = { navigator.navigate(Route.DnsSettings) },
-        onOpenAdvancedSettings = { navigator.navigate(Route.AdvancedSettings) },
-        onOpenCustomization = { navigator.navigate(Route.AppCustomization) },
-        onOpenAbout = { navigator.navigate(Route.About) },
-        onOpenDataTransparency = { navigator.navigate(Route.DataTransparency) },
-        onOpenDetectionCheck = { navigator.navigate(Route.DetectionCheck) },
-        onOpenSubscriptionFailover = { navigator.navigate(Route.SubscriptionFailover) },
-        onOpenSubscriptionStatus = { navigator.navigate(Route.SubscriptionStatus) },
-        onOpenDomainBypass = { navigator.navigate(Route.DomainBypassList) },
-        onOpenRoutingRules = { navigator.navigate(Route.Routes) },
-        onOpenSplitTunnel = { navigator.navigate(Route.SplitTunnel) },
-        onOpenRootModeStrategies = { navigator.navigate(Route.RootModeStrategies) },
-        onOpenBackupRestore = { navigator.navigate(Route.BackupRestore) },
-        onOpenLogs = { navigator.navigate(Route.Logs, singleTop = true) },
+        onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+        onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+        onOpenCustomization = { navController.navigate(Route.AppCustomization) },
+        onOpenAbout = { navController.navigate(Route.About) },
+        onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
+        onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
+        onOpenSubscriptionFailover = { navController.navigate(Route.SubscriptionFailover) },
+        onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) },
+        onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
+        onOpenRoutingRules = { navController.navigate(Route.Routes) },
+        onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
+        onOpenRootModeStrategies = { navController.navigate(Route.RootModeStrategies) },
+        onOpenBackupRestore = { navController.navigate(Route.BackupRestore) },
+        onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onShareDebugBundle = actions.onShareDebugBundle,
         permissionSummary = permissionSummary,
         onRepairPermission = actions.onRepairPermission,
@@ -590,179 +658,291 @@ private fun SettingsHomeRoute(
     )
 }
 
-private fun EntryProviderScope<NavKey>.addAdvancedSettingsRoutes(
-    navigator: RipDpiNavigator,
+private fun NavGraphBuilder.addAdvancedSettingsRoutes(
+    navController: NavHostController,
     mainViewModel: MainViewModel,
 ) {
-    entry<Route.DnsSettings>(metadata = SettingsScopeMetadata) {
-        val settingsViewModel: SettingsViewModel = sharedHiltViewModel()
-        DnsSettingsRoute(onBack = { navigator.goBack() }, viewModel = settingsViewModel)
+    composable<Route.DnsSettings> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+        DnsSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
     }
-    entry<Route.AdvancedSettings>(metadata = SettingsScopeMetadata) {
-        val settingsViewModel: SettingsViewModel = sharedHiltViewModel()
+    composable<Route.AdvancedSettings> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
         AdvancedSettingsRoute(
-            onBack = { navigator.goBack() },
-            onOpenStrategyConfig = { navigator.navigate(Route.StrategyConfig) },
-            onOpenBlockcheck = { navigator.navigate(Route.Blockcheck) },
-            onOpenAssetProvider = { navigator.navigate(Route.AssetProvider) },
-            onOpenRememberedNetworks = { navigator.navigate(Route.RememberedNetworks) },
+            onBack = { navController.popBackStack() },
+            onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
+            onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
+            onOpenAssetProvider = { navController.navigate(Route.AssetProvider) },
+            onOpenRememberedNetworks = { navController.navigate(Route.RememberedNetworks) },
             viewModel = settingsViewModel,
         )
     }
-    entry<Route.RememberedNetworks> {
-        RememberedNetworksRoute(onBack = { navigator.goBack() })
+    composable<Route.RememberedNetworks> {
+        RememberedNetworksRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.RootModeStrategies> {
+    composable<Route.RootModeStrategies> {
         RootModeStrategiesRoute(
-            onBack = { navigator.goBack() },
-            onOpenStrategyConfig = { navigator.navigate(Route.StrategyConfig) },
+            onBack = { navController.popBackStack() },
+            onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
         )
     }
-    entry<Route.StrategyConfig>(metadata = SettingsScopeMetadata) {
-        val settingsViewModel: SettingsViewModel = sharedHiltViewModel()
+    composable<Route.StrategyConfig> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
         StrategyConfigRoute(
-            onBack = { navigator.goBack() },
+            onBack = { navController.popBackStack() },
             viewModel = settingsViewModel,
             applySavedConfig = mainViewModel::applySavedStrategyConfig,
         )
     }
-    entry<Route.Blockcheck> {
-        BlockcheckRoute(onBack = { navigator.goBack() })
+    composable<Route.Blockcheck> {
+        BlockcheckRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.DomainBypassList> {
-        DomainBypassListRoute(onBack = { navigator.goBack() })
+    composable<Route.DomainBypassList> {
+        DomainBypassListRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.AssetProvider> {
-        AssetProviderRoute(onBack = { navigator.goBack() })
+    composable<Route.AssetProvider> {
+        AssetProviderRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.BackupRestore> {
-        BackupRestoreRoute(onBack = { navigator.goBack() })
+    composable<Route.BackupRestore> {
+        BackupRestoreRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.SplitTunnel> {
-        SplitTunnelRoute(onBack = { navigator.goBack() })
+    composable<Route.SplitTunnel> {
+        SplitTunnelRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.Routes> {
+    composable<Route.Routes> {
         RoutesRoute(
-            onBack = { navigator.goBack() },
-            onAddRule = { navigator.navigate(Route.RuleEditor(0L)) },
-            onEditRule = { id -> navigator.navigate(Route.RuleEditor(id)) },
+            onBack = { navController.popBackStack() },
+            onAddRule = { navController.navigate(Route.RuleEditor(0L)) },
+            onEditRule = { id -> navController.navigate(Route.RuleEditor(id)) },
         )
     }
-    entry<Route.RuleEditor> { route ->
-        RuleEditorRoute(ruleId = route.ruleId, onBack = { navigator.goBack() })
+    composable<Route.RuleEditor> { entry ->
+        val ruleEditorRoute = entry.toRoute<Route.RuleEditor>()
+        RuleEditorRoute(ruleId = ruleEditorRoute.ruleId, onBack = { navController.popBackStack() })
     }
-    entry<Route.AppCustomization>(metadata = SettingsScopeMetadata) {
-        val settingsViewModel: SettingsViewModel = sharedHiltViewModel()
-        AppCustomizationRoute(onBack = { navigator.goBack() }, viewModel = settingsViewModel)
+    composable<Route.AppCustomization> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+        AppCustomizationRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
     }
 }
 
-private fun EntryProviderScope<NavKey>.addDetectionSettingsRoutes(navigator: RipDpiNavigator) {
-    entry<Route.DataTransparency> {
-        DataTransparencyRoute(onBack = { navigator.goBack() })
+private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostController) {
+    composable<Route.DataTransparency> {
+        DataTransparencyRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.DetectionCheck> {
+    composable<Route.DetectionCheck> {
         DetectionCheckRoute(
-            onBack = { navigator.goBack() },
-            onOpenSettings = { navigator.navigate(Route.DetectionSettings) },
+            onBack = { navController.popBackStack() },
+            onOpenSettings = { navController.navigate(Route.DetectionSettings) },
         )
     }
-    entry<Route.DetectionSettings> {
-        DetectionSettingsRoute(onBack = { navigator.goBack() })
+    composable<Route.DetectionSettings> {
+        DetectionSettingsRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.PcapViewer> {
-        PcapViewerRoute(onBack = { navigator.goBack() })
+    composable<Route.PcapViewer> {
+        PcapViewerRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.PcapCaptureList> {
+    composable<Route.PcapCaptureList> {
         PcapCaptureListRoute(
             onCaptureSelected = { _ ->
-                navigator.navigate(Route.PcapViewer, singleTop = true)
+                navController.navigate(Route.PcapViewer) { launchSingleTop = true }
             },
-            onBack = { navigator.goBack() },
+            onBack = { navController.navigateUp() },
         )
     }
-    entry<Route.ReplayHistory> {
+    composable<Route.ReplayHistory> {
         ReplayHistoryRoute(
-            onRunScan = { navigator.navigate(Route.Diagnostics(autoStartScan = true)) },
-            onBack = { navigator.goBack() },
+            onRunScan = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
+            onBack = { navController.navigateUp() },
         )
     }
-    entry<Route.OwnedStackBrowser> { route ->
+    composable<Route.OwnedStackBrowser> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
         OwnedStackBrowserRoute(
             initialUrl = route.initialUrl,
-            onBack = { navigator.goBack() },
+            onBack = { navController.popBackStack() },
         )
     }
-    entry<Route.SharedDiagnosticResult> { route ->
+    composable<Route.SharedDiagnosticResult> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.SharedDiagnosticResult>()
         SharedResultRenderRoute(
             fragment = route.fragment,
-            onBack = { navigator.goBack() },
+            onBack = { navController.popBackStack() },
         )
     }
-    addImportRoutes(navigator)
+    addImportRoutes(navController)
 }
 
-private fun EntryProviderScope<NavKey>.addImportRoutes(navigator: RipDpiNavigator) {
-    entry<Route.ProfileImportConfirm> { route ->
+private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
+    composable<Route.ProfileImportConfirm> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.ProfileImportConfirm>()
         ProfileImportConfirmRoute(
             importToken = route.importToken,
-            onBack = { navigator.goBack() },
-            onImported = navigator::resetToHome,
-            onUnavailable = navigator::resetToHome,
+            onBack = { navController.popBackStack() },
+            onImported = { navController.navigateHome() },
+            onUnavailable = { navController.navigateHome() },
         )
     }
-    entry<Route.SubscriptionImportConfirm> { route ->
+    composable<Route.SubscriptionImportConfirm> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.SubscriptionImportConfirm>()
         SubscriptionImportConfirmRoute(
             importToken = route.importToken,
-            onBack = { navigator.goBack() },
-            onImported = navigator::resetToHome,
-            onUnavailable = navigator::resetToHome,
+            onBack = { navController.popBackStack() },
+            onImported = { navController.navigateHome() },
+            onUnavailable = { navController.navigateHome() },
         )
     }
-    entry<Route.SupportSettings> { route ->
+    composable<Route.SupportSettings> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.SupportSettings>()
         SupportSettingsRoute(
             packageJson = route.packageJson,
-            onBack = { navigator.goBack() },
-            onApplied = navigator::resetToHome,
+            onBack = { navController.popBackStack() },
+            onApplied = { navController.navigateHome() },
         )
     }
-    entry<Route.ProfileShare> { route ->
+    composable<Route.ProfileShare> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.ProfileShare>()
         ProfileShareRoute(
             profileId = route.profileId,
-            onBack = { navigator.goBack() },
+            onBack = { navController.popBackStack() },
         )
     }
-    entry<Route.QrScanner> {
+    composable<Route.QrScanner> {
         QrScannerRoute(
-            onBack = { navigator.goBack() },
+            onBack = { navController.popBackStack() },
             onProfileScanned = { request ->
-                navigator.navigateProfileImport(request)
+                navController.navigateProfileImport(request)
             },
         )
     }
-    entry<Route.AmneziaWgProfile> {
-        AmneziaWgProfileRoute(onBack = { navigator.goBack() })
+    composable<Route.AmneziaWgProfile> {
+        AmneziaWgProfileRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.XrayImport> {
+    composable<Route.XrayImport> {
         XrayProfileImportRoute(
-            onBack = { navigator.goBack() },
-            onFinished = { navigator.goBack() },
+            onBack = { navController.popBackStack() },
+            onFinished = { navController.popBackStack() },
         )
     }
-    entry<Route.AnyTlsProfile> {
-        AnyTlsProfileRoute(onBack = { navigator.goBack() })
+    composable<Route.AnyTlsProfile> {
+        AnyTlsProfileRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.MieruProfile> {
-        MieruProfileRoute(onBack = { navigator.goBack() })
+    composable<Route.MieruProfile> {
+        MieruProfileRoute(onBack = { navController.popBackStack() })
     }
-    entry<Route.SshProfile> {
-        SshProfileRoute(onBack = { navigator.goBack() })
+    composable<Route.SshProfile> {
+        SshProfileRoute(onBack = { navController.popBackStack() })
+    }
+}
+
+/**
+ * Routes to the single-profile import-confirmation destination for a clipboard- or
+ * scanner-sourced [request], staging the credential-bearing profile outside saved state.
+ */
+private fun NavHostController.navigateProfileImport(request: com.poyka.ripdpi.proxyimport.ProxyImportRequest.Profile) {
+    val importToken = PendingProxyImportStore.process.stage(request.profile)
+    navigate(Route.ProfileImportConfirm(importToken = importToken)) {
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.navigateHome() {
+    navigateTopLevel(Route.Home)
+}
+
+private fun NavHostController.navigateTopLevel(destination: Route) {
+    navigate(destination) {
+        launchSingleTop = true
+        restoreState = true
+        popUpTo<Route.Home> { saveState = true }
+    }
+}
+
+private fun NavHostController.navigateConfigSubRoute(destination: Route) {
+    navigate(destination) {
+        launchSingleTop = true
+        restoreState = true
+        popUpTo<Route.Home> { saveState = true }
     }
 }
 
 internal fun nestedEnterTransition(motion: RipDpiMotion) = motion.nestedEnterTransition()
 
 internal fun nestedPopExitTransition(motion: RipDpiMotion) = motion.nestedPopExitTransition()
+
+/**
+ * Returns the stable route key (e.g. "home") for a Nav destination.
+ *
+ * Needed because Navigation Compose 2.8+ typed routes expose `destination.route` as a
+ * fully-qualified class name, not the stable key that [BottomNavBar] and the
+ * launch-request pipeline still speak. The stable key is preserved on [Route] itself
+ * so external surfaces (automation, telemetry, deep links) keep their string contract.
+ */
+internal fun NavDestination.stableRouteKey(): String? =
+    stableRouteMatchers.firstOrNull { (_, matches) -> matches() }?.first
+
+internal fun NavDestination.matchesRoute(route: Route): Boolean = stableRouteKey() == route.stableRoute
+
+private val configSubRouteStableKeys =
+    setOf(
+        Route.LocalBypassConfig.stableRoute,
+        Route.VpnConfig.stableRoute,
+    )
+
+private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =
+    listOf(
+        Route.Home.stableRoute to { hasRoute<Route.Home>() },
+        Route.Config.stableRoute to { hasRoute<Route.Config>() },
+        Route.LocalBypassConfig.stableRoute to { hasRoute<Route.LocalBypassConfig>() },
+        Route.VpnConfig.stableRoute to { hasRoute<Route.VpnConfig>() },
+        Route.Diagnostics().stableRoute to { hasRoute<Route.Diagnostics>() },
+        Route.Settings.stableRoute to { hasRoute<Route.Settings>() },
+        Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },
+        Route.History.stableRoute to { hasRoute<Route.History>() },
+        Route.Logs.stableRoute to { hasRoute<Route.Logs>() },
+        Route.ConnectionHealth.stableRoute to { hasRoute<Route.ConnectionHealth>() },
+        Route.SubscriptionFailover.stableRoute to { hasRoute<Route.SubscriptionFailover>() },
+        Route.SubscriptionStatus.stableRoute to { hasRoute<Route.SubscriptionStatus>() },
+        Route.StrategyTuner.stableRoute to { hasRoute<Route.StrategyTuner>() },
+        Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
+        Route.BackupRestore.stableRoute to { hasRoute<Route.BackupRestore>() },
+        Route.DnsSettings.stableRoute to { hasRoute<Route.DnsSettings>() },
+        Route.AdvancedSettings.stableRoute to { hasRoute<Route.AdvancedSettings>() },
+        Route.StrategyConfig.stableRoute to { hasRoute<Route.StrategyConfig>() },
+        Route.RememberedNetworks.stableRoute to { hasRoute<Route.RememberedNetworks>() },
+        Route.RootModeStrategies.stableRoute to { hasRoute<Route.RootModeStrategies>() },
+        Route.DomainBypassList.stableRoute to { hasRoute<Route.DomainBypassList>() },
+        Route.AssetProvider.stableRoute to { hasRoute<Route.AssetProvider>() },
+        Route.SplitTunnel.stableRoute to { hasRoute<Route.SplitTunnel>() },
+        Route.Routes.stableRoute to { hasRoute<Route.Routes>() },
+        Route.RuleEditor().stableRoute to { hasRoute<Route.RuleEditor>() },
+        Route.Blockcheck.stableRoute to { hasRoute<Route.Blockcheck>() },
+        Route.BiometricPrompt.stableRoute to { hasRoute<Route.BiometricPrompt>() },
+        Route.AppCustomization.stableRoute to { hasRoute<Route.AppCustomization>() },
+        Route.About.stableRoute to { hasRoute<Route.About>() },
+        Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
+        Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
+        Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
+        Route.PcapViewer.stableRoute to { hasRoute<Route.PcapViewer>() },
+        Route.PcapCaptureList.stableRoute to { hasRoute<Route.PcapCaptureList>() },
+        Route.ReplayHistory.stableRoute to { hasRoute<Route.ReplayHistory>() },
+        Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
+        Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
+        Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
+        Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.SupportSettings().stableRoute to { hasRoute<Route.SupportSettings>() },
+        Route.ProfileShare().stableRoute to { hasRoute<Route.ProfileShare>() },
+        Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
+        Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
+        Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },
+        Route.AnyTlsProfile.stableRoute to { hasRoute<Route.AnyTlsProfile>() },
+        Route.MieruProfile.stableRoute to { hasRoute<Route.MieruProfile>() },
+        Route.SshProfile.stableRoute to { hasRoute<Route.SshProfile>() },
+    )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(
     launchHomeRequested: Boolean,
@@ -779,17 +959,3 @@ internal fun shouldNavigateToHomeFromLaunchRequest(
             Route.BiometricPrompt.stableRoute,
         )
 }
-
-internal fun canHandleExternalNavigation(currentRoute: String?): Boolean =
-    currentRoute != null && currentRoute !in gateStableRoutes
-
-private const val ConfigScopeContentKey = "config-navigation-scope"
-private const val SettingsScopeContentKey = "settings-navigation-scope"
-
-private val ConfigScopeMetadata = RipDpiSharedViewModelStoreNavEntryDecorator.parent(ConfigScopeContentKey)
-private val SettingsScopeMetadata = RipDpiSharedViewModelStoreNavEntryDecorator.parent(SettingsScopeContentKey)
-private val gateStableRoutes = gateRoutes.mapTo(mutableSetOf(), Route::stableRoute)
-
-@Composable
-private inline fun <reified VM : androidx.lifecycle.ViewModel> sharedHiltViewModel(): VM =
-    hiltViewModel(viewModelStoreOwner = LocalRipDpiSharedViewModelStoreOwner.current)

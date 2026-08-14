@@ -17,7 +17,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -87,7 +86,6 @@ class DeveloperAnalyticsAllowListTest {
                 DeveloperAnalyticsPayload(
                     schemaVersion = 1,
                     generatedAtIsoUtc = "2026-05-16T00:00:00Z",
-                    failureEnvelopes = listOf(hostileFailureEnvelope()),
                     reproductionContext =
                         DeveloperReproductionContext(
                             appVersionName = "1.0.0-fixture",
@@ -148,54 +146,9 @@ class DeveloperAnalyticsAllowListTest {
                             ),
                         ),
                     deviceState = DeveloperDeviceState(locale = "en_US", androidSdk = 33),
-                    baselineDelta = hostileBaselineDelta(),
                     notes = listOf("fixture note"),
                 )
         }
-
-    private fun hostileBaselineDelta() =
-        DeveloperBaselineDelta(
-            baselineClass = "device-local-distinct-networks-v1",
-            baselineVersion = "device-local-v1",
-            comparisons =
-                listOf(
-                    DeveloperBaselineMetric(
-                        metric = "stage_success_rate",
-                        userValue = "0.50",
-                        baseline =
-                            DeveloperBaselineDistribution(
-                                cohort = "device_local_distinct_networks:8_stages",
-                                sampleCount = 5,
-                                p50 = 0.75,
-                                p95 = 1.0,
-                                asOfDate = "2026-04-05",
-                                source = "device_local_probe_result_cache",
-                            ),
-                        verdict = "below_baseline",
-                    ),
-                ),
-        )
-
-    private fun hostileFailureEnvelope() =
-        DeveloperFailureEnvelopeEntry(
-            stageKey = "dpi_full",
-            stageLabel = "failure-envelope-sensitive-marker-label",
-            headline = "failure-envelope-sensitive-marker-headline",
-            summary = "failure-envelope-sensitive-marker-summary",
-            tcpErrors =
-                listOf(
-                    "failure-envelope-sensitive-marker-target",
-                    "stages/dpi_full/report.json#/observations/1/tcp/status=CONNECT_FAILED",
-                    "stages/dpi_full/report.json#/observations/5/tcp/status=BLOCKED_16KB",
-                    "stages/dpi_full/report.json#/observations/6/tcp/status=BLOCKED16_KB",
-                ),
-            dnsErrors =
-                listOf(
-                    "stages/dpi_full/report.json#/observations/3/dns/status=CONNECT_FAILED",
-                    "stages/dpi_full/report.json#/observations/4/dns/status=NXDOMAIN_MISMATCH",
-                ),
-            quicErrors = listOf("stages/dpi_full/report.json#/observations/2/quic/status=ERROR"),
-        )
 
     private fun readDeveloperAnalyticsJson(archivePath: String): JsonObject =
         ZipFile(archivePath).use { zip ->
@@ -232,48 +185,8 @@ class DeveloperAnalyticsAllowListTest {
             )
         }
 
-        val serialized = obj.toString()
-        assertEquals(
-            "archive boundary must normalize developer analytics to its current schema",
-            DeveloperAnalyticsSchemaVersion,
-            obj
-                .getValue("schemaVersion")
-                .jsonPrimitive
-                .content
-                .toInt(),
-        )
-        assertFalse(
-            "failure envelope must not export arbitrary source text",
-            serialized.contains("failure-envelope-sensitive-marker"),
-        )
-        assertTrue(
-            "failure envelope must retain typed TCP references",
-            serialized.contains("stages/dpi_full/report.json#/observations/1/tcp/status=CONNECT_FAILED"),
-        )
-        assertFalse(
-            "failure envelope must reject enum names that differ from report wire tokens",
-            serialized.contains("stages/dpi_full/report.json#/observations/5/tcp/status=BLOCKED_16KB"),
-        )
-        assertTrue(
-            "failure envelope must retain canonical report wire tokens",
-            serialized.contains("stages/dpi_full/report.json#/observations/6/tcp/status=BLOCKED16_KB"),
-        )
-        assertTrue(
-            "failure envelope must retain typed QUIC references",
-            serialized.contains("stages/dpi_full/report.json#/observations/2/quic/status=ERROR"),
-        )
-        assertFalse(
-            "failure envelope must reject enum values from a different typed field",
-            serialized.contains("stages/dpi_full/report.json#/observations/3/dns/status=CONNECT_FAILED"),
-        )
-        assertTrue(
-            "failure envelope must retain enum values valid for the typed field",
-            serialized.contains("stages/dpi_full/report.json#/observations/4/dns/status=NXDOMAIN_MISMATCH"),
-        )
-
         assertNestedDeveloperAnalyticsProjection(obj)
         assertNetworkSnapshotProjection(obj)
-        assertBaselineProjection(obj)
 
         val encoded = readArchiveText(archivePath)
         listOf(
@@ -291,29 +204,6 @@ class DeveloperAnalyticsAllowListTest {
                 encoded.contains(sensitiveValue),
             )
         }
-    }
-
-    private fun assertBaselineProjection(obj: JsonObject) {
-        val comparison =
-            obj
-                .getValue("baselineDelta")
-                .jsonObject
-                .getValue("comparisons")
-                .jsonArray
-                .single()
-                .jsonObject
-        val baseline = comparison.getValue("baseline").jsonObject
-        assertEquals(
-            setOf("cohort", "sampleCount", "p50", "p95", "asOfDate", "source"),
-            baseline.keys,
-        )
-        assertEquals("device_local_distinct_networks:8_stages", baseline.getValue("cohort").jsonPrimitive.content)
-        assertEquals("5", baseline.getValue("sampleCount").jsonPrimitive.content)
-        assertEquals("0.75", baseline.getValue("p50").jsonPrimitive.content)
-        assertEquals("1.0", baseline.getValue("p95").jsonPrimitive.content)
-        assertEquals("2026-04-05", baseline.getValue("asOfDate").jsonPrimitive.content)
-        assertEquals("device_local_probe_result_cache", baseline.getValue("source").jsonPrimitive.content)
-        assertEquals("below_baseline", comparison.getValue("verdict").jsonPrimitive.content)
     }
 
     private fun assertNestedDeveloperAnalyticsProjection(obj: JsonObject) {

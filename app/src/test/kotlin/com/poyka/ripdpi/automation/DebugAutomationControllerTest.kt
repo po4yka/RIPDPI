@@ -1,26 +1,16 @@
 package com.poyka.ripdpi.automation
 
 import android.content.Intent
-import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
-import dagger.Lazy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -128,14 +118,10 @@ class DebugAutomationControllerTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val scanRecordStore = FakeDiagnosticsScanRecordStore()
-            val artifactWriteStore = FakeDiagnosticsArtifactWriteStore()
-            val bypassUsageHistoryStore = FakeBypassUsageHistoryStore()
             val controller =
                 newController(
                     appSettingsRepository = repository,
                     scanRecordStore = scanRecordStore,
-                    artifactWriteStore = artifactWriteStore,
-                    bypassUsageHistoryStore = bypassUsageHistoryStore,
                 )
 
             controller.prepareLaunch(
@@ -152,9 +138,6 @@ class DebugAutomationControllerTest {
             assertEquals("completed", session?.status)
             assertNotNull(session?.reportJson)
             assertEquals(2, scanRecordStore.getProbeResults("automation-report-demo-session").size)
-            assertEquals(24, artifactWriteStore.telemetrySamples.size)
-            assertEquals(48, artifactWriteStore.nativeSessionEvents.size)
-            assertNotNull(bypassUsageHistoryStore.getBypassUsageSession("automation-live-demo-connection"))
         }
 
     @Test
@@ -245,17 +228,12 @@ class DebugAutomationControllerTest {
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         scanRecordStore: FakeDiagnosticsScanRecordStore = FakeDiagnosticsScanRecordStore(),
         historyResetStore: FakeDiagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
-        artifactWriteStore: FakeDiagnosticsArtifactWriteStore = FakeDiagnosticsArtifactWriteStore(),
-        bypassUsageHistoryStore: FakeBypassUsageHistoryStore = FakeBypassUsageHistoryStore(),
     ): DebugAutomationController =
         DebugAutomationController(
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             scanRecordStore = scanRecordStore,
             historyResetStore = historyResetStore,
-            artifactWriteStore = artifactWriteStore,
-            bypassUsageHistoryStore = bypassUsageHistoryStore,
-            appStartupReadiness = Lazy { ReadyAppStartupReadiness },
             diagnosticsJson =
                 Json {
                     ignoreUnknownKeys = true
@@ -296,39 +274,6 @@ class DebugAutomationControllerTest {
             results: List<ProbeResultEntity>,
         ) {
             probeResults[sessionId] = results
-        }
-    }
-
-    private class FakeDiagnosticsArtifactWriteStore : DiagnosticsArtifactWriteStore {
-        val telemetrySamples = mutableListOf<TelemetrySampleEntity>()
-        val nativeSessionEvents = mutableListOf<NativeSessionEventEntity>()
-
-        override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
-
-        override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) = Unit
-
-        override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
-            telemetrySamples += sample
-        }
-
-        override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
-            nativeSessionEvents += event
-        }
-
-        override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
-    }
-
-    private class FakeBypassUsageHistoryStore : BypassUsageHistoryStore {
-        private val sessions = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
-
-        override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
-            sessions.map { values -> values.take(limit) }
-
-        override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
-            sessions.value.firstOrNull { it.id == sessionId }
-
-        override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
-            sessions.value = (sessions.value.filterNot { it.id == session.id } + session)
         }
     }
 }

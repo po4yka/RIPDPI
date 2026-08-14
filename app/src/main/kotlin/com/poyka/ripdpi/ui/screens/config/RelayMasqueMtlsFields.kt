@@ -3,58 +3,44 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun MasqueCloudflareMtlsFields(
     draft: ConfigDraft,
-    uiState: ConfigUiState,
     actions: RelayMasqueActions,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayMasqueClientCertificateChainPem,
-                onValueChange = actions.onRelayMasqueClientCertificateChainPemChanged,
-                replacementKey =
-                    uiState.textFieldReplacementRevision to uiState.masqueCredentialReplacementRevision,
-            ),
+        value = draft.relayMasqueClientCertificateChainPem,
+        onValueChange = actions.onRelayMasqueClientCertificateChainPemChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_masque_client_certificate_chain),
                 helperText = stringResource(R.string.config_relay_masque_client_certificate_chain_helper),
             ),
-        lineLimits = TextFieldLineLimits.MultiLine(),
+        multiline = true,
     )
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayMasqueClientPrivateKeyPem,
-                onValueChange = actions.onRelayMasqueClientPrivateKeyPemChanged,
-                replacementKey =
-                    uiState.textFieldReplacementRevision to uiState.masqueCredentialReplacementRevision,
-            ),
+        value = draft.relayMasqueClientPrivateKeyPem,
+        onValueChange = actions.onRelayMasqueClientPrivateKeyPemChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_masque_client_private_key),
                 helperText = stringResource(R.string.config_relay_masque_client_private_key_helper),
             ),
-        lineLimits = TextFieldLineLimits.MultiLine(),
+        multiline = true,
     )
     Row(
         modifier = Modifier.fillMaxWidth(),

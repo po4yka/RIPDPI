@@ -13,7 +13,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSessionSelector
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
-import com.poyka.ripdpi.diagnostics.historyCoverageWarnings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -225,7 +224,6 @@ internal class DefaultDiagnosticsArchiveExporter
                         loadStageTelemetry = { session, connectionSessionIds ->
                             sourceLoader.getStageTelemetry(session, connectionSessionIds)
                         },
-                        loadRunStageTelemetry = sourceLoader::getRunStageTelemetry,
                     )
             return finalizeSelection(selection)
         }
@@ -328,18 +326,11 @@ internal class DefaultDiagnosticsArchiveExporter
         private fun finalizeSelection(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSelection {
             val missingCompletedStageWarnings =
                 selection.compositeStages
-                    .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && !stage.hasStageEvidence() }
+                    .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && stage.session == null }
                     .map { stage -> "completed_stage_evidence_unavailable:${stage.stageSummary.stageKey}" }
-            val selectedSessionStart =
-                (listOfNotNull(selection.primarySession) + selection.compositeStages.mapNotNull { it.session })
-                    .minOfOrNull(ScanSessionEntity::startedAt)
-            val logcatCoverageWarnings =
-                selection.logcatSnapshot?.historyCoverageWarnings(selectedSessionStart).orEmpty()
             return selection.copy(
                 pcapFiles = emptyList(),
-                captureFiles = fileStore.getRecentCompletedPcapFiles(DiagnosticsArchiveFormat.captureFileLimit),
-                collectionWarnings =
-                    selection.collectionWarnings + missingCompletedStageWarnings + logcatCoverageWarnings,
+                collectionWarnings = selection.collectionWarnings + missingCompletedStageWarnings,
                 includedFiles =
                     DiagnosticsArchiveFormat.includedFiles(
                         logcatIncluded = selection.logcatSnapshot != null,
@@ -372,8 +363,6 @@ internal class DefaultDiagnosticsArchiveExporter
                     primaryProfileId = primarySession?.profileId,
                     pcapFiles = selection.pcapFiles,
                     compositeSessionIds = selection.compositeStages.mapNotNull { it.session?.id },
-                    stageTimings = selection.compositeStages.map(::buildDeveloperStageTimingEvidence),
-                    failureEnvelopes = selection.compositeStages.mapNotNull(::buildDeveloperFailureEnvelopeEvidence),
                 )
             return runCatching { developerAnalyticsSource.collect(analyticsContext) }
                 .getOrDefault(

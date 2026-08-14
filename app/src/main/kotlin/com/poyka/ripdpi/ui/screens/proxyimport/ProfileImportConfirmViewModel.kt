@@ -4,27 +4,19 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
-import com.poyka.ripdpi.proxyimport.RelayProfileProjection
-import com.poyka.ripdpi.services.ImportedRelayProfilePreflight
-import com.poyka.ripdpi.services.ImportedRelayProfilePreflightRequest
-import com.poyka.ripdpi.services.ImportedRelayProfilePreflightResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,23 +29,7 @@ data class ProfileImportConfirmUiState(
     val importing: Boolean = false,
     /** String resource to show when validation/activation failed; `null` when there is no error. */
     @StringRes val errorRes: Int? = null,
-    val serviceHalted: Boolean = true,
-    val checkSupported: Boolean = false,
-    val checkState: ProfileCheckState = ProfileCheckState.Idle,
 )
-
-enum class ProfileCheckState {
-    Idle,
-    Checking,
-    Succeeded,
-    Unsupported,
-    ServiceBusy,
-    StartupFailure,
-    ProbeFailure,
-    TimedOut,
-    Cancelled,
-    CleanupFailure,
-}
 
 /**
  * Backing [ViewModel] for the single-profile import-confirmation destination.
@@ -71,34 +47,13 @@ class ProfileImportConfirmViewModel
     constructor(
         private val repository: ProxyGroupRepository,
         private val relayActivator: RelayProfileActivator,
-        private val preflight: ImportedRelayProfilePreflight,
-        private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
-        internal constructor(
-            repository: ProxyGroupRepository,
-            relayActivator: RelayProfileActivator,
-        ) : this(
-            repository = repository,
-            relayActivator = relayActivator,
-            preflight = UnavailableImportedRelayProfilePreflight,
-            serviceStateStore = DefaultServiceStateStore(),
-        )
-
         private val _uiState = MutableStateFlow(ProfileImportConfirmUiState())
         val uiState: StateFlow<ProfileImportConfirmUiState> = _uiState.asStateFlow()
         private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
         private var loadedImportToken: String? = null
-        private var preflightJob: Job? = null
-
-        init {
-            viewModelScope.launch {
-                serviceStateStore.status.collectLatest { status ->
-                    _uiState.update { it.copy(serviceHalted = status.first == com.poyka.ripdpi.data.AppStatus.Halted) }
-                }
-            }
-        }
 
         /** Claims the pending profile once so credentials never enter navigation saved state. */
         internal fun loadProfile(
@@ -108,54 +63,14 @@ class ProfileImportConfirmViewModel
             if (loadedImportToken == importToken) return _uiState.value.profile != null
             loadedImportToken = importToken
             completed = false
-            preflightJob?.cancel()
-            val profile = pendingImports.claim(importToken)
-            _uiState.value =
-                ProfileImportConfirmUiState(
-                    profile = profile,
-                    serviceHalted = serviceStateStore.status.value.first == com.poyka.ripdpi.data.AppStatus.Halted,
-                    checkSupported =
-                        profile?.let { RelayProfileProjection.from(it, PreflightProfileId) != null } == true,
-                )
+            _uiState.value = ProfileImportConfirmUiState(profile = pendingImports.claim(importToken))
             return _uiState.value.profile != null
         }
 
         /** Seeds the screen with the [profile] parsed from the inbound share link. */
         fun setProfile(profile: ProxyProfile) {
             completed = false
-            preflightJob?.cancel()
-            _uiState.update {
-                it.copy(
-                    profile = profile,
-                    checkSupported = RelayProfileProjection.from(profile, PreflightProfileId) != null,
-                    checkState = ProfileCheckState.Idle,
-                    errorRes = null,
-                )
-            }
-        }
-
-        fun checkProfile() {
-            val state = _uiState.value
-            val profile = state.profile
-            if (profile != null && !state.importing && state.checkState != ProfileCheckState.Checking) {
-                val projection = RelayProfileProjection.from(profile, PreflightProfileId)
-                if (projection == null) {
-                    _uiState.update { it.copy(checkState = ProfileCheckState.Unsupported) }
-                } else {
-                    _uiState.update { it.copy(checkState = ProfileCheckState.Checking, errorRes = null) }
-                    preflightJob =
-                        viewModelScope.launch {
-                            val result =
-                                preflight.check(
-                                    ImportedRelayProfilePreflightRequest(
-                                        profile = projection.profile,
-                                        credentials = projection.credentials,
-                                    ),
-                                )
-                            _uiState.update { it.copy(checkState = result.toUiState()) }
-                        }
-                }
-            }
+            _uiState.update { it.copy(profile = profile) }
         }
 
         /**
@@ -166,7 +81,7 @@ class ProfileImportConfirmViewModel
          */
         fun confirm() {
             val profile = _uiState.value.profile ?: return
-            if (_uiState.value.importing || _uiState.value.checkState == ProfileCheckState.Checking || completed) return
+            if (_uiState.value.importing || completed) return
             _uiState.update { it.copy(importing = true, errorRes = null) }
             viewModelScope.launch {
                 // Validation throws IllegalArgumentException on invalid field
@@ -229,25 +144,4 @@ class ProfileImportConfirmViewModel
         }
 
         private suspend fun nextOrder(): Int = repository.list().size
-
-        private companion object {
-            const val PreflightProfileId = "import-preflight"
-        }
-    }
-
-private object UnavailableImportedRelayProfilePreflight : ImportedRelayProfilePreflight {
-    override suspend fun check(request: ImportedRelayProfilePreflightRequest) =
-        ImportedRelayProfilePreflightResult.Unsupported
-}
-
-private fun ImportedRelayProfilePreflightResult.toUiState(): ProfileCheckState =
-    when (this) {
-        ImportedRelayProfilePreflightResult.ReachedTarget -> ProfileCheckState.Succeeded
-        ImportedRelayProfilePreflightResult.Unsupported -> ProfileCheckState.Unsupported
-        ImportedRelayProfilePreflightResult.ServiceBusy -> ProfileCheckState.ServiceBusy
-        ImportedRelayProfilePreflightResult.StartupFailure -> ProfileCheckState.StartupFailure
-        ImportedRelayProfilePreflightResult.ProbeFailure -> ProfileCheckState.ProbeFailure
-        ImportedRelayProfilePreflightResult.TimedOut -> ProfileCheckState.TimedOut
-        ImportedRelayProfilePreflightResult.Cancelled -> ProfileCheckState.Cancelled
-        ImportedRelayProfilePreflightResult.CleanupFailure -> ProfileCheckState.CleanupFailure
     }

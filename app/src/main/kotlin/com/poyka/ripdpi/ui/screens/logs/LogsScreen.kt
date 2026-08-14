@@ -150,7 +150,6 @@ internal fun LogsScreen(
                         Modifier
                             .fillMaxSize()
                             .widthIn(max = layout.contentMaxWidth)
-                            .ripDpiTestTag(RipDpiTestTags.LogsContent)
                             .verticalScroll(rememberScrollState())
                             .padding(
                                 start = layout.horizontalPadding,
@@ -483,8 +482,7 @@ internal fun LogsStreamCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .ripDpiTestTag(RipDpiTestTags.LogsStreamList),
+                    .weight(1f),
             state = listState,
         ) {
             itemsIndexed(

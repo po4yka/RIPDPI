@@ -1,8 +1,0 @@
-{
-  "archived_at": "2026-08-09T11:15:34Z",
-  "change": "epc-1786264762917110-epic-remove-cloudflare-from-critical-path",
-  "commit_sha": "7f70068d59fbd07a9d36ddb1de1744d047eac670",
-  "outcome": "dropped",
-  "schema": 1,
-  "task_id": "EPC-1786264762917110"
-}

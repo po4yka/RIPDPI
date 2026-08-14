@@ -62,84 +62,9 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
     return when (kind) {
         "data_plane_final" -> toPrivacySafeDataPlaneEvent(connectionSessionId, tokens)
         "protect_failure" -> toPrivacySafeProtectEvent(connectionSessionId, index, tokens)
-        "runtime_ready", "runtime_stopped" -> toPrivacySafeRelayLifecycleEvent(connectionSessionId, index)
-        "relay_attempt_stage" -> toPrivacySafeRelayAttemptStage(connectionSessionId, index)
         else -> null
     }
 }
-
-private fun NativeRuntimeEvent.toPrivacySafeRelayAttemptStage(
-    connectionSessionId: String,
-    index: Int,
-): NativeSessionEventEntity? {
-    val safeTrace = privacySafeRelayAttemptTrace() ?: return null
-    return NativeSessionEventEntity(
-        id = "runtime_terminal_event:$connectionSessionId:$index",
-        connectionSessionId = connectionSessionId,
-        source = "relay",
-        level = level.lowercase(Locale.US).takeIf { it in TerminalEventLevels } ?: "info",
-        message = "event=relay_attempt_stage",
-        createdAt = createdAt,
-        runtimeId = runtimeId?.takeIf { it.matches(OpaqueRuntimeId) },
-        subsystem = "relay",
-        attemptId = safeTrace.attemptId,
-        attemptSequence = safeTrace.sequence,
-        stage = safeTrace.stage,
-        outcome = safeTrace.outcome,
-        durationMs = durationMs?.coerceAtLeast(0),
-        failureStage = failureStage?.takeIf(RelayAttemptStages::contains),
-        failureClass = failureClass?.takeIf { it.matches(SafeTraceToken) },
-        ioErrorKind = ioErrorKind?.takeIf { it.matches(SafeTraceToken) },
-        osErrorCode = osErrorCode,
-        peerClosePhase = peerClosePhase?.takeIf { it.matches(SafeTraceToken) },
-        carrierDisposition = carrierDisposition?.takeIf { it.matches(SafeTraceToken) },
-    )
-}
-
-private fun NativeRuntimeEvent.privacySafeRelayAttemptTrace(): PrivacySafeRelayAttemptTrace? =
-    if (subsystem == "relay") {
-        stage
-            ?.takeIf(RelayAttemptStages::contains)
-            ?.let { safeStage ->
-                outcome
-                    ?.takeIf(RelayAttemptOutcomes::contains)
-                    ?.let { safeOutcome ->
-                        PrivacySafeRelayAttemptTrace(
-                            attemptId = attemptId?.takeIf { it >= 0 },
-                            sequence = attemptSequence?.takeIf { it > 0 },
-                            stage = safeStage,
-                            outcome = safeOutcome,
-                        )
-                    }
-            }?.takeIf { it.attemptId != null && it.sequence != null }
-    } else {
-        null
-    }
-
-private data class PrivacySafeRelayAttemptTrace(
-    val attemptId: Long?,
-    val sequence: Long?,
-    val stage: String,
-    val outcome: String,
-)
-
-private fun NativeRuntimeEvent.toPrivacySafeRelayLifecycleEvent(
-    connectionSessionId: String,
-    index: Int,
-): NativeSessionEventEntity? =
-    kind
-        ?.takeIf { source == "relay" && subsystem == "relay" }
-        ?.let { lifecycleKind ->
-            terminalEvent(
-                connectionSessionId = connectionSessionId,
-                id = "runtime_terminal_event:$connectionSessionId:$index",
-                source = "relay",
-                level = "info",
-                message = "event=relay_$lifecycleKind",
-                createdAt = createdAt,
-                subsystem = "relay",
-            )
-        }
 
 private fun Map<String, String>.toPrivacySafeDnsMessage(): String? {
     val state = get("state")?.takeIf { it in DnsRuntimeStates }
@@ -204,7 +129,6 @@ private fun NativeRuntimeEvent.toPrivacySafeProtectEvent(
 private fun terminalEvent(
     connectionSessionId: String,
     id: String,
-    source: String = "service",
     level: String,
     message: String,
     createdAt: Long,
@@ -214,7 +138,7 @@ private fun terminalEvent(
         id = id,
         sessionId = null,
         connectionSessionId = connectionSessionId,
-        source = source,
+        source = "service",
         level = level,
         message = message,
         createdAt = createdAt,
@@ -250,11 +174,6 @@ private fun TelemetrySampleEntity.toPrivacySafeTerminalProjection(): TelemetrySa
     )
 
 private val TerminalEventLevels = setOf("info", "warn", "error")
-private val RelayAttemptStages =
-    setOf("tcp_connect", "reality_tls", "vless_request", "vless_response", "socks_reply", "relay_stream")
-private val RelayAttemptOutcomes = setOf("started", "succeeded", "failed", "cancelled", "closed")
-private val SafeTraceToken = Regex("[a-z0-9_]{1,48}")
-private val OpaqueRuntimeId = Regex("[0-9]{1,20}")
 private val DnsRuntimeStates = setOf("failure_threshold", "recovered")
 private val RelayRuntimeStates =
     setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")

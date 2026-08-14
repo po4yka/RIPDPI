@@ -4,11 +4,9 @@ mod coordinator;
 pub(crate) mod panic_recovery;
 mod parallel;
 mod plan;
-mod plan_snapshot;
 mod progress;
 mod recording;
 mod stage;
-mod stage_id;
 mod state;
 
 #[cfg(test)]
@@ -16,7 +14,7 @@ pub(super) use super::strategy_plan::StrategyExecutionPlan;
 pub(super) use artifacts::RunnerArtifacts;
 #[cfg(test)]
 pub(super) use cancellation::cancelled_run_summary;
-pub(super) use cancellation::{publish_cancelled_run, publish_partial_run_checkpoint};
+pub(super) use cancellation::publish_cancelled_run;
 pub(super) use coordinator::ExecutionCoordinator;
 pub(super) use plan::ExecutionPlan;
 pub(super) use recording::{CollectedStageOutcome, CollectedStep};

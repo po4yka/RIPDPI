@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-mod deadline;
 mod strategy_state;
 
 use crate::types::{ProbeObservation, ProbeResult, ScanReport, SharedState};
@@ -16,8 +15,7 @@ pub(in crate::engine) struct ExecutionRuntime {
     pub(in crate::engine) observations: Vec<ProbeObservation>,
     pub(in crate::engine) final_report: Option<ScanReport>,
     pub(in crate::engine) strategy: StrategyExecutionState,
-    scan_deadline: Option<std::time::Instant>,
-    stage_deadline: Option<std::time::Instant>,
+    pub(in crate::engine) scan_deadline: Option<std::time::Instant>,
 }
 
 impl ExecutionRuntime {
@@ -31,7 +29,6 @@ impl ExecutionRuntime {
             final_report: None,
             strategy: StrategyExecutionState::default(),
             scan_deadline: None,
-            stage_deadline: None,
         }
     }
 
@@ -41,6 +38,18 @@ impl ExecutionRuntime {
 
     pub(in crate::engine) fn cancel_token(&self) -> &AtomicBool {
         &self.cancel
+    }
+
+    pub(in crate::engine) fn set_scan_deadline(&mut self, deadline: std::time::Instant) {
+        self.scan_deadline = Some(deadline);
+    }
+
+    pub(in crate::engine) fn is_past_deadline(&self) -> bool {
+        self.scan_deadline.is_some_and(|d| std::time::Instant::now() >= d)
+    }
+
+    pub(in crate::engine) fn scan_deadline(&self) -> Option<std::time::Instant> {
+        self.scan_deadline
     }
 
     pub(in crate::engine) fn finish_with_report(&mut self, report: ScanReport) {

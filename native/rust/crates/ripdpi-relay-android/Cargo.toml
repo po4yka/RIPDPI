@@ -19,10 +19,9 @@ ripdpi-quality.workspace = true
 ripdpi-relay-core.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-tracing = { workspace = true }
 
 [dev-dependencies]
-golden-test-support.workspace = true
+tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [lints]

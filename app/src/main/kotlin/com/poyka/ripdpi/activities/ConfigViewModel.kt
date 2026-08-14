@@ -364,7 +364,6 @@ class ConfigViewModel
 
         fun updateDraft(
             expectedSessionId: Long? = null,
-            isTextFieldReplacement: Boolean = false,
             transform: ConfigDraft.() -> ConfigDraft,
         ): Boolean {
             if (expectedSessionId != null) {
@@ -380,8 +379,6 @@ class ConfigViewModel
                         current.copy(
                             draft = requireNotNull(current.draft).transform(),
                             draftRevision = current.draftRevision + 1,
-                            textFieldReplacementRevision =
-                                current.textFieldReplacementRevision + if (isTextFieldReplacement) 1 else 0,
                         )
                     }
 
@@ -393,7 +390,6 @@ class ConfigViewModel
                             baselineDraft = baseDraft,
                             draft = baseDraft.transform(),
                             draftRevision = 1L,
-                            textFieldReplacementRevision = if (isTextFieldReplacement) 1L else 0L,
                         )
                     }
                 }
@@ -403,7 +399,7 @@ class ConfigViewModel
 
         fun applyRelayPreset(presetId: String) {
             val preset = relayPresetCatalog.find(presetId) ?: return
-            updateDraft(isTextFieldReplacement = true) {
+            updateDraft {
                 applyRelayPresetDefinition(preset)
             }
         }

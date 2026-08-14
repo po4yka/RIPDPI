@@ -1,4 +1,3 @@
-mod attempt_recording;
 mod connection_concurrency;
 mod dns_baseline;
 mod quic;

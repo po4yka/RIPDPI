@@ -6,11 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +35,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -49,8 +46,10 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 
 /**
- * @param ruleId identifier carried by the Navigation 3 route key.
+ * @param ruleId informational for callers/NavHost; the ViewModel reads it from [SavedStateHandle],
+ *   so it is intentionally not consumed here.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun RuleEditorRoute(
     ruleId: Long,
@@ -58,9 +57,6 @@ fun RuleEditorRoute(
     modifier: Modifier = Modifier,
     viewModel: RuleEditorViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel, ruleId) {
-        viewModel.initialize(ruleId)
-    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     RuleEditorScreen(
         state = state,
@@ -156,12 +152,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.identitySection(
     item(key = "rule_editor_identity") {
         RipDpiCard {
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = state.name,
-                        onValueChange = onNameChange,
-                        replacementKey = state.textFieldReplacementRevision,
-                    ),
+                value = state.name,
+                onValueChange = onNameChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.rule_editor_name_label),
@@ -198,28 +190,24 @@ private fun androidx.compose.foundation.lazy.LazyListScope.matchersSection(
                 onValueChange = onDomainsChange,
                 label = stringResource(R.string.rule_editor_domains_label),
                 helperText = stringResource(R.string.rule_editor_domains_helper),
-                replacementKey = state.textFieldReplacementRevision,
             )
             MultilineMatcher(
                 value = state.ipCidrs,
                 onValueChange = onIpCidrsChange,
                 label = stringResource(R.string.rule_editor_ip_label),
                 helperText = stringResource(R.string.rule_editor_ip_helper),
-                replacementKey = state.textFieldReplacementRevision,
             )
             MultilineMatcher(
                 value = state.ports,
                 onValueChange = onPortsChange,
                 label = stringResource(R.string.rule_editor_ports_label),
                 helperText = stringResource(R.string.rule_editor_ports_helper),
-                replacementKey = state.textFieldReplacementRevision,
             )
             MultilineMatcher(
                 value = state.sourcePorts,
                 onValueChange = onSourcePortsChange,
                 label = stringResource(R.string.rule_editor_source_ports_label),
                 helperText = stringResource(R.string.rule_editor_ports_helper),
-                replacementKey = state.textFieldReplacementRevision,
             )
         }
     }
@@ -240,12 +228,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSection(
                 label = stringResource(R.string.rule_editor_network_label),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = state.processName,
-                        onValueChange = onProcessNameChange,
-                        replacementKey = state.textFieldReplacementRevision,
-                    ),
+                value = state.processName,
+                onValueChange = onProcessNameChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.rule_editor_process_label),
@@ -317,15 +301,10 @@ private fun MultilineMatcher(
     onValueChange: (String) -> Unit,
     label: String,
     helperText: String,
-    replacementKey: Any,
 ) {
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = value,
-                onValueChange = onValueChange,
-                replacementKey = replacementKey,
-            ),
+        value = value,
+        onValueChange = onValueChange,
         decoration =
             RipDpiTextFieldDecoration(
                 label = label,
@@ -335,7 +314,7 @@ private fun MultilineMatcher(
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             ),
-        lineLimits = TextFieldLineLimits.MultiLine(),
+        multiline = true,
     )
 }
 

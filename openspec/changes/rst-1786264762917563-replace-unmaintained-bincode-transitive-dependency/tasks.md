@@ -2,16 +2,16 @@
 
 ## Objective
 
-Remove the locked bincode 2.0.1 path and its expiring advisory waiver without regressing Tor directory behavior.
+Replace unmaintained bincode transitive dependency
 
 ## Ownership
 
-- serialized native dependency graph, lockfile, waiver, and focused Tor tests
+Ownership is declared in the portfolio task and the implementation worktree before execution.
 
 ## Execution
 
-- [ ] RST-1786264762919478 Remove bincode 2.0.1 from the locked graph, preserve Tor behavior, and delete the waiver #chore !low @item:RST-1786264762917563
+- [ ] RST-1786264762919478 Implement Replace unmaintained bincode transitive dependency and verify its portfolio acceptance criteria #feature !low @item:RST-1786264762917563
 
 ## Verification
 
-- locked metadata assertion, focused Tor tests, cargo-deny advisories, and waiver validator
+Use the exact gates and evidence required by the portfolio task and `verification.md` when present.

@@ -5,18 +5,17 @@ kind: feature
 status: review
 area: transport
 priority: high
-risk: high
-owner: Transport selection maintainer
-parent: null
+owner: Codex
+parent: EPC-1786264762917282
 blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917886-parallel-active-probe-race-initial-transport-selection
 created: 2026-07-10
-updated: 2026-08-09
-status_detail: Implementation and focused gates are complete; current main CI architecture-health is red until tracked PR 373 lands, so final exact-main evidence is pending.
+updated: 2026-07-10
 source_wiki_pages:
-  - allowlist-path-confirm-good-paradigm
+  - whitelist-dpi-confirm-good-paradigm
   - urltest-dual-transport-fallback
+linked_task: null
 ---
 
 ## Goal

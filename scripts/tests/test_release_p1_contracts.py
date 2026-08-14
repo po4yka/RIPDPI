@@ -147,7 +147,7 @@ class ReleaseP1ContractsTest(unittest.TestCase):
         self.assertIn("releases/generate-notes", release_workflow)
         self.assertIn("release_dossier.py", release_workflow)
         self.assertIn("verify_release_draft.py", release_workflow)
-        self.assertIn("--notes-file publish/release-notes.md", release_workflow)
+        self.assertIn("body_path: publish/release-notes.md", release_workflow)
         self.assertNotIn("generate_release_notes: true", release_workflow)
         self.assertLess(
             release_workflow.index("releases/generate-notes"),

@@ -9,11 +9,9 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCongestionControlCubic
-import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -22,20 +20,13 @@ internal fun TuicRelayFields(
     actions: RelayTuicActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayTuicUuid,
-                onValueChange = actions.onRelayTuicUuidChanged,
-            ),
+        value = draft.relayTuicUuid,
+        onValueChange = actions.onRelayTuicUuidChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_uuid)),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayTuicPassword,
-                onValueChange = actions.onRelayTuicPasswordChanged,
-            ),
-        autofillPolicy = RipDpiAutofillPolicy.Password,
+        value = draft.relayTuicPassword,
+        onValueChange = actions.onRelayTuicPasswordChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_password)),
     )
     RipDpiSwitch(

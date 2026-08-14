@@ -478,6 +478,7 @@ class DiagnosticsArchiveComponentsTest {
                             ),
                         ),
                 )
+
             val selection =
                 selector.buildSelection(
                     request =
@@ -492,24 +493,16 @@ class DiagnosticsArchiveComponentsTest {
                     compositeSessions = emptyList(),
                     loadProbeResults = { error("A stage without a session must not load probe results") },
                     loadNativeEvents = { error("A stage without a session must not load native events") },
-                    loadRunStageTelemetry = { runId, stageKey ->
-                        listOfNotNull(failedStageTelemetryOrNull(runId, stageKey))
-                    },
                 )
 
+            assertEquals(3, selection.compositeStages.size)
             selection.compositeStages.forEach { stage ->
                 assertEquals(null, stage.session)
-                assertTrue(stage.results.isEmpty() && stage.snapshots.isEmpty())
+                assertTrue(stage.results.isEmpty())
+                assertTrue(stage.snapshots.isEmpty())
                 assertTrue(stage.contexts.isEmpty())
                 assertTrue(stage.events.isEmpty())
             }
-            assertEquals(
-                listOf("telemetry-failed-stage"),
-                selection.compositeStages
-                    .single { it.stageSummary.stageKey == "failed" }
-                    .telemetry
-                    .map { it.id },
-            )
             assertEquals("snap-passive", selection.latestPassiveSnapshot?.id)
             assertEquals("ctx-passive", selection.latestPassiveContext?.id)
             assertEquals(listOf("ev-global"), selection.globalEvents.map { it.id })
@@ -725,18 +718,6 @@ private fun telemetrySample(publicIp: String?) =
         rxBytes = 4,
         createdAt = 50L,
     )
-
-private fun failedStageTelemetryOrNull(
-    runId: String,
-    stageKey: String,
-): TelemetrySampleEntity? =
-    telemetrySample(publicIp = null)
-        .takeIf { stageKey == "failed" }
-        ?.copy(
-            id = "telemetry-failed-stage",
-            diagnosticsRunId = runId,
-            diagnosticsStageKey = stageKey,
-        )
 
 private fun nativeEvent(
     id: String,

@@ -133,8 +133,6 @@ pub(super) fn probe_http_url(
             parsed.secure,
             key_log,
         ),
-        Err(err) => {
-            HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err), ttfb_ms: None }
-        }
+        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
 }

@@ -20,7 +20,7 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         pathMode = stageSummary.pathMode.name,
         sessionId = stageSummary.sessionId,
         status =
-            if (stageSummary.status.name == "COMPLETED" && !hasStageEvidence()) {
+            if (stageSummary.status.name == "COMPLETED" && session == null) {
                 "evidence_unavailable"
             } else {
                 stageSummary.status.name.lowercase()
@@ -28,11 +28,6 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         headline = redactDiagnosticsArchiveText(stageSummary.headline),
         summary = redactDiagnosticsArchiveText(stageSummary.summary),
         recommendationContributor = stageSummary.recommendationContributor,
-        evidenceSource = stageSummary.evidenceSource?.name?.lowercase(),
-        detectionVerdict = stageSummary.detectionVerdict,
-        detectedSignalCount = stageSummary.detectedSignalCount,
-        detectionFindings =
-            stageSummary.detectionFindings.map(::redactDiagnosticsArchiveText),
         sourceSnapshotCount = sourceSnapshotCount,
         includedSnapshotCount = snapshots.size,
         snapshotsTruncated = sourceSnapshotCount > DiagnosticsArchiveFormat.snapshotLimit,
@@ -46,18 +41,6 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         includedTelemetryCount = telemetry.size,
         telemetryTruncated = sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit,
     )
-
-internal fun DiagnosticsArchiveCompositeStageSelection.hasStageEvidence(): Boolean =
-    session != null ||
-        when (stageSummary.evidenceSource) {
-            com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageEvidenceSource.DETECTION_RUNNER -> {
-                stageSummary.detectionVerdict != null && stageSummary.detectedSignalCount != null
-            }
-
-            null -> {
-                false
-            }
-        }
 
 internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =
     buildTelemetryCsv(
@@ -259,9 +242,12 @@ internal fun buildSectionStatuses(
                 }
             put(
                 fileName,
-                if (
-                    rootEvidenceUnavailable(fileName, selection) ||
-                    compositeStage?.let { stageEvidenceUnavailable(fileName, it) } == true
+                if (fileName == "execution-plan.json" && selection.primaryReport?.executionPlan == null) {
+                    DiagnosticsArchiveSectionStatus.UNAVAILABLE
+                } else if (
+                    compositeStage != null &&
+                    fileName.endsWith("/execution-plan.json") &&
+                    compositeStage.report?.executionPlan == null
                 ) {
                     DiagnosticsArchiveSectionStatus.UNAVAILABLE
                 } else if (compositeStage != null) {
@@ -292,75 +278,6 @@ internal fun buildSectionStatuses(
         }
     }
 }
-
-private fun rootEvidenceUnavailable(
-    fileName: String,
-    selection: DiagnosticsArchiveSelection,
-): Boolean =
-    when (fileName) {
-        "execution-plan.json" -> {
-            selection.primaryReport?.executionPlan == null
-        }
-
-        "capabilities.json",
-        "emission-receipts.jsonl",
-        -> {
-            selection.primaryReport?.executionPlan?.strategy == null
-        }
-
-        "attempts.jsonl" -> {
-            selection.primaryReport
-                ?.strategyProbeReport
-                ?.attempts
-                .isNullOrEmpty()
-        }
-
-        "protocol-milestones.jsonl" -> {
-            selection.primaryReport?.observations.isNullOrEmpty()
-        }
-
-        "decision-trace.json" -> {
-            selection.primaryReport == null
-        }
-
-        else -> {
-            false
-        }
-    }
-
-private fun stageEvidenceUnavailable(
-    fileName: String,
-    stage: DiagnosticsArchiveCompositeStageSelection,
-): Boolean =
-    when {
-        fileName.endsWith("/execution-plan.json") -> {
-            stage.report?.executionPlan == null
-        }
-
-        fileName.endsWith("/capabilities.json") ||
-            fileName.endsWith("/emission-receipts.jsonl") -> {
-            stage.report?.executionPlan?.strategy == null
-        }
-
-        fileName.endsWith("/attempts.jsonl") -> {
-            stage.report
-                ?.strategyProbeReport
-                ?.attempts
-                .isNullOrEmpty()
-        }
-
-        fileName.endsWith("/protocol-milestones.jsonl") -> {
-            stage.report?.observations.isNullOrEmpty()
-        }
-
-        fileName.endsWith("/decision-trace.json") -> {
-            stage.report == null
-        }
-
-        else -> {
-            false
-        }
-    }
 
 internal fun buildCompleteness(
     selection: DiagnosticsArchiveSelection,
@@ -408,22 +325,6 @@ internal fun buildCompleteness(
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
-        stageEvidence = selection.buildStageEvidenceCompleteness(),
-        relayAttemptTraces =
-            DiagnosticsArchiveRelayTraceCompleteness(
-                retainedEventCount =
-                    (selection.primaryEvents + selection.globalEvents).count { event ->
-                        !event.connectionSessionId.isNullOrBlank() &&
-                            !event.runtimeId.isNullOrBlank() &&
-                            event.attemptId != null &&
-                            event.attemptSequence != null
-                    },
-                droppedEventCount =
-                    (selection.payload.telemetry + selection.compositeStages.flatMap { it.telemetry })
-                        .groupBy { it.connectionSessionId ?: it.sessionId ?: it.id }
-                        .values
-                        .sumOf { samples -> samples.maxOfOrNull { it.relayNativeEventsDropped } ?: 0 },
-            ),
         collectionWarnings = collectionWarnings,
         truncation = selection.truncation(),
     )
@@ -492,15 +393,8 @@ private fun sectionStatusForFileName(
     when (fileName) {
         "summary.txt",
         "manifest.json",
-        "capture-manifest.json",
         "report.json",
-        "target-aliases.json",
         "execution-plan.json",
-        "capabilities.json",
-        "attempts.jsonl",
-        "emission-receipts.jsonl",
-        "protocol-milestones.jsonl",
-        "decision-trace.json",
         "home-analysis.json",
         "stage-index.json",
         "stage-summaries.json",
@@ -529,14 +423,6 @@ private fun sectionStatusForFileName(
                 DiagnosticsArchiveSectionStatus.TRUNCATED
             } else {
                 DiagnosticsArchiveSectionStatus.INCLUDED
-            }
-        }
-
-        "resolver-trace.jsonl" -> {
-            if (flags.telemetry) {
-                DiagnosticsArchiveSectionStatus.TRUNCATED
-            } else {
-                DiagnosticsArchiveSectionStatus.REDACTED
             }
         }
 
@@ -571,34 +457,6 @@ private fun stageSectionStatusForFileName(
         }
 
         fileName.endsWith("/execution-plan.json") -> {
-            DiagnosticsArchiveSectionStatus.REDACTED
-        }
-
-        fileName.endsWith("/capabilities.json") -> {
-            DiagnosticsArchiveSectionStatus.REDACTED
-        }
-
-        fileName.endsWith("/attempts.jsonl") -> {
-            DiagnosticsArchiveSectionStatus.REDACTED
-        }
-
-        fileName.endsWith("/emission-receipts.jsonl") -> {
-            DiagnosticsArchiveSectionStatus.REDACTED
-        }
-
-        fileName.endsWith("/protocol-milestones.jsonl") -> {
-            DiagnosticsArchiveSectionStatus.REDACTED
-        }
-
-        fileName.endsWith("/resolver-trace.jsonl") -> {
-            if (flags.telemetry) {
-                DiagnosticsArchiveSectionStatus.TRUNCATED
-            } else {
-                DiagnosticsArchiveSectionStatus.REDACTED
-            }
-        }
-
-        fileName.endsWith("/decision-trace.json") -> {
             DiagnosticsArchiveSectionStatus.REDACTED
         }
 

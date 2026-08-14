@@ -44,23 +44,9 @@ class DiagnosticsHomeAuditOutcomeBuilderTest {
         assertFalse(outcome.actionable)
     }
 
-    @Test
-    fun `dns-only application does not claim an unverified strategy was applied`() {
-        val outcome =
-            buildOutcome(
-                tcpCandidates = listOf(candidate(id = "tcp", succeededTargets = 1)),
-                quicCandidates = emptyList(),
-                resolverApplied = listOf(DiagnosticsAppliedSetting("Resolver", "cloudflare")),
-            )
-
-        assertEquals(StrategyAdequacy.DNS_ONLY_APPLIED, outcome.strategyAdequacy)
-        assertEquals("DNS settings applied, but no network strategy was confirmed", outcome.headline)
-    }
-
     private fun buildOutcome(
         tcpCandidates: List<StrategyProbeCandidateSummary>,
         quicCandidates: List<StrategyProbeCandidateSummary>,
-        resolverApplied: List<DiagnosticsAppliedSetting> = emptyList(),
     ): DiagnosticsHomeAuditOutcome {
         val report =
             ScanReport(
@@ -86,7 +72,7 @@ class DiagnosticsHomeAuditOutcomeBuilderTest {
             strategyApplied = null,
             strategyRecommendation = null,
             resolverRecommendation = null,
-            resolverApplied = resolverApplied,
+            resolverApplied = emptyList(),
             capabilityEvidence = emptyList(),
         )
     }

@@ -151,10 +151,6 @@ impl RelayRuntime {
 }
 
 impl SocksTelemetry for RelayRuntime {
-    fn next_attempt_id(&self) -> u64 {
-        self.state.next_attempt_id()
-    }
-
     fn record_target(&self, target: String) {
         self.state.record_target(target);
     }

@@ -1,8 +1,0 @@
-{
-  "archived_at": "2026-08-09T11:07:31Z",
-  "change": "vpn-1786264762917166-add-tun2socks-uid-validation-against-so-bindtodevice-bypass",
-  "commit_sha": "4d852cb56c2ba92f27a75c902ebeccdb1784fc30",
-  "outcome": "review",
-  "schema": 1,
-  "task_id": "VPN-1786264762917166"
-}

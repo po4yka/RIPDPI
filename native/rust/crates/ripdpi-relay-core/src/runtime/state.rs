@@ -88,7 +88,6 @@ pub(super) struct RuntimeState {
     running: AtomicBool,
     active_sessions: Arc<AtomicU64>,
     total_sessions: AtomicU64,
-    next_attempt_id: AtomicU64,
     session_error_streak: AtomicU64,
     xudp_telemetry: XudpTelemetryState,
     backend: OnceLock<Arc<RelayBackend>>,
@@ -117,7 +116,6 @@ impl RuntimeState {
             running: AtomicBool::new(false),
             active_sessions: Arc::new(AtomicU64::new(0)),
             total_sessions: AtomicU64::new(0),
-            next_attempt_id: AtomicU64::new(1),
             session_error_streak: AtomicU64::new(0),
             xudp_telemetry: XudpTelemetryState::default(),
             backend: OnceLock::new(),
@@ -132,10 +130,6 @@ impl RuntimeState {
             session_tracker: TaskTracker::new(),
             session_tasks: SessionTaskRegistry::default(),
         }
-    }
-
-    pub(super) fn next_attempt_id(&self) -> u64 {
-        self.next_attempt_id.fetch_add(1, Ordering::Relaxed)
     }
 
     pub(super) fn request_stop(&self) {

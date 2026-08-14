@@ -23,7 +23,6 @@ import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
-import com.poyka.ripdpi.services.ServiceRuntimeAdmissionInterlock
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
@@ -106,14 +105,12 @@ internal object ProxyServiceSessionModule {
         warpRuntimeSupervisor: WarpRuntimeSupervisor,
         amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
         proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
-        runtimeAdmissionInterlock: ServiceRuntimeAdmissionInterlock = ServiceRuntimeAdmissionInterlock(),
     ): ProxyRuntimeSupervisorBundle =
         ProxyRuntimeSupervisorBundle(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
-            runtimeAdmissionInterlock = runtimeAdmissionInterlock,
         )
 
     @Provides

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 6,
   "sessionId": "session-1",
   "phase": "tcp",
   "completedSteps": 2,

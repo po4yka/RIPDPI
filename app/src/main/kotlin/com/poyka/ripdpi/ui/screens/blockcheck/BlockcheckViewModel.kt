@@ -54,7 +54,6 @@ data class BlockcheckSiteDiagnosis(
 
 data class BlockcheckUiState(
     val runState: BlockcheckRunState = BlockcheckRunState.Idle,
-    val domainsText: String = DefaultBlockcheckDomains.joinToString("\n"),
     val domains: ImmutableList<String> = DefaultBlockcheckDomains,
     val results: ImmutableList<StrategyProbeResult> = persistentListOf(),
     val rankedStrategies: ImmutableList<RankedStrategyProbeResult> = persistentListOf(),
@@ -103,10 +102,7 @@ class BlockcheckViewModel
                     .filter(String::isNotEmpty)
                     .distinct()
             mutableUiState.update { state ->
-                state.copy(
-                    domainsText = value,
-                    domains = domains.toImmutableList(),
-                )
+                state.copy(domains = domains.toImmutableList())
             }
         }
 

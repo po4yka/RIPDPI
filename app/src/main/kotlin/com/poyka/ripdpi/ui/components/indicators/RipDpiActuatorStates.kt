@@ -12,6 +12,9 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val EngagingCarriageFraction = 0.48f
+private const val FaultCarriageFraction = 0.68f
+
 /**
  * Gallery composable that renders the production
  * [RipDpiConnectionActuator] in each canonical state for spec-card
@@ -22,16 +25,18 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
  */
 @Composable
 fun RipDpiActuatorStatesGallery(modifier: Modifier = Modifier) {
+    // Carriage fractions mirror the production resolver so the spec card shows
+    // real travel instead of parking every state at the rail origin.
     val rows =
         listOf(
-            "Open" to HomeConnectionActuatorStatus.Open,
-            "Engaging" to HomeConnectionActuatorStatus.Engaging,
-            "Locked" to HomeConnectionActuatorStatus.Locked,
-            "Degraded" to HomeConnectionActuatorStatus.Degraded,
-            "Fault" to HomeConnectionActuatorStatus.Fault,
+            Triple("Open", HomeConnectionActuatorStatus.Open, 0f),
+            Triple("Engaging", HomeConnectionActuatorStatus.Engaging, EngagingCarriageFraction),
+            Triple("Locked", HomeConnectionActuatorStatus.Locked, 1f),
+            Triple("Degraded", HomeConnectionActuatorStatus.Degraded, 1f),
+            Triple("Fault", HomeConnectionActuatorStatus.Fault, FaultCarriageFraction),
         )
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg)) {
-        rows.forEach { (label, status) ->
+        rows.forEach { (label, status, carriageFraction) ->
             Text(
                 text = label,
                 style = RipDpiThemeTokens.type.caption.copy(color = RipDpiThemeTokens.colors.mutedForeground),
@@ -40,10 +45,10 @@ fun RipDpiActuatorStatesGallery(modifier: Modifier = Modifier) {
                 state =
                     HomeConnectionActuatorUiState(
                         status = status,
-                        leadingLabel = label,
                         trailingLabel = label,
                         statusDescription = "$label state",
                         actionLabel = "$label action",
+                        carriageFraction = carriageFraction,
                     ),
                 onActivate = {},
                 onDeactivate = {},

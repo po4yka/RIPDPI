@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 15 adds ordered, privacy-safe VLESS/Reality relay attempt traces.
-    const val schemaVersion = 15
+    // Version 6 adds the root and per-stage native execution-plan evidence.
+    const val schemaVersion = 6
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -65,7 +65,6 @@ internal object DiagnosticsArchiveFormat {
     const val globalEventLimit = 200
     const val sessionEventLimit = 200
     const val snapshotLimit = 250
-    const val captureFileLimit = 4
 
     fun includedFiles(
         logcatIncluded: Boolean,
@@ -77,10 +76,8 @@ internal object DiagnosticsArchiveFormat {
         buildList {
             add("summary.txt")
             add("manifest.json")
-            add("capture-manifest.json")
             add("report.json")
-            add("target-aliases.json")
-            addStrategyEvidenceFiles()
+            add("execution-plan.json")
             add("strategy-matrix.json")
             if (composite) {
                 add("home-analysis.json")
@@ -89,9 +86,9 @@ internal object DiagnosticsArchiveFormat {
                 compositeStageKeys.forEach { stageKey ->
                     val prefix = "stages/$stageKey"
                     add("$prefix/report.json")
-                    addStrategyEvidenceFiles("$prefix/")
-                    add("$prefix/strategy-matrix.json")
+                    add("$prefix/execution-plan.json")
                     add("$prefix/probe-results.csv")
+                    add("$prefix/strategy-matrix.json")
                     add("$prefix/network-snapshots.json")
                     add("$prefix/diagnostic-context.json")
                     add("$prefix/native-events.csv")
@@ -107,7 +104,6 @@ internal object DiagnosticsArchiveFormat {
             add("developer-analytics.json")
             add("probe-results.csv")
             add("native-events.csv")
-            add("relay-attempt-traces.jsonl")
             add("telemetry.csv")
             if (logcatIncluded) {
                 add("logcat.txt")
@@ -178,7 +174,6 @@ internal data class DiagnosticsArchiveSelection(
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus,
     val pcapFiles: List<File> = emptyList(),
-    val captureFiles: List<File> = emptyList(),
     val replayResults: List<ReplayProbeResult> = emptyList(),
     val homeRunId: String? = null,
     val homeCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
@@ -191,7 +186,6 @@ internal data class DiagnosticsArchiveSelection(
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
     val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
-    val recentSnapshots: List<NetworkSnapshotEntity> = emptyList(),
 )
 
 internal data class DiagnosticsArchiveRootSourceCounts(
@@ -387,7 +381,6 @@ internal data class DiagnosticsArchiveRuntimeConfigPayload(
     val roamingState: String = "unavailable",
     val commandLineSettingsEnabled: Boolean = false,
     val commandLineArgsHash: String? = null,
-    val effectiveConfigFingerprint: String? = null,
     val effectiveStrategySignature: BypassStrategySignature? = null,
     val proxyRuntime: RuntimeComponentSummary? = null,
     val tunnelRuntime: RuntimeComponentSummary? = null,
@@ -545,6 +538,15 @@ internal data class DiagnosticsArchiveStrategyExecutionDetail(
 )
 
 @Serializable
+internal data class DiagnosticsArchiveAnalysisPayload(
+    val failureEnvelope: DiagnosticsArchiveFailureEnvelope,
+    val strategyExecutionDetail: DiagnosticsArchiveStrategyExecutionDetail,
+    val recommendationTrace: DiagnosticsArchiveRecommendationTrace? = null,
+    val measurementSnapshot: DiagnosticsArchiveMeasurementSnapshot = DiagnosticsArchiveMeasurementSnapshot(),
+    val connectivityAssessment: ConnectivityAssessment? = null,
+)
+
+@Serializable
 internal enum class DiagnosticsArchiveSectionStatus {
     @SerialName("included")
     INCLUDED,
@@ -609,8 +611,6 @@ internal data class DiagnosticsArchiveCompletenessPayload(
     val appliedLimits: DiagnosticsArchiveAppliedLimits,
     val sourceCounts: DiagnosticsArchiveScopedCounts,
     val includedCounts: DiagnosticsArchiveScopedCounts,
-    val stageEvidence: List<DiagnosticsArchiveStageEvidenceCompleteness> = emptyList(),
-    val relayAttemptTraces: DiagnosticsArchiveRelayTraceCompleteness = DiagnosticsArchiveRelayTraceCompleteness(),
     val collectionWarnings: List<String> = emptyList(),
     val truncation: DiagnosticsArchiveTruncation = DiagnosticsArchiveTruncation(),
 )
@@ -642,9 +642,6 @@ internal data class DiagnosticsArchiveHomeAnalysisPayload(
     val coverageSummary: String? = null,
     val recommendedSessionId: String? = null,
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
-    val detectionVerdict: com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val detectionFindings: List<String> = emptyList(),
     val completedStageCount: Int,
     val failedStageCount: Int,
     val skippedStageCount: Int,

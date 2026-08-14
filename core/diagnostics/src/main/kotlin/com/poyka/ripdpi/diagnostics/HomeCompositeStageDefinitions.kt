@@ -23,7 +23,6 @@ internal data class HomeCompositeStageSpec(
     val profileId: String,
     val pathMode: ScanPathMode,
     val kind: HomeCompositeStageKind = HomeCompositeStageKind.PROFILE_SCAN,
-    val allowSensitiveProfileStart: Boolean = false,
 )
 
 internal val HomeCompositeStageSpecs =
@@ -65,7 +64,6 @@ internal val HomeCompositeStageSpecs =
             label = "VPN vs direct path",
             profileId = "path-comparison",
             pathMode = ScanPathMode.IN_PATH,
-            allowSensitiveProfileStart = true,
         ),
         HomeCompositeStageSpec(
             key = "dpi_full",

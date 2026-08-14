@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation3.runtime.NavKey
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import kotlinx.serialization.SerialName
@@ -11,16 +10,15 @@ import kotlinx.serialization.Serializable
 /**
  * Navigation destinations for [RipDpiNavHost].
  *
- * Each leaf is a serializable Navigation 3 [NavKey]. The sealed hierarchy keeps
- * `titleRes` + `icon` metadata attached so
+ * Each leaf is a `@Serializable data object`, which Navigation Compose 2.8+ consumes as
+ * a type-safe route. The sealed hierarchy keeps `titleRes` + `icon` metadata attached so
  * [BottomNavBar] and [com.poyka.ripdpi.ui.testing.RipDpiTestTags] can continue to read them
  * from the same source of truth.
  *
  * `route` is preserved as a stable string key for tests, telemetry, and top-level-tab
- * identification.
+ * identification. It is not the serialized route key consumed by the navigation graph.
  */
-@Serializable
-sealed class Route : NavKey {
+sealed class Route {
     abstract val stableRoute: String
 
     @get:StringRes

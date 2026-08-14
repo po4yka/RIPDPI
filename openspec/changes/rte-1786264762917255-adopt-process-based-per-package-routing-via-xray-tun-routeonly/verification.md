@@ -6,10 +6,10 @@ local: required
 local_evidence: null
 remote_ci: required
 remote_ci_evidence: null
-device: blocked
-device_evidence: Physical Android 17 allowed-versus-excluded egress and reconnect persistence evidence is required.
-artifact: required
-artifact_evidence: The device receipt must identify the exact tested APK and source SHA.
+device: not_applicable
+device_evidence: No Android device behavior is owned by this portfolio area.
+artifact: not_applicable
+artifact_evidence: No distributable artifact is required for this portfolio area.
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---

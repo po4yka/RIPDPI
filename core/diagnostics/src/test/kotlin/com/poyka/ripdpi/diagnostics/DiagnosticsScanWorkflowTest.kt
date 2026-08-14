@@ -196,50 +196,6 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
-    fun `medium confidence strategy audit cannot export no direct solution verdict`() {
-        val rejectedAssessment =
-            scanWorkflowAuditAssessment().copy(
-                coverage = scanWorkflowAuditAssessment().coverage.copy(winnerCoveragePercent = 45),
-                confidence =
-                    scanWorkflowAuditAssessment().confidence.copy(
-                        level = StrategyProbeAuditConfidenceLevel.MEDIUM,
-                    ),
-            )
-        val report =
-            scanReportWithStrategyProbe(
-                proxyConfigJson = validRecommendedProxyConfigJson(),
-                tcpFamily = "hostfake",
-                quicFamily = "quic_realistic_burst",
-                auditAssessment = rejectedAssessment,
-                pilotBucketLabels = emptyList(),
-            ).copy(
-                results =
-                    listOf(
-                        ProbeResult(
-                            probeType = "strategy_https",
-                            target = "Current strategy · example.org",
-                            outcome = "tls_handshake_failed",
-                            details =
-                                listOf(
-                                    ProbeDetail("candidateId", "baseline_plain_direct"),
-                                    ProbeDetail("targetHost", "example.org"),
-                                    ProbeDetail("tlsServerHelloReceived", "false"),
-                                ),
-                        ),
-                    ),
-            )
-
-        val enriched =
-            DiagnosticsScanWorkflow.enrichScanReport(
-                report = report,
-                settings = settings,
-                preferredDnsPath = null,
-            )
-
-        assertNull(enriched.directModeVerdict)
-    }
-
-    @Test
     fun `legacy recommended proxy config leaves derived metadata null`() {
         val report =
             scanReportWithStrategyProbe(

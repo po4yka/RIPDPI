@@ -39,22 +39,18 @@ jobs:
       matrix: ${{ steps.emit.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Validate Phase 16 lab matrix fixture
         run: python3 scripts/ci/phase16_matrix.py validate
 
       - id: emit
         name: Emit GitHub matrix
-        env:
-          MATRIX_FILTER: ${{ inputs.matrix_filter || '' }}
         run: |
           include_real_provider=()
           if [[ "${{ inputs.include_real_provider || false }}" == "true" ]]; then
             include_real_provider+=(--include-real-provider)
           fi
-          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "$MATRIX_FILTER" "${include_real_provider[@]}")"
+          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "${{ inputs.matrix_filter || '' }}" "${include_real_provider[@]}")"
           echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
   phase16-matrix:
@@ -82,8 +78,6 @@ jobs:
       ANDROID_SERIAL: ${{ inputs.android_serial || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-android-rust
         if: matrix.executionKind != 'l7_adversarial_emulator'

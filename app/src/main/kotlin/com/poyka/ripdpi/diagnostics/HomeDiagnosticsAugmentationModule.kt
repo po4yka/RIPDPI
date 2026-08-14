@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
-import com.poyka.ripdpi.core.detection.CategoryResult
-import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -44,81 +42,57 @@ class DefaultHomeDetectionStageRunner
                         onProgress(progress.label, progress.detail)
                     },
                 )
-            return mapDetectionCheckResultToHomeDetectionStageOutcome(result)
+            val categories =
+                listOfNotNull(
+                    result.geoIp,
+                    result.directSigns,
+                    result.indirectSigns,
+                    result.locationSignals,
+                    result.dnsLeak,
+                    result.webRtcLeak,
+                    result.tlsFingerprint,
+                    result.timingAnalysis,
+                )
+            val categoryFindings =
+                categories.flatMap { category ->
+                    category.findings
+                        .filter { it.detected || it.needsReview }
+                        .map { finding -> "${category.name}: ${finding.description}" }
+                }
+            val bypassFindings =
+                result.bypassResult.findings
+                    .filter { it.detected || it.needsReview }
+                    .map { "Bypass: ${it.description}" }
+            val findings = (categoryFindings + bypassFindings).take(DetectionFindingLimit)
+            val detectedSignalCount =
+                categories.sumOf { category ->
+                    category.findings.count { it.detected }
+                } + result.bypassResult.findings.count { it.detected }
+            val verdict =
+                when (result.verdict) {
+                    com.poyka.ripdpi.core.detection.Verdict.DETECTED -> {
+                        DiagnosticsHomeDetectionVerdict.DETECTED
+                    }
+
+                    com.poyka.ripdpi.core.detection.Verdict.NEEDS_REVIEW -> {
+                        DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW
+                    }
+
+                    com.poyka.ripdpi.core.detection.Verdict.NOT_DETECTED -> {
+                        DiagnosticsHomeDetectionVerdict.NOT_DETECTED
+                    }
+                }
+            return HomeDetectionStageOutcome(
+                verdict = verdict,
+                detectedSignalCount = detectedSignalCount,
+                findings = findings,
+            )
+        }
+
+        private companion object {
+            const val DetectionFindingLimit = 6
         }
     }
-
-internal fun mapDetectionCheckResultToHomeDetectionStageOutcome(
-    result: DetectionCheckResult,
-): HomeDetectionStageOutcome? {
-    val categories = result.homeDetectionCategories()
-    val findingSignals =
-        categories.flatMap { category ->
-            category.findings
-                .filter { it.detected || it.needsReview }
-                .map { finding -> HomeDetectionSignal("${category.name}: ${finding.description}", finding.detected) }
-        }
-    val evidenceSignals =
-        categories.flatMap { category ->
-            category.evidence
-                .filter { it.detected }
-                .map { evidence -> HomeDetectionSignal("${category.name}: ${evidence.description}", detected = true) }
-        }
-    val signals = (evidenceSignals + findingSignals).distinctBy(HomeDetectionSignal::description)
-    val verdict = result.verdict.toHomeDetectionVerdict()
-    val detectedSignalCount = signals.count(HomeDetectionSignal::detected)
-    if (verdict == DiagnosticsHomeDetectionVerdict.DETECTED && detectedSignalCount == 0) {
-        return null
-    }
-    return HomeDetectionStageOutcome(
-        verdict = verdict,
-        detectedSignalCount = detectedSignalCount,
-        findings = signals.map(HomeDetectionSignal::description).take(DetectionFindingLimit),
-    )
-}
-
-private fun DetectionCheckResult.homeDetectionCategories(): List<CategoryResult> =
-    listOfNotNull(
-        geoIp,
-        directSigns,
-        indirectSigns,
-        locationSignals,
-        dnsLeak,
-        webRtcLeak,
-        tlsFingerprint,
-        timingAnalysis,
-        icmpSpoofing?.category,
-        ipComparison?.category,
-        rttTriangulation?.category,
-        cdnPulling?.category,
-        nativeSigns?.category,
-        callTransport?.category,
-        ipConsensus?.toCategoryResult(),
-        bypassResult.toCategoryResult(),
-    )
-
-private fun com.poyka.ripdpi.core.detection.BypassResult.toCategoryResult(): CategoryResult =
-    CategoryResult(
-        name = "Bypass",
-        detected = detected,
-        needsReview = needsReview,
-        findings = findings,
-        evidence = evidence,
-    )
-
-private fun com.poyka.ripdpi.core.detection.Verdict.toHomeDetectionVerdict(): DiagnosticsHomeDetectionVerdict =
-    when (this) {
-        com.poyka.ripdpi.core.detection.Verdict.DETECTED -> DiagnosticsHomeDetectionVerdict.DETECTED
-        com.poyka.ripdpi.core.detection.Verdict.NEEDS_REVIEW -> DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW
-        com.poyka.ripdpi.core.detection.Verdict.NOT_DETECTED -> DiagnosticsHomeDetectionVerdict.NOT_DETECTED
-    }
-
-private data class HomeDetectionSignal(
-    val description: String,
-    val detected: Boolean,
-)
-
-private const val DetectionFindingLimit = 6
 
 @Singleton
 class DefaultHomeDetectorCatalogSource

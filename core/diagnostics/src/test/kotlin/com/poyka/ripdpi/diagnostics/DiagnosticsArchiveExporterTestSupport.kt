@@ -114,7 +114,6 @@ internal fun createArchiveExporterForTest(
     rootModeEnabled: Boolean,
     compositeRunService: DiagnosticsHomeCompositeRunService,
     json: Json,
-    developerAnalyticsSource: DeveloperAnalyticsSource = NoopDeveloperAnalyticsSource,
     logcatSnapshotCollector: LogcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
     fileLogWriter: FileLogWriter =
         FileLogWriter(
@@ -164,7 +163,7 @@ internal fun createArchiveExporterForTest(
             ),
         zipWriter = DiagnosticsArchiveZipWriter(),
         idGenerator = DiagnosticsArchiveIdGenerator { "export-${exportSequence.incrementAndGet()}" },
-        developerAnalyticsSource = developerAnalyticsSource,
+        developerAnalyticsSource = NoopDeveloperAnalyticsSource,
     )
 }
 

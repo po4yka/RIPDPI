@@ -189,7 +189,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - [स्थानीय नेटवर्क test lab](test-lab/README.md)
 - [बाहरी UI स्वचालन](docs/automation/README.md)
 - [आर्किटेक्चर नोट्स](docs/architecture/README.md)
-- [Task board](docs/tasks/board.md)
+- [Roadmap](ROADMAP.md)
 
 ## RIPDPI का अनुवाद करें
 

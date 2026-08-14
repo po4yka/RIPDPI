@@ -1,25 +1,23 @@
-# OUT-1786264762917254: Add an interactive SSH host-key trust flow
+# OUT-1786264762917254: Add SSH outbound client crate and profile editor
 
 ## Objective
 
-Let a default-created SSH profile complete first connection through an explicit observed-host-key accept or reject decision.
+Add SSH outbound client crate and profile editor
 
 ## Ownership
 
-- `native/rust/crates/ripdpi-ssh/**`
-- Kotlin/JNI runtime event and profile trust persistence paths
+Ownership is declared in the portfolio task and the implementation worktree before execution.
 
 ## Execution
 
-- [x] OUT-1786264762917104 Implement the maintained russh-backed outbound crate #feature @item:OUT-1786264762917254
-- [x] OUT-1786264762917444 Support password and OpenSSH private-key authentication #feature @item:OUT-1786264762917254
-- [x] OUT-1786264762917938 Enforce host-key verification by default #feature @item:OUT-1786264762917254
-- [x] OUT-1786264762917617 Implement direct-tcpip forwarding #feature @item:OUT-1786264762917254
-- [x] OUT-1786264762917966 Validate SSH profiles and keep credentials in the Keystore-backed path #feature @item:OUT-1786264762917254
-- [ ] OUT-1786264762917540 Surface the observed SSH host key on first connect and require explicit accept or reject before persistence #feature !high @item:OUT-1786264762917254
-- [x] OUT-1786264762917012 Redact passphrase and private-key material #feature @item:OUT-1786264762917254
+- [x] OUT-1786264762917104 ripdpi-ssh crate compiles with a maintained SSH crate dependency (evaluate russh, thrussh successors) #feature @item:OUT-1786264762917254
+- [x] OUT-1786264762917444 Password and OpenSSH private-key auth both supported #feature @item:OUT-1786264762917254
+- [x] OUT-1786264762917938 Host-key verification is on by default; "trust on first use" is a per-profile opt-in #feature @item:OUT-1786264762917254
+- [x] OUT-1786264762917617 direct-tcpip forwarding to arbitrary target host:port works for TCP; UDP is out of scope for v1 #feature @item:OUT-1786264762917254
+- [x] OUT-1786264762917966 SshProfileScreen validates host, port, user, and auth selection. Private key is stored via EncryptedFile; never SharedPreferences. (Validation done. Persistence: all profile editors — SSH, AnyTLS, AmneziaWG — are preview-only by design (@H… #feature @item:OUT-1786264762917254
+- [ ] OUT-1786264762917540 Host key fingerprint is surfaced on first connect with explicit accept / reject action. (deferred: no connect-from-editor path exists; the Rust SshError::HostKeyUntrusted is config-driven with no runtime accept/reject channel, so a connect… #feature @item:OUT-1786264762917254
+- [x] OUT-1786264762917012 Passphrase and private-key material are redacted in all diagnostic surfaces #feature @item:OUT-1786264762917254
 
 ## Verification
 
-- focused Rust host-key policy tests
-- Kotlin/JNI event, accept, reject, persistence, and changed-key regression tests
+Use the exact gates and evidence required by the portfolio task and `verification.md` when present.

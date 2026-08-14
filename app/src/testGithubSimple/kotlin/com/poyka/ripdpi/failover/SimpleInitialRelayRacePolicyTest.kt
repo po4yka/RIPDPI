@@ -78,12 +78,12 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
-    fun `startup readiness downgrades a TCP-only relay session and probes web egress`() =
+    fun `startup readiness keeps runtime UDP requirement but probes web egress only`() =
         runTest {
             val readinessPolicy =
                 SimpleRelayEgressReadinessPolicy(
                     bundleSource = SimpleRelayBundleSource { validBundle() },
-                    relayProfileStore = seededProfileStore(realityUdpEnabled = false),
+                    relayProfileStore = seededProfileStore(realityUdpEnabled = true),
                     serviceStateStore = DefaultServiceStateStore(),
                 )
             val requirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
@@ -96,10 +96,7 @@ class SimpleInitialRelayRacePolicyTest {
                     requirements,
                 )
 
-            assertEquals(
-                EgressRequirements(tcpConnect = true, udpAssociate = false),
-                plan?.requirements,
-            )
+            assertEquals(requirements, plan?.requirements)
             assertEquals(
                 EgressRequirements(tcpConnect = true, udpAssociate = false),
                 plan?.readinessProbeRequirements,

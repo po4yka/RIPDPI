@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
-import com.poyka.ripdpi.data.networkPathMtuBand
-import com.poyka.ripdpi.diagnostics.ConnectivityServiceRuntimeAssessment
-import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
@@ -18,7 +16,6 @@ private const val AcceptanceMatrixCoverageMin = 75
 private const val AcceptanceWinnerCoverageMin = 60
 private const val RecommendedLatencyBudgetMs = 250L
 private const val InstabilityRetryBudget = 2L
-private const val FailureSnapshotKind = "failure"
 private val KnownRuntimeCapabilityIds =
     setOf(
         "ttl_write",
@@ -44,6 +41,11 @@ internal fun buildAnalysis(
                 !it.lastFailureClass.isNullOrBlank() ||
                 !it.lastFallbackAction.isNullOrBlank()
         }
+    val failureEvents =
+        (selection.primaryEvents + selection.globalEvents)
+            .filter {
+                it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
+            }.sortedBy { it.createdAt }
     val latestTelemetry =
         selection.payload.telemetry
             .firstOrNull()
@@ -53,137 +55,35 @@ internal fun buildAnalysis(
     val observations = projectedReport?.observations.orEmpty()
     val measurementSnapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
     return DiagnosticsArchiveAnalysisPayload(
-        failureEnvelope = buildFailureEnvelope(failureSamples, latestTelemetry),
+        failureEnvelope = buildFailureEnvelope(failureSamples, failureEvents, latestTelemetry),
         strategyExecutionDetail = buildStrategyExecutionDetail(strategyProbe, observations),
         recommendationTrace = buildRecommendationTrace(selection, projectedReport),
         measurementSnapshot = measurementSnapshot,
         connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
-        runtimeSnapshotTimeline = buildRuntimeSnapshotTimeline(selection, redactor),
-        failurePathProvenance = buildFailurePathProvenance(selection, redactor),
     )
 }
-
-private fun buildFailurePathProvenance(
-    selection: DiagnosticsArchiveSelection,
-    redactor: DiagnosticsArchiveRedactor,
-): List<DiagnosticsArchiveFailurePathProvenanceEntry> =
-    selection.payload.telemetry
-        .asSequence()
-        .filter(TelemetrySampleEntity::isFailureSample)
-        .sortedBy(TelemetrySampleEntity::createdAt)
-        .map { rawSample ->
-            val connectionSessionId = rawSample.connectionSessionId
-            val snapshot =
-                connectionSessionId?.let { owningSessionId ->
-                    selection.recentSnapshots.firstOrNull { candidate ->
-                        candidate.snapshotKind == FailureSnapshotKind &&
-                            candidate.connectionSessionId == owningSessionId &&
-                            candidate.capturedAt == rawSample.createdAt
-                    }
-                }
-            val path =
-                redactor
-                    .decodeNetworkSnapshot(snapshot)
-                    ?.let(redactor::redact)
-                    ?.toFailureNetworkPath()
-            rawSample.redactForArchive().toFailurePathProvenance(snapshot, path)
-        }.toList()
-
-private fun TelemetrySampleEntity.isFailureSample(): Boolean =
-    !failureClass.isNullOrBlank() || !lastFailureClass.isNullOrBlank() || !lastFallbackAction.isNullOrBlank()
-
-private fun TelemetrySampleEntity.toFailurePathProvenance(
-    snapshot: com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity?,
-    networkPath: DiagnosticsArchiveFailureNetworkPath?,
-) = DiagnosticsArchiveFailurePathProvenanceEntry(
-    failureTimestamp = createdAt,
-    failureClass = failureClass ?: lastFailureClass,
-    activeMode = activeMode,
-    networkType = networkType,
-    resolverId = resolverId,
-    resolverProtocol = resolverProtocol,
-    resolverLatencyMs = resolverLatencyMs,
-    networkHandoverClass = networkHandoverClass,
-    networkHandoverState = networkHandoverState,
-    snapshotCorrelation = if (snapshot != null && networkPath != null) "exact" else "unavailable",
-    snapshotCapturedAt = snapshot?.capturedAt.takeIf { networkPath != null },
-    networkPath = networkPath,
-)
-
-private fun com.poyka.ripdpi.diagnostics.NetworkSnapshotModel.toFailureNetworkPath() =
-    DiagnosticsArchiveFailureNetworkPath(
-        transport = transport,
-        networkValidated = networkValidated,
-        captivePortalDetected = captivePortalDetected,
-        mtuBand = networkPathMtuBand(mtu),
-        privateDnsMode = redactPrivateDnsMode(privateDnsMode),
-        pathValidation = pathValidation,
-        pathSnapshots = pathSnapshots,
-    )
-
-private fun buildRuntimeSnapshotTimeline(
-    selection: DiagnosticsArchiveSelection,
-    redactor: DiagnosticsArchiveRedactor,
-): List<DiagnosticsArchiveRuntimeSnapshotTimelineEntry> {
-    val assessment =
-        redactor
-            .redact(selection.homeCompositeOutcome?.connectivityAssessment)
-            ?.serviceRuntimeAssessment
-    return buildList {
-        selection.primaryContexts.mapNotNullTo(this) { entity ->
-            redactor.decodeDiagnosticContext(entity)?.let(redactor::redact)?.toTimelineEntry(
-                source = "scan_session",
-                capturedAt = entity.capturedAt,
-            )
-        }
-        assessment?.let { add(it.toTimelineEntry()) }
-        selection.latestPassiveContext?.let { entity ->
-            redactor.decodeDiagnosticContext(entity)?.let(redactor::redact)?.let { context ->
-                add(
-                    context.toTimelineEntry(
-                        source = "passive_runtime",
-                        capturedAt = entity.capturedAt,
-                    ),
-                )
-            }
-        }
-    }.sortedWith(compareBy(nullsLast()) { it.capturedAt })
-}
-
-private fun DiagnosticContextModel.toTimelineEntry(
-    source: String,
-    capturedAt: Long,
-) = DiagnosticsArchiveRuntimeSnapshotTimelineEntry(
-    source = source,
-    capturedAt = capturedAt,
-    serviceStatus = service.serviceStatus,
-    proxyHealth = service.proxy?.health,
-    tunnelHealth = service.tunnel?.health,
-    relayHealth = service.relay?.health,
-    warpHealth = service.warp?.health,
-)
-
-private fun ConnectivityServiceRuntimeAssessment.toTimelineEntry() =
-    DiagnosticsArchiveRuntimeSnapshotTimelineEntry(
-        source = "assessment",
-        capturedAt = capturedAt,
-        serviceStatus = serviceStatus,
-        proxyHealth = proxy?.health,
-        tunnelHealth = tunnel?.health,
-        relayHealth = relay?.health,
-        warpHealth = warp?.health,
-    )
 
 private fun buildFailureEnvelope(
     failureSamples: List<TelemetrySampleEntity>,
+    failureEvents: List<NativeSessionEventEntity>,
     latestTelemetry: TelemetrySampleEntity?,
-): DiagnosticsArchiveFailureEnvelope {
-    val latestFailureSample = failureSamples.lastOrNull()
-    return DiagnosticsArchiveFailureEnvelope(
-        firstFailureTimestamp = failureSamples.firstOrNull()?.createdAt,
-        lastFailureTimestamp = latestFailureSample?.createdAt,
-        latestFailureClass = latestFailureSample?.failureClass ?: latestFailureSample?.lastFailureClass,
-        lastFallbackAction = latestFailureSample?.lastFallbackAction,
+): DiagnosticsArchiveFailureEnvelope =
+    DiagnosticsArchiveFailureEnvelope(
+        firstFailureTimestamp =
+            listOfNotNull(
+                failureSamples.firstOrNull()?.createdAt,
+                failureEvents.firstOrNull()?.createdAt,
+            ).minOrNull(),
+        lastFailureTimestamp =
+            listOfNotNull(
+                failureSamples.lastOrNull()?.createdAt,
+                failureEvents.lastOrNull()?.createdAt,
+            ).maxOrNull(),
+        latestFailureClass =
+            latestTelemetry?.failureClass
+                ?: latestTelemetry?.lastFailureClass
+                ?: failureEvents.lastOrNull()?.message?.let(::redactDiagnosticsArchiveText),
+        lastFallbackAction = latestTelemetry?.lastFallbackAction,
         retryCounters =
             DiagnosticsArchiveRetryCounters(
                 proxyRouteRetryCount = latestTelemetry?.proxyRouteRetryCount ?: 0,
@@ -191,11 +91,15 @@ private fun buildFailureEnvelope(
                 totalRetryCount = latestTelemetry?.retryCount() ?: 0,
             ),
         failureClassTransitions =
-            failureSamples
-                .flatMap { sample -> listOfNotNull(sample.failureClass, sample.lastFailureClass) }
-                .distinctConsecutive(),
+            (
+                failureSamples.flatMap { sample ->
+                    listOfNotNull(sample.failureClass, sample.lastFailureClass)
+                } +
+                    failureEvents.map { event ->
+                        "native:${event.source}:${redactDiagnosticsArchiveText(event.message)}"
+                    }
+            ).distinctConsecutive(),
     )
-}
 
 private fun buildStrategyExecutionDetail(
     strategyProbe: StrategyProbeReport?,
@@ -239,9 +143,6 @@ internal fun buildMeasurementSnapshot(
             recommendedQuic = recommendedQuic,
         )
     val capabilitySnapshot = buildCapabilitySnapshot(allCandidates)
-    val capabilityEvidence = buildDiagnosticsArchiveCapabilityEvidence(selection.primaryReport, referencePrefix = "")
-    val hasCapabilityAssessment = selection.primaryReport?.executionPlan?.strategy != null
-    val instabilityRetryCount = selection.payload.telemetry.maxOfOrNull(TelemetrySampleEntity::retryCount)
     return DiagnosticsArchiveMeasurementSnapshot(
         networkIdentityBucket = resolveNetworkIdentityBucket(selection, latestTelemetry),
         targetBucket = resolveTargetBucket(strategyProbe),
@@ -255,9 +156,7 @@ internal fun buildMeasurementSnapshot(
                 acceptanceMetrics = acceptanceMetrics,
                 detectabilityMetrics = detectabilityMetrics,
                 capabilitySnapshot = capabilitySnapshot,
-                capabilityEvidence = capabilityEvidence,
-                hasCapabilityAssessment = hasCapabilityAssessment,
-                instabilityRetryCount = instabilityRetryCount,
+                latestTelemetry = latestTelemetry,
                 recommendedLatencyMs =
                     listOfNotNull(recommendedTcp?.averageLatencyMs, recommendedQuic?.averageLatencyMs)
                         .maxOrNull(),
@@ -418,9 +317,7 @@ private fun buildRolloutGateAssessment(
     acceptanceMetrics: DiagnosticsArchiveAcceptanceMetrics,
     detectabilityMetrics: DiagnosticsArchiveDetectabilityMetrics,
     capabilitySnapshot: DiagnosticsArchiveCapabilitySnapshot,
-    capabilityEvidence: List<DiagnosticsArchiveCapabilityEvidence>,
-    hasCapabilityAssessment: Boolean,
-    instabilityRetryCount: Long?,
+    latestTelemetry: TelemetrySampleEntity?,
     recommendedLatencyMs: Long?,
 ): DiagnosticsArchiveRolloutGateAssessment {
     val hasDetectabilityEvidence = detectabilityMetrics.evidence.isNotEmpty()
@@ -454,9 +351,9 @@ private fun buildRolloutGateAssessment(
             ),
             DiagnosticsArchiveRolloutGateResult(
                 id = "instability_budget",
-                passed = instabilityRetryCount != null && instabilityRetryCount <= InstabilityRetryBudget,
+                passed = (latestTelemetry?.retryCount() ?: Long.MAX_VALUE) <= InstabilityRetryBudget,
                 threshold = "retryCount <= $InstabilityRetryBudget",
-                actual = instabilityRetryCount?.toString() ?: "unknown",
+                actual = latestTelemetry?.retryCount()?.toString() ?: "unknown",
             ),
             DiagnosticsArchiveRolloutGateResult(
                 id = "detectability_budget",
@@ -478,47 +375,22 @@ private fun buildRolloutGateAssessment(
                         ?.joinToString(" | ")
                         ?: "Recommended candidate emitter evidence was unavailable.",
             ),
-            buildAndroidCompatibilityGate(capabilitySnapshot, capabilityEvidence, hasCapabilityAssessment),
+            DiagnosticsArchiveRolloutGateResult(
+                id = "android_compat_budget",
+                passed = capabilitySnapshot.inferredUnavailableCapabilities.isEmpty(),
+                threshold = "no inferred missing runtime capabilities",
+                actual =
+                    capabilitySnapshot.inferredUnavailableCapabilities
+                        .takeIf(List<String>::isNotEmpty)
+                        ?.joinToString("|")
+                        ?: "none",
+            ),
         )
     return DiagnosticsArchiveRolloutGateAssessment(
         overallPassed = results.all(DiagnosticsArchiveRolloutGateResult::passed),
         results = results,
     )
 }
-
-private fun buildAndroidCompatibilityGate(
-    capabilitySnapshot: DiagnosticsArchiveCapabilitySnapshot,
-    capabilityEvidence: List<DiagnosticsArchiveCapabilityEvidence>,
-    hasCapabilityAssessment: Boolean,
-): DiagnosticsArchiveRolloutGateResult =
-    DiagnosticsArchiveRolloutGateResult(
-        id = "android_compat_budget",
-        passed =
-            hasCapabilityAssessment &&
-                capabilitySnapshot.inferredUnavailableCapabilities.isEmpty() &&
-                capabilityEvidence.all { evidence ->
-                    evidence.status == DiagnosticsArchiveCapabilityStatus.AVAILABLE
-                },
-        threshold = "no inferred missing runtime capabilities",
-        actual =
-            when {
-                !hasCapabilityAssessment -> {
-                    "unknown"
-                }
-
-                capabilitySnapshot.inferredUnavailableCapabilities.isNotEmpty() -> {
-                    capabilitySnapshot.inferredUnavailableCapabilities.joinToString("|")
-                }
-
-                capabilityEvidence.isEmpty() -> {
-                    "none"
-                }
-
-                else -> {
-                    capabilityEvidence.joinToString("|") { "${it.id}:${it.status.name}" }
-                }
-            },
-    )
 
 private fun containsUnavailableCapabilityId(text: String): Boolean = extractCapabilityIds(text).isNotEmpty()
 

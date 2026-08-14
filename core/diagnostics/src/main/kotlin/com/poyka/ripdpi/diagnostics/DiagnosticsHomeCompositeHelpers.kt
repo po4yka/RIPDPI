@@ -10,7 +10,6 @@ internal suspend fun buildCompletedStageSummary(
     session: DiagnosticScanSession,
     scanRecordStore: DiagnosticsScanRecordStore,
     json: Json,
-    cpuMs: Long? = null,
 ): DiagnosticsHomeCompositeStageSummary {
     val persistedSession = scanRecordStore.getScanSession(sessionId)
     val report =
@@ -36,10 +35,6 @@ internal suspend fun buildCompletedStageSummary(
             }
 
             completionKind == ScanCompletionKind.TERMINATED -> {
-                DiagnosticsHomeCompositeStageStatus.FAILED
-            }
-
-            completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
                 DiagnosticsHomeCompositeStageStatus.FAILED
             }
 
@@ -71,24 +66,8 @@ internal suspend fun buildCompletedStageSummary(
         summary = summary,
         recommendationContributor = false,
         wallClockMs = wallClockMs,
-        cpuMs = cpuMs,
     )
 }
-
-internal suspend fun buildCompletedStageSummary(
-    spec: HomeCompositeStageSpec,
-    result: HomeCompositeStageExecutionResult,
-    scanRecordStore: DiagnosticsScanRecordStore,
-    json: Json,
-): DiagnosticsHomeCompositeStageSummary =
-    buildCompletedStageSummary(
-        spec = spec,
-        sessionId = result.sessionId,
-        session = result.session,
-        scanRecordStore = scanRecordStore,
-        json = json,
-        cpuMs = result.cpuMs,
-    )
 
 internal fun DiagnosticsHomeCompositeStageSummary.isCompletedStage(): Boolean =
     status == DiagnosticsHomeCompositeStageStatus.COMPLETED

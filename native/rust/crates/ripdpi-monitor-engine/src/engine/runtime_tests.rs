@@ -1,18 +1,17 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use super::coordinator::ExecutionCoordinator;
 use super::recording::{CollectedStageOutcome, CollectedStep};
 use super::stage::ExecutionStageRunner;
 use super::{
-    ExecutionPlan, ExecutionRuntime, ExecutionStageId, RunnerArtifacts, RunnerOutcome, StrategyExecutionPlan,
-    publish_cancelled_run,
+    publish_cancelled_run, ExecutionPlan, ExecutionRuntime, ExecutionStageId, RunnerArtifacts, RunnerOutcome,
+    StrategyExecutionPlan,
 };
 use crate::candidates::build_strategy_probe_suite;
 use crate::transport::direct_transport;
 use crate::types::{
-    DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, ScanTerminationReason, SharedState,
+    DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, SharedState,
     StrategyEmitterTier, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
     StrategyProbeRequest,
 };
@@ -60,7 +59,7 @@ fn test_plan() -> ExecutionPlan {
             network_snapshot: None,
             route_probe: None,
             scan_deadline_ms: None,
-            diagnostic_tls_keylog_path: None,
+                diagnostic_tls_keylog_path: None,
         },
         started_at: 0,
         total_steps: 8,
@@ -123,7 +122,11 @@ fn strategy_test_plan() -> ExecutionPlan {
     }
 }
 
-fn candidate_summary(id: &str, family: &str, weighted_success_score: usize) -> StrategyProbeCandidateSummary {
+fn candidate_summary(
+    id: &str,
+    family: &str,
+    weighted_success_score: usize,
+) -> StrategyProbeCandidateSummary {
     StrategyProbeCandidateSummary {
         id: id.to_string(),
         label: id.replace('_', " "),
@@ -183,7 +186,8 @@ impl ExecutionStageRunner for FakeStageRunner {
             outcome: "ok".to_string(),
             details: Vec::new(),
         };
-        let artifacts = RunnerArtifacts::from_results(vec![probe], "fake", "info", format!("{:?} ok", self.stage));
+        let artifacts =
+            RunnerArtifacts::from_results(vec![probe], "fake", "info", format!("{:?} ok", self.stage));
         CollectedStageOutcome::Completed(vec![CollectedStep {
             phase: "fake",
             message: format!("{:?} ok", self.stage),
@@ -192,87 +196,6 @@ impl ExecutionStageRunner for FakeStageRunner {
             artifacts,
         }])
     }
-}
-
-struct DeadlineSliceStageRunner {
-    stage: ExecutionStageId,
-    exhausts_stage_budget: bool,
-    observed_deadlines: Arc<Mutex<Vec<(ExecutionStageId, Option<Instant>)>>>,
-}
-
-impl ExecutionStageRunner for DeadlineSliceStageRunner {
-    fn id(&self) -> ExecutionStageId {
-        self.stage.clone()
-    }
-
-    fn phase(&self) -> &'static str {
-        "deadline_slice"
-    }
-
-    fn total_steps(&self, _plan: &ExecutionPlan) -> usize {
-        1
-    }
-
-    fn run(
-        &self,
-        _plan: &ExecutionPlan,
-        runtime: &mut ExecutionRuntime,
-        _tls_verifier: Option<&Arc<dyn rustls::client::danger::ServerCertVerifier>>,
-    ) -> RunnerOutcome {
-        self.observed_deadlines
-            .lock()
-            .expect("observed deadlines")
-            .push((self.stage.clone(), runtime.scan_deadline()));
-        if self.exhausts_stage_budget {
-            runtime.begin_stage_budget(u32::MAX as usize);
-            assert!(runtime.is_past_deadline(), "fake runner must exhaust only its stage budget");
-            RunnerOutcome::Cancelled
-        } else {
-            RunnerOutcome::Completed
-        }
-    }
-}
-
-#[test]
-fn strategy_stage_budget_reserves_deadline_for_later_stage() {
-    let shared = Arc::new(Mutex::new(SharedState::default()));
-    let cancel = Arc::new(AtomicBool::new(false));
-    let mut runtime = ExecutionRuntime::new(shared, cancel);
-    let global_deadline = Instant::now() + Duration::from_secs(1);
-    runtime.set_scan_deadline(global_deadline);
-
-    let mut plan = strategy_test_plan();
-    plan.stage_order = vec![ExecutionStageId::StrategyTcpCandidates, ExecutionStageId::StrategyQuicCandidates];
-    let observed_deadlines = Arc::new(Mutex::new(Vec::new()));
-    let coordinator = ExecutionCoordinator::new(vec![
-        Box::new(DeadlineSliceStageRunner {
-            stage: ExecutionStageId::StrategyTcpCandidates,
-            exhausts_stage_budget: true,
-            observed_deadlines: Arc::clone(&observed_deadlines),
-        }),
-        Box::new(DeadlineSliceStageRunner {
-            stage: ExecutionStageId::StrategyQuicCandidates,
-            exhausts_stage_budget: false,
-            observed_deadlines: Arc::clone(&observed_deadlines),
-        }),
-    ]);
-
-    let outcome = coordinator.run(&plan, &mut runtime, None);
-    let observed_deadlines = observed_deadlines.lock().expect("observed deadlines");
-    let tcp_deadline = observed_deadlines
-        .iter()
-        .find_map(|(stage, deadline)| (*stage == ExecutionStageId::StrategyTcpCandidates).then_some(*deadline))
-        .flatten();
-    let quic_executed = observed_deadlines
-        .iter()
-        .any(|(stage, _)| *stage == ExecutionStageId::StrategyQuicCandidates);
-
-    assert!(
-        matches!(outcome, RunnerOutcome::Completed)
-            && tcp_deadline.is_some_and(|deadline| deadline < global_deadline)
-            && quic_executed,
-        "TCP must receive a deadline slice before the global deadline without starving QUIC"
-    );
 }
 
 fn connectivity_parallel_plan() -> ExecutionPlan {
@@ -311,55 +234,10 @@ fn parallel_runner_panic_terminates_scan_after_recording_sibling_results() {
     assert_eq!(outcomes.iter().filter(|o| **o == "ok").count(), 2, "both healthy runners recorded");
 
     // The panicked runner is surfaced as a failed step keyed to its stage.
-    let panicked: Vec<&ProbeResult> = runtime.results.iter().filter(|r| r.outcome == "runner_panicked").collect();
+    let panicked: Vec<&ProbeResult> =
+        runtime.results.iter().filter(|r| r.outcome == "runner_panicked").collect();
     assert_eq!(panicked.len(), 1, "exactly one runner marked panicked");
     assert!(panicked[0].probe_type.starts_with("Tcp"), "panicked stage is Tcp: {:?}", panicked[0].probe_type);
-}
-
-#[test]
-fn connectivity_coordinator_checkpoints_completed_stage_evidence() {
-    let shared = Arc::new(Mutex::new(SharedState::default()));
-    let cancel = Arc::new(AtomicBool::new(false));
-    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    let mut plan = test_plan();
-    plan.request.kind = ScanKind::Connectivity;
-    plan.stage_order = vec![ExecutionStageId::Environment, ExecutionStageId::Web];
-    let coordinator = ExecutionCoordinator::new(vec![
-        Box::new(FakeStageRunner { stage: ExecutionStageId::Environment, panics: false }),
-        Box::new(FakeStageRunner { stage: ExecutionStageId::Web, panics: false }),
-    ]);
-
-    let outcome = coordinator.run(&plan, &mut runtime, None);
-    let checkpoint = shared.lock().expect("shared state").checkpoint_report.clone();
-
-    assert!(
-        matches!(outcome, RunnerOutcome::Completed)
-            && checkpoint.as_ref().is_some_and(|report| {
-                report.completion_kind == crate::types::ScanCompletionKind::PartialResults
-                    && report.termination_reason.is_none()
-                    && report.results.len() == 2
-            }),
-        "completed connectivity stages must leave a non-terminal partial-report checkpoint"
-    );
-}
-
-#[test]
-fn captured_user_cancellation_outranks_late_deadline() {
-    let shared = Arc::new(Mutex::new(SharedState::default()));
-    let cancel = Arc::new(AtomicBool::new(true));
-    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    runtime.set_scan_deadline(Instant::now() - Duration::from_millis(1));
-    runtime.results.push(ProbeResult {
-        probe_type: "dns_integrity".to_string(),
-        target: "example.com".to_string(),
-        outcome: "dns_match".to_string(),
-        details: Vec::new(),
-    });
-
-    publish_cancelled_run(&test_plan(), &shared, runtime, Some(ScanTerminationReason::UserCancelled));
-
-    let reason = shared.lock().expect("shared state").report.as_ref().and_then(|report| report.termination_reason.clone());
-    assert_eq!(reason, Some(ScanTerminationReason::UserCancelled));
 }
 
 #[test]
@@ -377,7 +255,7 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     runtime.strategy.tcp_candidates.push(candidate_summary("baseline_current", "baseline", 80));
     runtime.strategy.quic_candidates.push(candidate_summary("quic_disabled", "quic_disabled", 70));
 
-    publish_cancelled_run(&plan, &shared, runtime, None);
+    publish_cancelled_run(&plan, &shared, runtime);
 
     let report = shared.lock().expect("shared").report.clone().expect("cancelled report");
     assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
@@ -387,26 +265,6 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);
     assert_eq!(strategy_probe.recommendation.tcp_candidate_id, "baseline_current");
     assert_eq!(strategy_probe.recommendation.quic_candidate_id, "quic_disabled");
-}
-
-#[test]
-fn deadline_preserves_strategy_report_when_only_tcp_lane_has_results() {
-    let shared = Arc::new(Mutex::new(SharedState::default()));
-    let cancel = Arc::new(AtomicBool::new(false));
-    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    let plan = strategy_test_plan();
-    runtime.set_scan_deadline(Instant::now() - Duration::from_millis(1));
-    runtime.strategy.tcp_candidates.push(candidate_summary("baseline_current", "baseline", 80));
-
-    publish_cancelled_run(&plan, &shared, runtime, None);
-
-    let report = shared.lock().expect("shared").report.clone().expect("deadline report");
-    assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
-    assert_eq!(report.termination_reason, Some(crate::types::ScanTerminationReason::DeadlineExceeded));
-    let strategy_probe = report.strategy_probe_report.expect("TCP-only partial strategy report");
-    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);
-    assert_eq!(strategy_probe.tcp_candidates.len(), 1);
-    assert!(strategy_probe.quic_candidates.is_empty());
 }
 
 #[test]

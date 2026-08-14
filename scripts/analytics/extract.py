@@ -125,7 +125,6 @@ def extract_record(root: Path, source_path: str) -> dict[str, Any]:
         "triggerFuzzAssessment": trigger_fuzz_assessment,
         "runtimeSummary": runtime_summary,
         "winnerSummary": winner_summary,
-        "failurePathProvenance": extract_failure_path_provenance(analysis),
         "archiveSummary": {
             "headline": home_analysis.get("headline") or analysis.get("summary"),
             "summary": home_analysis.get("summary"),
@@ -136,162 +135,6 @@ def extract_record(root: Path, source_path: str) -> dict[str, Any]:
         },
         "observedFeatures": observed_features,
     }
-
-
-def extract_failure_path_provenance(analysis: dict[str, Any]) -> list[dict[str, Any]]:
-    raw_entries = analysis.get("failurePathProvenance")
-    if not isinstance(raw_entries, list):
-        return []
-    return [
-        projected
-        for raw_entry in raw_entries[:200]
-        if isinstance(raw_entry, dict)
-        and (projected := project_failure_path_provenance_entry(raw_entry)) is not None
-    ]
-
-
-def project_failure_path_provenance_entry(raw_entry: dict[str, Any]) -> dict[str, Any] | None:
-    failure_timestamp = raw_entry.get("failureTimestamp")
-    network_type = raw_entry.get("networkType")
-    snapshot_correlation = raw_entry.get("snapshotCorrelation")
-    if type(failure_timestamp) is not int or not isinstance(network_type, str):
-        return None
-    if snapshot_correlation not in {"exact", "unavailable"}:
-        return None
-    projected: dict[str, Any] = {
-        "failureTimestamp": failure_timestamp,
-        "networkType": network_type,
-        "snapshotCorrelation": snapshot_correlation,
-    }
-    copy_typed_fields(
-        raw_entry,
-        projected,
-        {
-            "failureClass": str,
-            "activeMode": str,
-            "resolverId": str,
-            "resolverProtocol": str,
-            "resolverLatencyMs": int,
-            "networkHandoverClass": str,
-            "networkHandoverState": str,
-            "snapshotCapturedAt": int,
-        },
-    )
-    network_path = raw_entry.get("networkPath")
-    if isinstance(network_path, dict):
-        projected_path = project_failure_network_path(network_path)
-        if projected_path is not None:
-            projected["networkPath"] = projected_path
-    return projected
-
-
-def project_failure_network_path(raw_path: dict[str, Any]) -> dict[str, Any] | None:
-    transport = raw_path.get("transport")
-    if not isinstance(transport, str):
-        return None
-    projected: dict[str, Any] = {"transport": transport}
-    copy_typed_fields(
-        raw_path,
-        projected,
-        {
-            "networkValidated": bool,
-            "captivePortalDetected": bool,
-            "mtuBand": str,
-            "privateDnsMode": str,
-        },
-    )
-    path_validation = raw_path.get("pathValidation")
-    if isinstance(path_validation, dict):
-        projected["pathValidation"] = project_path_validation(path_validation)
-    path_snapshots = raw_path.get("pathSnapshots")
-    if isinstance(path_snapshots, dict):
-        projected_snapshots = project_path_snapshots(path_snapshots)
-        if projected_snapshots is not None:
-            projected["pathSnapshots"] = projected_snapshots
-    return projected
-
-
-def project_path_validation(raw_validation: dict[str, Any]) -> dict[str, Any]:
-    projected: dict[str, Any] = {}
-    copy_typed_fields(
-        raw_validation,
-        projected,
-        {
-            "captureStatus": str,
-            "underlayAssociation": str,
-            "underlayGeneration": int,
-            "underlayPresent": bool,
-            "underlayTransport": str,
-            "underlayInternet": bool,
-            "underlayValidated": bool,
-            "underlayCaptivePortal": bool,
-            "vpnAssociation": str,
-            "vpnPresent": bool,
-            "vpnInternet": bool,
-            "vpnValidated": bool,
-            "vpnCaptivePortal": bool,
-        },
-    )
-    return projected
-
-
-def project_path_snapshots(raw_snapshots: dict[str, Any]) -> dict[str, Any] | None:
-    capture_generation = raw_snapshots.get("captureGeneration")
-    vpn = raw_snapshots.get("vpn")
-    underlay = raw_snapshots.get("underlay")
-    if type(capture_generation) is not int or not isinstance(vpn, dict) or not isinstance(underlay, dict):
-        return None
-    return {
-        "captureGeneration": capture_generation,
-        "vpn": project_path_observation(vpn),
-        "underlay": project_path_observation(underlay),
-    }
-
-
-def project_path_observation(raw_observation: dict[str, Any]) -> dict[str, Any]:
-    projected: dict[str, Any] = {}
-    copy_typed_fields(
-        raw_observation,
-        projected,
-        {
-            "association": str,
-            "generation": int,
-            "transport": str,
-            "hasInternet": bool,
-            "validated": bool,
-            "captivePortal": bool,
-            "metered": bool,
-            "roaming": bool,
-            "suspended": bool,
-            "congested": bool,
-            "restricted": bool,
-            "addressCount": int,
-            "routeCount": int,
-            "dnsServerCount": int,
-            "countsTruncated": bool,
-            "nat64Present": bool,
-            "privateDnsCategory": str,
-            "mtuBand": str,
-            "upstreamBandwidthBand": str,
-            "downstreamBandwidthBand": str,
-        },
-    )
-    for key in ("addressFamilies", "defaultRouteFamilies", "dnsServerFamilies"):
-        value = raw_observation.get(key)
-        if isinstance(value, list) and all(isinstance(item, str) for item in value):
-            projected[key] = value
-    return projected
-
-
-def copy_typed_fields(
-    source: dict[str, Any],
-    destination: dict[str, Any],
-    fields: dict[str, type],
-) -> None:
-    for key, expected_type in fields.items():
-        value = source.get(key)
-        if type(value) is expected_type:
-            destination[key] = value
 
 
 def collect_csv_rows(root: Path, file_name: str) -> list[dict[str, str]]:
@@ -431,19 +274,7 @@ def extract_winner_summary(runtime_config: dict[str, Any], telemetry_rows: list[
     tcp_family = normalize_winner_family(latest_row.get("winningTcpStrategyFamily"))
     quic_family = normalize_winner_family(latest_row.get("winningQuicStrategyFamily"))
     signature = runtime_config.get("effectiveStrategySignature")
-    exported_fingerprint = runtime_config.get("effectiveConfigFingerprint")
-    fingerprint_prefix = "effective-config-v1:"
-    has_valid_exported_fingerprint = (
-        isinstance(exported_fingerprint, str)
-        and exported_fingerprint.startswith(fingerprint_prefix)
-        and len(exported_fingerprint) == len(fingerprint_prefix) + 64
-        and all(character in "0123456789abcdef" for character in exported_fingerprint.removeprefix(fingerprint_prefix))
-    )
-    signature_hash = (
-        exported_fingerprint
-        if has_valid_exported_fingerprint
-        else stable_hash(json_like(signature))[:16] if signature else None
-    )
+    signature_hash = stable_hash(json_like(signature))[:16] if signature else None
     return {
         "family": family,
         "tcpFamily": tcp_family,

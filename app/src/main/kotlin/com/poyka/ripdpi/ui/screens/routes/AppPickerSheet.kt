@@ -26,7 +26,6 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -69,11 +68,8 @@ fun AppPickerSheet(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = query,
-                        onValueChange = { query = it },
-                    ),
+                value = query,
+                onValueChange = { query = it },
                 decoration =
                     RipDpiTextFieldDecoration(
                         placeholder = stringResource(R.string.app_picker_search),

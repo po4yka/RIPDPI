@@ -18,10 +18,6 @@ import kotlinx.serialization.Serializable
             value = ["connectionSessionId", "createdAt"],
         ),
         Index(
-            name = "index_telemetry_samples_diagnosticsRunId_diagnosticsStageKey_createdAt",
-            value = ["diagnosticsRunId", "diagnosticsStageKey", "createdAt"],
-        ),
-        Index(
             name = "index_telemetry_samples_createdAt",
             value = ["createdAt"],
         ),
@@ -36,8 +32,6 @@ data class TelemetrySampleEntity(
     @PrimaryKey val id: String,
     val sessionId: String? = null,
     val connectionSessionId: String? = null,
-    val diagnosticsRunId: String? = null,
-    val diagnosticsStageKey: String? = null,
     val activeMode: String? = null,
     val connectionState: String,
     val networkType: String,
@@ -80,7 +74,6 @@ data class TelemetrySampleEntity(
     // Protocol kind emitted by the relay runtime (e.g. "vless_reality", "hysteria2").
     // Nullable so older rows (v5 schema) decode without a default value on the column.
     val relayProtocolKind: String? = null,
-    val relayNativeEventsDropped: Long = 0,
     val createdAt: Long,
 )
 
@@ -115,15 +108,4 @@ data class NativeSessionEventEntity(
     val policySignature: String? = null,
     val fingerprintHash: String? = null,
     val subsystem: String? = null,
-    val attemptId: Long? = null,
-    val attemptSequence: Long? = null,
-    val stage: String? = null,
-    val outcome: String? = null,
-    val durationMs: Long? = null,
-    val failureStage: String? = null,
-    val failureClass: String? = null,
-    val ioErrorKind: String? = null,
-    val osErrorCode: Int? = null,
-    val peerClosePhase: String? = null,
-    val carrierDisposition: String? = null,
 )

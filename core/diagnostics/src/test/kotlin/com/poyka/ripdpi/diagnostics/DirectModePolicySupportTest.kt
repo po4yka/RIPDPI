@@ -161,31 +161,6 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `http redirect cannot turn direct tls failure into transparent success`() {
-        val report =
-            reportWithResults(
-                ProbeResult(
-                    probeType = "strategy_http",
-                    target = "Baseline direct · example.org",
-                    outcome = "http_redirect",
-                    details =
-                        listOf(
-                            ProbeDetail("candidateId", "baseline_plain_direct"),
-                            ProbeDetail("targetHost", "example.org"),
-                        ),
-                ),
-                strategyHttpsProbe(
-                    candidateId = "baseline_plain_direct",
-                    outcome = "tls_handshake_failed",
-                ),
-            )
-
-        val verdict = deriveDirectModeVerdict(report)
-
-        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
-    }
-
-    @Test
     fun `current configured strategy success is not transparent direct evidence`() {
         val report =
             reportWithResults(

@@ -102,7 +102,6 @@
     <string name="history_title">تاریخچه</string>
     <string name="diagnostics_overview_section">نمای کلی</string>
     <string name="diagnostics_dashboard_section">داشبورد</string>
-    <string name="diagnostics_live_section">زنده</string>
     <string name="diagnostics_scan_section">پویش</string>
 
     <string name="diagnostics_tools_section">ابزارها</string>
@@ -427,7 +426,6 @@
     <string name="home_setup_health_collapsed_format">موارد نیازمند توجه: %1$d</string>
     <string name="home_setup_health_expanded">موارد راه‌اندازی و اقدام‌های بازیابی را بررسی کنید.</string>
     <string name="home_connection_button_connecting">در حال اتصال…</string>
-    <string name="home_connection_actuator_open">باز</string>
     <string name="home_connection_actuator_secure">امن</string>
     <string name="home_connection_actuator_direct">مستقیم</string>
     <string name="home_connection_actuator_state_open">خط امن غیرفعال است</string>
@@ -600,9 +598,6 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">پویش تشخیصی</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>
-    <string name="home_connection_actuator_state_vpn_checking">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN در حال بررسی است</string>
-    <string name="home_connection_actuator_state_vpn_unverified">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN تأیید نشده است</string>
-    <string name="home_connection_actuator_state_vpn_unavailable">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN در دسترس نیست</string>
     <string name="home_mode_card_connecting">در حال شروع...</string>
     <string name="home_mode_card_remote_relay_disabled">رله غیرفعال</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
@@ -2599,7 +2594,7 @@ fakeddisorder endhost</string>
     <string name="permissions_notifications_title">اجازه اعلان‌های وضعیت</string>
     <string name="permissions_vpn_error_body">مجوز VPN اندروید را اعطا کنید تا RIPDPI به‌صورت محلی روی این دستگاه در حال اجرا باقی بماند.</string>
     <string name="permissions_vpn_title">مجوز VPN محلی</string>
-    <string name="qs_tile_label_connected">RIPDPI: فرایندهای محلی فعال‌اند</string>
+    <string name="qs_tile_label_connected">RIPDPI: متصل</string>
     <string name="qs_tile_subtitle_tap_disconnect">برای قطع، ضربه بزنید</string>
     <string name="ripdpi_desync_method_setting">Bypass strategy</string>
     <string name="ripdpi_drop_sack_setting">حذف SACK</string>
@@ -2801,15 +2796,6 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_body">این پیوند شامل نمایهٔ پراکسی قابل‌استفاده‌ای نیست.</string>
     <string name="import_confirm_add_action">افزودن</string>
     <string name="import_profile_confirm_error">این نمایه وارد نشد. بررسی کنید که پیوند کامل و معتبر باشد.</string>
-    <string name="import_profile_check_action">بررسی نمایه</string>
-    <string name="import_profile_check_success">نمایه در این بررسی به مقصد آزمایشی رسید. این نتیجه ترافیک VPN را تأیید نمی‌کند.</string>
-    <string name="import_profile_check_unsupported">این نمایه پیش از درون‌ریزی قابل بررسی نیست.</string>
-    <string name="import_profile_check_service_busy">پیش از بررسی نمایه، سرویس VPN یا پراکسی را متوقف کنید.</string>
-    <string name="import_profile_check_startup_failure">بررسی موقت نمایه آغاز نشد. علت مشخص نشده است.</string>
-    <string name="import_profile_check_probe_failure">در این بررسی مقصد آزمایشی در دسترس نبود. علت مشخص نشده است.</string>
-    <string name="import_profile_check_timeout">زمان بررسی نمایه به پایان رسید.</string>
-    <string name="import_profile_check_cancelled">بررسی نمایه لغو شد.</string>
-    <string name="import_profile_check_cleanup_failure">پاک‌سازی بررسی موقت با ایمنی کامل نشد. بعداً دوباره تلاش کنید.</string>
     <string name="relay_editor_activation_failed">این نمایه فعال نشد. جزئیات را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="import_confirm_done_action">افزوده شد</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
@@ -2982,7 +2968,7 @@ fakeddisorder endhost</string>
     <string name="widget_description_mode_picker">انتخاب حالت</string>
     <string name="widget_action_connect">اتصال</string>
     <string name="widget_action_disconnect">قطع اتصال</string>
-    <string name="widget_status_running">فرایندهای محلی در حال اجرا هستند</string>
+    <string name="widget_status_running">در حال اجرا</string>
     <string name="widget_status_halted">متوقف</string>
     <string name="widget_status_connecting">در حال اتصال</string>
     <string name="widget_status_reconnecting">در حال اتصال مجدد</string>

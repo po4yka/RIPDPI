@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.ui.screens.routes
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleRepository
+import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -44,7 +47,6 @@ data class RuleEditorUiState(
     val outboundTargets: ImmutableList<OutboundTarget> = persistentListOf(),
     val installedApps: ImmutableList<InstalledAppItem> = persistentListOf(),
     val loaded: Boolean = false,
-    val textFieldReplacementRevision: Long = 0,
 ) {
     /**
      * True when every matcher field is empty. An empty rule cannot be saved even when it has a name
@@ -65,26 +67,25 @@ data class RuleEditorUiState(
 }
 
 /**
- * Backs the full rule editor. The `ruleId` arrives from the Navigation 3 key;
- * `0L` means "new rule". Installed apps are resolved by [InstalledAppCatalog]
+ * Backs the full rule editor. The `ruleId` arrives via [SavedStateHandle] from the typed
+ * [Route.RuleEditor]; `0L` means "new rule". Installed apps are resolved by [InstalledAppCatalog]
  * (which owns the `PackageManager`) so the composable never touches it directly.
  */
 @HiltViewModel
 class RuleEditorViewModel
     @Inject
     constructor(
+        savedStateHandle: SavedStateHandle,
         private val ruleRepository: RuleRepository,
         private val outboundTargetCatalog: OutboundTargetCatalog,
         private val installedAppCatalog: InstalledAppCatalog,
     ) : ViewModel() {
-        private val state = MutableStateFlow(RuleEditorUiState())
-        val uiState: StateFlow<RuleEditorUiState> = state.asStateFlow()
-        private var initialized = false
+        private val ruleId: Long = savedStateHandle.toRoute<Route.RuleEditor>().ruleId
 
-        fun initialize(ruleId: Long) {
-            if (initialized) return
-            initialized = true
-            state.update { it.copy(ruleId = ruleId) }
+        private val state = MutableStateFlow(RuleEditorUiState(ruleId = ruleId))
+        val uiState: StateFlow<RuleEditorUiState> = state.asStateFlow()
+
+        init {
             viewModelScope.launch {
                 val targets = outboundTargetCatalog.targets()
                 val apps = installedAppCatalog.installedApps()
@@ -112,7 +113,6 @@ class RuleEditorViewModel
                             outboundTargets = targets.toImmutableList(),
                             installedApps = apps.toImmutableList(),
                             loaded = true,
-                            textFieldReplacementRevision = current.textFieldReplacementRevision + 1,
                         )
                     } else {
                         current.copy(
@@ -120,7 +120,6 @@ class RuleEditorViewModel
                             outboundTargets = targets.toImmutableList(),
                             installedApps = apps.toImmutableList(),
                             loaded = true,
-                            textFieldReplacementRevision = current.textFieldReplacementRevision + 1,
                         )
                     }
                 }

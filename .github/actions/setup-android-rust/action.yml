@@ -54,10 +54,6 @@ inputs:
     description: Whether to install the Android NDK when Android SDK setup is enabled
     required: false
     default: "true"
-  android-sdk-cache-enabled:
-    description: Whether to restore or save the Android CLI state cache
-    required: false
-    default: "true"
   embedded-relay-bundle-base64:
     description: Base64-encoded private embedded relay bundle for simple Android variants
     required: false
@@ -102,7 +98,10 @@ runs:
           "https://dl.google.com/android/cli/$android_cli_version/linux_x86_64/android-cli" \
           -o "$android_cli"
         printf '%s  %s\n' "$android_cli_sha256" "$android_cli" | sha256sum --check --strict
-        sudo install -m 0755 "$android_cli" /usr/local/bin/android
+        mkdir -p "$HOME/.local/bin"
+        install -m 0755 "$android_cli" "$HOME/.local/bin/android"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        export PATH="$HOME/.local/bin:$PATH"
         # Capture the complete output before inspecting it. Piping this Rust CLI
         # through `head` can close stdout early and make the process panic with
         # exit 101 when a runner emits an additional informational line.
@@ -134,7 +133,7 @@ runs:
     # from ANDROID_HOME, and a ~/.android cache hit is not installation evidence.
     # A hash of this action file invalidates stale CLI state when commands change.
     - name: Cache Android SDK and NDK
-      if: inputs.skip-android-sdk-ndk != 'true' && inputs.android-sdk-cache-enabled == 'true'
+      if: inputs.skip-android-sdk-ndk != 'true'
       id: cache-android-sdk
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
@@ -148,11 +147,9 @@ runs:
         set -euo pipefail
         bash scripts/ci/android-sdk-install.sh \
           "platform-tools" \
-          "platforms/android-${STEPS_NATIVE_TOOLCHAIN_OUTPUTS_COMPILE_SDK}"
-      env:
-        STEPS_NATIVE_TOOLCHAIN_OUTPUTS_COMPILE_SDK: ${{ steps.native-toolchain.outputs.compile-sdk }}
+          "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
 
-    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+    - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
       with:
         workspaces: ${{ inputs.rust-cache-workspaces }}
@@ -163,22 +160,15 @@ runs:
     - name: Install Rust Android targets
       if: inputs.setup-rust == 'true' && inputs.rust-targets != ''
       shell: bash
-      run: |
-        read -r -a rust_targets <<< "$INPUTS_RUST_TARGETS"
-        rustup target add "${rust_targets[@]}"
-      env:
-        INPUTS_RUST_TARGETS: ${{ inputs.rust-targets }}
+      run: rustup target add ${{ inputs.rust-targets }}
 
     - name: Install native toolchain via android CLI
       if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true'
       shell: bash
       run: >-
         bash scripts/ci/android-sdk-install.sh
-        "ndk/${STEPS_NATIVE_TOOLCHAIN_OUTPUTS_NDK}"
-        "cmake/${STEPS_NATIVE_TOOLCHAIN_OUTPUTS_CMAKE}"
-      env:
-        STEPS_NATIVE_TOOLCHAIN_OUTPUTS_NDK: ${{ steps.native-toolchain.outputs.ndk }}
-        STEPS_NATIVE_TOOLCHAIN_OUTPUTS_CMAKE: ${{ steps.native-toolchain.outputs.cmake }}
+        "ndk/${{ steps.native-toolchain.outputs.ndk }}"
+        "cmake/${{ steps.native-toolchain.outputs.cmake }}"
 
     - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
       if: inputs.setup-rust == 'true' && inputs.setup-sccache == 'true'

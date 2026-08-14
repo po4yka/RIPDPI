@@ -17,7 +17,6 @@ pub(super) struct HttpsObservationCollection {
     pub(super) tls_ech: TlsObservation,
     pub(super) latency_ms: u64,
     pub(super) https_port: u16,
-    pub(super) started_at_ms: u64,
 }
 
 pub(super) fn collect_https_observations(
@@ -33,5 +32,5 @@ pub(super) fn collect_https_observations(
         collect_tls_profile_observations(&connect_targets, https_port, transport, &target.host, tls_verifier, key_log);
     let latency_ms = now_ms().saturating_sub(started);
 
-    HttpsObservationCollection { tls13, tls12, tls_ech, latency_ms, https_port, started_at_ms: started }
+    HttpsObservationCollection { tls13, tls12, tls_ech, latency_ms, https_port }
 }

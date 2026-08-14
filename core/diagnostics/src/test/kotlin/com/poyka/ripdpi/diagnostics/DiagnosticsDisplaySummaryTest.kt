@@ -283,7 +283,7 @@ class DiagnosticsDisplaySummaryTest {
         }
 
     @Test
-    fun `completed sessions with partial reports are classified as failed by Home`() =
+    fun `completed sessions with partial reports are classified as completed by Home`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val sessionId = "oversized-partial-session"
@@ -322,11 +322,11 @@ class DiagnosticsDisplaySummaryTest {
                     json = json,
                 )
 
-            assertEquals(DiagnosticsHomeCompositeStageStatus.FAILED, summary.status)
+            assertEquals(DiagnosticsHomeCompositeStageStatus.COMPLETED, summary.status)
         }
 
     @Test
-    fun `partial report remains unverified for approach validation`() {
+    fun `approach summary uses partial result wording instead of raw cancelled summary`() {
         val report =
             ScanReport(
                 sessionId = "session-history",
@@ -335,8 +335,6 @@ class DiagnosticsDisplaySummaryTest {
                 startedAt = 10L,
                 finishedAt = 20L,
                 summary = ScanCancelledSummary,
-                completionKind = ScanCompletionKind.PARTIAL_RESULTS,
-                terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED,
                 results = listOf(ProbeResult(probeType = "http", target = "example.org", outcome = "http_ok")),
             )
         val session =
@@ -369,16 +367,7 @@ class DiagnosticsDisplaySummaryTest {
             )
         val approach = summaries.first { it.approachId.value == "strategy-1" }
 
-        assertEquals(
-            listOf("unverified", 0, 0, null, null),
-            listOf(
-                approach.verificationState,
-                approach.validatedScanCount,
-                approach.validatedSuccessCount,
-                approach.validatedSuccessRate,
-                approach.lastValidatedResult,
-            ),
-        )
+        assertEquals(ScanCompletedWithPartialResultsSummary, approach.lastValidatedResult)
     }
 
     @Test
@@ -447,7 +436,7 @@ class DiagnosticsDisplaySummaryTest {
     }
 
     @Test
-    fun `summary projector qualifies suspected ip filtering cause`() {
+    fun `summary projector surfaces no direct solution verdict`() {
         val summary =
             ScanReport(
                 sessionId = "session-no-direct",
@@ -465,10 +454,7 @@ class DiagnosticsDisplaySummaryTest {
                     ),
             ).displaySummary()
 
-        assertTrue(summary.contains("observed", ignoreCase = true))
-        assertTrue(summary.contains("candidate", ignoreCase = true))
-        assertTrue(summary.contains("not established", ignoreCase = true))
-        assertTrue(!summary.contains("likely IP block", ignoreCase = true))
+        assertEquals("No direct solution: likely IP block for this authority", summary)
     }
 
     @Test

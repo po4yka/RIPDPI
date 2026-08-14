@@ -29,7 +29,6 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
 import com.poyka.ripdpi.services.RootHelperManager
-import com.poyka.ripdpi.services.ServiceRuntimeAdmissionInterlock
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.TransportFailoverApplyTracker
@@ -343,7 +342,6 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
         permissionWatchdog: PermissionWatchdog,
-        runtimeAdmissionInterlock: ServiceRuntimeAdmissionInterlock = ServiceRuntimeAdmissionInterlock(),
         vpnProtectFailureMonitor: VpnProtectFailureMonitor,
         vpnTunnelRuntime: VpnTunnelRuntime,
         encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
@@ -360,7 +358,6 @@ internal object VpnServiceSessionModule {
             networkHandoverMonitor = runtimeDependencies.networkHandoverMonitor,
             policyHandoverEventStore = runtimeDependencies.policyHandoverEventStore,
             permissionWatchdog = permissionWatchdog,
-            runtimeAdmissionInterlock = runtimeAdmissionInterlock,
             vpnProtectFailureMonitor = vpnProtectFailureMonitor,
             vpnTunnelRuntime = vpnTunnelRuntime,
             resolverRefreshPlanner = runtimeDependencies.dnsDependencies.resolverRefreshPlanner,

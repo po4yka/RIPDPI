@@ -2,7 +2,7 @@
     <string name="vpn_channel_name" translatable="false">VPN</string>
     <string name="proxy_channel_name">Proxy</string>
     <string name="notification_title" translatable="false">RIPDPI</string>
-    <string name="vpn_notification_content">Local VPN processes are running</string>
+    <string name="vpn_notification_content">VPN is running</string>
     <string name="proxy_notification_content">Proxy is running</string>
     <string name="notification_stop">Stop</string>
 

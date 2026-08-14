@@ -103,10 +103,7 @@ private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransp
                 result.detailValue("tlsServerHelloReceived")?.toBooleanStrictOrNull() == true
         }
     val hasOwnedStackOnly = results.any { it.outcome == "tls_ech_only" }
-    val transportAttempts = results.filter { result -> result.edgeSuccess() || result.isDirectModeFailure() }
-    val tlsAttempts = transportAttempts.filter { result -> result.probeType == "strategy_https" }
-    val decisiveAttempts = tlsAttempts.ifEmpty { transportAttempts }
-    val allAttemptsFailed = decisiveAttempts.isNotEmpty() && decisiveAttempts.all(ProbeResult::isDirectModeFailure)
+    val allAttemptsFailed = results.isNotEmpty() && results.all(ProbeResult::isDirectModeFailure)
     val noDirectTlsFailure = allAttemptsFailed && (hasOwnedStackOnly || hasTlsHandshakeFailure)
     val noDirectQuicFailure = allAttemptsFailed && hasQuicBlocked && !noDirectTlsFailure
     val noDirectIpFailure = allAttemptsFailed && !noDirectTlsFailure && !noDirectQuicFailure

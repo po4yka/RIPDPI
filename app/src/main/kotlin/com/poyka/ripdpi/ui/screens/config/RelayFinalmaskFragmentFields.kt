@@ -11,7 +11,6 @@ import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun RelayFinalmaskFragmentFields(
@@ -20,11 +19,8 @@ internal fun RelayFinalmaskFragmentFields(
     actions: RelayFinalmaskActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskFragmentPackets,
-                onValueChange = actions.onRelayFinalmaskFragmentPacketsChanged,
-            ),
+        value = draft.relayFinalmaskFragmentPackets,
+        onValueChange = actions.onRelayFinalmaskFragmentPacketsChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_finalmask_fragment_packets_label),
@@ -33,11 +29,8 @@ internal fun RelayFinalmaskFragmentFields(
         behavior = finalmaskNumericTextFieldBehavior(),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskFragmentMinBytes,
-                onValueChange = actions.onRelayFinalmaskFragmentMinBytesChanged,
-            ),
+        value = draft.relayFinalmaskFragmentMinBytes,
+        onValueChange = actions.onRelayFinalmaskFragmentMinBytesChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_finalmask_fragment_min_bytes_label),
@@ -45,11 +38,8 @@ internal fun RelayFinalmaskFragmentFields(
         behavior = finalmaskNumericTextFieldBehavior(),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskFragmentMaxBytes,
-                onValueChange = actions.onRelayFinalmaskFragmentMaxBytesChanged,
-            ),
+        value = draft.relayFinalmaskFragmentMaxBytes,
+        onValueChange = actions.onRelayFinalmaskFragmentMaxBytesChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_finalmask_fragment_max_bytes_label),

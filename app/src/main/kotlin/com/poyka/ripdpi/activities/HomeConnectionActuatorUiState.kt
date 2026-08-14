@@ -69,7 +69,6 @@ data class HomeConnectionActuatorStageUiState(
 @Immutable
 data class HomeConnectionActuatorUiState(
     val status: HomeConnectionActuatorStatus = HomeConnectionActuatorStatus.Open,
-    val leadingLabel: String = "Open",
     val trailingLabel: String = "Secure",
     val routeLabel: String = "Local VPN",
     val statusDescription: String = "Secure line disengaged",

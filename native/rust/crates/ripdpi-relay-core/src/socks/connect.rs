@@ -21,38 +21,6 @@ struct CountingIo<S> {
     written_bytes: u64,
 }
 
-struct RelayStageGuard {
-    enabled: bool,
-    stage: &'static str,
-    started: Instant,
-    finished: bool,
-}
-
-impl RelayStageGuard {
-    fn start(enabled: bool, stage: &'static str) -> Self {
-        let started = Instant::now();
-        emit_relay_stage(enabled, stage, "started", started, None, None);
-        Self { enabled, stage, started, finished: false }
-    }
-
-    fn finish(&mut self, outcome: &'static str, error: Option<&io::Error>, peer_close_phase: Option<&'static str>) {
-        if self.finished {
-            return;
-        }
-        emit_relay_stage(self.enabled, self.stage, outcome, self.started, error, peer_close_phase);
-        self.finished = true;
-    }
-}
-
-impl Drop for RelayStageGuard {
-    fn drop(&mut self) {
-        if !self.finished {
-            emit_relay_stage(self.enabled, self.stage, "cancelled", self.started, None, None);
-            self.finished = true;
-        }
-    }
-}
-
 impl<S> CountingIo<S> {
     const fn new(inner: S) -> Self {
         Self { inner, read_bytes: 0, written_bytes: 0 }
@@ -102,13 +70,7 @@ where
 ///
 /// # Cancel safety
 ///
-/// NOT cancel-safe: an external drop during either `write_reply(...).await`
-/// can leave a partial SOCKS reply on the client socket, and a drop of the
-/// relay `select!` can discard buffered `copy_bidirectional` bytes. Production
-/// callers must await this future directly and request cooperative shutdown
-/// through `cancel`; forced task abort is a last-resort socket abandonment.
-///
-/// `cancel` is the session's shutdown token (a child of the
+/// Cancel-safe. `cancel` is the session's shutdown token (a child of the
 /// runtime shutdown token); this function — not the caller's `select!` — owns
 /// every cancellation point, which is what keeps the success reply atomic with
 /// the start of relaying:
@@ -134,7 +96,6 @@ pub(crate) async fn handle_connect<T>(
     backend: Arc<RelayBackend>,
     target: RelayTargetAddr,
     confirm_good_eligible: bool,
-    trace_stages: bool,
     telemetry: &T,
     cancel: CancellationToken,
 ) -> io::Result<()>
@@ -158,13 +119,7 @@ where
         Err(error) => {
             telemetry.emit_connect_observation(TcpConnectObservation { rtt_ms, succeeded: false });
             telemetry.record_handshake_error(error.to_string());
-            let mut reply_stage = RelayStageGuard::start(trace_stages, "socks_reply");
-            if let Err(reply_error) = write_reply(&mut client, 0x01, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await
-            {
-                reply_stage.finish("failed", Some(&reply_error), Some("before_socks_failure_reply"));
-                return Err(reply_error);
-            }
-            reply_stage.finish("succeeded", None, None);
+            write_reply(&mut client, 0x01, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
             return Err(error);
         }
     };
@@ -172,13 +127,7 @@ where
     // Atomic from the client's view: the success reply and the entry into the
     // cancel-aware relay are not separated by any drop point a canceller can
     // observe. A confirmed `CONNECT` therefore always implies the relay started.
-    let mut reply_stage = RelayStageGuard::start(trace_stages, "socks_reply");
-    if let Err(error) = write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await {
-        reply_stage.finish("failed", Some(&error), None);
-        return Err(error);
-    }
-    reply_stage.finish("succeeded", None, None);
-    let mut relay_stage = RelayStageGuard::start(trace_stages, "relay_stream");
+    write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
     let target_label = target.to_string();
     let mut client = CountingIo::new(client);
     let mut upstream = CountingIo::new(upstream);
@@ -190,15 +139,11 @@ where
             // does not wait on the peer reading, so this cannot stall the drain
             // grace window; any error is ignored since the socket is closing.
             let _ = client.shutdown().await;
-            relay_stage.finish("cancelled", None, None);
             Ok(())
         }
         result = copy_bidirectional(&mut client, &mut upstream) => {
             match result {
-                Ok(_) => {
-                    relay_stage.finish("closed", None, None);
-                    Ok(())
-                },
+                Ok(_) => Ok(()),
                 Err(error) => {
                     if confirm_good_eligible && matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock) {
                         telemetry.record_confirm_good_passive_stall(
@@ -208,7 +153,6 @@ where
                             true,
                         );
                     }
-                    relay_stage.finish("failed", Some(&error), None);
                     Err(error)
                 }
             }
@@ -216,39 +160,9 @@ where
     }
 }
 
-fn emit_relay_stage(
-    enabled: bool,
-    stage: &'static str,
-    outcome: &'static str,
-    started: Instant,
-    error: Option<&io::Error>,
-    peer_close_phase: Option<&'static str>,
-) {
-    if !enabled {
-        return;
-    }
-    let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let io_error_kind = error.map(|value| format!("{:?}", value.kind()).to_ascii_lowercase());
-    let os_error_code = error.and_then(io::Error::raw_os_error);
-    tracing::info!(
-        kind = "relay_attempt_stage",
-        stage,
-        outcome,
-        duration_ms,
-        failure_stage = error.map(|_| stage),
-        failure_class = error.map(|_| "io_error"),
-        io_error_kind,
-        os_error_code,
-        peer_close_phase,
-        "relay attempt stage transition"
-    );
-}
-
 #[cfg(test)]
 mod tests {
-    use android_support::{EventRingBuffers, EventRingLayer};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tracing_subscriber::prelude::*;
 
     use super::*;
 
@@ -266,31 +180,5 @@ mod tests {
 
         assert_eq!(counted.read_bytes, 8);
         assert_eq!(counted.written_bytes, 7);
-    }
-
-    #[test]
-    fn dropped_reached_stage_emits_exactly_one_cancelled_terminal() {
-        let buffers = EventRingBuffers::default();
-        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
-        tracing::subscriber::with_default(subscriber, || {
-            let attempt = tracing::info_span!(
-                "relay_attempt",
-                ring = "relay",
-                source = "ripdpi-relay-core",
-                subsystem = "relay",
-                runtime_id = "runtime-forced-abort",
-                attempt_id = 1_u64,
-            );
-            let _entered = attempt.enter();
-            drop(RelayStageGuard::start(true, "socks_reply"));
-        });
-
-        let outcomes = buffers
-            .drain_relay_for_runtime("runtime-forced-abort")
-            .events
-            .into_iter()
-            .map(|event| event.outcome)
-            .collect::<Vec<_>>();
-        assert_eq!(outcomes, [Some("started".to_string()), Some("cancelled".to_string())]);
     }
 }

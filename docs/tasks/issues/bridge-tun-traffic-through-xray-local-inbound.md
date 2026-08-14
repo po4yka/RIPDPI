@@ -1,19 +1,17 @@
 ---
 id: OUT-1786264762917422
-title: Finish and verify Xray VPN provider end to end
+title: Bridge TUN traffic through Xray local inbound
 kind: feature
-status: blocked
+status: doing
 area: outbound
 priority: high
-risk: high
-owner: Xray provider maintainer
+owner: unassigned
 parent: EPC-1786264762917329
 blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917422-bridge-tun-traffic-through-xray-local-inbound
 created: 2026-04-24
-updated: 2026-08-09
-status_detail: Real gomobile artifact, onboarding validation, device egress, protect-denial, and live telemetry evidence are still required.
+updated: 2026-06-05
 ---
 
 ## Summary

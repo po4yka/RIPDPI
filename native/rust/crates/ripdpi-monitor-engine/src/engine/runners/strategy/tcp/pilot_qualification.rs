@@ -1,4 +1,5 @@
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::thread;
 
 use rustls::client::danger::ServerCertVerifier;
@@ -8,7 +9,6 @@ use crate::execution::{CandidateExecution, StrategyLaneExecutor, eliminated_cand
 use crate::types::DomainTarget;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
-use super::super::attempt_recording::record_qualifier_candidate_attempts;
 use super::super::support::stratified_pilot_targets;
 use super::StrategyTcpRunner;
 use super::capability_gating::{TcpCapabilities, candidate_passes_pilot_without_execution};
@@ -88,12 +88,11 @@ pub(super) fn qualify_pilot_candidates(
         });
 
         for (spec, maybe_execution) in batch_results {
-            let Some(mut execution) = maybe_execution else {
+            let Some(execution) = maybe_execution else {
                 // Cancelled before starting -- pass through.
                 qualified_specs.push(spec);
                 continue;
             };
-            record_qualifier_candidate_attempts(runtime, &mut execution);
             if execution.cancelled || execution.summary.succeeded_targets > 0 {
                 qualified_specs.push(spec);
             } else {

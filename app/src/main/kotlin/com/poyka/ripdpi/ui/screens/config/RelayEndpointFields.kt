@@ -12,7 +12,6 @@ import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun RelayEndpointFields(
@@ -21,11 +20,8 @@ internal fun RelayEndpointFields(
     actions: RelayEndpointActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayServer,
-                onValueChange = actions.onRelayServerChanged,
-            ),
+        value = draft.relayServer,
+        onValueChange = actions.onRelayServerChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_server),
@@ -33,11 +29,8 @@ internal fun RelayEndpointFields(
             ),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayServerPort,
-                onValueChange = actions.onRelayServerPortChanged,
-            ),
+        value = draft.relayServerPort,
+        onValueChange = actions.onRelayServerPortChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_server_port),
@@ -46,11 +39,8 @@ internal fun RelayEndpointFields(
         behavior = numericTextFieldBehavior(),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayServerName,
-                onValueChange = actions.onRelayServerNameChanged,
-            ),
+        value = draft.relayServerName,
+        onValueChange = actions.onRelayServerNameChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_server_name)),
     )
 }

@@ -357,7 +357,7 @@
     <string name="permissions_battery_body">Autorisez RIPDPI à ignorer l\'optimisation de batterie d\'Android afin que Doze risque moins d\'interrompre le VPN local ou le proxy en arrière-plan.</string>
     <string name="permissions_vpn_body">Android demandera à créer un VPN local. Cela achemine le trafic via l\'application sur votre appareil — rien n\'est envoyé à l\'extérieur.</string>
     <string name="permissions_vpn_title">Autorisation VPN locale</string>
-    <string name="qs_tile_label_connected">RIPDPI : Processus locaux actifs</string>
+    <string name="qs_tile_label_connected">RIPDPI : Connecté</string>
     <string name="quic_fake_host_builtin_body">Le préréglage réaliste continuera d\'utiliser le faux hôte intégré de RIPDPI jusqu\'à ce que vous enregistriez un remplacement personnalisé.</string>
     <string name="quic_fake_host_error">Utilisez un domaine simple comme video.example.org. Les adresses IP littérales et les noms d\'hôtes non valides sont ignorés.</string>
     <string name="quic_fake_preset_off_title">Désactivé</string>
@@ -1334,7 +1334,6 @@ fake_burst 3</string>
     <string name="diagnostics_status_validated">Validé</string>
     <string name="diagnostics_telegram_peak_speed">Vitesse de pointe</string>
     <string name="diagnostics_tools_section">Outils</string>
-    <string name="diagnostics_live_section">En direct</string>
     <string name="dns_active_bootstrap_not_required">Non requis en mode DNS clair</string>
     <string name="dns_active_route_plain_vpn">Les requêtes vont directement à cette IP de résolveur en mode VPN local.</string>
     <string name="dns_custom_bootstrap_helper">Saisissez une ou plusieurs IP de résolveur séparées par des virgules ou des espaces.</string>
@@ -1372,7 +1371,6 @@ fake_burst 3</string>
     <string name="history_diagnostics_empty_body">Lancez un scan en chemin brut ou en chemin pour conserver ici les rapports et les détails de sondage.</string>
     <string name="history_events_section">Événements</string>
     <string name="home_approach_cta">Ouvrir Diagnostics et examiner l\'analytique des approches</string>
-    <string name="home_connection_actuator_open">Ouvrir</string>
     <string name="home_connection_actuator_state_locked">Ligne sécurisée verrouillée</string>
     <string name="home_connection_actuator_state_direct">Ligne directe verrouillée</string>
     <string name="home_connection_stage_network">Réseau</string>
@@ -1395,9 +1393,6 @@ fake_burst 3</string>
     <string name="home_diagnostics_verified_sheet_title">Résultat VPN vérifié</string>
     <string name="home_diagnostics_vpn_starting">Démarrage du VPN…</string>
     <string name="home_mode_card_connected_format">Connecté %1$s</string>
-    <string name="home_connection_actuator_state_vpn_checking">Les processus locaux sont actifs ; vérification de la connectivité VPN</string>
-    <string name="home_connection_actuator_state_vpn_unverified">Les processus locaux sont actifs ; la connectivité VPN n’est pas vérifiée</string>
-    <string name="home_connection_actuator_state_vpn_unavailable">Les processus locaux sont actifs ; la connectivité VPN est indisponible</string>
     <string name="home_mode_card_diagnostic_status_review">Examiner le dernier audit</string>
     <string name="home_mode_card_remote_relay_disabled">Relais désactivé</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
@@ -2796,15 +2791,6 @@ Source : %2$s</string>
     <string name="import_profile_confirm_empty_body">Ce lien ne contient pas de profil proxy utilisable.</string>
     <string name="import_confirm_add_action">Ajouter</string>
     <string name="import_profile_confirm_error">Ce profil n’a pas pu être importé. Vérifiez que le lien est complet et valide.</string>
-    <string name="import_profile_check_action">Vérifier le profil</string>
-    <string name="import_profile_check_success">Le profil a atteint la cible de test pendant cette vérification. Cela ne valide pas le trafic VPN.</string>
-    <string name="import_profile_check_unsupported">Ce profil ne peut pas être vérifié avant l’importation.</string>
-    <string name="import_profile_check_service_busy">Arrêtez le service VPN ou proxy avant de vérifier le profil.</string>
-    <string name="import_profile_check_startup_failure">La vérification temporaire n’a pas pu démarrer. La cause n’est pas établie.</string>
-    <string name="import_profile_check_probe_failure">La cible de test n’a pas été atteinte. La cause n’est pas établie.</string>
-    <string name="import_profile_check_timeout">La vérification du profil a expiré.</string>
-    <string name="import_profile_check_cancelled">La vérification du profil a été annulée.</string>
-    <string name="import_profile_check_cleanup_failure">La vérification temporaire n’a pas pu se terminer en toute sécurité. Réessayez plus tard.</string>
     <string name="relay_editor_activation_failed">Ce profil n’a pas pu être activé. Vérifiez les informations et réessayez.</string>
     <string name="import_confirm_done_action">Ajouté</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
@@ -2977,7 +2963,7 @@ Source : %2$s</string>
     <string name="widget_description_mode_picker">Sélecteur de mode</string>
     <string name="widget_action_connect">Connecter</string>
     <string name="widget_action_disconnect">Déconnecter</string>
-    <string name="widget_status_running">Processus locaux actifs</string>
+    <string name="widget_status_running">Actif</string>
     <string name="widget_status_halted">Arrêté</string>
     <string name="widget_status_connecting">Connexion en cours</string>
     <string name="widget_status_reconnecting">Reconnexion</string>

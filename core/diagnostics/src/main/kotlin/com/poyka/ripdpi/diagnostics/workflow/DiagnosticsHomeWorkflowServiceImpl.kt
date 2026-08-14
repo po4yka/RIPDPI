@@ -396,10 +396,6 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
                     "All bypass strategies failed on this network"
                 }
 
-                strategyAdequacy == StrategyAdequacy.DNS_ONLY_APPLIED -> {
-                    "DNS settings applied, but no network strategy was confirmed"
-                }
-
                 actionable -> {
                     "Analysis complete and settings applied"
                 }
@@ -519,7 +515,21 @@ internal class DefaultDiagnosticsHomeWorkflowService
                     )
                 }
 
-                val success = isVpnAccessConfirmed(report)
+                val normalizedOutcomes = report.results.map { it.outcome.lowercase() }
+                val successCount =
+                    normalizedOutcomes.count { outcome ->
+                        outcome.contains("ok") || outcome == "http_redirect" || outcome == "tls_version_split"
+                    }
+                val failureCount =
+                    normalizedOutcomes.count { outcome ->
+                        outcome.contains("blocked") ||
+                            outcome.contains("unreachable") ||
+                            outcome.contains("failed") ||
+                            outcome.contains("error") ||
+                            outcome.contains("timeout")
+                    }
+                val connectivityIssue = report.diagnoses.any { it.code == "network_connectivity_issue" }
+                val success = !connectivityIssue && successCount > 0 && successCount >= failureCount
 
                 DiagnosticsHomeVerificationOutcome(
                     sessionId = sessionId,
@@ -535,21 +545,3 @@ internal class DefaultDiagnosticsHomeWorkflowService
                 )
             }
     }
-
-internal fun isVpnAccessConfirmed(report: ScanReport): Boolean {
-    val normalizedOutcomes = report.results.map { it.outcome.lowercase() }
-    val successCount =
-        normalizedOutcomes.count { outcome ->
-            outcome.contains("ok") || outcome == "http_redirect"
-        }
-    val failureCount =
-        normalizedOutcomes.count { outcome ->
-            outcome.contains("blocked") ||
-                outcome.contains("unreachable") ||
-                outcome.contains("failed") ||
-                outcome.contains("error") ||
-                outcome.contains("timeout")
-        }
-    val connectivityIssue = report.diagnoses.any { it.code == "network_connectivity_issue" }
-    return !connectivityIssue && successCount > 0 && successCount >= failureCount
-}

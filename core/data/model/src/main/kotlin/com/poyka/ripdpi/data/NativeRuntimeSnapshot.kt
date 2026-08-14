@@ -92,17 +92,6 @@ data class NativeRuntimeEvent(
     val policySignature: String? = null,
     val fingerprintHash: String? = null,
     val subsystem: String? = null,
-    val attemptId: Long? = null,
-    val attemptSequence: Long? = null,
-    val stage: String? = null,
-    val outcome: String? = null,
-    val durationMs: Long? = null,
-    val failureStage: String? = null,
-    val failureClass: String? = null,
-    val ioErrorKind: String? = null,
-    val osErrorCode: Int? = null,
-    val peerClosePhase: String? = null,
-    val carrierDisposition: String? = null,
 )
 
 /**
@@ -273,7 +262,6 @@ data class NativeRuntimeSnapshot(
     val tunnelStats: TunnelStats = TunnelStats(),
     val directPathLearningSignals: List<DirectPathLearningSignal> = emptyList(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),
-    val nativeEventsDropped: Long = 0,
     val latencyDistributions: LatencyDistributions? = null,
     val connectionQuality: ConnectionQualitySnapshot? = null,
     val capturedAt: Long = 0,

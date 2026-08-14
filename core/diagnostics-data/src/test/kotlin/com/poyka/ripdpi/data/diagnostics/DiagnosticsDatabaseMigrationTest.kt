@@ -115,8 +115,6 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.execSQL("DROP TABLE diagnostics_durable_state")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
-            legacyDb.dropStageTelemetryScope()
-            legacyDb.dropRelayAttemptTraceScope()
             legacyDb.execSQL("PRAGMA user_version = 7")
         }
 
@@ -164,8 +162,6 @@ class DiagnosticsDatabaseMigrationTest {
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
-            legacyDb.dropStageTelemetryScope()
-            legacyDb.dropRelayAttemptTraceScope()
             legacyDb.execSQL("PRAGMA user_version = 8")
         }
 
@@ -192,136 +188,4 @@ class DiagnosticsDatabaseMigrationTest {
             context.deleteDatabase(dbName)
         }
     }
-
-    @Test
-    fun `migration 9 to 10 adds stage telemetry scope without destructive fallback`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val dbName = "diagnostics-v9-v10-${System.nanoTime()}.db"
-        context.deleteDatabase(dbName)
-
-        val seedDb =
-            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
-                context,
-                dbName,
-                allowDestructiveFallback = false,
-            )
-        try {
-            seedDb.openHelper.writableDatabase
-        } finally {
-            seedDb.close()
-        }
-
-        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
-            legacyDb.dropStageTelemetryScope()
-            legacyDb.dropRelayAttemptTraceScope()
-            legacyDb.execSQL("PRAGMA user_version = 9")
-        }
-
-        val migratedDb =
-            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
-                context,
-                dbName,
-                allowDestructiveFallback = false,
-            )
-        try {
-            migratedDb.openHelper.writableDatabase
-                .query("PRAGMA table_info(telemetry_samples)")
-                .use { cursor ->
-                    val columnNames =
-                        buildSet {
-                            val nameIndex = cursor.getColumnIndexOrThrow("name")
-                            while (cursor.moveToNext()) add(cursor.getString(nameIndex))
-                        }
-                    assertTrue(columnNames.contains("diagnosticsRunId"))
-                    assertTrue(columnNames.contains("diagnosticsStageKey"))
-                }
-        } finally {
-            migratedDb.close()
-            context.deleteDatabase(dbName)
-        }
-    }
-
-    @Test
-    fun `migration 10 to 11 preserves native event and initializes relay trace fields`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val dbName = "diagnostics-v10-v11-${System.nanoTime()}.db"
-        context.deleteDatabase(dbName)
-
-        val seedDb =
-            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
-                context,
-                dbName,
-                allowDestructiveFallback = false,
-            )
-        try {
-            seedDb.openHelper.writableDatabase.execSQL(
-                """
-                INSERT INTO native_session_events
-                    (id, source, level, message, createdAt)
-                VALUES
-                    ('legacy-event', 'relay', 'warn', 'legacy relay event', 42)
-                """.trimIndent(),
-            )
-        } finally {
-            seedDb.close()
-        }
-
-        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
-            legacyDb.dropRelayAttemptTraceScope()
-            legacyDb.execSQL("PRAGMA user_version = 10")
-        }
-
-        val migratedDb =
-            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
-                context,
-                dbName,
-                allowDestructiveFallback = false,
-            )
-        try {
-            migratedDb.openHelper.writableDatabase
-                .query(
-                    """
-                    SELECT message, attemptId, attemptSequence, stage, outcome,
-                           durationMs, failureStage, failureClass, ioErrorKind,
-                           osErrorCode, peerClosePhase, carrierDisposition
-                    FROM native_session_events WHERE id = 'legacy-event'
-                    """.trimIndent(),
-                ).use { cursor ->
-                    assertTrue(cursor.moveToFirst())
-                    assertEquals("legacy relay event", cursor.getString(0))
-                    for (column in 1 until cursor.columnCount) {
-                        assertTrue(
-                            "new relay trace column ${cursor.getColumnName(column)} must be null",
-                            cursor.isNull(column),
-                        )
-                    }
-                }
-        } finally {
-            migratedDb.close()
-            context.deleteDatabase(dbName)
-        }
-    }
-}
-
-private fun android.database.sqlite.SQLiteDatabase.dropStageTelemetryScope() {
-    execSQL("DROP INDEX index_telemetry_samples_diagnosticsRunId_diagnosticsStageKey_createdAt")
-    execSQL("ALTER TABLE telemetry_samples DROP COLUMN diagnosticsRunId")
-    execSQL("ALTER TABLE telemetry_samples DROP COLUMN diagnosticsStageKey")
-}
-
-private fun android.database.sqlite.SQLiteDatabase.dropRelayAttemptTraceScope() {
-    execSQL("ALTER TABLE telemetry_samples DROP COLUMN relayNativeEventsDropped")
-    listOf(
-        "attemptId",
-        "attemptSequence",
-        "stage",
-        "outcome",
-        "durationMs",
-        "failureStage",
-        "failureClass",
-        "ioErrorKind",
-        "osErrorCode",
-        "peerClosePhase",
-        "carrierDisposition",
-    ).forEach { column -> execSQL("ALTER TABLE native_session_events DROP COLUMN $column") }
 }

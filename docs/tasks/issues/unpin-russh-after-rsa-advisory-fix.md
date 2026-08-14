@@ -1,19 +1,19 @@
 ---
 id: RST-1786264762917304
-title: Remove RSA advisory paths from russh and Arti dependencies
-kind: chore
+title: Unpin russh after rsa advisory fix
+kind: feature
 status: backlog
 area: rust-native
 priority: low
-risk: high
 owner: Native security maintainer
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917304-unpin-russh-after-rsa-advisory-fix
 created: 2026-06-12
-updated: 2026-08-09
+updated: 2026-08-04
 source_wiki_pages: []
+linked_task: null
 ---
 
 ## Motivation
@@ -39,9 +39,11 @@ Check periodically: https://github.com/Eugeny/russh/releases
 
 ## Proposed change
 
-1. Upgrade or replace both the `russh` and Arti dependency paths until the locked graph no longer contains the vulnerable RSA line.
-2. Remove the `RUSTSEC-2023-0071` suppression only after every path is gone.
-3. Run focused SSH/Tor tests, the locked workspace suite, advisory validation, and waiver-expiry checks.
+1. Bump `russh` in `native/rust/Cargo.toml` from the current `=0.62.5` pin to the new safe version (remove the exact pin or update it).
+2. Remove the `RUSTSEC-2023-0071` suppression entry from `native/rust/deny.toml`.
+3. Run `cargo deny check advisories` and confirm it passes without the suppression.
+4. If russh still transitively pulls rsa but via Arti, and Arti has also updated, remove the Arti path suppression too.
+5. Run `cargo nextest run --workspace --locked` to confirm nothing regressed.
 
 ## Acceptance criteria
 

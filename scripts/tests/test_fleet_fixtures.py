@@ -170,15 +170,14 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
             source,
         )
         self.assertIn("RIPDPI_VPN_DEPLOY_DIR", source)
-        self.assertIn('android-sdk-cache-enabled: "false"', source)
         self.assertIn("push:\n    branches: [main]", source)
-        self.assertLess(
-            source.index("android-sdk-cache-enabled: \"false\""),
-            source.index("Check out pinned ripdpi-vpn-deploy emitter"),
-        )
         self.assertLess(
             source.index("scripts/refresh-fleet-fixtures.sh --write"),
             source.index("git diff --exit-code"),
+        )
+        self.assertLess(
+            source.index("git diff --exit-code"),
+            source.index("./gradlew :core:data:testDebugUnitTest"),
         )
 
 

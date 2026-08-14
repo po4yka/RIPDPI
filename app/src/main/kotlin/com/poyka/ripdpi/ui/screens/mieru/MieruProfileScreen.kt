@@ -22,13 +22,11 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -160,20 +158,13 @@ private fun CredentialsSection(
 ) {
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.mieru_section_credentials))
-        PlainField(
-            MieruEditorField.USERNAME,
-            R.string.mieru_field_username,
-            editor,
-            onFieldChanged,
-            autofillPolicy = RipDpiAutofillPolicy.Username,
-        )
+        PlainField(MieruEditorField.USERNAME, R.string.mieru_field_username, editor, onFieldChanged)
         PlainField(
             MieruEditorField.PASSWORD,
             R.string.mieru_field_password,
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Password,
-            autofillPolicy = RipDpiAutofillPolicy.Password,
         )
     }
 }
@@ -219,15 +210,11 @@ private fun PlainField(
     editor: MieruProfileEditorState,
     onFieldChanged: (MieruEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
-    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = editor.rawText(field),
-                onValueChange = { onFieldChanged(field, it) },
-            ),
+        value = editor.rawText(field),
+        onValueChange = { onFieldChanged(field, it) },
         modifier = Modifier.fillMaxWidth(),
         decoration =
             RipDpiTextFieldDecoration(
@@ -238,6 +225,5 @@ private fun PlainField(
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             ),
-        autofillPolicy = autofillPolicy,
     )
 }

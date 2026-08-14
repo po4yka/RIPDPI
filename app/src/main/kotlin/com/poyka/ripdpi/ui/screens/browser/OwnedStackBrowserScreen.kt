@@ -42,7 +42,6 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -208,12 +207,8 @@ private fun OwnedStackBrowserUrlCard(
             color = colors.foreground,
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = uiState.inputUrl,
-                    onValueChange = onUrlChanged,
-                    replacementKey = uiState.navigationRevision,
-                ),
+            value = uiState.inputUrl,
+            onValueChange = onUrlChanged,
             decoration =
                 RipDpiTextFieldDecoration(
                     placeholder = stringResource(R.string.owned_stack_browser_url_placeholder),
@@ -225,6 +220,7 @@ private fun OwnedStackBrowserUrlCard(
                             keyboardType = KeyboardType.Uri,
                             imeAction = ImeAction.Go,
                         ),
+                    singleLine = true,
                 ),
         )
         RipDpiButton(

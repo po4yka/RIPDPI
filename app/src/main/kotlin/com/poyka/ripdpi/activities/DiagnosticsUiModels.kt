@@ -36,7 +36,6 @@ internal val DiagnosticsProfileOptionUiModel.isFullAudit: Boolean
 
 enum class DiagnosticsSection {
     Dashboard,
-    Live,
     Scan,
     Tools,
 }

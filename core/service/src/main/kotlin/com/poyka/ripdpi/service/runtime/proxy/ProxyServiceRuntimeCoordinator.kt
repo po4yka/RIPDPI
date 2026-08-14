@@ -30,7 +30,6 @@ import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
-import com.poyka.ripdpi.services.ServiceRuntimeAdmissionInterlock
 import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
 import com.poyka.ripdpi.services.ServiceRuntimeModeHooks
 import com.poyka.ripdpi.services.ServiceRuntimePermissionHooks
@@ -58,7 +57,6 @@ internal data class ProxyRuntimeSupervisorBundle(
     val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
-    val runtimeAdmissionInterlock: ServiceRuntimeAdmissionInterlock = ServiceRuntimeAdmissionInterlock(),
 )
 
 /**
@@ -92,7 +90,6 @@ internal class ProxyServiceRuntimeCoordinator(
         networkHandoverMonitor = networkHandoverMonitor,
         policyHandoverEventStore = policyHandoverEventStore,
         permissionWatchdog = permissionWatchdog,
-        runtimeAdmissionInterlock = supervisors.runtimeAdmissionInterlock,
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -64,6 +65,7 @@ object RipDpiIcons {
     val Error: ImageVector = Icons.Outlined.Cancel
     val Info: ImageVector = Icons.Outlined.Info
     val Lock: ImageVector = Icons.Outlined.Lock
+    val LockOpen: ImageVector = Icons.Outlined.LockOpen
     val Copy: ImageVector = Icons.Outlined.ContentCopy
     val Share: ImageVector = Icons.Outlined.Share
     val ChevronRight: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -15,7 +14,6 @@ import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -62,11 +60,8 @@ private fun CloudflareLocalOriginFields(
     actions: RelayVlessActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayCloudflarePublishLocalOriginUrl,
-                onValueChange = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
-            ),
+        value = draft.relayCloudflarePublishLocalOriginUrl,
+        onValueChange = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_cloudflare_local_origin_url_label),
@@ -74,22 +69,16 @@ private fun CloudflareLocalOriginFields(
             ),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayCloudflareCredentialsRef,
-                onValueChange = actions.onRelayCloudflareCredentialsRefChanged,
-            ),
+        value = draft.relayCloudflareCredentialsRef,
+        onValueChange = actions.onRelayCloudflareCredentialsRefChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_cloudflare_credentials_reference_label),
             ),
     )
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayCloudflareTunnelToken,
-                onValueChange = actions.onRelayCloudflareTunnelTokenChanged,
-            ),
+        value = draft.relayCloudflareTunnelToken,
+        onValueChange = actions.onRelayCloudflareTunnelTokenChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_cloudflare_tunnel_token_label),
@@ -97,15 +86,12 @@ private fun CloudflareLocalOriginFields(
             ),
     )
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayCloudflareTunnelCredentialsJson,
-                onValueChange = actions.onRelayCloudflareTunnelCredentialsJsonChanged,
-            ),
+        value = draft.relayCloudflareTunnelCredentialsJson,
+        onValueChange = actions.onRelayCloudflareTunnelCredentialsJsonChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_cloudflare_named_tunnel_credentials_label),
             ),
-        lineLimits = TextFieldLineLimits.MultiLine(),
+        multiline = true,
     )
 }

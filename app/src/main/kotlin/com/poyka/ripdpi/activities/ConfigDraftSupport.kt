@@ -279,8 +279,6 @@ data class ConfigUiState(
     val isEditorSaving: Boolean = false,
     val isEditorImporting: Boolean = false,
     val hasEditorRecoveryPersistenceError: Boolean = false,
-    val textFieldReplacementRevision: Long = 0,
-    val masqueCredentialReplacementRevision: Long = 0,
     val isLoading: Boolean = false,
 )
 
@@ -323,8 +321,6 @@ internal data class ConfigEditorSession(
     val draft: ConfigDraft? = null,
     val hydrationPending: Boolean = false,
     val draftRevision: Long = 0L,
-    val textFieldReplacementRevision: Long = 0L,
-    val masqueCredentialReplacementRevision: Long = 0L,
     val savePending: Boolean = false,
     val suppressSaveSuccess: Boolean = false,
 ) {
@@ -340,7 +336,6 @@ internal data class ConfigEditorSession(
                 baselineDraft = hydratedDraft,
                 draft = hydratedDraft,
                 hydrationPending = false,
-                textFieldReplacementRevision = textFieldReplacementRevision + 1,
             )
         } else {
             this

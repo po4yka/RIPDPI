@@ -110,8 +110,7 @@ class RuntimeArtifactPersister
                     connectionSessionId = sessionId,
                 )
             }
-            serviceTelemetry
-                .nativeRuntimeEventsForDiagnostics()
+            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
                 .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEach { event ->
                     persistRuntimeEvent(
@@ -133,8 +132,7 @@ class RuntimeArtifactPersister
                 serviceTelemetry = serviceTelemetry,
                 connectionSessionId = connectionSessionId,
             )
-            serviceTelemetry
-                .nativeRuntimeEventsForDiagnostics()
+            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
                 .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEachIndexed { index, event ->
                     persistRuntimeEvent(
@@ -181,7 +179,7 @@ class RuntimeArtifactPersister
             return buildPrivacySafeTerminalArtifactBatch(
                 connectionSessionId = connectionSessionId,
                 typedEvents = typedEvents,
-                nativeEvents = telemetry.nativeRuntimeEventsForDiagnostics(),
+                nativeEvents = telemetry.proxyTelemetry.nativeEvents + telemetry.tunnelTelemetry.nativeEvents,
                 telemetrySample = telemetrySample,
             )
         }
@@ -482,15 +480,48 @@ class RuntimeArtifactPersister
             connectionStateOverride: String? = null,
         ): TelemetrySampleEntity {
             val memory = nativeMemoryProbe.sample()
-            return telemetry.toTelemetrySampleEntity(
+            return TelemetrySampleEntity(
                 id = id,
+                sessionId = null,
                 connectionSessionId = connectionSessionId,
-                activeModeFallback = serviceStateStore.status.value.second.name,
-                connectionStateOverride = connectionStateOverride,
+                activeMode = telemetry.mode?.name ?: serviceStateStore.status.value.second.name,
+                connectionState = connectionStateOverride ?: telemetry.status.name,
                 networkType = networkType,
                 publicIp = publicIp,
+                failureClass = telemetry.runtimeFieldTelemetry.failureClass?.wireValue,
+                telemetryNetworkFingerprintHash = telemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                winningTcpStrategyFamily = telemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
+                winningQuicStrategyFamily = telemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
+                proxyRttBand = telemetry.runtimeFieldTelemetry.proxyRttBand.wireValue,
+                resolverRttBand = telemetry.runtimeFieldTelemetry.resolverRttBand.wireValue,
+                proxyRouteRetryCount = telemetry.runtimeFieldTelemetry.proxyRouteRetryCount,
+                tunnelRecoveryRetryCount = telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+                resolverId = telemetry.tunnelTelemetry.resolverId,
+                resolverProtocol = telemetry.tunnelTelemetry.resolverProtocol,
+                resolverEndpoint = telemetry.tunnelTelemetry.resolverEndpoint,
+                resolverLatencyMs = telemetry.tunnelTelemetry.resolverLatencyMs,
+                dnsFailuresTotal = telemetry.tunnelTelemetry.dnsFailuresTotal,
+                resolverFallbackActive = telemetry.tunnelTelemetry.resolverFallbackActive,
+                resolverFallbackReason = telemetry.tunnelTelemetry.resolverFallbackReason,
+                networkHandoverClass = telemetry.tunnelTelemetry.networkHandoverClass,
+                networkHandoverState = telemetry.networkHandoverState,
+                proxyTelemetryState = telemetry.proxyTelemetryStatus.state.wireValue,
+                proxyTelemetryMessage = telemetry.proxyTelemetryStatus.message,
+                relayTelemetryState = telemetry.relayTelemetryStatus.state.wireValue,
+                relayTelemetryMessage = telemetry.relayTelemetryStatus.message,
+                warpTelemetryState = telemetry.warpTelemetryStatus.state.wireValue,
+                warpTelemetryMessage = telemetry.warpTelemetryStatus.message,
+                tunnelTelemetryState = telemetry.tunnelTelemetryStatus.state.wireValue,
+                tunnelTelemetryMessage = telemetry.tunnelTelemetryStatus.message,
+                lastFailureClass = telemetry.proxyTelemetry.lastFailureClass,
+                lastFallbackAction = telemetry.proxyTelemetry.lastFallbackAction,
+                txPackets = telemetry.tunnelStats.txPackets,
+                txBytes = telemetry.tunnelStats.txBytes,
+                rxPackets = telemetry.tunnelStats.rxPackets,
+                rxBytes = telemetry.tunnelStats.rxBytes,
                 nativeHeapBytes = memory.nativeHeapBytes,
                 processRssBytes = memory.processRssBytes,
+                relayProtocolKind = telemetry.relayTelemetry.protocolKind,
                 createdAt = createdAt,
             )
         }
@@ -513,10 +544,6 @@ private fun runtimeEventDedupeKey(event: NativeSessionEventEntity): String =
         event.fingerprintHash.orEmpty(),
         event.message,
         event.createdAt.toString(),
-        event.attemptId?.toString().orEmpty(),
-        event.attemptSequence?.toString().orEmpty(),
-        event.stage.orEmpty(),
-        event.outcome.orEmpty(),
     ).joinToString(separator = "|")
 
 private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
@@ -547,17 +574,6 @@ private fun NativeRuntimeEvent.toSessionEvent(
         policySignature = policySignature,
         fingerprintHash = fingerprintHash,
         subsystem = subsystem,
-        attemptId = attemptId,
-        attemptSequence = attemptSequence,
-        stage = stage,
-        outcome = outcome,
-        durationMs = durationMs,
-        failureStage = failureStage,
-        failureClass = failureClass,
-        ioErrorKind = ioErrorKind,
-        osErrorCode = osErrorCode,
-        peerClosePhase = peerClosePhase,
-        carrierDisposition = carrierDisposition,
     )
 
 private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {
@@ -598,6 +614,4 @@ private val PersistedRuntimeEventKinds =
         "data_plane_counter_reset",
         "data_plane_final",
         "protect_failure",
-        "runtime_ready",
-        "runtime_stopped",
     )

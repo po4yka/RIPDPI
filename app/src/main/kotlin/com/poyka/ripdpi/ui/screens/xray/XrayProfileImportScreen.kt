@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -35,7 +34,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -159,11 +157,8 @@ private fun XrayProfileInputCard(
             supporting = stringResource(R.string.xray_import_profile_section_body),
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = rawInput,
-                    onValueChange = onRawInputChange,
-                ),
+            value = rawInput,
+            onValueChange = onRawInputChange,
             modifier = Modifier.fillMaxWidth(),
             decoration =
                 RipDpiTextFieldDecoration(
@@ -172,7 +167,7 @@ private fun XrayProfileInputCard(
                     errorText = errorMessage,
                     testTag = "xray_import_input",
                 ),
-            lineLimits = TextFieldLineLimits.MultiLine(),
+            behavior = RipDpiTextFieldBehavior(singleLine = false),
         )
         RipDpiButton(
             text = stringResource(R.string.xray_import_validate_action),

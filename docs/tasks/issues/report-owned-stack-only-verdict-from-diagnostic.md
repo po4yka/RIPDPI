@@ -1,23 +1,22 @@
 ---
 id: DGN-1786264762917717
-title: Surface a typed transparent-mode refusal for owned-stack-only policy
+title: Report OWNED_STACK_ONLY verdict from diagnostic
 kind: feature
-status: todo
+status: doing
 area: diagnostics
 priority: medium
-risk: high
-owner: Diagnostics policy maintainer
+owner: unassigned
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: dgn-1786264762917717-report-owned-stack-only-verdict-from-diagnostic
 created: 2026-04-20
-updated: 2026-08-09
+updated: 2026-06-05
 ---
 
 ## Summary
 
-The `OWNED_STACK_ONLY` verdict, UI action, and persisted policy already exist. Finish the remaining contract: third-party transparent traffic must receive a typed unsupported result instead of an indistinguishable network failure.
+When transparent arms (A3–A8) all fail but an owned-stack arm (A9/A10) works, the diagnostic returns `OWNED_STACK_ONLY`. Surface that as a real verdict, not a failure — "open this host inside the RIPDPI browser" is a legitimate outcome.
 
 ## Plan reference
 

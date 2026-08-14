@@ -5,14 +5,13 @@ kind: feature
 status: blocked
 area: diagnostics
 priority: medium
-risk: high
-owner: Android 17 device evidence maintainer
+owner: unassigned
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: dgn-1786264762917626-add-network-security-config-with-opportunistic-domainencryption
 created: 2026-04-20
-updated: 2026-08-09
+updated: 2026-07-26
 status_detail: externally-gated — Android 17 physical-device ECH attempt verification remains unavailable
 ---
 

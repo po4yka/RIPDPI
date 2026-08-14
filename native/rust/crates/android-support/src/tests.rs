@@ -129,17 +129,6 @@ fn event_ring_layer_routes_and_drains_correlation_fields() {
             fingerprint_hash: Some("fingerprint-abc".to_string()),
             diagnostics_session_id: Some("diag-42".to_string()),
             subsystem: Some("diagnostics".to_string()),
-            attempt_id: None,
-            attempt_sequence: None,
-            stage: None,
-            outcome: None,
-            duration_ms: None,
-            failure_stage: None,
-            failure_class: None,
-            io_error_kind: None,
-            os_error_code: None,
-            peer_close_phase: None,
-            carrier_disposition: None,
         },
     );
 }

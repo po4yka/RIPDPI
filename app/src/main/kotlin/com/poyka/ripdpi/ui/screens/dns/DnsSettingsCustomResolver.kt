@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.dns
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,29 +19,16 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.net.URI
 
-private val NextAsciiKeyboardOptions =
-    KeyboardOptions(
-        keyboardType = KeyboardType.Ascii,
-        imeAction = ImeAction.Next,
-    )
-private val NextNumberKeyboardOptions =
-    KeyboardOptions(
-        keyboardType = KeyboardType.Number,
-        imeAction = ImeAction.Next,
-    )
-
 @Composable
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun CustomEncryptedDnsSection(
     uiState: SettingsUiState,
-    replacementKey: DnsSettingsReplacementKey,
     dohUrl: String,
     onDohUrlChange: (String) -> Unit,
     dotHost: String,
@@ -84,9 +72,6 @@ internal fun CustomEncryptedDnsSection(
                 color = colors.mutedForeground,
             )
             CommonEndpointFields(
-                hostReplacementKey = replacementKey.dotHost,
-                portReplacementKey = replacementKey.port,
-                bootstrapReplacementKey = replacementKey.bootstrap,
                 host = dotHost,
                 onHostChange = onDotHostChange,
                 portInput = portInput,
@@ -103,12 +88,8 @@ internal fun CustomEncryptedDnsSection(
                     },
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = tlsServerNameInput,
-                        onValueChange = onTlsServerNameChange,
-                        replacementKey = replacementKey.tlsServerName,
-                    ),
+                value = tlsServerNameInput,
+                onValueChange = onTlsServerNameChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         testTag = RipDpiTestTags.DnsCustomTlsServerName,
@@ -123,12 +104,15 @@ internal fun CustomEncryptedDnsSection(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDotValid && customDotDirty) {
+                                        onSaveCustomDot()
+                                    }
+                                },
+                            ),
                     ),
-                onKeyboardAction = {
-                    if (customDotValid && customDotDirty) {
-                        onSaveCustomDot()
-                    }
-                },
             )
             RipDpiButton(
                 text = stringResource(R.string.config_save),
@@ -160,9 +144,6 @@ internal fun CustomEncryptedDnsSection(
                 color = colors.mutedForeground,
             )
             CommonEndpointFields(
-                hostReplacementKey = replacementKey.dnsCryptHost,
-                portReplacementKey = replacementKey.port,
-                bootstrapReplacementKey = replacementKey.bootstrap,
                 host = dnscryptHost,
                 onHostChange = onDnscryptHostChange,
                 portInput = portInput,
@@ -179,12 +160,8 @@ internal fun CustomEncryptedDnsSection(
                     },
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = dnscryptProviderInput,
-                        onValueChange = onDnscryptProviderChange,
-                        replacementKey = replacementKey.dnsCryptProvider,
-                    ),
+                value = dnscryptProviderInput,
+                onValueChange = onDnscryptProviderChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         testTag = RipDpiTestTags.DnsCustomDnsCryptProvider,
@@ -202,12 +179,8 @@ internal fun CustomEncryptedDnsSection(
                     ),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = dnscryptPublicKeyInput,
-                        onValueChange = onDnscryptPublicKeyChange,
-                        replacementKey = replacementKey.dnsCryptPublicKey,
-                    ),
+                value = dnscryptPublicKeyInput,
+                onValueChange = onDnscryptPublicKeyChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         testTag = RipDpiTestTags.DnsCustomDnsCryptPublicKey,
@@ -228,12 +201,15 @@ internal fun CustomEncryptedDnsSection(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDnsCryptValid && customDnsCryptDirty) {
+                                        onSaveCustomDnsCrypt()
+                                    }
+                                },
+                            ),
                     ),
-                onKeyboardAction = {
-                    if (customDnsCryptValid && customDnsCryptDirty) {
-                        onSaveCustomDnsCrypt()
-                    }
-                },
             )
             RipDpiButton(
                 text = stringResource(R.string.config_save),
@@ -265,12 +241,8 @@ internal fun CustomEncryptedDnsSection(
                 color = colors.mutedForeground,
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = dohUrl,
-                        onValueChange = onDohUrlChange,
-                        replacementKey = replacementKey.dohUrl,
-                    ),
+                value = dohUrl,
+                onValueChange = onDohUrlChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         testTag = RipDpiTestTags.DnsCustomDohUrl,
@@ -294,12 +266,8 @@ internal fun CustomEncryptedDnsSection(
                     ),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = bootstrapInput,
-                        onValueChange = onBootstrapInputChange,
-                        replacementKey = replacementKey.bootstrap,
-                    ),
+                value = bootstrapInput,
+                onValueChange = onBootstrapInputChange,
                 decoration =
                     RipDpiTextFieldDecoration(
                         testTag = RipDpiTestTags.DnsCustomBootstrap,
@@ -320,12 +288,15 @@ internal fun CustomEncryptedDnsSection(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDohValid && customDohDirty) {
+                                        onSaveCustomDoh()
+                                    }
+                                },
+                            ),
                     ),
-                onKeyboardAction = {
-                    if (customDohValid && customDohDirty) {
-                        onSaveCustomDoh()
-                    }
-                },
             )
             RipDpiButton(
                 text = stringResource(R.string.config_save),
@@ -349,9 +320,6 @@ internal fun CustomEncryptedDnsSection(
 
 @Composable
 internal fun CommonEndpointFields(
-    hostReplacementKey: Any,
-    portReplacementKey: Any,
-    bootstrapReplacementKey: Any,
     host: String,
     onHostChange: (String) -> Unit,
     portInput: String,
@@ -369,12 +337,8 @@ internal fun CommonEndpointFields(
         verticalAlignment = androidx.compose.ui.Alignment.Top,
     ) {
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = host,
-                    onValueChange = onHostChange,
-                    replacementKey = hostReplacementKey,
-                ),
+            value = host,
+            onValueChange = onHostChange,
             modifier = Modifier.weight(1f),
             decoration =
                 RipDpiTextFieldDecoration(
@@ -385,16 +349,16 @@ internal fun CommonEndpointFields(
                 ),
             behavior =
                 RipDpiTextFieldBehavior(
-                    keyboardOptions = NextAsciiKeyboardOptions,
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Ascii,
+                            imeAction = ImeAction.Next,
+                        ),
                 ),
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = portInput,
-                    onValueChange = onPortInputChange,
-                    replacementKey = portReplacementKey,
-                ),
+            value = portInput,
+            onValueChange = onPortInputChange,
             modifier = Modifier.weight(dnsPortWeightFraction),
             decoration =
                 RipDpiTextFieldDecoration(
@@ -405,17 +369,17 @@ internal fun CommonEndpointFields(
                 ),
             behavior =
                 RipDpiTextFieldBehavior(
-                    keyboardOptions = NextNumberKeyboardOptions,
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next,
+                        ),
                 ),
         )
     }
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = bootstrapInput,
-                onValueChange = onBootstrapInputChange,
-                replacementKey = bootstrapReplacementKey,
-            ),
+        value = bootstrapInput,
+        onValueChange = onBootstrapInputChange,
         decoration =
             RipDpiTextFieldDecoration(
                 testTag = RipDpiTestTags.DnsCustomBootstrap,
@@ -426,7 +390,11 @@ internal fun CommonEndpointFields(
             ),
         behavior =
             RipDpiTextFieldBehavior(
-                keyboardOptions = NextAsciiKeyboardOptions,
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Next,
+                    ),
             ),
     )
 }

@@ -5,14 +5,13 @@ kind: chore
 status: blocked
 area: testing
 priority: medium
-risk: standard
-owner: Hysteria2 conformance maintainer
-parent: null
+owner: unassigned
+parent: EPC-1786264762917455
 blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-05-15
-updated: 2026-08-09
+updated: 2026-07-26
 spec_reason: test-only
 status_detail: externally-gated — harness shipped; the 8 conformance goldens need real apernet/hysteria byte vectors at a pinned tag, which are not available locally and cannot be fabricated
 ---

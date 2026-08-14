@@ -111,8 +111,7 @@ private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
         DirectModeVerdictResult.NO_DIRECT_SOLUTION -> {
             when (verdict.reasonCode) {
                 DirectModeReasonCode.IP_BLOCKED -> {
-                    "No direct solution: observed authority reachability failures; IP-level filtering is a " +
-                        "candidate explanation, but it is not established"
+                    "No direct solution: likely IP block for this authority"
                 }
 
                 DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE -> {
@@ -120,8 +119,7 @@ private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
                 }
 
                 DirectModeReasonCode.QUIC_BLOCKED -> {
-                    "No direct solution: observed QUIC failure without TCP recovery; " +
-                        "a blocking cause is not established"
+                    "No direct solution: QUIC blocked without TCP recovery"
                 }
 
                 DirectModeReasonCode.NO_TCP_FALLBACK -> {

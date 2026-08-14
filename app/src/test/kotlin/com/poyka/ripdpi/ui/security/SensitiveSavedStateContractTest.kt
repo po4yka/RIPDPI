@@ -16,12 +16,10 @@ class SensitiveSavedStateContractTest {
         assertTrue(modeEditor.contains("SecureWindowEffect()"))
 
         val dialogs = source("ui/screens/config/ModeEditorRouteDialogs.kt").readText()
-        val textFieldState = source("ui/components/inputs/RipDpiTextFieldState.kt").readText()
-        assertTrue(dialogs.contains("rememberRipDpiSecureTextFieldState("))
-        assertFalse(textFieldState.contains("rememberSaveable"))
-        assertFalse(textFieldState.contains("rememberTextFieldState"))
+        assertTrue(dialogs.contains("pkcs12Password by remember {"))
+        assertFalse(dialogs.contains("pkcs12Password by rememberSaveable"))
         assertTrue(dialogs.contains("KeyboardType.Password"))
-        assertTrue(dialogs.contains("RipDpiSecureTextField("))
+        assertTrue(dialogs.contains("PasswordVisualTransformation()"))
 
         val viewModel = source("activities/ConfigViewModel.kt").readText()
         val recoveryStore = source("activities/ConfigEditorDraftStore.kt").readText()

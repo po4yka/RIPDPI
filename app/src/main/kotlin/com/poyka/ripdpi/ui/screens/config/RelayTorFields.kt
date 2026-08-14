@@ -8,7 +8,6 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 /**
  * Tor (Arti) relay opt-in fields for the Mode Editor.
@@ -24,11 +23,8 @@ internal fun TorRelayFields(
     actions: RelayMiscKindActions,
 ) {
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayPtBridgeLine,
-                onValueChange = actions.onRelayPtBridgeLineChanged,
-            ),
+        value = draft.relayPtBridgeLine,
+        onValueChange = actions.onRelayPtBridgeLineChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_tor_bridge_line_label),

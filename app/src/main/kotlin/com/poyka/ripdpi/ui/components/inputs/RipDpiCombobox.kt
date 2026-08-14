@@ -11,7 +11,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,25 +38,20 @@ fun RipDpiCombobox(
     label: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var suggestionSelectionRevision by remember { mutableLongStateOf(0L) }
     val matches =
         remember(value, suggestions) {
             if (value.isBlank()) suggestions else suggestions.filter { it.contains(value, ignoreCase = true) }
         }
     Box(modifier = modifier.fillMaxWidth()) {
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = value,
-                    onValueChange = {
-                        onValueChange(it)
-                        expanded = it.isNotEmpty()
-                    },
-                    replacementKey = suggestionSelectionRevision,
-                ),
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = it.isNotEmpty()
+            },
             modifier = Modifier.fillMaxWidth(),
             decoration = RipDpiTextFieldDecoration(label = label),
-            behavior = RipDpiTextFieldBehavior(),
+            behavior = RipDpiTextFieldBehavior(singleLine = true),
         )
         DropdownMenu(
             expanded = expanded && matches.isNotEmpty(),
@@ -72,7 +66,6 @@ fun RipDpiCombobox(
                     text = { Text(suggestion, style = RipDpiThemeTokens.type.body) },
                     onClick = {
                         onValueChange(suggestion)
-                        suggestionSelectionRevision++
                         expanded = false
                     },
                 )

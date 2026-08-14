@@ -14,7 +14,6 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 internal fun DiagnosticsSection.label(): String =
     when (this) {
         DiagnosticsSection.Dashboard -> stringResource(R.string.diagnostics_dashboard_section)
-        DiagnosticsSection.Live -> stringResource(R.string.diagnostics_live_section)
         DiagnosticsSection.Scan -> stringResource(R.string.diagnostics_scan_section)
         DiagnosticsSection.Tools -> stringResource(R.string.diagnostics_tools_section)
     }

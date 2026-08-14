@@ -95,18 +95,6 @@ pub enum ripdpi_diagnostics_contracts::types::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::LabDiagnosticsOnly
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::NonRootProduction
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::RootedProduction
-pub enum ripdpi_diagnostics_contracts::types::StrategyProbeAttemptRound
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptRound::Baseline
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptRound::FullMatrix
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptRound::NotStarted
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptRound::Qualifier
-pub enum ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus::Eliminated
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus::Executed
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus::NotApplicable
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus::Planned
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus::Skipped
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptStatus::TimedOut
 pub enum ripdpi_diagnostics_contracts::types::StrategyProbeAuditConfidenceLevel
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditConfidenceLevel::High
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditConfidenceLevel::Low
@@ -452,7 +440,6 @@ pub ripdpi_diagnostics_contracts::types::ServiceTarget::tcp_endpoint_ip: core::o
 pub ripdpi_diagnostics_contracts::types::ServiceTarget::tcp_endpoint_port: u16
 pub ripdpi_diagnostics_contracts::types::ServiceTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::types::SharedState
-pub ripdpi_diagnostics_contracts::types::SharedState::checkpoint_report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::types::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::types::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::types::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
@@ -498,25 +485,6 @@ pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::tls_ech_status
 pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::tls_ech_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::tls_error: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::transport_failure: ripdpi_diagnostics_contracts::TransportFailureKind
-pub struct ripdpi_diagnostics_contracts::types::StrategyProbeAttempt
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::attempt_version: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::candidate_family: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::candidate_id: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::candidate_index: usize
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::candidate_label: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::duration_ms: core::option::Option<u64>
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::is_control: bool
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::lane: ripdpi_diagnostics_contracts::StrategyProbeProgressLane
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::outcome: core::option::Option<alloc::string::String>
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::protocol: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::reason: core::option::Option<alloc::string::String>
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::retry_count: usize
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::round: ripdpi_diagnostics_contracts::StrategyProbeAttemptRound
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::sequence: usize
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::started_at_ms: core::option::Option<u64>
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::status: ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::target: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeAttempt::target_index: usize
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeAuditAssessment
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditAssessment::confidence: ripdpi_diagnostics_contracts::StrategyProbeAuditConfidence
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditAssessment::coverage: ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage
@@ -585,7 +553,6 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candid
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeReport
-pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::attempts: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeAttempt>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::connection_concurrency_assessment: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment>
@@ -683,7 +650,6 @@ pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::selected_
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::TransportPivotViability
 pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::EXECUTION_PLAN_VERSION: &str
-pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_ATTEMPT_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub mod ripdpi_diagnostics_contracts::util
 pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
@@ -942,18 +908,6 @@ pub enum ripdpi_diagnostics_contracts::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::LabDiagnosticsOnly
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::NonRootProduction
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::RootedProduction
-pub enum ripdpi_diagnostics_contracts::StrategyProbeAttemptRound
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptRound::Baseline
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptRound::FullMatrix
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptRound::NotStarted
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptRound::Qualifier
-pub enum ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus::Eliminated
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus::Executed
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus::NotApplicable
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus::Planned
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus::Skipped
-pub ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus::TimedOut
 pub enum ripdpi_diagnostics_contracts::StrategyProbeAuditConfidenceLevel
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditConfidenceLevel::High
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditConfidenceLevel::Low
@@ -1390,7 +1344,6 @@ pub ripdpi_diagnostics_contracts::ServiceTarget::tcp_endpoint_ip: core::option::
 pub ripdpi_diagnostics_contracts::ServiceTarget::tcp_endpoint_port: u16
 pub ripdpi_diagnostics_contracts::ServiceTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::SharedState
-pub ripdpi_diagnostics_contracts::SharedState::checkpoint_report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
@@ -1436,25 +1389,6 @@ pub ripdpi_diagnostics_contracts::StrategyObservationFact::tls_ech_status: ripdp
 pub ripdpi_diagnostics_contracts::StrategyObservationFact::tls_ech_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyObservationFact::tls_error: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyObservationFact::transport_failure: ripdpi_diagnostics_contracts::TransportFailureKind
-pub struct ripdpi_diagnostics_contracts::StrategyProbeAttempt
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::attempt_version: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::candidate_family: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::candidate_id: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::candidate_index: usize
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::candidate_label: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::duration_ms: core::option::Option<u64>
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::is_control: bool
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::lane: ripdpi_diagnostics_contracts::StrategyProbeProgressLane
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::outcome: core::option::Option<alloc::string::String>
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::protocol: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::reason: core::option::Option<alloc::string::String>
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::retry_count: usize
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::round: ripdpi_diagnostics_contracts::StrategyProbeAttemptRound
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::sequence: usize
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::started_at_ms: core::option::Option<u64>
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::status: ripdpi_diagnostics_contracts::StrategyProbeAttemptStatus
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::target: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeAttempt::target_index: usize
 pub struct ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment::confidence: ripdpi_diagnostics_contracts::StrategyProbeAuditConfidence
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment::coverage: ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage
@@ -1523,7 +1457,6 @@ pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_id:
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::StrategyProbeReport
-pub ripdpi_diagnostics_contracts::StrategyProbeReport::attempts: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeAttempt>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::connection_concurrency_assessment: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment>
@@ -1622,7 +1555,6 @@ pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::viability: ripdp
 pub const ripdpi_diagnostics_contracts::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32
 pub const ripdpi_diagnostics_contracts::EXECUTION_PLAN_VERSION: &str
-pub const ripdpi_diagnostics_contracts::STRATEGY_PROBE_ATTEMPT_VERSION: &str
 pub const ripdpi_diagnostics_contracts::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub type ripdpi_diagnostics_contracts::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation
 pub type ripdpi_diagnostics_contracts::EngineProbeTaskFamily = ripdpi_diagnostics_contracts::ProbeTaskFamily

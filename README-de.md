@@ -174,7 +174,7 @@ Details: [docs/testing.md](docs/testing.md)
 - [Strategie-Pack- und TLS-Katalog-Operationen](docs/strategy-pack-operations.md)
 - [Beispiele für Relay-Profile](docs/relay-profile-examples.md)
 - [Architektur-Notizen](docs/architecture/README.md)
-- [Task board](docs/tasks/board.md)
+- [Roadmap](ROADMAP.md)
 
 ## RIPDPI übersetzen
 

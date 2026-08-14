@@ -25,7 +25,7 @@ mod tests {
         ScanRequest, SharedState,
     };
 
-    use plan::{build_execution_plan, connectivity_stage_order, strategy_stage_order};
+    use plan::{connectivity_stage_order, strategy_stage_order};
     use report::{connectivity_analytics_summary, connectivity_summary};
     use runtime::{ExecutionStageId, cancelled_run_summary};
 
@@ -259,71 +259,6 @@ mod tests {
     }
 
     #[test]
-    fn strategy_plan_snapshot_uses_request_targets_when_selection_is_absent() {
-        let mut request = scan_request(
-            ScanKind::StrategyProbe,
-            Vec::new(),
-            Some(crate::types::StrategyProbeRequest {
-                suite_id: "quick_v1".to_string(),
-                base_proxy_config_json: Some(
-                    serde_json::to_string(&ripdpi_monitor_adapter::proxy_config::ProxyConfigPayload::Ui {
-                        strategy_preset: None,
-                        config: ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
-                        runtime_context: None,
-                        log_context: None,
-                        session_overrides: None,
-                        schema_version: 2,
-                    })
-                    .expect("serialize strategy probe config"),
-                ),
-                target_selection: None,
-                max_candidates: None,
-            }),
-        );
-        request.domain_targets = vec![
-            crate::types::DomainTarget {
-                host: "alpha.example".to_string(),
-                connect_ip: None,
-                connect_ips: Vec::new(),
-                https_port: Some(443),
-                http_port: Some(80),
-                http_path: "/".to_string(),
-                is_control: false,
-                concurrency_probe: None,
-            },
-            crate::types::DomainTarget {
-                host: "beta.example".to_string(),
-                connect_ip: None,
-                connect_ips: Vec::new(),
-                https_port: Some(443),
-                http_port: Some(80),
-                http_path: "/".to_string(),
-                is_control: false,
-                concurrency_probe: None,
-            },
-        ];
-        request.quic_targets = vec![crate::types::QuicTarget {
-            host: "quic.example".to_string(),
-            connect_ip: None,
-            connect_ips: Vec::new(),
-            port: 443,
-        }];
-
-        let snapshot =
-            build_execution_plan("session-plan".to_string(), request, 0, crate::transport::direct_transport())
-                .expect("strategy execution plan")
-                .snapshot();
-
-        assert_eq!(
-            (
-                snapshot.target_counts.strategy_selected_domain_count,
-                snapshot.target_counts.strategy_selected_quic_count,
-            ),
-            (2, 1),
-        );
-    }
-
-    #[test]
     fn run_engine_scan_records_planning_errors_in_report_and_progress() {
         let shared = Arc::new(Mutex::new(SharedState::default()));
         let cancel = Arc::new(AtomicBool::new(false));
@@ -343,8 +278,6 @@ mod tests {
             cancel,
             "session-1".to_string(),
             request,
-            std::time::Instant::now() + std::time::Duration::from_secs(360),
-            Arc::new(Mutex::new(None)),
             None,
             Arc::new(crate::execution::UnavailableCandidateRuntimeLauncher),
         );

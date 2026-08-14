@@ -154,22 +154,6 @@ internal object RipDpiProxyJsonCodec {
         return patchObject(original, updates).toString()
     }
 
-    fun rewriteUdpAssociateEnabled(
-        configJson: String,
-        enabled: Boolean,
-    ): String {
-        require(decode(configJson) is NativeProxyConfig.Ui) {
-            "UDP ASSOCIATE override requires proxy UI preferences"
-        }
-        val original = json.parseToJsonElement(configJson).jsonObject
-        val protocols =
-            patchObject(
-                original["protocols"]?.jsonObject ?: JsonObject(emptyMap()),
-                mapOf("udpAssociateEnabled" to JsonPrimitive(enabled)),
-            )
-        return patchObject(original, mapOf("protocols" to protocols)).toString()
-    }
-
     fun rewriteJson(
         configJson: String,
         hostAutolearnStorePath: String?,

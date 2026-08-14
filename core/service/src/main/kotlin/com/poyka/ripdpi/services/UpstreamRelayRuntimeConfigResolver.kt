@@ -31,7 +31,6 @@ import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindTor
-import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
@@ -49,11 +48,6 @@ internal interface UpstreamRelayRuntimeConfigResolver {
         config: RipDpiRelayConfig,
         quicMigrationConfig: OwnedRelayQuicMigrationConfig,
     ): ResolvedRipDpiRelayConfig
-
-    suspend fun resolveTransient(
-        profile: RelayProfileRecord,
-        credentials: RelayCredentialRecord,
-    ): ResolvedRipDpiRelayConfig = error("Transient relay resolution is not configured")
 }
 
 internal data class RelayResolverRequest(
@@ -172,46 +166,18 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
             val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
             val persisted = relayRuntimeProfileReader.read(profileId)
             val storedProfile = persisted.profile
-            val credentials = persisted.credentials
-            return resolveRecords(
-                profileId = profileId,
-                config = config,
-                profile = storedProfile,
-                credentials = credentials,
-                quicMigrationConfig = quicMigrationConfig,
-            )
-        }
-
-        override suspend fun resolveTransient(
-            profile: RelayProfileRecord,
-            credentials: RelayCredentialRecord,
-        ): ResolvedRipDpiRelayConfig =
-            resolveRecords(
-                profileId = profile.id,
-                config = RipDpiRelayConfig(enabled = true, kind = profile.kind, profileId = profile.id),
-                profile = profile,
-                credentials = credentials,
-                quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
-            )
-
-        private suspend fun resolveRecords(
-            profileId: String,
-            config: RipDpiRelayConfig,
-            profile: RelayProfileRecord?,
-            credentials: RelayCredentialRecord?,
-            quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-        ): ResolvedRipDpiRelayConfig {
             val requestedTlsProfile =
-                profile
+                storedProfile
                     ?.vlessFingerprint
                     ?.takeIf { it.isNotBlank() }
                     ?.let(::normalizeImportedTlsFingerprint)
                     ?: normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
+            val credentials = persisted.credentials
             val resolution =
                 relayKindResolverRegistry.resolve(
                     RelayResolverRequest(
                         profileId = profileId,
-                        mergedConfig = mergeRelayConfig(config, profile),
+                        mergedConfig = mergeRelayConfig(config, storedProfile),
                         credentials = credentials,
                         requestedTlsProfile = requestedTlsProfile,
                         featureFlags = runtimeExperimentSelectionProvider.current().featureFlags,

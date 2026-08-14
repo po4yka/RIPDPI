@@ -4,13 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -22,16 +23,11 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
-import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldReplacementScope
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiSecureTextFieldState
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -88,24 +84,22 @@ internal fun AmneziaWgProfileScreen(
     onConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    RipDpiTextFieldReplacementScope(replacementKey = uiState.editorReplacementRevision) {
-        RipDpiContentScreenScaffold(
-            title = stringResource(R.string.awg_editor_title),
-            navigationIcon = RipDpiIcons.Back,
-            onNavigationClick = onBack,
-            navigationContentDescription = stringResource(R.string.navigation_back),
-            modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile)),
-        ) {
-            InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
-            PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
-            CarrierSection(uiState, onFieldChanged, onCarrierSelected)
-            ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onPasteConf)
-            ConnectSection(
-                canActivate = uiState.canActivate,
-                activationStatus = uiState.activationStatus,
-                onConnect = onConnect,
-            )
-        }
+    RipDpiContentScreenScaffold(
+        title = stringResource(R.string.awg_editor_title),
+        navigationIcon = RipDpiIcons.Back,
+        onNavigationClick = onBack,
+        navigationContentDescription = stringResource(R.string.navigation_back),
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile)),
+    ) {
+        InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
+        PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
+        CarrierSection(uiState, onFieldChanged, onCarrierSelected)
+        ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onPasteConf)
+        ConnectSection(
+            canActivate = uiState.canActivate,
+            activationStatus = uiState.activationStatus,
+            onConnect = onConnect,
+        )
     }
 }
 
@@ -360,11 +354,8 @@ private fun PlainField(
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = editor.rawText(field),
-                onValueChange = { onFieldChanged(field, it) },
-            ),
+        value = editor.rawText(field),
+        onValueChange = { onFieldChanged(field, it) },
         modifier = Modifier.fillMaxWidth(),
         decoration =
             RipDpiTextFieldDecoration(
@@ -389,13 +380,9 @@ private fun SecretField(
     onValueChange: (String) -> Unit,
     onReveal: () -> Unit,
 ) {
-    RipDpiSecureTextField(
-        state =
-            rememberRipDpiSecureTextFieldState(
-                value = value,
-                onValueChange = onValueChange,
-            ),
-        autofillPolicy = RipDpiAutofillPolicy.Disabled,
+    RipDpiTextField(
+        value = value,
+        onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         decoration =
             RipDpiTextFieldDecoration(
@@ -403,8 +390,11 @@ private fun SecretField(
                 placeholder = if (revealed) null else stringResource(R.string.awg_secret_hidden),
                 testTag = RipDpiTestTags.awgField(field.name),
             ),
-        textObfuscationMode =
-            if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
+        behavior =
+            RipDpiTextFieldBehavior(
+                visualTransformation =
+                    if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
+            ),
         trailingContent = {
             RipDpiButton(
                 text = stringResource(R.string.awg_reveal_secret_action),

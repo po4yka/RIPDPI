@@ -235,10 +235,6 @@ enum class DiagnosticsHomeCompositeStageStatus {
     UNAVAILABLE,
 }
 
-enum class DiagnosticsHomeCompositeStageEvidenceSource {
-    DETECTION_RUNNER,
-}
-
 data class DiagnosticsHomeCompositeStageSummary(
     val stageKey: String,
     val stageLabel: String,
@@ -251,13 +247,6 @@ data class DiagnosticsHomeCompositeStageSummary(
     val recommendationContributor: Boolean = false,
     /** Wall-clock duration of the underlying scan session in milliseconds, or null if not yet completed. */
     val wallClockMs: Long? = null,
-    /** App-process CPU consumed during the stage wall-clock window. Concurrent stages can overlap this value. */
-    val cpuMs: Long? = null,
-    /** Evidence produced outside a persisted scan session, when applicable to this stage. */
-    val evidenceSource: DiagnosticsHomeCompositeStageEvidenceSource? = null,
-    val detectionVerdict: DiagnosticsHomeDetectionVerdict? = null,
-    val detectedSignalCount: Int? = null,
-    val detectionFindings: List<String> = emptyList(),
 )
 
 enum class DiagnosticsHomeDetectionVerdict {

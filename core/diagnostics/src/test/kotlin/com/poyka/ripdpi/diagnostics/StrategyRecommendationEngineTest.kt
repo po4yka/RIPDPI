@@ -42,48 +42,6 @@ class StrategyRecommendationEngineTest {
     }
 
     @Test
-    fun `strategy rationale qualifies mechanism as an observed candidate pattern`() {
-        val report =
-            strategyReport(
-                listOf(
-                    ProbeResult("tcp_fat_header", "203.0.113.10:443", "tcp_reset"),
-                    ProbeResult("tcp_fat_header", "203.0.113.11:443", "tcp_reset"),
-                    ProbeResult("domain_reachability", "failed.example", "unreachable"),
-                ),
-            )
-
-        val recommendation = StrategyRecommendationEngine.compute(report, currentTcpFamily = "split")
-        val rationale = recommendation?.rationale.orEmpty()
-
-        assertNotNull(recommendation)
-        assertEquals("rst_injection", recommendation?.blockingPattern)
-        assert(rationale.contains("observed", ignoreCase = true))
-        assert(rationale.contains("candidate", ignoreCase = true))
-        assert(rationale.contains("not established", ignoreCase = true))
-        assert(!rationale.contains("Detected TCP RST injection", ignoreCase = true))
-    }
-
-    @Test
-    fun `strategy evidence labels name observations instead of inferred mechanisms`() {
-        val report =
-            strategyReport(
-                listOf(
-                    ProbeResult("tcp_fat_header", "203.0.113.10:443", "tcp_reset"),
-                    ProbeResult("tcp_fat_header", "203.0.113.11:443", "tcp_reset"),
-                    ProbeResult("domain_reachability", "failed.example", "unreachable"),
-                ),
-            )
-
-        val recommendation = StrategyRecommendationEngine.compute(report, currentTcpFamily = "split")
-        val evidence = recommendation?.evidence.orEmpty().joinToString(" ")
-
-        assertNotNull(recommendation)
-        assert(evidence.contains("observation", ignoreCase = true))
-        assert(!evidence.contains("TCP RST injection", ignoreCase = true))
-        assert(!evidence.contains("Service blocked", ignoreCase = true))
-    }
-
-    @Test
     fun `confirm good verdict recommends transport pivot instead of fingerprint tuning`() {
         val report =
             strategyReport(emptyList()).copy(

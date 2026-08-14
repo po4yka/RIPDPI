@@ -2,16 +2,16 @@
 
 ## Objective
 
-Replace daemonize 0.5.0 before the waiver deadline while keeping it absent from Android graphs.
+Replace unmaintained daemonize CLI dependency
 
 ## Ownership
 
-- serialized native dependency graph, CLI process mode, lockfile, and advisory waiver
+Ownership is declared in the portfolio task and the implementation worktree before execution.
 
 ## Execution
 
-- [ ] RST-1786264762919066 Replace daemonize 0.5.0, preserve CLI process-mode behavior, and remove the waiver #chore @item:RST-1786264762917942
+- [ ] RST-1786264762919066 Implement Replace unmaintained daemonize CLI dependency and verify its portfolio acceptance criteria #feature !low @item:RST-1786264762917942
 
 ## Verification
 
-- Android reverse-dependency assertion, CLI tests, cargo-deny advisories, and waiver validator
+Use the exact gates and evidence required by the portfolio task and `verification.md` when present.

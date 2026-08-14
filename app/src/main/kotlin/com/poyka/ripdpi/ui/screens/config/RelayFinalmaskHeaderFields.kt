@@ -8,7 +8,6 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayFinalmask
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun RelayFinalmaskHeaderFields(
@@ -17,11 +16,8 @@ internal fun RelayFinalmaskHeaderFields(
     actions: RelayFinalmaskActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskHeaderHex,
-                onValueChange = actions.onRelayFinalmaskHeaderHexChanged,
-            ),
+        value = draft.relayFinalmaskHeaderHex,
+        onValueChange = actions.onRelayFinalmaskHeaderHexChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_finalmask_header_hex_label),
@@ -29,19 +25,13 @@ internal fun RelayFinalmaskHeaderFields(
             ),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskTrailerHex,
-                onValueChange = actions.onRelayFinalmaskTrailerHexChanged,
-            ),
+        value = draft.relayFinalmaskTrailerHex,
+        onValueChange = actions.onRelayFinalmaskTrailerHexChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.relay_finalmask_trailer_hex_label)),
     )
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskRandRange,
-                onValueChange = actions.onRelayFinalmaskRandRangeChanged,
-            ),
+        value = draft.relayFinalmaskRandRange,
+        onValueChange = actions.onRelayFinalmaskRandRangeChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.relay_finalmask_random_range_label)),
     )
 }
@@ -53,11 +43,8 @@ internal fun RelayFinalmaskSudokuFields(
     actions: RelayFinalmaskActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskSudokuSeed,
-                onValueChange = actions.onRelayFinalmaskSudokuSeedChanged,
-            ),
+        value = draft.relayFinalmaskSudokuSeed,
+        onValueChange = actions.onRelayFinalmaskSudokuSeedChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_finalmask_sudoku_seed_label),
@@ -73,11 +60,8 @@ internal fun RelayFinalmaskNoiseFields(
     actions: RelayFinalmaskActions,
 ) {
     RipDpiTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayFinalmaskRandRange,
-                onValueChange = actions.onRelayFinalmaskRandRangeChanged,
-            ),
+        value = draft.relayFinalmaskRandRange,
+        onValueChange = actions.onRelayFinalmaskRandRangeChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_finalmask_noise_range_label),

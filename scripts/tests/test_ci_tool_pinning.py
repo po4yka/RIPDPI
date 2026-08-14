@@ -9,37 +9,6 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
-    def test_zizmor_gate_is_strict_and_reproducibly_pinned(self) -> None:
-        script = (ROOT / "scripts/ci/run-zizmor.sh").read_text(encoding="utf-8")
-        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        justfile = (ROOT / "justfile").read_text(encoding="utf-8")
-
-        self.assertIn('readonly zizmor_version="1.29.0"', script)
-        self.assertIn(
-            "uses: astral-sh/setup-uv@"
-            "c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0",
-            ci,
-        )
-        self.assertIn('version: "0.8.17"', ci)
-        self.assertIn('uvx --from "zizmor==$zizmor_version"', script)
-        for flag in (
-            "--no-config",
-            "--strict-collection",
-            "--persona regular",
-            "--no-ignores",
-        ):
-            self.assertIn(flag, script)
-        self.assertIn("run: bash scripts/ci/run-zizmor.sh", ci)
-        self.assertNotIn("--offline", script)
-        self.assertIn("GH_TOKEN: ${{ github.token }}", ci)
-        workflow_gate = re.search(
-            r"(?ms)^  workflow-only-contracts:\n.*?(?=^  [\w-]+:\n|\Z)", ci
-        )
-        self.assertIsNotNone(workflow_gate)
-        assert workflow_gate is not None
-        self.assertNotIn("continue-on-error", workflow_gate.group(0))
-        self.assertIn("zizmor:\n    bash scripts/ci/run-zizmor.sh", justfile)
-
     def test_compose_reports_require_explicit_gradle_opt_in(self) -> None:
         source = (
             ROOT
@@ -89,12 +58,7 @@ class CiToolPinningTest(unittest.TestCase):
 
         self.assertIn("ripdpi.nativeCmakeVersion=3.31.6", properties)
         self.assertIn("steps.native-toolchain.outputs.cmake", action)
-        self.assertIn(
-            "STEPS_NATIVE_TOOLCHAIN_OUTPUTS_CMAKE: "
-            "${{ steps.native-toolchain.outputs.cmake }}",
-            action,
-        )
-        self.assertIn('"cmake/${STEPS_NATIVE_TOOLCHAIN_OUTPUTS_CMAKE}"', action)
+        self.assertIn('"cmake/${{ steps.native-toolchain.outputs.cmake }}"', action)
         self.assertIn("-cmake-${{ steps.native-toolchain.outputs.cmake }}-", action)
         self.assertNotIn(
             "steps.cache-android-sdk.outputs.cache-hit != 'true'",
@@ -181,7 +145,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "uses: taiki-e/install-action@91ddec75689c4c78665b598d188dc821c5a43e5c",
+            "uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf",
             source,
         )
         self.assertIn("tool: cargo-fuzz@0.13.1", source)
@@ -195,11 +159,6 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn('android_cli_sha256="e5b6930e', source)
         self.assertIn("linux_x86_64/android-cli", source)
         self.assertIn("sha256sum --check --strict", source)
-        self.assertIn(
-            'sudo install -m 0755 "$android_cli" /usr/local/bin/android',
-            source,
-        )
-        self.assertNotIn('>> "$GITHUB_PATH"', source)
         self.assertIn('version_output="$(android --no-metrics --version 2>&1)"', source)
         self.assertNotIn("android --version 2>&1 | head", source)
         self.assertNotIn("android/cli/latest", source)

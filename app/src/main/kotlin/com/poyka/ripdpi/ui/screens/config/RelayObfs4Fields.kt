@@ -6,7 +6,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 
 @Composable
 internal fun Obfs4RelayFields(
@@ -14,11 +13,8 @@ internal fun Obfs4RelayFields(
     actions: RelayMiscKindActions,
 ) {
     RipDpiConfigTextField(
-        state =
-            rememberRipDpiTextFieldState(
-                value = draft.relayPtBridgeLine,
-                onValueChange = actions.onRelayPtBridgeLineChanged,
-            ),
+        value = draft.relayPtBridgeLine,
+        onValueChange = actions.onRelayPtBridgeLineChanged,
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.relay_tor_bridge_line_label),

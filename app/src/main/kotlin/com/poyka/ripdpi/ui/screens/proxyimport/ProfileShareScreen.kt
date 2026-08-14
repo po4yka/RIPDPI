@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,7 +29,6 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -189,18 +187,14 @@ private fun ProfileShareLinkCard(
             supporting = stringResource(R.string.profile_share_link_body),
         )
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = shareUri,
-                    onValueChange = {},
-                ),
+            value = shareUri,
+            onValueChange = {},
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.ProfileShareLinkField),
             decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.profile_share_subscription_label)),
-            behavior = RipDpiTextFieldBehavior(readOnly = true),
-            lineLimits = TextFieldLineLimits.MultiLine(),
+            behavior = RipDpiTextFieldBehavior(readOnly = true, singleLine = false),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             RipDpiButton(

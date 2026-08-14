@@ -300,29 +300,6 @@ class DiagnosticsWireContractTest {
                     domainHosts = listOf("www.youtube.com", "discord.com"),
                     quicHosts = listOf("www.youtube.com"),
                 ),
-            attempts = listOf(sampleStrategyProbeAttempt()),
-        )
-
-    private fun sampleStrategyProbeAttempt() =
-        StrategyProbeAttempt(
-            attemptVersion = "strategy_attempt_v1",
-            sequence = 1,
-            candidateIndex = 1,
-            candidateId = "baseline_current",
-            candidateLabel = "Current strategy",
-            candidateFamily = "baseline_current",
-            lane = StrategyProbeProgressLane.TCP,
-            target = "www.youtube.com",
-            targetIndex = 1,
-            isControl = true,
-            protocol = "HTTPS",
-            round = StrategyProbeAttemptRound.BASELINE,
-            status = StrategyProbeAttemptStatus.EXECUTED,
-            startedAtMs = 1_000,
-            durationMs = 100,
-            retryCount = 1,
-            outcome = "tls_ok",
-            reason = "none",
         )
 
     private fun confirmGoodEvidence() =

@@ -150,7 +150,7 @@ fn strategy_status_maps_all_variants() {
     assert_eq!(strategy_status("http_ok"), StrategyProbeStatus::Success);
     assert_eq!(strategy_status("http_redirect"), StrategyProbeStatus::Success);
     assert_eq!(strategy_status("tls_ok"), StrategyProbeStatus::Success);
-    assert_eq!(strategy_status("tls_version_split"), StrategyProbeStatus::Partial);
+    assert_eq!(strategy_status("tls_version_split"), StrategyProbeStatus::Success);
     assert_eq!(strategy_status("quic_initial_response"), StrategyProbeStatus::Success);
     assert_eq!(strategy_status("quic_response"), StrategyProbeStatus::Success);
     assert_eq!(strategy_status("tls_ech_only"), StrategyProbeStatus::Partial);

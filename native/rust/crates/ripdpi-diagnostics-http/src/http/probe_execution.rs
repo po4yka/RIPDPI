@@ -8,13 +8,8 @@ use crate::transport::{TargetAddress, TransportConfig};
 use crate::util::MAX_HTTP_BYTES;
 
 use super::classifier::classify_http_response;
-use super::response_parser::read_http_response_with_ttfb;
+use super::response_parser::read_http_response;
 use super::types::{HttpObservation, HttpResponse};
-
-struct TimedHttpResponse {
-    response: HttpResponse,
-    ttfb_ms: u64,
-}
 
 pub fn try_http_request(
     target: &TargetAddress,
@@ -36,16 +31,11 @@ pub fn try_http_request_with_key_log(
     secure: bool,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
-    match execute_http_request_with_key_log_timed(target, port, transport, host_header, path, secure, key_log) {
-        Ok(timed) => HttpObservation {
-            status: classify_http_response(&timed.response),
-            response: Some(timed.response),
-            error: None,
-            ttfb_ms: Some(timed.ttfb_ms),
-        },
-        Err(err) => {
-            HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err), ttfb_ms: None }
+    match execute_http_request_with_key_log(target, port, transport, host_header, path, secure, key_log) {
+        Ok(response) => {
+            HttpObservation { status: classify_http_response(&response), response: Some(response), error: None }
         }
+        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
 }
 
@@ -69,17 +59,11 @@ pub fn try_http_request_targets_with_key_log(
     secure: bool,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
-    match execute_http_request_targets_with_key_log_timed(targets, port, transport, host_header, path, secure, key_log)
-    {
-        Ok(timed) => HttpObservation {
-            status: classify_http_response(&timed.response),
-            response: Some(timed.response),
-            error: None,
-            ttfb_ms: Some(timed.ttfb_ms),
-        },
-        Err(err) => {
-            HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err), ttfb_ms: None }
+    match execute_http_request_targets_with_key_log(targets, port, transport, host_header, path, secure, key_log) {
+        Ok(response) => {
+            HttpObservation { status: classify_http_response(&response), response: Some(response), error: None }
         }
+        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
 }
 
@@ -91,8 +75,7 @@ pub fn execute_http_request(
     path: &str,
     secure: bool,
 ) -> Result<HttpResponse, String> {
-    execute_http_request_with_key_log_timed(target, port, transport, host_header, path, secure, None)
-        .map(|timed| timed.response)
+    execute_http_request_with_key_log(target, port, transport, host_header, path, secure, None)
 }
 
 pub fn execute_http_request_with_key_log(
@@ -104,19 +87,6 @@ pub fn execute_http_request_with_key_log(
     secure: bool,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<HttpResponse, String> {
-    execute_http_request_with_key_log_timed(target, port, transport, host_header, path, secure, key_log)
-        .map(|timed| timed.response)
-}
-
-fn execute_http_request_with_key_log_timed(
-    target: &TargetAddress,
-    port: u16,
-    transport: &TransportConfig,
-    host_header: &str,
-    path: &str,
-    secure: bool,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> Result<TimedHttpResponse, String> {
     let tls_name = if secure { Some(host_header) } else { None };
     let mut stream = match key_log {
         Some(key_log) => {
@@ -137,9 +107,9 @@ fn execute_http_request_with_key_log_timed(
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;
-    let (response, ttfb_ms) = read_http_response_with_ttfb(&mut stream, MAX_HTTP_BYTES)?;
+    let response = read_http_response(&mut stream, MAX_HTTP_BYTES)?;
     stream.shutdown();
-    Ok(TimedHttpResponse { response, ttfb_ms })
+    Ok(response)
 }
 
 pub fn execute_http_request_targets(
@@ -150,8 +120,7 @@ pub fn execute_http_request_targets(
     path: &str,
     secure: bool,
 ) -> Result<HttpResponse, String> {
-    execute_http_request_targets_with_key_log_timed(targets, port, transport, host_header, path, secure, None)
-        .map(|timed| timed.response)
+    execute_http_request_targets_with_key_log(targets, port, transport, host_header, path, secure, None)
 }
 
 pub fn execute_http_request_targets_with_key_log(
@@ -163,19 +132,6 @@ pub fn execute_http_request_targets_with_key_log(
     secure: bool,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<HttpResponse, String> {
-    execute_http_request_targets_with_key_log_timed(targets, port, transport, host_header, path, secure, key_log)
-        .map(|timed| timed.response)
-}
-
-fn execute_http_request_targets_with_key_log_timed(
-    targets: &[TargetAddress],
-    port: u16,
-    transport: &TransportConfig,
-    host_header: &str,
-    path: &str,
-    secure: bool,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> Result<TimedHttpResponse, String> {
     let tls_name = if secure { Some(host_header) } else { None };
     let mut stream = match key_log {
         Some(key_log) => {
@@ -198,7 +154,7 @@ fn execute_http_request_targets_with_key_log_timed(
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;
-    let (response, ttfb_ms) = read_http_response_with_ttfb(&mut stream, MAX_HTTP_BYTES)?;
+    let response = read_http_response(&mut stream, MAX_HTTP_BYTES)?;
     stream.shutdown();
-    Ok(TimedHttpResponse { response, ttfb_ms })
+    Ok(response)
 }

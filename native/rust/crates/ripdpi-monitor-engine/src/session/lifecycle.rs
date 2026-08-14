@@ -1,44 +1,25 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::execution::UnavailableCandidateRuntimeLauncher;
 use crate::platform::NoopMonitorPlatformBridge;
-use crate::types::SharedState;
+use crate::types::{EngineScanRequestWire, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
-mod cancellation;
-mod reporting;
-mod start;
-mod teardown;
-
-#[derive(Default)]
-struct ScanControl {
-    deadline: Option<Instant>,
-    report_delivered: bool,
-}
-
-struct StartingGuard<'a>(&'a AtomicBool);
-
-impl Drop for StartingGuard<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
-    }
-}
+use super::log_level::parse_native_log_level;
+use super::reaper::WORKER_REAPER;
+use super::validation::ValidatedScanRequest;
+use super::wire_json::{passive_events_to_json, progress_to_json, report_to_json};
+use super::worker::{join_finished_worker_locked, spawn_scan_worker};
 
 pub struct MonitorSession {
-    // Lock order: worker -> active_session_id -> scan_control -> cancellation_reason -> shared.
     pub(super) shared: Arc<Mutex<SharedState>>,
     pub(super) cancel: Arc<AtomicBool>,
-    starting: AtomicBool,
-    destroyed: AtomicBool,
     pub(super) worker: Mutex<Option<JoinHandle<()>>>,
     active_session_id: Mutex<Option<String>>,
-    scan_control: Mutex<ScanControl>,
-    cancellation_reason: Arc<Mutex<Option<crate::types::ScanTerminationReason>>>,
     pub(super) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(super) platform_bridge: Arc<dyn MonitorPlatformBridge>,
     pub(super) candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
@@ -80,28 +61,98 @@ impl MonitorSession {
         Self {
             shared: Arc::new(Mutex::new(SharedState::default())),
             cancel: Arc::new(AtomicBool::new(false)),
-            starting: AtomicBool::new(false),
-            destroyed: AtomicBool::new(false),
             worker: Mutex::new(None),
             active_session_id: Mutex::new(None),
-            scan_control: Mutex::new(ScanControl::default()),
-            cancellation_reason: Arc::new(Mutex::new(None)),
             tls_verifier,
             platform_bridge,
             candidate_runtime_launcher,
         }
+    }
+
+    pub fn start_scan(&self, session_id: String, request: EngineScanRequestWire) -> Result<(), String> {
+        let request = ValidatedScanRequest::try_from(request)?;
+        let native_log_level = parse_native_log_level(request.as_wire().native_log_level.as_deref())?;
+        let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
+        join_finished_worker_locked(&mut worker_guard);
+        if worker_guard.is_some() {
+            return Err("diagnostics scan already running".to_string());
+        }
+        self.cancel.store(false, Ordering::Release);
+        self.platform_bridge.clear_passive_events(&session_id);
+        *self.active_session_id.lock().map_err(|_| "monitor session id poisoned".to_string())? =
+            Some(session_id.clone());
+        {
+            let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
+            shared.progress = None;
+            shared.report = None;
+            shared.log_context = request.as_wire().log_context.clone();
+        }
+        let domain_request = request.into();
+        *worker_guard = Some(spawn_scan_worker(
+            self.shared.clone(),
+            self.cancel.clone(),
+            session_id,
+            domain_request,
+            self.tls_verifier.clone(),
+            self.platform_bridge.clone(),
+            self.candidate_runtime_launcher.clone(),
+            native_log_level,
+        ));
+        Ok(())
+    }
+
+    pub fn cancel_scan(&self) {
+        self.cancel.store(true, Ordering::Release);
+    }
+
+    pub fn poll_progress_json(&self) -> Result<Option<String>, String> {
+        let shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
+        progress_to_json(shared.progress.as_ref())
+    }
+
+    pub fn take_report_json(&self) -> Result<Option<String>, String> {
+        self.try_join_worker();
+        let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
+        let report = shared.report.take();
+        report_to_json(report.as_ref())
+    }
+
+    pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
+        let session_id = self.active_session_id.lock().map_err(|_| "monitor session id poisoned".to_string())?.clone();
+        let events = session_id.as_deref().map(|id| self.platform_bridge.drain_passive_events(id)).unwrap_or_default();
+        passive_events_to_json(events)
+    }
+
+    /// Cancel the active scan and retire its worker without blocking the caller.
+    ///
+    /// An unfinished worker is joined by the process-wide diagnostics reaper.
+    /// This keeps JNI teardown bounded even when a probe is inside blocking I/O;
+    /// the worker still owns its state until it exits and is reaped.
+    pub fn destroy(&self) {
+        self.cancel_scan();
+        let handle = self.worker.lock().ok().and_then(|mut worker_guard| worker_guard.take());
+        if let Some(handle) = handle
+            && let Err(handle) = WORKER_REAPER.reap(handle)
+        {
+            log::error!("detaching diagnostics worker because the bounded reaper is saturated or unavailable");
+            drop(handle);
+        }
+    }
+
+    fn try_join_worker(&self) {
+        let Ok(mut worker_guard) = self.worker.lock() else {
+            return;
+        };
+        join_finished_worker_locked(&mut worker_guard);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{
-        NativeSessionEvent, ProbeResult, ScanCompletionKind, ScanPathMode, ScanProgress, ScanReport,
-        ScanTerminationReason,
-    };
+    use crate::types::{NativeSessionEvent, ProbeResult, ScanCompletionKind, ScanPathMode, ScanReport};
     use ripdpi_telemetry::recorder::RecorderSnapshot;
-    use std::sync::{Barrier, mpsc};
+    use std::sync::mpsc;
     use std::thread;
     use std::time::{Duration, Instant};
 
@@ -177,181 +228,6 @@ mod tests {
     }
 
     #[test]
-    fn deadline_cancellation_exposes_checkpoint_without_ending_normal_polling() {
-        let session = Arc::new(MonitorSession::new());
-        session.scan_control.lock().expect("scan control").deadline = Some(Instant::now() - Duration::from_millis(1));
-        let mut shared = session.shared.lock().expect("shared state");
-        shared.progress = Some(ScanProgress {
-            session_id: "dpi-full".to_string(),
-            phase: "domain".to_string(),
-            completed_steps: 1,
-            total_steps: 2,
-            message: "Domain probe blocked".to_string(),
-            is_finished: false,
-            latest_probe_target: None,
-            latest_probe_outcome: None,
-            strategy_probe_progress: None,
-        });
-        shared.checkpoint_report = Some(ScanReport {
-            session_id: "dpi-full".to_string(),
-            profile_id: "ru-dpi-full".to_string(),
-            path_mode: ScanPathMode::RawPath,
-            started_at: 10,
-            finished_at: 20,
-            summary: "Scan completed with partial results".to_string(),
-            completion_kind: ScanCompletionKind::PartialResults,
-            termination_reason: None,
-            results: vec![ProbeResult {
-                probe_type: "dns".to_string(),
-                target: "example.com".to_string(),
-                outcome: "dns_match".to_string(),
-                details: Vec::new(),
-            }],
-            observations: Vec::new(),
-            engine_analysis_version: None,
-            diagnoses: Vec::new(),
-            classifier_version: None,
-            pack_versions: std::collections::BTreeMap::default(),
-            strategy_probe_report: None,
-            confirm_good_dpi_verdict: None,
-            metrics_summary: None::<RecorderSnapshot>,
-            execution_plan: None,
-        });
-        drop(shared);
-
-        let normal_poll = session.take_report_json().expect("normal report poll");
-        session.cancel_scan();
-        let barrier = Arc::new(Barrier::new(3));
-        let polls = (0..2)
-            .map(|_| {
-                let session = session.clone();
-                let barrier = barrier.clone();
-                thread::spawn(move || {
-                    barrier.wait();
-                    session.take_report_json().expect("concurrent cancellation report poll")
-                })
-            })
-            .collect::<Vec<_>>();
-        barrier.wait();
-        let recovered_reports =
-            polls.into_iter().filter_map(|poll| poll.join().expect("join report poll")).collect::<Vec<_>>();
-        let recovered_json = recovered_reports.first().expect("one partial report");
-        let recovered: ScanReport = serde_json::from_str(recovered_json).expect("decode partial report");
-
-        assert_eq!(
-            (
-                normal_poll,
-                recovered.completion_kind,
-                recovered.termination_reason,
-                recovered.results.len(),
-                recovered_reports.len(),
-            ),
-            (None, ScanCompletionKind::PartialResults, Some(ScanTerminationReason::DeadlineExceeded), 1, 1),
-        );
-    }
-
-    #[test]
-    fn user_cancellation_keeps_cause_when_report_is_retrieved_after_deadline() {
-        let session = MonitorSession::new();
-        session.scan_control.lock().expect("scan control").deadline = Some(Instant::now() + Duration::from_secs(60));
-        let mut shared = session.shared.lock().expect("shared state");
-        shared.progress = Some(ScanProgress {
-            session_id: "dpi-full".to_string(),
-            phase: "domain".to_string(),
-            completed_steps: 1,
-            total_steps: 2,
-            message: "Domain probe blocked".to_string(),
-            is_finished: false,
-            latest_probe_target: None,
-            latest_probe_outcome: None,
-            strategy_probe_progress: None,
-        });
-        shared.checkpoint_report = Some(partial_report());
-        drop(shared);
-
-        session.cancel_scan();
-        session.scan_control.lock().expect("scan control").deadline = Some(Instant::now() - Duration::from_millis(1));
-        let recovered_json = session.take_report_json().expect("cancellation report poll").expect("partial report");
-        let recovered: ScanReport = serde_json::from_str(&recovered_json).expect("decode partial report");
-
-        assert_eq!(recovered.termination_reason, Some(ScanTerminationReason::UserCancelled));
-    }
-
-    #[test]
-    fn unfinished_terminal_report_is_not_rewritten_as_cancelled_checkpoint() {
-        let session = MonitorSession::new();
-        session.scan_control.lock().expect("scan control").deadline = Some(Instant::now() + Duration::from_secs(60));
-        let mut terminal_report = partial_report();
-        terminal_report.completion_kind = ScanCompletionKind::Normal;
-        terminal_report.summary = "Diagnostics completed".to_string();
-        let mut shared = session.shared.lock().expect("shared state");
-        shared.progress = Some(ScanProgress {
-            session_id: "dpi-full".to_string(),
-            phase: "domain".to_string(),
-            completed_steps: 2,
-            total_steps: 2,
-            message: "Publishing completion".to_string(),
-            is_finished: false,
-            latest_probe_target: None,
-            latest_probe_outcome: None,
-            strategy_probe_progress: None,
-        });
-        shared.report = Some(terminal_report);
-        drop(shared);
-
-        session.cancel_scan();
-        let premature = session.take_report_json().expect("unfinished report poll");
-        session.shared.lock().expect("shared state").progress.as_mut().expect("progress").is_finished = true;
-        let completed_json = session.take_report_json().expect("finished report poll").expect("terminal report");
-        let completed: ScanReport = serde_json::from_str(&completed_json).expect("decode terminal report");
-
-        assert_eq!(
-            (premature, completed.completion_kind, completed.termination_reason),
-            (None, ScanCompletionKind::Normal, None),
-        );
-    }
-
-    #[test]
-    fn cancellation_waits_for_scan_initialization_transition() {
-        let session = Arc::new(MonitorSession::new());
-        session.scan_control.lock().expect("scan control").deadline = Some(Instant::now() + Duration::from_secs(60));
-        let worker_guard = session.worker.lock().expect("worker lock");
-        let barrier = Arc::new(Barrier::new(2));
-        let cancel_thread = {
-            let session = session.clone();
-            let barrier = barrier.clone();
-            thread::spawn(move || {
-                barrier.wait();
-                session.cancel_scan();
-            })
-        };
-        barrier.wait();
-        thread::yield_now();
-        let cancelled_during_initialization = session.cancel.load(Ordering::Acquire);
-        drop(worker_guard);
-        cancel_thread.join().expect("join cancellation");
-        let captured_reason = session.cancellation_reason.lock().expect("cancellation reason").clone();
-
-        assert_eq!(
-            (cancelled_during_initialization, session.cancel.load(Ordering::Acquire), captured_reason),
-            (false, true, Some(ScanTerminationReason::UserCancelled)),
-        );
-    }
-
-    #[test]
-    fn starting_guard_clears_transition_after_unwind() {
-        let session = MonitorSession::new();
-        let unwind = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            session.starting.store(true, Ordering::Release);
-            let _starting_guard = StartingGuard(&session.starting);
-            panic!("platform callback panicked");
-        }));
-
-        assert!(unwind.is_err());
-        assert!(!session.starting.load(Ordering::Acquire));
-    }
-
-    #[test]
     fn destroy_returns_without_waiting_for_blocked_worker() {
         let session = MonitorSession::new();
         let (started_tx, started_rx) = mpsc::channel();
@@ -390,33 +266,5 @@ mod tests {
         let result = poll_rx.recv_timeout(Duration::from_millis(100));
         release_tx.send(()).expect("release worker after bounded poll");
         assert!(matches!(result, Ok(Ok(None))), "report polling must not join a running worker: {result:?}");
-    }
-
-    fn partial_report() -> ScanReport {
-        ScanReport {
-            session_id: "dpi-full".to_string(),
-            profile_id: "ru-dpi-full".to_string(),
-            path_mode: ScanPathMode::RawPath,
-            started_at: 10,
-            finished_at: 20,
-            summary: "Scan completed with partial results".to_string(),
-            completion_kind: ScanCompletionKind::PartialResults,
-            termination_reason: None,
-            results: vec![ProbeResult {
-                probe_type: "dns".to_string(),
-                target: "example.com".to_string(),
-                outcome: "dns_match".to_string(),
-                details: Vec::new(),
-            }],
-            observations: Vec::new(),
-            engine_analysis_version: None,
-            diagnoses: Vec::new(),
-            classifier_version: None,
-            pack_versions: std::collections::BTreeMap::default(),
-            strategy_probe_report: None,
-            confirm_good_dpi_verdict: None,
-            metrics_summary: None::<RecorderSnapshot>,
-            execution_plan: None,
-        }
     }
 }

@@ -1,23 +1,22 @@
 ---
 id: OUT-1786264762917551
-title: Verify AnyTLS interoperability with upstream anytls-go
+title: Finish AnyTLS profile editor and compatibility gaps
 kind: feature
-status: todo
+status: doing
 area: outbound
 priority: medium
-risk: high
-owner: Outbound protocol maintainer
+owner: unassigned
 parent: EPC-1786264762917457
 blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917551-add-anytls-outbound-client-crate-and-profile-editor
 created: 2026-04-24
-updated: 2026-08-09
+updated: 2026-06-05
 ---
 
 ## Summary
 
-AnyTLS is already a first-class relay kind with a dedicated editor, Rust implementation, relay-core backend, import support, runtime config, compatibility hints, and credential redaction. The only remaining product claim is byte-level interoperability with upstream `anytls-go`.
+AnyTLS is now a first-class relay kind with a Rust crate, relay-core backend, URI/subscription import support, and runtime config fields. Keep this task for the remaining UI and compatibility polish that is not yet present in the codebase.
 
 ## Context
 
@@ -32,7 +31,7 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 - [ ] Cross-interop against upstream `anytls-go` is verified and recorded. **(deferred: live-server only; offline-infeasible nightly oracle.)**
 - [x] Fallback-SNI and fallback-server behavior matches upstream spec, or unsupported behavior is rejected explicitly. (RIPDPI's client has no server-side TLS fallback; `ProxyUriCodec.parseAnyTls` now explicitly rejects `anytls://` nodes advertising a `fallback`/`fallback_sni` target rather than silently importing them.)
 - [x] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
-- [x] The dedicated `AnyTlsProfileScreen` and import/profile paths provide the supported editing surface; duplicating them in the generic Main Mode Editor is not required.
+- [ ] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records. **(deferred: AnyTLS is fully configurable via the dedicated `AnyTlsProfileScreen` + import; exposing it inline is a separate end-to-end "make AnyTLS a selectable+serializable relay kind" feature — kind-chip selector + ConfigDraft fields + draft→native serialization + validation — out of scope for this pass.)**
 - [x] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods. (`StrategyPackProtocolHint` + bundled `catalog.json` `anytls` entry with `quicHeavyNeighborhood: true`, surfaced via `StrategyPackSnapshot.protocolHints` / `hintForProtocol`.)
 - [x] Password is redacted in all diagnostic surfaces. (Rust: hand-written `Debug` for `AnyTlsClientConfig` masks password + root cert. Kotlin: `ProxyProfile.AnyTls.toString` masks the password.)
 

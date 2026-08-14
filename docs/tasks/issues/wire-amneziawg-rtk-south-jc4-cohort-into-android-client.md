@@ -1,23 +1,20 @@
 ---
 id: TRN-1786264762917677
-title: Verify AmneziaWG interoperability and tune RTK-South retries
+title: Wire AmneziaWG RTK South cohort (Jc=4) into Android client
 kind: feature
-status: blocked
+status: doing
 area: transport
 priority: medium
-risk: high
-owner: AmneziaWG interoperability maintainer
+owner: unassigned
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917677-wire-amneziawg-rtk-south-jc4-cohort-into-android-client
 created: 2026-05-22
-updated: 2026-08-09
+updated: 2026-06-21
 source_wiki_pages:
-  - wireguard-rtk-south-amneziawg-middlebox-compatibility
-status_detail: Standalone runtime, UI, import, and composition are implemented; external AWG endpoint evidence and retry-budget measurements are unavailable.
-related_tasks:
-  - po4yka/ripdpi-vpn-deploy#TST-1786299293097217
+  - wireguard-rtk-south-amneziawg-bypass
+linked_task: null
 ---
 
 ## Motivation
@@ -27,7 +24,7 @@ Plain WireGuard on the observed regional network path experiences periodic 20–
 Community-tested working parameters for the observed cohort: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H1=1 H2=2 H3=3 H4=4` plus per-deployment `I1-I5`. Connects successfully though sometimes requires 3–4 attempts (probabilistic passing — the middlebox rule may be threshold-based rather than a hard block).
 
 > [!info] Dedup notes
-> The workspace now contains the AmneziaWG Android/native implementation. The completed WG-over-WebSocket transport-variant task (see git history) covered a different mechanism.
+> The workspace now contains the AmneziaWG Android/native implementation. The completed `add-wireguard-over-websocket-transport-amneziawg-disguise` task (see git history) covered a DIFFERENT mechanism: WG-over-WebSocket disguise.
 
 ## Proposed change
 
@@ -36,19 +33,17 @@ Community-tested working parameters for the observed cohort: `Jc=4 Jmin=10 Jmax=
 3. JNI/Kotlin diagnostic surface for AWG vs plain WG mode selection.
 4. Probabilistic-retry logic: if AWG handshake fails, retry up to 4 attempts (per community report of 3–4 attempts to succeed).
 
-### Deploy evidence
+### Linked deploy task
 
-The server-side cohort was delivered by immutable deploy commit
-[`aa6d5d228866cbc27d89538aa51ba8250dfcee11`](https://github.com/po4yka/ripdpi-vpn-deploy/commit/aa6d5d228866cbc27d89538aa51ba8250dfcee11).
-It is completed evidence, not an active cross-repository backlog dependency.
+`linked_task:` points to `add-amneziawg-rtk-south-cohort` in deploy repo. Both must ship together — the cohort YAML defines server-side parameters that the client mirrors.
 
 ## Acceptance criteria
 
 - [x] AmneziaWG client support compiles for all 4 Android ABIs.
 - [x] Cohort profile import populates Jc/Jmin/Jmax/S/H/I from server-provided YAML or subscription URL.
-- [ ] Interoperability smoke against an external AWG endpoint with RTK-South parameters succeeds on the exact Android artifact.
-- [ ] Retry budget is derived from observed handshake evidence, bounded, configurable per cohort, and regression-tested.
-- [x] Dedup confirmed: distinct from the completed WG-over-WebSocket transport-variant task — this task wires AmneziaWG packet-shape randomization (Jc/Jmin/Jmax/H/S/I) into the existing `ripdpi-warp-core` WG kernel; the other adds a WG-over-WebSocket tunnel variant. Different layers.
+- [ ] Smoke test against synthetic AWG endpoint with RTK South parameters succeeds.
+- [ ] Probabilistic-retry logic implemented (max 4 attempts, configurable per-cohort).
+- [x] Dedup confirmed: distinct from `add-wireguard-over-websocket-transport-amneziawg-disguise` — this task wires AmneziaWG packet-signature randomization (Jc/Jmin/Jmax/H/S/I) into the existing `ripdpi-warp-core` WG kernel; the other adds a WG-over-WebSocket *tunnel* disguise. Different layers.
 
 ## Risks / open questions
 
@@ -64,6 +59,6 @@ It is completed evidence, not an active cross-repository backlog dependency.
 
 ## References
 
-- wireguard-rtk-south-amneziawg-middlebox-compatibility — internal concept page with cohort parameters
-- Deploy receipt: `po4yka/ripdpi-vpn-deploy@aa6d5d228866cbc27d89538aa51ba8250dfcee11`
-- Related (different mechanism): completed WG-over-WebSocket transport-variant task (see git history)
+- wireguard-rtk-south-amneziawg-bypass — wiki concept page with full parameter set
+- Linked deploy task: `add-amneziawg-rtk-south-cohort`
+- Related (different mechanism): completed task `add-wireguard-over-websocket-transport-amneziawg-disguise` (see git history)

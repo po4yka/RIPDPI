@@ -22,6 +22,6 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 |---|---|---|---|
 | REQ-RST-1786264762917099-001 | RST-1786264762919395 | Pending | required |
 | REQ-RST-1786264762917099-002 | RST-1786264762919083 | Pending | required |
-| REQ-RST-1786264762917099-003 | RST-1786264762919083 | Workspace and documentation removal evidence | required |
-| REQ-RST-1786264762917099-004 | RST-1786264762919718 | Locked metadata and architecture-contract evidence | required |
+| REQ-RST-1786264762917099-003 | RST-1786264762919084 | Pending | required |
+| REQ-RST-1786264762917099-004 | RST-1786264762919069 | Pending | required |
 | REQ-RST-1786264762917099-005 | RST-1786264762919718 | Pending | required |

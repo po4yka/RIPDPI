@@ -5,7 +5,6 @@ kind: feature
 status: backlog
 area: rust-native
 priority: low
-risk: high
 owner: unassigned
 parent: null
 blocked_by: []

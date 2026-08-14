@@ -227,13 +227,12 @@ jobs:
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
         run: |
           common_args=(
             -Pripdpi.testBuildType=release
             -Pripdpi.nativeAbiParallelism=1
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}"
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
           ./gradlew \
             :app:bundlePlayFullRelease \
@@ -301,7 +300,7 @@ jobs:
             --version-name "$version_name" \
             --version-code "$version_code" \
             --signer-certificate-sha256 "$EXPECTED_RELEASE_CERT_SHA256" \
-            --pluggable-transport-manifest-sha256 "${NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256}" \
+            --pluggable-transport-manifest-sha256 "${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
             --candidate-run-id "$GITHUB_RUN_ID" \
             --output "$candidate/candidate-manifest.json"
           python3 scripts/ci/release_candidate_manifest.py verify \
@@ -311,8 +310,6 @@ jobs:
             --expected-release-tag "$RELEASE_TAG" \
             --expected-candidate-run-id "$GITHUB_RUN_ID" \
             --expected-signer-certificate-sha256 "$EXPECTED_RELEASE_CERT_SHA256"
-        env:
-          NEEDS_PLUGGABLE_TRANSPORT_ASSETS_OUTPUTS_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
 
       - name: Verify release signatures and signer continuity
         run: |
@@ -441,14 +438,12 @@ jobs:
             --directory "$RUNNER_TEMP/release-candidate" \
             --manifest "$RUNNER_TEMP/release-candidate/candidate-manifest.json" \
             --expected-source-sha "$GITHUB_SHA" \
-            --expected-release-tag "${INPUTS_RELEASE_TAG}" \
+            --expected-release-tag "${{ inputs.release_tag }}" \
             --expected-candidate-run-id "$GITHUB_RUN_ID"
-        env:
-          INPUTS_RELEASE_TAG: ${{ inputs.release_tag }}
 
       - name: Attest exact candidate build provenance
         id: attest
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: |
             ${{ runner.temp }}/release-candidate/*.apk

@@ -24,7 +24,7 @@ internal class DiagnosticsQuickScanRunner(
             HomeCompositeStageSpec,
             Boolean,
             Int?,
-        ) -> HomeCompositeStageExecutionResult?,
+        ) -> Pair<String, DiagnosticScanSession>?,
         runDetectionStage: suspend (String, Int, HomeCompositeStageSpec) -> Unit,
         markStageFailure: (String, Int, String, String) -> Unit,
         updateStage: (
@@ -45,9 +45,8 @@ internal class DiagnosticsQuickScanRunner(
             finalizeRun(runId, null, null, false, false)
             return
         }
-        val (auditSessionId, auditSession, auditCpuMs) = auditResult
-        val auditSummary =
-            buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json, auditCpuMs)
+        val (auditSessionId, auditSession) = auditResult
+        val auditSummary = buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json)
         updateStage(runId, 0) { auditSummary }
         if (auditSummary.status != DiagnosticsHomeCompositeStageStatus.COMPLETED) {
             skipRemaining(runId, from = 1, reason = "audit stage failed", updateStage)
@@ -76,8 +75,8 @@ internal class DiagnosticsQuickScanRunner(
             )
         var auditOutcome: DiagnosticsHomeAuditOutcome? = audit
         if (sResult != null) {
-            val (sId, sSession, cpuMs) = sResult
-            val sSummary = buildCompletedStageSummary(sSpec, sId, sSession, scanRecordStore, json, cpuMs)
+            val (sId, sSession) = sResult
+            val sSummary = buildCompletedStageSummary(sSpec, sId, sSession, scanRecordStore, json)
             updateStage(runId, sIndex) { sSummary }
             if (
                 auditOutcome?.actionable != true &&
@@ -105,8 +104,8 @@ internal class DiagnosticsQuickScanRunner(
             HomeCompositeStageSpec,
             Boolean,
             Int?,
-        ) -> HomeCompositeStageExecutionResult?,
-    ): HomeCompositeStageExecutionResult? {
+        ) -> Pair<String, DiagnosticScanSession>?,
+    ): Pair<String, DiagnosticScanSession>? {
         var result =
             executeStage(
                 runId,

@@ -29,8 +29,6 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.liveStaleBadgeTier
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -68,10 +66,7 @@ private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .ripDpiTestTag(RipDpiTestTags.DiagnosticsLiveList),
+        modifier = Modifier.fillMaxSize(),
         contentPadding =
             androidx.compose.foundation.layout.PaddingValues(
                 horizontal = layout.horizontalPadding,
@@ -125,11 +120,7 @@ private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
                 key = { it.id },
                 contentType = { "passive_event" },
             ) { event ->
-                EventRow(
-                    event = event,
-                    onClick = {},
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsEvent(event.id)),
-                )
+                EventRow(event = event, onClick = {})
             }
         }
     }

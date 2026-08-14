@@ -12,33 +12,23 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicSecureTextField
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.InputTransformation
-import androidx.compose.foundation.text.input.KeyboardActionHandler
-import androidx.compose.foundation.text.input.OutputTransformation
-import androidx.compose.foundation.text.input.TextFieldDecorator
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.autofill.ContentDataType
-import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -64,117 +54,34 @@ data class RipDpiTextFieldBehavior(
     val enabled: Boolean = true,
     val readOnly: Boolean = false,
     val density: RipDpiControlDensity = RipDpiControlDensity.Default,
+    val singleLine: Boolean = true,
     val textStyle: TextStyle? = null,
     val keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    val keyboardActions: KeyboardActions = KeyboardActions.Default,
+    val visualTransformation: VisualTransformation = VisualTransformation.None,
     val minHeight: Dp? = null,
     val interactionSource: MutableInteractionSource? = null,
 )
 
-enum class RipDpiAutofillPolicy {
-    Disabled,
-    Username,
-    Password,
-}
-
 @Composable
 fun RipDpiTextField(
-    state: TextFieldState,
+    value: String,
+    onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
     behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
-    lineLimits: TextFieldLineLimits = TextFieldLineLimits.SingleLine,
-    inputTransformation: InputTransformation? = null,
-    outputTransformation: OutputTransformation? = null,
-    onKeyboardAction: KeyboardActionHandler? = null,
     trailingContent: (@Composable () -> Unit)? = null,
-    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
-) {
-    RipDpiTextFieldLayout(
-        state = state,
-        modifier = modifier,
-        decoration = decoration,
-        behavior = behavior,
-        autofillPolicy = autofillPolicy,
-        trailingContent = trailingContent,
-    ) { fieldModifier, textStyle, interactionSource, decorator ->
-        BasicTextField(
-            state = state,
-            modifier = fieldModifier,
-            enabled = behavior.enabled,
-            readOnly = behavior.readOnly,
-            inputTransformation = inputTransformation,
-            textStyle = textStyle,
-            keyboardOptions = behavior.keyboardOptions,
-            onKeyboardAction = onKeyboardAction,
-            lineLimits = lineLimits,
-            interactionSource = interactionSource,
-            outputTransformation = outputTransformation,
-            decorator = decorator,
-        )
-    }
-}
-
-@Composable
-fun RipDpiSecureTextField(
-    state: TextFieldState,
-    autofillPolicy: RipDpiAutofillPolicy,
-    modifier: Modifier = Modifier,
-    decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
-    behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
-    inputTransformation: InputTransformation? = null,
-    onKeyboardAction: KeyboardActionHandler? = null,
-    textObfuscationMode: TextObfuscationMode = TextObfuscationMode.Hidden,
-    trailingContent: (@Composable () -> Unit)? = null,
-) {
-    RipDpiTextFieldLayout(
-        state = state,
-        modifier = modifier,
-        decoration = decoration,
-        behavior = behavior,
-        autofillPolicy = autofillPolicy,
-        trailingContent = trailingContent,
-    ) { fieldModifier, textStyle, interactionSource, decorator ->
-        BasicSecureTextField(
-            state = state,
-            modifier = fieldModifier,
-            enabled = behavior.enabled,
-            readOnly = behavior.readOnly,
-            inputTransformation = inputTransformation,
-            textStyle = textStyle,
-            keyboardOptions = behavior.keyboardOptions,
-            onKeyboardAction = onKeyboardAction,
-            interactionSource = interactionSource,
-            decorator = decorator,
-            textObfuscationMode = textObfuscationMode,
-        )
-    }
-}
-
-@Composable
-private fun RipDpiTextFieldLayout(
-    state: TextFieldState,
-    modifier: Modifier,
-    decoration: RipDpiTextFieldDecoration,
-    behavior: RipDpiTextFieldBehavior,
-    autofillPolicy: RipDpiAutofillPolicy,
-    trailingContent: (@Composable () -> Unit)?,
-    textField: @Composable (
-        Modifier,
-        TextStyle,
-        MutableInteractionSource,
-        TextFieldDecorator,
-    ) -> Unit,
 ) {
     val components = RipDpiThemeTokens.components
     val resolvedTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoValue
     val resolvedInteractionSource = behavior.interactionSource ?: remember { MutableInteractionSource() }
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
-    val fieldStyle =
+    val state =
         RipDpiThemeTokens.state.textField.resolve(
             enabled = behavior.enabled,
             hasError = decoration.errorText != null,
             isFocused = isFocused,
-            isEmpty = state.text.isEmpty(),
+            isEmpty = value.isEmpty(),
         )
 
     Column(
@@ -185,38 +92,45 @@ private fun RipDpiTextFieldLayout(
             Text(
                 text = it,
                 style = RipDpiThemeTokens.type.smallLabel,
-                color = fieldStyle.label,
+                color = state.label,
             )
         }
-        textField(
-            Modifier
-                .fillMaxWidth()
-                .ripDpiTestTag(decoration.testTag)
-                .semantics {
-                    contentDataType = autofillPolicy.contentDataType
-                    autofillPolicy.contentType?.let { contentType = it }
-                    decoration.label?.let { contentDescription = it }
-                    decoration.errorText?.let { error(it) }
-                },
-            resolvedTextStyle.copy(color = fieldStyle.content),
-            resolvedInteractionSource,
-            TextFieldDecorator { innerTextField ->
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = behavior.enabled,
+            readOnly = behavior.readOnly,
+            singleLine = behavior.singleLine,
+            textStyle = resolvedTextStyle.copy(color = state.content),
+            keyboardOptions = behavior.keyboardOptions,
+            keyboardActions = behavior.keyboardActions,
+            visualTransformation = behavior.visualTransformation,
+            interactionSource = resolvedInteractionSource,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(decoration.testTag)
+                    .semantics {
+                        decoration.label?.let { contentDescription = it }
+                        decoration.errorText?.let { error(it) }
+                    },
+            decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
                     shape = RipDpiThemeTokens.shapes.xl,
-                    containerColor = fieldStyle.container,
-                    borderColor = fieldStyle.border,
-                    borderWidth = fieldStyle.borderWidth,
-                    alpha = fieldStyle.alpha,
+                    containerColor = state.container,
+                    borderColor = state.border,
+                    borderWidth = state.borderWidth,
+                    alpha = state.alpha,
                     minHeight = behavior.minHeight ?: components.inputs.controlHeight,
                     density = behavior.density,
                     trailingContent = trailingContent,
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
-                        if (state.text.isEmpty() && decoration.placeholder != null) {
+                        if (value.isEmpty() && decoration.placeholder != null) {
                             Text(
                                 text = decoration.placeholder,
                                 style = resolvedTextStyle,
-                                color = fieldStyle.placeholder,
+                                color = state.placeholder,
                             )
                         }
                         innerTextField()
@@ -228,8 +142,8 @@ private fun RipDpiTextFieldLayout(
             Text(
                 text = it,
                 style = RipDpiThemeTokens.type.caption,
-                color = fieldStyle.helper,
-                modifier = Modifier.alpha(fieldStyle.alpha),
+                color = state.helper,
+                modifier = Modifier.alpha(state.alpha),
             )
         }
     }
@@ -237,59 +151,35 @@ private fun RipDpiTextFieldLayout(
 
 @Composable
 fun RipDpiConfigTextField(
-    state: TextFieldState,
+    value: String,
+    onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
     behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
-    lineLimits: TextFieldLineLimits = TextFieldLineLimits.SingleLine,
-    inputTransformation: InputTransformation? = null,
-    outputTransformation: OutputTransformation? = null,
-    onKeyboardAction: KeyboardActionHandler? = null,
+    multiline: Boolean = false,
     trailingContent: (@Composable () -> Unit)? = null,
-    autofillPolicy: RipDpiAutofillPolicy = RipDpiAutofillPolicy.Disabled,
 ) {
     val components = RipDpiThemeTokens.components
 
     RipDpiTextField(
-        state = state,
+        value = value,
+        onValueChange = onValueChange,
         modifier = modifier,
         decoration = decoration,
         behavior =
             behavior.copy(
+                singleLine = !multiline,
                 textStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoConfig,
                 minHeight =
-                    if (lineLimits is TextFieldLineLimits.MultiLine) {
+                    if (multiline) {
                         behavior.minHeight ?: components.inputs.multilineFieldMinHeight
                     } else {
                         behavior.minHeight
                     },
             ),
-        lineLimits = lineLimits,
-        inputTransformation = inputTransformation,
-        outputTransformation = outputTransformation,
-        onKeyboardAction = onKeyboardAction,
         trailingContent = trailingContent,
-        autofillPolicy = autofillPolicy,
     )
 }
-
-private val RipDpiAutofillPolicy.contentDataType: ContentDataType
-    get() =
-        when (this) {
-            RipDpiAutofillPolicy.Disabled -> ContentDataType.None
-
-            RipDpiAutofillPolicy.Username,
-            RipDpiAutofillPolicy.Password,
-            -> ContentDataType.Text
-        }
-
-private val RipDpiAutofillPolicy.contentType: ContentType?
-    get() =
-        when (this) {
-            RipDpiAutofillPolicy.Disabled -> null
-            RipDpiAutofillPolicy.Username -> ContentType.Username
-            RipDpiAutofillPolicy.Password -> ContentType.Password
-        }
 
 @Composable
 private fun RipDpiTextFieldShell(
@@ -340,19 +230,13 @@ private fun RipDpiTextFieldLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = "128",
-                        onValueChange = {},
-                    ),
+                value = "128",
+                onValueChange = {},
                 decoration = RipDpiTextFieldDecoration(placeholder = "128"),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = "128",
-                        onValueChange = {},
-                    ),
+                value = "128",
+                onValueChange = {},
                 decoration =
                     RipDpiTextFieldDecoration(
                         placeholder = "128",
@@ -360,19 +244,13 @@ private fun RipDpiTextFieldLightPreview() {
                     ),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = "128",
-                        onValueChange = {},
-                    ),
+                value = "128",
+                onValueChange = {},
                 decoration = RipDpiTextFieldDecoration(errorText = "Value must stay below 128"),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = "",
-                        onValueChange = {},
-                    ),
+                value = "",
+                onValueChange = {},
                 decoration = RipDpiTextFieldDecoration(label = "Port", placeholder = "1080"),
                 behavior = RipDpiTextFieldBehavior(enabled = false),
             )
@@ -386,19 +264,13 @@ private fun RipDpiTextFieldDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = "128",
-                        onValueChange = {},
-                    ),
+                value = "128",
+                onValueChange = {},
                 decoration = RipDpiTextFieldDecoration(placeholder = "128"),
             )
             RipDpiTextField(
-                state =
-                    rememberRipDpiTextFieldState(
-                        value = "128",
-                        onValueChange = {},
-                    ),
+                value = "128",
+                onValueChange = {},
                 decoration = RipDpiTextFieldDecoration(errorText = "Value must stay below 128"),
             )
         }

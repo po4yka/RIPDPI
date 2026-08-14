@@ -15,13 +15,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class NotificationUtilsTest {
     @Test
-    fun `foreground notification describes local runtime without claiming vpn connectivity`() {
-        val context = RuntimeEnvironment.getApplication()
-
-        assertEquals("Local VPN processes are running", context.getString(R.string.vpn_notification_content))
-    }
-
-    @Test
     fun `static vpn notification hides stop action during lockdown`() {
         val context = RuntimeEnvironment.getApplication()
 

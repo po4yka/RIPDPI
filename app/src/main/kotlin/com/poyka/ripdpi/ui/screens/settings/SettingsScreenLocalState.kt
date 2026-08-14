@@ -19,11 +19,9 @@ internal fun rememberSettingsScreenLocalState(uiState: SettingsUiState): Setting
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by remember { mutableStateOf("") }
-    var backupPinReplacementRevision by remember { mutableStateOf(0L) }
     var communityApiUrlDraft by rememberSaveable(uiState.communityApiUrl) {
         mutableStateOf(uiState.communityApiUrl)
     }
-    var communityApiUrlReplacementRevision by remember { mutableStateOf(0L) }
     val pinErrorText =
         when {
             backupPinDraft.isNotEmpty() && backupPinDraft.length < BackupPinLength -> {
@@ -46,21 +44,12 @@ internal fun rememberSettingsScreenLocalState(uiState: SettingsUiState): Setting
         onBackupPinDraftChanged = { next ->
             backupPinDraft = next.filter(Char::isDigit).take(BackupPinLength)
         },
-        onBackupPinDraftCleared = {
-            backupPinDraft = ""
-            backupPinReplacementRevision++
-        },
-        backupPinReplacementRevision = backupPinReplacementRevision,
+        onBackupPinDraftCleared = { backupPinDraft = "" },
         pinErrorText = pinErrorText,
         canSaveBackupPin = backupPinDraft.length == BackupPinLength,
         showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank(),
         communityApiUrlDraft = communityApiUrlDraft,
-        communityApiUrlReplacementKey = uiState.communityApiUrl to communityApiUrlReplacementRevision,
         onCommunityApiUrlDraftChanged = { communityApiUrlDraft = it },
-        onCommunityApiUrlDraftReset = {
-            communityApiUrlDraft = ""
-            communityApiUrlReplacementRevision++
-        },
     )
 }
 
@@ -75,12 +64,9 @@ internal data class SettingsScreenLocalState(
     val backupPinDraft: String,
     val onBackupPinDraftChanged: (String) -> Unit,
     val onBackupPinDraftCleared: () -> Unit,
-    val backupPinReplacementRevision: Long,
     val pinErrorText: String?,
     val canSaveBackupPin: Boolean,
     val showBackupPinEditor: Boolean,
     val communityApiUrlDraft: String,
-    val communityApiUrlReplacementKey: Any,
     val onCommunityApiUrlDraftChanged: (String) -> Unit,
-    val onCommunityApiUrlDraftReset: () -> Unit,
 )

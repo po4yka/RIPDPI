@@ -57,7 +57,7 @@ New developers should read these in order:
 ## Architecture Hardening
 
 - [Architecture notes](architecture/README.md)
-- [Current task board](tasks/board.md)
+- [Current roadmap](../ROADMAP.md)
 - [Architecture quality gates](architecture/quality-gates.md)
 - [Unsafe audit guide](native/unsafe-audit.md)
 - [Service session scope](service-session-scope.md)

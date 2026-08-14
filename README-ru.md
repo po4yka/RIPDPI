@@ -174,7 +174,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - [Эксплуатация strategy-pack и TLS catalog](docs/strategy-pack-operations.md)
 - [Примеры relay-профилей](docs/relay-profile-examples.md)
 - [Архитектурные заметки](docs/architecture/README.md)
-- [Task board](docs/tasks/board.md)
+- [Roadmap](ROADMAP.md)
 
 ## Перевод RIPDPI
 

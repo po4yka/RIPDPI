@@ -20,8 +20,6 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -40,16 +38,14 @@ jobs:
       - name: Run private corpus analytics pipeline
         if: ${{ inputs.private_corpus_path != '' }}
         run: |
-          if [ -e "${INPUTS_PRIVATE_CORPUS_PATH}" ]; then
+          if [ -e "${{ inputs.private_corpus_path }}" ]; then
             python3 -m scripts.analytics.pipeline run-all \
-              --inputs "${INPUTS_PRIVATE_CORPUS_PATH}" \
+              --inputs "${{ inputs.private_corpus_path }}" \
               --corpus-name private_corpus \
               --output-dir "$RUNNER_TEMP/offline-analytics-private"
           else
             echo "Skipping private corpus run; path not found on runner."
           fi
-        env:
-          INPUTS_PRIVATE_CORPUS_PATH: ${{ inputs.private_corpus_path }}
 
       - name: Upload offline analytics artifacts
         if: always()

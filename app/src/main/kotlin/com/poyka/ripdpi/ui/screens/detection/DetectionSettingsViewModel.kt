@@ -22,7 +22,6 @@ internal class DetectionSettingsViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(DetectionSettingsUiState())
         val uiState: StateFlow<DetectionSettingsUiState> = _uiState.asStateFlow()
-        private var settingsObserved = false
 
         init {
             observeSettings()
@@ -31,15 +30,7 @@ internal class DetectionSettingsViewModel
         private fun observeSettings() {
             viewModelScope.launch {
                 appSettingsRepository.settings.collect { settings ->
-                    val previous = _uiState.value
-                    _uiState.value =
-                        DetectionSettingsUiState
-                            .from(settings)
-                            .copy(
-                                dnsTextReplacementRevision =
-                                    previous.dnsTextReplacementRevision + if (settingsObserved) 0 else 1,
-                            )
-                    settingsObserved = true
+                    _uiState.value = DetectionSettingsUiState.from(settings)
                 }
             }
         }
@@ -143,10 +134,6 @@ internal class DetectionSettingsViewModel
         }
 
         fun selectDnsPreset(preset: DetectionDnsPreset) {
-            _uiState.value =
-                _uiState.value
-                    .selectDnsPreset(preset)
-                    .copy(dnsTextReplacementRevision = _uiState.value.dnsTextReplacementRevision + 1)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = preset.wireValue

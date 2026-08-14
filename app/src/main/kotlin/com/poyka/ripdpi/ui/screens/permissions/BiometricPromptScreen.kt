@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.InputTransformation
-import androidx.compose.foundation.text.input.byValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -36,13 +35,9 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.inputs.RipDpiAutofillPolicy
-import com.poyka.ripdpi.ui.components.inputs.RipDpiSecureTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiSecureTextFieldState
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
@@ -391,13 +386,9 @@ private fun BiometricPromptPinInput(
                 .padding(horizontal = horizontalPadding),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        RipDpiSecureTextField(
-            state =
-                rememberRipDpiSecureTextFieldState(
-                    value = pin,
-                    onValueChange = onPinChanged,
-                ),
-            autofillPolicy = RipDpiAutofillPolicy.Disabled,
+        RipDpiTextField(
+            value = pin,
+            onValueChange = onPinChanged,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.biometric_prompt_pin_label),
@@ -409,9 +400,8 @@ private fun BiometricPromptPinInput(
             behavior =
                 RipDpiTextFieldBehavior(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    visualTransformation = PasswordVisualTransformation(),
                 ),
-            inputTransformation =
-                InputTransformation.byValue { _, proposed -> proposed.filter(Char::isDigit) },
         )
     }
 }

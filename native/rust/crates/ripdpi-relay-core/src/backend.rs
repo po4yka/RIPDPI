@@ -107,11 +107,6 @@ impl RelayBackend {
         }
     }
 
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: inherits the selected backend's contract;
-    /// callers must discard direct incomplete carriers, while pooled backends
-    /// must reset only their newly opened logical stream.
     pub(crate) async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
         let result = dispatch_pooled_backend!(
             self,

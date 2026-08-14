@@ -1,4 +1,0 @@
-schema: ripdpi-change
-created: 2026-08-09
-goal: DGN-1786299627046211 Implement typed connection-freeze phases and guarded
-  retries

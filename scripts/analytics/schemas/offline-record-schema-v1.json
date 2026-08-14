@@ -36,28 +36,6 @@
           },
           "runtimeSummary": { "type": "object" },
           "winnerSummary": { "type": "object" },
-          "failurePathProvenance": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["failureTimestamp", "networkType", "snapshotCorrelation"],
-              "properties": {
-                "failureTimestamp": { "type": "integer" },
-                "failureClass": { "type": "string" },
-                "activeMode": { "type": "string" },
-                "networkType": { "type": "string" },
-                "resolverId": { "type": "string" },
-                "resolverProtocol": { "type": "string" },
-                "resolverLatencyMs": { "type": "integer" },
-                "networkHandoverClass": { "type": "string" },
-                "networkHandoverState": { "type": "string" },
-                "snapshotCorrelation": { "enum": ["exact", "unavailable"] },
-                "snapshotCapturedAt": { "type": "integer" },
-                "networkPath": { "type": "object" }
-              },
-              "additionalProperties": false
-            }
-          },
           "observedFeatures": {
             "type": "array",
             "items": { "type": "string" }
@@ -67,3 +45,4 @@
     }
   }
 }
+

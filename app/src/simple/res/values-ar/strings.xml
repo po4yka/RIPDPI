@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="qs_tile_label_connected">RIPDPI Quick Connect: العمليات المحلية قيد التشغيل</string>
+    <string name="qs_tile_label_connected">RIPDPI Quick Connect: متصل</string>
     <string name="simple_title">RIPDPI اتصال سريع</string>
     <string name="simple_connect">اتصال</string>
     <string name="simple_disconnect">قطع الاتصال</string>

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use android_support::{NativeEventRecord, drain_relay_events_for_runtime};
+use android_support::{NativeEventRecord, drain_relay_events};
 use ripdpi_quality::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
 use ripdpi_relay_core::TcpConnectObservation;
 use serde::Serialize;
@@ -37,29 +37,9 @@ struct NativeRuntimeEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     fingerprint_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostics_session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     subsystem: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    attempt_id: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    attempt_sequence: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    stage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    outcome: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    duration_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    failure_stage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    failure_class: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    io_error_kind: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    os_error_code: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    peer_close_phase: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    carrier_disposition: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,7 +49,6 @@ struct NativeRuntimeSnapshot<T> {
     #[serde(flatten)]
     telemetry: T,
     native_events: Vec<NativeRuntimeEvent>,
-    native_events_dropped: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     connection_quality: Option<ConnectionQualitySnapshot>,
 }
@@ -86,43 +65,31 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
             mode: value.mode,
             policy_signature: value.policy_signature,
             fingerprint_hash: value.fingerprint_hash,
+            diagnostics_session_id: value.diagnostics_session_id,
             subsystem: value.subsystem,
-            attempt_id: value.attempt_id,
-            attempt_sequence: value.attempt_sequence,
-            stage: value.stage,
-            outcome: value.outcome,
-            duration_ms: value.duration_ms,
-            failure_stage: value.failure_stage,
-            failure_class: value.failure_class,
-            io_error_kind: value.io_error_kind,
-            os_error_code: value.os_error_code,
-            peer_close_phase: value.peer_close_phase,
-            carrier_disposition: value.carrier_disposition,
         }
     }
 }
 
-pub(crate) fn serialize_runtime_telemetry(session: &SessionRuntime, runtime_id: &str) -> Option<String> {
+pub(crate) fn serialize_runtime_telemetry(session: &SessionRuntime) -> Option<String> {
     match session {
-        SessionRuntime::Standard(session) => serialize_telemetry(session.telemetry(), runtime_id),
-        SessionRuntime::AppsScript(session) => serialize_telemetry(session.telemetry(), runtime_id),
+        SessionRuntime::Standard(session) => serialize_telemetry(session.telemetry()),
+        SessionRuntime::AppsScript(session) => serialize_telemetry(session.telemetry()),
     }
 }
 
-fn serialize_telemetry<T>(telemetry: T, runtime_id: &str) -> Option<String>
+fn serialize_telemetry<T>(telemetry: T) -> Option<String>
 where
     T: Serialize,
 {
-    serde_json::to_string(&snapshot_from_telemetry(telemetry, runtime_id)).ok()
+    serde_json::to_string(&snapshot_from_telemetry(telemetry)).ok()
 }
 
-fn snapshot_from_telemetry<T>(telemetry: T, runtime_id: &str) -> NativeRuntimeSnapshot<T> {
-    let drained = drain_relay_events_for_runtime(runtime_id);
+fn snapshot_from_telemetry<T>(telemetry: T) -> NativeRuntimeSnapshot<T> {
     NativeRuntimeSnapshot {
         schema_version: SNAPSHOT_SCHEMA_VERSION,
         telemetry,
-        native_events: drained.events.into_iter().map(NativeRuntimeEvent::from).collect(),
-        native_events_dropped: drained.dropped_event_count,
+        native_events: drain_relay_events().into_iter().map(NativeRuntimeEvent::from).collect(),
         connection_quality: QUALITY_WINDOW.snapshot(),
     }
 }
@@ -156,8 +123,7 @@ pub(crate) fn install_quality_observer(session: &SessionRuntime) {
 
 #[cfg(test)]
 mod tests {
-    use android_support::{EventRingBuffers, EventRingLayer, NativeEventRecord, RingConfig};
-    use golden_test_support::{assert_contract_fixture, extract_field_paths};
+    use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
     use ripdpi_relay_core::RelayTelemetry as StandardRelayTelemetry;
     use tracing_subscriber::prelude::*;
 
@@ -206,7 +172,6 @@ mod tests {
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: buffers.drain_relay().into_iter().map(NativeRuntimeEvent::from).collect(),
-            native_events_dropped: 0,
             connection_quality: None,
         }
     }
@@ -217,60 +182,10 @@ mod tests {
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: Vec::<NativeRuntimeEvent>::new(),
-            native_events_dropped: 0,
             connection_quality: None,
         };
         let value = serde_json::to_value(&snapshot).expect("serialize relay snapshot");
         assert_eq!(value["schemaVersion"], serde_json::json!(3));
-    }
-
-    #[test]
-    fn relay_snapshot_field_manifest_matches_contract_fixture() {
-        let snapshot = NativeRuntimeSnapshot {
-            schema_version: SNAPSHOT_SCHEMA_VERSION,
-            telemetry: sample_telemetry(),
-            native_events: vec![sample_stage_event()],
-            native_events_dropped: 3,
-            connection_quality: None,
-        };
-        let paths = extract_field_paths(&serde_json::to_value(&snapshot).expect("serialize relay snapshot"));
-        let manifest = serde_json::to_string_pretty(&paths).expect("serialize relay snapshot paths");
-        assert_contract_fixture("relay_snapshot_fields.json", &manifest);
-    }
-
-    #[test]
-    fn relay_event_field_manifest_matches_contract_fixture() {
-        let paths = extract_field_paths(&serde_json::to_value(sample_stage_event()).expect("serialize relay event"));
-        let manifest = serde_json::to_string_pretty(&paths).expect("serialize relay event paths");
-        assert_contract_fixture("relay_event_fields.json", &manifest);
-    }
-
-    fn sample_stage_event() -> NativeRuntimeEvent {
-        NativeEventRecord {
-            source: "relay".to_string(),
-            level: "error".to_string(),
-            message: "event=relay_attempt_stage".to_string(),
-            created_at: 1,
-            kind: Some("relay_attempt_stage".to_string()),
-            runtime_id: Some("runtime-1".to_string()),
-            mode: Some("vpn".to_string()),
-            policy_signature: Some("policy".to_string()),
-            fingerprint_hash: Some("fingerprint".to_string()),
-            diagnostics_session_id: Some("diagnostics-1".to_string()),
-            subsystem: Some("relay".to_string()),
-            attempt_id: Some(1),
-            attempt_sequence: Some(2),
-            stage: Some("reality_tls".to_string()),
-            outcome: Some("failed".to_string()),
-            duration_ms: Some(3),
-            failure_stage: Some("reality_tls".to_string()),
-            failure_class: Some("io_error".to_string()),
-            io_error_kind: Some("connection_refused".to_string()),
-            os_error_code: Some(111),
-            peer_close_phase: Some("before_response".to_string()),
-            carrier_disposition: Some("carrier_created".to_string()),
-        }
-        .into()
     }
 
     #[test]

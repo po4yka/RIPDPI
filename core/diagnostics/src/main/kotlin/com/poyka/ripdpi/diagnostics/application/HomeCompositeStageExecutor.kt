@@ -26,21 +26,7 @@ internal class HomeCompositeStageExecutor
         private val diagnosticsScanController: DiagnosticsScanController,
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val serviceStateStore: ServiceStateStore,
-        private val stageTelemetryRecorder: HomeCompositeStageTelemetryRecorder,
-        private val stageCpuTracker: HomeCompositeStageCpuTracker,
     ) {
-        constructor(
-            diagnosticsScanController: DiagnosticsScanController,
-            diagnosticsTimelineSource: DiagnosticsTimelineSource,
-            serviceStateStore: ServiceStateStore,
-        ) : this(
-            diagnosticsScanController = diagnosticsScanController,
-            diagnosticsTimelineSource = diagnosticsTimelineSource,
-            serviceStateStore = serviceStateStore,
-            stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder.noOp(),
-            stageCpuTracker = HomeCompositeStageCpuTracker(),
-        )
-
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
@@ -60,7 +46,6 @@ internal class HomeCompositeStageExecutor
                 (diagnosticsScanController.activeSessionIdsOwnedBy(runId) + recordedSessionIds)
                     .distinct()
                     .forEach { sessionId ->
-                        stageCpuTracker.finish(sessionId)
                         cancellationFailure =
                             cancellationFailure.withSuppressed(
                                 cancelRunSession(runId, sessionId),
@@ -75,32 +60,6 @@ internal class HomeCompositeStageExecutor
             }
             cancellationFailure?.let { throw it }
         }
-
-        suspend fun recordStageTelemetry(
-            runId: String,
-            spec: HomeCompositeStageSpec,
-            sessionId: String? = null,
-            state: DiagnosticsHomeCompositeStageStatus,
-        ) {
-            stageTelemetryRecorder.record(
-                runId = runId,
-                stageKey = spec.key,
-                sessionId = sessionId,
-                state = state,
-            )
-        }
-
-        fun startNonSessionStageCpu(
-            runId: String,
-            spec: HomeCompositeStageSpec,
-        ) {
-            stageCpuTracker.start(nonSessionStageCpuKey(runId, spec))
-        }
-
-        fun finishNonSessionStageCpu(
-            runId: String,
-            spec: HomeCompositeStageSpec,
-        ): Long? = stageCpuTracker.finish(nonSessionStageCpuKey(runId, spec))
 
         suspend fun cancelRunAndSetTerminalStatus(
             runId: String,
@@ -151,7 +110,7 @@ internal class HomeCompositeStageExecutor
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
             maxCandidates: Int? = null,
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): HomeCompositeStageExecutionResult? {
+        ): Pair<String, DiagnosticScanSession>? {
             val stageSessionId =
                 launchStageSession(
                     runId = runId,
@@ -184,11 +143,6 @@ internal class HomeCompositeStageExecutor
             log.i {
                 "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec, quickScan)}ms)"
             }
-            recordStageTelemetry(
-                runId = runId,
-                spec = spec,
-                state = DiagnosticsHomeCompositeStageStatus.RUNNING,
-            )
             val stageSessionId =
                 startStageSession(
                     runId = runId,
@@ -198,16 +152,7 @@ internal class HomeCompositeStageExecutor
                     progressState = progressState,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
-                )
-            if (stageSessionId == null) {
-                recordStageTelemetry(
-                    runId = runId,
-                    spec = spec,
-                    state = DiagnosticsHomeCompositeStageStatus.FAILED,
-                )
-                return null
-            }
-            stageCpuTracker.start(stageSessionId)
+                ) ?: return null
             updateStage(progressState, runId, stageIndex) { current ->
                 current.copy(
                     sessionId = stageSessionId,
@@ -234,7 +179,6 @@ internal class HomeCompositeStageExecutor
                     pathMode = spec.pathMode,
                     selectedProfileId = spec.profileId,
                     skipActiveScanCheck = true,
-                    allowSensitiveProfileStart = spec.allowSensitiveProfileStart,
                     scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
@@ -276,7 +220,7 @@ internal class HomeCompositeStageExecutor
             spec: HomeCompositeStageSpec,
             stageSessionId: String,
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
-        ): HomeCompositeStageExecutionResult? {
+        ): Pair<String, DiagnosticScanSession>? {
             val sessionFinished =
                 diagnosticsTimelineSource.sessions
                     .map { sessions ->
@@ -300,12 +244,7 @@ internal class HomeCompositeStageExecutor
             return when (signal) {
                 is StageSessionSignal.Finished -> {
                     log.i { "stage ${spec.key} completed status=${signal.session.status}" }
-                    recordStageTelemetry(runId, spec, stageSessionId, signal.session.toCompositeStageStatus())
-                    HomeCompositeStageExecutionResult(
-                        sessionId = stageSessionId,
-                        session = signal.session,
-                        cpuMs = stageCpuTracker.finish(stageSessionId),
-                    )
+                    stageSessionId to signal.session
                 }
 
                 StageSessionSignal.VpnHalted -> {
@@ -317,13 +256,6 @@ internal class HomeCompositeStageExecutor
                         headline = "${spec.label} failed",
                         summary = "VPN service stopped while the stage was running.",
                     )
-                    recordStageTelemetry(
-                        runId = runId,
-                        spec = spec,
-                        sessionId = stageSessionId,
-                        state = DiagnosticsHomeCompositeStageStatus.FAILED,
-                    )
-                    stageCpuTracker.finish(stageSessionId)
                     null
                 }
             }
@@ -337,7 +269,7 @@ internal class HomeCompositeStageExecutor
             quickScan: Boolean = false,
             maxCandidates: Int? = null,
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): HomeCompositeStageExecutionResult? =
+        ): Pair<String, DiagnosticScanSession>? =
             run {
                 val stageSessionId =
                     launchStageSession(
@@ -369,18 +301,14 @@ internal class HomeCompositeStageExecutor
             quickScan: Boolean,
             stageSessionId: String,
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
-        ): HomeCompositeStageExecutionResult? {
+        ): Pair<String, DiagnosticScanSession>? {
             log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
             runCatching { diagnosticsScanController.cancelScan(stageSessionId) }
                 .onFailure { failure -> log.w(failure) { "failed to cancel timed-out session: $stageSessionId" } }
             val recoveredSession = awaitTimedOutStageRecovery(stageSessionId)
             if (recoveredSession != null) {
                 log.i { "stage ${spec.key} recovered after timeout status=${recoveredSession.status}" }
-                return HomeCompositeStageExecutionResult(
-                    sessionId = stageSessionId,
-                    session = recoveredSession,
-                    cpuMs = stageCpuTracker.finish(stageSessionId),
-                )
+                return stageSessionId to recoveredSession
             }
             markStageFailure(
                 progressState = progressState,
@@ -389,13 +317,6 @@ internal class HomeCompositeStageExecutor
                 headline = "${spec.label} timed out",
                 summary = "The stage did not complete within the allowed time.",
             )
-            recordStageTelemetry(
-                runId = runId,
-                spec = spec,
-                sessionId = stageSessionId,
-                state = DiagnosticsHomeCompositeStageStatus.FAILED,
-            )
-            stageCpuTracker.finish(stageSessionId)
             return null
         }
 
@@ -443,18 +364,7 @@ internal class HomeCompositeStageExecutor
                 }
             }
         }
-
-        private fun nonSessionStageCpuKey(
-            runId: String,
-            spec: HomeCompositeStageSpec,
-        ): String = "$runId:${spec.key}"
     }
-
-internal data class HomeCompositeStageExecutionResult(
-    val sessionId: String,
-    val session: DiagnosticScanSession,
-    val cpuMs: Long?,
-)
 
 private fun Throwable?.withSuppressed(additional: Throwable?): Throwable? =
     additional?.let { next ->
@@ -462,10 +372,3 @@ private fun Throwable?.withSuppressed(additional: Throwable?): Throwable? =
             if (this !== next) addSuppressed(next)
         } ?: next
     } ?: this
-
-private fun DiagnosticScanSession.toCompositeStageStatus(): DiagnosticsHomeCompositeStageStatus =
-    if (status == "completed") {
-        DiagnosticsHomeCompositeStageStatus.COMPLETED
-    } else {
-        DiagnosticsHomeCompositeStageStatus.FAILED
-    }

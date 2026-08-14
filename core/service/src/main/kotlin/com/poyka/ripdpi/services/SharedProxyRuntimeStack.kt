@@ -9,7 +9,6 @@ import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
-import com.poyka.ripdpi.core.withUdpAssociateEnabled
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.service.awg.AmneziaWgLocalSocksPort
 
@@ -49,21 +48,16 @@ internal class SharedProxyRuntimeStack(
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
     ): LocalProxyEndpoint {
         val awgRequest = proxyPreferences.awgConfigOrNull()
-        val configuredEgressRequirements =
+        val egressRequirements =
             EgressRequirements(
                 tcpConnect = true,
                 udpAssociate = proxyPreferences.isUdpAssociateEnabled(),
             )
-        val egressRequirements = initialRelayRacePlan?.requirements ?: configuredEgressRequirements
-        check(egressRequirements.isSupportedSubsetOf(configuredEgressRequirements)) {
-            "Initial relay plan requirements exceed the configured proxy capabilities"
+        check(initialRelayRacePlan == null || initialRelayRacePlan.requirements == egressRequirements) {
+            "Initial relay plan requirements do not match effective proxy configuration"
         }
-        var effectivePreferences =
-            proxyPreferences.withEgressRequirements(egressRequirements, configuredEgressRequirements)
+        var effectivePreferences: RipDpiProxyPreferences = proxyPreferences
         if (awgRequest != null) {
-            check(egressRequirements == configuredEgressRequirements) {
-                "AWG readiness requirements must match the configured proxy capabilities"
-            }
             // AWG is the egress: start the AWG supervisor and point the proxy
             // upstream at the AWG loopback port. WARP is not started — AWG wins.
             amneziaWgRuntimeSupervisor.start(awgRequest, onAwgExit)
@@ -75,7 +69,7 @@ internal class SharedProxyRuntimeStack(
                     onSelected = onInitialRelaySelected,
                 )
             }
-            effectivePreferences = effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
+            effectivePreferences = proxyPreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
         } else {
             val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
             proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
@@ -99,7 +93,7 @@ internal class SharedProxyRuntimeStack(
                         )
                     effectivePreferences =
                         relayRuntimeSelectionRenderer(
-                            effectivePreferences,
+                            proxyPreferences,
                             RipDpiRelayConfig(
                                 enabled = true,
                                 kind = promoted.result.selectedCandidate.relayKind,
@@ -131,21 +125,6 @@ internal class SharedProxyRuntimeStack(
 
         return proxyRuntimeSupervisor.start(effectivePreferences, onProxyExit)
     }
-
-    private fun EgressRequirements.isSupportedSubsetOf(configured: EgressRequirements): Boolean =
-        (!tcpConnect || configured.tcpConnect) &&
-            (!udpAssociate || configured.udpAssociate) &&
-            (udpAssociateTarget == null || udpAssociateTarget == configured.udpAssociateTarget)
-
-    private fun RipDpiProxyPreferences.withEgressRequirements(
-        effective: EgressRequirements,
-        configured: EgressRequirements,
-    ): RipDpiProxyPreferences =
-        if (effective.udpAssociate == configured.udpAssociate) {
-            this
-        } else {
-            withUdpAssociateEnabled(effective.udpAssociate)
-        }
 
     suspend fun stop(skipRuntimeShutdown: Boolean) {
         if (skipRuntimeShutdown) {

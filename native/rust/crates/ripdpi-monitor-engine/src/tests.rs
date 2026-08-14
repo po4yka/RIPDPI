@@ -910,20 +910,6 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
         ),
         ("quick_v1", "ordered_pre_runtime_filter_pool", Some(2), false, false),
     );
-    let ech_requirements = strategy_plan
-        .tcp_candidates
-        .iter()
-        .filter(|candidate| candidate.eligibility == "requires_ech_capability")
-        .map(|candidate| (candidate.id.as_str(), candidate.required_capabilities.clone()))
-        .collect::<Vec<_>>();
-    assert_eq!(
-        ech_requirements,
-        vec![
-            ("ech_split", vec!["baseline_ech_capable".to_string()]),
-            ("ech_tlsrec", vec!["baseline_ech_capable".to_string()]),
-        ],
-        "ECH candidates must export the prerequisite that explains a capability-skipped receipt",
-    );
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
     assert_eq!(report.profile_id, "automatic-probing");
@@ -933,22 +919,6 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
     );
     assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
     assert!(strategy_probe.audit_assessment.is_none());
-    assert!(!strategy_probe.attempts.is_empty());
-    assert!(strategy_probe.attempts.iter().all(|attempt| attempt.target_index > 0));
-    assert!(
-        strategy_probe.attempts.iter().any(|attempt| {
-            attempt.candidate_id == "baseline_plain_direct"
-                && attempt.protocol == "HTTP"
-                && attempt.status == crate::types::StrategyProbeAttemptStatus::Executed
-                && attempt.started_at_ms.is_some()
-                && attempt.duration_ms.is_some()
-        }),
-        "the native report must retain an executed baseline HTTP attempt",
-    );
-    assert_eq!(
-        strategy_probe.attempts.iter().map(|attempt| attempt.sequence).collect::<Vec<_>>(),
-        (1..=strategy_probe.attempts.len()).collect::<Vec<_>>(),
-    );
 }
 
 #[test]
@@ -1088,22 +1058,6 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     assert_eq!(target_selection.quic_hosts, expected_quic_hosts);
     assert!(audit_assessment.coverage.tcp_candidates_planned >= strategy_probe.tcp_candidates.len());
     assert!(audit_assessment.coverage.quic_candidates_planned >= strategy_probe.quic_candidates.len());
-    if strategy_probe.tcp_candidates.iter().any(|candidate| candidate.outcome == "eliminated") {
-        assert!(
-            strategy_probe
-                .attempts
-                .iter()
-                .any(|attempt| attempt.round == crate::types::StrategyProbeAttemptRound::Qualifier),
-            "qualifier-eliminated candidates must retain their executed pilot attempts",
-        );
-        assert!(
-            strategy_probe
-                .attempts
-                .iter()
-                .any(|attempt| attempt.status == crate::types::StrategyProbeAttemptStatus::Eliminated),
-            "their unreached full-matrix cells must be explicit",
-        );
-    }
 }
 
 #[test]
@@ -1259,7 +1213,6 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         target_selection: None,
         pilot_bucket_labels: vec!["foreign:direct:ech=no".to_string()],
         domain_strategy_seeds: vec![],
-        attempts: vec![],
     };
 
     let json = serde_json::to_string(&report).expect("serialize strategy probe report");

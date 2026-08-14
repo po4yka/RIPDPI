@@ -67,7 +67,7 @@ fn candidate_score_add_accumulates_weighted_success() {
         success: true,
         weight: 2,
         quality: 4,
-        attempt: ProbeAttemptMetadata::new(100, 50, 0, "TEST", None),
+        latency_ms: 50,
         domain: None,
         is_control: false,
     });
@@ -81,7 +81,7 @@ fn candidate_score_add_accumulates_weighted_success() {
         success: false,
         weight: 1,
         quality: 0,
-        attempt: ProbeAttemptMetadata::new(200, 100, 0, "TEST", Some("failed".to_string())),
+        latency_ms: 100,
         domain: None,
         is_control: false,
     });
@@ -108,7 +108,7 @@ fn candidate_score_full_success_when_all_targets_succeed() {
         success: true,
         weight: 1,
         quality: 3,
-        attempt: ProbeAttemptMetadata::new(100, 100, 0, "TEST", None),
+        latency_ms: 100,
         domain: None,
         is_control: false,
     });
@@ -129,7 +129,7 @@ fn candidate_score_preserves_control_classification_in_domain_outcome() {
         success: true,
         weight: 1,
         quality: 3,
-        attempt: ProbeAttemptMetadata::new(100, 25, 0, "TEST", None),
+        latency_ms: 25,
         domain: Some("control.example".to_string()),
         is_control: true,
     });
@@ -238,36 +238,6 @@ fn build_execution_computes_outcome_success() {
     let exec = build_candidate_execution(&test_spec(), score, 0);
 
     assert_eq!(exec.summary.outcome, "success");
-}
-
-#[test]
-fn build_execution_preserves_target_attempt_timing_and_retry_evidence() {
-    let mut score = CandidateScore::default();
-    score.add(ProbeSample {
-        result: ProbeResult {
-            probe_type: "strategy_https".to_string(),
-            target: "Test Label · blocked.example".to_string(),
-            outcome: "tls_handshake_failed".to_string(),
-            details: vec![],
-        },
-        success: false,
-        weight: 2,
-        quality: 0,
-        attempt: ProbeAttemptMetadata::new(1_000, 250, 1, "HTTPS", Some("operation timed out".to_string())),
-        domain: Some("blocked.example".to_string()),
-        is_control: true,
-    });
-
-    let execution = build_candidate_execution(&test_spec(), score, 0);
-    assert_eq!(execution.attempts.len(), 1);
-    let attempt = &execution.attempts[0];
-
-    assert_eq!(attempt.target, "blocked.example");
-    assert_eq!(attempt.started_at_ms, Some(1_000));
-    assert_eq!(attempt.duration_ms, Some(250));
-    assert_eq!(attempt.retry_count, 1);
-    assert_eq!(attempt.status, crate::types::StrategyProbeAttemptStatus::TimedOut);
-    assert!(attempt.is_control);
 }
 
 #[test]

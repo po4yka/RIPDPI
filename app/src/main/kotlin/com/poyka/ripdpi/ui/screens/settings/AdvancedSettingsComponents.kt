@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,7 +41,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -161,7 +160,6 @@ internal fun AdvancedTextSetting(
         } else {
             null
         }
-    val lineLimits = if (multiline) TextFieldLineLimits.MultiLine() else TextFieldLineLimits.SingleLine
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -172,14 +170,20 @@ internal fun AdvancedTextSetting(
             style = type.bodyEmphasis,
             color = colors.foreground,
         )
-        AdvancedSettingDescription(description = description, content = descriptionContent)
+        if (descriptionContent != null) {
+            descriptionContent()
+        } else {
+            description?.let {
+                Text(
+                    text = it,
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
         RipDpiConfigTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = input,
-                    onValueChange = { input = it },
-                    replacementKey = value,
-                ),
+            value = input,
+            onValueChange = { input = it },
             decoration =
                 RipDpiTextFieldDecoration(
                     placeholder = placeholder,
@@ -191,13 +195,16 @@ internal fun AdvancedTextSetting(
                 RipDpiTextFieldBehavior(
                     enabled = enabled,
                     keyboardOptions = keyboardOptions,
+                    keyboardActions =
+                        KeyboardActions(
+                            onDone = {
+                                if (enabled && isDirty && isValid) {
+                                    onConfirm(setting, normalizedInput)
+                                }
+                            },
+                        ),
                 ),
-            onKeyboardAction = {
-                if (enabled && isDirty && isValid) {
-                    onConfirm(setting, normalizedInput)
-                }
-            },
-            lineLimits = lineLimits,
+            multiline = multiline,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -214,24 +221,6 @@ internal fun AdvancedTextSetting(
         }
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
-        }
-    }
-}
-
-@Composable
-private fun AdvancedSettingDescription(
-    description: String?,
-    content: @Composable (() -> Unit)?,
-) {
-    if (content != null) {
-        content()
-    } else {
-        description?.let {
-            Text(
-                text = it,
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
         }
     }
 }
@@ -305,7 +294,6 @@ internal fun ActivationRangeEditorCard(
             endInput = endInput,
             onStartChange = { startInput = it },
             onEndChange = { endInput = it },
-            replacementKey = currentRange,
         )
         ActivationRangeSaveAction(
             dimension = dimension,
@@ -334,7 +322,6 @@ private fun ActivationRangeInputs(
     endInput: String,
     onStartChange: (String) -> Unit,
     onEndChange: (String) -> Unit,
-    replacementKey: Any,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     Row(
@@ -350,7 +337,6 @@ private fun ActivationRangeInputs(
             onValueChange = onStartChange,
             modifier = Modifier.weight(1f),
             testTag = RipDpiTestTags.activationStart(dimension),
-            replacementKey = replacementKey,
         )
         ActivationBoundaryField(
             title = stringResource(R.string.activation_window_field_to),
@@ -360,7 +346,6 @@ private fun ActivationRangeInputs(
             onValueChange = onEndChange,
             modifier = Modifier.weight(1f),
             testTag = RipDpiTestTags.activationEnd(dimension),
-            replacementKey = replacementKey,
         )
     }
 }
@@ -397,7 +382,6 @@ internal fun ActivationBoundaryField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     testTag: String? = null,
-    replacementKey: Any? = null,
 ) {
     val isValid = isActivationBoundaryValid(value, minValue)
     val helperText =
@@ -423,12 +407,8 @@ internal fun ActivationBoundaryField(
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
         RipDpiConfigTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = value,
-                    onValueChange = onValueChange,
-                    replacementKey = replacementKey,
-                ),
+            value = value,
+            onValueChange = onValueChange,
             decoration =
                 RipDpiTextFieldDecoration(
                     helperText = helperText,

@@ -272,11 +272,6 @@ release-preflight tag window_start started_at:
 [group('ci')]
 ci: task-check lint lint-rust test test-rust
 
-# Audit GitHub Actions and Dependabot configuration with pinned zizmor
-[group('ci')]
-zizmor:
-    bash scripts/ci/run-zizmor.sh
-
 # Run GitHub Actions locally via act
 [group('ci')]
 ci-local:

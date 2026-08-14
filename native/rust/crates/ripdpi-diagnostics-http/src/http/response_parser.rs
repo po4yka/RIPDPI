@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read};
-use std::time::Instant;
 
 use crate::transport::ConnectionStream;
 use crate::util::{find_headers_end, parse_content_length};
@@ -8,14 +7,7 @@ use crate::util::{find_headers_end, parse_content_length};
 use super::types::HttpResponse;
 
 pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Result<HttpResponse, String> {
-    read_http_response_with_ttfb(stream, max_bytes).map(|(response, _)| response)
-}
-
-pub(crate) fn read_http_response_with_ttfb(
-    stream: &mut ConnectionStream,
-    max_bytes: usize,
-) -> Result<(HttpResponse, u64), String> {
-    let (buf, ttfb_ms) = read_http_headers_with_ttfb(stream, max_bytes)?;
+    let buf = read_http_headers(stream, max_bytes)?;
     let header_end = find_headers_end(&buf).ok_or_else(|| "response_missing_headers".to_string())?;
     let header_bytes = buf[..header_end].to_vec();
     let mut body = buf[header_end + 4..].to_vec();
@@ -52,16 +44,10 @@ pub(crate) fn read_http_response_with_ttfb(
         }
     }
 
-    parse_http_response(&header_bytes, body).map(|response| (response, ttfb_ms))
+    parse_http_response(&header_bytes, body)
 }
 
 pub fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Result<Vec<u8>, String> {
-    read_http_headers_with_ttfb(stream, max_bytes).map(|(headers, _)| headers)
-}
-
-fn read_http_headers_with_ttfb(stream: &mut ConnectionStream, max_bytes: usize) -> Result<(Vec<u8>, u64), String> {
-    let started = Instant::now();
-    let mut ttfb_ms = None;
     let mut buf = Vec::new();
     let mut chunk = [0u8; 1024];
     loop {
@@ -72,7 +58,6 @@ fn read_http_headers_with_ttfb(stream: &mut ConnectionStream, max_bytes: usize) 
             }
             break;
         }
-        ttfb_ms.get_or_insert_with(|| started.elapsed().as_millis() as u64);
         buf.extend_from_slice(&chunk[..read]);
         if buf.len() > max_bytes {
             return Err("response_too_large".to_string());
@@ -81,7 +66,7 @@ fn read_http_headers_with_ttfb(stream: &mut ConnectionStream, max_bytes: usize) 
             break;
         }
     }
-    Ok((buf, ttfb_ms.unwrap_or_default()))
+    Ok(buf)
 }
 
 pub fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse, String> {

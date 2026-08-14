@@ -52,17 +52,13 @@ internal class ArtifactReadStore(
         )
 
     override suspend fun getTelemetryForArchiveStage(
-        diagnosticsRunId: String?,
-        diagnosticsStageKey: String?,
-        sessionId: String?,
+        sessionId: String,
         connectionSessionIds: List<String>,
         startedAt: Long,
         finishedAt: Long,
         limit: Int,
     ): List<TelemetrySampleEntity> =
         dao.getTelemetryForArchiveStage(
-            diagnosticsRunId = diagnosticsRunId,
-            diagnosticsStageKey = diagnosticsStageKey,
             sessionId = sessionId,
             connectionSessionIds = connectionSessionIds,
             startedAt = startedAt,

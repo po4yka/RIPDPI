@@ -1,13 +1,13 @@
 ---
 name: android-compose-patterns
-description: Compose UI, ViewModels, Navigation 3, state, and app-module theming for RIPDPI. Use when implementing or reviewing Compose screens, typed navigation, lifecycle-aware state, or ViewModel wiring in the Android app.
+description: Compose UI, ViewModels, navigation, state, and app-module theming.
 ---
 
 # Android Compose Patterns
 
 ## Overview
 
-RIPDPI uses Jetpack Compose with Material 3 and app-owned, typed Navigation 3 back stacks. State flows from DataStore through ViewModels to Composables via `StateFlow` + `collectAsStateWithLifecycle()`.
+RIPDPI uses Jetpack Compose with Material 3 and a sealed-class navigation system. State flows from DataStore through ViewModels to Composables via `StateFlow` + `collectAsStateWithLifecycle()`.
 
 Diagnostics UI is a current hotspot in this repo. It layers internal UI models over shared diagnostics contracts, exposes stable automation tags through `RipDpiTestTags`, and routes callback-style actions such as opening Advanced Settings or candidate-detail sheets through screen-level parameters.
 
@@ -21,35 +21,21 @@ One-shot effects -> Channel<Effect> -> receiveAsFlow() -> LaunchedEffect collect
 
 ## Navigation
 
-Treat these files as the navigation source of truth:
-
-- `Route.kt`: serializable typed keys and external stable identifiers
-- `RipDpiNavigationState.kt`: saveable gate and top-level back stacks plus entry decorators
-- `RipDpiNavigator.kt`: the only app-owned stack mutation API
-- `RipDpiNavHost.kt`: `entryProvider` builders and `NavDisplay`
-
-Every route leaf is `@Serializable` and extends the sealed `Route : NavKey` hierarchy. `stableRoute` is a boundary identifier for automation, telemetry, and explicit external-launch parsing; never use it for in-app navigation.
+Routes are defined as a sealed class in `app/.../ui/navigation/Route.kt`.
 
 ### Adding a New Screen
 
-1. Add an `@Serializable data object` or `data class` to `Route` with `stableRoute`, `@StringRes titleRes`, and optional `icon`. Keep arguments serializable and pass them as constructor properties.
-2. Add the representative key to `Route.all`; add it to `Route.topLevel` only when it owns a retained top-level stack.
-3. Register `entry<Route.YourRoute> { route -> ... }` in the appropriate `EntryProviderScope<NavKey>` builder in `RipDpiNavHost.kt`.
-4. Pass typed `route` arguments to the Route composable or its explicitly constructed ViewModel. Do not decode them from a string route or Navigation 2 `SavedStateHandle.toRoute()`.
-5. Navigate through a screen callback backed by `navigator.navigate(Route.YourRoute(...))`. Use `singleTop = true` only for actions that must be idempotent, and use `navigateTopLevel()` for an explicit tab switch.
-6. Extend `Navigation3MigrationBoundaryTest`, `RipDpiNavHostLogicTest`, or `RipDpiNavigatorTest` for registry coverage, stack behavior, and lifecycle-sensitive changes. Update the explicit deep-link/launch parser when the route is externally reachable.
+1. Add route to `Route` sealed class with `route` string, `@StringRes titleRes`, optional `icon`
+2. If top-level: add to `Route.topLevel` list
+3. Add to `Route.all` list
+4. Add `composable(Route.YourRoute.route) { ... }` in `RipDpiNavHost.kt`
+5. Navigate: `navController.navigate(Route.YourRoute.route) { launchSingleTop = true; restoreState = true }`
 
 ### Navigation Conventions
 
-- Do not introduce `NavController`, `NavHost`, string destinations, or Navigation 2 `composable(...)` builders.
-- Mutate stacks only through `RipDpiNavigator`; pass typed navigation callbacks from entries to Route/Screen composables.
-- Keep onboarding and biometric routes in the separate gate stack; external requests must not bypass an active gate.
-- Use `navigateTopLevel()` for the four retained top-level stacks. Restoration comes from `rememberNavBackStack`, not `launchSingleTop`/`restoreState` flags.
-- Use `goBack()`, `resetToHome()`, and `replaceAll()` instead of mutating a back stack from a screen. Connect `NavDisplay.onBack` to `navigator.goBack()` so predictive and ordinary Back share the same mutation path.
-- Keep route keys serializable and free of secrets; credential-bearing imports pass only opaque process-local tokens.
-- Keep `rememberSaveableStateHolderNavEntryDecorator()` first, followed by `rememberRipDpiSharedViewModelStoreNavEntryDecorator()`. Acquire destination ViewModels inside the decorated entry/Route scope so they clear when popped.
-- Use the existing metadata plus `sharedHiltViewModel()` path only for intentional Config/Settings feature scopes; never broaden destination ViewModels to the Activity to simulate sharing.
-- Parse deep links and automation strings explicitly into typed `Route` values. Navigation 3 does not turn `stableRoute` strings into destinations automatically.
+- Use `launchSingleTop = true` and `restoreState = true` for all navigations
+- Bottom bar shows only for `isTopLevelDestination()` routes
+- Pass ViewModels to route composables, not raw state
 
 ## ViewModel Pattern
 
@@ -81,44 +67,16 @@ class ExampleViewModel(application: Application) : AndroidViewModel(application)
 ## Composable Pattern
 
 ```kotlin
-// Entry builder: resolves a typed key and owns navigation callbacks
-private fun EntryProviderScope<NavKey>.addExampleRoute(navigator: RipDpiNavigator) {
-    entry<Route.Example> { route ->
-        ExampleRoute(
-            itemId = route.itemId,
-            onBack = navigator::goBack,
-            onOpenDetails = { id -> navigator.navigate(Route.Details(id)) },
-        )
-    }
-}
-
-// Route composable: connects an entry-scoped ViewModel to pure UI
+// Route composable: connects ViewModel to screen
 @Composable
-fun ExampleRoute(
-    itemId: Long,
-    onBack: () -> Unit,
-    onOpenDetails: (Long) -> Unit,
-    viewModel: ExampleViewModel = hiltViewModel(),
-) {
+fun ExampleRoute(viewModel: ExampleViewModel, navController: NavController) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    ExampleScreen(
-        itemId = itemId,
-        uiState = uiState,
-        onAction = viewModel::onAction,
-        onBack = onBack,
-        onOpenDetails = onOpenDetails,
-    )
+    ExampleScreen(uiState = uiState, onAction = viewModel::onAction)
 }
 
 // Screen composable: pure UI, no ViewModel reference
 @Composable
-fun ExampleScreen(
-    itemId: Long,
-    uiState: UiState,
-    onAction: () -> Unit,
-    onBack: () -> Unit,
-    onOpenDetails: (Long) -> Unit,
-) { /* ... */ }
+fun ExampleScreen(uiState: UiState, onAction: () -> Unit) { /* ... */ }
 ```
 
 ### Conventions
@@ -148,14 +106,11 @@ fun ExampleScreen(
 
 | Mistake | Fix |
 |---------|-----|
-| Navigating with `NavController` or `stableRoute` strings | Navigate with typed `Route` keys through `RipDpiNavigator` |
-| Registering a destination with Navigation 2 `composable(...)` | Add an `entry<Route.Type>` to the Navigation 3 `entryProvider` |
-| Assuming deep links are registered by a navigation graph | Extend the explicit external-launch parser and keep gate checks intact |
-| Creating an Activity-scoped ViewModel for a destination | Create it inside a decorated `NavEntry`; use explicit shared-scope metadata only when required |
 | Using `collectAsState()` | Use `collectAsStateWithLifecycle()` for lifecycle awareness |
 | Passing ViewModel to Screen composable | Pass `uiState` and callbacks; keep Screen stateless |
 | Hardcoding colors/spacing | Use `RipDpiThemeTokens` and Material 3 theme |
 | Missing `WhileSubscribed(5_000)` | Required for proper lifecycle handling in all StateFlow exports |
+| Creating ViewModel in Composable | Use `viewModel()` in Route composable or pass from NavHost |
 
 ## Related Skills
 

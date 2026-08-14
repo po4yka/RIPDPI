@@ -317,198 +317,6 @@ class DiagnosticsHomeCompositeRunCancellationTest {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DiagnosticsHomeCompositeStageSerializationTest {
-    @Test
-    fun `home analysis never overlaps profile scans`() =
-        runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            val timelineSource = MutableDiagnosticsTimelineSource()
-            var activeProfileScans = 0
-            var peakActiveProfileScans = 0
-            val scanController =
-                RecordingHomeCompositeScanController(
-                    onStart = { pathMode, profileId, sessionId ->
-                        activeProfileScans += 1
-                        peakActiveProfileScans = maxOf(peakActiveProfileScans, activeProfileScans)
-                        backgroundScope.launch {
-                            yield()
-                            val session =
-                                diagnosticsSession(
-                                    id = sessionId,
-                                    profileId = requireNotNull(profileId),
-                                    pathMode = pathMode.name,
-                                    summary = "$profileId complete",
-                                )
-                            stores.sessionsState.value = stores.sessionsState.value + session
-                            timelineSource.sessions.value =
-                                timelineSource.sessions.value +
-                                DiagnosticScanSession(
-                                    id = sessionId,
-                                    profileId = profileId,
-                                    pathMode = pathMode.name,
-                                    serviceMode = "VPN",
-                                    status = "completed",
-                                    summary = "Completed",
-                                    startedAt = 10L,
-                                    finishedAt = 20L,
-                                )
-                            activeProfileScans -= 1
-                        }
-                    },
-                )
-            val workflowService =
-                object : DiagnosticsHomeWorkflowService {
-                    override suspend fun currentFingerprintHash(): String = "fp-serialized"
-
-                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
-                        DiagnosticsHomeAuditOutcome(
-                            sessionId = sessionId,
-                            fingerprintHash = "fp-serialized",
-                            actionable = true,
-                            headline = "Analysis complete",
-                            summary = "Reusable settings found.",
-                        )
-
-                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
-                        error("unused")
-                }
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
-                    json = diagnosticsTestJson(),
-                    scope = backgroundScope,
-                )
-
-            val started = service.startHomeAnalysis()
-            advanceUntilIdle()
-            service.finalizeHomeRun(started.runId)
-
-            assertEquals(1, peakActiveProfileScans)
-        }
-}
-
-@OptIn(ExperimentalCoroutinesApi::class)
-class DiagnosticsHomeDetectionStageProvenanceTest {
-    @Test
-    fun `successful detection runner persists stage provenance in finalized outcome`() =
-        runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            val timelineSource = MutableDiagnosticsTimelineSource()
-            val findings =
-                listOf(
-                    "System resolver differs from the control resolver",
-                    "Tunnel fingerprint was observed",
-                )
-            val scanController =
-                RecordingHomeCompositeScanController(
-                    onStart = { pathMode, profileId, sessionId ->
-                        val session =
-                            diagnosticsSession(
-                                id = sessionId,
-                                profileId = requireNotNull(profileId),
-                                pathMode = pathMode.name,
-                                summary = "$profileId complete",
-                            )
-                        stores.sessionsState.value = stores.sessionsState.value + session
-                        timelineSource.sessions.value =
-                            timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, "completed")
-                    },
-                )
-            val workflowService =
-                object : DiagnosticsHomeWorkflowService {
-                    override suspend fun currentFingerprintHash(): String = "fp-detection-provenance"
-
-                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
-                        DiagnosticsHomeAuditOutcome(
-                            sessionId = sessionId,
-                            fingerprintHash = "fp-detection-provenance",
-                            actionable = true,
-                            headline = "Analysis complete",
-                            summary = "Reusable settings found.",
-                        )
-
-                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
-                        error("unused")
-                }
-            val detectionStageRunner =
-                object : HomeDetectionStageRunner {
-                    override suspend fun run(
-                        onProgress: suspend (label: String, detail: String) -> Unit,
-                    ): HomeDetectionStageOutcome =
-                        HomeDetectionStageOutcome(
-                            verdict = DiagnosticsHomeDetectionVerdict.DETECTED,
-                            detectedSignalCount = 7,
-                            findings = findings,
-                        )
-                }
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = detectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
-                    json = diagnosticsTestJson(),
-                    scope = backgroundScope,
-                )
-
-            val started = service.startQuickAnalysis()
-            advanceUntilIdle()
-            val outcome = service.finalizeHomeRun(started.runId)
-            val detectionStage = outcome.stageSummaries.single { it.stageKey == "detection_signals" }
-
-            assertEquals(
-                listOf(
-                    DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                    null,
-                    DiagnosticsHomeCompositeStageEvidenceSource.DETECTION_RUNNER,
-                    DiagnosticsHomeDetectionVerdict.DETECTED,
-                    7,
-                    findings,
-                ),
-                listOf(
-                    detectionStage.status,
-                    detectionStage.sessionId,
-                    detectionStage.evidenceSource,
-                    detectionStage.detectionVerdict,
-                    detectionStage.detectedSignalCount,
-                    detectionStage.detectionFindings,
-                ),
-            )
-        }
-}
-
-@OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsHomeCompositeRunServiceTest {
     @Test
     fun `startHomeAnalysis runs fixed stage order and keeps actionable audit recommendation`() =
@@ -567,8 +375,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
-                            stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
-                            stageCpuTracker = HomeCompositeStageCpuTracker(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -580,30 +386,23 @@ class DiagnosticsHomeCompositeRunServiceTest {
 
             // Detection stage (detection_signals) runs via HomeDetectionStageRunner,
             // not DiagnosticsScanController — so startedRequests lists only profile-scan stages.
+            // Middle stages execute in parallel so order is not deterministic; sort for stability.
             assertEquals(
                 listOf(
                     ScanPathMode.RAW_PATH to "automatic-audit",
                     ScanPathMode.RAW_PATH to "default",
-                    ScanPathMode.RAW_PATH to "ru-throttling",
                     ScanPathMode.RAW_PATH to "ru-circumvention",
                     ScanPathMode.RAW_PATH to "ru-dpi-full",
                     ScanPathMode.RAW_PATH to "ru-dpi-strategy",
+                    ScanPathMode.RAW_PATH to "ru-throttling",
                 ),
-                scanController.startedRequests,
+                scanController.startedRequests.sortedBy { it.second },
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
             // Detection stage is FAILED and path comparison is skipped without paired evidence.
             assertEquals(6, outcome.completedStageCount)
             assertEquals(1, outcome.failedStageCount)
-            assertEquals(
-                outcome.stageSummaries
-                    .map { it.stageKey }
-                    .toSet(),
-                stores.telemetryState.value
-                    .mapNotNull { it.diagnosticsStageKey }
-                    .toSet(),
-            )
         }
 
     @Test
@@ -1359,24 +1158,24 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 outcome.summary.contains("DNS issues were detected"),
             )
         }
-}
 
-private fun diagnosticScanSession(
-    sessionId: String,
-    profileId: String,
-    status: String,
-    summary: String = "Completed",
-): DiagnosticScanSession =
-    DiagnosticScanSession(
-        id = sessionId,
-        profileId = profileId,
-        pathMode = ScanPathMode.RAW_PATH.name,
-        serviceMode = "VPN",
-        status = status,
-        summary = summary,
-        startedAt = 10L,
-        finishedAt = if (status == "completed" || status == "failed") 20L else null,
-    )
+    private fun diagnosticScanSession(
+        sessionId: String,
+        profileId: String,
+        status: String,
+        summary: String = "Completed",
+    ): DiagnosticScanSession =
+        DiagnosticScanSession(
+            id = sessionId,
+            profileId = profileId,
+            pathMode = ScanPathMode.RAW_PATH.name,
+            serviceMode = "VPN",
+            status = status,
+            summary = summary,
+            startedAt = 10L,
+            finishedAt = if (status == "completed" || status == "failed") 20L else null,
+        )
+}
 
 private class NoOpNetworkHandoverMonitor : NetworkHandoverMonitor {
     override val events = MutableSharedFlow<NetworkHandoverEvent>()
@@ -1418,8 +1217,6 @@ private class RecordingHomeCompositeScanController(
 private class NoOpProbeResultCache : ProbeResultCache {
     override suspend fun lookup(fingerprintHash: String): CachedProbeOutcome? = null
 
-    override suspend fun snapshot(): List<CachedProbeOutcome> = emptyList()
-
     override suspend fun store(outcome: CachedProbeOutcome) = Unit
 
     override suspend fun evict(fingerprintHash: String) = Unit
@@ -1449,22 +1246,16 @@ class HomeCompositeStageExecutorVpnHaltTest {
     @Test
     fun `raw path stage ignores the expected vpn halt and waits for its session`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val spec = stageSpec(ScanPathMode.RAW_PATH)
             val progressState = stageProgress(spec)
             timelineSource.sessions.value = listOf(stageSession(spec, status = "running"))
-            val cpuReadings = ArrayDeque(listOf(1_000L, 1_125L))
-            val cpuTracker = HomeCompositeStageCpuTracker { cpuReadings.removeFirst() }
-            cpuTracker.start(SessionId)
             val executor =
                 HomeCompositeStageExecutor(
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
-                    stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
-                    stageCpuTracker = cpuTracker,
                 )
 
             val result =
@@ -1484,20 +1275,12 @@ class HomeCompositeStageExecutorVpnHaltTest {
             assertFalse(result.isCompleted)
 
             timelineSource.sessions.value = listOf(stageSession(spec, status = "completed"))
-            val completed = result.await()
-            assertEquals(SessionId, completed?.sessionId)
-            assertEquals(125L, completed?.cpuMs)
-            val sample = stores.telemetryState.value.single()
-            assertEquals(RunId, sample.diagnosticsRunId)
-            assertEquals(spec.key, sample.diagnosticsStageKey)
-            assertEquals(SessionId, sample.sessionId)
-            assertEquals("COMPLETED", sample.connectionState)
+            assertEquals(SessionId, result.await()?.first)
         }
 
     @Test
     fun `in path stage fails when vpn halts before its session completes`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val spec = stageSpec(ScanPathMode.IN_PATH)
@@ -1508,8 +1291,6 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
-                    stageTelemetryRecorder = HomeCompositeStageTelemetryRecorder(stores, serviceStateStore),
-                    stageCpuTracker = HomeCompositeStageCpuTracker(),
                 )
 
             val result =
@@ -1533,12 +1314,6 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     .stages
                     .single()
                     .status,
-            )
-            assertEquals(
-                "FAILED",
-                stores.telemetryState.value
-                    .single()
-                    .connectionState,
             )
         }
 

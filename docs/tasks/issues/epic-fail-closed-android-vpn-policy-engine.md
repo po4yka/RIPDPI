@@ -2,19 +2,16 @@
 id: EPC-1786264762917557
 title: Epic - Fail-closed Android VPN policy engine
 kind: epic
-status: blocked
+status: doing
 area: epic
 priority: critical
-risk: high
-owner: Android VPN policy maintainer
+owner: unassigned
 parent: null
-blocked_by:
-  - RTE-1786264762917255
+blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917557-epic-fail-closed-android-vpn-policy-engine
 created: 2026-05-01
-updated: 2026-08-09
-status_detail: Repository policy implementation is landed; remaining acceptance is physical Android 17 exclusion persistence and allowed-versus-excluded egress evidence.
+updated: 2026-07-17
 ---
 
 ## Goal

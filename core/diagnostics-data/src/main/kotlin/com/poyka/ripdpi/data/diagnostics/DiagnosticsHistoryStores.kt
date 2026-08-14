@@ -135,9 +135,7 @@ interface DiagnosticsArtifactQueryStore {
     ): TelemetrySampleEntity?
 
     suspend fun getTelemetryForArchiveStage(
-        diagnosticsRunId: String? = null,
-        diagnosticsStageKey: String? = null,
-        sessionId: String?,
+        sessionId: String,
         connectionSessionIds: List<String>,
         startedAt: Long,
         finishedAt: Long,

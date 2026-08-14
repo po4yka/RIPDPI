@@ -40,7 +40,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.rememberRipDpiTextFieldState
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
@@ -260,11 +259,8 @@ private fun RelayChainProfileSelector(
 ) {
     if (profiles.isEmpty()) {
         RipDpiTextField(
-            state =
-                rememberRipDpiTextFieldState(
-                    value = selectedProfileId,
-                    onValueChange = onProfileSelected,
-                ),
+            value = selectedProfileId,
+            onValueChange = onProfileSelected,
             decoration =
                 RipDpiTextFieldDecoration(
                     label = label,
