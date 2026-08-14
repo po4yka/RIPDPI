@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -51,13 +50,15 @@ import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private data class CategoryEntry(
@@ -82,25 +83,14 @@ internal fun StageProgressCard(progress: DetectionProgress) {
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val loadingDescription = stringResource(R.string.a11y_loading)
-            CircularProgressIndicator(
-                modifier =
-                    Modifier
-                        .size(RipDpiIconSizes.Medium)
-                        .semantics { contentDescription = loadingDescription },
-                strokeWidth = RipDpiStroke.Thick,
-                color = colors.info,
-            )
+            RipDpiSpinner(size = RipDpiSpinnerSize.Standard)
             Column {
                 Text(text = progress.label, style = type.bodyEmphasis, color = colors.foreground)
                 Text(text = progress.detail, style = type.caption, color = colors.mutedForeground)
             }
         }
-        LinearProgressIndicator(
-            progress = { progress.completedStages.size.toFloat() / DetectionStage.entries.size },
-            modifier = Modifier.fillMaxWidth(),
-            color = colors.info,
-            trackColor = colors.muted,
+        RipDpiProgressBar(
+            progress = progress.completedStages.size.toFloat() / DetectionStage.entries.size,
         )
     }
 }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +37,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -517,11 +518,7 @@ private fun OnboardingChecklistMarker(
     ) {
         when (status) {
             OnboardingRowStatus.Active -> {
-                CircularProgressIndicator(
-                    color = colors.foreground,
-                    modifier = Modifier.size(components.inputs.chipIconSize),
-                    strokeWidth = RipDpiThemeTokens.spacing.xs / 2,
-                )
+                RipDpiSpinner(size = RipDpiSpinnerSize.Small)
             }
 
             OnboardingRowStatus.Complete -> {
