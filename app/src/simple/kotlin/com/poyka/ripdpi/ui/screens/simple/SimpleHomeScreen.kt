@@ -171,8 +171,15 @@ internal fun SimpleHomeContent(
                         stringResource(
                             if (active) R.string.simple_disconnect else R.string.simple_connect,
                         ),
-                    onClick = { onToggleConnection(active) },
-                    enabled = !reportBusy && !disconnectBlocked,
+                    // A running scan never gates the connection toggle: the user must always be
+                    // able to tear the tunnel down. Bringing the tunnel up or down mid-scan
+                    // changes the measured path, so cancel the scan instead of reporting a
+                    // result gathered across two different network paths.
+                    onClick = {
+                        if (reportCancellable) onCancelReport()
+                        onToggleConnection(active)
+                    },
+                    enabled = !disconnectBlocked,
                     variant = RipDpiButtonVariant.Primary,
                 )
 

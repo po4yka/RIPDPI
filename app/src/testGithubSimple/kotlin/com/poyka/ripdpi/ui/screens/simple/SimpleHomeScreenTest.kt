@@ -138,8 +138,9 @@ class SimpleHomeScreenTest {
     }
 
     @Test
-    fun `running report exposes stage progress cancel and disables connect`() {
+    fun `running report exposes stage progress cancel and keeps connect available`() {
         var cancelClicks = 0
+        var toggleClicks = 0
         val diagnostics =
             HomeDiagnosticsUiState(
                 analysisAction =
@@ -168,14 +169,20 @@ class SimpleHomeScreenTest {
                     diagnostics = diagnostics,
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
-                    onToggleConnection = {},
+                    onToggleConnection = { toggleClicks += 1 },
                     onRunReport = {},
                     onCancelReport = { cancelClicks += 1 },
                 )
             }
         }
 
-        composeRule.onNodeWithText("Connect").assertIsNotEnabled()
+        // Connecting mid-scan cancels the scan rather than reporting a result measured
+        // across two different network paths.
+        composeRule.onNodeWithText("Connect").assertIsEnabled().performClick()
+        composeRule.runOnIdle {
+            assertEquals(1, cancelClicks)
+            assertEquals(1, toggleClicks)
+        }
         composeRule.onNodeWithText("Cancel active scan").assertIsEnabled().performClick()
         composeRule
             .onNode(
@@ -189,12 +196,13 @@ class SimpleHomeScreenTest {
                     LiveRegionMode.Polite,
                 ),
             ).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Text))
-        composeRule.runOnIdle { assertEquals(1, cancelClicks) }
+        composeRule.runOnIdle { assertEquals(2, cancelClicks) }
     }
 
     @Test
-    fun `starting report exposes cancellation while connection remains isolated`() {
+    fun `starting report exposes cancellation while connection remains available`() {
         var cancelClicks = 0
+        var toggleClicks = 0
         val diagnostics =
             HomeDiagnosticsUiState(
                 analysisAction = HomeDiagnosticsActionUiState(supportingText = "Starting diagnostics", busy = true),
@@ -208,17 +216,20 @@ class SimpleHomeScreenTest {
                     diagnostics = diagnostics,
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
-                    onToggleConnection = {},
+                    onToggleConnection = { toggleClicks += 1 },
                     onRunReport = {},
                     onCancelReport = { cancelClicks += 1 },
                 )
             }
         }
 
-        composeRule.onNodeWithText("Connect").assertIsNotEnabled()
+        composeRule.onNodeWithText("Connect").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Cancel active scan").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Starting diagnostics").assertExists()
-        composeRule.runOnIdle { assertEquals(1, cancelClicks) }
+        composeRule.runOnIdle {
+            assertEquals(2, cancelClicks)
+            assertEquals(1, toggleClicks)
+        }
     }
 
     @Test
