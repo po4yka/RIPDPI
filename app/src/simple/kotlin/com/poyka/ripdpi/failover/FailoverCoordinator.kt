@@ -216,6 +216,8 @@ class FailoverCoordinator
 
         private var relayHealthProbeCoordinator: LifecycleRelayHealthProbeCoordinator? = null
 
+        private val startupRelayProbeAttemptBudget = RelayProbeAttemptBudget()
+
         private var sessionGeneration: Long = 0L
 
         /** Timestamp of the last switch; 0 = no switch has happened yet. */
@@ -314,6 +316,7 @@ class FailoverCoordinator
             if (mode != Mode.VPN) return
             startupRecoveryMutex.withLock {
                 startupRecoveryEpoch++
+                startupRelayProbeAttemptBudget.clear()
                 stopObserving()
                 settingsRepository.update {
                     setEnableCmdSettings(false)
@@ -937,6 +940,7 @@ class FailoverCoordinator
                         scope = relayHealthScope(snapshot),
                         endpoint = endpoint,
                         plan = probePlan,
+                        relayRuntimeFailing = activeEgressHealth(snapshot) in FAILING_HEALTH_VALUES,
                     ),
                 )
             if (decision !is RelayHealthDecision.Healthy &&
@@ -956,6 +960,7 @@ class FailoverCoordinator
             LifecycleRelayHealthProbeCoordinator(
                 lifecycleScope = scope,
                 clock = clock,
+                attemptBudget = startupRelayProbeAttemptBudget,
                 probe =
                     RelayHealthObservationProbe { request ->
                         val result =
@@ -978,7 +983,9 @@ class FailoverCoordinator
                                     RelayHealthObservationOutcome.Succeeded
                                 } else if (result.failure == "probe_target_missing") {
                                     RelayHealthObservationOutcome.CapabilityUnavailable
-                                } else if (result.failure == null) {
+                                } else if (result.failure == null ||
+                                    (result.failure == "tcp_connect" && request.relayRuntimeFailing)
+                                ) {
                                     // Test and native-stage adapters may omit a target failure
                                     // string only when the failure was already relay-scoped.
                                     RelayHealthObservationOutcome.RelayStageFailure
@@ -988,7 +995,11 @@ class FailoverCoordinator
                             targetCategory = request.plan.targetCategory,
                             observedAtMs = clock.nowMillis(),
                             dataPlaneWatermark = clock.nowMillis().takeIf { result.succeeded },
-                            failureStage = RelayFailureStage.TcpConnect.takeIf { result.failure == null },
+                            failureStage =
+                                RelayFailureStage.TcpConnect.takeIf {
+                                    result.failure == null ||
+                                        (result.failure == "tcp_connect" && request.relayRuntimeFailing)
+                                },
                         )
                     },
             )

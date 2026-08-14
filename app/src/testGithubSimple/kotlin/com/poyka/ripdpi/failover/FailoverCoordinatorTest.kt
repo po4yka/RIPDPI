@@ -1423,7 +1423,7 @@ class FailoverCoordinatorTest {
                             probeCalls++
                             FailoverEgressProbeResult(
                                 succeeded = false,
-                                failure = "udp_read_timeout",
+                                failure = "tcp_connect",
                             )
                         },
                 )
@@ -1453,6 +1453,38 @@ class FailoverCoordinatorTest {
             assertEquals(2, probeCalls)
             assertEquals(0, controller.stopCalls.size)
             assertEquals(0, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `failed relay runtime plus two tcp connect probes switches once`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            probeCalls++
+                            FailoverEgressProbeResult(
+                                succeeded = false,
+                                failure = "tcp_connect",
+                            )
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+
+            assertEquals(2 to 1, probeCalls to controller.transportRestartCalls.size)
 
             coordinator.stopObserving()
         }
