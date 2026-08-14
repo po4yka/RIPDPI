@@ -5,7 +5,5 @@ the<CommonExtension>().lint.apply {
     abortOnError = true
     checkDependencies = true
     checkReleaseBuilds = true
-    htmlReport = true
-    xmlReport = true
     lintConfig = rootProject.file("lint.xml")
 }

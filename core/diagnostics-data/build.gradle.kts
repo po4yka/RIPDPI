@@ -14,7 +14,7 @@ extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.diagnostics.data"
     sourceSets {
         getByName("test") {
-            assets.srcDir("$projectDir/schemas")
+            assets.directories.add("$projectDir/schemas")
         }
     }
 }
