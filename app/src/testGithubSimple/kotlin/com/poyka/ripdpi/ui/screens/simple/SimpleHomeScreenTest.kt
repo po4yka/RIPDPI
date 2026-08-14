@@ -61,12 +61,14 @@ class SimpleHomeScreenTest {
     private fun actuator() = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
 
     /**
-     * Deactivation deliberately does not commit on a tap — the actuator withholds it so a
-     * stray touch cannot drop a live tunnel, leaving the swipe and the accessibility action
-     * as the two ways through. Screen-level tests take the accessibility action; the gesture
-     * mechanics belong to RipDpiConnectionActuatorTest.
+     * A release requires explicit confirmation: the first accessibility action arms the
+     * actuator, and the second commits it. Gesture mechanics belong to
+     * RipDpiConnectionActuatorTest.
      */
-    private fun commitActuator() = actuator().performSemanticsAction(SemanticsActions.OnClick)
+    private fun confirmDeactivation() {
+        actuator().performSemanticsAction(SemanticsActions.OnClick)
+        actuator().performSemanticsAction(SemanticsActions.OnClick)
+    }
 
     private fun openActuator() =
         HomeConnectionActuatorUiState(
@@ -102,7 +104,7 @@ class SimpleHomeScreenTest {
         }
 
         actuator().assertHasClickAction()
-        commitActuator()
+        confirmDeactivation()
         composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 
@@ -216,7 +218,7 @@ class SimpleHomeScreenTest {
         }
 
         actuator().assertHasClickAction()
-        commitActuator()
+        confirmDeactivation()
         composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 
