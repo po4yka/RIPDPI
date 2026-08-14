@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -49,7 +48,6 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
-import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -72,24 +70,9 @@ fun SimpleHomeScreen(
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
 
-    val connectionActive =
-        uiState.connectionState == ConnectionState.Connecting ||
-            uiState.connectionState == ConnectionState.Connected
-    // The shared resolver labels the actuator in the full experience's "secure line"
-    // wording. This flavor speaks plainly for field testers, so keep the design-system
-    // control but keep this flavor's own label and its nine locales. The lockdown owner
-    // still wins: when it blocks disconnect it supplies its own label.
-    val simpleActionLabel =
-        stringResource(if (connectionActive) R.string.simple_disconnect else R.string.simple_connect)
-
     SimpleHomeContent(
         connectionState = uiState.connectionState,
-        connectionActuator =
-            if (uiState.hardKillSwitch.blocksDisconnect) {
-                uiState.connectionActuator
-            } else {
-                uiState.connectionActuator.copy(actionLabel = simpleActionLabel)
-            },
+        connectionActuator = uiState.connectionActuator,
         blocksDisconnect = uiState.hardKillSwitch.blocksDisconnect,
         disconnectBlockedReason = uiState.hardKillSwitch.summary,
         diagnostics = diagnostics,
@@ -136,6 +119,22 @@ internal fun SimpleHomeContent(
             diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
     val protocolLabel = activeTransport?.toProtocolLabel()
 
+    // The actuator is this screen's status display, so it has to speak the flavor's
+    // language rather than the shared resolver's "secure line" wording, and it has to do
+    // so here rather than in the caller -- previews, tests and screenshots render this
+    // composable directly. The lockdown owner still wins: when it blocks disconnect it
+    // supplies its own label.
+    val actuatorState =
+        if (blocksDisconnect) {
+            connectionActuator
+        } else {
+            connectionActuator.copy(
+                actionLabel =
+                    stringResource(if (active) R.string.simple_disconnect else R.string.simple_connect),
+                statusDescription = stringResource(simpleStatusLabel(connectionState)),
+            )
+        }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = colors.background,
@@ -170,8 +169,7 @@ internal fun SimpleHomeContent(
                     primary = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             SimpleHomeIdentity(
-                                connectionState = connectionState,
-                                connectionActuator = connectionActuator,
+                                connectionActuator = actuatorState,
                                 protocolLabel = protocolLabel,
                                 disconnectBlocked = disconnectBlocked,
                                 disconnectBlockedReason = disconnectBlockedReason,
@@ -202,7 +200,6 @@ internal fun SimpleHomeContent(
 
 @Composable
 private fun ColumnScope.SimpleHomeIdentity(
-    connectionState: ConnectionState,
     connectionActuator: HomeConnectionActuatorUiState,
     protocolLabel: String?,
     disconnectBlocked: Boolean,
@@ -213,8 +210,6 @@ private fun ColumnScope.SimpleHomeIdentity(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val active =
-        connectionState == ConnectionState.Connecting || connectionState == ConnectionState.Connected
 
     Text(
         // The screen has no app bar, so this is the only heading TalkBack's
@@ -224,10 +219,6 @@ private fun ColumnScope.SimpleHomeIdentity(
         style = RipDpiThemeTokens.type.screenTitle,
         color = colors.foreground,
         textAlign = TextAlign.Center,
-    )
-    SimpleConnectionStatus(
-        connectionState = connectionState,
-        modifier = Modifier.padding(top = spacing.sm),
     )
 
     if (protocolLabel != null) {
@@ -437,45 +428,16 @@ internal fun AnalysisProgressUiState?.overallProgress(): Float {
         .coerceIn(0f, 1f)
 }
 
-@Composable
-internal fun SimpleConnectionStatus(
-    connectionState: ConnectionState,
-    modifier: Modifier = Modifier,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val statusLabel = stringResource(simpleStatusLabel(connectionState))
-    Text(
-        // This is a status label, not a control, so its text is its accessible name.
-        // Clearing semantics to publish the same words as a stateDescription left the node
-        // nameless -- state with nothing to attach it to -- and dropped the text out of the
-        // tree entirely, so nothing could find it by content.
-        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        text = statusLabel,
-        // Connection state is the one thing this screen exists to report, so it outranks
-        // the captions around it instead of sharing their weight. Colour alone does not
-        // carry it: "Disconnected" and "Connection error" both stay muted-or-worse, and
-        // WCAG 1.4.1 forbids colour as the sole channel anyway.
-        style = RipDpiThemeTokens.type.sectionTitle,
-        color = simpleStatusColor(connectionState, colors),
-        textAlign = TextAlign.Center,
-    )
-}
-
 /**
- * A failed connection must not read as an idle one. Error carries the destructive
- * role; only the resting states stay muted.
+ * The words the actuator shows as its status line.
+ *
+ * There is no separate status label on this screen: the actuator is the status display,
+ * and a second line saying the same thing was the duplication this flavor did not need.
+ * A failed connection stays distinguishable through the actuator's own Fault role, which
+ * paints the rail and its border destructive -- a stronger signal than a coloured word,
+ * and one that does not rely on colour alone.
  */
-internal fun simpleStatusColor(
-    state: ConnectionState,
-    colors: RipDpiExtendedColors,
-): Color =
-    when (state) {
-        ConnectionState.Connected -> colors.success
-        ConnectionState.Error -> colors.destructive
-        ConnectionState.Disconnected, ConnectionState.Connecting -> colors.mutedForeground
-    }
-
-private fun simpleStatusLabel(state: ConnectionState): Int =
+internal fun simpleStatusLabel(state: ConnectionState): Int =
     when (state) {
         ConnectionState.Disconnected -> R.string.simple_status_disconnected
         ConnectionState.Connecting -> R.string.simple_status_connecting

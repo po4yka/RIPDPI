@@ -106,6 +106,42 @@ class SimpleHomeScreenTest {
     }
 
     @Test
+    fun `actuator speaks this flavor's plain language and carries the status itself`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Connected,
+                    // What the shared resolver would hand this screen.
+                    connectionActuator =
+                        HomeConnectionActuatorUiState(
+                            status = HomeConnectionActuatorStatus.Locked,
+                            actionLabel = "Release secure line",
+                            statusDescription = "Secure line engaged",
+                        ),
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        // The switch carries the action; the actuator's own headline carries the status
+        // prose and its live region. Both must speak this flavor's language.
+        actuator().assert(
+            SemanticsMatcher.expectValue(
+                SemanticsProperties.ContentDescription,
+                listOf("Disconnect"),
+            ),
+        )
+        composeRule.onNodeWithText("Connected").assertIsDisplayed()
+        composeRule.onNodeWithText("Release secure line").assertDoesNotExist()
+        composeRule.onNodeWithText("Secure line engaged").assertDoesNotExist()
+    }
+
+    @Test
     fun `connected session disables disconnect while lockdown owns vpn lifecycle`() {
         var toggleClicks = 0
 
