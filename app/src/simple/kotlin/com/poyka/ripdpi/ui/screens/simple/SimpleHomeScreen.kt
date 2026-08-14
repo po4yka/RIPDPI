@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.simple
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,8 +44,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -145,10 +148,13 @@ internal fun SimpleHomeContent(
                     .padding(horizontal = spacing.xl),
             contentAlignment = Alignment.Center,
         ) {
+            val split = layout.contentGrouping == RipDpiContentGrouping.SplitColumns
             Column(
                 modifier =
                     Modifier
-                        .widthIn(max = layout.formMaxWidth)
+                        // A split layout earns the wider content bound; a single column stays
+                        // at form width so line length does not run away.
+                        .widthIn(max = if (split) layout.contentMaxWidth else layout.formMaxWidth)
                         .fillMaxWidth()
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
@@ -156,94 +162,156 @@ internal fun SimpleHomeContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(
-                    text = stringResource(R.string.simple_title),
-                    style = RipDpiThemeTokens.type.screenTitle,
-                    color = colors.foreground,
-                    textAlign = TextAlign.Center,
-                )
-                SimpleConnectionStatus(
-                    connectionState = connectionState,
-                    modifier = Modifier.padding(top = spacing.sm),
-                )
-
-                if (protocolLabel != null) {
-                    Text(
-                        modifier = Modifier.padding(top = spacing.xs),
-                        text = protocolLabel,
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-
-                // The design system owns one representation of "connect": the actuator.
-                // It carries the connection stages, its own semantics and the
-                // reduced-motion/large-font fallback, none of which a plain button had.
-                //
-                // A running scan never gates the connection: the user must always be able to
-                // tear the tunnel down. Bringing it up or down mid-scan changes the measured
-                // path, so cancel the scan rather than report a result gathered across two
-                // different network paths.
-                RipDpiConnectionActuator(
-                    state = connectionActuator,
-                    onActivate = {
-                        if (reportCancellable) onCancelReport()
-                        onToggleConnection(false)
+                // Identity and connection on one side, the report and its output on the
+                // other. On compact and medium widths this collapses to the same single
+                // column as before; only an expanded window pays for the second one.
+                RipDpiAdaptiveColumns(
+                    primary = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            SimpleHomeIdentity(
+                                connectionState = connectionState,
+                                connectionActuator = connectionActuator,
+                                protocolLabel = protocolLabel,
+                                disconnectBlocked = disconnectBlocked,
+                                disconnectBlockedReason = disconnectBlockedReason,
+                                reportCancellable = reportCancellable,
+                                onToggleConnection = onToggleConnection,
+                                onCancelReport = onCancelReport,
+                            )
+                        }
                     },
-                    onDeactivate = {
-                        if (reportCancellable) onCancelReport()
-                        onToggleConnection(true)
+                    secondary = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            SimpleHomeReport(
+                                diagnostics = diagnostics,
+                                reportBusy = reportBusy,
+                                reportCancellable = reportCancellable,
+                                onRunReport = onRunReport,
+                                onCancelReport = onCancelReport,
+                                onShareReport = onShareReport,
+                                onSaveReport = onSaveReport,
+                            )
+                        }
                     },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = spacing.xl),
-                    testTag = RipDpiTestTags.ConnectionActuatorButton,
-                )
-
-                // A disabled primary action must say why. The lockdown owner is the only
-                // thing that can disable it, and it carries its own explanation.
-                if (disconnectBlocked && disconnectBlockedReason.isNotBlank()) {
-                    Text(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = spacing.sm),
-                        text = disconnectBlockedReason,
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-
-                RipDpiButton(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = spacing.md)
-                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
-                    text =
-                        stringResource(
-                            if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
-                        ),
-                    onClick = if (reportCancellable) onCancelReport else onRunReport,
-                    enabled = reportCancellable || (!reportBusy && diagnostics.analysisAction.enabled),
-                    variant = RipDpiButtonVariant.Outline,
-                )
-
-                // Scan progress, status and results belong to the report action directly
-                // above them. Placed under the connection status instead, the progress bar
-                // read as connection progress.
-                SimpleDiagnosticsStatus(
-                    diagnostics = diagnostics,
-                    onShareReport = onShareReport,
-                    onSaveReport = onSaveReport,
-                    modifier = Modifier.padding(top = spacing.lg),
                 )
             }
         }
     }
+}
+
+@Composable
+private fun ColumnScope.SimpleHomeIdentity(
+    connectionState: ConnectionState,
+    connectionActuator: HomeConnectionActuatorUiState,
+    protocolLabel: String?,
+    disconnectBlocked: Boolean,
+    disconnectBlockedReason: String,
+    reportCancellable: Boolean,
+    onToggleConnection: (active: Boolean) -> Unit,
+    onCancelReport: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val active =
+        connectionState == ConnectionState.Connecting || connectionState == ConnectionState.Connected
+
+    Text(
+        text = stringResource(R.string.simple_title),
+        style = RipDpiThemeTokens.type.screenTitle,
+        color = colors.foreground,
+        textAlign = TextAlign.Center,
+    )
+    SimpleConnectionStatus(
+        connectionState = connectionState,
+        modifier = Modifier.padding(top = spacing.sm),
+    )
+
+    if (protocolLabel != null) {
+        Text(
+            modifier = Modifier.padding(top = spacing.xs),
+            text = protocolLabel,
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+        )
+    }
+
+    // The design system owns one representation of "connect": the actuator.
+    // It carries the connection stages, its own semantics and the
+    // reduced-motion/large-font fallback, none of which a plain button had.
+    //
+    // A running scan never gates the connection: the user must always be able to
+    // tear the tunnel down. Bringing it up or down mid-scan changes the measured
+    // path, so cancel the scan rather than report a result gathered across two
+    // different network paths.
+    RipDpiConnectionActuator(
+        state = connectionActuator,
+        onActivate = {
+            if (reportCancellable) onCancelReport()
+            onToggleConnection(false)
+        },
+        onDeactivate = {
+            if (reportCancellable) onCancelReport()
+            onToggleConnection(true)
+        },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = spacing.xl),
+        testTag = RipDpiTestTags.ConnectionActuatorButton,
+    )
+
+    // A disabled primary action must say why. The lockdown owner is the only
+    // thing that can disable it, and it carries its own explanation.
+    if (disconnectBlocked && disconnectBlockedReason.isNotBlank()) {
+        Text(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = spacing.sm),
+            text = disconnectBlockedReason,
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.SimpleHomeReport(
+    diagnostics: HomeDiagnosticsUiState,
+    reportBusy: Boolean,
+    reportCancellable: Boolean,
+    onRunReport: () -> Unit,
+    onCancelReport: () -> Unit,
+    onShareReport: () -> Unit,
+    onSaveReport: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    RipDpiButton(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+        text =
+            stringResource(
+                if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
+            ),
+        onClick = if (reportCancellable) onCancelReport else onRunReport,
+        enabled = reportCancellable || (!reportBusy && diagnostics.analysisAction.enabled),
+        variant = RipDpiButtonVariant.Outline,
+    )
+
+    // Scan progress, status and results belong to the report action directly
+    // above them. Placed under the connection status instead, the progress bar
+    // read as connection progress.
+    SimpleDiagnosticsStatus(
+        diagnostics = diagnostics,
+        onShareReport = onShareReport,
+        onSaveReport = onSaveReport,
+        modifier = Modifier.padding(top = spacing.lg),
+    )
 }
 
 @Composable

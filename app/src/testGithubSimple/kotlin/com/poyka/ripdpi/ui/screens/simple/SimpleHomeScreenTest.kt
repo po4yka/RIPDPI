@@ -14,8 +14,6 @@ import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
-import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -443,7 +441,7 @@ class SimpleHomeScreenTest {
 
     @Test
     @Config(qualifiers = "en-w1200dp-h900dp")
-    fun `expanded window keeps primary controls at centered form width`() {
+    fun `expanded window splits connection and report into two columns`() {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
@@ -462,10 +460,15 @@ class SimpleHomeScreenTest {
             }
         }
 
-        actuator()
-            .assertWidthIsEqualTo(680.dp)
-            .assertLeftPositionInRootIsEqualTo(260.dp)
-        composeRule.onNodeWithText("Run diagnostic report").assertWidthIsEqualTo(680.dp)
+        val connect = actuator().fetchSemanticsNode().boundsInRoot
+        val report =
+            composeRule
+                .onNodeWithText("Run diagnostic report")
+                .fetchSemanticsNode()
+                .boundsInRoot
+
+        assertTrue("report must sit beside the actuator, not under it", report.left >= connect.right)
+        assertTrue("the two columns must share a vertical band", report.top < connect.bottom)
     }
 
     @Test
