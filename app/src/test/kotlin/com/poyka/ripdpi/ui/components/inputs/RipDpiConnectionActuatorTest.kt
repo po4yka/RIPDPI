@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -28,6 +29,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.text.TextLayoutResult
@@ -58,6 +60,10 @@ class RipDpiConnectionActuatorTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private companion object {
+        const val HalfRailSwipeFraction = 0.5f
+    }
+
     @Test
     fun `physical tap activates open actuator`() {
         var activations = 0
@@ -85,6 +91,40 @@ class RipDpiConnectionActuatorTest {
         composeRule.runOnIdle {
             assertTrue(activated)
         }
+    }
+
+    /**
+     * The commit threshold is measured against carriage travel, not rail width.
+     * When it was measured against rail width the carriage pinned at the end of
+     * its run while the gesture was still short of firing, so a drag that
+     * visually completed did nothing. A half-width swipe clears 72% of travel
+     * but not 72% of the rail, which is exactly the window that used to be dead.
+     */
+    @Test
+    fun `drag covering carriage travel activates while short of rail width`() {
+        var activated = false
+        composeRule.setContent {
+            RipDpiTheme {
+                Box(modifier = Modifier.requiredWidth(411.dp)) {
+                    RipDpiConnectionActuator(
+                        state = actuatorState(HomeConnectionActuatorStatus.Open),
+                        onActivate = { activated = true },
+                        onDeactivate = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = RipDpiTestTags.ConnectionActuatorButton,
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput {
+            swipe(
+                start = Offset(left + 1f, centerY),
+                end = Offset(left + width * HalfRailSwipeFraction, centerY),
+            )
+        }
+
+        composeRule.runOnIdle { assertTrue(activated) }
     }
 
     @Test

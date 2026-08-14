@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -44,7 +45,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -196,8 +196,7 @@ private fun ActuatorRailLayout(
             Modifier
                 .fillMaxWidth()
                 .height(metrics.railHeight)
-                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
-                .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
+                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail),
     ) {
         val endpointLayout =
             rememberActuatorEndpointLayout(
@@ -212,6 +211,10 @@ private fun ActuatorRailLayout(
         // Travel stops short of the terminal slot, so neither endpoint is ever
         // hidden under the carriage — the pre-refactor rail buried both.
         val travelPx = (constraints.maxWidth - occupiedPx).coerceAtLeast(0f)
+        // Commit thresholds are measured against carriage travel, not rail width.
+        // Anything else leaves the carriage pinned at the end while the gesture is
+        // still short of firing, which reads as a dead control.
+        SideEffect { interactionModifier.onTravelChanged(travelPx) }
         val fraction = {
             val dragFraction =
                 if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
@@ -461,14 +464,14 @@ private fun rememberActuatorInteractionModifier(
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ): ActuatorInteractionModifier {
     val dragDeltaPx = remember(state.status) { mutableFloatStateOf(0f) }
-    val railWidthPx = remember { mutableFloatStateOf(0f) }
+    val travelPx = remember { mutableFloatStateOf(0f) }
     val actionEnabled = state.isActivationAvailable || state.isDeactivationAvailable
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val draggableState =
         rememberDraggableState { delta ->
             val orientedDelta = if (isRtl) -delta else delta
             dragDeltaPx.floatValue =
-                (dragDeltaPx.floatValue + orientedDelta).coerceIn(-railWidthPx.floatValue, railWidthPx.floatValue)
+                (dragDeltaPx.floatValue + orientedDelta).coerceIn(-travelPx.floatValue, travelPx.floatValue)
         }
     val modifier =
         Modifier
@@ -505,7 +508,7 @@ private fun rememberActuatorInteractionModifier(
                         handleActuatorDragStop(
                             state = state,
                             dragDeltaPx = dragDeltaPx.floatValue,
-                            railWidthPx = railWidthPx.floatValue,
+                            travelPx = travelPx.floatValue,
                             performHaptic = performHaptic,
                             onActivate = onActivate,
                             onDeactivate = onDeactivate,
@@ -518,7 +521,7 @@ private fun rememberActuatorInteractionModifier(
     return ActuatorInteractionModifier(
         modifier = modifier,
         dragDeltaPx = dragDeltaPx,
-        onRailWidthChanged = { widthPx -> railWidthPx.floatValue = widthPx },
+        onTravelChanged = { distancePx -> travelPx.floatValue = distancePx },
     )
 }
 
@@ -554,14 +557,14 @@ private fun invokeActuatorClick(
 private fun handleActuatorDragStop(
     state: HomeConnectionActuatorUiState,
     dragDeltaPx: Float,
-    railWidthPx: Float,
+    travelPx: Float,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
 ) {
-    if (railWidthPx <= 0f) return
-    val activated = state.isActivationAvailable && dragDeltaPx >= railWidthPx * ActivateDragThreshold
-    val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -railWidthPx * DeactivateDragThreshold
+    if (travelPx <= 0f) return
+    val activated = state.isActivationAvailable && dragDeltaPx >= travelPx * ActivateDragThreshold
+    val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -travelPx * DeactivateDragThreshold
     when {
         activated -> {
             performHaptic(RipDpiHapticFeedback.Action)
@@ -578,7 +581,7 @@ private fun handleActuatorDragStop(
 private class ActuatorInteractionModifier(
     val modifier: Modifier,
     val dragDeltaPx: State<Float>,
-    val onRailWidthChanged: (Float) -> Unit,
+    val onTravelChanged: (Float) -> Unit,
 )
 
 @Composable
