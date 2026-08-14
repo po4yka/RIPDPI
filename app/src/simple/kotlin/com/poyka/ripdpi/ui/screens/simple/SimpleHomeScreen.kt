@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.simple
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -45,6 +49,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
+import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
@@ -70,6 +75,15 @@ fun SimpleHomeScreen(
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
 
+    // This flavor has no nav host, so About is a saved-state overlay rather than a route.
+    // AboutRoute brings its own view model, so nothing has to be threaded through here.
+    var aboutVisible by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = aboutVisible) { aboutVisible = false }
+    if (aboutVisible) {
+        AboutRoute(onBack = { aboutVisible = false }, modifier = modifier)
+        return
+    }
+
     SimpleHomeContent(
         connectionState = uiState.connectionState,
         connectionActuator = uiState.connectionActuator,
@@ -85,6 +99,7 @@ fun SimpleHomeScreen(
         onCancelReport = viewModel::onCancelHomeAnalysis,
         onShareReport = viewModel.onShareHomeAnalysis,
         onSaveReport = viewModel.onSaveHomeAnalysis,
+        onOpenAbout = { aboutVisible = true },
         modifier = modifier,
     )
 }
@@ -103,6 +118,7 @@ internal fun SimpleHomeContent(
     onCancelReport: () -> Unit,
     onShareReport: () -> Unit = {},
     onSaveReport: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -193,6 +209,19 @@ internal fun SimpleHomeContent(
                         }
                     },
                 )
+
+                // Without a nav host or app bar this flavor had no route to version,
+                // licences or the privacy notice at all. The full experience reaches the
+                // same screen from settings.
+                RipDpiButton(
+                    modifier =
+                        Modifier
+                            .padding(top = spacing.lg)
+                            .ripDpiTestTag(RipDpiTestTags.SimpleAboutAction),
+                    text = stringResource(R.string.about_category),
+                    onClick = onOpenAbout,
+                    variant = RipDpiButtonVariant.Ghost,
+                )
             }
         }
     }
@@ -215,6 +244,9 @@ private fun ColumnScope.SimpleHomeIdentity(
         // The screen has no app bar, so this is the only heading TalkBack's
         // heading navigation can land on.
         modifier = Modifier.semantics { heading() },
+        // Deliberately not app_name: TerminologyCanonTest pins app_name as the
+        // locale-independent launcher label and simple_title as the localized on-screen
+        // one. The two are meant to differ outside English.
         text = stringResource(R.string.simple_title),
         style = RipDpiThemeTokens.type.screenTitle,
         color = colors.foreground,
@@ -339,15 +371,22 @@ internal fun SimpleDiagnosticsStatus(
             }
 
             HomeDiagnosticsRunUiStatus.FAILED -> {
-                stringResource(R.string.simple_report_failed)
+                // A failed run still produces an outcome with a headline naming what went
+                // wrong. Showing only "try again" threw that away and left the user with
+                // nothing to act on; the completed branch has always used it.
+                diagnostics.analysisSheet?.headline ?: stringResource(R.string.simple_report_failed)
             }
         }
     if (statusLabel == null) return
 
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val completedResultVisible =
-        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED && diagnostics.analysisSheet != null
+    // A failed run is exactly when its archive is worth reading and sending on, so the
+    // result block belongs to both terminal outcomes rather than only the happy one.
+    val resultReady =
+        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED ||
+            diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.FAILED
+    val completedResultVisible = resultReady && diagnostics.analysisSheet != null
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -384,7 +423,7 @@ internal fun SimpleDiagnosticsStatus(
             textAlign = TextAlign.Center,
         )
         diagnostics.analysisSheet
-            ?.takeIf { diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED }
+            ?.takeIf { resultReady }
             ?.let { sheet ->
                 Text(
                     modifier = Modifier.fillMaxWidth(),
@@ -413,6 +452,17 @@ internal fun SimpleDiagnosticsStatus(
                     text = stringResource(R.string.diagnostics_save_archive_action),
                     onClick = onSaveReport,
                     variant = RipDpiButtonVariant.Outline,
+                )
+
+                // Both actions put an archive of this device's network activity somewhere
+                // the user chooses, including off-device. Naming what is inside belongs
+                // next to the buttons, not behind them.
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.diagnostics_share_archive_body),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                    textAlign = TextAlign.Center,
                 )
             }
     }

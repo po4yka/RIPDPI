@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -474,6 +475,81 @@ class SimpleHomeScreenTest {
         composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
         composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled().performClick()
         composeRule.runOnIdle { assertEquals(1, shareClicks) }
+    }
+
+    @Test
+    fun `about is reachable and the archive discloses what it contains`() {
+        var aboutClicks = 0
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                analysisSheet =
+                    HomeDiagnosticsAnalysisSheetUiState(
+                        runId = "run-1",
+                        headline = "Network analysis complete",
+                        summary = "Two recommended settings are ready to review.",
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                    onOpenAbout = { aboutClicks += 1 },
+                )
+            }
+        }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag(RipDpiTestTags.SimpleAboutAction))
+        composeRule.onNodeWithTag(RipDpiTestTags.SimpleAboutAction).assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, aboutClicks) }
+        // The archive leaves the device through actions sitting right here, so what it
+        // holds is stated beside them.
+        composeRule.onNodeWithText("Build a ZIP", substring = true).assertExists()
+    }
+
+    @Test
+    fun `a failed run keeps its outcome and its archive`() {
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.FAILED,
+                analysisSheet =
+                    HomeDiagnosticsAnalysisSheetUiState(
+                        runId = "run-1",
+                        headline = "TLS handshake stage failed",
+                        summary = "The handshake probe timed out on this network.",
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("TLS handshake stage failed").assertIsDisplayed()
+        composeRule.onNodeWithText("The handshake probe timed out on this network.").assertIsDisplayed()
+        composeRule.onNodeWithText("Diagnostic report failed. Try again.").assertDoesNotExist()
+        // The archive from a failed run is the one worth sending on.
+        composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled()
     }
 
     @Test

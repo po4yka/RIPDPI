@@ -46,6 +46,7 @@ internal object RipDpiTestTags {
     const val HomeDiagnosticsAnalysisSheet = "home-diagnostics-analysis-sheet"
     const val HomeDiagnosticsVerificationSheet = "home-diagnostics-verification-sheet"
     const val HomeDiagnosticsShareAction = "home-diagnostics-share-action"
+    const val SimpleAboutAction = "simple-about-action"
     const val HomeDiagnosticsOpenDiagnosticsAction = "home-diagnostics-open-diagnostics-action"
     const val HomeDiagnosticsVerificationOpenDiagnosticsAction = "home-diagnostics-verification-open-diagnostics-action"
     const val HomeDiagnosticsRemediationCard = "home-diagnostics-remediation-card"
