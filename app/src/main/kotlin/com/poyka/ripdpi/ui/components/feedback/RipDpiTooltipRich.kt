@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.components.feedback
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -56,7 +56,7 @@ fun RipDpiTooltipRich(
                                 modifier =
                                     Modifier
                                         .padding(RipDpiThemeTokens.spacing.sm)
-                                        .clickable(onClick = onAction),
+                                        .ripDpiClickable(onClick = onAction),
                                 style = RipDpiThemeTokens.type.button.copy(color = colors.info),
                             )
                         }

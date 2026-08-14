@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -118,7 +118,7 @@ private fun RipDpiContextMenuItem(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable {
+                .ripDpiClickable {
                     action.onClick()
                     onDismiss()
                 }.padding(horizontal = spacing.md, vertical = spacing.sm),

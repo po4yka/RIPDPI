@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -165,7 +165,7 @@ private fun SourceTile(
     val type = RipDpiThemeTokens.type
 
     Surface(
-        modifier = modifier.clickable(onClick = option.onSelect),
+        modifier = modifier.ripDpiClickable(onClick = option.onSelect),
         shape = shapes.lg,
         color = colors.card,
         contentColor = colors.foreground,

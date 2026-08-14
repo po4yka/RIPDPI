@@ -5,6 +5,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Check
@@ -90,4 +91,5 @@ object RipDpiIcons {
     val Refresh: ImageVector = Icons.Outlined.Refresh
     val Archive: ImageVector = Icons.Outlined.Archive
     val Delete: ImageVector = Icons.Outlined.Delete
+    val Add: ImageVector = Icons.Outlined.Add
 }

@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -213,7 +213,7 @@ private fun PcapPacketRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .ripDpiClickable(onClick = onClick)
                 .background(rowBackground)
                 .padding(horizontal = spacing.sm, vertical = spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),

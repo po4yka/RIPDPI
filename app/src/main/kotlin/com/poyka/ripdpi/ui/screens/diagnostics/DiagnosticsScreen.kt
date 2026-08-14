@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable

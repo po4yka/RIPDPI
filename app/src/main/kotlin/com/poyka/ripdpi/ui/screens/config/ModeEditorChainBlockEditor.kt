@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -456,7 +454,7 @@ private fun ModeEditorAddBlockButton(
         enabled = enabled,
         variant = RipDpiButtonVariant.Secondary,
         density = RipDpiControlDensity.Compact,
-        leadingIcon = Icons.Outlined.Add,
+        leadingIcon = RipDpiIcons.Add,
         modifier = Modifier.ripDpiTestTag(modeEditorChainAddTag(descriptor.id)),
     )
 }
