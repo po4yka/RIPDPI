@@ -78,12 +78,12 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
-    fun `startup readiness keeps runtime UDP requirement but probes web egress only`() =
+    fun `startup readiness projects non UDP Reality into a TCP only relay session`() =
         runTest {
             val readinessPolicy =
                 SimpleRelayEgressReadinessPolicy(
                     bundleSource = SimpleRelayBundleSource { validBundle() },
-                    relayProfileStore = seededProfileStore(realityUdpEnabled = true),
+                    relayProfileStore = seededProfileStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                 )
             val requirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
@@ -96,11 +96,11 @@ class SimpleInitialRelayRacePolicyTest {
                     requirements,
                 )
 
-            assertEquals(requirements, plan?.requirements)
             assertEquals(
                 EgressRequirements(tcpConnect = true, udpAssociate = false),
-                plan?.readinessProbeRequirements,
+                plan?.requirements,
             )
+            assertEquals(plan?.requirements, plan?.probePlan?.requirements)
         }
 
     @Test
@@ -135,7 +135,7 @@ class SimpleInitialRelayRacePolicyTest {
             assertEquals(XhttpProfileId, plan?.candidates?.single()?.profileId)
             assertEquals(
                 EgressRequirements(tcpConnect = true, udpAssociate = false),
-                plan?.readinessProbeRequirements,
+                plan?.probePlan?.requirements,
             )
         }
 
@@ -155,12 +155,12 @@ class SimpleInitialRelayRacePolicyTest {
             assertEquals(SIMPLE_SEED_AWG_PROFILE_ID, plan?.candidates?.single()?.profileId)
             assertEquals(
                 EgressRequirements(tcpConnect = true, udpAssociate = false),
-                plan?.readinessProbeRequirements,
+                plan?.probePlan?.requirements,
             )
         }
 
     @Test
-    fun `seeded AWG readiness rejects missing active probe`() =
+    fun `seeded AWG readiness reports missing active probe target without replacing it`() =
         runTest {
             val readinessPolicy =
                 SimpleRelayEgressReadinessPolicy(
@@ -169,12 +169,16 @@ class SimpleInitialRelayRacePolicyTest {
                     serviceStateStore = DefaultServiceStateStore(),
                 )
 
-            val error =
-                runCatching {
-                    readinessPolicy.plan(SIMPLE_SEED_AWG_PROFILE_ID, AmneziaWgEgressKind, "network-a")
-                }.exceptionOrNull()
+            val plan = readinessPolicy.plan(SIMPLE_SEED_AWG_PROFILE_ID, AmneziaWgEgressKind, "network-a")
 
-            assertTrue(error is InitialTransportSelectionException)
+            assertEquals(
+                Triple(null, com.poyka.ripdpi.services.RelayTargetCategory.Unavailable, "network-a"),
+                Triple(
+                    plan?.probePlan?.targetUrl,
+                    plan?.probePlan?.targetCategory,
+                    plan?.healthScope?.persistentNetworkHash,
+                ),
+            )
         }
 
     @Test
@@ -203,7 +207,7 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
-    fun `seeded relay startup rejects missing active probe`() =
+    fun `seeded relay startup preserves missing probe as unavailable evidence`() =
         runTest {
             val readinessPolicy =
                 SimpleRelayEgressReadinessPolicy(
@@ -212,12 +216,12 @@ class SimpleInitialRelayRacePolicyTest {
                     serviceStateStore = DefaultServiceStateStore(),
                 )
 
-            val error =
-                runCatching {
-                    readinessPolicy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
-                }.exceptionOrNull()
+            val plan = readinessPolicy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
 
-            assertTrue(error is InitialTransportSelectionException)
+            assertEquals(
+                null to com.poyka.ripdpi.services.RelayTargetCategory.Unavailable,
+                plan?.probePlan?.let { it.targetUrl to it.targetCategory },
+            )
         }
 
     @Test
@@ -326,7 +330,9 @@ class SimpleInitialRelayRacePolicyTest {
             policy.onSelected(InitialRelayRaceResult(initial.candidates.first(), false, 20L))
 
             healthCache.recordConfirmedFailure(
-                networkScopeKey = "network-a",
+                scope =
+                    com.poyka.ripdpi.services
+                        .RelayHealthScope("network-a", 0L),
                 proof = EgressProof.TcpUdp,
                 relayKind = RelayKindVlessReality,
                 profileId = RealityProfileId,
@@ -348,7 +354,9 @@ class SimpleInitialRelayRacePolicyTest {
             val udpRequirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
             policy = udpEnabledRealityPolicy()
             healthCache.recordConfirmedFailure(
-                networkScopeKey = "network-a",
+                scope =
+                    com.poyka.ripdpi.services
+                        .RelayHealthScope("network-a", 0L),
                 proof = EgressProof.TcpUdp,
                 relayKind = RelayKindVlessReality,
                 profileId = RealityProfileId,
@@ -553,7 +561,7 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
-    fun `failover induced restart and malformed url disable the race`() =
+    fun `failover induced restart disables race while malformed target remains explicit`() =
         runTest {
             failoverBridge.skip = true
             assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
@@ -568,7 +576,11 @@ class SimpleInitialRelayRacePolicyTest {
                     failoverCoordinator = failoverBridge,
                     egressHealthCache = healthCache,
                 )
-            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
+            val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
+            assertEquals(
+                null to com.poyka.ripdpi.services.RelayTargetCategory.Unavailable,
+                plan?.probePlan?.let { it.targetUrl to it.targetCategory },
+            )
         }
 
     @Test

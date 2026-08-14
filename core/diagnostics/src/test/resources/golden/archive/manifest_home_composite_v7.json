@@ -108,6 +108,8 @@
         "developer-analytics.json",
         "probe-results.csv",
         "native-events.csv",
+        "relay-attempt-traces.jsonl",
+        "relay-health-decisions.jsonl",
         "telemetry.csv",
         "integrity.json"
     ],
@@ -123,7 +125,7 @@
     "recentNativeWarnings": [],
     "recommendedSessionId": "audit-session",
     "runType": "home_composite",
-    "schemaVersion": 6,
+    "schemaVersion": 7,
     "scope": "hybrid",
     "sectionStatusSummary": {
         "analysis.json": "included",
@@ -138,6 +140,8 @@
         "native-events.csv": "included",
         "network-snapshots.json": "redacted",
         "probe-results.csv": "included",
+        "relay-attempt-traces.jsonl": "included",
+        "relay-health-decisions.jsonl": "included",
         "report.json": "redacted",
         "runtime-config.json": "included",
         "stage-index.json": "redacted",

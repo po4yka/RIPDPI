@@ -110,8 +110,11 @@ class RuntimeArtifactPersister
                     connectionSessionId = sessionId,
                 )
             }
-            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
-                .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
+            (
+                serviceTelemetry.proxyTelemetry.nativeEvents +
+                    serviceTelemetry.relayTelemetry.nativeEvents +
+                    serviceTelemetry.tunnelTelemetry.nativeEvents
+            ).mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEach { event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(
@@ -132,8 +135,11 @@ class RuntimeArtifactPersister
                 serviceTelemetry = serviceTelemetry,
                 connectionSessionId = connectionSessionId,
             )
-            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
-                .mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
+            (
+                serviceTelemetry.proxyTelemetry.nativeEvents +
+                    serviceTelemetry.relayTelemetry.nativeEvents +
+                    serviceTelemetry.tunnelTelemetry.nativeEvents
+            ).mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
                 .forEachIndexed { index, event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(
@@ -179,7 +185,10 @@ class RuntimeArtifactPersister
             return buildPrivacySafeTerminalArtifactBatch(
                 connectionSessionId = connectionSessionId,
                 typedEvents = typedEvents,
-                nativeEvents = telemetry.proxyTelemetry.nativeEvents + telemetry.tunnelTelemetry.nativeEvents,
+                nativeEvents =
+                    telemetry.proxyTelemetry.nativeEvents +
+                        telemetry.relayTelemetry.nativeEvents +
+                        telemetry.tunnelTelemetry.nativeEvents,
                 telemetrySample = telemetrySample,
             )
         }
@@ -522,6 +531,7 @@ class RuntimeArtifactPersister
                 nativeHeapBytes = memory.nativeHeapBytes,
                 processRssBytes = memory.processRssBytes,
                 relayProtocolKind = telemetry.relayTelemetry.protocolKind,
+                relayNativeEventsDropped = telemetry.relayTelemetry.nativeEventsDropped,
                 createdAt = createdAt,
             )
         }
@@ -544,6 +554,10 @@ private fun runtimeEventDedupeKey(event: NativeSessionEventEntity): String =
         event.fingerprintHash.orEmpty(),
         event.message,
         event.createdAt.toString(),
+        event.attemptId?.toString().orEmpty(),
+        event.attemptSequence?.toString().orEmpty(),
+        event.stage.orEmpty(),
+        event.outcome.orEmpty(),
     ).joinToString(separator = "|")
 
 private fun rootCauseAssessmentEventId(connectionSessionId: String): String =
@@ -574,6 +588,17 @@ private fun NativeRuntimeEvent.toSessionEvent(
         policySignature = policySignature,
         fingerprintHash = fingerprintHash,
         subsystem = subsystem,
+        attemptId = attemptId,
+        attemptSequence = attemptSequence,
+        stage = stage,
+        outcome = outcome,
+        durationMs = durationMs,
+        failureStage = failureStage,
+        failureClass = failureClass,
+        ioErrorKind = ioErrorKind,
+        osErrorCode = osErrorCode,
+        peerClosePhase = peerClosePhase,
+        carrierDisposition = carrierDisposition,
     )
 
 private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {

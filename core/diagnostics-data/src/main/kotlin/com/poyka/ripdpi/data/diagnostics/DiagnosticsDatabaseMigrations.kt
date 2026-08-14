@@ -11,6 +11,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration6To7,
             migration7To8,
             migration8To9,
+            migration9To10,
         )
 }
 
@@ -59,5 +60,32 @@ private val migration8To9 =
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE scan_sessions ADD COLUMN reportCompletionKind TEXT")
             db.execSQL("ALTER TABLE scan_sessions ADD COLUMN reportTerminationReason TEXT")
+        }
+    }
+
+/** v9 → v10: persist privacy-safe VLESS/Reality relay attempt stage evidence. */
+private val migration9To10 =
+    object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN relayNativeEventsDropped INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN attemptId INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN attemptSequence INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN stage TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN outcome TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN durationMs INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN failureStage TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN failureClass TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN ioErrorKind TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN osErrorCode INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN peerClosePhase TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN carrierDisposition TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN healthAttemptId TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayProfileToken TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayTransport TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayTargetCategory TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN positiveEvidenceWatermark INTEGER")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayHealthDecision TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN cooldownScope TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN cleanupReceipt TEXT")
         }
     }

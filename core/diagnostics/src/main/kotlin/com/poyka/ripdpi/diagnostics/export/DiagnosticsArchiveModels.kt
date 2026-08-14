@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 6 adds the root and per-stage native execution-plan evidence.
-    const val schemaVersion = 6
+    // Version 7 adds ordered, privacy-safe VLESS/Reality relay attempt traces.
+    const val schemaVersion = 7
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -104,6 +104,8 @@ internal object DiagnosticsArchiveFormat {
             add("developer-analytics.json")
             add("probe-results.csv")
             add("native-events.csv")
+            add("relay-attempt-traces.jsonl")
+            add("relay-health-decisions.jsonl")
             add("telemetry.csv")
             if (logcatIncluded) {
                 add("logcat.txt")
@@ -611,6 +613,7 @@ internal data class DiagnosticsArchiveCompletenessPayload(
     val appliedLimits: DiagnosticsArchiveAppliedLimits,
     val sourceCounts: DiagnosticsArchiveScopedCounts,
     val includedCounts: DiagnosticsArchiveScopedCounts,
+    val relayAttemptTraces: DiagnosticsArchiveRelayTraceCompleteness = DiagnosticsArchiveRelayTraceCompleteness(),
     val collectionWarnings: List<String> = emptyList(),
     val truncation: DiagnosticsArchiveTruncation = DiagnosticsArchiveTruncation(),
 )

@@ -28,6 +28,9 @@ import com.poyka.ripdpi.services.InitialRelayRacePlan
 import com.poyka.ripdpi.services.InitialRelayRacePolicy
 import com.poyka.ripdpi.services.InitialRelayRaceResult
 import com.poyka.ripdpi.services.InitialRelayTransportClass
+import com.poyka.ripdpi.services.RelayHealthScope
+import com.poyka.ripdpi.services.RelayProbePlan
+import com.poyka.ripdpi.services.RelayTargetCategory
 import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
@@ -109,7 +112,7 @@ internal class SimpleInitialRelayRacePolicy
                 } as? SelectorUrltestImportResult.Success
             val urltest = imported?.failoverPolicy as? FailoverPolicy.Urltest
             val normalizedProbeUrl = urltest?.probeUrl?.normalizeHttpProbeUrl()
-            if (imported == null || normalizedProbeUrl == null) {
+            if (imported == null) {
                 publishDisabledSnapshot()
                 return null
             }
@@ -200,9 +203,14 @@ internal class SimpleInitialRelayRacePolicy
                     }
                 }
             val proof = EgressProof.from(requirements)
+            val healthScope =
+                RelayHealthScope(
+                    persistentNetworkHash = networkScopeKey,
+                    sessionGeneration = serviceStateStore.telemetry.value.serviceStartedAt ?: 0L,
+                )
             val candidates =
                 listOfNotNull(realityCandidate, hysteriaCandidate).filterNot { candidate ->
-                    egressHealthCache.isCoolingDown(networkScopeKey, proof, candidate)
+                    egressHealthCache.isCoolingDown(healthScope, proof, candidate)
                 }
             if (candidates.isEmpty() || (!requirements.udpAssociate && candidates.size != 2)) {
                 publishDisabledSnapshot()
@@ -225,9 +233,20 @@ internal class SimpleInitialRelayRacePolicy
                     )
                 }
             return InitialRelayRacePlan(
-                probeUrl = normalizedProbeUrl,
+                probePlan =
+                    RelayProbePlan(
+                        targetUrl = normalizedProbeUrl,
+                        targetCategory =
+                            if (normalizedProbeUrl == null) {
+                                RelayTargetCategory.Unavailable
+                            } else {
+                                RelayTargetCategory.ApplicationHttp
+                            },
+                        requirements = requirements,
+                    ),
                 candidates = candidates,
                 requirements = requirements,
+                healthScope = healthScope,
                 cachedFallbackProfileId = cachedWinner,
             )
         }
@@ -243,7 +262,7 @@ internal class SimpleInitialRelayRacePolicy
                 profileId = result.selectedCandidate.profileId,
                 relayKind = result.selectedCandidate.relayKind,
             )
-            if (!result.usedCachedFallback) {
+            if (!result.usedCachedFallback && !result.verificationInconclusive) {
                 pendingCacheContext?.let { cacheContext ->
                     egressHealthCache.writeWinner(
                         networkScopeKey = cacheContext.networkScopeKey,
@@ -261,7 +280,7 @@ internal class SimpleInitialRelayRacePolicy
         }
 
         private fun candidateSignature(
-            normalizedProbeUrl: String,
+            normalizedProbeUrl: String?,
             requirements: EgressRequirements,
             candidates: List<InitialRelayCandidate>,
         ): String =
@@ -344,6 +363,12 @@ internal class SimpleRelayEgressReadinessPolicy
                 return null
             }
             val activeRelayKind = requireNotNull(relayKind)
+            val sessionRequirements =
+                if (seededRelay) {
+                    EgressRequirements(tcpConnect = true, udpAssociate = false)
+                } else {
+                    requirements
+                }
 
             if (!seededAwg) {
                 val stored =
@@ -355,9 +380,9 @@ internal class SimpleRelayEgressReadinessPolicy
                         activeRelayKind == RelayKindVless &&
                             stored.vlessTransport != RelayVlessTransportXhttp
                     ) ||
-                    relayTransportCapabilities(activeRelayKind)?.satisfies(requirements) != true ||
+                    relayTransportCapabilities(activeRelayKind)?.satisfies(sessionRequirements) != true ||
                     (
-                        requirements.udpAssociate &&
+                        sessionRequirements.udpAssociate &&
                             !relayProfileSupportsUdpAssociation(
                                 kindId = stored.kind,
                                 udpEnabled = stored.udpEnabled,
@@ -378,7 +403,6 @@ internal class SimpleRelayEgressReadinessPolicy
                 (imported?.failoverPolicy as? FailoverPolicy.Urltest)
                     ?.probeUrl
                     ?.normalizeHttpProbeUrl()
-                    ?: rejectReadiness("Embedded relay bundle has no valid HTTP egress probe")
             val transportClass =
                 when (activeRelayKind) {
                     RelayKindVlessReality,
@@ -392,7 +416,21 @@ internal class SimpleRelayEgressReadinessPolicy
                     else -> error("unreachable")
                 }
             return InitialRelayRacePlan(
-                probeUrl = probeUrl,
+                probePlan =
+                    RelayProbePlan(
+                        targetUrl = probeUrl,
+                        targetCategory =
+                            if (probeUrl == null) {
+                                RelayTargetCategory.Unavailable
+                            } else {
+                                RelayTargetCategory.ApplicationHttp
+                            },
+                        requirements =
+                            EgressRequirements(
+                                tcpConnect = true,
+                                udpAssociate = false,
+                            ),
+                    ),
                 candidates =
                     listOf(
                         InitialRelayCandidate(
@@ -401,11 +439,11 @@ internal class SimpleRelayEgressReadinessPolicy
                             relayKind = activeRelayKind,
                         ),
                     ),
-                requirements = requirements,
-                readinessProbeRequirements =
-                    EgressRequirements(
-                        tcpConnect = true,
-                        udpAssociate = false,
+                requirements = sessionRequirements,
+                healthScope =
+                    RelayHealthScope(
+                        persistentNetworkHash = networkScopeKey,
+                        sessionGeneration = serviceStateStore.telemetry.value.serviceStartedAt ?: 0L,
                     ),
             )
         }
@@ -433,7 +471,7 @@ internal class SimpleRelayEgressReadinessPolicy
         }
     }
 
-private fun String.normalizeHttpProbeUrl(): String? =
+internal fun String.normalizeHttpProbeUrl(): String? =
     runCatching {
         val parsed = URI(trim()).normalize()
         val scheme = parsed.scheme?.lowercase()

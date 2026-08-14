@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.XudpTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
@@ -282,10 +284,15 @@ private fun runningTelemetry(
     networkScopeKey: String? = null,
     networkHandoverState: String? = null,
     failureClass: FailureClass? = null,
+    tunnelTxBytes: Long = 0L,
+    tunnelRxBytes: Long = 0L,
+    proxyNativeEvents: List<NativeRuntimeEvent> = emptyList(),
+    relayNativeEvents: List<NativeRuntimeEvent> = emptyList(),
 ): ServiceTelemetrySnapshot =
     ServiceTelemetrySnapshot(
         status = AppStatus.Running,
         mode = Mode.VPN,
+        tunnelStats = TunnelStats(txBytes = tunnelTxBytes, rxBytes = tunnelRxBytes),
         proxyTelemetry =
             NativeRuntimeSnapshot(
                 source = "proxy",
@@ -293,6 +300,7 @@ private fun runningTelemetry(
                 health = "healthy",
                 totalErrors = proxyTotalErrors,
                 lastFailureClass = proxyLastFailureClass,
+                nativeEvents = proxyNativeEvents,
             ),
         relayTelemetry =
             NativeRuntimeSnapshot(
@@ -301,6 +309,7 @@ private fun runningTelemetry(
                 health = relayHealth,
                 listenerAddress = relayListenerAddress,
                 protocolKind = relayProtocolKind,
+                nativeEvents = relayNativeEvents,
                 xudpTelemetry =
                     XudpTelemetrySnapshot(
                         consecutiveUdpFailures = xudpConsecutiveFailures,
@@ -352,6 +361,7 @@ private fun buildCoordinator(
             awgEgressSelection = awgSelection,
             egressProbe = egressProbe,
             egressHealthCache = egressHealthMemory,
+            relayHealthDecisionRecorder = { _ -> },
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             clock = clock,
         )
@@ -367,9 +377,10 @@ private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
     )
 
     val failures = mutableListOf<Failure>()
+    val clears = mutableListOf<Failure>()
 
     override fun isCoolingDown(
-        networkScopeKey: String?,
+        scope: com.poyka.ripdpi.services.RelayHealthScope,
         proof: EgressProof,
         candidate: com.poyka.ripdpi.services.InitialRelayCandidate,
     ): Boolean = false
@@ -388,13 +399,24 @@ private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
     ) = Unit
 
     override fun recordConfirmedFailure(
-        networkScopeKey: String?,
+        scope: com.poyka.ripdpi.services.RelayHealthScope,
         proof: EgressProof,
         relayKind: String,
         profileId: String,
     ) {
-        failures += Failure(networkScopeKey, proof, relayKind, profileId)
+        failures += Failure(scope.persistentNetworkHash, proof, relayKind, profileId)
     }
+
+    override fun clearConfirmedFailure(
+        scope: com.poyka.ripdpi.services.RelayHealthScope,
+        proof: EgressProof,
+        relayKind: String,
+        profileId: String,
+    ) {
+        clears += Failure(scope.persistentNetworkHash, proof, relayKind, profileId)
+    }
+
+    override fun clearSession(sessionGeneration: Long) = Unit
 }
 
 private data class CoordinatorFixture(
@@ -464,6 +486,200 @@ class FailoverCoordinatorTest {
         }
 
     @Test
+    fun `recent data plane progress suppresses target timeout switch and cooldown`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val healthMemory = RecordingSimpleEgressHealthMemory()
+            var probeCalls = 0
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressHealthMemory = healthMemory,
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            probeCalls++
+                            FailoverEgressProbeResult(succeeded = false, failure = "dns_timeout")
+                        },
+                )
+            fixture.coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+
+            val positiveEvidence =
+                NativeRuntimeEvent(
+                    source = "service",
+                    level = "info",
+                    message = "state=cross_layer_return_observed mode=vpn generation=1",
+                    createdAt = 1L,
+                    kind = "data_plane_correlation",
+                    subsystem = "data_plane",
+                )
+            stateStore.emitTelemetry(
+                runningTelemetry(relayHealth = "failed", proxyNativeEvents = listOf(positiveEvidence)),
+            )
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(relayHealth = "failed", proxyNativeEvents = listOf(positiveEvidence)),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                Triple(1, 0, emptyList<RecordingSimpleEgressHealthMemory.Failure>()),
+                Triple(probeCalls, fixture.controller.transportRestartCalls.size, healthMemory.failures),
+            )
+            assertTrue(healthMemory.clears.isNotEmpty())
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `outbound only counters do not mask repeated native relay stage failure`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 1_000L)
+            val healthMemory = RecordingSimpleEgressHealthMemory()
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressHealthMemory = healthMemory,
+                )
+            fixture.coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+
+            fun failedStage(
+                attemptId: Long,
+                createdAt: Long,
+            ) = NativeRuntimeEvent(
+                source = "relay",
+                level = "error",
+                message = "event=relay_attempt_stage",
+                createdAt = createdAt,
+                kind = "relay_attempt_stage",
+                runtimeId = "runtime-1",
+                subsystem = "relay",
+                attemptId = attemptId,
+                attemptSequence = 4L,
+                stage = "vless_response",
+                outcome = "failed",
+                failureStage = "vless_response",
+                failureClass = "connection_reset",
+            )
+
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "failed",
+                    tunnelTxBytes = 2_048L,
+                    relayNativeEvents = listOf(failedStage(attemptId = 1L, createdAt = 1_000L)),
+                ),
+            )
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "failed",
+                    tunnelTxBytes = 4_096L,
+                    relayNativeEvents = listOf(failedStage(attemptId = 2L, createdAt = 22_000L)),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                1 to 1,
+                fixture.controller.transportRestartCalls.size to healthMemory.failures.size,
+            )
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `two native relay stage failures switch once and record cooldown`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 1_000L)
+            val healthMemory = RecordingSimpleEgressHealthMemory()
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressHealthMemory = healthMemory,
+                )
+            fixture.coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+
+            fun failedStage(
+                sequence: Long,
+                createdAt: Long,
+            ) = NativeRuntimeEvent(
+                source = "relay",
+                level = "error",
+                message = "event=relay_attempt_stage",
+                createdAt = createdAt,
+                kind = "relay_attempt_stage",
+                runtimeId = "runtime-1",
+                subsystem = "relay",
+                attemptId = 1L,
+                attemptSequence = sequence,
+                stage = "reality_tls",
+                outcome = "failed",
+                failureStage = "reality_tls",
+                failureClass = "tls_handshake_failure",
+            )
+
+            stateStore.emitTelemetry(
+                runningTelemetry(relayHealth = "failed", relayNativeEvents = listOf(failedStage(1L, 1_000L))),
+            )
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(relayHealth = "failed", relayNativeEvents = listOf(failedStage(2L, 22_000L))),
+            )
+            advanceUntilIdle()
+
+            assertEquals(1, fixture.controller.transportRestartCalls.size)
+            assertEquals(1, healthMemory.failures.size)
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
+    fun `native permanent authentication rejection switches without a second probe`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 1_000L)
+            val healthMemory = RecordingSimpleEgressHealthMemory()
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressHealthMemory = healthMemory,
+                )
+            fixture.coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "failed",
+                    relayNativeEvents =
+                        listOf(
+                            NativeRuntimeEvent(
+                                source = "relay",
+                                level = "error",
+                                message = "event=relay_attempt_stage",
+                                createdAt = 1_000L,
+                                kind = "relay_attempt_stage",
+                                runtimeId = "runtime-1",
+                                subsystem = "relay",
+                                attemptId = 1L,
+                                attemptSequence = 1L,
+                                stage = "vless_request",
+                                outcome = "failed",
+                                failureStage = "vless_auth",
+                                failureClass = "auth_rejected",
+                            ),
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(1, fixture.controller.transportRestartCalls.size)
+            assertEquals(1, healthMemory.failures.size)
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
     fun `UDP blocked session falls back to TCP xHTTP before UDP transports`() =
         runTest {
             val stateStore = FakeServiceStateStore()
@@ -511,9 +727,9 @@ class FailoverCoordinatorTest {
                         ),
                     awgProfiles = listOf(awg),
                     egressProbe =
-                        FailoverEgressProbe { _, requirements ->
-                            probedRequirements += requirements
-                            FailoverEgressProbeResult(succeeded = !requirements.udpAssociate)
+                        FailoverEgressProbe { _, plan ->
+                            probedRequirements += plan.requirements
+                            FailoverEgressProbeResult(succeeded = !plan.requirements.udpAssociate)
                         },
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
@@ -1131,10 +1347,10 @@ class FailoverCoordinatorTest {
                             ),
                         ),
                     egressProbe =
-                        FailoverEgressProbe { endpoint, requirements ->
+                        FailoverEgressProbe { endpoint, plan ->
                             probeCalls++
                             assertEquals(FailoverProxyEndpoint("127.0.0.1", 1080), endpoint)
-                            assertTrue(requirements.udpAssociate)
+                            assertTrue(plan.requirements.udpAssociate)
                             FailoverEgressProbeResult(succeeded = true)
                         },
                 )
@@ -1193,7 +1409,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun freshProxyFailureTriggersConfirmedRelayFailoverWhenRelayHealthStaysRunning() =
+    fun targetSpecificProxyProbeFailureDoesNotSwitchWorkingRelay() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 0L)
@@ -1235,14 +1451,14 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
 
             assertEquals(2, probeCalls)
-            assertEquals(1, controller.stopCalls.size)
-            assertEquals(1, controller.startCalls.size)
+            assertEquals(0, controller.stopCalls.size)
+            assertEquals(0, controller.startCalls.size)
 
             coordinator.stopObserving()
         }
 
     @Test
-    fun consecutiveXudpFailuresTriggerConfirmedFailoverForUdpSession() =
+    fun consecutiveXudpFailuresRemainInconclusiveWithoutRelayStageEvidence() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 0L)
@@ -1266,9 +1482,9 @@ class FailoverCoordinatorTest {
                             ),
                         ),
                     egressProbe =
-                        FailoverEgressProbe { _, requirements ->
+                        FailoverEgressProbe { _, plan ->
                             probeCalls++
-                            assertTrue(requirements.udpAssociate)
+                            assertTrue(plan.requirements.udpAssociate)
                             FailoverEgressProbeResult(
                                 succeeded = false,
                                 failure = "udp_read_timeout",
@@ -1297,13 +1513,13 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
 
             assertEquals(2, probeCalls)
-            assertEquals(1, controller.transportRestartCalls.size)
+            assertTrue(controller.transportRestartCalls.isEmpty())
 
             coordinator.stopObserving()
         }
 
     @Test
-    fun confirmedXudpFailureRecordsNetworkScopedUdpPenalty() =
+    fun targetSpecificXudpFailureDoesNotRecordNetworkScopedPenalty() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val memory = RecordingSimpleEgressHealthMemory()
@@ -1341,22 +1557,12 @@ class FailoverCoordinatorTest {
                 ),
             )
 
-            assertEquals(
-                listOf(
-                    RecordingSimpleEgressHealthMemory.Failure(
-                        networkScopeKey = "network-hash-a",
-                        proof = EgressProof.TcpUdp,
-                        relayKind = RelayKindVlessReality,
-                        profileId = "reality-1",
-                    ),
-                ),
-                memory.failures,
-            )
+            assertTrue(memory.failures.isEmpty())
             coordinator.stopObserving()
         }
 
     @Test
-    fun singleRealityCandidateStillRecordsConfirmedXudpFailure() =
+    fun singleRealityCandidateDoesNotQuarantineTargetSpecificXudpFailure() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val memory = RecordingSimpleEgressHealthMemory()
@@ -1389,7 +1595,7 @@ class FailoverCoordinatorTest {
                 ),
             )
 
-            assertEquals(1, memory.failures.size)
+            assertTrue(memory.failures.isEmpty())
             assertTrue(controller.transportRestartCalls.isEmpty())
             coordinator.stopObserving()
         }
@@ -1440,7 +1646,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun confirmedXudpFailureAfterRevalidatedHandoverIsPenalized() =
+    fun targetSpecificXudpFailureAfterRevalidatedHandoverRemainsInconclusive() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val memory = RecordingSimpleEgressHealthMemory()
@@ -1480,7 +1686,7 @@ class FailoverCoordinatorTest {
                 ),
             )
 
-            assertEquals(1, memory.failures.size)
+            assertTrue(memory.failures.isEmpty())
             coordinator.stopObserving()
         }
 
@@ -1571,7 +1777,7 @@ class FailoverCoordinatorTest {
                     proxyLastFailureClass = "silent_drop",
                 ),
             )
-            assertEquals(2, probeCalls)
+            assertEquals(1, probeCalls)
             assertEquals(0, controller.startCalls.size)
 
             coordinator.stopObserving()
@@ -3112,7 +3318,9 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
 
             assertTrue(
-                "Switch must fire after stop+restart clears backedOff",
+                "Switch must fire after stop+restart clears backedOff; " +
+                    "stops=${controller.stopCalls.size}, restarts=${controller.transportRestartCalls.size}, " +
+                    "active=${coordinator.activeCandidate.value}",
                 controller.stopCalls.size > 2,
             )
 

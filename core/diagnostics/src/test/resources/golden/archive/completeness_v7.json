@@ -25,6 +25,11 @@
             "snapshots": 1
         }
     },
+    "relayAttemptTraces": {
+        "droppedEventCount": 0,
+        "retainedDecisionCount": 0,
+        "retainedEventCount": 0
+    },
     "sectionStatuses": {
         "analysis.json": "included",
         "archive-provenance.json": "included",
@@ -38,6 +43,8 @@
         "native-events.csv": "included",
         "network-snapshots.json": "redacted",
         "probe-results.csv": "included",
+        "relay-attempt-traces.jsonl": "included",
+        "relay-health-decisions.jsonl": "included",
         "report.json": "redacted",
         "runtime-config.json": "included",
         "strategy-matrix.json": "included",

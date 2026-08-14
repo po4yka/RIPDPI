@@ -67,6 +67,12 @@ impl VlessYamuxSession {
 
     /// Opens a TCP stream and completes the sing-mux stream request before
     /// exposing application bytes to the caller.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: dropping during the stream request discards
+    /// only the newly opened yamux stream; its Drop resets that substream while
+    /// the shared carrier remains owned by the driver.
     pub async fn open_stream(&self, destination: &str) -> io::Result<tokio_util::compat::Compat<yamux::Stream>> {
         if self.closed.load(Ordering::Acquire) {
             return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "VLESS mux carrier closed"));
@@ -246,5 +252,84 @@ mod tests {
         assert_eq!(second_reply, *b"two");
         assert_eq!(third_reply, *b"tri");
         server_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_stream_request_resets_only_substream_and_carrier_remains_reusable() {
+        let (client, mut server) = tokio::io::duplex(64 * 1024);
+        let (first_request_tx, first_request_rx) = oneshot::channel();
+        let (cancelled_tx, cancelled_rx) = oneshot::channel();
+        let (second_open_tx, second_open_rx) = oneshot::channel();
+        let server_task = tokio::spawn(async move {
+            let mut preamble = [0_u8; 2];
+            server.read_exact(&mut preamble).await.expect("read sing-mux session preamble");
+            let connection = Arc::new(Mutex::new(yamux::Connection::new(
+                server.compat(),
+                yamux::Config::default(),
+                yamux::Mode::Server,
+            )));
+            let first = poll_fn(|cx| {
+                connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
+            })
+            .await
+            .expect("first inbound stream")
+            .expect("valid first inbound stream");
+            let mut first = first.compat();
+            read_stream_request(&mut first).await;
+            first_request_tx.send(()).expect("signal first request");
+            cancelled_rx.await.expect("client cancellation signal");
+            drop(first);
+
+            let second = poll_fn(|cx| {
+                connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
+            })
+            .await
+            .expect("second inbound stream")
+            .expect("valid second inbound stream");
+            let mut second = second.compat();
+            read_stream_request(&mut second).await;
+            let driver_connection = Arc::clone(&connection);
+            let driver = tokio::spawn(async move {
+                loop {
+                    let _ = poll_fn(|cx| {
+                        driver_connection
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .poll_next_inbound(cx)
+                    })
+                    .await;
+                }
+            });
+            second.write_all(&[0]).await.expect("acknowledge second stream");
+            second.flush().await.expect("flush second stream response");
+            second_open_rx.await.expect("second stream opened by client");
+            driver.abort();
+        });
+
+        let session = VlessYamuxSession::establish(Box::new(client), 2).await.expect("establish mux carrier");
+        let cancelled_session = session.clone();
+        let first_open = tokio::spawn(async move { cancelled_session.open_stream("cancelled.test:443").await });
+        first_request_rx.await.expect("first stream request observed");
+        first_open.abort();
+        first_open.await.expect_err("first open must be cancelled");
+        cancelled_tx.send(()).expect("release server after cancellation");
+
+        let _second = session.open_stream("reused.test:443").await.expect("open later stream on the same carrier");
+        second_open_tx.send(()).expect("release server after second open");
+        server_task.await.expect("server task");
+    }
+
+    async fn read_stream_request<S>(stream: &mut S)
+    where
+        S: AsyncRead + Unpin,
+    {
+        let mut flags = [0_u8; 2];
+        stream.read_exact(&mut flags).await.expect("read mux flags");
+        assert_eq!(flags, [0, 0]);
+        assert_eq!(stream.read_u8().await.expect("read address family"), 3);
+        let host_len = usize::from(stream.read_u8().await.expect("read host length"));
+        let mut host = vec![0_u8; host_len];
+        stream.read_exact(&mut host).await.expect("read host");
+        assert_eq!(stream.read_u16().await.expect("read port"), 443);
     }
 }

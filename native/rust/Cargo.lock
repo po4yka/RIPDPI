@@ -156,6 +156,7 @@ name = "android-support"
 version = "0.1.0"
 dependencies = [
  "android_logger",
+ "crossbeam-queue",
  "flume",
  "golden-test-support",
  "jni",
@@ -6177,6 +6178,7 @@ name = "ripdpi-relay-android"
 version = "0.1.0"
 dependencies = [
  "android-support",
+ "golden-test-support",
  "jni",
  "log",
  "ripdpi-apps-script-core",
@@ -6774,6 +6776,7 @@ name = "ripdpi-vless"
 version = "0.1.0"
 dependencies = [
  "aes 0.9.2",
+ "android-support",
  "base64 0.23.0",
  "boring",
  "foreign-types-shared",

@@ -50,6 +50,7 @@
     "morphPolicyId": null,
     "morphRollbackReason": null,
     "nativeEvents": [],
+    "nativeEventsDropped": 0,
     "networkErrors": 0,
     "networkHandoverClass": null,
     "penalizedHostCount": 1,

@@ -115,6 +115,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.execSQL("DROP TABLE diagnostics_durable_state")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
+            legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL("PRAGMA user_version = 7")
         }
 
@@ -162,6 +163,7 @@ class DiagnosticsDatabaseMigrationTest {
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
+            legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL("PRAGMA user_version = 8")
         }
 
@@ -187,5 +189,91 @@ class DiagnosticsDatabaseMigrationTest {
             migratedDb.close()
             context.deleteDatabase(dbName)
         }
+    }
+
+    @Test
+    fun `migration 9 to 10 preserves native event rows and initializes relay trace columns`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v9-v10-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.dropRelayTraceColumns()
+            legacyDb.execSQL(
+                "INSERT INTO native_session_events " +
+                    "(id, sessionId, connectionSessionId, source, level, message, createdAt, runtimeId, mode, " +
+                    "policySignature, fingerprintHash, subsystem) VALUES " +
+                    "('legacy-event', NULL, 'connection-1', 'relay', 'warn', 'legacy', 123, '7', " +
+                    "NULL, NULL, NULL, 'relay')",
+            )
+            legacyDb.execSQL("PRAGMA user_version = 9")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query(
+                    "SELECT id, attemptId, attemptSequence, stage, outcome, failureStage, carrierDisposition, " +
+                        "healthAttemptId, relayProfileToken, relayTransport, relayTargetCategory, " +
+                        "positiveEvidenceWatermark, relayHealthDecision, cooldownScope, cleanupReceipt " +
+                        "FROM native_session_events WHERE id = 'legacy-event'",
+                ).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(
+                        listOf(
+                            "legacy-event",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                        ),
+                        (0 until cursor.columnCount).map { index ->
+                            if (cursor.isNull(index)) null else cursor.getString(index)
+                        },
+                    )
+                }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    private fun android.database.sqlite.SQLiteDatabase.dropRelayTraceColumns() {
+        execSQL("ALTER TABLE telemetry_samples DROP COLUMN relayNativeEventsDropped")
+        listOf(
+            "attemptId",
+            "attemptSequence",
+            "stage",
+            "outcome",
+            "durationMs",
+            "failureStage",
+            "failureClass",
+            "ioErrorKind",
+            "osErrorCode",
+            "peerClosePhase",
+            "carrierDisposition",
+            "healthAttemptId",
+            "relayProfileToken",
+            "relayTransport",
+            "relayTargetCategory",
+            "positiveEvidenceWatermark",
+            "relayHealthDecision",
+            "cooldownScope",
+            "cleanupReceipt",
+        ).forEach { column -> execSQL("ALTER TABLE native_session_events DROP COLUMN $column") }
     }
 }

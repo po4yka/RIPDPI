@@ -7,10 +7,11 @@
 //! reported through return values — these functions never throw Java
 //! exceptions.
 
-use android_support::{JNI_VERSION, clear_relay_events, init_android_logging};
+use android_support::{JNI_VERSION, clear_relay_events_for_runtime, init_android_logging};
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM, Outcome};
+use tracing::Instrument;
 
 use crate::registry::{insert_session, remove_session, session_from_handle};
 use crate::runtime::create_session;
@@ -44,7 +45,6 @@ pub(crate) fn relay_create_entry(mut env: EnvUnowned<'_>, config_json: JString) 
             };
 
             install_quality_observer(&session);
-            clear_relay_events();
             let handle = insert_session(session);
             Ok(jlong::try_from(handle).unwrap_or(0))
         })
@@ -64,11 +64,18 @@ pub(crate) fn relay_start_entry(_env: EnvUnowned<'_>, handle: jlong) -> jint {
         return 1;
     };
 
-    match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .and_then(|runtime| runtime.block_on(session.run()).map(|_| ()))
-    {
+    match tokio::runtime::Builder::new_multi_thread().enable_all().build().and_then(|runtime| {
+        let runtime_id = handle.to_string();
+        runtime
+            .block_on(session.run().instrument(tracing::info_span!(
+                "relay_runtime",
+                ring = "relay",
+                subsystem = "relay",
+                source = "relay",
+                runtime_id = runtime_id,
+            )))
+            .map(|_| ())
+    }) {
         Ok(()) => 0,
         Err(_) => 2,
     }
@@ -90,7 +97,7 @@ pub(crate) fn relay_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong)
     match env
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
             let payload = session_from_handle(handle)
-                .and_then(|session| serialize_runtime_telemetry(&session))
+                .and_then(|session| serialize_runtime_telemetry(&session, &handle.to_string()))
                 .unwrap_or_else(|| IDLE_TELEMETRY_JSON.to_string());
             Ok(env.new_string(payload)?.into_raw())
         })
@@ -106,4 +113,5 @@ pub(crate) fn relay_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong)
 /// only after `relay_start_entry` has returned.
 pub(crate) fn relay_destroy_entry(_env: EnvUnowned<'_>, handle: jlong) {
     remove_session(handle);
+    clear_relay_events_for_runtime(&handle.to_string());
 }

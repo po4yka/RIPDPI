@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 internal class AwgEgressReadinessVerifier(
     private val runtimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val activeProbe: RelayActiveProbe = OkHttpRelayActiveProbe(),
+    private val relayHealthDecisionEngine: RelayHealthDecisionEngine = RelayHealthDecisionEngine(),
 ) {
     suspend fun verify(
         requestProfileId: String,
@@ -25,35 +26,44 @@ internal class AwgEgressReadinessVerifier(
 
         val probeResult =
             try {
-                activeProbe.probe(
-                    endpoint = LocalProxyEndpoint("127.0.0.1", AmneziaWgLocalSocksPort),
-                    url = plan.probeUrl,
-                    requirements = plan.readinessProbeRequirements,
-                )
+                plan.probePlan.targetUrl?.let { targetUrl ->
+                    activeProbe.probe(
+                        endpoint = LocalProxyEndpoint("127.0.0.1", AmneziaWgLocalSocksPort),
+                        url = targetUrl,
+                        requirements = plan.probePlan.requirements,
+                    )
+                }
             } catch (
                 @Suppress("TooGenericExceptionCaught") failure: Throwable,
             ) {
                 stopAfterFailure(failure)
             }
-        if (!probeResult.succeeded) {
+        val decision =
+            relayHealthDecisionEngine.evaluateInitialProbe(
+                candidate = candidate,
+                plan = plan,
+                result = probeResult,
+                observedAtMs = System.currentTimeMillis(),
+            )
+        if (decision !is RelayHealthDecision.Healthy) {
             onState(
                 raceState(
                     RaceStateExhausted,
                     candidate,
-                    probeResult.failure ?: RaceOutcomeFailed,
-                    probeResult.latencyMs,
+                    decision.toRaceOutcome(),
+                    probeResult?.latencyMs,
                 ),
             )
-            failReadiness("AmneziaWG handshake completed but active internet egress failed")
+            failReadiness("AmneziaWG handshake completed but relay health verification was inconclusive")
         }
 
         val result =
             InitialRelayRaceResult(
                 selectedCandidate = candidate,
                 usedCachedFallback = false,
-                latencyMs = probeResult.latencyMs,
+                latencyMs = probeResult?.latencyMs,
             )
-        onState(raceState(RaceStateSelected, candidate, RaceOutcomeSucceeded, probeResult.latencyMs))
+        onState(raceState(RaceStateSelected, candidate, RaceOutcomeSucceeded, probeResult?.latencyMs))
         onSelected(result)
     }
 
@@ -87,12 +97,20 @@ internal class AwgEgressReadinessVerifier(
             selectedTransportClass = candidate.transportClass.wireValue.takeIf { state == RaceStateSelected },
         )
 
+    private fun RelayHealthDecision.toRaceOutcome(): String =
+        when (this) {
+            is RelayHealthDecision.Healthy -> RaceOutcomeSucceeded
+            is RelayHealthDecision.Inconclusive -> RaceOutcomeVerificationInconclusive
+            is RelayHealthDecision.ConfirmedFailed -> RaceOutcomeConfirmedFailed
+        }
+
     private companion object {
         const val RaceStateRacing = "racing"
         const val RaceStateSelected = "selected"
         const val RaceStateExhausted = "exhausted"
         const val RaceOutcomePending = "pending"
         const val RaceOutcomeSucceeded = "succeeded"
-        const val RaceOutcomeFailed = "failed"
+        const val RaceOutcomeVerificationInconclusive = "verification_inconclusive"
+        const val RaceOutcomeConfirmedFailed = "confirmed_failed"
     }
 }

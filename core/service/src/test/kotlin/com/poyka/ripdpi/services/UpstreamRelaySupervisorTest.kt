@@ -6,6 +6,8 @@ import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.InitialTransportRaceCandidateSnapshot
+import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
@@ -131,6 +133,43 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `losing listener is stopped before selected relay is published`() =
+        runTest {
+            val events = mutableListOf<String>()
+            var port = RealityRacePort
+            val relayFactory =
+                TestRipDpiRelayFactory {
+                    TestRelayRuntime(events).apply {
+                        telemetry =
+                            NativeRuntimeSnapshot(
+                                source = "relay",
+                                state = "running",
+                                health = "healthy",
+                                listenerAddress = "127.0.0.1:$port",
+                            )
+                        port = HysteriaRacePort
+                    }
+                }
+            val supervisor =
+                raceSupervisor(relayFactory) { endpoint, _, _ ->
+                    val latency = if (endpoint.port == RealityRacePort) 10L else 100L
+                    delay(latency)
+                    RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
+                }
+
+            supervisor.startRace(
+                racePlan(),
+                onUnexpectedExit = {},
+                onState = { state ->
+                    if (state.state == "selected") events += "race:selected"
+                },
+            )
+
+            assertTrue(events.indexOf("relay:stop") in 0 until events.indexOf("race:selected"))
+            supervisor.stop()
+        }
+
+    @Test
     fun `runtime start failure is isolated while healthy contender wins`() =
         runTest {
             var first = true
@@ -187,7 +226,7 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
-    fun `both failed probes stop contenders and reject startup without cache`() =
+    fun `both target failures retain the configured contender without switching`() =
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
@@ -195,10 +234,45 @@ class UpstreamRelaySupervisorTest {
                     RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
                 }
 
-            val error = runCatching { supervisor.startRace(racePlan(), onUnexpectedExit = {}) }.exceptionOrNull()
+            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
 
-            assertTrue(error is InitialTransportSelectionException)
-            assertEquals(listOf(1, 1), relayFactory.runtimes.map(TestRelayRuntime::stopCount))
+            assertEquals(RealityProfileId, promoted.result.selectedCandidate.profileId)
+            assertTrue(promoted.result.verificationInconclusive)
+            assertEquals(listOf(0, 1), relayFactory.runtimes.map(TestRelayRuntime::stopCount))
+            supervisor.stop()
+        }
+
+    @Test
+    fun `target only startup failure keeps the ready relay for data plane verification`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val states = mutableListOf<InitialTransportRaceSnapshot>()
+            val supervisor =
+                raceSupervisor(relayFactory) { _, _, _ ->
+                    RelayActiveProbeResult(false, latencyMs = 10L, failure = "tcp_http_status")
+                }
+
+            val plan = racePlan().let { it.copy(candidates = it.candidates.take(1)) }
+            val promoted =
+                supervisor.startRace(
+                    plan,
+                    onUnexpectedExit = {},
+                    onState = states::add,
+                )
+
+            assertEquals(
+                Triple(
+                    RealityProfileId,
+                    listOf("verification_inconclusive"),
+                    listOf(0),
+                ),
+                Triple(
+                    promoted.result.selectedCandidate.profileId,
+                    states.last().candidates.map(InitialTransportRaceCandidateSnapshot::outcome),
+                    relayFactory.runtimes.map(TestRelayRuntime::stopCount),
+                ),
+            )
+            supervisor.stop()
         }
 
     @Test
@@ -259,7 +333,12 @@ class UpstreamRelaySupervisorTest {
 
     private fun racePlan(cachedFallbackProfileId: String? = null): InitialRelayRacePlan =
         InitialRelayRacePlan(
-            probeUrl = "https://probe.example/generate_204",
+            probePlan =
+                RelayProbePlan(
+                    targetUrl = "https://probe.example/generate_204",
+                    targetCategory = RelayTargetCategory.ApplicationHttp,
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                ),
             candidates =
                 listOf(
                     InitialRelayCandidate(
@@ -274,6 +353,7 @@ class UpstreamRelaySupervisorTest {
                     ),
                 ),
             requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+            healthScope = RelayHealthScope(persistentNetworkHash = "network-test", sessionGeneration = 1L),
             cachedFallbackProfileId = cachedFallbackProfileId,
         )
 
@@ -289,7 +369,12 @@ class UpstreamRelaySupervisorTest {
                 }
             val plan =
                 InitialRelayRacePlan(
-                    probeUrl = "https://probe.example/generate_204",
+                    probePlan =
+                        RelayProbePlan(
+                            targetUrl = "https://probe.example/generate_204",
+                            targetCategory = RelayTargetCategory.ApplicationHttp,
+                            requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                        ),
                     candidates =
                         listOf(
                             InitialRelayCandidate(
@@ -299,7 +384,7 @@ class UpstreamRelaySupervisorTest {
                             ),
                         ),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
-                    readinessProbeRequirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                    healthScope = RelayHealthScope(persistentNetworkHash = "network-test", sessionGeneration = 1L),
                 )
 
             val promoted = supervisor.startRace(plan, onUnexpectedExit = {})

@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-08-14
+goal: Prevent synthetic relay probes from cascading into destructive VPN
+  restarts while preserving fail-closed startup and privacy-safe evidence.

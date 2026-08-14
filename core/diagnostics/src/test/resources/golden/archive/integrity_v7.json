@@ -6,14 +6,14 @@
             "sha256": "e0767751cf1ebbefe54af4926af34ccd01b14b807a226714313c3632a9833f47"
         },
         {
-            "byteCount": 5658,
+            "byteCount": 5838,
             "name": "manifest.json",
-            "sha256": "774b040babf56aaa5ac576ddf7e8a5b13b36235b71be7c68b50e30bdb0bb0672"
+            "sha256": "0ed9246379ba5d4d84cc227eba96a9c024f76af5875e0e76dc78502c27eeacfd"
         },
         {
-            "byteCount": 50176,
+            "byteCount": 50219,
             "name": "report.json",
-            "sha256": "1bb6b6593251d22f9e8d1d3e2d8a37af89c5d54ea1bff2ad42715d029ca00de0"
+            "sha256": "c523b23386f128621a61358792625c29ccc29127e8f0033985bfb999e20d344a"
         },
         {
             "byteCount": 31326,
@@ -41,9 +41,9 @@
             "sha256": "ecf9c0cf18f0d16bf516d444969dc8671e6910cb99064e49e646992c11f70f53"
         },
         {
-            "byteCount": 1954,
+            "byteCount": 2191,
             "name": "completeness.json",
-            "sha256": "83a597cf5df55e5c72dd5566366b190243e17f1215906f39d1310c8dad151709"
+            "sha256": "5e6dd67320dc32a78f210c0b35a7f6dc9282838d476c6013a03cd832af662627"
         },
         {
             "byteCount": 1647,
@@ -71,6 +71,16 @@
             "sha256": "37ce8d8d0d007dae0924b291cfe39c6b8e09135ba4344c075673b764e95daf0e"
         },
         {
+            "byteCount": 0,
+            "name": "relay-attempt-traces.jsonl",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "byteCount": 0,
+            "name": "relay-health-decisions.jsonl",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
             "byteCount": 1231,
             "name": "telemetry.csv",
             "sha256": "9f3a0e0842d45b757ce40fdaf8dc9bba6b9b8ec8204e22bf8edc8c1686481c94"
@@ -83,5 +93,5 @@
     ],
     "generatedAt": 42,
     "hashAlgorithm": "sha256",
-    "schemaVersion": 6
+    "schemaVersion": 7
 }

@@ -70,6 +70,7 @@ class HomeModeCardUiStateTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 connectionDuration = 3.seconds,
             )
 
@@ -118,6 +119,7 @@ class HomeModeCardUiStateTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
                 connectionDuration = 5.seconds,
             )
 
@@ -279,6 +281,7 @@ class HomeModeCardUiStateTest {
         activeMode: Mode = Mode.VPN,
         configuredMode: Mode = Mode.VPN,
         connectionState: ConnectionState = ConnectionState.Disconnected,
+        vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
         connectionDuration: Duration = ZERO,
         homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
     ) = buildHomeModeCards(
@@ -287,6 +290,7 @@ class HomeModeCardUiStateTest {
             activeMode = activeMode,
             configuredMode = configuredMode,
             connectionState = connectionState,
+            vpnDataPlaneStatus = vpnDataPlaneStatus,
             connectionDuration = connectionDuration,
             homeDiagnostics = homeDiagnostics,
             stringResolver = stringResolver,

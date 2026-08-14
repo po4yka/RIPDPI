@@ -15,6 +15,7 @@ use tracing_subscriber::prelude::*;
 
 mod backend_fixture_tests;
 mod cross_stack;
+mod relay_attempt_trace;
 mod shadowtls_version;
 mod shutdown_drain;
 mod shutdown_leak;

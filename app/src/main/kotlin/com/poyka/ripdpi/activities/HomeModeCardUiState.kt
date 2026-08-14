@@ -53,6 +53,7 @@ internal data class HomeModeCardsInput(
     val activeMode: Mode,
     val configuredMode: Mode,
     val connectionState: ConnectionState,
+    val vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
     val connectionDuration: Duration,
     val homeDiagnostics: HomeDiagnosticsUiState,
     val stringResolver: StringResolver,
@@ -81,6 +82,7 @@ private fun buildHomeModeCards(
             activeMode = input.activeMode,
             configuredMode = input.configuredMode,
             connectionState = input.connectionState,
+            vpnDataPlaneStatus = input.vpnDataPlaneStatus,
             connectionDuration = input.connectionDuration,
             stringResolver = input.stringResolver,
         ),
@@ -150,6 +152,7 @@ private fun buildRemoteVpnCard(
     activeMode: Mode,
     configuredMode: Mode,
     connectionState: ConnectionState,
+    vpnDataPlaneStatus: VpnDataPlaneStatus,
     connectionDuration: Duration,
     stringResolver: StringResolver,
 ): HomeModeCardUiState {
@@ -159,21 +162,23 @@ private fun buildRemoteVpnCard(
         title = stringResolver.getString(R.string.home_mode_remote_vpn),
         primaryLabel = remoteVpnPrimaryLabel(draft, stringResolver),
         secondaryLabel =
-            modeStatusLabel(
+            vpnModeStatusLabel(
                 connectionState = connectionState,
                 isActiveMode = isRemoteVpnMode(activeMode),
                 isConfiguredMode = isRemoteVpnMode(configuredMode),
+                vpnDataPlaneStatus = vpnDataPlaneStatus,
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
             ) ?: relaySummary.takeIf { draft.relayEnabled },
         statusLine =
-            modeStatusLine(
+            vpnModeStatusLabel(
                 connectionState = connectionState,
                 isActiveMode = isRemoteVpnMode(activeMode),
                 isConfiguredMode = isRemoteVpnMode(configuredMode),
+                vpnDataPlaneStatus = vpnDataPlaneStatus,
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
-            ),
+            ) ?: stringResolver.getString(R.string.home_mode_card_status_inactive),
         primaryActionLabel =
             connectionActionLabel(
                 isActive =
@@ -312,6 +317,51 @@ private fun modeStatusLabel(
                 R.string.home_mode_card_connected_format,
                 formatHomeModeConnectionDuration(connectionDuration),
             )
+        }
+
+        connectionState == ConnectionState.Connecting && isConfiguredMode -> {
+            stringResolver.getString(R.string.home_mode_card_connecting)
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun vpnModeStatusLabel(
+    connectionState: ConnectionState,
+    isActiveMode: Boolean,
+    isConfiguredMode: Boolean,
+    vpnDataPlaneStatus: VpnDataPlaneStatus,
+    connectionDuration: Duration,
+    stringResolver: StringResolver,
+): String? =
+    when {
+        connectionState == ConnectionState.Connected && isActiveMode -> {
+            when (vpnDataPlaneStatus) {
+                VpnDataPlaneStatus.Working -> {
+                    stringResolver.getString(
+                        R.string.home_mode_card_connected_format,
+                        formatHomeModeConnectionDuration(connectionDuration),
+                    )
+                }
+
+                VpnDataPlaneStatus.Checking -> {
+                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_checking)
+                }
+
+                VpnDataPlaneStatus.Unverified -> {
+                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_unverified)
+                }
+
+                VpnDataPlaneStatus.Unavailable -> {
+                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_unavailable)
+                }
+
+                VpnDataPlaneStatus.NotApplicable -> {
+                    null
+                }
+            }
         }
 
         connectionState == ConnectionState.Connecting && isConfiguredMode -> {

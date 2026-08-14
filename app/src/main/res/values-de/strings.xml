@@ -1385,6 +1385,9 @@ fake_burst 3</string>
     <string name="home_diagnostics_verified_sheet_title">Verifiziertes VPN-Ergebnis</string>
     <string name="home_diagnostics_vpn_starting">VPN wird gestartet…</string>
     <string name="home_mode_card_connected_format">Verbunden %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">Lokale Prozesse laufen; VPN-Verbindung wird geprüft</string>
+    <string name="home_connection_actuator_state_vpn_unverified">Lokale Prozesse laufen; VPN-Verbindung ist nicht bestätigt</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">Lokale Prozesse laufen; VPN-Verbindung ist nicht verfügbar</string>
     <string name="home_mode_card_diagnostic_status_review">Letztes Audit prüfen</string>
     <string name="home_mode_card_remote_relay_disabled">Relay deaktiviert</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>

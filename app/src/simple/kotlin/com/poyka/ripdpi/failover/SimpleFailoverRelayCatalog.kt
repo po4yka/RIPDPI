@@ -6,10 +6,16 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.subscription.FailoverPolicy
+import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
+import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.seed.SIMPLE_SEED_GROUP_ID
 import com.poyka.ripdpi.seed.seedRelayProfileId
+import com.poyka.ripdpi.services.EgressRequirements
+import com.poyka.ripdpi.services.RelayProbePlan
+import com.poyka.ripdpi.services.RelayTargetCategory
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,6 +32,9 @@ internal fun interface SimpleFailoverRelayCatalog {
      * The caller rebuilds the catalog on the next observation attempt.
      */
     suspend fun loadManagedProfiles(): List<RelayProfileRecord>
+
+    /** Returns the imported group's probe target without substituting a shipped endpoint. */
+    suspend fun loadProbePlan(requirements: EgressRequirements): RelayProbePlan? = null
 }
 
 @Singleton
@@ -35,6 +44,23 @@ internal class EmbeddedSimpleFailoverRelayCatalog
         private val bundleSource: SimpleRelayBundleSource,
         private val relayProfileStore: RelayProfileStore,
     ) : SimpleFailoverRelayCatalog {
+        override suspend fun loadProbePlan(requirements: EgressRequirements): RelayProbePlan? {
+            val imported =
+                bundleSource.read()?.let { payload ->
+                    SelectorUrltestGroupImport.import(payload, SIMPLE_SEED_GROUP_ID)
+                } as? SelectorUrltestImportResult.Success
+            val targetUrl =
+                (imported?.failoverPolicy as? FailoverPolicy.Urltest)
+                    ?.probeUrl
+                    ?.normalizeHttpProbeUrl()
+                    ?: return null
+            return RelayProbePlan(
+                targetUrl = targetUrl,
+                targetCategory = RelayTargetCategory.ApplicationHttp,
+                requirements = requirements,
+            )
+        }
+
         override suspend fun loadManagedProfiles(): List<RelayProfileRecord> {
             val parsed =
                 bundleSource

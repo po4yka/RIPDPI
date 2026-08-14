@@ -1,0 +1,23 @@
+[
+  "attemptId",
+  "attemptSequence",
+  "carrierDisposition",
+  "createdAt",
+  "durationMs",
+  "failureClass",
+  "failureStage",
+  "fingerprintHash",
+  "ioErrorKind",
+  "kind",
+  "level",
+  "message",
+  "mode",
+  "osErrorCode",
+  "outcome",
+  "peerClosePhase",
+  "policySignature",
+  "runtimeId",
+  "source",
+  "stage",
+  "subsystem"
+]

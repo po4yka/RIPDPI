@@ -22,6 +22,35 @@ class NativeRuntimeTelemetryCodecTest {
     }
 
     @Test
+    fun `relay trace fields default when absent and nested future fields are ignored`() {
+        val snapshot =
+            json.decodeNativeRuntimeSnapshot(
+                """
+                {
+                  "source": "relay",
+                  "schemaVersion": 3,
+                  "nativeEvents": [{
+                    "source": "relay",
+                    "level": "info",
+                    "message": "runtime ready",
+                    "createdAt": 10,
+                    "futureEventField": {"nested": true}
+                  }],
+                  "futureSnapshotField": {"nested": true}
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(0L, snapshot.nativeEventsDropped)
+        assertEquals(
+            listOf(null, null, null, null),
+            snapshot.nativeEvents.single().let { event ->
+                listOf(event.attemptId, event.attemptSequence, event.stage, event.outcome)
+            },
+        )
+    }
+
+    @Test
     fun `missing schema version is rejected`() {
         assertThrows(SerializationException::class.java) {
             json.decodeNativeRuntimeSnapshot("""{"source":"proxy"}""")

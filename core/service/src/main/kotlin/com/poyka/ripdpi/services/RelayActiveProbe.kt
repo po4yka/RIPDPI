@@ -15,6 +15,36 @@ internal fun interface RelayActiveProbe {
     ): RelayActiveProbeResult
 }
 
+internal fun RelayHealthDecisionEngine.evaluateInitialProbe(
+    candidate: InitialRelayCandidate,
+    plan: InitialRelayRacePlan,
+    result: RelayActiveProbeResult?,
+    observedAtMs: Long,
+): RelayHealthDecision =
+    observe(
+        RelayHealthObservation(
+            attemptId =
+                "startup-${plan.healthScope.sessionGeneration}-" +
+                    opaqueRelayProfileToken(candidate.profileId).take(StartupProfileTokenPrefixLength),
+            profileToken = opaqueRelayProfileToken(candidate.profileId),
+            relayKind = candidate.relayKind,
+            capabilityProof = plan.probePlan.requirements.toRelayCapabilityProof(),
+            scope = plan.healthScope,
+            source = RelayHealthObservationSource.InitialProbe,
+            outcome =
+                when {
+                    plan.probePlan.targetUrl == null -> RelayHealthObservationOutcome.CapabilityUnavailable
+                    result?.succeeded == true -> RelayHealthObservationOutcome.Succeeded
+                    else -> RelayHealthObservationOutcome.TargetFailure
+                },
+            targetCategory = plan.probePlan.targetCategory,
+            observedAtMs = observedAtMs,
+            dataPlaneWatermark = observedAtMs.takeIf { result?.succeeded == true },
+        ),
+    )
+
+private const val StartupProfileTokenPrefixLength = 16
+
 internal class OkHttpRelayActiveProbe(
     private val capabilityProbe: RelayCapabilityProbe = RelayCapabilityProbe(),
 ) : RelayActiveProbe {

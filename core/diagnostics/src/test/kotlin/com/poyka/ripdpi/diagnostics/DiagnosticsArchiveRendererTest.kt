@@ -529,7 +529,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(6, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(7, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -1817,7 +1817,7 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v6.json",
+            "archive/manifest_v7.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -1833,11 +1833,11 @@ class DiagnosticsArchiveRendererTest {
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v6.json",
+            "archive/completeness_v7.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v6.json",
+            "archive/integrity_v7.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(

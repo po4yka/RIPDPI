@@ -325,6 +325,25 @@ internal fun buildCompleteness(
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
+        relayAttemptTraces =
+            DiagnosticsArchiveRelayTraceCompleteness(
+                retainedEventCount =
+                    (selection.primaryEvents + selection.globalEvents).count { event ->
+                        !event.connectionSessionId.isNullOrBlank() &&
+                            !event.runtimeId.isNullOrBlank() &&
+                            event.attemptId != null &&
+                            event.attemptSequence != null
+                    },
+                droppedEventCount =
+                    (selection.payload.telemetry + selection.compositeStages.flatMap { it.telemetry })
+                        .groupBy { it.connectionSessionId ?: it.sessionId ?: it.id }
+                        .values
+                        .sumOf { samples -> samples.maxOfOrNull { it.relayNativeEventsDropped } ?: 0 },
+                retainedDecisionCount =
+                    (selection.primaryEvents + selection.globalEvents)
+                        .distinctBy { it.id }
+                        .count { event -> event.subsystem == "relay_health_decision" },
+            ),
         collectionWarnings = collectionWarnings,
         truncation = selection.truncation(),
     )
@@ -426,7 +445,7 @@ private fun sectionStatusForFileName(
             }
         }
 
-        "native-events.csv" -> {
+        "native-events.csv", "relay-attempt-traces.jsonl", "relay-health-decisions.jsonl" -> {
             if (flags.nativeEvents) {
                 DiagnosticsArchiveSectionStatus.TRUNCATED
             } else {

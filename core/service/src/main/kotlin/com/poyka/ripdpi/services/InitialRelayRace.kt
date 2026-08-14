@@ -29,10 +29,10 @@ data class InitialRelayCandidate(
 )
 
 data class InitialRelayRacePlan(
-    val probeUrl: String,
+    val probePlan: RelayProbePlan,
     val candidates: List<InitialRelayCandidate>,
     val requirements: EgressRequirements,
-    val readinessProbeRequirements: EgressRequirements = requirements,
+    val healthScope: RelayHealthScope,
     val cachedFallbackProfileId: String? = null,
 )
 
@@ -40,6 +40,7 @@ data class InitialRelayRaceResult(
     val selectedCandidate: InitialRelayCandidate,
     val usedCachedFallback: Boolean,
     val latencyMs: Long?,
+    val verificationInconclusive: Boolean = false,
 )
 
 internal data class PromotedRelayRuntime(

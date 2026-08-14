@@ -1,0 +1,356 @@
+package com.poyka.ripdpi.diagnostics
+
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.util.zip.ZipFile
+
+internal class DiagnosticsArchiveRelayTraceExporterTest : DiagnosticsArchiveExporterTestBase() {
+    @Test
+    fun `createArchive exports ordered privacy safe partial VLESS Reality attempt trace`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-vless-reality-partial",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Partial relay failure",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val rawUuid = "11111111-1111-1111-1111-111111111111"
+            val rawEndpoint = "203.0.113.9:443"
+            val rawCredential = "password=super-secret-token"
+
+            fun stageEvent(
+                sequence: Long,
+                stage: String,
+                outcome: String,
+                failure: Boolean = false,
+            ) = NativeSessionEventEntity(
+                id = "relay-stage-$sequence",
+                sessionId = session.id,
+                connectionSessionId = "connection-session-7",
+                source = "relay",
+                level = if (failure) "error" else "info",
+                message =
+                    if (failure) {
+                        "Reality failed uuid=$rawUuid endpoint=$rawEndpoint $rawCredential"
+                    } else {
+                        "observed relay stage"
+                    },
+                createdAt = 100L + sequence,
+                runtimeId = "runtime-relay-7",
+                subsystem = "relay",
+                attemptId = 7,
+                attemptSequence = sequence,
+                stage = stage,
+                outcome = outcome,
+                durationMs = sequence * 10,
+                failureStage = if (failure) "reality_tls" else null,
+                failureClass = if (failure) "tls_handshake_failure" else null,
+                ioErrorKind = if (failure) "connection_refused" else null,
+            )
+            stores.nativeEventsState.value =
+                listOf(
+                    stageEvent(3, "reality_tls", "started"),
+                    stageEvent(1, "tcp_connect", "started"),
+                    stageEvent(4, "reality_tls", "failed", failure = true),
+                    stageEvent(2, "tcp_connect", "succeeded"),
+                )
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 24L,
+                    ),
+                )
+
+            assertEquals(7, archive.schemaVersion)
+            ZipFile(archive.absolutePath).use { zip ->
+                val traceEntry = zip.getEntry("relay-attempt-traces.jsonl")
+                assertNotNull(traceEntry)
+                val trace = zip.getInputStream(requireNotNull(traceEntry)).bufferedReader().readText()
+                val records =
+                    trace
+                        .lineSequence()
+                        .filter(String::isNotBlank)
+                        .map { line -> json.parseToJsonElement(line).jsonObject }
+                        .toList()
+                assertEquals(
+                    listOf(
+                        "tcp_connect:started",
+                        "tcp_connect:succeeded",
+                        "reality_tls:started",
+                        "reality_tls:failed",
+                    ),
+                    records.map { record ->
+                        "${record.getValue("stage").jsonPrimitive.content}:" +
+                            record.getValue("outcome").jsonPrimitive.content
+                    },
+                )
+                val failure = records.last()
+                assertEquals("reality_tls", failure.getValue("failureStage").jsonPrimitive.content)
+                assertEquals("tls_handshake_failure", failure.getValue("failureClass").jsonPrimitive.content)
+                assertEquals("connection_refused", failure.getValue("ioErrorKind").jsonPrimitive.content)
+                assertEquals("not_established", failure.getValue("causalInference").jsonPrimitive.content)
+                assertTrue(listOf(rawUuid, rawEndpoint, rawCredential).none(trace::contains))
+
+                val completeness =
+                    json
+                        .parseToJsonElement(
+                            zip.getInputStream(zip.getEntry("completeness.json")).bufferedReader().readText(),
+                        ).jsonObject
+                val traceCompleteness = completeness.getValue("relayAttemptTraces").jsonObject
+                assertEquals("4", traceCompleteness.getValue("retainedEventCount").jsonPrimitive.content)
+            }
+        }
+
+    @Test
+    fun `createArchive counts cumulative relay drops once across live and terminal persistence`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-relay-drop-accounting",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Relay drop accounting",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val persister =
+                RuntimeArtifactPersister(
+                    artifactReadStore = stores,
+                    artifactWriteStore = stores,
+                    failureArtifactWriteStore = stores,
+                    historyRetentionStore = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
+                )
+            val telemetry =
+                ServiceTelemetrySnapshot(
+                    relayTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "relay",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "relay",
+                                        level = "info",
+                                        message = "event=relay_attempt_stage",
+                                        createdAt = 15L,
+                                        kind = "relay_attempt_stage",
+                                        runtimeId = "7",
+                                        subsystem = "relay",
+                                        attemptId = 7L,
+                                        attemptSequence = 1L,
+                                        stage = "tcp_connect",
+                                        outcome = "succeeded",
+                                    ),
+                                ),
+                            nativeEventsDropped = 7L,
+                        ),
+                    updatedAt = 15L,
+                )
+            val connectionSessionId = "connection-relay-drop-accounting"
+
+            persister.persistConnectionSample(connectionSessionId, telemetry)
+            persister.persistRuntimeEvents(telemetry, connectionSessionId)
+            persister.persistTerminalTelemetrySample(
+                connectionSessionId = connectionSessionId,
+                telemetry = telemetry,
+                createdAt = 16L,
+                networkTypeFallback = "wifi",
+                publicIpFallback = null,
+                connectionState = "Stopped",
+            )
+            persister.persistTerminalRuntimeEvents(telemetry, connectionSessionId)
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 17L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val completeness =
+                    json.decodeFromString(
+                        DiagnosticsArchiveCompletenessPayload.serializer(),
+                        zip.getInputStream(zip.getEntry("completeness.json")).bufferedReader().readText(),
+                    )
+                assertEquals(1, completeness.relayAttemptTraces.retainedEventCount)
+                assertEquals(7L, completeness.relayAttemptTraces.droppedEventCount)
+            }
+        }
+
+    @Test
+    fun `createArchive exports privacy safe relay health decision provenance`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-relay-health-decision",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Relay health decision",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            stores.nativeEventsState.value =
+                listOf(relayHealthDecisionEvent())
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 17L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val trace =
+                    zip
+                        .getInputStream(zip.getEntry("relay-health-decisions.jsonl"))
+                        .bufferedReader()
+                        .readText()
+                val record = json.parseToJsonElement(trace.trim()).jsonObject
+                assertEquals(
+                    listOf(
+                        "attempt-1",
+                        "fixture-opaque-profile-token",
+                        "vless_reality",
+                        "vless_auth",
+                        "application_http",
+                        "42",
+                        "confirmed_failed",
+                        "persistent_network",
+                        "completed",
+                        "unavailable",
+                        "runtime-1",
+                        "not_established",
+                    ),
+                    listOf(
+                        record.getValue("attemptId").jsonPrimitive.content,
+                        record.getValue("opaqueProfileId").jsonPrimitive.content,
+                        record.getValue("transport").jsonPrimitive.content,
+                        record.getValue("failureStage").jsonPrimitive.content,
+                        record.getValue("targetCategory").jsonPrimitive.content,
+                        record.getValue("positiveEvidenceWatermark").jsonPrimitive.content,
+                        record.getValue("decision").jsonPrimitive.content,
+                        record.getValue("cooldownScope").jsonPrimitive.content,
+                        record.getValue("cleanupReceipt").jsonPrimitive.content,
+                        record.getValue("connectionCorrelation").jsonPrimitive.content,
+                        record.getValue("runtimeCorrelation").jsonPrimitive.content,
+                        record.getValue("causalInference").jsonPrimitive.content,
+                    ),
+                )
+                assertTrue(
+                    listOf("dad-phone", "203.0.113.9:443", "super-secret-token").none(trace::contains),
+                )
+            }
+        }
+
+    private fun relayHealthDecisionEvent() =
+        NativeSessionEventEntity(
+            id = "relay-health-decision-attempt-1",
+            sessionId = null,
+            connectionSessionId = null,
+            source = "app",
+            level = "warn",
+            message = "profile=dad-phone endpoint=203.0.113.9:443 password=super-secret-token",
+            createdAt = 15L,
+            runtimeId = "runtime-relay-1",
+            subsystem = "relay_health_decision",
+            healthAttemptId = "attempt-1",
+            relayProfileToken = "fixture-opaque-profile-token",
+            relayTransport = "vless_reality",
+            failureStage = "vless_auth",
+            relayTargetCategory = "application_http",
+            positiveEvidenceWatermark = 42L,
+            relayHealthDecision = "confirmed_failed",
+            cooldownScope = "persistent_network",
+            cleanupReceipt = "completed",
+        )
+
+    @Test
+    fun `createArchive marks incomplete relay decision provenance unavailable`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-incomplete-relay-health-decision",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Incomplete relay health decision",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            stores.nativeEventsState.value =
+                listOf(
+                    NativeSessionEventEntity(
+                        id = "incomplete-relay-health-decision",
+                        source = "app",
+                        level = "info",
+                        message = "ssid=private endpoint=203.0.113.1 password=secret",
+                        createdAt = 15L,
+                        subsystem = "relay_health_decision",
+                    ),
+                )
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 17L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val trace =
+                    zip
+                        .getInputStream(zip.getEntry("relay-health-decisions.jsonl"))
+                        .bufferedReader()
+                        .readText()
+                val record = json.parseToJsonElement(trace.trim()).jsonObject
+                assertEquals(
+                    List(10) { "unavailable" },
+                    listOf(
+                        record.getValue("attemptId").jsonPrimitive.content,
+                        record.getValue("opaqueProfileId").jsonPrimitive.content,
+                        record.getValue("transport").jsonPrimitive.content,
+                        record.getValue("failureStage").jsonPrimitive.content,
+                        record.getValue("targetCategory").jsonPrimitive.content,
+                        record.getValue("decision").jsonPrimitive.content,
+                        record.getValue("cooldownScope").jsonPrimitive.content,
+                        record.getValue("cleanupReceipt").jsonPrimitive.content,
+                        record.getValue("connectionCorrelation").jsonPrimitive.content,
+                        record.getValue("runtimeCorrelation").jsonPrimitive.content,
+                    ),
+                )
+                assertTrue(listOf("private", "203.0.113.1", "secret").none(trace::contains))
+                val completeness =
+                    json.decodeFromString(
+                        DiagnosticsArchiveCompletenessPayload.serializer(),
+                        zip.getInputStream(zip.getEntry("completeness.json")).bufferedReader().readText(),
+                    )
+                assertEquals(1, completeness.relayAttemptTraces.retainedDecisionCount)
+            }
+        }
+}

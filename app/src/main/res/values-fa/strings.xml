@@ -582,6 +582,9 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">پویش تشخیصی</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN در حال بررسی است</string>
+    <string name="home_connection_actuator_state_vpn_unverified">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN تأیید نشده است</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN در دسترس نیست</string>
     <string name="home_mode_card_connecting">در حال شروع...</string>
     <string name="home_mode_card_remote_relay_disabled">رله غیرفعال</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>

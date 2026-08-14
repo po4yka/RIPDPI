@@ -62,7 +62,52 @@ private fun NativeRuntimeEvent.toPrivacySafeTerminalEvent(
     return when (kind) {
         "data_plane_final" -> toPrivacySafeDataPlaneEvent(connectionSessionId, tokens)
         "protect_failure" -> toPrivacySafeProtectEvent(connectionSessionId, index, tokens)
+        "relay_attempt_stage" -> toPrivacySafeRelayAttemptStage(connectionSessionId, index)
         else -> null
+    }
+}
+
+private fun NativeRuntimeEvent.toPrivacySafeRelayAttemptStage(
+    connectionSessionId: String,
+    index: Int,
+): NativeSessionEventEntity? {
+    if (subsystem != "relay") return null
+    val safeStage = stage?.takeIf(RelayAttemptStages::contains)
+    val safeOutcome = outcome?.takeIf(RelayAttemptOutcomes::contains)
+    val safeAttemptId = attemptId?.takeIf { it >= 0 }
+    val safeSequence = attemptSequence?.takeIf { it > 0 }
+    return when {
+        safeStage == null || safeOutcome == null -> {
+            null
+        }
+
+        safeAttemptId == null || safeSequence == null -> {
+            null
+        }
+
+        else -> {
+            NativeSessionEventEntity(
+                id = "runtime_terminal_event:$connectionSessionId:$index",
+                connectionSessionId = connectionSessionId,
+                source = "relay",
+                level = level.lowercase(Locale.US).takeIf { it in TerminalEventLevels } ?: "info",
+                message = "event=relay_attempt_stage",
+                createdAt = createdAt,
+                runtimeId = runtimeId?.takeIf { it.matches(OpaqueRuntimeId) },
+                subsystem = "relay",
+                attemptId = safeAttemptId,
+                attemptSequence = safeSequence,
+                stage = safeStage,
+                outcome = safeOutcome,
+                durationMs = durationMs?.coerceAtLeast(0),
+                failureStage = failureStage?.takeIf(RelayAttemptStages::contains),
+                failureClass = failureClass?.takeIf { it.matches(SafeTraceToken) },
+                ioErrorKind = ioErrorKind?.takeIf { it.matches(SafeTraceToken) },
+                osErrorCode = osErrorCode,
+                peerClosePhase = peerClosePhase?.takeIf { it.matches(SafeTraceToken) },
+                carrierDisposition = carrierDisposition?.takeIf { it.matches(SafeTraceToken) },
+            )
+        }
     }
 }
 
@@ -174,6 +219,11 @@ private fun TelemetrySampleEntity.toPrivacySafeTerminalProjection(): TelemetrySa
     )
 
 private val TerminalEventLevels = setOf("info", "warn", "error")
+private val RelayAttemptStages =
+    setOf("tcp_connect", "reality_tls", "vless_request", "vless_response", "socks_reply", "relay_stream")
+private val RelayAttemptOutcomes = setOf("started", "succeeded", "failed", "cancelled", "closed")
+private val SafeTraceToken = Regex("[a-z0-9_]{1,48}")
+private val OpaqueRuntimeId = Regex("[0-9]{1,20}")
 private val DnsRuntimeStates = setOf("failure_threshold", "recovered")
 private val RelayRuntimeStates =
     setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")

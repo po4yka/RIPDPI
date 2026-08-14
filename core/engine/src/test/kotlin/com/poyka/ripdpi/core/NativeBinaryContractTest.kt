@@ -29,6 +29,21 @@ import org.junit.Test
  * If a field is added or removed on either side, these tests catch the drift at CI time.
  */
 class NativeBinaryContractTest {
+    private val relayOnlyEventFields =
+        setOf(
+            "attemptId",
+            "attemptSequence",
+            "stage",
+            "outcome",
+            "durationMs",
+            "failureStage",
+            "failureClass",
+            "ioErrorKind",
+            "osErrorCode",
+            "peerClosePhase",
+            "carrierDisposition",
+        )
+
     private val kotlinOnlySnapshotFields =
         setOf(
             "chainEntryLatencyMs",
@@ -53,6 +68,8 @@ class NativeBinaryContractTest {
             // carrier counters live here. See commit 63f8ee9c3.
             "wsCarrierHandshakes",
             "wsCarrierHandshakeFailures",
+            "nativeEventsDropped",
+            *relayOnlyEventFields.map { "nativeEvents[].$it" }.toTypedArray(),
         )
 
     private val contractJson =
@@ -109,7 +126,24 @@ class NativeBinaryContractTest {
         assertEquals(
             "NativeRuntimeEvent field mismatch between Rust and Kotlin",
             proxyEventFields.sorted(),
-            kotlinEventFields.sorted(),
+            (kotlinEventFields - relayOnlyEventFields).sorted(),
+        )
+    }
+
+    @Test
+    fun `kotlin relay fields match relay contract fixtures`() {
+        val relaySnapshotFields = readFieldManifest("relay_snapshot_fields.json")
+        val relayEventFields = readFieldManifest("relay_event_fields.json")
+        val missingSnapshotFields = relaySnapshotFields - extractKotlinSnapshotFields()
+
+        assertTrue(
+            "Kotlin NativeRuntimeSnapshot is missing relay fields: $missingSnapshotFields",
+            missingSnapshotFields.isEmpty(),
+        )
+        assertEquals(
+            "NativeRuntimeEvent field mismatch between relay Rust and Kotlin",
+            relayEventFields.sorted(),
+            extractKotlinEventFields().sorted(),
         )
     }
 

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.failover
 import android.content.Context
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayCandidate
+import com.poyka.ripdpi.services.RelayHealthScope
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -28,7 +29,7 @@ internal enum class EgressProof(
 
 internal interface SimpleEgressHealthMemory {
     fun isCoolingDown(
-        networkScopeKey: String?,
+        scope: RelayHealthScope,
         proof: EgressProof,
         candidate: InitialRelayCandidate,
     ): Boolean
@@ -47,11 +48,20 @@ internal interface SimpleEgressHealthMemory {
     )
 
     fun recordConfirmedFailure(
-        networkScopeKey: String?,
+        scope: RelayHealthScope,
         proof: EgressProof,
         relayKind: String,
         profileId: String,
     )
+
+    fun clearConfirmedFailure(
+        scope: RelayHealthScope,
+        proof: EgressProof,
+        relayKind: String,
+        profileId: String,
+    )
+
+    fun clearSession(sessionGeneration: Long)
 }
 
 /**
@@ -69,14 +79,22 @@ internal class SimpleEgressHealthCache
         private val clock: FailoverClock,
     ) : SimpleEgressHealthMemory {
         private val preferences = context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+        private val sessionFailures = mutableMapOf<SessionNegativeKey, Long>()
 
         override fun isCoolingDown(
-            networkScopeKey: String?,
+            scope: RelayHealthScope,
             proof: EgressProof,
             candidate: InitialRelayCandidate,
         ): Boolean {
-            val scope = networkScopeKey?.takeIf(String::isNotBlank) ?: return false
-            val key = negativeKey(scope, proof, candidate.relayKind, candidate.profileId)
+            val persistentScope = scope.persistentNetworkHash?.takeIf(String::isNotBlank)
+            if (persistentScope == null) {
+                val key = SessionNegativeKey(scope.sessionGeneration, proof, candidate.relayKind, candidate.profileId)
+                val failedAt = synchronized(sessionFailures) { sessionFailures[key] } ?: return false
+                if (clock.nowMillis() - failedAt in 0 until NegativeCooldownMillis) return true
+                synchronized(sessionFailures) { sessionFailures.remove(key) }
+                return false
+            }
+            val key = negativeKey(persistentScope, proof, candidate.relayKind, candidate.profileId)
             val failedAt = preferences.getLong(key, MissingTimestamp)
             if (failedAt == MissingTimestamp) return false
             if (clock.nowMillis() - failedAt in 0 until NegativeCooldownMillis) return true
@@ -115,19 +133,24 @@ internal class SimpleEgressHealthCache
         }
 
         override fun recordConfirmedFailure(
-            networkScopeKey: String?,
+            scope: RelayHealthScope,
             proof: EgressProof,
             relayKind: String,
             profileId: String,
         ) {
-            val scope = networkScopeKey?.takeIf(String::isNotBlank) ?: return
-            val negativeKey = negativeKey(scope, proof, relayKind, profileId)
+            val persistentScope = scope.persistentNetworkHash?.takeIf(String::isNotBlank)
+            if (persistentScope == null) {
+                val key = SessionNegativeKey(scope.sessionGeneration, proof, relayKind, profileId)
+                synchronized(sessionFailures) { sessionFailures.putIfAbsent(key, clock.nowMillis()) }
+                return
+            }
+            val negativeKey = negativeKey(persistentScope, proof, relayKind, profileId)
             val existing = preferences.getLong(negativeKey, MissingTimestamp)
             if (existing == MissingTimestamp || clock.nowMillis() - existing !in 0 until NegativeCooldownMillis) {
                 preferences.edit().putLong(negativeKey, clock.nowMillis()).apply()
             }
 
-            val winnerPrefix = "winner.${sha256(scope)}."
+            val winnerPrefix = "winner.${sha256(persistentScope)}."
             val staleWinnerKeys =
                 preferences.all
                     .filterKeys { it.startsWith(winnerPrefix) }
@@ -138,6 +161,28 @@ internal class SimpleEgressHealthCache
                     }.keys
             if (staleWinnerKeys.isNotEmpty()) {
                 preferences.edit().also { editor -> staleWinnerKeys.forEach(editor::remove) }.apply()
+            }
+        }
+
+        override fun clearConfirmedFailure(
+            scope: RelayHealthScope,
+            proof: EgressProof,
+            relayKind: String,
+            profileId: String,
+        ) {
+            val persistentScope = scope.persistentNetworkHash?.takeIf(String::isNotBlank)
+            if (persistentScope == null) {
+                synchronized(sessionFailures) {
+                    sessionFailures.remove(SessionNegativeKey(scope.sessionGeneration, proof, relayKind, profileId))
+                }
+            } else {
+                preferences.edit().remove(negativeKey(persistentScope, proof, relayKind, profileId)).apply()
+            }
+        }
+
+        override fun clearSession(sessionGeneration: Long) {
+            synchronized(sessionFailures) {
+                sessionFailures.keys.removeAll { it.sessionGeneration == sessionGeneration }
             }
         }
 
@@ -168,6 +213,13 @@ internal class SimpleEgressHealthCache
         private data class WinnerRecord(
             val confirmedAt: Long,
             val proof: EgressProof,
+            val profileId: String,
+        )
+
+        private data class SessionNegativeKey(
+            val sessionGeneration: Long,
+            val proof: EgressProof,
+            val relayKind: String,
             val profileId: String,
         )
 

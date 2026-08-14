@@ -3,11 +3,10 @@ package com.poyka.ripdpi.failover
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -23,6 +22,19 @@ import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.ExplicitUserStartPreparer
 import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayTransportClass
+import com.poyka.ripdpi.services.RelayCapabilityProof
+import com.poyka.ripdpi.services.RelayCleanupReceipt
+import com.poyka.ripdpi.services.RelayFailureStage
+import com.poyka.ripdpi.services.RelayHealthDecision
+import com.poyka.ripdpi.services.RelayHealthDecisionReceipt
+import com.poyka.ripdpi.services.RelayHealthDecisionRecorder
+import com.poyka.ripdpi.services.RelayHealthObservation
+import com.poyka.ripdpi.services.RelayHealthObservationOutcome
+import com.poyka.ripdpi.services.RelayHealthObservationSource
+import com.poyka.ripdpi.services.RelayHealthScope
+import com.poyka.ripdpi.services.RelayProbePlan
+import com.poyka.ripdpi.services.RelayTargetCategory
+import com.poyka.ripdpi.services.RoomRelayHealthDecisionRecorder
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
@@ -32,6 +44,7 @@ import com.poyka.ripdpi.services.TransportFailoverApplyOutcome
 import com.poyka.ripdpi.services.TransportFailoverApplyTracker
 import com.poyka.ripdpi.services.TransportFailoverTarget
 import com.poyka.ripdpi.services.TransportKindAmneziaWg
+import com.poyka.ripdpi.services.opaqueRelayProfileToken
 import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
@@ -62,6 +75,11 @@ import javax.inject.Singleton
 
 /** Health values the native runtime emits that signal an unusable egress. */
 private val FAILING_HEALTH_VALUES = setOf("degraded", "failed")
+
+private val PermanentRelayFailureClasses =
+    setOf("authentication_failure", "auth_rejected", "configuration_failure", "relay_configuration_failure")
+
+private val PositiveDataPlaneEventKinds = setOf("data_plane_correlation", "data_plane_final")
 
 private fun FailureReason.isRecoverableTransportFailure(): Boolean =
     when (this) {
@@ -171,6 +189,7 @@ class FailoverCoordinator
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val egressProbe: FailoverEgressProbe,
         private val egressHealthCache: SimpleEgressHealthMemory,
+        private val relayHealthDecisionRecorder: RelayHealthDecisionRecorder,
         private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
@@ -195,6 +214,10 @@ class FailoverCoordinator
 
         private var observeJob: Job? = null
 
+        private var relayHealthProbeCoordinator: LifecycleRelayHealthProbeCoordinator? = null
+
+        private var sessionGeneration: Long = 0L
+
         /** Timestamp of the last switch; 0 = no switch has happened yet. */
         private var lastSwitchAt: Long = 0L
 
@@ -213,8 +236,26 @@ class FailoverCoordinator
          */
         private var suspectedRelayFailure: Boolean = false
 
+        private var pendingRelayHealthReceipt: RelayHealthDecisionReceipt? = null
+
+        private var lastPositiveDataPlaneEvidenceKey: String? = null
+
+        private var lastRelayFailureEvidenceKey: String? = null
+
+        private var lastRelayFailureDecision: RelayHealthDecision? = null
+
+        private var lastLoggedRelayHealthDecisionAttemptId: String? = null
+
         /** Capability contract used to build and actively verify the current candidate set. */
         private var activeRequirements: EgressRequirements = EgressRequirements()
+
+        /** Imported target and capability contract used for the active session probe. */
+        private var activeProbePlan: RelayProbePlan =
+            RelayProbePlan(
+                targetUrl = null,
+                targetCategory = RelayTargetCategory.Unavailable,
+                requirements = activeRequirements,
+            )
 
         /**
          * Ordered candidate list built from what is actually seeded.
@@ -351,6 +392,11 @@ class FailoverCoordinator
                                 }.takeIf { it >= 0 }
                         }
                     activeCandidateIndex = racedIndex ?: resumeIndexOrNull() ?: 0
+                    sessionGeneration++
+                    relayHealthProbeCoordinator =
+                        createRelayHealthProbeCoordinator(
+                            CoroutineScope(currentCoroutineContext()),
+                        )
                     switchesInCycle = 0
                     backedOff = false
                     lastSwitchAt = 0L
@@ -380,6 +426,8 @@ class FailoverCoordinator
          */
         fun stopObserving() {
             val stoppedJob = observeJob
+            relayHealthProbeCoordinator = null
+            egressHealthCache.clearSession(sessionGeneration)
             stoppedJob?.cancel()
             stoppedJob?.invokeOnCompletion {
                 if (observeJob === stoppedJob) observeJob = null
@@ -392,7 +440,17 @@ class FailoverCoordinator
             failingsSince = null
             observedProxyTotalErrors = null
             suspectedRelayFailure = false
+            lastPositiveDataPlaneEvidenceKey = null
+            lastRelayFailureEvidenceKey = null
+            lastRelayFailureDecision = null
+            lastLoggedRelayHealthDecisionAttemptId = null
             activeRequirements = EgressRequirements()
+            activeProbePlan =
+                RelayProbePlan(
+                    targetUrl = null,
+                    targetCategory = RelayTargetCategory.Unavailable,
+                    requirements = activeRequirements,
+                )
             awgEgressSelection.clear()
             backedOff = false
             if (clearTransportReconciliation) transportReconciliationPending = false
@@ -611,6 +669,19 @@ class FailoverCoordinator
 
             val activeHealth = activeEgressHealth(snapshot)
             val now = clock.nowMillis()
+            var relayFailureAlreadyDebounced = false
+
+            val dataPlaneDecision = observePositiveDataPlaneEvidence(snapshot)
+            if (dataPlaneDecision is RelayHealthDecision.Healthy) {
+                persistRelayHealthDecision(snapshot, dataPlaneDecision, RelayCleanupReceipt.NotRequired)
+                clearActiveRelayFailure(snapshot)
+                failingsSince = null
+                suspectedRelayFailure = false
+                backedOff = false
+                switchesInCycle = 0
+                pendingRelayHealthReceipt = null
+                return
+            }
 
             if (observeFreshProxyFailure(snapshot)) {
                 suspectedRelayFailure = true
@@ -635,23 +706,44 @@ class FailoverCoordinator
             // Confirm the current Android VPN egress before starting or advancing the
             // failover debounce. A successful request also creates a successful relay
             // session, which clears the native consecutive-error signal.
-            if (confirmRelayEgress(snapshot)) {
-                failingsSince = null
-                suspectedRelayFailure = false
-                backedOff = false
-                switchesInCycle = 0
-                return
-            }
+            val activeRelay = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay
+            when (val decision = activeRelay?.let { confirmRelayEgress(snapshot) }) {
+                is RelayHealthDecision.Healthy -> {
+                    persistRelayHealthDecision(snapshot, decision, RelayCleanupReceipt.NotRequired)
+                    pendingRelayHealthReceipt = null
+                    clearActiveRelayFailure(snapshot)
+                    failingsSince = null
+                    suspectedRelayFailure = false
+                    backedOff = false
+                    switchesInCycle = 0
+                    return
+                }
 
-            if (sustainedXudpFailure && !snapshot.isNetworkHandover()) {
-                val activeRelay = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay
-                if (activeRelay?.relayKind == RelayKindVlessReality) {
-                    egressHealthCache.recordConfirmedFailure(
-                        networkScopeKey = snapshot.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
-                        proof = EgressProof.TcpUdp,
-                        relayKind = activeRelay.relayKind,
-                        profileId = activeRelay.profileId,
-                    )
+                is RelayHealthDecision.Inconclusive -> {
+                    persistRelayHealthDecision(snapshot, decision, RelayCleanupReceipt.NotRequired)
+                    failingsSince = null
+                    return
+                }
+
+                null -> {
+                    if (activeRelay != null) {
+                        failingsSince = null
+                        return
+                    }
+                }
+
+                is RelayHealthDecision.ConfirmedFailed -> {
+                    relayFailureAlreadyDebounced = true
+                    val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay
+                    if (active != null && pendingRelayHealthReceipt?.decision?.attemptId != decision.attemptId) {
+                        egressHealthCache.recordConfirmedFailure(
+                            scope = relayHealthScope(snapshot),
+                            proof = EgressProof.from(activeRequirements),
+                            relayKind = active.relayKind,
+                            profileId = active.profileId,
+                        )
+                        persistRelayHealthDecision(snapshot, decision, RelayCleanupReceipt.Pending)
+                    }
                 }
             }
 
@@ -659,16 +751,18 @@ class FailoverCoordinator
             // stay quiet until a healthy emission (above) resets the budget.
             if (backedOff) return
 
-            val since = failingsSince
-            if (since == null) {
-                // First emission showing failure — start the debounce window.
-                failingsSince = now
-                return
-            }
+            if (!relayFailureAlreadyDebounced) {
+                val since = failingsSince
+                if (since == null) {
+                    // First emission showing failure — start the debounce window.
+                    failingsSince = now
+                    return
+                }
 
-            if (now - since < FAILOVER_DEBOUNCE_MS) {
-                // Still within the debounce window — do not switch yet.
-                return
+                if (now - since < FAILOVER_DEBOUNCE_MS) {
+                    // Still within the debounce window — do not switch yet.
+                    return
+                }
             }
 
             // Sustained failure beyond debounce window; apply min-interval guard.
@@ -677,7 +771,94 @@ class FailoverCoordinator
                 return
             }
 
-            performSwitch(now)
+            val cleanupReceipt =
+                try {
+                    performSwitch(now)
+                } catch (cancelled: CancellationException) {
+                    withContext(NonCancellable) {
+                        updatePendingRelayHealthCleanup(RelayCleanupReceipt.InFlightUnconfirmed)
+                    }
+                    throw cancelled
+                }
+            updatePendingRelayHealthCleanup(cleanupReceipt)
+        }
+
+        private suspend fun persistRelayHealthDecision(
+            snapshot: ServiceTelemetrySnapshot,
+            decision: RelayHealthDecision,
+            cleanupReceipt: RelayCleanupReceipt,
+        ) {
+            val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return
+            val receipt =
+                RelayHealthDecisionReceipt(
+                    profileToken = opaqueRelayProfileToken(active.profileId),
+                    relayTransport = active.relayKind,
+                    targetCategory = activeProbePlan.targetCategory,
+                    scope = relayHealthScope(snapshot),
+                    runtimeId =
+                        snapshot.relayTelemetry.nativeEvents
+                            .lastOrNull()
+                            ?.runtimeId,
+                    decision = decision,
+                    cleanupReceipt = cleanupReceipt,
+                )
+            runCatching { relayHealthDecisionRecorder.record(receipt) }
+                .onFailure { error ->
+                    Logger.w {
+                        "FailoverCoordinator: relay health decision persistence failed: ${error::class.simpleName}"
+                    }
+                }
+            if (decision is RelayHealthDecision.ConfirmedFailed && cleanupReceipt == RelayCleanupReceipt.Pending) {
+                pendingRelayHealthReceipt = receipt
+            }
+        }
+
+        private suspend fun observePositiveDataPlaneEvidence(
+            snapshot: ServiceTelemetrySnapshot,
+        ): RelayHealthDecision? {
+            val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return null
+            val evidence = snapshot.latestPositiveRelayDataPlaneEvidence() ?: return null
+            val evidenceKey = evidence.stableKey()
+            if (evidenceKey == lastPositiveDataPlaneEvidenceKey) return null
+            lastPositiveDataPlaneEvidenceKey = evidenceKey
+            val coordinator = relayHealthProbeCoordinator ?: return null
+            return coordinator.observe(
+                RelayHealthObservation(
+                    attemptId = "data-plane-$sessionGeneration-${evidence.createdAt}",
+                    profileToken = opaqueRelayProfileToken(active.profileId),
+                    relayKind = active.relayKind,
+                    capabilityProof = activeRequirements.toRelayCapabilityProof(),
+                    scope = relayHealthScope(snapshot),
+                    source = RelayHealthObservationSource.DataPlane,
+                    outcome = RelayHealthObservationOutcome.Succeeded,
+                    targetCategory = RelayTargetCategory.Unavailable,
+                    observedAtMs = clock.nowMillis(),
+                    dataPlaneWatermark = evidence.createdAt.coerceAtLeast(0L),
+                ),
+            )
+        }
+
+        private fun clearActiveRelayFailure(snapshot: ServiceTelemetrySnapshot) {
+            val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return
+            egressHealthCache.clearConfirmedFailure(
+                scope = relayHealthScope(snapshot),
+                proof = EgressProof.from(activeRequirements),
+                relayKind = active.relayKind,
+                profileId = active.profileId,
+            )
+            lastRelayFailureEvidenceKey = null
+            lastRelayFailureDecision = null
+        }
+
+        private suspend fun updatePendingRelayHealthCleanup(cleanupReceipt: RelayCleanupReceipt) {
+            val pending = pendingRelayHealthReceipt ?: return
+            runCatching { relayHealthDecisionRecorder.record(pending.copy(cleanupReceipt = cleanupReceipt)) }
+                .onFailure { error ->
+                    Logger.w {
+                        "FailoverCoordinator: relay cleanup receipt persistence failed: ${error::class.simpleName}"
+                    }
+                }
+            pendingRelayHealthReceipt = null
         }
 
         /**
@@ -707,30 +888,165 @@ class FailoverCoordinator
                 (snapshot.relayTelemetry.xudpTelemetry?.consecutiveUdpFailures ?: 0L) >=
                 XUDP_FAILURE_STREAK_THRESHOLD
 
-        private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): Boolean {
-            val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return false
-            val endpoint = parseFailoverProxyEndpoint(snapshot.relayTelemetry.listenerAddress) ?: return false
+        private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): RelayHealthDecision? {
+            val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return null
+            val coordinator = relayHealthProbeCoordinator ?: return null
             val probeRequirements =
                 activeRequirements.copy(
                     udpAssociate = activeRequirements.udpAssociate && active.supportsUdpAssociation,
                 )
-            val result =
-                try {
-                    egressProbe.probe(endpoint, probeRequirements)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    FailoverEgressProbeResult(succeeded = false, failure = "probe_error")
-                }
-            if (!result.succeeded) {
+            val probePlan = activeProbePlan.copy(requirements = probeRequirements)
+            snapshot.relayTelemetry.latestRelayFailureEvidence()?.let { evidence ->
+                val evidenceKey = evidence.stableKey()
+                if (evidenceKey == lastRelayFailureEvidenceKey) return lastRelayFailureDecision
+                val attemptId =
+                    "native-$sessionGeneration-" +
+                        "${evidence.attemptId ?: 0}-${evidence.attemptSequence ?: 0}"
+                val decision =
+                    coordinator.observe(
+                        RelayHealthObservation(
+                            attemptId = attemptId,
+                            profileToken = opaqueRelayProfileToken(active.profileId),
+                            relayKind = active.relayKind,
+                            capabilityProof = probeRequirements.toRelayCapabilityProof(),
+                            scope = relayHealthScope(snapshot),
+                            source = RelayHealthObservationSource.NativeRelay,
+                            outcome =
+                                if (evidence.failureClass in PermanentRelayFailureClasses) {
+                                    RelayHealthObservationOutcome.PermanentRejection
+                                } else {
+                                    RelayHealthObservationOutcome.RelayStageFailure
+                                },
+                            targetCategory = probePlan.targetCategory,
+                            observedAtMs = evidence.createdAt.takeIf { it > 0 } ?: clock.nowMillis(),
+                            failureStage = evidence.relayFailureStage(),
+                        ),
+                    )
+                lastRelayFailureEvidenceKey = evidenceKey
+                lastRelayFailureDecision = decision
+                return decision
+            }
+            val endpoint = parseFailoverProxyEndpoint(snapshot.relayTelemetry.listenerAddress) ?: return null
+            val decision =
+                coordinator.confirm(
+                    RelayHealthProbeRequest(
+                        attemptId = "runtime-$sessionGeneration-${snapshot.updatedAt}",
+                        profileToken = opaqueRelayProfileToken(active.profileId),
+                        relayKind = active.relayKind,
+                        capabilityProof = probeRequirements.toRelayCapabilityProof(),
+                        scope = relayHealthScope(snapshot),
+                        endpoint = endpoint,
+                        plan = probePlan,
+                    ),
+                )
+            if (decision !is RelayHealthDecision.Healthy &&
+                decision.attemptId != lastLoggedRelayHealthDecisionAttemptId
+            ) {
+                lastLoggedRelayHealthDecisionAttemptId = decision.attemptId
                 Logger.w {
-                    "FailoverCoordinator: egress probe failed kind=" +
+                    "FailoverCoordinator: egress confirmation was ${decision::class.simpleName} kind=" +
                         candidates.getOrNull(activeCandidateIndex)?.transportKind().orEmpty() +
-                        " capability=${result.failure.orEmpty()}"
+                        " target=${probePlan.targetCategory}"
                 }
             }
-            return result.succeeded
+            return decision
         }
+
+        private fun createRelayHealthProbeCoordinator(scope: CoroutineScope): LifecycleRelayHealthProbeCoordinator =
+            LifecycleRelayHealthProbeCoordinator(
+                lifecycleScope = scope,
+                clock = clock,
+                probe =
+                    RelayHealthObservationProbe { request ->
+                        val result =
+                            try {
+                                egressProbe.probe(request.endpoint, request.plan)
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                FailoverEgressProbeResult(succeeded = false, failure = "probe_error")
+                            }
+                        RelayHealthObservation(
+                            attemptId = request.attemptId,
+                            profileToken = request.profileToken,
+                            relayKind = request.relayKind,
+                            capabilityProof = request.capabilityProof,
+                            scope = request.scope,
+                            source = RelayHealthObservationSource.ActiveProbe,
+                            outcome =
+                                if (result.succeeded) {
+                                    RelayHealthObservationOutcome.Succeeded
+                                } else if (result.failure == "probe_target_missing") {
+                                    RelayHealthObservationOutcome.CapabilityUnavailable
+                                } else if (result.failure == null) {
+                                    // Test and native-stage adapters may omit a target failure
+                                    // string only when the failure was already relay-scoped.
+                                    RelayHealthObservationOutcome.RelayStageFailure
+                                } else {
+                                    RelayHealthObservationOutcome.TargetFailure
+                                },
+                            targetCategory = request.plan.targetCategory,
+                            observedAtMs = clock.nowMillis(),
+                            dataPlaneWatermark = clock.nowMillis().takeIf { result.succeeded },
+                            failureStage = RelayFailureStage.TcpConnect.takeIf { result.failure == null },
+                        )
+                    },
+            )
+
+        private fun EgressRequirements.toRelayCapabilityProof(): RelayCapabilityProof =
+            if (udpAssociate) RelayCapabilityProof.TcpAndUdp else RelayCapabilityProof.TcpOnly
+
+        private fun relayHealthScope(snapshot: ServiceTelemetrySnapshot): RelayHealthScope =
+            RelayHealthScope(
+                persistentNetworkHash =
+                    snapshot.runtimeFieldTelemetry.telemetryNetworkFingerprintHash?.takeIf(String::isNotBlank),
+                sessionGeneration = sessionGeneration,
+            )
+
+        private fun NativeRuntimeSnapshot.latestRelayFailureEvidence(): com.poyka.ripdpi.data.NativeRuntimeEvent? =
+            nativeEvents.lastOrNull { event ->
+                event.subsystem == "relay" &&
+                    event.outcome == "failed" &&
+                    event.relayFailureStage() != null
+            }
+
+        private fun ServiceTelemetrySnapshot.latestPositiveRelayDataPlaneEvidence(): NativeRuntimeEvent? =
+            (
+                proxyTelemetry.nativeEvents.filter { event ->
+                    event.subsystem == "data_plane" &&
+                        event.kind in PositiveDataPlaneEventKinds &&
+                        "state=cross_layer_return_observed" in event.message
+                } +
+                    relayTelemetry.nativeEvents.filter { event ->
+                        event.subsystem == "relay" &&
+                            event.stage == "relay_stream" &&
+                            event.outcome == "succeeded"
+                    }
+            ).maxByOrNull { event -> event.createdAt }
+
+        private fun com.poyka.ripdpi.data.NativeRuntimeEvent.relayFailureStage(): RelayFailureStage? =
+            when (failureStage ?: stage) {
+                "tcp_connect" -> RelayFailureStage.TcpConnect
+                "reality_tls" -> RelayFailureStage.RealityTls
+                "vless_auth" -> RelayFailureStage.VlessAuth
+                "vless_request" -> RelayFailureStage.VlessRequest
+                "vless_response" -> RelayFailureStage.VlessResponse
+                else -> null
+            }
+
+        private fun com.poyka.ripdpi.data.NativeRuntimeEvent.stableKey(): String =
+            listOf(
+                kind,
+                runtimeId,
+                attemptId,
+                attemptSequence,
+                stage,
+                outcome,
+                failureStage,
+                failureClass,
+                message,
+                createdAt,
+            ).joinToString("|")
 
         /**
          * Advances to the next candidate in priority order and restarts the VPN session.
@@ -743,17 +1059,17 @@ class FailoverCoordinator
          * restore the previous persisted candidate in [NonCancellable]. A runtime-owned timeout
          * preserves the in-flight candidate and blocks further switching until reconciliation.
          */
-        private suspend fun performSwitch(now: Long) {
+        private suspend fun performSwitch(now: Long): RelayCleanupReceipt {
             if (transportReconciliationPending) {
                 backedOff = true
                 Logger.w { "FailoverCoordinator: waiting for in-flight transport reconciliation" }
-                return
+                return RelayCleanupReceipt.SwitchSuppressed
             }
             if (switchesInCycle >= candidates.size - 1) {
                 // Every candidate has been tried this failing cycle with none recovering.
                 Logger.w { "FailoverCoordinator: all candidates exhausted, backing off" }
                 backedOff = true
-                return
+                return RelayCleanupReceipt.CandidatesExhausted
             }
             val nextIndex = (activeCandidateIndex + 1) % candidates.size
 
@@ -777,7 +1093,7 @@ class FailoverCoordinator
                     backedOff = true
                     rollbackSafe = false
                     Logger.w { "FailoverCoordinator: runtime still owns a prior transport application" }
-                    return
+                    return RelayCleanupReceipt.SwitchSuppressed
                 }
                 applyRequestId = requestId
                 // Serialize the forward mutation with explicit startup recovery. Otherwise a
@@ -795,7 +1111,7 @@ class FailoverCoordinator
                     }
                 if (!configWritten) {
                     Logger.i { "FailoverCoordinator: stale switch was superseded before persistence" }
-                    return
+                    return RelayCleanupReceipt.SwitchSuppressed
                 }
 
                 skipNextInitialRelayRace = true
@@ -807,7 +1123,7 @@ class FailoverCoordinator
                 if (result is ServiceStartResult.Rejected) {
                     transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
                     Logger.w { "FailoverCoordinator: restart rejected — ${result.reason}" }
-                    return
+                    return RelayCleanupReceipt.RollbackCompleted
                 }
 
                 val outcome =
@@ -824,7 +1140,11 @@ class FailoverCoordinator
                         "FailoverCoordinator: transport application was not confirmed for request=" +
                             "$requestId outcome=$outcome"
                     }
-                    return
+                    return if (rollbackSafe) {
+                        RelayCleanupReceipt.RollbackCompleted
+                    } else {
+                        RelayCleanupReceipt.InFlightUnconfirmed
+                    }
                 }
 
                 activeCandidateIndex = nextIndex
@@ -832,6 +1152,7 @@ class FailoverCoordinator
                 resetPendingSwitchSignals()
                 switchesInCycle++
                 setActiveCandidate(nextCandidate)
+                return RelayCleanupReceipt.Completed
             } catch (cancelled: CancellationException) {
                 applyRequestId?.let { requestId ->
                     val outcome =
@@ -1015,6 +1336,13 @@ class FailoverCoordinator
                     udpAssociate = !settings.hasUdpAssociateEnabled() || settings.udpAssociateEnabled,
                 )
             activeRequirements = requirements
+            activeProbePlan =
+                relayCatalog.loadProbePlan(requirements)
+                    ?: RelayProbePlan(
+                        targetUrl = null,
+                        targetCategory = RelayTargetCategory.Unavailable,
+                        requirements = requirements,
+                    )
 
             val networkScopeKey =
                 serviceStateStore.telemetry.value.runtimeFieldTelemetry.telemetryNetworkFingerprintHash
@@ -1055,7 +1383,7 @@ class FailoverCoordinator
                         )
                     if (
                         !egressHealthCache.isCoolingDown(
-                            networkScopeKey,
+                            RelayHealthScope(networkScopeKey, sessionGeneration),
                             EgressProof.from(candidateRequirements),
                             initialCandidate,
                         )
@@ -1131,22 +1459,6 @@ class FailoverCoordinator
         }
     }
 
-private fun ServiceTelemetrySnapshot.isNetworkHandover(): Boolean =
-    when (networkHandoverState) {
-        in ActiveNetworkHandoverStates -> true
-        null -> runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover
-        else -> false
-    }
-
-private val ActiveNetworkHandoverStates =
-    setOf(
-        NetworkHandoverStates.Observed,
-        NetworkHandoverStates.WaitingForNetwork,
-        NetworkHandoverStates.DeferredCaptivePortal,
-        NetworkHandoverStates.Restarting,
-        NetworkHandoverStates.RetryScheduled,
-    )
-
 internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxyEndpoint? {
     val raw = listenerAddress?.trim()?.takeIf(String::isNotEmpty) ?: return null
     return runCatching {
@@ -1211,7 +1523,18 @@ internal abstract class FailoverCoordinatorBindsModule {
     internal abstract fun bindFailoverEgressProbe(probe: CapabilityAwareFailoverEgressProbe): FailoverEgressProbe
 
     @Binds
+    internal abstract fun bindFailoverRelayCapabilityProbe(
+        probe: DefaultFailoverRelayCapabilityProbe,
+    ): FailoverRelayCapabilityProbe
+
+    @Binds
     internal abstract fun bindInitialRaceFailoverCoordinator(
         coordinator: FailoverCoordinator,
     ): InitialRaceFailoverCoordinator
+
+    @Binds
+    @Singleton
+    internal abstract fun bindRelayHealthDecisionRecorder(
+        recorder: RoomRelayHealthDecisionRecorder,
+    ): RelayHealthDecisionRecorder
 }

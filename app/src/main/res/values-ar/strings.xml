@@ -578,6 +578,9 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">فحص تشخيصي</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">العمليات المحلية قيد التشغيل؛ جارٍ التحقق من اتصال VPN</string>
+    <string name="home_connection_actuator_state_vpn_unverified">العمليات المحلية قيد التشغيل؛ لم يتم التحقق من اتصال VPN</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">العمليات المحلية قيد التشغيل؛ اتصال VPN غير متاح</string>
     <string name="home_mode_card_connecting">جارٍ البدء...</string>
     <string name="home_mode_card_remote_relay_disabled">الترحيل معطّل</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>

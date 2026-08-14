@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 internal class InitialRelayRaceRunner(
     private val relayActiveProbe: RelayActiveProbe,
+    private val relayHealthDecisionEngine: RelayHealthDecisionEngine,
     private val startCandidate: suspend (InitialRelayCandidate) -> RelayRuntimeSlot,
     private val promoteCandidate: suspend (RelayRuntimeSlot) -> Unit,
     private val stopDiscardedCandidates: suspend (Collection<RelayRuntimeSlot>, RelayRuntimeSlot?) -> Unit,
@@ -46,7 +47,7 @@ internal class InitialRelayRaceRunner(
                 }
             var retainedSlot: RelayRuntimeSlot? = null
             try {
-                val raceCompletion = awaitRaceCompletion(attempts, plan.candidates.size)
+                val raceCompletion = awaitRaceCompletion(attempts, plan.candidates)
                 jobs.forEach { job ->
                     if (job.isActive) job.cancelAndJoin()
                 }
@@ -56,6 +57,7 @@ internal class InitialRelayRaceRunner(
                         outcomes.replacePendingOutcome(candidate, RaceOutcomeCancelled)
                     }
                     val winningSlot = requireNotNull(winningAttempt.slot)
+                    stopAndForgetDiscardedCandidates(slots, winningSlot)
                     val promoted = promoteWinner(winningAttempt, winningSlot, plan, outcomes, onState)
                     retainedSlot = winningSlot
                     return@coroutineScope promoted
@@ -68,6 +70,7 @@ internal class InitialRelayRaceRunner(
                 }
 
                 cachedFallback(plan, slots)?.let { (cachedCandidate, cachedSlot) ->
+                    stopAndForgetDiscardedCandidates(slots, cachedSlot)
                     val result = InitialRelayRaceResult(cachedCandidate, usedCachedFallback = true, latencyMs = null)
                     onState(
                         raceState(
@@ -87,6 +90,30 @@ internal class InitialRelayRaceRunner(
                     )
                 }
 
+                raceCompletion.provisional?.let { provisionalAttempt ->
+                    val provisionalSlot = requireNotNull(provisionalAttempt.slot)
+                    stopAndForgetDiscardedCandidates(slots, provisionalSlot)
+                    val result =
+                        provisionalAttempt
+                            .toResult()
+                            .copy(verificationInconclusive = true)
+                    onState(
+                        raceState(
+                            state = RaceStateVerificationInconclusive,
+                            plan = plan,
+                            outcomes = outcomes,
+                            selectedCandidate = provisionalAttempt.candidate,
+                        ),
+                    )
+                    promoteCandidate(provisionalSlot)
+                    retainedSlot = provisionalSlot
+                    return@coroutineScope PromotedRelayRuntime(
+                        endpoint = requireNotNull(provisionalSlot.endpoint),
+                        result = result,
+                        udpEnabled = provisionalSlot.udpEnabled,
+                    )
+                }
+
                 onState(raceState(state = RaceStateExhausted, plan = plan, outcomes = outcomes))
                 throw InitialTransportSelectionException(
                     "No compatible initial relay transport passed its active probe",
@@ -100,6 +127,17 @@ internal class InitialRelayRaceRunner(
                 }
             }
         }
+
+    private suspend fun stopAndForgetDiscardedCandidates(
+        slots: ConcurrentHashMap<String, RelayRuntimeSlot>,
+        retainedSlot: RelayRuntimeSlot,
+    ) {
+        stopDiscardedCandidates(slots.values, retainedSlot)
+        slots.entries
+            .filter { (_, slot) -> slot !== retainedSlot }
+            .map(Map.Entry<String, RelayRuntimeSlot>::key)
+            .forEach(slots::remove)
+    }
 
     private suspend fun promoteWinner(
         winningAttempt: RelayRaceAttempt,
@@ -136,10 +174,20 @@ internal class InitialRelayRaceRunner(
             val slot = startCandidate(candidate)
             slots[candidate.profileId] = slot
             val endpoint = requireNotNull(slot.endpoint)
-            val result = relayActiveProbe.probe(endpoint, plan.probeUrl, plan.readinessProbeRequirements)
-            val outcome = result.failure ?: if (result.succeeded) RaceOutcomeSucceeded else RaceOutcomeFailed
-            outcomes[candidate.profileId] = candidate.toSnapshot(outcome, result.latencyMs)
-            attempts.send(RelayRaceAttempt(candidate, slot, result))
+            val result =
+                plan.probePlan.targetUrl?.let { targetUrl ->
+                    relayActiveProbe.probe(endpoint, targetUrl, plan.probePlan.requirements)
+                }
+            val decision =
+                relayHealthDecisionEngine.evaluateInitialProbe(
+                    candidate = candidate,
+                    plan = plan,
+                    result = result,
+                    observedAtMs = System.currentTimeMillis(),
+                )
+            val outcome = decision.toRaceOutcome()
+            outcomes[candidate.profileId] = candidate.toSnapshot(outcome, result?.latencyMs)
+            attempts.send(RelayRaceAttempt(candidate, slot, result, decision))
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (
@@ -153,21 +201,29 @@ internal class InitialRelayRaceRunner(
 
     private suspend fun awaitRaceCompletion(
         attempts: Channel<RelayRaceAttempt>,
-        candidateCount: Int,
+        candidates: List<InitialRelayCandidate>,
     ): RaceCompletion {
         var winner: RelayRaceAttempt? = null
+        val provisionalByProfile = mutableMapOf<String, RelayRaceAttempt>()
         val completed =
             withTimeoutOrNull(RaceDeadlineMillis) {
-                repeat(candidateCount) {
+                repeat(candidates.size) {
                     val attempt = attempts.receive()
-                    if (attempt.probeResult?.succeeded == true && attempt.slot?.job?.isActive == true) {
+                    if (attempt.decision is RelayHealthDecision.Healthy && attempt.slot?.job?.isActive == true) {
                         winner = attempt
                         return@withTimeoutOrNull true
+                    }
+                    if (attempt.decision is RelayHealthDecision.Inconclusive && attempt.slot?.job?.isActive == true) {
+                        provisionalByProfile[attempt.candidate.profileId] = attempt
                     }
                 }
                 true
             } ?: false
-        return RaceCompletion(winner = winner, completedBeforeDeadline = completed)
+        val provisional =
+            candidates.firstNotNullOfOrNull { candidate ->
+                provisionalByProfile[candidate.profileId]
+            }
+        return RaceCompletion(winner = winner, provisional = provisional, completedBeforeDeadline = completed)
     }
 
     private fun cachedFallback(
@@ -192,10 +248,10 @@ internal class InitialRelayRaceRunner(
         ) {
             "Initial relay race candidates must use distinct transport classes"
         }
-        require(!plan.readinessProbeRequirements.tcpConnect || plan.requirements.tcpConnect) {
+        require(!plan.probePlan.requirements.tcpConnect || plan.requirements.tcpConnect) {
             "Initial relay readiness probe cannot require unsupported TCP egress"
         }
-        require(!plan.readinessProbeRequirements.udpAssociate || plan.requirements.udpAssociate) {
+        require(!plan.probePlan.requirements.udpAssociate || plan.requirements.udpAssociate) {
             "Initial relay readiness probe cannot require unsupported UDP egress"
         }
     }
@@ -247,10 +303,19 @@ internal class InitialRelayRaceRunner(
         val candidate: InitialRelayCandidate,
         val slot: RelayRuntimeSlot?,
         val probeResult: RelayActiveProbeResult?,
+        val decision: RelayHealthDecision? = null,
     )
+
+    private fun RelayHealthDecision.toRaceOutcome(): String =
+        when (this) {
+            is RelayHealthDecision.Healthy -> RaceOutcomeSucceeded
+            is RelayHealthDecision.Inconclusive -> RaceOutcomeVerificationInconclusive
+            is RelayHealthDecision.ConfirmedFailed -> RaceOutcomeConfirmedFailed
+        }
 
     private data class RaceCompletion(
         val winner: RelayRaceAttempt?,
+        val provisional: RelayRaceAttempt?,
         val completedBeforeDeadline: Boolean,
     )
 
@@ -262,10 +327,12 @@ internal class InitialRelayRaceRunner(
         const val RaceStateRacing = "racing"
         const val RaceStateSelected = "selected"
         const val RaceStateCachedFallback = "cached_fallback"
+        const val RaceStateVerificationInconclusive = "verification_inconclusive"
         const val RaceStateExhausted = "exhausted"
         const val RaceOutcomePending = "pending"
         const val RaceOutcomeSucceeded = "succeeded"
-        const val RaceOutcomeFailed = "failed"
+        const val RaceOutcomeVerificationInconclusive = "verification_inconclusive"
+        const val RaceOutcomeConfirmedFailed = "confirmed_failed"
         const val RaceOutcomeRuntimeFailed = "runtime_failed"
         const val RaceOutcomeTimeout = "timeout"
         const val RaceOutcomeCancelled = "cancelled"
@@ -274,6 +341,7 @@ internal class InitialRelayRaceRunner(
 
 internal class InitialRelayRaceRunnerFactory(
     private val relayActiveProbe: RelayActiveProbe = OkHttpRelayActiveProbe(),
+    private val relayHealthDecisionEngine: RelayHealthDecisionEngine = RelayHealthDecisionEngine(),
 ) {
     fun create(
         startCandidate: suspend (InitialRelayCandidate) -> RelayRuntimeSlot,
@@ -282,6 +350,7 @@ internal class InitialRelayRaceRunnerFactory(
     ): InitialRelayRaceRunner =
         InitialRelayRaceRunner(
             relayActiveProbe = relayActiveProbe,
+            relayHealthDecisionEngine = relayHealthDecisionEngine,
             startCandidate = startCandidate,
             promoteCandidate = promoteCandidate,
             stopDiscardedCandidates = stopDiscardedCandidates,

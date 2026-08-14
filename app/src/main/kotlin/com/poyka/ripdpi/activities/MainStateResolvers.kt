@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 private const val ConnectionActuatorStageCount = 5
@@ -109,11 +110,13 @@ internal fun buildMainUiState(
             stringResolver = stringResolver,
         )
     val homeDiagnosticsUiState = HomeDiagnosticsUiState()
+    val vpnDataPlaneStatus = inputs.resolveDataPlaneStatus()
     val connectionActuator =
         buildMainConnectionActuator(
             inputs = inputs,
             configuredMode = configuredMode,
             connectionState = effectiveConnectionState,
+            vpnDataPlaneStatus = vpnDataPlaneStatus,
             approachSummary = approachSummary,
             hardKillSwitch = hardKillSwitch,
             stringResolver = stringResolver,
@@ -161,22 +164,28 @@ private fun buildMainModeCards(
     connectionState: ConnectionState,
     homeDiagnostics: HomeDiagnosticsUiState,
     stringResolver: StringResolver,
-) = buildHomeModeCards(
-    HomeModeCardsInput(
-        settings = inputs.settings,
-        activeMode = inputs.statusAndMode.second,
-        configuredMode = configuredMode,
-        connectionState = connectionState,
-        connectionDuration = inputs.runtime.connectionDuration,
-        homeDiagnostics = homeDiagnostics,
-        stringResolver = stringResolver,
-    ),
-)
+): ImmutableList<HomeModeCardUiState> =
+    buildHomeModeCards(
+        HomeModeCardsInput(
+            settings = inputs.settings,
+            activeMode = inputs.statusAndMode.second,
+            configuredMode = configuredMode,
+            connectionState = connectionState,
+            vpnDataPlaneStatus = inputs.resolveDataPlaneStatus(),
+            connectionDuration = inputs.runtime.connectionDuration,
+            homeDiagnostics = homeDiagnostics,
+            stringResolver = stringResolver,
+        ),
+    )
+
+private fun MainUiInputs.resolveDataPlaneStatus(): VpnDataPlaneStatus =
+    resolveVpnDataPlaneStatus(statusAndMode.first, statusAndMode.second, pathValidation)
 
 private fun buildMainConnectionActuator(
     inputs: MainUiInputs,
     configuredMode: Mode,
     connectionState: ConnectionState,
+    vpnDataPlaneStatus: VpnDataPlaneStatus,
     approachSummary: HomeApproachSummaryUiState?,
     hardKillSwitch: HardKillSwitchUiState,
     stringResolver: StringResolver,
@@ -186,6 +195,7 @@ private fun buildMainConnectionActuator(
         activeMode = inputs.statusAndMode.second,
         configuredMode = configuredMode,
         connectionState = connectionState,
+        vpnDataPlaneStatus = vpnDataPlaneStatus,
         runtime = inputs.runtime,
         telemetry = inputs.telemetry,
         approachSummary = approachSummary,
@@ -230,6 +240,7 @@ internal fun buildConnectionActuatorUiState(
     activeMode: Mode,
     configuredMode: Mode,
     connectionState: ConnectionState,
+    vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: HomeApproachSummaryUiState?,
@@ -237,10 +248,10 @@ internal fun buildConnectionActuatorUiState(
     stringResolver: StringResolver,
 ): HomeConnectionActuatorUiState {
     val mode = if (connectionState == ConnectionState.Connected) activeMode else configuredMode
-    val routeLabel = approachSummary?.title ?: routeLabelForMode(mode, settings, stringResolver)
     val egressBacked = isForeignExitLive(settings, telemetry)
+    val vpnWarning = vpnDataPlaneWarning(connectionState, vpnDataPlaneStatus)
     val warningStage =
-        telemetryWarningStage(telemetry)
+        (HomeConnectionActuatorStage.Route.takeIf { vpnWarning != null } ?: telemetryWarningStage(telemetry))
             .takeIf { connectionState == ConnectionState.Connected }
     val failedStage =
         telemetryFailureStage(telemetry)
@@ -275,11 +286,12 @@ internal fun buildConnectionActuatorUiState(
     return HomeConnectionActuatorUiState(
         status = status,
         trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
-        routeLabel = routeLabel,
+        routeLabel = approachSummary?.title ?: routeLabelForMode(mode, settings, stringResolver),
         statusDescription =
             actuatorStatusDescription(
                 status = status,
                 egressBacked = egressBacked,
+                vpnDataPlaneStatus = vpnWarning,
                 warningStage = warningStage,
                 failedStage = failedStage,
                 stringResolver = stringResolver,
@@ -294,25 +306,26 @@ internal fun buildConnectionActuatorUiState(
                 activeStage = activeStage,
                 failedStage = failedStage,
             ),
-        stages =
-            HomeConnectionActuatorStage.entries
-                .map { stage ->
-                    HomeConnectionActuatorStageUiState(
-                        stage = stage,
-                        label = stage.label(stringResolver),
-                        state =
-                            stageState(
-                                stage = stage,
-                                status = status,
-                                activeStage = activeStage,
-                                warningStage = warningStage,
-                                failedStage = failedStage,
-                            ),
-                    )
-                }.toImmutableList(),
+        stages = buildActuatorStages(status, activeStage, warningStage, failedStage, stringResolver),
         deactivationEnabled = false.takeIf { hardKillSwitch.blocksDisconnect },
     )
 }
+
+private fun buildActuatorStages(
+    status: HomeConnectionActuatorStatus,
+    activeStage: HomeConnectionActuatorStage?,
+    warningStage: HomeConnectionActuatorStage?,
+    failedStage: HomeConnectionActuatorStage?,
+    stringResolver: StringResolver,
+): ImmutableList<HomeConnectionActuatorStageUiState> =
+    HomeConnectionActuatorStage.entries
+        .map { stage ->
+            HomeConnectionActuatorStageUiState(
+                stage = stage,
+                label = stage.label(stringResolver),
+                state = stageState(stage, status, activeStage, warningStage, failedStage),
+            )
+        }.toImmutableList()
 
 private fun routeLabelForMode(
     mode: Mode,
@@ -413,6 +426,7 @@ private fun stageState(
 private fun actuatorStatusDescription(
     status: HomeConnectionActuatorStatus,
     egressBacked: Boolean,
+    vpnDataPlaneStatus: VpnDataPlaneStatus?,
     warningStage: HomeConnectionActuatorStage?,
     failedStage: HomeConnectionActuatorStage?,
     stringResolver: StringResolver,
@@ -437,14 +451,15 @@ private fun actuatorStatusDescription(
         }
 
         HomeConnectionActuatorStatus.Degraded -> {
-            stringResolver.getString(
-                if (egressBacked) {
-                    R.string.home_connection_actuator_state_degraded
-                } else {
-                    R.string.home_connection_actuator_state_direct_degraded
-                },
-                warningStage?.label(stringResolver).orEmpty(),
-            )
+            vpnDataPlaneActuatorDescription(vpnDataPlaneStatus, stringResolver)
+                ?: stringResolver.getString(
+                    if (egressBacked) {
+                        R.string.home_connection_actuator_state_degraded
+                    } else {
+                        R.string.home_connection_actuator_state_direct_degraded
+                    },
+                    warningStage?.label(stringResolver).orEmpty(),
+                )
         }
 
         HomeConnectionActuatorStatus.Fault -> {

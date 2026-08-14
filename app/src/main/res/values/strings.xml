@@ -592,6 +592,9 @@
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">Diagnostic Scan</string>
     <string name="home_mode_card_connected_format">Connected %1$s</string>
+    <string name="home_connection_actuator_state_vpn_checking">Local processes are running; checking VPN connectivity</string>
+    <string name="home_connection_actuator_state_vpn_unverified">Local processes are running; VPN connectivity is unverified</string>
+    <string name="home_connection_actuator_state_vpn_unavailable">Local processes are running; VPN connectivity is unavailable</string>
     <string name="home_mode_card_connecting">Starting...</string>
     <string name="home_mode_card_remote_relay_disabled">Relay disabled</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
