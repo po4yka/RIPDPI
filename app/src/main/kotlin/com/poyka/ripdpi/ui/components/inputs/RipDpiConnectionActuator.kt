@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -25,6 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -34,17 +38,25 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -55,6 +67,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.requestFocus
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -77,6 +90,7 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
+import com.poyka.ripdpi.activities.labelRes
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -89,6 +103,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -106,12 +123,33 @@ private const val GripAlpha = 0.42f
 private const val LaneLabelRestFraction = 0.5f
 
 /**
+ * How fast the action label fades as the carriage leaves its resting lane.
+ * At this gain the label is gone once the carriage has covered roughly 40% of
+ * its travel, which is where it would otherwise start rendering underneath it.
+ */
+private const val LabelFadeGain = 2.5f
+
+/** Keys that count as an explicit commit when the rail withholds the pointer tap. */
+private val ActuatorCommitKeys =
+    setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
+
+/**
  * Single actuator for the connection lifecycle: the rail *is* the control.
  *
  * The track carries the action affordance (labelled lane plus a directional
  * carriage), so there is no second button competing for the same tap. A
  * plain button replaces the rail only when the user runs an accessibility
  * font scale, where a drag target is not a reasonable ask.
+ *
+ * Commit model: engaging the line accepts a tap, because a stray one costs the
+ * user nothing. Releasing a live line through the rail takes the drag the
+ * carriage advertises — a rail that also released on a tap would wear the grip,
+ * the chevron and the commit threshold of a deliberate gesture while requiring
+ * none of it, and the accidental outcome is the user believing they are covered
+ * when they are not. Deliberate activations keep a direct path either way:
+ * accessibility services through the semantics action, hardware keyboards
+ * through [ActuatorCommitKeys], and the accessibility-font layout through its
+ * button, which has no rail to drag.
  */
 @Composable
 fun RipDpiConnectionActuator(
@@ -123,6 +161,10 @@ fun RipDpiConnectionActuator(
 ) {
     val motion = RipDpiThemeTokens.motion
     val performHaptic = rememberRipDpiHapticPerformer()
+    // A blank field means the resolver has not answered yet, which is the state
+    // every launch renders first. Resolving here keeps that frame in the user's
+    // language instead of the data class's literals.
+    val state = state.withResolvedLabels()
     val stateStyle = actuatorStateStyle(state)
     val railColor = animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
     val carriageColor = animateColorAsState(stateStyle.carriage, motion.stateTween(), label = "actuatorCarriage")
@@ -160,6 +202,10 @@ fun RipDpiConnectionActuator(
             )
         } else {
             ActuatorRailLayout(
+                // Start, not centre: the rail is capped narrower than the content
+                // column on wide windows, and centring it left its own headline
+                // stranded at the far left with no edge to line up against.
+                modifier = Modifier.align(Alignment.Start),
                 state = state,
                 stateStyle = stateStyle,
                 railColor = railColor,
@@ -187,13 +233,18 @@ private fun ActuatorRailLayout(
     carriageColor: State<Color>,
     baseFraction: State<Float>,
     interactionModifier: ActuatorInteractionModifier,
+    modifier: Modifier = Modifier,
 ) {
     val metrics = RipDpiThemeTokens.components.actuator
     val spacing = RipDpiThemeTokens.spacing
     val density = LocalDensity.current
     BoxWithConstraints(
         modifier =
-            Modifier
+            modifier
+                // Drag travel is measured from the rail's own width, so an
+                // uncapped rail turns a single binary action into an arm-length
+                // sweep on a tablet or an unfolded foldable.
+                .widthIn(max = metrics.railMaxWidth)
                 .fillMaxWidth()
                 .height(metrics.railHeight)
                 .then(interactionModifier.modifier),
@@ -230,13 +281,19 @@ private fun ActuatorRailLayout(
             carriageWidthPx = with(density) { metrics.carriageWidth.toPx() },
             fraction = fraction,
         )
+        // The carriage travels straight through the label's lane, so the label
+        // fades as the carriage covers it. Keying that to the rendered fraction
+        // rather than the raw drag delta is what makes it work in Engaging and
+        // Fault, where the carriage rests mid-track with no finger on it and the
+        // label used to sit visibly underneath it.
+        val restFraction = if (state.carriageFraction < LaneLabelRestFraction) 0f else 1f
         ActuatorTrackContent(
             state = state,
             stateStyle = stateStyle,
             terminalColor = terminalColor,
             endpointLayout = endpointLayout,
-            dragProgress = {
-                if (travelPx > 0f) abs(interactionModifier.dragDeltaPx.value) / travelPx else 0f
+            labelAlpha = {
+                (1f - abs(fraction() - restFraction) * LabelFadeGain).coerceIn(0f, 1f)
             },
         )
         ActuatorCarriage(
@@ -273,9 +330,17 @@ private fun ActuatorTrackSurface(
                 .clip(shape)
                 .drawBehind {
                     drawRect(railColor.value)
+                    val fillWidth = insetPx + fraction() * travelPx + carriageWidthPx
+                    // The carriage and terminal mirror under RTL, but a rect that
+                    // defaults to Offset.Zero does not: the fill grew away from the
+                    // carriage instead of trailing it, on every connect animation
+                    // in Arabic and Persian.
+                    val originX =
+                        if (layoutDirection == LayoutDirection.Rtl) size.width - fillWidth else 0f
                     drawRect(
                         color = fillColor,
-                        size = Size(insetPx + fraction() * travelPx + carriageWidthPx, size.height),
+                        topLeft = Offset(originX, 0f),
+                        size = Size(fillWidth, size.height),
                     )
                 }.border(RipDpiStroke.Thin, borderColor, shape),
     )
@@ -291,7 +356,7 @@ private fun ActuatorTrackContent(
     stateStyle: RipDpiActuatorStateStyle,
     terminalColor: State<Color>,
     endpointLayout: ActuatorEndpointLayout,
-    dragProgress: () -> Float,
+    labelAlpha: () -> Float,
 ) {
     val metrics = RipDpiThemeTokens.components.actuator
     val spacing = RipDpiThemeTokens.spacing
@@ -314,7 +379,7 @@ private fun ActuatorTrackContent(
                 Modifier
                     .weight(1f)
                     .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorActionLabel)
-                    .graphicsLayer { alpha = (1f - dragProgress()).coerceIn(0f, 1f) },
+                    .graphicsLayer { alpha = labelAlpha() },
             text = state.actionLabel,
             style = type.caption,
             color = stateStyle.label,
@@ -336,6 +401,37 @@ private fun ActuatorTrackContent(
     }
 }
 
+/**
+ * Fills blank labels from resources, so an unresolved state still renders in the
+ * user's language rather than falling back to literals baked into the model.
+ */
+@Composable
+private fun HomeConnectionActuatorUiState.withResolvedLabels(): HomeConnectionActuatorUiState {
+    val hasBlank =
+        actionLabel.isEmpty() ||
+            statusDescription.isEmpty() ||
+            routeLabel.isEmpty() ||
+            trailingLabel.isEmpty() ||
+            stages.any { it.label.isEmpty() }
+    if (!hasBlank) return this
+    return copy(
+        actionLabel = actionLabel.ifEmpty { stringResource(R.string.home_connection_actuator_action_activate) },
+        statusDescription =
+            statusDescription.ifEmpty { stringResource(R.string.home_connection_actuator_state_open) },
+        routeLabel = routeLabel.ifEmpty { stringResource(R.string.home_mode_vpn) },
+        trailingLabel = trailingLabel.ifEmpty { stringResource(R.string.home_connection_actuator_direct) },
+        stages =
+            stages
+                .map { stage ->
+                    if (stage.label.isNotEmpty()) {
+                        stage
+                    } else {
+                        stage.copy(label = stringResource(stage.stage.labelRes()))
+                    }
+                }.toImmutableList(),
+    )
+}
+
 @Composable
 private fun actuatorStateStyle(state: HomeConnectionActuatorUiState): RipDpiActuatorStateStyle =
     RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
@@ -350,23 +446,29 @@ private fun rememberActuatorEndpointLayout(
     val type = RipDpiThemeTokens.type
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
-    val trailingWidth = measureTextWidth(trailingLabel, type.smallLabel, textMeasurer, density)
-    val labeledTerminalWidth =
-        maxOf(
-            metrics.terminalSlotWidth,
-            spacing.sm * 2 + RipDpiIconSizes.Small + spacing.xs + trailingWidth,
+    // The name promised memoization that only the measurer got: the width
+    // derivation below runs a full text-shaping pass, and without this key it
+    // re-shaped on every recomposition, including ones that changed nothing it
+    // reads.
+    return remember(availableWidth, trailingLabel, metrics, spacing, type, density, textMeasurer) {
+        val trailingWidth = measureTextWidth(trailingLabel, type.smallLabel, textMeasurer, density)
+        val labeledTerminalWidth =
+            maxOf(
+                metrics.terminalSlotWidth,
+                spacing.sm * 2 + RipDpiIconSizes.Small + spacing.xs + trailingWidth,
+            )
+        val requiredWidth =
+            metrics.carriageWidth +
+                labeledTerminalWidth +
+                spacing.md * EndpointLabelHorizontalGapCount
+        val accessibilityLabelsFit =
+            density.fontScale < EndpointLabelCollapseFontScale || availableWidth >= WideEndpointLabelWidth
+        val showLabels = accessibilityLabelsFit && availableWidth >= requiredWidth
+        ActuatorEndpointLayout(
+            showLabels = showLabels,
+            terminalWidth = if (showLabels) labeledTerminalWidth else metrics.terminalSlotHeight,
         )
-    val requiredWidth =
-        metrics.carriageWidth +
-            labeledTerminalWidth +
-            spacing.md * EndpointLabelHorizontalGapCount
-    val accessibilityLabelsFit =
-        density.fontScale < EndpointLabelCollapseFontScale || availableWidth >= WideEndpointLabelWidth
-    val showLabels = accessibilityLabelsFit && availableWidth >= requiredWidth
-    return ActuatorEndpointLayout(
-        showLabels = showLabels,
-        terminalWidth = if (showLabels) labeledTerminalWidth else metrics.terminalSlotHeight,
-    )
+    }
 }
 
 private fun measureTextWidth(
@@ -403,6 +505,7 @@ private fun ActuatorHeadline(
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Text(
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             text = state.statusDescription,
             style = type.bodyEmphasisBold,
             color = stateStyle.label,
@@ -466,77 +569,166 @@ private fun rememberActuatorInteractionModifier(
     onDeactivate: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ): ActuatorInteractionModifier {
-    val dragDeltaPx = remember(state.status) { mutableFloatStateOf(0f) }
+    // Re-keyed on status: once the new status lands, the base fraction owns the
+    // carriage again and this offset starts over at zero.
+    val dragOffsetPx = remember(state.status) { Animatable(0f) }
     val travelPx = remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
+    val returnSpec = RipDpiThemeTokens.motion.quickTween<Float>()
     val actionEnabled = state.isActivationAvailable || state.isDeactivationAvailable
+    // Only the stray-pointer-tap path is withheld, and only where a rail exists
+    // to drag instead. See the commit-model note on [RipDpiConnectionActuator].
+    val tapCommits = actionEnabled && (state.isActivationAvailable || !dragEnabled)
+    val keyboardCommits = actionEnabled && !tapCommits
+    val focusRequester = remember { FocusRequester() }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val draggableState =
         rememberDraggableState { delta ->
             val orientedDelta = if (isRtl) -delta else delta
-            dragDeltaPx.floatValue =
-                (dragDeltaPx.floatValue + orientedDelta).coerceIn(-travelPx.floatValue, travelPx.floatValue)
+            scope.launch {
+                dragOffsetPx.snapTo(
+                    (dragOffsetPx.value + orientedDelta)
+                        .coerceIn(-travelPx.floatValue, travelPx.floatValue),
+                )
+            }
         }
     val modifier =
         Modifier
-            .then(
-                if (actionEnabled) {
-                    Modifier.triStateToggleable(
-                        state = state.status.toToggleableState(),
-                        enabled = true,
-                        role = Role.Switch,
-                        onClick = {
-                            invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
-                        },
-                    )
-                } else {
-                    Modifier
-                },
-            )
-            // Every semantics property is declared here, in one block. Two
-            // semantics sources on this node produce two platform accessibility
-            // nodes: one interactive but nameless, one named but inert, which is
-            // how TalkBack ended up announcing an unlabelled switch. Clearing
-            // first collapses them, so role and the click action have to be
-            // restated rather than inherited from triStateToggleable.
-            .clearAndSetSemantics {
-                nodeTestTag?.let { testTag = it }
-                role = Role.Switch
-                toggleableState = state.status.toToggleableState()
-                contentDescription = state.actionLabel
-                stateDescription = state.statusDescription
-                liveRegion = LiveRegionMode.Polite
-                if (actionEnabled) {
-                    onClick(label = state.actionLabel) {
-                        invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
-                    }
-                }
-            }.draggable(
+            .actuatorTapCommit(
+                enabled = tapCommits,
+                toggleableState = state.status.toToggleableState(),
+                onCommit = { invokeActuatorClick(state, performHaptic, onActivate, onDeactivate) },
+            ).actuatorSemantics(
+                state = state,
+                nodeTestTag = nodeTestTag,
+                actionEnabled = actionEnabled,
+                keyboardCommits = keyboardCommits,
+                focusRequester = focusRequester,
+                onCommit = { invokeActuatorClick(state, performHaptic, onActivate, onDeactivate) },
+            ).actuatorKeyCommit(
+                enabled = keyboardCommits,
+                focusRequester = focusRequester,
+                onCommit = { invokeActuatorClick(state, performHaptic, onActivate, onDeactivate) },
+            ).draggable(
                 state = draggableState,
                 orientation = Orientation.Horizontal,
                 enabled = actionEnabled,
                 onDragStopped = {
                     // The gesture is always consumed so a horizontal swipe never
                     // degrades into a tap, but it only commits where a rail exists.
-                    if (dragEnabled) {
-                        handleActuatorDragStop(
-                            state = state,
-                            dragDeltaPx = dragDeltaPx.floatValue,
-                            travelPx = travelPx.floatValue,
-                            performHaptic = performHaptic,
-                            onActivate = onActivate,
-                            onDeactivate = onDeactivate,
-                        )
+                    val committed =
+                        dragEnabled &&
+                            handleActuatorDragStop(
+                                state = state,
+                                dragDeltaPx = dragOffsetPx.value,
+                                travelPx = travelPx.floatValue,
+                                performHaptic = performHaptic,
+                                onActivate = onActivate,
+                                onDeactivate = onDeactivate,
+                            )
+                    // A committed gesture holds the carriage where the finger left
+                    // it and waits for the status to land. Zeroing here instead
+                    // rewound the carriage to the start of the drag for as long as
+                    // the ViewModel took to answer, so a successful drag visibly
+                    // undid itself before the connection began.
+                    if (!committed) {
+                        dragOffsetPx.animateTo(targetValue = 0f, animationSpec = returnSpec)
                     }
-                    dragDeltaPx.floatValue = 0f
                 },
             )
 
     return ActuatorInteractionModifier(
         modifier = modifier,
-        dragDeltaPx = dragDeltaPx,
+        dragDeltaPx = dragOffsetPx.asState(),
         onTravelChanged = { distancePx -> travelPx.floatValue = distancePx },
     )
 }
+
+/**
+ * The platform tap, mounted only where a tap is allowed to commit. Left off the
+ * rail while a live line is up, so releasing takes the drag the carriage
+ * advertises instead of any stray touch inside a full-width target.
+ */
+private fun Modifier.actuatorTapCommit(
+    enabled: Boolean,
+    toggleableState: ToggleableState,
+    onCommit: () -> Unit,
+): Modifier =
+    if (enabled) {
+        triStateToggleable(
+            state = toggleableState,
+            enabled = true,
+            role = Role.Switch,
+            onClick = onCommit,
+        )
+    } else {
+        this
+    }
+
+/**
+ * Every semantics property for the rail, declared in one block.
+ *
+ * Two semantics sources on this node produce two platform accessibility nodes:
+ * one interactive but nameless, one named but inert, which is how TalkBack
+ * ended up announcing an unlabelled switch. Clearing first collapses them, so
+ * role and the click action are restated here rather than inherited from
+ * `triStateToggleable`.
+ */
+private fun Modifier.actuatorSemantics(
+    state: HomeConnectionActuatorUiState,
+    nodeTestTag: String?,
+    actionEnabled: Boolean,
+    keyboardCommits: Boolean,
+    focusRequester: FocusRequester,
+    onCommit: () -> Boolean,
+): Modifier =
+    clearAndSetSemantics {
+        nodeTestTag?.let { testTag = it }
+        role = Role.Switch
+        toggleableState = state.status.toToggleableState()
+        contentDescription = state.actionLabel
+        // No stateDescription and no liveRegion here: this string is already the
+        // visible headline, which is its own node, so carrying it on the switch
+        // too made TalkBack read the status twice on every landing and every
+        // transition. Role plus toggleableState still announce on/off; the
+        // headline owns the prose and the live region.
+        if (actionEnabled) {
+            onClick(label = state.actionLabel) { onCommit() }
+        }
+        // The reset above drops focusable()'s own RequestFocus action, so the
+        // focus entry point is restated here against the same requester the key
+        // handler is attached to. Without it the rail is unreachable by keyboard
+        // once the tap is withheld.
+        if (keyboardCommits) {
+            requestFocus {
+                focusRequester.requestFocus()
+                true
+            }
+        }
+    }
+
+/**
+ * Keyboard and D-pad commit, restoring what the withheld tap would otherwise
+ * have provided. A keypress on a focused control is already deliberate, so it
+ * commits in every state the action is available.
+ */
+private fun Modifier.actuatorKeyCommit(
+    enabled: Boolean,
+    focusRequester: FocusRequester,
+    onCommit: () -> Boolean,
+): Modifier =
+    if (enabled) {
+        focusRequester(focusRequester)
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && event.key in ActuatorCommitKeys) {
+                    onCommit()
+                } else {
+                    false
+                }
+            }.focusable()
+    } else {
+        this
+    }
 
 private fun HomeConnectionActuatorStatus.toToggleableState(): ToggleableState =
     when (this) {
@@ -567,6 +759,7 @@ private fun invokeActuatorClick(
     return true
 }
 
+/** Returns true when the gesture committed, so the caller can hold the carriage. */
 private fun handleActuatorDragStop(
     state: HomeConnectionActuatorUiState,
     dragDeltaPx: Float,
@@ -574,19 +767,25 @@ private fun handleActuatorDragStop(
     performHaptic: (RipDpiHapticFeedback) -> Unit,
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
-) {
-    if (travelPx <= 0f) return
+): Boolean {
+    if (travelPx <= 0f) return false
     val activated = state.isActivationAvailable && dragDeltaPx >= travelPx * ActivateDragThreshold
     val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -travelPx * DeactivateDragThreshold
-    when {
+    return when {
         activated -> {
             performHaptic(RipDpiHapticFeedback.Action)
             onActivate()
+            true
         }
 
         deactivated -> {
             performHaptic(RipDpiHapticFeedback.Toggle)
             onDeactivate()
+            true
+        }
+
+        else -> {
+            false
         }
     }
 }
@@ -597,6 +796,17 @@ private class ActuatorInteractionModifier(
     val onTravelChanged: (Float) -> Unit,
 )
 
+/**
+ * Read-only exit indicator at the end of the rail.
+ *
+ * It is deliberately not clickable, and must not become clickable: it reports
+ * which exit is in use, and the only action in this region is the rail's own
+ * commit. It borrows chip styling, and its border carries a non-text contrast
+ * requirement, so the resemblance to [com.poyka.ripdpi.ui.components.RipDpiChip]
+ * is load-bearing rather than accidental. A tap here used to fall through and
+ * release a live line; the rail's commit model now withholds that, so the slot
+ * no longer has a destructive outcome hiding behind a button-shaped affordance.
+ */
 @Composable
 private fun TerminalSlot(
     label: String?,
@@ -684,7 +894,7 @@ private fun ActuatorCarriage(
 
 @Composable
 private fun ActuatorPipeline(
-    stages: List<HomeConnectionActuatorStageUiState>,
+    stages: ImmutableList<HomeConnectionActuatorStageUiState>,
     useAccessibilityLayout: Boolean,
 ) {
     if (useAccessibilityLayout) {
@@ -736,7 +946,13 @@ private fun StageSegment(
                     } else {
                         ActiveStagePulseAlpha
                     },
-                animationSpec = infiniteRepeatable(animation = motion.stateTween()),
+                // Reverse, not the default Restart: a restart hard-cuts alpha back
+                // to full every cycle, which reads as a strobe rather than a pulse.
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = motion.stateTween(),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
                 label = "actuatorStagePulseAlpha",
             )
         } else {

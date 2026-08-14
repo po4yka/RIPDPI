@@ -102,6 +102,8 @@ data class RipDpiInputMetrics(
 @Immutable
 data class RipDpiActuatorMetrics(
     val railHeight: Dp = 56.dp,
+    /** Ceiling on the drag track, so commit travel stays a single-thumb sweep. */
+    val railMaxWidth: Dp = 480.dp,
     val trackInset: Dp = 6.dp,
     val carriageWidth: Dp = 76.dp,
     val carriageHeight: Dp = 44.dp,

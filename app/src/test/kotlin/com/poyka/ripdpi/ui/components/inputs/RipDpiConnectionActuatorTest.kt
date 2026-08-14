@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -27,8 +28,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -139,6 +143,66 @@ class RipDpiConnectionActuatorTest {
         composeRule.runOnIdle {
             assertTrue(deactivated)
         }
+    }
+
+    /**
+     * The rail advertises a deliberate gesture with a grip, a directional
+     * chevron and a commit threshold. Releasing a live line on a stray tap would
+     * make all of that decoration, and the accidental outcome is a user who
+     * believes they are covered when they are not. Engaging still accepts a tap,
+     * because a stray one costs nothing.
+     */
+    @Test
+    fun `tap does not release a locked line while a drag still does`() {
+        var deactivations = 0
+        setActuator(
+            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            onDeactivate = { deactivations++ },
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .performTouchInput { click() }
+        composeRule.runOnIdle { assertEquals(0, deactivations) }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .performTouchInput { swipeLeft() }
+        composeRule.runOnIdle { assertEquals(1, deactivations) }
+    }
+
+    /** Withholding the pointer tap must not strand assistive technology. */
+    @Test
+    fun `accessibility action still releases a locked line`() {
+        var deactivations = 0
+        setActuator(
+            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            onDeactivate = { deactivations++ },
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertHasClickAction()
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        composeRule.runOnIdle { assertEquals(1, deactivations) }
+    }
+
+    /** Nor a hardware keyboard or a D-pad, where a keypress is already explicit. */
+    @Test
+    fun `keyboard commit still releases a locked line`() {
+        var deactivations = 0
+        setActuator(
+            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            onDeactivate = { deactivations++ },
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .requestFocus()
+            .performKeyInput { pressKey(Key.Enter) }
+
+        composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
     @Test
@@ -264,12 +328,11 @@ class RipDpiConnectionActuatorTest {
                         SemanticsProperties.ToggleableState,
                         case.toggleableState,
                     ),
-                ).assert(
-                    SemanticsMatcher.expectValue(
-                        SemanticsProperties.StateDescription,
-                        "State ${case.status}",
-                    ),
-                )
+                ).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
+            // The status string belongs to the headline, which is its own node and
+            // its own live region. Carrying it here as well made TalkBack read the
+            // status twice on every landing and every transition.
+            composeRule.onNodeWithText("State ${case.status}").assertExists()
             if (case.clickable) {
                 node.assertHasClickAction()
                 assertEquals(
