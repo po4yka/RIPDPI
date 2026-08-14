@@ -71,6 +71,12 @@ class RipDpiConnectionActuatorTest {
 
     private companion object {
         const val HalfRailSwipeFraction = 0.5f
+
+        /**
+         * A pull that clears the old 28% release threshold and falls short of
+         * the shared 72% one, whatever the terminal slot measures out to.
+         */
+        const val ShortPullFraction = 0.30f
     }
 
     @Test
@@ -203,6 +209,39 @@ class RipDpiConnectionActuatorTest {
                     listOf(confirmLabel),
                 ),
             )
+    }
+
+    /**
+     * Releasing used to commit at 28% of travel while engaging took 72%, so the
+     * destructive direction was the cheaper gesture by a factor of two and a
+     * half. This pull clears the old release threshold and falls short of the
+     * shared one.
+     */
+    @Test
+    fun `short pull no longer releases a locked line`() {
+        var deactivations = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                Box(modifier = Modifier.requiredWidth(411.dp)) {
+                    RipDpiConnectionActuator(
+                        state = actuatorState(HomeConnectionActuatorStatus.Locked),
+                        onActivate = {},
+                        onDeactivate = { deactivations++ },
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = RipDpiTestTags.ConnectionActuatorButton,
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput {
+            swipe(
+                start = Offset(right - 1f, centerY),
+                end = Offset(right - width * ShortPullFraction, centerY),
+            )
+        }
+
+        composeRule.runOnIdle { assertEquals(0, deactivations) }
     }
 
     /** A drag is the same action by another route, so it takes the control back. */

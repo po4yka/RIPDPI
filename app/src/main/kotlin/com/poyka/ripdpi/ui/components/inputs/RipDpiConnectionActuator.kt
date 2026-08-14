@@ -114,8 +114,16 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private const val ActivateDragThreshold = 0.72f
-private const val DeactivateDragThreshold = 0.28f
+/**
+ * How much of the carriage's travel a drag has to cover before it commits, in
+ * either direction.
+ *
+ * Releasing used to clear at 0.28 while engaging took 0.72, which inverts the
+ * risk the rail is built around: the outcome worth guarding is a line dropped
+ * by accident, not one raised by accident, and that was the cheaper of the two
+ * gestures by a factor of two and a half.
+ */
+private const val CommitDragThreshold = 0.72f
 private const val ActiveStagePulseAlpha = 0.72f
 private const val WarningStagePulseAlpha = 0.82f
 private const val StripeStepPx = 10f
@@ -871,8 +879,9 @@ private fun handleActuatorDragStop(
     onDeactivate: () -> Unit,
 ): Boolean {
     if (travelPx <= 0f) return false
-    val activated = state.isActivationAvailable && dragDeltaPx >= travelPx * ActivateDragThreshold
-    val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -travelPx * DeactivateDragThreshold
+    val commitDistance = travelPx * CommitDragThreshold
+    val activated = state.isActivationAvailable && dragDeltaPx >= commitDistance
+    val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -commitDistance
     return when {
         activated -> {
             performHaptic(RipDpiHapticFeedback.Action)
