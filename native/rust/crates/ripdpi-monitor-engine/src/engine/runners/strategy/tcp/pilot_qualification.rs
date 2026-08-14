@@ -8,7 +8,7 @@ use crate::candidates::StrategyCandidateSpec;
 use crate::execution::{CandidateExecution, StrategyLaneExecutor, eliminated_candidate_summary};
 use crate::types::DomainTarget;
 
-use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
+use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};
 use super::super::support::stratified_pilot_targets;
 use super::StrategyTcpRunner;
 use super::capability_gating::{TcpCapabilities, candidate_passes_pilot_without_execution};
@@ -102,7 +102,26 @@ pub(super) fn qualify_pilot_candidates(
                     execution.summary.total_targets,
                     3,
                 );
+                let label = summary.label.clone();
+                let outcome = summary.outcome.clone();
                 runtime.strategy.tcp_candidates.push(summary);
+                // `total_steps` counts every suite candidate, so a candidate eliminated here still
+                // owes the plan one step. Without this the run finishes short and the final
+                // progress publish snaps the bar from partway to 100%.
+                //
+                // No live progress payload: the pilot runs before the main loop, and feeding it a
+                // pilot-local index would make the "n/N" candidate counter count up and then
+                // restart. Empty artifacts keep this a counter-only step, so an eliminated
+                // candidate contributes no probe results or session events beyond its summary.
+                runtime.record_step(
+                    plan,
+                    "tcp",
+                    format!("Eliminated {label}"),
+                    Some(label),
+                    Some(outcome),
+                    None,
+                    RunnerArtifacts::empty(),
+                );
                 eliminated_count += 1;
             }
         }

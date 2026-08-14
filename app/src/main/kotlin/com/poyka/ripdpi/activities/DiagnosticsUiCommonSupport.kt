@@ -223,11 +223,14 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     dpiFailureClass: DpiFailureClass? = null,
     networkContext: ScanNetworkContextUiModel? = null,
 ): DiagnosticsProgressUiModel {
+    // Clamped here rather than only at the bar: the ETA formula below divides by `fraction` and
+    // multiplies by `1 - fraction`, so an over-count from any earlier stage would yield a
+    // negative ETA.
     val fraction =
         if (progress.totalSteps <= 0) {
             0f
         } else {
-            progress.completedSteps.toFloat() / progress.totalSteps.toFloat()
+            (progress.completedSteps.toFloat() / progress.totalSteps.toFloat()).coerceIn(0f, 1f)
         }
     val elapsedMs = (now - scanStartedAt).coerceAtLeast(0L)
     val elapsedLabel = formatDurationMs(elapsedMs)
