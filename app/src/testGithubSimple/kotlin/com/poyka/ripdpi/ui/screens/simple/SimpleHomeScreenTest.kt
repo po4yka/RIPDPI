@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -16,18 +19,23 @@ import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -46,6 +54,33 @@ class SimpleHomeScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    /**
+     * The actuator clears its own semantics, so it is addressed by test tag rather than by
+     * label, and "disabled" shows up as a missing click action rather than a disabled flag.
+     */
+    private fun actuator() = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+
+    /**
+     * Deactivation deliberately does not commit on a tap — the actuator withholds it so a
+     * stray touch cannot drop a live tunnel, leaving the swipe and the accessibility action
+     * as the two ways through. Screen-level tests take the accessibility action; the gesture
+     * mechanics belong to RipDpiConnectionActuatorTest.
+     */
+    private fun commitActuator() = actuator().performSemanticsAction(SemanticsActions.OnClick)
+
+    private fun openActuator() =
+        HomeConnectionActuatorUiState(
+            status = HomeConnectionActuatorStatus.Open,
+            actionLabel = "Connect",
+        )
+
+    private fun lockedActuator(deactivationEnabled: Boolean? = null) =
+        HomeConnectionActuatorUiState(
+            status = HomeConnectionActuatorStatus.Locked,
+            actionLabel = "Disconnect",
+            deactivationEnabled = deactivationEnabled,
+        )
+
     @Test
     fun `connected session exposes enabled disconnect when lockdown is off`() {
         var toggleClicks = 0
@@ -54,6 +89,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = lockedActuator(),
                     blocksDisconnect = false,
                     diagnostics = HomeDiagnosticsUiState(),
                     activeTransport = null,
@@ -65,7 +101,8 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Disconnect").assertIsEnabled().performClick()
+        actuator().assertHasClickAction()
+        commitActuator()
         composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 
@@ -77,6 +114,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = lockedActuator(deactivationEnabled = false),
                     blocksDisconnect = true,
                     disconnectBlockedReason = "Always-on VPN owns this connection",
                     diagnostics = HomeDiagnosticsUiState(),
@@ -89,7 +127,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Disconnect").assertIsNotEnabled()
+        actuator().assertHasNoClickAction()
         composeRule.onNodeWithText("Always-on VPN owns this connection").assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, toggleClicks) }
     }
@@ -100,6 +138,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = lockedActuator(),
                     blocksDisconnect = false,
                     disconnectBlockedReason = "Always-on VPN owns this connection",
                     diagnostics = HomeDiagnosticsUiState(),
@@ -112,7 +151,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Disconnect").assertIsEnabled()
+        actuator().assertHasClickAction()
         composeRule.onNodeWithText("Always-on VPN owns this connection").assertDoesNotExist()
     }
 
@@ -124,6 +163,11 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Connecting,
+                    connectionActuator =
+                        HomeConnectionActuatorUiState(
+                            status = HomeConnectionActuatorStatus.Engaging,
+                            actionLabel = "Disconnect",
+                        ),
                     blocksDisconnect = false,
                     diagnostics = HomeDiagnosticsUiState(),
                     activeTransport = null,
@@ -135,7 +179,8 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Disconnect").assertIsEnabled().performClick()
+        actuator().assertHasClickAction()
+        commitActuator()
         composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 
@@ -147,6 +192,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
                     blocksDisconnect = true,
                     diagnostics = HomeDiagnosticsUiState(),
                     activeTransport = null,
@@ -158,7 +204,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Connect").assertIsEnabled().performClick()
+        actuator().assertHasClickAction().performClick()
         composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 
@@ -191,6 +237,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
                     diagnostics = diagnostics,
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
@@ -203,7 +250,7 @@ class SimpleHomeScreenTest {
 
         // Connecting mid-scan cancels the scan rather than reporting a result measured
         // across two different network paths.
-        composeRule.onNodeWithText("Connect").assertIsEnabled().performClick()
+        actuator().assertHasClickAction().performClick()
         composeRule.runOnIdle {
             assertEquals(1, cancelClicks)
             assertEquals(1, toggleClicks)
@@ -238,6 +285,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
                     diagnostics = diagnostics,
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
@@ -248,7 +296,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Connect").assertIsEnabled().performClick()
+        actuator().assertHasClickAction().performClick()
         composeRule.onNodeWithText("Cancel active scan").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Starting diagnostics").assertExists()
         composeRule.runOnIdle {
@@ -278,6 +326,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
                     diagnostics = diagnostics,
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
@@ -288,11 +337,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        val connectY =
-            composeRule
-                .onNodeWithText("Connect")
-                .fetchSemanticsNode()
-                .positionInRoot.y
+        val connectY = actuator().fetchSemanticsNode().positionInRoot.y
         val reportY =
             composeRule
                 .onNodeWithText("Cancel active scan")
@@ -403,6 +448,7 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Disconnected,
+                    connectionActuator = openActuator(),
                     diagnostics =
                         HomeDiagnosticsUiState(
                             analysisAction = HomeDiagnosticsActionUiState(enabled = true),
@@ -416,8 +462,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule
-            .onNodeWithText("Connect")
+        actuator()
             .assertWidthIsEqualTo(680.dp)
             .assertLeftPositionInRootIsEqualTo(260.dp)
         composeRule.onNodeWithText("Run diagnostic report").assertWidthIsEqualTo(680.dp)

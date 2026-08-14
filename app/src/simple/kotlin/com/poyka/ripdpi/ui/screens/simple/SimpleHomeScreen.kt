@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.MainViewModel
@@ -41,6 +42,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
@@ -66,8 +68,24 @@ fun SimpleHomeScreen(
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
 
+    val connectionActive =
+        uiState.connectionState == ConnectionState.Connecting ||
+            uiState.connectionState == ConnectionState.Connected
+    // The shared resolver labels the actuator in the full experience's "secure line"
+    // wording. This flavor speaks plainly for field testers, so keep the design-system
+    // control but keep this flavor's own label and its nine locales. The lockdown owner
+    // still wins: when it blocks disconnect it supplies its own label.
+    val simpleActionLabel =
+        stringResource(if (connectionActive) R.string.simple_disconnect else R.string.simple_connect)
+
     SimpleHomeContent(
         connectionState = uiState.connectionState,
+        connectionActuator =
+            if (uiState.hardKillSwitch.blocksDisconnect) {
+                uiState.connectionActuator
+            } else {
+                uiState.connectionActuator.copy(actionLabel = simpleActionLabel)
+            },
         blocksDisconnect = uiState.hardKillSwitch.blocksDisconnect,
         disconnectBlockedReason = uiState.hardKillSwitch.summary,
         diagnostics = diagnostics,
@@ -87,6 +105,7 @@ fun SimpleHomeScreen(
 @Composable
 internal fun SimpleHomeContent(
     connectionState: ConnectionState,
+    connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
     blocksDisconnect: Boolean = false,
     disconnectBlockedReason: String = "",
     diagnostics: HomeDiagnosticsUiState,
@@ -158,26 +177,29 @@ internal fun SimpleHomeContent(
                     )
                 }
 
-                RipDpiButton(
+                // The design system owns one representation of "connect": the actuator.
+                // It carries the connection stages, its own semantics and the
+                // reduced-motion/large-font fallback, none of which a plain button had.
+                //
+                // A running scan never gates the connection: the user must always be able to
+                // tear the tunnel down. Bringing it up or down mid-scan changes the measured
+                // path, so cancel the scan rather than report a result gathered across two
+                // different network paths.
+                RipDpiConnectionActuator(
+                    state = connectionActuator,
+                    onActivate = {
+                        if (reportCancellable) onCancelReport()
+                        onToggleConnection(false)
+                    },
+                    onDeactivate = {
+                        if (reportCancellable) onCancelReport()
+                        onToggleConnection(true)
+                    },
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = spacing.xl)
-                            .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorButton),
-                    text =
-                        stringResource(
-                            if (active) R.string.simple_disconnect else R.string.simple_connect,
-                        ),
-                    // A running scan never gates the connection toggle: the user must always be
-                    // able to tear the tunnel down. Bringing the tunnel up or down mid-scan
-                    // changes the measured path, so cancel the scan instead of reporting a
-                    // result gathered across two different network paths.
-                    onClick = {
-                        if (reportCancellable) onCancelReport()
-                        onToggleConnection(active)
-                    },
-                    enabled = !disconnectBlocked,
-                    variant = RipDpiButtonVariant.Primary,
+                            .padding(top = spacing.xl),
+                    testTag = RipDpiTestTags.ConnectionActuatorButton,
                 )
 
                 // A disabled primary action must say why. The lockdown owner is the only
