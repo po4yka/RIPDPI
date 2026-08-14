@@ -147,10 +147,14 @@ private fun AdvisoryCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     RipDpiCard {
         SettingsRow(
-            title = top.title,
+            // Collapsed, the header is the only thing naming what needs
+            // attention, so it takes the most severe advisory's title. Expanded,
+            // the list names every one of them and a header repeating the first
+            // row would print the same sentence twice in a row.
+            title = if (expanded) stringResource(R.string.home_setup_health_title) else top.title,
             subtitle =
                 when {
-                    rest.size > 1 && expanded -> stringResource(R.string.home_setup_health_expanded)
+                    expanded -> stringResource(R.string.home_setup_health_expanded)
                     rest.size > 1 -> stringResource(R.string.home_setup_health_collapsed_format, rest.size)
                     else -> top.message
                 },

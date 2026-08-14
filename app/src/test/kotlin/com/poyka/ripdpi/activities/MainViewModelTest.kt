@@ -442,13 +442,16 @@ class MainViewModelTest {
     }
 
     /**
-     * The headline names the leak risk in one clause and stops there. It used to
-     * append the full lockdown summary as well, which made the control's own
-     * state read as a three-sentence paragraph; that explanation belongs to the
-     * setup-health item, where it comes with a repair action.
+     * The headline describes the line and nothing else. It used to append the
+     * lockdown label because the advisory could be hidden behind a collapsed
+     * section and the headline was the only always-visible surface. The home
+     * advisory slot is always visible and names the most severe item itself, so
+     * the clause became a third printing of the same sentence -- confirmed on a
+     * Pixel 7, where "System lockdown not enabled" appeared in the headline, in
+     * the card header and in the row inside it at the same time.
      */
     @Test
-    fun `connection actuator headline names lockdown risk without the full summary`() {
+    fun `connection actuator headline leaves the lockdown advisory to the advisory slot`() {
         val stringResolver = FakeStringResolver()
         val hardKillSwitch =
             buildHardKillSwitchUiState(
@@ -477,14 +480,17 @@ class MainViewModelTest {
             )
 
         assertTrue(hardKillSwitch.warning)
-        assertTrue(state.statusDescription.contains(hardKillSwitch.label))
         assertFalse(
-            "Headline must not carry the long lockdown summary, was: ${state.statusDescription}",
+            "Headline must not carry the lockdown label, was: ${state.statusDescription}",
+            state.statusDescription.contains(hardKillSwitch.label),
+        )
+        assertFalse(
+            "Headline must not carry the lockdown summary, was: ${state.statusDescription}",
             state.statusDescription.contains(hardKillSwitch.summary),
         )
     }
 
-    /** Nothing is at risk once lockdown is enforced, so the headline stays bare. */
+    /** And nothing changes once lockdown is enforced: it was never the headline's. */
     @Test
     fun `connection actuator headline omits lockdown clause once lockdown is enforced`() {
         val stringResolver = FakeStringResolver()

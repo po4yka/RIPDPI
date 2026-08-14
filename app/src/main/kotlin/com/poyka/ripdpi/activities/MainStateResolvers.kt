@@ -283,19 +283,7 @@ internal fun buildConnectionActuatorUiState(
                 warningStage = warningStage,
                 failedStage = failedStage,
                 stringResolver = stringResolver,
-            ).let { description ->
-                // The headline states the line's own state and, when traffic can
-                // actually leak, names the risk in one short clause. The full
-                // explanation and the repair action belong to the setup-health
-                // item, which can be acted on; appending the summary here turned
-                // the control's own state into a three-sentence paragraph and
-                // fired even when lockdown was already enforced.
-                if (hardKillSwitch.visible && hardKillSwitch.warning) {
-                    "$description. ${hardKillSwitch.label}"
-                } else {
-                    description
-                }
-            },
+            ),
         actionLabel =
             hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
                 ?: actuatorActionLabel(status, stringResolver),
