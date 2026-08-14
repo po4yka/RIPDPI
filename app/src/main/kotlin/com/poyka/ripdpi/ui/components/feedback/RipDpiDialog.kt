@@ -82,8 +82,8 @@ fun RipDpiDialog(
                 modifier =
                     modifier
                         .ripDpiTestTag(dialogTestTag)
-                        .fillMaxWidth()
-                        .widthIn(max = layout.dialogMaxWidth),
+                        .widthIn(max = layout.dialogMaxWidth)
+                        .fillMaxWidth(),
                 confirmAction = confirmAction,
                 visuals = visuals,
                 content = content,

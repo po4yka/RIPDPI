@@ -139,8 +139,8 @@ internal fun HistoryScreen(
                 Column(
                     modifier =
                         Modifier
-                            .fillMaxSize()
-                            .widthIn(max = layout.contentMaxWidth),
+                            .widthIn(max = layout.contentMaxWidth)
+                            .fillMaxSize(),
                 ) {
                     HistorySectionChips(
                         selectedSection = uiState.selectedSection,

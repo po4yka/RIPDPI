@@ -53,8 +53,8 @@ fun RipDpiTopAppBar(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = containerMaxWidth),
+                    .widthIn(max = containerMaxWidth)
+                    .fillMaxWidth(),
         ) {
             Row(
                 modifier =

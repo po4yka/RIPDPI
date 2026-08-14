@@ -100,8 +100,8 @@ fun RipDpiContentScreenScaffold(
             Column(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
                         .widthIn(max = ripDpiScaffoldMaxWidth(contentWidth))
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .padding(
                             start = layout.horizontalPadding,
@@ -154,8 +154,8 @@ fun RipDpiSettingsScaffold(
             LazyColumn(
                 modifier =
                     Modifier
-                        .fillMaxSize()
-                        .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Form)),
+                        .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Form))
+                        .fillMaxSize(),
                 contentPadding =
                     PaddingValues(
                         start = layout.horizontalPadding,
@@ -206,8 +206,8 @@ fun RipDpiDashboardScaffold(
             Column(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
                         .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Dashboard))
+                        .fillMaxWidth()
                         .verticalScroll(scrollState)
                         .padding(
                             start = layout.horizontalPadding,
@@ -246,8 +246,8 @@ fun RipDpiIntroScaffold(
             modifier =
                 Modifier
                     .statusBarsPadding()
-                    .fillMaxWidth()
                     .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Intro))
+                    .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .zIndex(1f),
             content = topAction,
@@ -255,8 +255,8 @@ fun RipDpiIntroScaffold(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Intro))
+                    .fillMaxWidth()
                     .align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             content = content,
@@ -264,8 +264,8 @@ fun RipDpiIntroScaffold(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Intro))
+                    .fillMaxWidth()
                     .align(Alignment.BottomCenter),
             horizontalAlignment = Alignment.CenterHorizontally,
             content = footer,
@@ -365,6 +365,14 @@ private fun RipDpiContentScreenScaffoldPreview() {
     }
 }
 
+/**
+ * Content ceiling for a scaffold body.
+ *
+ * Apply this *before* `fillMaxWidth()`/`fillMaxSize()` in the modifier chain.
+ * A fill modifier pins `min == max` to the parent width, and `widthIn` can only
+ * constrain within the range it is handed, so the cap silently evaporates when
+ * it comes second — the tiers below then have no effect at any window size.
+ */
 @Composable
 private fun ripDpiScaffoldMaxWidth(width: RipDpiScaffoldWidth) =
     when (width) {

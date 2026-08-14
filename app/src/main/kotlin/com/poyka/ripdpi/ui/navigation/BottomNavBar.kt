@@ -97,10 +97,10 @@ fun BottomNavBar(
             BoxWithConstraints(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
-                        ).height(bottomBarHeight)
+                        ).fillMaxWidth()
+                        .height(bottomBarHeight)
                         .ripDpiTestTag(RipDpiTestTags.BottomNavBar)
                         .padding(horizontal = components.navigation.bottomNavHorizontalPadding),
             ) {

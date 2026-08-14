@@ -268,8 +268,8 @@ private fun DiagnosticsScreenFrame(
             Column(
                 modifier =
                     Modifier
-                        .fillMaxSize()
-                        .widthIn(max = layout.contentMaxWidth),
+                        .widthIn(max = layout.contentMaxWidth)
+                        .fillMaxSize(),
             ) {
                 DiagnosticsSectionSwitcher(
                     selectedSection = uiState.selectedSection,

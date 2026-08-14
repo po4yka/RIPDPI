@@ -68,8 +68,8 @@ internal fun ModeEditorBottomBar(
         Row(
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .widthIn(max = layout.formMaxWidth)
+                    .fillMaxWidth()
                     .padding(horizontal = layout.horizontalPadding, vertical = spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
@@ -118,8 +118,8 @@ internal fun ModeEditorBody(
         Column(
             modifier =
                 Modifier
-                    .fillMaxSize()
                     .widthIn(max = layout.formMaxWidth)
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(
                         start = layout.horizontalPadding,

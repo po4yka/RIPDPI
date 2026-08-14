@@ -80,8 +80,8 @@ internal fun HomeTopBar(
         Row(
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .widthIn(max = containerMaxWidth)
+                    .fillMaxWidth()
                     .heightIn(min = homeChrome.topBarMinHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {

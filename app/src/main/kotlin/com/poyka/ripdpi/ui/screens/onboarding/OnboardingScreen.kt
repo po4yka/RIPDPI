@@ -724,8 +724,8 @@ private fun OnboardingGuaranteeGrid(
     val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
     val gridModifier =
         modifier
-            .fillMaxWidth()
             .widthIn(max = introLayout.guaranteeGridMaxWidth)
+            .fillMaxWidth()
     if (useAccessibilityLayout) {
         Column(
             modifier = gridModifier,

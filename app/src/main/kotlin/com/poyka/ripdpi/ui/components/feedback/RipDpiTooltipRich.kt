@@ -66,8 +66,8 @@ fun RipDpiTooltipRich(
                 Column(
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .widthIn(max = RipDpiThemeTokens.components.tooltip.richMaxWidth),
+                            .widthIn(max = RipDpiThemeTokens.components.tooltip.richMaxWidth)
+                            .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
                 ) {
                     Text(

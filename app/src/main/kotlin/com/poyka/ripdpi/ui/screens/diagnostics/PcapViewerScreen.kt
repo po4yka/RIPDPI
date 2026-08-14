@@ -100,7 +100,7 @@ fun PcapViewerScreen(
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().widthIn(max = layout.contentMaxWidth),
+                modifier = Modifier.widthIn(max = layout.contentMaxWidth).fillMaxSize(),
                 state = listState,
                 contentPadding =
                     PaddingValues(

@@ -53,8 +53,8 @@ internal fun ModeEditorScreen(
                     hostState = snackbarHostState,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
                             .widthIn(max = layout.formMaxWidth)
+                            .fillMaxWidth()
                             .padding(horizontal = layout.horizontalPadding),
                 )
             }

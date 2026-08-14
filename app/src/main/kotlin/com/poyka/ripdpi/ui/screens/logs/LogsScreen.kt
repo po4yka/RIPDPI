@@ -148,8 +148,8 @@ internal fun LogsScreen(
                 Column(
                     modifier =
                         Modifier
-                            .fillMaxSize()
                             .widthIn(max = layout.contentMaxWidth)
+                            .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                             .padding(
                                 start = layout.horizontalPadding,
