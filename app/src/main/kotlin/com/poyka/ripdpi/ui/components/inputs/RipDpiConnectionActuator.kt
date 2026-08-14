@@ -58,6 +58,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -416,7 +417,7 @@ private fun ActuatorRailLayout(
             )
         ActuatorTrackSurface(
             railColor = railColor,
-            fillColor = stateStyle.carriage,
+            fillColor = stateStyle.trackFillColor(),
             fillAlpha = fillAlpha,
             borderColor = stateStyle.railBorder,
             insetPx = insetPx,
@@ -451,6 +452,24 @@ private fun ActuatorRailLayout(
             carriageContentColor = stateStyle.carriageContent,
         )
     }
+}
+
+/**
+ * The colour the progress fill is drawn in.
+ *
+ * No single token works in every state. While the line is up the carriage is
+ * `foreground` on a light rail and reads well, but on an open or faulted line
+ * the carriage is `surface` -- near-white over a near-white rail, which is how
+ * the detent ended up with no visible half at all. Measured on a Pixel 7:
+ * (247,247,247) below the commit threshold against (250,250,250) above it.
+ * Its content colour is the dark one in exactly those states and the light one
+ * in the rest, so picking whichever of the pair sits further from the rail in
+ * luminance always lands on the one that actually reads.
+ */
+private fun RipDpiActuatorStateStyle.trackFillColor(): Color {
+    val railLuminance = rail.luminance()
+    return listOf(carriage, carriageContent).maxByOrNull { abs(it.luminance() - railLuminance) }
+        ?: carriage
 }
 
 /** Track background plus a progress fill that follows the live drag. */
