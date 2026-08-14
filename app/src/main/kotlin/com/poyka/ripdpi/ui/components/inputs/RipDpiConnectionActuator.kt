@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.RepeatMode
@@ -209,14 +210,16 @@ fun RipDpiConnectionActuator(
             performHaptic = performHaptic,
         )
 
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-    ) {
+    // Gaps are carried by the children rather than by the column's arrangement,
+    // so the one the pipeline needs can collapse together with the pipeline.
+    // `spacedBy` would keep spacing around a zero-height child, which is what an
+    // animated pipeline collapses to in the states that do not show one.
+    Column(modifier = modifier) {
         // The headline and route stay outside the switch so a screen reader can
         // read them as their own items. Merging them into the control made the
         // route the control's name and buried its state in a paragraph.
         ActuatorHeadline(state = state, stateStyle = stateStyle)
+        Spacer(modifier = Modifier.height(RipDpiThemeTokens.spacing.sm))
         if (useAccessibilityLayout) {
             ActuatorFallbackAction(
                 state = state,
@@ -238,8 +241,18 @@ fun RipDpiConnectionActuator(
                 interactionModifier = interactionModifier,
             )
         }
-        if (state.status.showsPipeline) {
+        // The pipeline used to be composed conditionally, so it appeared when the
+        // line started coming up and vanished once it was locked. Everything
+        // below the actuator jumped twice per connection cycle. It now expands
+        // and collapses in place, and the transitions are already no-ops when
+        // animations are off.
+        AnimatedVisibility(
+            visible = state.status.showsPipeline,
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
+        ) {
             ActuatorPipeline(
+                modifier = Modifier.padding(top = RipDpiThemeTokens.spacing.sm),
                 stages = state.stages,
                 useAccessibilityLayout = useAccessibilityLayout,
             )
@@ -696,10 +709,11 @@ private fun ActuatorCarriage(
 private fun ActuatorPipeline(
     stages: ImmutableList<HomeConnectionActuatorStageUiState>,
     useAccessibilityLayout: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     if (useAccessibilityLayout) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
             stages.forEach { stage ->
@@ -711,7 +725,7 @@ private fun ActuatorPipeline(
         }
     } else {
         FlowRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
