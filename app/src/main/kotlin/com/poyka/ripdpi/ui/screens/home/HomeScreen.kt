@@ -398,7 +398,10 @@ private fun buildHomeSetupHealthItems(
                 )
         }
     }
-    if (uiState.vpnCard.isActive && uiState.hardKillSwitch.visible) {
+    // Gated on relevance to the configured path only. Requiring an active VPN
+    // card withheld the advisory in exactly the states where it can still be
+    // acted on -- idle, connecting, and a tunnel that just failed.
+    if (uiState.hardKillSwitch.visible) {
         items +=
             HomeSetupHealthItem(
                 title = uiState.hardKillSwitch.label,

@@ -75,8 +75,14 @@ class HomeScreenSetupHealthTest {
         assertEquals(PermissionKind.VpnLockdown, repairedKind)
     }
 
+    /**
+     * An inactive VPN is when this advisory is most actionable: the user can
+     * still turn lockdown on before bringing the tunnel up. Gating it on an
+     * active VPN card withheld it there, and in the post-failure state too.
+     */
     @Test
-    fun `lockdown setup health is hidden while vpn is inactive`() {
+    fun `lockdown setup health stays reachable while vpn is inactive`() {
+        var repairedKind: PermissionKind? = null
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -84,14 +90,26 @@ class HomeScreenSetupHealthTest {
                     onToggleConnection = {},
                     onOpenDiagnostics = {},
                     onOpenHistory = {},
-                    onRepairPermission = {},
+                    onRepairPermission = { repairedKind = it },
                     onOpenVpnPermissionDialog = {},
                 )
             }
         }
 
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .performClick()
+
+        assertEquals(PermissionKind.VpnLockdown, repairedKind)
     }
 
     @Test
