@@ -2070,6 +2070,9 @@ app:history_title
 app:home
 app:home_approach_cta
 app:home_approach_title
+app:home_connection_actuator_state_vpn_checking
+app:home_connection_actuator_state_vpn_unavailable
+app:home_connection_actuator_state_vpn_unverified
 app:home_connection_button_connecting
 app:home_control_plane_health_action
 app:home_control_plane_health_body
