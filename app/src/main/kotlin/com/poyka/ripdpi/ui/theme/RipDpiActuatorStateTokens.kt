@@ -19,18 +19,18 @@ data class RipDpiActuatorStateTokens(
                     carriage = colorScheme.surface,
                     carriageContent = colors.foreground,
                     terminal = colors.inputBackground,
-                    terminalBorder = colors.border,
+                    terminalBorder = colors.mutedForeground,
                 )
             }
 
             RipDpiActuatorStateRole.Engaging -> {
                 baseStateStyle(
                     rail = lerp(colors.inputBackground, colors.foreground, ActuatorEngagingRailBlend),
-                    railBorder = colors.outlineVariant,
+                    railBorder = colors.outline,
                     carriage = colors.foreground,
                     carriageContent = colors.background,
                     terminal = colors.accent,
-                    terminalBorder = colors.outlineVariant,
+                    terminalBorder = colors.mutedForeground,
                 )
             }
 
@@ -125,9 +125,20 @@ data class RipDpiActuatorStateTokens(
             }
         }
 
+    /**
+     * Boundaries carry WCAG 1.4.11's 3:1 non-text contrast requirement, so they
+     * cannot use the hairline `border` token, which sits near 1.3:1 against the
+     * page in both themes and only suits decorative separators.
+     *
+     * The rail's own outline is measured against the page and uses `outline`
+     * (4.4:1 light, 3.0:1 dark). The terminal slot sits on the raised track
+     * rather than the page, so it needs one step more weight: `outline` would
+     * reach only 2.7:1 there in dark, while `mutedForeground` holds 6.6:1 in
+     * both themes.
+     */
     private fun baseStateStyle(
         rail: Color = colors.inputBackground,
-        railBorder: Color = colors.border,
+        railBorder: Color = colors.outline,
         carriage: Color,
         carriageContent: Color,
         terminal: Color,
