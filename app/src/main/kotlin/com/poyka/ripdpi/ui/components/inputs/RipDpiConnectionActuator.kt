@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -34,9 +35,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -105,6 +109,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -129,7 +134,17 @@ private const val LaneLabelRestFraction = 0.5f
  */
 private const val LabelFadeGain = 2.5f
 
-/** Keys that count as an explicit commit when the rail withholds the pointer tap. */
+/**
+ * How far the carriage pulls back when a release tap arms instead of committing.
+ * Far enough to read as the control answering the tap and pointing at the
+ * gesture, well short of the threshold that gesture would have to clear.
+ */
+private const val ArmedNudgeFraction = 0.18f
+
+/** How long an armed release waits for the tap that confirms it. */
+private const val ArmWindowMillis = 4_000L
+
+/** Keys that count as an explicit commit on a focused rail. */
 private val ActuatorCommitKeys =
     setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
@@ -142,14 +157,16 @@ private val ActuatorCommitKeys =
  * font scale, where a drag target is not a reasonable ask.
  *
  * Commit model: engaging the line accepts a tap, because a stray one costs the
- * user nothing. Releasing a live line through the rail takes the drag the
- * carriage advertises — a rail that also released on a tap would wear the grip,
- * the chevron and the commit threshold of a deliberate gesture while requiring
- * none of it, and the accidental outcome is the user believing they are covered
- * when they are not. Deliberate activations keep a direct path either way:
- * accessibility services through the semantics action, hardware keyboards
- * through [ActuatorCommitKeys], and the accessibility-font layout through its
- * button, which has no rail to drag.
+ * user nothing. Releasing a live line takes either the drag the carriage
+ * advertises or two taps — the first arms and says so, the second commits.
+ *
+ * Withholding the release tap outright was the earlier answer, and it fails
+ * WCAG 2.2 SC 2.5.7: dragging here is a deliberate friction choice rather than
+ * an essential one, so the release has to stay reachable with a single pointer
+ * that never drags, and a keyboard path and a semantics action are different
+ * modalities that do not satisfy it. Arming keeps what the withheld tap was
+ * protecting — one stray touch still cannot drop a live line — while answering
+ * the tap instead of ignoring it, which is what made the control read as dead.
  */
 @Composable
 fun RipDpiConnectionActuator(
@@ -161,10 +178,20 @@ fun RipDpiConnectionActuator(
 ) {
     val motion = RipDpiThemeTokens.motion
     val performHaptic = rememberRipDpiHapticPerformer()
+    // Re-keyed on status so a landing state change always disarms: the prompt
+    // belongs to one pending release, not to whatever the line does next.
+    val armed = remember(state.status) { mutableStateOf(false) }
+    val confirmLabel = stringResource(R.string.home_connection_actuator_action_confirm_release)
     // A blank field means the resolver has not answered yet, which is the state
     // every launch renders first. Resolving here keeps that frame in the user's
     // language instead of the data class's literals.
-    val state = state.withResolvedLabels()
+    val state =
+        state.withResolvedLabels().let { resolved ->
+            // While armed the control's action really has changed, so the lane's
+            // label, the switch's name and the label on its click action move
+            // together off this one field rather than drifting apart.
+            if (armed.value) resolved.copy(actionLabel = confirmLabel) else resolved
+        }
     val stateStyle = actuatorStateStyle(state)
     val railColor = animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
     val carriageColor = animateColorAsState(stateStyle.carriage, motion.stateTween(), label = "actuatorCarriage")
@@ -181,6 +208,7 @@ fun RipDpiConnectionActuator(
             state = state,
             dragEnabled = !useAccessibilityLayout,
             nodeTestTag = testTag,
+            armed = armed,
             onActivate = onActivate,
             onDeactivate = onDeactivate,
             performHaptic = performHaptic,
@@ -560,11 +588,62 @@ private fun ActuatorFallbackAction(
     }
 }
 
+/**
+ * The one commit path every input shares: tap, keypress and semantics action all
+ * come through here, so the arm-then-confirm step cannot be true for one of them
+ * and false for another.
+ *
+ * Returns true whenever the input was handled, arming included — an arming tap
+ * is an answer, not a dropped gesture.
+ */
+@Composable
+private fun rememberActuatorCommit(
+    state: HomeConnectionActuatorUiState,
+    requiresConfirmation: Boolean,
+    armed: MutableState<Boolean>,
+    carriage: Animatable<Float, AnimationVector1D>,
+    travelPx: State<Float>,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+    onActivate: () -> Unit,
+    onDeactivate: () -> Unit,
+): () -> Boolean {
+    val scope = rememberCoroutineScope()
+    val nudgeSpec = RipDpiThemeTokens.motion.quickTween<Float>()
+
+    // An armed release expires on its own, so a control left alone goes back to
+    // reporting the line instead of sitting on a stale prompt.
+    LaunchedEffect(armed.value) {
+        if (armed.value) {
+            delay(ArmWindowMillis)
+            armed.value = false
+        }
+    }
+
+    return {
+        if (requiresConfirmation && !armed.value) {
+            armed.value = true
+            performHaptic(RipDpiHapticFeedback.Toggle)
+            scope.launch {
+                // The carriage answers by pulling towards the gesture it wants and
+                // settling back, so the first tap teaches the drag rather than
+                // looking like the control ignored it.
+                carriage.animateTo(-travelPx.value * ArmedNudgeFraction, nudgeSpec)
+                carriage.animateTo(0f, nudgeSpec)
+            }
+            true
+        } else {
+            armed.value = false
+            invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
+        }
+    }
+}
+
 @Composable
 private fun rememberActuatorInteractionModifier(
     state: HomeConnectionActuatorUiState,
     dragEnabled: Boolean,
     nodeTestTag: String?,
+    armed: MutableState<Boolean>,
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -576,12 +655,23 @@ private fun rememberActuatorInteractionModifier(
     val scope = rememberCoroutineScope()
     val returnSpec = RipDpiThemeTokens.motion.quickTween<Float>()
     val actionEnabled = state.isActivationAvailable || state.isDeactivationAvailable
-    // Only the stray-pointer-tap path is withheld, and only where a rail exists
-    // to drag instead. See the commit-model note on [RipDpiConnectionActuator].
-    val tapCommits = actionEnabled && (state.isActivationAvailable || !dragEnabled)
-    val keyboardCommits = actionEnabled && !tapCommits
+    // Only a release asks to be confirmed, and only where a rail exists to drag
+    // instead. See the commit-model note on [RipDpiConnectionActuator].
+    val requiresConfirmation = actionEnabled && dragEnabled && !state.isActivationAvailable
     val focusRequester = remember { FocusRequester() }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val commit =
+        rememberActuatorCommit(
+            state = state,
+            requiresConfirmation = requiresConfirmation,
+            armed = armed,
+            carriage = dragOffsetPx,
+            travelPx = travelPx,
+            performHaptic = performHaptic,
+            onActivate = onActivate,
+            onDeactivate = onDeactivate,
+        )
+
     val draggableState =
         rememberDraggableState { delta ->
             val orientedDelta = if (isRtl) -delta else delta
@@ -595,24 +685,29 @@ private fun rememberActuatorInteractionModifier(
     val modifier =
         Modifier
             .actuatorTapCommit(
-                enabled = tapCommits,
+                enabled = actionEnabled,
                 toggleableState = state.status.toToggleableState(),
-                onCommit = { invokeActuatorClick(state, performHaptic, onActivate, onDeactivate) },
+                onCommit = { commit() },
             ).actuatorSemantics(
                 state = state,
                 nodeTestTag = nodeTestTag,
                 actionEnabled = actionEnabled,
-                keyboardCommits = keyboardCommits,
+                armed = armed.value,
                 focusRequester = focusRequester,
-                onCommit = { invokeActuatorClick(state, performHaptic, onActivate, onDeactivate) },
+                onCommit = commit,
             ).actuatorKeyCommit(
-                enabled = keyboardCommits,
+                enabled = actionEnabled,
                 focusRequester = focusRequester,
-                onCommit = { invokeActuatorClick(state, performHaptic, onActivate, onDeactivate) },
+                onCommit = commit,
             ).draggable(
                 state = draggableState,
                 orientation = Orientation.Horizontal,
                 enabled = actionEnabled,
+                onDragStarted = {
+                    // A drag is the other way to commit the same action, so it
+                    // takes the control back from a pending confirmation.
+                    armed.value = false
+                },
                 onDragStopped = {
                     // The gesture is always consumed so a horizontal swipe never
                     // degrades into a tap, but it only commits where a rail exists.
@@ -645,9 +740,9 @@ private fun rememberActuatorInteractionModifier(
 }
 
 /**
- * The platform tap, mounted only where a tap is allowed to commit. Left off the
- * rail while a live line is up, so releasing takes the drag the carriage
- * advertises instead of any stray touch inside a full-width target.
+ * The platform tap. A release now routes it through the arm-then-confirm step
+ * rather than being denied one, so this is mounted in every state the action is
+ * available instead of only where a tap was allowed to commit outright.
  */
 private fun Modifier.actuatorTapCommit(
     enabled: Boolean,
@@ -678,7 +773,7 @@ private fun Modifier.actuatorSemantics(
     state: HomeConnectionActuatorUiState,
     nodeTestTag: String?,
     actionEnabled: Boolean,
-    keyboardCommits: Boolean,
+    armed: Boolean,
     focusRequester: FocusRequester,
     onCommit: () -> Boolean,
 ): Modifier =
@@ -687,19 +782,24 @@ private fun Modifier.actuatorSemantics(
         role = Role.Switch
         toggleableState = state.status.toToggleableState()
         contentDescription = state.actionLabel
-        // No stateDescription and no liveRegion here: this string is already the
-        // visible headline, which is its own node, so carrying it on the switch
-        // too made TalkBack read the status twice on every landing and every
-        // transition. Role plus toggleableState still announce on/off; the
-        // headline owns the prose and the live region.
+        // No stateDescription here: this string is already the visible headline,
+        // which is its own node, so carrying it on the switch too made TalkBack
+        // read the status twice on every landing and every transition. Role plus
+        // toggleableState still announce on/off; the headline owns the prose.
         if (actionEnabled) {
             onClick(label = state.actionLabel) { onCommit() }
         }
-        // The reset above drops focusable()'s own RequestFocus action, so the
-        // focus entry point is restated here against the same requester the key
-        // handler is attached to. Without it the rail is unreachable by keyboard
-        // once the tap is withheld.
-        if (keyboardCommits) {
+        // The live region is scoped to the pending confirmation for the same
+        // reason: the headline still reports the line rather than the prompt, so
+        // arming is the one change on this node with no other surface to
+        // announce it.
+        if (armed) {
+            liveRegion = LiveRegionMode.Polite
+        }
+        // The reset above drops the toggleable's own RequestFocus action, so the
+        // focus entry point is restated here against the same requester the tap
+        // is mounted with. Without it the rail is unreachable by keyboard.
+        if (actionEnabled) {
             requestFocus {
                 focusRequester.requestFocus()
                 true
@@ -708,9 +808,11 @@ private fun Modifier.actuatorSemantics(
     }
 
 /**
- * Keyboard and D-pad commit, restoring what the withheld tap would otherwise
- * have provided. A keypress on a focused control is already deliberate, so it
- * commits in every state the action is available.
+ * Keyboard and D-pad commit, plus the focus target the semantics reset above
+ * points at. `triStateToggleable` carries key activation of its own, but only
+ * for a node that is focusable through its own semantics; clearing them leaves
+ * this the one handler that fires, which is also what keeps a single keypress
+ * from arming and committing in one go.
  */
 private fun Modifier.actuatorKeyCommit(
     enabled: Boolean,

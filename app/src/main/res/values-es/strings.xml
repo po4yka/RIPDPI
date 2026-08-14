@@ -258,6 +258,7 @@
     <string name="history_events_empty_body">Los fallos en tiempo de ejecución y los eventos nativos aparecerán aquí una vez que RIPDPI los registre.</string>
     <string name="history_title">Historial</string>
     <string name="home_connection_actuator_action_deactivate">Liberar línea segura</string>
+    <string name="home_connection_actuator_action_confirm_release">Toca de nuevo para liberar</string>
     <string name="home_connection_actuator_state_engaging">Activando línea segura</string>
     <string name="home_control_plane_health_action">Abrir ajustes avanzados</string>
     <string name="home_control_plane_host_pack_invalid_snapshot">La última actualización generó una instantánea curada no válida.</string>

@@ -258,6 +258,7 @@
     <string name="history_events_empty_body">Les échecs d\'exécution et les événements natifs apparaîtront ici une fois que RIPDPI les aura enregistrés.</string>
     <string name="history_title">Historique</string>
     <string name="home_connection_actuator_action_deactivate">Libérer la ligne sécurisée</string>
+    <string name="home_connection_actuator_action_confirm_release">Appuyez à nouveau pour libérer</string>
     <string name="home_connection_actuator_state_engaging">Ligne sécurisée en cours d\'engagement</string>
     <string name="home_control_plane_health_action">Ouvrir les paramètres avancés</string>
     <string name="home_control_plane_host_pack_invalid_snapshot">La dernière actualisation a construit un instantané sélectionné non valide.</string>

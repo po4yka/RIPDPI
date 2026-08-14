@@ -258,6 +258,7 @@
     <string name="history_events_empty_body">Laufzeitfehler und native Ereignisse erscheinen hier, sobald RIPDPI sie aufzeichnet.</string>
     <string name="history_title">Verlauf</string>
     <string name="home_connection_actuator_action_deactivate">Sichere Leitung freigeben</string>
+    <string name="home_connection_actuator_action_confirm_release">Zum Freigeben erneut tippen</string>
     <string name="home_connection_actuator_state_engaging">Sichere Leitung wird aufgebaut</string>
     <string name="home_control_plane_health_action">Erweiterte Einstellungen öffnen</string>
     <string name="home_control_plane_host_pack_invalid_snapshot">Letzte Aktualisierung hat einen ungültigen kuratierten Snapshot erstellt.</string>

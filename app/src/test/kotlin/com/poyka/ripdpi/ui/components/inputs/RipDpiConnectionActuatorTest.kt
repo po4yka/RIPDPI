@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredWidth
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -23,6 +25,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -39,6 +42,8 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
@@ -146,14 +151,12 @@ class RipDpiConnectionActuatorTest {
     }
 
     /**
-     * The rail advertises a deliberate gesture with a grip, a directional
-     * chevron and a commit threshold. Releasing a live line on a stray tap would
-     * make all of that decoration, and the accidental outcome is a user who
-     * believes they are covered when they are not. Engaging still accepts a tap,
-     * because a stray one costs nothing.
+     * A single stray touch still must not drop a live line, but the tap has to
+     * land: WCAG 2.2 SC 2.5.7 wants the release reachable with one pointer that
+     * never drags, and the earlier withheld tap simply did nothing at all.
      */
     @Test
-    fun `tap does not release a locked line while a drag still does`() {
+    fun `first release tap arms and the second commits`() {
         var deactivations = 0
         setActuator(
             state = actuatorState(HomeConnectionActuatorStatus.Locked),
@@ -167,13 +170,60 @@ class RipDpiConnectionActuatorTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
-            .performTouchInput { swipeLeft() }
+            .performTouchInput { click() }
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
-    /** Withholding the pointer tap must not strand assistive technology. */
+    /** Arming renames the action wherever that name is read. */
     @Test
-    fun `accessibility action still releases a locked line`() {
+    fun `arming a release renames the action on the lane and on the switch`() {
+        val state = actuatorState(HomeConnectionActuatorStatus.Locked)
+        setActuator(state = state)
+        val confirmLabel =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getString(R.string.home_connection_actuator_action_confirm_release)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorActionLabel, useUnmergedTree = true)
+            .assertTextEquals(state.actionLabel)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .performTouchInput { click() }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorActionLabel, useUnmergedTree = true)
+            .assertTextEquals(confirmLabel)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ContentDescription,
+                    listOf(confirmLabel),
+                ),
+            )
+    }
+
+    /** A drag is the same action by another route, so it takes the control back. */
+    @Test
+    fun `drag past threshold releases without a second tap`() {
+        var deactivations = 0
+        setActuator(
+            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            onDeactivate = { deactivations++ },
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .performTouchInput { swipeLeft() }
+
+        composeRule.runOnIdle { assertEquals(1, deactivations) }
+    }
+
+    /** Assistive technology takes the same two steps, and is told about the first. */
+    @Test
+    fun `accessibility action arms then releases a locked line`() {
         var deactivations = 0
         setActuator(
             state = actuatorState(HomeConnectionActuatorStatus.Locked),
@@ -184,11 +234,17 @@ class RipDpiConnectionActuatorTest {
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .assertHasClickAction()
             .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.runOnIdle { assertEquals(0, deactivations) }
 
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assert(
+                SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite),
+            ).performSemanticsAction(SemanticsActions.OnClick)
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
-    /** Nor a hardware keyboard or a D-pad, where a keypress is already explicit. */
+    /** A hardware keyboard or D-pad rides the same toggleable, not a rival handler. */
     @Test
     fun `keyboard commit still releases a locked line`() {
         var deactivations = 0
@@ -201,7 +257,13 @@ class RipDpiConnectionActuatorTest {
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .requestFocus()
             .performKeyInput { pressKey(Key.Enter) }
+        // One keypress arms and no more: two handlers racing the same key would
+        // land here as a release nobody confirmed.
+        composeRule.runOnIdle { assertEquals(0, deactivations) }
 
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .performKeyInput { pressKey(Key.Enter) }
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
