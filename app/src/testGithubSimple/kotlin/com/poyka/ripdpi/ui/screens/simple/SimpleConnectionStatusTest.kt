@@ -9,7 +9,11 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,6 +43,22 @@ class SimpleConnectionStatusTest {
         composeRule.waitForIdle()
 
         assertAccessibleStatus("Connecting…")
+    }
+
+    @Test
+    fun `error status is destructive and never reads as a resting state`() {
+        lateinit var colors: RipDpiExtendedColors
+        composeRule.setContent {
+            RipDpiTheme { colors = RipDpiThemeTokens.colors }
+        }
+
+        composeRule.runOnIdle {
+            assertEquals(colors.destructive, simpleStatusColor(ConnectionState.Error, colors))
+            assertEquals(colors.success, simpleStatusColor(ConnectionState.Connected, colors))
+            assertEquals(colors.mutedForeground, simpleStatusColor(ConnectionState.Disconnected, colors))
+            assertEquals(colors.mutedForeground, simpleStatusColor(ConnectionState.Connecting, colors))
+            assertNotEquals(colors.mutedForeground, colors.destructive)
+        }
     }
 
     private fun assertAccessibleStatus(label: String) {

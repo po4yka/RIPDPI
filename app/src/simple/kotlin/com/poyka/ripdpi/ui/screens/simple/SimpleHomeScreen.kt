@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -42,6 +43,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -347,15 +349,24 @@ internal fun SimpleConnectionStatus(
             },
         text = statusLabel,
         style = RipDpiThemeTokens.type.body,
-        color =
-            if (connectionState == ConnectionState.Connected) {
-                colors.success
-            } else {
-                colors.mutedForeground
-            },
+        color = simpleStatusColor(connectionState, colors),
         textAlign = TextAlign.Center,
     )
 }
+
+/**
+ * A failed connection must not read as an idle one. Error carries the destructive
+ * role; only the resting states stay muted.
+ */
+internal fun simpleStatusColor(
+    state: ConnectionState,
+    colors: RipDpiExtendedColors,
+): Color =
+    when (state) {
+        ConnectionState.Connected -> colors.success
+        ConnectionState.Error -> colors.destructive
+        ConnectionState.Disconnected, ConnectionState.Connecting -> colors.mutedForeground
+    }
 
 private fun simpleStatusLabel(state: ConnectionState): Int =
     when (state) {
