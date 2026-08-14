@@ -248,9 +248,10 @@ class SharedProxyRuntimeStackTest {
         }
 
     @Test
-    fun singleFailedRelayPreflightRejectsBeforeProxyStartup() =
+    fun singleTargetFailurePromotesInconclusiveRelayWithoutFailingStartup() =
         runTest {
             val fixture = createFixture()
+            val selected = mutableListOf<InitialRelayRaceResult>()
             val plan =
                 InitialRelayRacePlan(
                     probePlan =
@@ -270,21 +271,21 @@ class SharedProxyRuntimeStackTest {
                     healthScope = TestHealthScope,
                 )
 
-            val error =
-                runCatching {
-                    fixture.stack.start(
-                        proxyPreferences = rememberedJsonPreferences(),
-                        onRelayExit = {},
-                        onWarpExit = {},
-                        onAwgExit = {},
-                        onProxyExit = {},
-                        initialRelayRacePlan = plan,
-                    )
-                }.exceptionOrNull()
+            fixture.stack.start(
+                proxyPreferences = rememberedJsonPreferences(),
+                onRelayExit = {},
+                onWarpExit = {},
+                onAwgExit = {},
+                onProxyExit = {},
+                initialRelayRacePlan = plan,
+                onInitialRelaySelected = selected::add,
+            )
 
-            assertTrue(error is InitialTransportSelectionException)
+            assertEquals(listOf(true), selected.map(InitialRelayRaceResult::verificationInconclusive))
+            assertEquals(0, fixture.relayFactory.lastRuntime.stopCount)
+            assertEquals(1, fixture.proxyFactory.runtimes.size)
+            fixture.stack.stop(skipRuntimeShutdown = false)
             assertEquals(1, fixture.relayFactory.lastRuntime.stopCount)
-            assertTrue(fixture.proxyFactory.runtimes.isEmpty())
         }
 
     @Test

@@ -93,25 +93,9 @@ internal class InitialRelayRaceRunner(
                 raceCompletion.provisional?.let { provisionalAttempt ->
                     val provisionalSlot = requireNotNull(provisionalAttempt.slot)
                     stopAndForgetDiscardedCandidates(slots, provisionalSlot)
-                    val result =
-                        provisionalAttempt
-                            .toResult()
-                            .copy(verificationInconclusive = true)
-                    onState(
-                        raceState(
-                            state = RaceStateVerificationInconclusive,
-                            plan = plan,
-                            outcomes = outcomes,
-                            selectedCandidate = provisionalAttempt.candidate,
-                        ),
-                    )
-                    promoteCandidate(provisionalSlot)
+                    val promoted = promoteProvisional(provisionalAttempt, provisionalSlot, plan, outcomes, onState)
                     retainedSlot = provisionalSlot
-                    return@coroutineScope PromotedRelayRuntime(
-                        endpoint = requireNotNull(provisionalSlot.endpoint),
-                        result = result,
-                        udpEnabled = provisionalSlot.udpEnabled,
-                    )
+                    return@coroutineScope promoted
                 }
 
                 onState(raceState(state = RaceStateExhausted, plan = plan, outcomes = outcomes))
@@ -160,6 +144,30 @@ internal class InitialRelayRaceRunner(
             endpoint = requireNotNull(winningSlot.endpoint),
             result = result,
             udpEnabled = winningSlot.udpEnabled,
+        )
+    }
+
+    private suspend fun promoteProvisional(
+        attempt: RelayRaceAttempt,
+        slot: RelayRuntimeSlot,
+        plan: InitialRelayRacePlan,
+        outcomes: Map<String, InitialTransportRaceCandidateSnapshot>,
+        onState: (InitialTransportRaceSnapshot) -> Unit,
+    ): PromotedRelayRuntime {
+        val result = attempt.toResult().copy(verificationInconclusive = true)
+        onState(
+            raceState(
+                state = RaceStateVerificationInconclusive,
+                plan = plan,
+                outcomes = outcomes,
+                selectedCandidate = attempt.candidate,
+            ),
+        )
+        promoteCandidate(slot)
+        return PromotedRelayRuntime(
+            endpoint = requireNotNull(slot.endpoint),
+            result = result,
+            udpEnabled = slot.udpEnabled,
         )
     }
 
