@@ -102,7 +102,6 @@ private const val CarriageGripCount = 3
 private const val EndpointLabelHorizontalGapCount = 2
 private const val AccessibilityLayoutFontScale = 1.5f
 private const val TrackFillAlpha = 0.22f
-private const val CarriageBorderAlpha = 0.38f
 private const val GripAlpha = 0.42f
 private const val LaneLabelRestFraction = 0.5f
 
@@ -438,7 +437,7 @@ private fun ActuatorFallbackAction(
                 .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
                 .clip(shape)
                 .background(stateStyle.carriage, shape)
-                .border(RipDpiStroke.Thin, stateStyle.carriageContent.copy(alpha = CarriageBorderAlpha), shape)
+                .border(RipDpiStroke.Thin, stateStyle.carriageContent, shape)
                 .padding(horizontal = spacing.md, vertical = spacing.sm),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -659,7 +658,7 @@ private fun ActuatorCarriage(
                 .size(width = metrics.carriageWidth, height = metrics.carriageHeight)
                 .clip(shape)
                 .drawBehind { drawRect(carriageColor.value) }
-                .border(RipDpiStroke.Thin, carriageContentColor.copy(alpha = CarriageBorderAlpha), shape)
+                .border(RipDpiStroke.Thin, carriageContentColor, shape)
                 .padding(horizontal = spacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
