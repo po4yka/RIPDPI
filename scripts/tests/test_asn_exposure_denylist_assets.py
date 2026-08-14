@@ -22,6 +22,20 @@ class AsnExposureDenylistAssetsTest(unittest.TestCase):
 
             self.assertEqual([], guard.validate_no_asn_exposure_denylist_assets(root))
 
+    def test_nested_checkout_assets_are_not_scanned(self) -> None:
+        # Assets inside `.claude/worktrees/*` belong to a nested checkout, so their
+        # paths never match the allowlist and every allowlisted file was reported.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            asset = (
+                root
+                / ".claude/worktrees/job/core/service/src/main/assets/integrations/network-policy.json"
+            )
+            asset.parent.mkdir(parents=True)
+            asset.write_text('{"asn":64500,"cidr":"203.0.113.0/24"}', encoding="utf-8")
+
+            self.assertEqual([], guard.validate_no_asn_exposure_denylist_assets(root))
+
     def test_public_source_provenance_in_runtime_asset_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

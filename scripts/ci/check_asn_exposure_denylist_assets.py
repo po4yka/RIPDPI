@@ -65,7 +65,10 @@ def iter_asset_files(repo_root: Path) -> list[Path]:
     asset_files: list[Path] = []
     for assets_dir in repo_root.glob("**/src/main/assets"):
         relative_dir = assets_dir.relative_to(repo_root)
-        if any(part in {".git", ".gradle", "build"} for part in relative_dir.parts):
+        # Hidden directories hold nested checkouts (`.claude/worktrees/*`) and tool
+        # state, not this repo's own source sets. Scanning them re-reports every
+        # allowlisted asset under a path prefix the allowlist cannot match.
+        if any(part.startswith(".") or part == "build" for part in relative_dir.parts):
             continue
         for path in assets_dir.rglob("*"):
             if path.is_file():
