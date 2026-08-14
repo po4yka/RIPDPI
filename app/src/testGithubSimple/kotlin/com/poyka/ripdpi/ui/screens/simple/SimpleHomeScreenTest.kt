@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -256,14 +257,11 @@ class SimpleHomeScreenTest {
         }
         composeRule.onNodeWithText("Cancel active scan").assertIsEnabled().performClick()
         // The stage name survives into the announcement: a screen-reader user hears what is
-        // being tested, not just the counter.
+        // being tested, not just the counter. The node is named by that announcement rather
+        // than left nameless with a stateDescription attached to nothing.
         composeRule
-            .onNode(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.StateDescription,
-                    "Stage 2 of 4 · Testing TLS",
-                ),
-            ).assert(
+            .onNodeWithContentDescription("Stage 2 of 4 · Testing TLS")
+            .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.LiveRegion,
                     LiveRegionMode.Polite,
@@ -347,12 +345,8 @@ class SimpleHomeScreenTest {
                 .positionInRoot.y
         val scanStatusY =
             composeRule
-                .onNode(
-                    SemanticsMatcher.expectValue(
-                        SemanticsProperties.StateDescription,
-                        "Stage 2 of 4 · Testing TLS",
-                    ),
-                ).fetchSemanticsNode()
+                .onNodeWithContentDescription("Stage 2 of 4 · Testing TLS")
+                .fetchSemanticsNode()
                 .positionInRoot.y
 
         assertTrue("connect must precede the report action", connectY < reportY)

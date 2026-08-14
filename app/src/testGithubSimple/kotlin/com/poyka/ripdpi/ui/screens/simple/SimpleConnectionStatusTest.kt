@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -61,14 +62,14 @@ class SimpleConnectionStatusTest {
         }
     }
 
+    /**
+     * The label is the node's accessible name, not a stateDescription hung on a nameless
+     * node, so it must both be findable by text and announce politely on change.
+     */
     private fun assertAccessibleStatus(label: String) {
         composeRule
-            .onNode(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.StateDescription,
-                    label,
-                ),
-            ).assert(
+            .onNodeWithText(label)
+            .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.LiveRegion,
                     LiveRegionMode.Polite,

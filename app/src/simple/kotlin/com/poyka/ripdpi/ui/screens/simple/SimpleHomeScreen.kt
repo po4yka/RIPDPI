@@ -22,9 +22,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -216,6 +217,9 @@ private fun ColumnScope.SimpleHomeIdentity(
         connectionState == ConnectionState.Connecting || connectionState == ConnectionState.Connected
 
     Text(
+        // The screen has no app bar, so this is the only heading TalkBack's
+        // heading navigation can land on.
+        modifier = Modifier.semantics { heading() },
         text = stringResource(R.string.simple_title),
         style = RipDpiThemeTokens.type.screenTitle,
         color = colors.foreground,
@@ -370,8 +374,12 @@ internal fun SimpleDiagnosticsStatus(
         val announcement = diagnostics.analysisAction.stageAnnouncement.ifBlank { statusLabel }
         val statusModifier =
             if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+                // The visible text carries a detail that ticks continuously, so the node is
+                // renamed to the coarse announcement rather than left to read it out. Naming
+                // it -- rather than hanging a stateDescription on an unnamed node -- keeps it
+                // both announceable and findable.
                 Modifier.clearAndSetSemantics {
-                    stateDescription = announcement
+                    contentDescription = announcement
                     liveRegion = LiveRegionMode.Polite
                 }
             } else {
@@ -437,11 +445,11 @@ internal fun SimpleConnectionStatus(
     val colors = RipDpiThemeTokens.colors
     val statusLabel = stringResource(simpleStatusLabel(connectionState))
     Text(
-        modifier =
-            modifier.clearAndSetSemantics {
-                stateDescription = statusLabel
-                liveRegion = LiveRegionMode.Polite
-            },
+        // This is a status label, not a control, so its text is its accessible name.
+        // Clearing semantics to publish the same words as a stateDescription left the node
+        // nameless -- state with nothing to attach it to -- and dropped the text out of the
+        // tree entirely, so nothing could find it by content.
+        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
         text = statusLabel,
         // Connection state is the one thing this screen exists to report, so it outranks
         // the captions around it instead of sharing their weight. Colour alone does not
