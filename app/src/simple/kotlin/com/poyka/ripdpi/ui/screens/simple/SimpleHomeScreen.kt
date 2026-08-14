@@ -441,7 +441,11 @@ internal fun SimpleConnectionStatus(
                 liveRegion = LiveRegionMode.Polite
             },
         text = statusLabel,
-        style = RipDpiThemeTokens.type.body,
+        // Connection state is the one thing this screen exists to report, so it outranks
+        // the captions around it instead of sharing their weight. Colour alone does not
+        // carry it: "Disconnected" and "Connection error" both stay muted-or-worse, and
+        // WCAG 1.4.1 forbids colour as the sole channel anyway.
+        style = RipDpiThemeTokens.type.sectionTitle,
         color = simpleStatusColor(connectionState, colors),
         textAlign = TextAlign.Center,
     )
