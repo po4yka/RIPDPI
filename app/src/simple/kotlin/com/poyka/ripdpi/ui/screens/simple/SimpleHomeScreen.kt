@@ -158,13 +158,6 @@ internal fun SimpleHomeContent(
                     )
                 }
 
-                SimpleDiagnosticsStatus(
-                    diagnostics = diagnostics,
-                    onShareReport = onShareReport,
-                    onSaveReport = onSaveReport,
-                    modifier = Modifier.padding(top = spacing.lg),
-                )
-
                 RipDpiButton(
                     modifier =
                         Modifier
@@ -215,6 +208,16 @@ internal fun SimpleHomeContent(
                     onClick = if (reportCancellable) onCancelReport else onRunReport,
                     enabled = reportCancellable || (!reportBusy && diagnostics.analysisAction.enabled),
                     variant = RipDpiButtonVariant.Outline,
+                )
+
+                // Scan progress, status and results belong to the report action directly
+                // above them. Placed under the connection status instead, the progress bar
+                // read as connection progress.
+                SimpleDiagnosticsStatus(
+                    diagnostics = diagnostics,
+                    onShareReport = onShareReport,
+                    onSaveReport = onSaveReport,
+                    modifier = Modifier.padding(top = spacing.lg),
                 )
             }
         }

@@ -31,6 +31,7 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -254,6 +255,58 @@ class SimpleHomeScreenTest {
             assertEquals(2, cancelClicks)
             assertEquals(1, toggleClicks)
         }
+    }
+
+    @Test
+    fun `scan progress renders below the report action rather than the connection status`() {
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction =
+                    HomeDiagnosticsActionUiState(
+                        supportingText = "Stage 2 of 4 · Testing TLS",
+                        busy = true,
+                    ),
+                analysisProgress =
+                    AnalysisProgressUiState(
+                        stages = persistentListOf(AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.5f)),
+                        activeStageIndex = 0,
+                    ),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        val connectY =
+            composeRule
+                .onNodeWithText("Connect")
+                .fetchSemanticsNode()
+                .positionInRoot.y
+        val reportY =
+            composeRule
+                .onNodeWithText("Cancel active scan")
+                .fetchSemanticsNode()
+                .positionInRoot.y
+        val scanStatusY =
+            composeRule
+                .onNode(
+                    SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Stage 2 of 4"),
+                ).fetchSemanticsNode()
+                .positionInRoot.y
+
+        assertTrue("connect must precede the report action", connectY < reportY)
+        assertTrue("scan status must follow the report action", reportY < scanStatusY)
     }
 
     @Test
