@@ -119,28 +119,28 @@ fun HomeScreen(
             testTag = RipDpiTestTags.ConnectionActuatorButton,
         )
 
-        HomeSetupHealthRow(
-            uiState = uiState,
-            onRepairPermission = onRepairPermission,
-            onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
-            onDismissBatteryBanner = onDismissBatteryBanner,
-            onDismissBackgroundGuidance = onDismissBackgroundGuidance,
+        // One slot, ordered by severity. Setup health, the Xray provider stage,
+        // the network condition and subscription expiry each used to render
+        // themselves, so a bad enough moment put four full-width surfaces
+        // between the primary control and the screen's content, in declaration
+        // order rather than by how much any of them mattered.
+        HomeAdvisorySlot(
+            advisories =
+                buildHomeAdvisories(
+                    uiState = uiState,
+                    subscriptionExpiry = subscriptionExpiry,
+                    onRepairPermission = onRepairPermission,
+                    onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+                    onDismissBatteryBanner = onDismissBatteryBanner,
+                    onDismissBackgroundGuidance = onDismissBackgroundGuidance,
+                    onOpenSubscriptionStatus = onOpenSubscriptionStatus,
+                    onCaptivePortalSignIn = onCaptivePortalSignIn,
+                ),
         )
 
-        // Embedded-Xray provider stage. Provider-distinct treatment and active-only
-        // rendering live in [HomeXrayProviderBanner]; nothing renders when inactive.
-        HomeXrayProviderBanner(snapshot = uiState.xrayProviderSnapshot)
-
-        HomeNetworkConditionBanner(
-            condition = uiState.networkCondition,
-            onCaptivePortalSignIn = onCaptivePortalSignIn,
-        )
-
-        HomeSubscriptionExpiryBanner(
-            state = subscriptionExpiry,
-            onOpenStatus = onOpenSubscriptionStatus,
-        )
-
+        // Not an advisory: these are measurements the user asked for, and the
+        // traffic counter lives here. Folding it into the slot above would have
+        // put a number worth watching behind a warning header.
         HomeDegradationStrip(
             quality = uiState.connectionQuality,
             dataTransferred = uiState.dataTransferred,
@@ -217,194 +217,6 @@ private fun HomeConnectionHealthEntry(onOpenConnectionHealth: () -> Unit) {
             testTag = RipDpiTestTags.HomeConnectionHealthAction,
         )
     }
-}
-
-private data class HomeSetupHealthItem(
-    val title: String,
-    val message: String,
-    val actionLabel: String?,
-    val onClick: (() -> Unit)?,
-    val compact: Boolean = false,
-)
-
-@Composable
-private fun HomeSetupHealthRow(
-    uiState: MainUiState,
-    onRepairPermission: (PermissionKind) -> Unit,
-    onOpenVpnPermissionDialog: () -> Unit,
-    onDismissBatteryBanner: () -> Unit,
-    onDismissBackgroundGuidance: () -> Unit,
-) {
-    val items =
-        buildHomeSetupHealthItems(
-            uiState = uiState,
-            onRepairPermission = onRepairPermission,
-            onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
-            onDismissBatteryBanner = onDismissBatteryBanner,
-            onDismissBackgroundGuidance = onDismissBackgroundGuidance,
-        )
-    if (items.isEmpty()) return
-
-    if (items.size == 1 && items.single().compact) {
-        val item = items.single()
-        RipDpiCard {
-            HomeSetupHealthActionRow(item = item, showDivider = false)
-        }
-        return
-    }
-
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    RipDpiCard {
-        SettingsRow(
-            title = stringResource(R.string.home_setup_health_title),
-            subtitle =
-                stringResource(
-                    if (expanded) {
-                        R.string.home_setup_health_expanded
-                    } else {
-                        R.string.home_setup_health_collapsed_format
-                    },
-                    items.size,
-                ),
-            value =
-                stringResource(
-                    if (expanded) {
-                        R.string.semantic_action_collapse
-                    } else {
-                        R.string.settings_permission_action_review
-                    },
-                ),
-            onClick = { expanded = !expanded },
-            leadingIcon = RipDpiIcons.Settings,
-            showChevron = true,
-            testTag = RipDpiTestTags.HomeSetupHealthRow,
-        )
-        if (expanded) {
-            Column(
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthDetails),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-            ) {
-                items.forEach { item ->
-                    HomeSetupHealthActionRow(item = item, showDivider = true)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeSetupHealthActionRow(
-    item: HomeSetupHealthItem,
-    showDivider: Boolean,
-) {
-    SettingsRow(
-        title = item.title,
-        subtitle = item.message.takeUnless { item.compact },
-        value =
-            item.actionLabel?.let { label ->
-                if (item.compact) {
-                    "$label →"
-                } else {
-                    label
-                }
-            },
-        onClick = item.onClick,
-        leadingIcon = RipDpiIcons.Info,
-        showDivider = showDivider,
-        variant = if (item.compact) SettingsRowVariant.Tonal else SettingsRowVariant.Default,
-        testTag = RipDpiTestTags.HomeSetupHealthAction,
-    )
-}
-
-@Composable
-private fun buildHomeSetupHealthItems(
-    uiState: MainUiState,
-    onRepairPermission: (PermissionKind) -> Unit,
-    onOpenVpnPermissionDialog: () -> Unit,
-    onDismissBatteryBanner: () -> Unit,
-    onDismissBackgroundGuidance: () -> Unit,
-): List<HomeSetupHealthItem> {
-    val items = mutableListOf<HomeSetupHealthItem>()
-    uiState.permissionSummary.issue?.let { issue ->
-        items +=
-            HomeSetupHealthItem(
-                title = issue.title,
-                message =
-                    when (issue.recovery) {
-                        PermissionRecovery.OpenSettings,
-                        PermissionRecovery.OpenBatteryOptimizationSettings,
-                        -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
-
-                        PermissionRecovery.ShowVpnPermissionDialog,
-                        PermissionRecovery.RetryPrompt,
-                        -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
-                    },
-                actionLabel = issue.actionLabel,
-                onClick =
-                    when (issue.recovery) {
-                        PermissionRecovery.OpenBatteryOptimizationSettings -> {
-                            { onRepairPermission(PermissionKind.BatteryOptimization) }
-                        }
-
-                        PermissionRecovery.ShowVpnPermissionDialog,
-                        PermissionRecovery.RetryPrompt,
-                        -> {
-                            onOpenVpnPermissionDialog
-                        }
-
-                        PermissionRecovery.OpenSettings -> {
-                            { onRepairPermission(issue.kind) }
-                        }
-                    },
-                compact = issue.kind == PermissionKind.BatteryOptimization,
-            )
-    } ?: run {
-        uiState.permissionSummary.recommendedIssue?.let { warning ->
-            items +=
-                HomeSetupHealthItem(
-                    title = warning.title,
-                    message = warning.message,
-                    actionLabel = warning.actionLabel,
-                    onClick =
-                        if (warning.kind == PermissionKind.BatteryOptimization) {
-                            {
-                                onDismissBatteryBanner()
-                                onRepairPermission(PermissionKind.BatteryOptimization)
-                            }
-                        } else {
-                            { onDismissBatteryBanner() }
-                        },
-                    compact = warning.kind == PermissionKind.BatteryOptimization,
-                )
-        }
-        uiState.permissionSummary.backgroundGuidance?.let { guidance ->
-            items +=
-                HomeSetupHealthItem(
-                    title = guidance.title,
-                    message = guidance.message,
-                    actionLabel = stringResource(R.string.settings_permission_action_review),
-                    onClick = onDismissBackgroundGuidance,
-                )
-        }
-    }
-    // Gated on relevance to the configured path only. Requiring an active VPN
-    // card withheld the advisory in exactly the states where it can still be
-    // acted on -- idle, connecting, and a path that just failed.
-    if (uiState.hardKillSwitch.visible) {
-        items +=
-            HomeSetupHealthItem(
-                title = uiState.hardKillSwitch.label,
-                message = uiState.hardKillSwitch.summary,
-                actionLabel = uiState.hardKillSwitch.actionLabel,
-                onClick =
-                    if (uiState.hardKillSwitch.warning) {
-                        { onRepairPermission(PermissionKind.VpnLockdown) }
-                    } else {
-                        null
-                    },
-            )
-    }
-    return items
 }
 
 @Composable

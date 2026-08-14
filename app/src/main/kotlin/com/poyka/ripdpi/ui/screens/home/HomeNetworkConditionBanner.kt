@@ -1,19 +1,16 @@
 package com.poyka.ripdpi.ui.screens.home
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.services.network.NetworkCondition
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 /**
- * Surfaces a user-visible network [NetworkCondition] as a banner in the home flow.
+ * A user-visible [NetworkCondition] as a home advisory.
  *
  * This is presentation-only. It NEVER alters routing or tunnel behavior — it explains a
  * restricted-network condition so it does not look like a generic VPN failure. The
@@ -21,23 +18,25 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
  * whitelist relay suggestion is shown only when [NetworkCondition.WhitelistSuspected.suggestRelayProfile]
  * is true.
  *
- * [NetworkCondition.Normal] and [NetworkCondition.BlockedReconnecting] render nothing here:
- * Normal needs no banner, and Blocked/Reconnecting is already owned by the connection actuator
- * and error banners.
+ * [NetworkCondition.Normal] and [NetworkCondition.BlockedReconnecting] yield nothing:
+ * Normal needs no advisory, and Blocked/Reconnecting is already owned by the connection
+ * actuator and its own fault surface.
  */
 @Composable
-fun HomeNetworkConditionBanner(
+internal fun networkConditionAdvisory(
     condition: NetworkCondition,
     onCaptivePortalSignIn: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+): HomeAdvisory? =
     when (condition) {
         is NetworkCondition.CaptivePortalAssist -> {
-            WarningBanner(
+            HomeAdvisory(
                 title = stringResource(R.string.home_network_condition_captive_title),
                 message = stringResource(R.string.home_network_condition_captive_body),
+                // Signing in is a step the user can take, not a fault.
+                severity = HomeAdvisorySeverity.Info,
+                presentation = HomeAdvisoryPresentation.Banner,
                 tone = WarningBannerTone.Info,
-                modifier = modifier.fillMaxWidth(),
+                actionLabel = null,
                 onClick = onCaptivePortalSignIn,
                 testTag = RipDpiTestTags.HomeNetworkConditionBanner,
             )
@@ -45,31 +44,36 @@ fun HomeNetworkConditionBanner(
 
         is NetworkCondition.WhitelistSuspected -> {
             val body = stringResource(R.string.home_network_condition_whitelist_body)
-            val message =
-                if (condition.suggestRelayProfile) {
-                    stringResource(
-                        R.string.home_network_condition_whitelist_message,
-                        body,
-                        stringResource(R.string.home_network_condition_whitelist_relay_suggestion),
-                    )
-                } else {
-                    body
-                }
-            WarningBanner(
+            HomeAdvisory(
                 title = stringResource(R.string.home_network_condition_whitelist_title),
-                message = message,
+                message =
+                    if (condition.suggestRelayProfile) {
+                        stringResource(
+                            R.string.home_network_condition_whitelist_message,
+                            body,
+                            stringResource(R.string.home_network_condition_whitelist_relay_suggestion),
+                        )
+                    } else {
+                        body
+                    },
+                severity = HomeAdvisorySeverity.Warning,
+                presentation = HomeAdvisoryPresentation.Banner,
                 tone = WarningBannerTone.Restricted,
-                modifier = modifier.fillMaxWidth(),
+                actionLabel = null,
+                onClick = null,
                 testTag = RipDpiTestTags.HomeNetworkConditionBanner,
             )
         }
 
         is NetworkCondition.NoConnectivity -> {
-            WarningBanner(
+            HomeAdvisory(
                 title = stringResource(R.string.home_network_condition_no_connectivity_title),
                 message = stringResource(R.string.home_network_condition_no_connectivity_body),
+                severity = HomeAdvisorySeverity.Warning,
+                presentation = HomeAdvisoryPresentation.Banner,
                 tone = WarningBannerTone.Warning,
-                modifier = modifier.fillMaxWidth(),
+                actionLabel = null,
+                onClick = null,
                 testTag = RipDpiTestTags.HomeNetworkConditionBanner,
             )
         }
@@ -77,8 +81,16 @@ fun HomeNetworkConditionBanner(
         NetworkCondition.Normal,
         NetworkCondition.BlockedReconnecting,
         -> {
+            null
         }
     }
+
+@Composable
+private fun HomeNetworkConditionBanner(
+    condition: NetworkCondition,
+    onCaptivePortalSignIn: () -> Unit,
+) {
+    networkConditionAdvisory(condition, onCaptivePortalSignIn)?.let { AdvisoryBanner(it) }
 }
 
 @Preview(showBackground = true)

@@ -1,23 +1,19 @@
 package com.poyka.ripdpi.ui.screens.home
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 @Composable
-internal fun HomeSubscriptionExpiryBanner(
+internal fun subscriptionExpiryAdvisory(
     state: SubscriptionExpirySummaryUiState,
     onOpenStatus: () -> Unit,
-) {
-    val item = state.attention
-    if (item == null) return
+): HomeAdvisory? {
+    val item = state.attention ?: return null
     val title =
         if (state.affectedCount > 1) {
             stringResource(R.string.subscription_home_multiple_title, state.affectedCount)
@@ -58,17 +54,26 @@ internal fun HomeSubscriptionExpiryBanner(
                 ""
             }
         }
-    WarningBanner(
+    val expiring = item.status == SubscriptionExpiryStatus.EXPIRING
+    return HomeAdvisory(
         title = title,
         message = message,
-        tone =
-            if (item.status == SubscriptionExpiryStatus.EXPIRING) {
-                WarningBannerTone.Warning
-            } else {
-                WarningBannerTone.Error
-            },
-        modifier = Modifier.fillMaxWidth(),
+        // A subscription still counting down can wait; one that already lapsed or
+        // was invalidated has taken the exit away.
+        severity = if (expiring) HomeAdvisorySeverity.Warning else HomeAdvisorySeverity.Error,
+        presentation = HomeAdvisoryPresentation.Banner,
+        tone = if (expiring) WarningBannerTone.Warning else WarningBannerTone.Error,
+        actionLabel = null,
         onClick = onOpenStatus,
         testTag = RipDpiTestTags.HomeSubscriptionExpiryBanner,
     )
+}
+
+/** The advisory on its own, for the test that exercises it in isolation. */
+@Composable
+internal fun HomeSubscriptionExpiryBanner(
+    state: SubscriptionExpirySummaryUiState,
+    onOpenStatus: () -> Unit,
+) {
+    subscriptionExpiryAdvisory(state, onOpenStatus)?.let { AdvisoryBanner(it) }
 }
