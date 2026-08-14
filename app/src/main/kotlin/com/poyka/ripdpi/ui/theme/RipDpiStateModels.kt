@@ -17,6 +17,8 @@ enum class RipDpiIconButtonStateRole {
     Tonal,
     Filled,
     Outline,
+    Destructive,
+    Warning,
 }
 
 enum class RipDpiSettingsRowStateRole {

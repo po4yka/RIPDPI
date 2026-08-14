@@ -177,6 +177,8 @@ data class RipDpiIconButtonStateTokens(
                 RipDpiIconButtonStateRole.Tonal -> if (selected) colorScheme.surfaceVariant else colors.accent
                 RipDpiIconButtonStateRole.Filled -> colors.foreground
                 RipDpiIconButtonStateRole.Outline -> Color.Transparent
+                RipDpiIconButtonStateRole.Destructive -> Color.Transparent
+                RipDpiIconButtonStateRole.Warning -> Color.Transparent
             }
         return when {
             !interactive && role == RipDpiIconButtonStateRole.Ghost -> Color.Transparent
@@ -193,6 +195,8 @@ data class RipDpiIconButtonStateTokens(
         when {
             !interactive -> colors.mutedForeground
             role == RipDpiIconButtonStateRole.Filled -> colors.background
+            role == RipDpiIconButtonStateRole.Destructive -> colors.destructive
+            role == RipDpiIconButtonStateRole.Warning -> colors.warning
             else -> colors.foreground
         }
 }

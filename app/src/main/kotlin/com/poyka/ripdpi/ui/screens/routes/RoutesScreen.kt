@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,9 +34,12 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -116,16 +117,12 @@ internal fun RoutesScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         actions = {
-            IconButton(
+            RipDpiIconButton(
+                icon = RipDpiIcons.Config,
+                contentDescription = stringResource(R.string.routes_add_rule),
                 onClick = onAddRule,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RoutesAddRule),
-            ) {
-                Icon(
-                    imageVector = RipDpiIcons.Config,
-                    contentDescription = stringResource(R.string.routes_add_rule),
-                    tint = RipDpiThemeTokens.colors.foreground,
-                )
-            }
+            )
         },
     ) {
         if (localRows.isEmpty()) {
@@ -260,7 +257,7 @@ private fun RuleListRowSummary(
                 color = colors.mutedForeground,
             )
         }
-        Switch(checked = row.rule.enabled, onCheckedChange = { onToggleEnabled() })
+        RipDpiSwitch(checked = row.rule.enabled, onCheckedChange = { onToggleEnabled() })
     }
 }
 
@@ -278,27 +275,24 @@ private fun RuleListRowControls(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        IconButton(onClick = onMoveUp, enabled = index > 0) {
-            Icon(
-                imageVector = RipDpiIcons.KeyboardArrowUp,
-                contentDescription = stringResource(R.string.routes_move_up),
-                tint = colors.foreground,
-            )
-        }
-        IconButton(onClick = onMoveDown, enabled = index < count - 1) {
-            Icon(
-                imageVector = RipDpiIcons.KeyboardArrowDown,
-                contentDescription = stringResource(R.string.routes_move_down),
-                tint = colors.foreground,
-            )
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = RipDpiIcons.Delete,
-                contentDescription = stringResource(R.string.rule_editor_delete),
-                tint = colors.destructive,
-            )
-        }
+        RipDpiIconButton(
+            icon = RipDpiIcons.KeyboardArrowUp,
+            contentDescription = stringResource(R.string.routes_move_up),
+            onClick = onMoveUp,
+            enabled = index > 0,
+        )
+        RipDpiIconButton(
+            icon = RipDpiIcons.KeyboardArrowDown,
+            contentDescription = stringResource(R.string.routes_move_down),
+            onClick = onMoveDown,
+            enabled = index < count - 1,
+        )
+        RipDpiIconButton(
+            icon = RipDpiIcons.Delete,
+            contentDescription = stringResource(R.string.rule_editor_delete),
+            onClick = onDelete,
+            style = RipDpiIconButtonStyle.Destructive,
+        )
     }
 }
 

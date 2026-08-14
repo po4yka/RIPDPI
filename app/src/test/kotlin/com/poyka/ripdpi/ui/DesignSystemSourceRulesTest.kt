@@ -5,7 +5,9 @@ import org.junit.Test
 import java.io.File
 
 class DesignSystemSourceRulesTest {
-    private val repoRoot = File(".").canonicalFile
+    private val repoRoot =
+        generateSequence(File(".").canonicalFile) { it.parentFile }
+            .first { File(it, "settings.gradle.kts").isFile }
     private val mainAppRoot = File(repoRoot, "app/src/main/kotlin/com/poyka/ripdpi")
     private val mainUiRoot = File(repoRoot, "app/src/main/kotlin/com/poyka/ripdpi/ui")
     private val screenUiRoot = File(mainUiRoot, "screens")
@@ -52,6 +54,28 @@ class DesignSystemSourceRulesTest {
                     "and navigation chrome",
         ) { source ->
             governedMaterialImports.containsMatchIn(source.text)
+        }
+    }
+
+    @Test
+    fun `screens use shared design-system wrappers for loading indicators`() {
+        val governedProgressImports =
+            Regex(
+                pattern =
+                    "^import androidx\\.compose\\.material3\\." +
+                        "(CircularProgressIndicator|LinearProgressIndicator)\\b",
+                option = RegexOption.MULTILINE,
+            )
+
+        assertNoOffendingFiles(
+            files = uiSourceFiles(screenUiRoot),
+            // The stealth-score meter encodes its verdict in the fill color, so it is a meter rather
+            // than a loading state; RipDpiProgressBar is fixed to the foreground/muted palette.
+            allowedPaths =
+                setOf("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionResultCards.kt"),
+            message = "Screens must use RipDpiSpinner or RipDpiProgressBar for loading states",
+        ) { source ->
+            governedProgressImports.containsMatchIn(source.text)
         }
     }
 

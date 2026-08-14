@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,8 +20,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -170,14 +172,13 @@ private fun OomRecoveryBanner(
             }
 
             // Dismiss
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    imageVector = RipDpiIcons.Close,
-                    contentDescription = stringResource(R.string.oom_recovery_action_dismiss),
-                    tint = colors.warning,
-                    modifier = Modifier.size(RipDpiIconSizes.Small),
-                )
-            }
+            RipDpiIconButton(
+                icon = RipDpiIcons.Close,
+                contentDescription = stringResource(R.string.oom_recovery_action_dismiss),
+                onClick = onDismiss,
+                style = RipDpiIconButtonStyle.Warning,
+                density = RipDpiControlDensity.Compact,
+            )
         }
     }
 }

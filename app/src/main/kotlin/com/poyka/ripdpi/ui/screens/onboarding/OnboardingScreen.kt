@@ -34,7 +34,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +63,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.RipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
@@ -373,20 +373,14 @@ private fun OnboardingTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (skipVisible) {
-            TextButton(
+            RipDpiTextAction(
+                text = stringResource(R.string.onboarding_skip_setup),
                 onClick = onSkip,
-                modifier =
-                    Modifier
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
-                        .minimumInteractiveComponentSize()
-                        .heightIn(min = introLayout.topActionRowHeight),
-            ) {
-                Text(
-                    text = stringResource(R.string.onboarding_skip_setup),
-                    style = type.introAction,
-                    color = colors.mutedForeground,
-                )
-            }
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingSkip),
+                textStyle = type.introAction,
+                color = colors.mutedForeground,
+                minHeight = introLayout.topActionRowHeight,
+            )
         }
     }
 }
@@ -446,36 +440,24 @@ private fun OnboardingBottomBar(
                     .heightIn(min = introLayout.footerButtonMinHeight),
         )
         if (validationState is OnboardingValidationState.Success) {
-            TextButton(
+            RipDpiTextAction(
+                text = stringResource(R.string.onboarding_validation_finish_disconnected),
                 onClick = onFinishDisconnected,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = introLayout.footerButtonMinHeight)
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
-            ) {
-                Text(
-                    text = stringResource(R.string.onboarding_validation_finish_disconnected),
-                    style = type.introAction,
-                    color = colors.mutedForeground,
-                )
-            }
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
+                textStyle = type.introAction,
+                color = colors.mutedForeground,
+                minHeight = introLayout.footerButtonMinHeight,
+            )
         }
         if (showIdleSkipTest) {
-            TextButton(
+            RipDpiTextAction(
+                text = stringResource(R.string.onboarding_skip_test),
                 onClick = onFinishAnyway,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = introLayout.footerButtonMinHeight)
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
-            ) {
-                Text(
-                    text = stringResource(R.string.onboarding_skip_test),
-                    style = type.introAction,
-                    color = colors.mutedForeground,
-                )
-            }
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
+                textStyle = type.introAction,
+                color = colors.mutedForeground,
+                minHeight = introLayout.footerButtonMinHeight,
+            )
         }
     }
 }

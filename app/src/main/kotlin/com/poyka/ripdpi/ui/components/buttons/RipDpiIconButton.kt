@@ -40,6 +40,12 @@ enum class RipDpiIconButtonStyle {
     Tonal,
     Filled,
     Outline,
+
+    /** Transparent container with the destructive content color; for delete and remove actions. */
+    Destructive,
+
+    /** Transparent container with the warning content color; for dismissals inside warning surfaces. */
+    Warning,
 }
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")

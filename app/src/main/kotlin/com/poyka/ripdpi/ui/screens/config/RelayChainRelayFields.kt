@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +32,8 @@ import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -172,27 +173,25 @@ private fun RelayChainEditorHopRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
-            IconButton(onClick = onMoveUp, enabled = hopIndex > 0) {
-                Icon(
-                    imageVector = RipDpiIcons.KeyboardArrowUp,
-                    contentDescription = stringResource(R.string.config_relay_chain_hop_move_up),
-                    tint = colors.foreground,
-                )
-            }
-            IconButton(onClick = onMoveDown, enabled = hopIndex < hopCount - 1) {
-                Icon(
-                    imageVector = RipDpiIcons.KeyboardArrowDown,
-                    contentDescription = stringResource(R.string.config_relay_chain_hop_move_down),
-                    tint = colors.foreground,
-                )
-            }
-            IconButton(onClick = onRemove, enabled = hopCount > RelayChainMinHopsUi) {
-                Icon(
-                    imageVector = RipDpiIcons.Delete,
-                    contentDescription = stringResource(R.string.config_relay_chain_hop_remove),
-                    tint = colors.destructive,
-                )
-            }
+            RipDpiIconButton(
+                icon = RipDpiIcons.KeyboardArrowUp,
+                contentDescription = stringResource(R.string.config_relay_chain_hop_move_up),
+                onClick = onMoveUp,
+                enabled = hopIndex > 0,
+            )
+            RipDpiIconButton(
+                icon = RipDpiIcons.KeyboardArrowDown,
+                contentDescription = stringResource(R.string.config_relay_chain_hop_move_down),
+                onClick = onMoveDown,
+                enabled = hopIndex < hopCount - 1,
+            )
+            RipDpiIconButton(
+                icon = RipDpiIcons.Delete,
+                contentDescription = stringResource(R.string.config_relay_chain_hop_remove),
+                onClick = onRemove,
+                style = RipDpiIconButtonStyle.Destructive,
+                enabled = hopCount > RelayChainMinHopsUi,
+            )
         }
     }
 }

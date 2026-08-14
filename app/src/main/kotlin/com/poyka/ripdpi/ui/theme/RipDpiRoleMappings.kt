@@ -122,6 +122,8 @@ data class RipDpiIconButtonStateRoles(
     val tonal: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Tonal,
     val filled: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Filled,
     val outline: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Outline,
+    val destructive: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Destructive,
+    val warning: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Warning,
 ) {
     fun fromStyle(style: RipDpiIconButtonStyle): RipDpiIconButtonStateRole =
         when (style) {
@@ -129,6 +131,8 @@ data class RipDpiIconButtonStateRoles(
             RipDpiIconButtonStyle.Tonal -> tonal
             RipDpiIconButtonStyle.Filled -> filled
             RipDpiIconButtonStyle.Outline -> outline
+            RipDpiIconButtonStyle.Destructive -> destructive
+            RipDpiIconButtonStyle.Warning -> warning
         }
 }
 

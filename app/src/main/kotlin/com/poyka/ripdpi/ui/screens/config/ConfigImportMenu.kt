@@ -2,9 +2,6 @@ package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,10 +12,13 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
+import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenu
+import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenuAction
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Profile top-bar overflow menu carrying the explicit "Import from clipboard"
@@ -51,28 +51,20 @@ fun ConfigImportMenu(
             style = RipDpiIconButtonStyle.Ghost,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigOverflowMenuButton),
         )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            DropdownMenuItem(
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigImportClipboardMenuItem),
-                text = {
-                    val surfaceStyle =
-                        RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.inputs.dropdownMenu)
-                    Text(
-                        text = stringResource(R.string.import_clipboard_action),
-                        style = RipDpiThemeTokens.type.body,
-                        color = surfaceStyle.content,
-                    )
-                },
-                onClick = {
-                    expanded = false
-                    // The clipboard read happens here — and only here — on the user's tap.
-                    onImportFromClipboard()
-                },
-            )
-        }
+        RipDpiContextMenu(
+            visible = expanded,
+            actions =
+                persistentListOf(
+                    RipDpiContextMenuAction(
+                        label = stringResource(R.string.import_clipboard_action),
+                        icon = RipDpiIcons.Copy,
+                        testTag = RipDpiTestTags.ConfigImportClipboardMenuItem,
+                        // The clipboard read happens here — and only here — on the user's tap.
+                        onClick = onImportFromClipboard,
+                    ),
+                ),
+            onDismiss = { expanded = false },
+        )
     }
 
     ClipboardImportErrorBanner(

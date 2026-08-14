@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +34,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
@@ -163,35 +163,13 @@ private fun OnboardingAdvancedDnsRow(
     onOpenAdvancedDns: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val components = RipDpiThemeTokens.components
-    TextButton(
+    SettingsRow(
+        title = stringResource(R.string.onboarding_dns_advanced),
+        modifier = modifier.fillMaxWidth(),
         onClick = onOpenAdvancedDns,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .heightIn(min = components.rows.settingsRowMinHeight)
-                .ripDpiTestTag(RipDpiTestTags.OnboardingAdvancedDns),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.onboarding_dns_advanced),
-                style = type.introAction,
-                color = colors.foreground,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = RipDpiIcons.ChevronRight,
-                contentDescription = null,
-                tint = colors.mutedForeground,
-                modifier = Modifier.size(components.inputs.chipIconSize),
-            )
-        }
-    }
+        showChevron = true,
+        testTag = RipDpiTestTags.OnboardingAdvancedDns,
+    )
 }
 
 @Composable

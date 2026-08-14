@@ -20,6 +20,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -32,6 +33,7 @@ data class RipDpiContextMenuAction(
     val icon: ImageVector,
     val shortcut: String? = null,
     val destructive: Boolean = false,
+    val testTag: String? = null,
     val onClick: () -> Unit,
 )
 
@@ -118,6 +120,7 @@ private fun RipDpiContextMenuItem(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .let { base -> action.testTag?.let(base::ripDpiTestTag) ?: base }
                 .ripDpiClickable {
                     action.onClick()
                     onDismiss()
