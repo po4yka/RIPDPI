@@ -77,7 +77,7 @@
     <string name="connection_health_dns_cache_misses">إخفاقات ذاكرة التخزين المؤقت</string>
     <string name="connection_health_dns_failures">إخفاقات</string>
     <string name="connection_health_home_title">صحة الاتصال</string>
-    <string name="connection_health_home_subtitle">نجاح حي حسب الاستراتيجية وفئة الوجهة.</string>
+    <string name="connection_health_home_subtitle">عرض النجاح حسب الاستراتيجية وفئة الوجهة.</string>
     <string name="connection_health_home_value">فتح</string>
     <string name="title_strategy_tuner">ضبط الاستراتيجية</string>
     <string name="strategy_tuner_open_action">فتح ضبط الاستراتيجية</string>
@@ -404,7 +404,7 @@
     <string name="home_status_connecting_body">امنح إذن VPN لنظام Android عند المطالبة. يستمر الإعداد على الجهاز.</string>
     <string name="home_status_connected_title">محمي محليًا</string>
     <string name="home_status_connected_body">تمر حركة المرور حاليًا عبر الوضع المحلي المحدد.</string>
-    <string name="home_status_error_title">الاتصال يحتاج إلى انتباه</string>
+    <string name="home_status_error_title">الخط الآمن يحتاج إلى انتباه</string>
     <string name="home_status_error_body">راجع الرسالة أدناه وحاول مجددًا.</string>
     <string name="home_network_condition_captive_title">يلزم تسجيل الدخول</string>
     <string name="home_network_condition_captive_body">تتطلب هذه الشبكة تسجيل الدخول قبل السماح بمرور حركة البيانات. مساعد البوابة الأسيرة مفعّل وسيُغلق تلقائيًا.</string>
@@ -422,8 +422,8 @@
     <string name="home_setup_health_collapsed_format">عناصر تحتاج إلى انتباه: %1$d</string>
     <string name="home_setup_health_expanded">راجع عناصر الإعداد وإجراءات الاسترداد.</string>
     <string name="home_connection_button_connecting">جارٍ الاتصال\u2026</string>
-    <string name="home_connection_actuator_secure">آمن</string>
     <string name="home_connection_actuator_direct">مباشر</string>
+    <string name="home_connection_actuator_relay">الترحيل</string>
     <string name="home_connection_actuator_state_open">الخط الآمن غير مُفعّل</string>
     <string name="home_connection_actuator_state_engaging">الخط الآمن يتصل</string>
     <string name="home_connection_actuator_state_locked">الخط الآمن مقفل</string>
@@ -433,7 +433,6 @@
     <string name="home_connection_actuator_state_fault">عطل في الخط الآمن عند %1$s</string>
     <string name="home_connection_actuator_action_activate">تفعيل الخط الآمن</string>
     <string name="home_connection_actuator_action_deactivate">تعطيل الخط الآمن</string>
-    <string name="home_connection_actuator_action_wait">الخط الآمن يتصل</string>
     <string name="home_connection_stage_network">الشبكة</string>
     <string name="home_connection_stage_handshake">المصافحة</string>
     <string name="home_connection_stage_tunnel">النفق</string>
@@ -2957,6 +2956,8 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_history_verdict_cancelled">ملغى</string>
     <string name="vpn_quality_strip_warning_title">متصل · الجودة منخفضة</string>
     <string name="vpn_quality_strip_critical_title">متصل · تدهور حاد في الجودة</string>
+    <string name="vpn_quality_strip_nominal_title">متصل · الجودة طبيعية</string>
+    <string name="vpn_quality_strip_body_nominal">النفق نشط والمؤشرات ضمن نطاقها الطبيعي.</string>
     <string name="vpn_quality_strip_body_warning">النفق نشط لكن الأداء انخفض. المؤشرات خارج نطاقها الطبيعي.</string>
     <string name="vpn_quality_strip_body_critical">النفق نشط لكن الجودة رديئة. معظم المؤشرات خارج النطاق الطبيعي بشكل ملحوظ.</string>
     <string name="vpn_quality_strip_since_format">منذ %1$s</string>

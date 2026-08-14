@@ -77,7 +77,7 @@
     <string name="connection_health_dns_cache_misses">Cache misses</string>
     <string name="connection_health_dns_failures">Failures</string>
     <string name="connection_health_home_title">Connection health</string>
-    <string name="connection_health_home_subtitle">Live per-strategy success by destination class.</string>
+    <string name="connection_health_home_subtitle">See per-strategy success by destination class.</string>
     <string name="connection_health_home_value">Open</string>
     <string name="title_strategy_tuner">Strategy tuner</string>
     <string name="strategy_tuner_open_action">Open strategy tuner</string>
@@ -417,7 +417,7 @@
     <string name="home_status_connecting_body">Grant Android VPN permission if prompted. Setup continues on-device.</string>
     <string name="home_status_connected_title">Protected locally</string>
     <string name="home_status_connected_body">Traffic is currently routed through the selected local mode.</string>
-    <string name="home_status_error_title">Connection needs attention</string>
+    <string name="home_status_error_title">Secure line needs attention</string>
     <string name="home_status_error_body">Review the message below and try again.</string>
     <string name="home_network_condition_captive_title">Sign-in required</string>
     <string name="home_network_condition_captive_body">This network needs you to sign in before traffic can pass. Captive-portal assist is on and will turn off automatically.</string>
@@ -435,8 +435,8 @@
     <string name="home_setup_health_collapsed_format">Items needing attention: %1$d</string>
     <string name="home_setup_health_expanded">Review setup items and recovery actions.</string>
     <string name="home_connection_button_connecting">Connecting\u2026</string>
-    <string name="home_connection_actuator_secure">Secure</string>
     <string name="home_connection_actuator_direct">Direct</string>
+    <string name="home_connection_actuator_relay">Relay</string>
     <string name="home_connection_actuator_state_open">Secure line disengaged</string>
     <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
     <string name="home_connection_actuator_state_locked">Secure line locked</string>
@@ -446,7 +446,6 @@
     <string name="home_connection_actuator_state_fault">Secure line fault at %1$s</string>
     <string name="home_connection_actuator_action_activate">Engage secure line</string>
     <string name="home_connection_actuator_action_deactivate">Release secure line</string>
-    <string name="home_connection_actuator_action_wait">Secure line is engaging</string>
     <string name="home_connection_stage_network">Network</string>
     <string name="home_connection_stage_dns" translatable="false">DNS</string>
     <string name="home_connection_stage_handshake">Handshake</string>
@@ -3242,6 +3241,8 @@ Source: %2$s</string>
     <string name="vpn_replay_history_verdict_cancelled">Cancelled</string>
     <string name="vpn_quality_strip_warning_title">Connected · quality degraded</string>
     <string name="vpn_quality_strip_critical_title">Connected · degraded heavily</string>
+    <string name="vpn_quality_strip_nominal_title">Connected · quality nominal</string>
+    <string name="vpn_quality_strip_body_nominal">Tunnel is up and indicators are within their normal range.</string>
     <string name="vpn_quality_strip_body_warning">Tunnel is up but performance has dropped. Indicators are outside their normal range.</string>
     <string name="vpn_quality_strip_body_critical">Tunnel is up but quality is poor. Most indicators are well outside normal range.</string>
     <string name="vpn_quality_strip_since_format">Since %1$s</string>

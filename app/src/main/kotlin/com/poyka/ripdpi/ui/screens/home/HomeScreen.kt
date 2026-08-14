@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ fun HomeScreen(
     onTogglePcapRecording: () -> Unit = {},
     onCaptivePortalSignIn: () -> Unit = {},
     initialModesExpanded: Boolean = false,
+    onModesExpandedChange: (Boolean) -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
@@ -152,38 +154,52 @@ fun HomeScreen(
 
         HomeDegradationStrip(
             quality = uiState.connectionQuality,
+            dataTransferred = uiState.dataTransferred,
             onReprobe = onDiagnosticRun,
         )
 
-        HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
-
+        // Seeded from the caller so a persisted choice survives navigating away
+        // and back; the local state still owns it within one composition. Hoisted
+        // above the two-column split so widening the window past the Expanded
+        // breakpoint re-parents the accordion without resetting it.
         var modesExpanded by rememberSaveable { mutableStateOf(initialModesExpanded) }
-        RipDpiAccordion(
-            title = stringResource(R.string.home_modes_diagnostics_title),
-            expanded = modesExpanded,
-            onExpandedChange = { modesExpanded = it },
-            headerTestTag = RipDpiTestTags.HomeModesDiagnosticsHeader,
-            stateTestTag =
-                if (modesExpanded) {
-                    RipDpiTestTags.HomeModesDiagnosticsExpanded
-                } else {
-                    RipDpiTestTags.HomeModesDiagnosticsCollapsed
-                },
-        ) {
-            HomeModeCardList(
-                uiState = uiState,
-                homeDiagnostics = homeDiagnostics,
-                diagnosticCard = diagnosticCard,
-                onBypassToggle = onBypassToggle,
-                onVpnToggle = onVpnToggle,
-                onDiagnosticRun = onDiagnosticRun,
-                onBypassCardClick = onBypassCardClick,
-                onVpnCardClick = onVpnCardClick,
-                onDiagnosticCardClick = onDiagnosticCardClick,
-                onOpenModeEditor = onOpenModeEditor,
-                onTogglePcapRecording = onTogglePcapRecording,
-            )
-        }
+
+        HomeContentColumns(
+            primary = {
+                HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
+            },
+            secondary = {
+                RipDpiAccordion(
+                    title = stringResource(R.string.home_modes_diagnostics_title),
+                    expanded = modesExpanded,
+                    onExpandedChange = {
+                        modesExpanded = it
+                        onModesExpandedChange(it)
+                    },
+                    headerTestTag = RipDpiTestTags.HomeModesDiagnosticsHeader,
+                    stateTestTag =
+                        if (modesExpanded) {
+                            RipDpiTestTags.HomeModesDiagnosticsExpanded
+                        } else {
+                            RipDpiTestTags.HomeModesDiagnosticsCollapsed
+                        },
+                ) {
+                    HomeModeCardList(
+                        uiState = uiState,
+                        homeDiagnostics = homeDiagnostics,
+                        diagnosticCard = diagnosticCard,
+                        onBypassToggle = onBypassToggle,
+                        onVpnToggle = onVpnToggle,
+                        onDiagnosticRun = onDiagnosticRun,
+                        onBypassCardClick = onBypassCardClick,
+                        onVpnCardClick = onVpnCardClick,
+                        onDiagnosticCardClick = onDiagnosticCardClick,
+                        onOpenModeEditor = onOpenModeEditor,
+                        onTogglePcapRecording = onTogglePcapRecording,
+                    )
+                }
+            },
+        )
 
         HomeDiagnosticsBottomSheetHost(
             homeDiagnostics = homeDiagnostics,
@@ -459,17 +475,24 @@ private fun HomeModeCardList(
 @Composable
 private fun HomeDegradationStrip(
     quality: ConnectionQualitySnapshot?,
+    dataTransferred: Long,
     onReprobe: () -> Unit,
 ) {
     if (quality == null) return
-    val tone = resolveDegradationTone(quality) ?: return
+    // A null tone means every indicator is in range, which used to render
+    // nothing at all: the screen reported loss, RTT and jitter only once
+    // something was already wrong, so a healthy connection said nothing about
+    // itself. Report the same measurements in a neutral tone instead.
+    val tone = resolveDegradationTone(quality) ?: RipDpiDegradationTone.Nominal
     val titleRes =
         when (tone) {
+            RipDpiDegradationTone.Nominal -> R.string.vpn_quality_strip_nominal_title
             RipDpiDegradationTone.Warning -> R.string.vpn_quality_strip_warning_title
             RipDpiDegradationTone.Critical -> R.string.vpn_quality_strip_critical_title
         }
     val bodyRes =
         when (tone) {
+            RipDpiDegradationTone.Nominal -> R.string.vpn_quality_strip_body_nominal
             RipDpiDegradationTone.Warning -> R.string.vpn_quality_strip_body_warning
             RipDpiDegradationTone.Critical -> R.string.vpn_quality_strip_body_critical
         }
@@ -490,6 +513,15 @@ private fun HomeDegradationStrip(
             RipDpiDegradationMetric(
                 label = stringResource(R.string.vpn_quality_metric_jitter),
                 value = stringResource(R.string.home_quality_metric_ms_format, quality.jitterMs),
+                delta = "",
+                deltaIsBad = false,
+            ),
+            // dataTransferred was polled once a second, resolved, and carried all
+            // the way into MainUiState without a single composable reading it.
+            // This is the slot it was always missing.
+            RipDpiDegradationMetric(
+                label = stringResource(R.string.home_stat_traffic),
+                value = Formatter.formatShortFileSize(LocalContext.current, dataTransferred),
                 delta = "",
                 deltaIsBad = false,
             ),

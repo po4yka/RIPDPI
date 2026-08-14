@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.os.SystemClock
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.AppStartupReadinessState
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.FailureClass
+import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
@@ -31,8 +33,10 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.stableId
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
@@ -62,6 +66,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.io.File
 
 @Suppress("LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -305,7 +310,7 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `connection actuator marks live relay egress as Secure`() {
+    fun `connection actuator marks live relay egress as Relay`() {
         val stringResolver = ResourceStringResolver()
         val state =
             buildConnectionActuatorUiState(
@@ -331,7 +336,9 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals("Secure", state.trailingLabel)
+        // The chip names the exit; the headline answers whether the line is up.
+        // Both used to say "Secure", so a disengaged line contradicted itself.
+        assertEquals("Relay", state.trailingLabel)
         assertEquals("Secure line locked", state.statusDescription)
     }
 
@@ -432,6 +439,83 @@ class MainViewModelTest {
             stringResolver.getString(R.string.home_connection_actuator_action_android_managed),
             state.actionLabel,
         )
+    }
+
+    /**
+     * The headline names the leak risk in one clause and stops there. It used to
+     * append the full lockdown summary as well, which made the control's own
+     * state read as a three-sentence paragraph; that explanation belongs to the
+     * setup-health item, where it comes with a repair action.
+     */
+    @Test
+    fun `connection actuator headline names lockdown risk without the full summary`() {
+        val stringResolver = FakeStringResolver()
+        val hardKillSwitch =
+            buildHardKillSwitchUiState(
+                snapshot =
+                    AndroidHardKillSwitchSnapshot(
+                        status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                        alwaysOn = false,
+                        lockdown = false,
+                    ),
+                configuredMode = Mode.VPN,
+                activeMode = Mode.VPN,
+                appStatus = AppStatus.Halted,
+                stringResolver = stringResolver,
+            )
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Disconnected,
+                runtime = ConnectionRuntimeState(),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                hardKillSwitch = hardKillSwitch,
+                stringResolver = stringResolver,
+            )
+
+        assertTrue(hardKillSwitch.warning)
+        assertTrue(state.statusDescription.contains(hardKillSwitch.label))
+        assertFalse(
+            "Headline must not carry the long lockdown summary, was: ${state.statusDescription}",
+            state.statusDescription.contains(hardKillSwitch.summary),
+        )
+    }
+
+    /** Nothing is at risk once lockdown is enforced, so the headline stays bare. */
+    @Test
+    fun `connection actuator headline omits lockdown clause once lockdown is enforced`() {
+        val stringResolver = FakeStringResolver()
+        val hardKillSwitch =
+            buildHardKillSwitchUiState(
+                snapshot =
+                    AndroidHardKillSwitchSnapshot(
+                        status = AndroidHardKillSwitchStatus.ENABLED,
+                        alwaysOn = true,
+                        lockdown = true,
+                    ),
+                configuredMode = Mode.VPN,
+                activeMode = Mode.VPN,
+                appStatus = AppStatus.Running,
+                stringResolver = stringResolver,
+            )
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                hardKillSwitch = hardKillSwitch,
+                stringResolver = stringResolver,
+            )
+
+        assertFalse(hardKillSwitch.warning)
+        assertFalse(state.statusDescription.contains(hardKillSwitch.label))
     }
 
     @Test
@@ -1761,15 +1845,7 @@ class MainViewModelTest {
         }
 
     private fun createViewModel(
-        appSettingsRepository: FakeAppSettingsRepository =
-            FakeAppSettingsRepository(
-                initialSettings =
-                    AppSettings
-                        .newBuilder()
-                        .setOnboardingComplete(true)
-                        .setRipdpiMode("vpn")
-                        .build(),
-            ),
+        appSettingsRepository: FakeAppSettingsRepository = onboardedVpnSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
         hardKillSwitchStateStore: FakeAndroidHardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
@@ -1778,24 +1854,13 @@ class MainViewModelTest {
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
         diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
         networkPathValidationSource: FakeNetworkPathValidationSource = FakeNetworkPathValidationSource(),
-        hostPackCatalogUiStateStore: com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore =
-            com.poyka.ripdpi.hosts
-                .HostPackCatalogUiStateStore(),
-        strategyPackStateStore: com.poyka.ripdpi.data.InMemoryStrategyPackStateStore =
-            com.poyka.ripdpi.data
-                .InMemoryStrategyPackStateStore(),
-        homeDiagnosticsServices: HomeDiagnosticsServices =
-            HomeDiagnosticsServices(
-                workflowService = StubDiagnosticsHomeWorkflowService(),
-                compositeRunService = StubDiagnosticsHomeCompositeRunService(),
-            ),
+        hostPackCatalogUiStateStore: HostPackCatalogUiStateStore = HostPackCatalogUiStateStore(),
+        strategyPackStateStore: InMemoryStrategyPackStateStore = InMemoryStrategyPackStateStore(),
+        homeDiagnosticsServices: HomeDiagnosticsServices = stubHomeDiagnosticsServices(),
         appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
         initialize: Boolean = true,
     ): MainViewModel {
-        val crashReportReader =
-            com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
-                java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
-            )
+        val crashReportReader = CrashReportReader(File(System.getProperty("java.io.tmpdir"), CrashDirName))
         return MainViewModel(
             appSettingsRepository = appSettingsRepository,
             mainServiceDependencies =
@@ -1876,6 +1941,7 @@ class MainViewModelTest {
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
             pcapCaptureRuntimeController = null,
+            savedStateHandle = SavedStateHandle(),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
@@ -2020,3 +2086,23 @@ private class FakeMainDiagnosticsTimelineSource : com.poyka.ripdpi.diagnostics.D
     override val exports =
         kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticExportRecord>())
 }
+
+/** Default settings for [MainViewModelTest]: onboarding done, VPN mode selected. */
+private fun onboardedVpnSettingsRepository(): FakeAppSettingsRepository =
+    FakeAppSettingsRepository(
+        initialSettings =
+            AppSettings
+                .newBuilder()
+                .setOnboardingComplete(true)
+                .setRipdpiMode("vpn")
+                .build(),
+    )
+
+private const val CrashDirName = "ripdpi-test-crash-reports"
+
+/** Stubbed home diagnostics wiring shared by every [MainViewModelTest] case. */
+private fun stubHomeDiagnosticsServices(): HomeDiagnosticsServices =
+    HomeDiagnosticsServices(
+        workflowService = StubDiagnosticsHomeWorkflowService(),
+        compositeRunService = StubDiagnosticsHomeCompositeRunService(),
+    )

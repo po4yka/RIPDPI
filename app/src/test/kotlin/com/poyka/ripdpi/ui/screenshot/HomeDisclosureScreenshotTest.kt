@@ -172,7 +172,7 @@ private fun HomeDisclosureScene() {
                 connectionActuator =
                     HomeConnectionActuatorUiState(
                         status = HomeConnectionActuatorStatus.Locked,
-                        trailingLabel = stringResource(R.string.home_connection_actuator_secure),
+                        trailingLabel = stringResource(R.string.home_connection_actuator_relay),
                         routeLabel = stringResource(R.string.home_mode_local_dpi_bypass),
                         statusDescription = stringResource(R.string.home_connection_actuator_state_locked),
                         actionLabel = stringResource(R.string.home_connection_actuator_action_deactivate),

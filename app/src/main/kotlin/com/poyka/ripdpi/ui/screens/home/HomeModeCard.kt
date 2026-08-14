@@ -110,7 +110,7 @@ private fun HomeModeCardContent(
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         HomeModeCardHeader(uiState = uiState, statusLabel = statusLabel)
-        HomeModeCardBody(uiState = uiState, statusLabel = statusLabel)
+        HomeModeCardBody(uiState = uiState)
     }
 }
 
@@ -165,17 +165,20 @@ private fun HomeModeCardStatus(
 }
 
 @Composable
-private fun HomeModeCardBody(
-    uiState: HomeModeCardUiState,
-    statusLabel: String,
-) {
+private fun HomeModeCardBody(uiState: HomeModeCardUiState) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    Text(
-        text = uiState.statusLine.ifBlank { statusLabel },
-        style = type.secondaryBody,
-        color = colors.mutedForeground,
-    )
+    // Falling back to the header badge's own label spent a whole line repeating
+    // a word the user had just read one line above, and pushed the facets that
+    // actually differ per mode further down. With nothing distinct to add, add
+    // nothing.
+    if (uiState.statusLine.isNotBlank()) {
+        Text(
+            text = uiState.statusLine,
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
 
     if (uiState.summaryFacets.isNotEmpty()) {
         HomeModeSummaryStrip(facets = uiState.summaryFacets)

@@ -75,7 +75,7 @@
     <string name="connection_health_dns_cache_misses">عدم اصابت‌های حافظه پنهان</string>
     <string name="connection_health_dns_failures">خطاها</string>
     <string name="connection_health_home_title">سلامت اتصال</string>
-    <string name="connection_health_home_subtitle">موفقیت زنده بر اساس راهبرد و کلاس مقصد.</string>
+    <string name="connection_health_home_subtitle">مشاهده موفقیت بر اساس راهبرد و کلاس مقصد.</string>
     <string name="connection_health_home_value">باز کردن</string>
     <string name="title_strategy_tuner">تنظیم راهبرد</string>
     <string name="strategy_tuner_open_action">باز کردن تنظیم راهبرد</string>
@@ -408,7 +408,7 @@
     <string name="home_status_connecting_body">در صورت درخواست، مجوز VPN اندروید را اعطا کنید. راه‌اندازی روی دستگاه ادامه می‌یابد.</string>
     <string name="home_status_connected_title">به‌صورت محلی محافظت‌شده</string>
     <string name="home_status_connected_body">ترافیک در حال حاضر از طریق حالت محلی انتخابی مسیریابی می‌شود.</string>
-    <string name="home_status_error_title">اتصال نیاز به توجه دارد</string>
+    <string name="home_status_error_title">خط امن نیاز به توجه دارد</string>
     <string name="home_status_error_body">پیام زیر را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="home_network_condition_captive_title">ورود لازم است</string>
     <string name="home_network_condition_captive_body">این شبکه پیش از عبور ترافیک نیاز به ورود دارد. کمک پورتال اسیر روشن است و به‌طور خودکار خاموش می‌شود.</string>
@@ -426,8 +426,8 @@
     <string name="home_setup_health_collapsed_format">موارد نیازمند توجه: %1$d</string>
     <string name="home_setup_health_expanded">موارد راه‌اندازی و اقدام‌های بازیابی را بررسی کنید.</string>
     <string name="home_connection_button_connecting">در حال اتصال…</string>
-    <string name="home_connection_actuator_secure">امن</string>
     <string name="home_connection_actuator_direct">مستقیم</string>
+    <string name="home_connection_actuator_relay">رله</string>
     <string name="home_connection_actuator_state_open">خط امن غیرفعال است</string>
     <string name="home_connection_actuator_state_engaging">خط امن در حال درگیر شدن است</string>
     <string name="home_connection_actuator_state_locked">خط امن قفل است</string>
@@ -437,7 +437,6 @@
     <string name="home_connection_actuator_state_fault">خرابی خط امن در %1$s</string>
     <string name="home_connection_actuator_action_activate">درگیر کردن خط امن</string>
     <string name="home_connection_actuator_action_deactivate">رها کردن خط امن</string>
-    <string name="home_connection_actuator_action_wait">خط امن در حال درگیر شدن است</string>
     <string name="home_connection_stage_network">شبکه</string>
     <string name="home_connection_stage_handshake">دست‌دهی</string>
     <string name="home_connection_stage_tunnel">تونل</string>
@@ -3086,6 +3085,8 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_history_verdict_cancelled">لغو شد</string>
     <string name="vpn_quality_strip_warning_title">متصل · کیفیت کاهش یافت</string>
     <string name="vpn_quality_strip_critical_title">متصل · کیفیت بسیار افت کرد</string>
+    <string name="vpn_quality_strip_nominal_title">متصل · کیفیت عادی</string>
+    <string name="vpn_quality_strip_body_nominal">تونل فعال است و شاخص‌ها در محدوده طبیعی هستند.</string>
     <string name="vpn_quality_strip_body_warning">تونل فعال است اما کارایی افت کرده. شاخص‌ها خارج از محدوده طبیعی هستند.</string>
     <string name="vpn_quality_strip_body_critical">تونل فعال است اما کیفیت ضعیف است. اکثر شاخص‌ها بسیار خارج از محدوده طبیعی هستند.</string>
     <string name="vpn_quality_strip_since_format">از %1$s</string>

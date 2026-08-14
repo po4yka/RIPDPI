@@ -76,7 +76,7 @@
     <string name="connection_health_dns_cache_misses">कैश मिस</string>
     <string name="connection_health_dns_failures">विफलताएँ</string>
     <string name="connection_health_home_title">कनेक्शन स्वास्थ्य</string>
-    <string name="connection_health_home_subtitle">गंतव्य श्रेणी के अनुसार प्रति-रणनीति लाइव सफलता।</string>
+    <string name="connection_health_home_subtitle">गंतव्य श्रेणी के अनुसार प्रति-रणनीति सफलता देखें।</string>
     <string name="connection_health_home_value">खोलें</string>
     <string name="title_strategy_tuner">रणनीति ट्यूनर</string>
     <string name="strategy_tuner_open_action">रणनीति ट्यूनर खोलें</string>
@@ -407,7 +407,7 @@
     <string name="home_status_connecting_body">यदि कहा जाए तो Android VPN अनुमति दें। सेटअप डिवाइस पर ही जारी रहता है।</string>
     <string name="home_status_connected_title">स्थानीय रूप से सुरक्षित</string>
     <string name="home_status_connected_body">ट्रैफ़िक इस समय चयनित स्थानीय मोड से रूट हो रहा है।</string>
-    <string name="home_status_error_title">कनेक्शन पर ध्यान देने की ज़रूरत है</string>
+    <string name="home_status_error_title">सुरक्षित लाइन पर ध्यान देने की ज़रूरत है</string>
     <string name="home_status_error_body">नीचे दिया गया संदेश देखें और फिर से प्रयास करें।</string>
     <string name="home_network_condition_captive_title">साइन-इन ज़रूरी है</string>
     <string name="home_network_condition_captive_body">इस नेटवर्क पर ट्रैफ़िक गुज़रने से पहले आपको साइन-इन करना होगा। Captive-portal सहायता चालू है और अपने आप बंद हो जाएगी।</string>
@@ -425,8 +425,8 @@
     <string name="home_setup_health_collapsed_format">ध्यान देने योग्य आइटम: %1$d</string>
     <string name="home_setup_health_expanded">सेटअप आइटम और रिकवरी कार्रवाइयाँ देखें।</string>
     <string name="home_connection_button_connecting">कनेक्ट हो रहा है…</string>
-    <string name="home_connection_actuator_secure">सुरक्षित</string>
     <string name="home_connection_actuator_direct">सीधा</string>
+    <string name="home_connection_actuator_relay">Relay</string>
     <string name="home_connection_actuator_state_open">सुरक्षित लाइन निष्क्रिय है</string>
     <string name="home_connection_actuator_state_engaging">सुरक्षित लाइन जुड़ रही है</string>
     <string name="home_connection_actuator_state_locked">सुरक्षित लाइन लॉक</string>
@@ -436,7 +436,6 @@
     <string name="home_connection_actuator_state_fault">%1$s पर सुरक्षित लाइन में खराबी</string>
     <string name="home_connection_actuator_action_activate">सुरक्षित लाइन जोड़ें</string>
     <string name="home_connection_actuator_action_deactivate">सुरक्षित लाइन छोड़ें</string>
-    <string name="home_connection_actuator_action_wait">सुरक्षित लाइन जुड़ रही है</string>
     <string name="home_connection_stage_network">नेटवर्क</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>

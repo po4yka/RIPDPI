@@ -76,7 +76,7 @@
     <string name="connection_health_dns_cache_misses">Промахи кэша</string>
     <string name="connection_health_dns_failures">Сбои</string>
     <string name="connection_health_home_title">Здоровье соединения</string>
-    <string name="connection_health_home_subtitle">Успех текущей стратегии по классам назначений.</string>
+    <string name="connection_health_home_subtitle">Открыть успех стратегий по классам назначений.</string>
     <string name="connection_health_home_value">Открыть</string>
     <string name="title_strategy_tuner">Подбор стратегии</string>
     <string name="strategy_tuner_open_action">Открыть подбор стратегии</string>
@@ -361,7 +361,7 @@
     <string name="home_status_connecting_body">При необходимости предоставьте разрешение VPN Android. Настройка продолжается на устройстве.</string>
     <string name="home_status_connected_title">Защищено локально</string>
     <string name="home_status_connected_body">Трафик в данный момент направляется через выбранный локальный режим.</string>
-    <string name="home_status_error_title">Подключение требует внимания</string>
+    <string name="home_status_error_title">Защищённая линия требует внимания</string>
     <string name="home_status_error_body">Ознакомьтесь с сообщением ниже и попробуйте снова.</string>
     <string name="home_network_condition_captive_title">Требуется вход</string>
     <string name="home_network_condition_captive_body">Эта сеть требует входа, прежде чем трафик сможет проходить. Помощь с captive-порталом включена и отключится автоматически.</string>
@@ -2373,9 +2373,8 @@ fakeddisorder endhost</string>
     <string name="fake_order_card_title">Порядок fake</string>
     <string name="home_connection_actuator_action_activate">Замкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_deactivate">Разомкнуть защищённую линию</string>
-    <string name="home_connection_actuator_action_wait">Защищённая линия замыкается</string>
-    <string name="home_connection_actuator_secure">Защищено</string>
     <string name="home_connection_actuator_direct">Напрямую</string>
+    <string name="home_connection_actuator_relay">Реле</string>
     <string name="home_connection_actuator_state_degraded">Защищённая линия заблокирована, предупреждение в %1$s</string>
     <string name="home_connection_actuator_state_direct_degraded">Прямая линия заблокирована, предупреждение в %1$s</string>
     <string name="home_connection_actuator_state_engaging">Защищённая линия замыкается</string>
@@ -3055,6 +3054,8 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_history_verdict_cancelled">Отменено</string>
     <string name="vpn_quality_strip_warning_title">Подключено · качество ухудшилось</string>
     <string name="vpn_quality_strip_critical_title">Подключено · качество резко упало</string>
+    <string name="vpn_quality_strip_nominal_title">Подключено · качество в норме</string>
+    <string name="vpn_quality_strip_body_nominal">Туннель активен, показатели в нормальных пределах.</string>
     <string name="vpn_quality_strip_body_warning">Туннель активен, но производительность снизилась. Показатели вышли за нормальные пределы.</string>
     <string name="vpn_quality_strip_body_critical">Туннель активен, но качество низкое. Большинство показателей далеко за нормальными пределами.</string>
     <string name="vpn_quality_strip_since_format">С %1$s</string>

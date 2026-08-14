@@ -42,14 +42,23 @@ internal fun isForeignExitLive(
  */
 internal fun isForeignExitLost(telemetry: ServiceTelemetrySnapshot): Boolean = telemetry.relayFailed
 
-/** Trailing actuator label: "Secure" for a live foreign-relay exit, "Direct" otherwise. */
+/**
+ * Trailing actuator label: "Relay" for a live foreign-relay exit, "Direct"
+ * otherwise.
+ *
+ * This chip answers "what kind of exit", while the headline beside it uses
+ * "secure line" to answer "is the tunnel up". Labelling the exit "Secure" made
+ * one word carry both questions, so a disengaged line rendered the headline
+ * "Secure line disengaged" next to a badge reading "Secure". Naming the exit by
+ * what it actually is keeps the two questions distinguishable.
+ */
 internal fun actuatorTrailingLabel(
     egressBacked: Boolean,
     stringResolver: StringResolver,
 ): String =
     stringResolver.getString(
         if (egressBacked) {
-            R.string.home_connection_actuator_secure
+            R.string.home_connection_actuator_relay
         } else {
             R.string.home_connection_actuator_direct
         },

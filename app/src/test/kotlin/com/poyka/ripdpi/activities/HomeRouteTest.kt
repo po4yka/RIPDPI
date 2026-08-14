@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.proto.AppSettings
@@ -97,6 +98,7 @@ class HomeRouteTest {
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
             pcapCaptureRuntimeController = null,
+            savedStateHandle = SavedStateHandle(),
         ).also(MainViewModel::initialize)
     }
 }

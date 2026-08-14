@@ -271,8 +271,14 @@ internal fun buildConnectionActuatorUiState(
                 failedStage = failedStage,
                 stringResolver = stringResolver,
             ).let { description ->
-                if (hardKillSwitch.visible) {
-                    "$description. ${hardKillSwitch.label}. ${hardKillSwitch.summary}"
+                // The headline states the line's own state and, when traffic can
+                // actually leak, names the risk in one short clause. The full
+                // explanation and the repair action belong to the setup-health
+                // item, which can be acted on; appending the summary here turned
+                // the control's own state into a three-sentence paragraph and
+                // fired even when lockdown was already enforced.
+                if (hardKillSwitch.visible && hardKillSwitch.warning) {
+                    "$description. ${hardKillSwitch.label}"
                 } else {
                     description
                 }
@@ -463,15 +469,7 @@ private fun actuatorActionLabel(
     }
 
 private fun HomeConnectionActuatorStage.label(stringResolver: StringResolver): String =
-    stringResolver.getString(
-        when (this) {
-            HomeConnectionActuatorStage.Network -> R.string.home_connection_stage_network
-            HomeConnectionActuatorStage.Dns -> R.string.home_connection_stage_dns
-            HomeConnectionActuatorStage.Handshake -> R.string.home_connection_stage_handshake
-            HomeConnectionActuatorStage.Tunnel -> R.string.home_connection_stage_tunnel
-            HomeConnectionActuatorStage.Route -> R.string.home_connection_stage_route
-        },
-    )
+    stringResolver.getString(labelRes())
 
 private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): HomeConnectionActuatorStage? =
     when {

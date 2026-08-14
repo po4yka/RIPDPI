@@ -33,7 +33,12 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-enum class RipDpiDegradationTone { Warning, Critical }
+/**
+ * [Nominal] is deliberately neutral rather than green: it reports that the
+ * indicators are in range, which is the resting state, and a success colour
+ * would give the resting state more weight than an actual problem.
+ */
+enum class RipDpiDegradationTone { Nominal, Warning, Critical }
 
 data class RipDpiDegradationMetric(
     val label: String,
@@ -67,21 +72,25 @@ fun RipDpiDegradationStrip(
     val type = RipDpiThemeTokens.type
     val containerColor =
         when (tone) {
+            RipDpiDegradationTone.Nominal -> colors.muted
             RipDpiDegradationTone.Warning -> colors.warningContainer
             RipDpiDegradationTone.Critical -> colors.destructiveContainer
         }
     val contentColor =
         when (tone) {
+            RipDpiDegradationTone.Nominal -> colors.cardForeground
             RipDpiDegradationTone.Warning -> colors.warningContainerForeground
             RipDpiDegradationTone.Critical -> colors.destructiveContainerForeground
         }
     val accentColor =
         when (tone) {
+            RipDpiDegradationTone.Nominal -> colors.mutedForeground
             RipDpiDegradationTone.Warning -> colors.warning
             RipDpiDegradationTone.Critical -> colors.destructive
         }
     val accentForeground =
         when (tone) {
+            RipDpiDegradationTone.Nominal -> colors.card
             RipDpiDegradationTone.Warning -> colors.warningForeground
             RipDpiDegradationTone.Critical -> colors.destructiveForeground
         }

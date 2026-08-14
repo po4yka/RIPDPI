@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.AppStartupReadinessState
@@ -32,6 +33,25 @@ import kotlinx.coroutines.launch
 import java.util.Optional
 import javax.inject.Inject
 
+private const val HomeModesExpandedKey = "home.modesExpanded"
+
+/**
+ * Whether home shows its mode cards.
+ *
+ * Kept in saved state rather than in the composable so navigating away and back
+ * — or a process death — does not silently re-collapse a section the user
+ * deliberately opened.
+ */
+class HomeModesDisclosure internal constructor(
+    private val savedStateHandle: SavedStateHandle,
+) {
+    val expanded: StateFlow<Boolean> = savedStateHandle.getStateFlow(HomeModesExpandedKey, false)
+
+    fun onExpandedChange(expanded: Boolean) {
+        savedStateHandle[HomeModesExpandedKey] = expanded
+    }
+}
+
 @HiltViewModel
 class MainViewModel
     @Inject
@@ -45,7 +65,10 @@ class MainViewModel
         private val stringResolver: StringResolver,
         private val activeTransportProvider: Optional<ActiveTransportProvider>,
         private val pcapCaptureRuntimeController: PcapCaptureRuntimeController?,
+        private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
+        val homeModesDisclosure = HomeModesDisclosure(savedStateHandle)
+
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())

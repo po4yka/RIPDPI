@@ -25,8 +25,12 @@ fun HomeRoute(
     val homeDiagnostics = viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle().value
     val homeDiagnosticCard = viewModel.homeDiagnosticCard.collectAsStateWithLifecycle().value
     val subscriptionExpiry = viewModel.subscriptionExpiryUiState.collectAsStateWithLifecycle().value
+    val modesDisclosure = viewModel.homeModesDisclosure
+    val modesExpanded = modesDisclosure.expanded.collectAsStateWithLifecycle().value
     HomeScreen(
         uiState = uiState,
+        initialModesExpanded = modesExpanded,
+        onModesExpandedChange = remember(viewModel) { modesDisclosure::onExpandedChange },
         homeDiagnostics = homeDiagnostics,
         diagnosticCard = homeDiagnosticCard,
         subscriptionExpiry = subscriptionExpiry,

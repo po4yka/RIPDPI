@@ -75,7 +75,7 @@
     <string name="connection_health_dns_cache_misses">缓存未命中</string>
     <string name="connection_health_dns_failures">失败</string>
     <string name="connection_health_home_title">连接健康</string>
-    <string name="connection_health_home_subtitle">按策略和目标类别显示实时成功率。</string>
+    <string name="connection_health_home_subtitle">查看按策略和目标类别的成功率。</string>
     <string name="connection_health_home_value">打开</string>
     <string name="title_strategy_tuner">策略调优</string>
     <string name="strategy_tuner_open_action">打开策略调优</string>
@@ -407,7 +407,7 @@
     <string name="home_status_connecting_body">如果出现提示，请授予 Android VPN 权限。设置在设备上继续。</string>
     <string name="home_status_connected_title">本地受保护</string>
     <string name="home_status_connected_body">流量当前通过所选的本地模式路由。</string>
-    <string name="home_status_error_title">连接需要关注</string>
+    <string name="home_status_error_title">安全线路需要关注</string>
     <string name="home_status_error_body">查看下方的消息并重试。</string>
     <string name="home_network_condition_captive_title">需要登录</string>
     <string name="home_network_condition_captive_body">此网络需要先登录才能放行流量。强制门户辅助已开启，并将自动关闭。</string>
@@ -425,8 +425,8 @@
     <string name="home_setup_health_collapsed_format">需要注意的项目：%1$d</string>
     <string name="home_setup_health_expanded">检查设置项目和恢复操作。</string>
     <string name="home_connection_button_connecting">连接中…</string>
-    <string name="home_connection_actuator_secure">安全</string>
     <string name="home_connection_actuator_direct">直连</string>
+    <string name="home_connection_actuator_relay">中继</string>
     <string name="home_connection_actuator_state_open">安全线路未启用</string>
     <string name="home_connection_actuator_state_engaging">安全线路正在接合</string>
     <string name="home_connection_actuator_state_locked">安全线路已锁定</string>
@@ -436,7 +436,6 @@
     <string name="home_connection_actuator_state_fault">安全线路故障于 %1$s</string>
     <string name="home_connection_actuator_action_activate">接合安全线路</string>
     <string name="home_connection_actuator_action_deactivate">释放安全线路</string>
-    <string name="home_connection_actuator_action_wait">安全线路正在接合</string>
     <string name="home_connection_stage_network">网络</string>
     <string name="home_connection_stage_handshake">握手</string>
     <string name="home_connection_stage_tunnel">隧道</string>
@@ -3077,6 +3076,8 @@ fake_burst 3</string>
     <string name="vpn_replay_history_verdict_cancelled">已取消</string>
     <string name="vpn_quality_strip_warning_title">已连接 · 质量下降</string>
     <string name="vpn_quality_strip_critical_title">已连接 · 质量严重下降</string>
+    <string name="vpn_quality_strip_nominal_title">已连接 · 质量正常</string>
+    <string name="vpn_quality_strip_body_nominal">隧道已建立，指标处于正常范围。</string>
     <string name="vpn_quality_strip_body_warning">隧道已建立但性能下降。指标超出正常范围。</string>
     <string name="vpn_quality_strip_body_critical">隧道已建立但质量较差。大部分指标远超正常范围。</string>
     <string name="vpn_quality_strip_since_format">自 %1$s</string>

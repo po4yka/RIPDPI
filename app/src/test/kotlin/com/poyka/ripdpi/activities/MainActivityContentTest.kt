@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.ReadyAppStartupReadiness
@@ -374,6 +375,7 @@ class MainActivityContentTest {
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
             pcapCaptureRuntimeController = null,
+            savedStateHandle = SavedStateHandle(),
         )
     }
 

@@ -1304,6 +1304,8 @@
     <string name="vpn_replay_history_verdict_cancelled">रद्द किया गया</string>
     <string name="vpn_quality_strip_warning_title">कनेक्टेड · गुणवत्ता घटी</string>
     <string name="vpn_quality_strip_critical_title">कनेक्टेड · गुणवत्ता बहुत घटी</string>
+    <string name="vpn_quality_strip_nominal_title">कनेक्टेड · गुणवत्ता सामान्य</string>
+    <string name="vpn_quality_strip_body_nominal">टनल चालू है और संकेतक सामान्य सीमा के भीतर हैं.</string>
     <string name="vpn_quality_strip_body_warning">टनल चालू है पर प्रदर्शन गिर गया है. संकेतक अपनी सामान्य सीमा से बाहर हैं.</string>
     <string name="vpn_quality_strip_body_critical">टनल चालू है पर गुणवत्ता खराब है. अधिकांश संकेतक सामान्य सीमा से काफी बाहर हैं.</string>
     <string name="vpn_quality_strip_since_format">%1$s से</string>
