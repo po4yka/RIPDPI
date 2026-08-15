@@ -388,6 +388,11 @@ internal class DefaultDiagnosticsScanController
             prepared: PreparedDiagnosticsScan,
             ownerId: String?,
         ) {
+            if (ownerId != null) {
+                prepared
+                    .inPathPreflightFailureSummary(serviceStateStore.status.value)
+                    ?.let { summary -> throw InPathRuntimeUnavailableException(summary) }
+            }
             activeScanRegistry.rememberPreparedScan(prepared, ownerId)
             ensureStartupActive(scope)
             scanRecordStore.upsertScanSession(prepared.initialSession)
@@ -595,8 +600,16 @@ internal suspend fun persistPartialScanSession(
 private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
 private const val InPathVpnUnavailableAction = "run raw-path diagnostics so the VPN can pause and resume safely"
 
-private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
+internal class InPathRuntimeUnavailableException(
+    message: String,
+) : IllegalStateException(message)
+
+private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(
+    liveRuntime: Pair<AppStatus, Mode>? = null,
+): String? {
     val service = context.contextSnapshot.service
+    val liveStatus = liveRuntime?.first
+    val liveMode = liveRuntime?.second
     val expectedEndpoint = expectedProxyEndpoint()
     val listenerAddress = service.proxy?.listenerAddress?.takeIf { it.isNotBlank() }
     return when {
@@ -604,12 +617,21 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
             null
         }
 
-        !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
+        liveStatus != null && liveStatus != AppStatus.Running -> {
+            "In-path diagnostics unavailable: local proxy service is ${liveStatus.name}; " +
+                InPathServiceUnavailableAction
+        }
+
+        liveMode == Mode.VPN -> {
+            "In-path diagnostics unavailable while VPN service is active; $InPathVpnUnavailableAction"
+        }
+
+        liveStatus == null && !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
             val status = service.serviceStatus
             "In-path diagnostics unavailable: local proxy service is $status; $InPathServiceUnavailableAction"
         }
 
-        service.activeMode.equals(Mode.VPN.name, ignoreCase = true) -> {
+        liveMode == null && service.activeMode.equals(Mode.VPN.name, ignoreCase = true) -> {
             "In-path diagnostics unavailable while VPN service is active; $InPathVpnUnavailableAction"
         }
 

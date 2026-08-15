@@ -94,6 +94,48 @@ class DiagnosticsScanControllerInPathPreflightTest {
             assertEquals(failure.message, session.summary)
             assertEquals(0, runtimeCoordinator.rawScanCount.get())
         }
+
+    @Test
+    fun `owned in-path start rejects a runtime that changed after context capture without persisting a session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(activeMode = "Proxy"),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val failure =
+                assertSuspendFailsWith<InPathRuntimeUnavailableException> {
+                    services.scanController.startScanOwnedBy(
+                        ownerId = "home-run",
+                        pathMode = ScanPathMode.IN_PATH,
+                        selectedProfileId = null,
+                        skipActiveScanCheck = true,
+                    )
+                }
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    "In-path diagnostics unavailable: local proxy service is Halted; " +
+                        "start the RIPDPI service before scanning",
+                    null,
+                    0,
+                ),
+                listOf(failure.message, bridgeFactory.bridge.startedRequestJson, stores.sessionsState.value.size),
+            )
+        }
 }
 
 private suspend inline fun <reified T : Throwable> assertSuspendFailsWith(noinline block: suspend () -> Unit): T {

@@ -222,14 +222,24 @@ internal class HomeCompositeStageExecutor
                         }
                     }
                 },
-                onFailure = {
-                    markStageFailure(
-                        progressState = progressState,
-                        runId = runId,
-                        stageIndex = stageIndex,
-                        headline = "${spec.label} failed",
-                        summary = it.message ?: "Unable to start ${spec.label.lowercase()}.",
-                    )
+                onFailure = { failure ->
+                    if (failure is InPathRuntimeUnavailableException) {
+                        updateStage(progressState, runId, stageIndex) { current ->
+                            current.copy(
+                                status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                headline = "${spec.label} unavailable",
+                                summary = failure.message ?: "The in-path runtime became unavailable.",
+                            )
+                        }
+                    } else {
+                        markStageFailure(
+                            progressState = progressState,
+                            runId = runId,
+                            stageIndex = stageIndex,
+                            headline = "${spec.label} failed",
+                            summary = failure.message ?: "Unable to start ${spec.label.lowercase()}.",
+                        )
+                    }
                     null
                 },
             )
