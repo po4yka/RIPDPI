@@ -30,6 +30,71 @@ class NativeHotspotBudgetTests(unittest.TestCase):
 
             self.assertEqual(measurement.measured_production_loc, 0)
 
+    def test_included_child_module_inherits_parent_ceiling(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            parent = root / "native/rust/crates/example/src/coordinator.rs"
+            child = root / "native/rust/crates/example/src/coordinator/run_loop.rs"
+            nested_child = root / "native/rust/crates/example/src/coordinator/run_loop/parallel.rs"
+            nested_child.parent.mkdir(parents=True)
+            parent.write_text("mod run_loop;\n", encoding="utf-8")
+            child.write_text("mod parallel;\n", encoding="utf-8")
+            nested_child.write_text("\n".join("pub(crate) fn step() {}" for _ in range(11)), encoding="utf-8")
+
+            measurements = sut.measure_hotspots(
+                root,
+                [
+                    sut.HotspotBudget(
+                        path="native/rust/crates/example/src/coordinator.rs",
+                        max_production_loc=10,
+                        include_children=True,
+                    ),
+                ],
+            )
+
+            self.assertEqual([item.path for item in measurements], [
+                "native/rust/crates/example/src/coordinator.rs",
+                "native/rust/crates/example/src/coordinator/run_loop.rs",
+                "native/rust/crates/example/src/coordinator/run_loop/parallel.rs",
+            ])
+            self.assertEqual(measurements[2].max_production_loc, 10)
+            self.assertEqual(measurements[2].measured_production_loc, 11)
+            self.assertIn("Over budget: 1", sut.format_summary(measurements))
+
+    def test_explicit_child_budget_stops_parent_inheritance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            parent = root / "native/rust/crates/example/src/lanes.rs"
+            explicit_child = root / "native/rust/crates/example/src/lanes/https.rs"
+            nested_child = root / "native/rust/crates/example/src/lanes/https/attempt.rs"
+            nested_child.parent.mkdir(parents=True)
+            parent.write_text("mod https;\n", encoding="utf-8")
+            explicit_child.write_text("mod attempt;\n", encoding="utf-8")
+            nested_child.write_text("\n".join("pub(crate) fn step() {}" for _ in range(11)), encoding="utf-8")
+
+            measurements = sut.measure_hotspots(
+                root,
+                [
+                    sut.HotspotBudget(
+                        path="native/rust/crates/example/src/lanes.rs",
+                        max_production_loc=10,
+                        include_children=True,
+                    ),
+                    sut.HotspotBudget(
+                        path="native/rust/crates/example/src/lanes/https.rs",
+                        max_production_loc=20,
+                    ),
+                ],
+            )
+
+            self.assertEqual(
+                [item.path for item in measurements],
+                [
+                    "native/rust/crates/example/src/lanes.rs",
+                    "native/rust/crates/example/src/lanes/https.rs",
+                ],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

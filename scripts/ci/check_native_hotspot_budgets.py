@@ -18,6 +18,7 @@ DEFAULT_BUDGET_FILE = "config/static/native-hotspot-production-loc.json"
 class HotspotBudget:
     path: str
     max_production_loc: int
+    include_children: bool = False
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ class HotspotMeasurement:
     path: str
     measured_production_loc: int
     max_production_loc: int
+    inherited_from: str | None = None
 
 
 def production_source(text: str) -> str:
@@ -58,7 +60,11 @@ def load_budgets(path: Path) -> list[HotspotBudget]:
     budgets: list[HotspotBudget] = []
     seen_paths: set[str] = set()
     for entry in entries:
-        budget = HotspotBudget(path=entry["path"], max_production_loc=int(entry["maxProductionLoc"]))
+        budget = HotspotBudget(
+            path=entry["path"],
+            max_production_loc=int(entry["maxProductionLoc"]),
+            include_children=bool(entry.get("includeChildren", False)),
+        )
         if budget.path in seen_paths:
             raise ValueError(f"Duplicate hotspot budget for {budget.path}")
         seen_paths.add(budget.path)
@@ -82,14 +88,68 @@ def measure_hotspot(repo_root: Path, budget: HotspotBudget) -> HotspotMeasuremen
     )
 
 
+def inherited_child_budgets(
+    repo_root: Path,
+    parent_budget: HotspotBudget,
+    explicit_paths: set[str],
+) -> list[tuple[HotspotBudget, str]]:
+    child_dir = (repo_root / parent_budget.path).with_suffix("")
+    if not child_dir.is_dir():
+        return []
+
+    children: list[tuple[HotspotBudget, str]] = []
+    for child_path in sorted(child_dir.glob("*.rs")):
+        child_relative_path = child_path.relative_to(repo_root).as_posix()
+        if child_relative_path in explicit_paths:
+            continue
+        child_budget = HotspotBudget(
+            path=child_relative_path,
+            max_production_loc=parent_budget.max_production_loc,
+            include_children=True,
+        )
+        children.append((child_budget, parent_budget.path))
+        children.extend(inherited_child_budgets(repo_root, child_budget, explicit_paths))
+    return children
+
+
+def measure_hotspots(repo_root: Path, budgets: list[HotspotBudget]) -> list[HotspotMeasurement]:
+    explicit_paths = {budget.path for budget in budgets}
+    measurements: list[HotspotMeasurement] = []
+    measured_paths: set[str] = set()
+    for budget in budgets:
+        if budget.path not in measured_paths:
+            measurements.append(measure_hotspot(repo_root, budget))
+            measured_paths.add(budget.path)
+        if not budget.include_children:
+            continue
+        for child_budget, inherited_from in inherited_child_budgets(repo_root, budget, explicit_paths):
+            if child_budget.path in measured_paths:
+                continue
+            measurement = measure_hotspot(
+                repo_root,
+                child_budget,
+            )
+            measurements.append(
+                HotspotMeasurement(
+                    path=measurement.path,
+                    measured_production_loc=measurement.measured_production_loc,
+                    max_production_loc=measurement.max_production_loc,
+                    inherited_from=inherited_from,
+                ),
+            )
+            measured_paths.add(child_budget.path)
+    return measurements
+
+
 def format_summary(measurements: list[HotspotMeasurement]) -> str:
     lines = ["Native hotspot production LoC budgets", f"Checked {len(measurements)} files"]
     overages = [item for item in measurements if item.measured_production_loc > item.max_production_loc]
     lines.append(f"Over budget: {len(overages)}")
     for item in measurements:
         status = "OVER" if item.measured_production_loc > item.max_production_loc else "ok"
+        inheritance = "" if item.inherited_from is None else f" inherited-from={item.inherited_from}"
         lines.append(
-            f"  - {item.path} limit={item.max_production_loc} measured={item.measured_production_loc} [{status}]",
+            f"  - {item.path} limit={item.max_production_loc} measured={item.measured_production_loc} [{status}]{inheritance}",
         )
     return "\n".join(lines)
 
@@ -99,6 +159,7 @@ def dump_current(measurements: list[HotspotMeasurement]) -> str:
         "entries": [
             {"path": item.path, "maxProductionLoc": item.measured_production_loc}
             for item in sorted(measurements, key=lambda item: item.path)
+            if item.inherited_from is None
         ]
     }
     return json.dumps(payload, indent=2) + "\n"
@@ -117,7 +178,7 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     budget_path = (repo_root / args.budget_file).resolve()
     budgets = load_budgets(budget_path)
-    measurements = [measure_hotspot(repo_root, budget) for budget in budgets]
+    measurements = measure_hotspots(repo_root, budgets)
 
     if args.dump_current:
         print(dump_current(measurements), end="")

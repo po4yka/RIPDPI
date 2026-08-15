@@ -306,7 +306,8 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/dns_baseline.rs",
-      "maxProductionLoc": 78
+      "maxProductionLoc": 78,
+      "includeChildren": true
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/quic.rs",
@@ -390,7 +391,8 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime/coordinator.rs",
-      "maxProductionLoc": 100
+      "maxProductionLoc": 100,
+      "includeChildren": true
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime/plan.rs",
@@ -450,7 +452,8 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/quic.rs",
-      "maxProductionLoc": 110
+      "maxProductionLoc": 110,
+      "includeChildren": true
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/tcp.rs",
@@ -458,7 +461,8 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs",
-      "maxProductionLoc": 56
+      "maxProductionLoc": 56,
+      "includeChildren": true
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runner_contract.rs",
@@ -466,7 +470,8 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts.rs",
-      "maxProductionLoc": 25
+      "maxProductionLoc": 25,
+      "includeChildren": true
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/launch.rs",

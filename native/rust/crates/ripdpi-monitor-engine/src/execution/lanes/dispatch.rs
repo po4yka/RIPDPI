@@ -6,8 +6,7 @@ use rustls::client::danger::ServerCertVerifier;
 use crate::candidates::StrategyCandidateSpec;
 use crate::types::{DomainTarget, QuicTarget};
 
-use super::super::runner_contract::StrategyLaneExecutor;
-use super::super::scoring::CandidateExecution;
+use super::super::{runner_contract::StrategyLaneExecutor, scoring::CandidateExecution};
 use super::{DefaultStrategyLaneExecutor, quic, tcp};
 
 impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
