@@ -147,4 +147,16 @@ mod tests {
         assert_eq!(forced_aborts.load(Ordering::SeqCst), 1);
         assert_eq!(receipt, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
     }
+
+    #[test]
+    fn next_scan_gets_an_empty_supervisor_and_no_inherited_runtime() {
+        let prior = CandidateRuntimeSupervisor::default();
+        let shutdowns = Arc::new(AtomicUsize::new(0));
+        let forced_aborts = Arc::new(AtomicUsize::new(0));
+        prior.supervise(runtime(shutdowns, forced_aborts)).shutdown();
+
+        let next = CandidateRuntimeSupervisor::default();
+
+        assert_eq!(next.terminal_receipt(), Some(CandidateCleanupReceipt::default()));
+    }
 }
