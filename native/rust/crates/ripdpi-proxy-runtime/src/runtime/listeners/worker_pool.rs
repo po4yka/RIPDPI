@@ -282,4 +282,14 @@ mod tests {
         let mut byte = [0u8; 1];
         assert_eq!(peer.read(&mut byte).unwrap_or(0), 0, "queued client must be closed during shutdown");
     }
+
+    #[test]
+    fn drain_joins_every_owned_worker_without_a_detached_reaper() {
+        let pool = ClientWorkerPool::new(1).expect("worker pool");
+        let state = RuntimeState::new(RuntimeConfig::default(), None);
+
+        pool.drain_gracefully(&state);
+
+        assert!(!pool.has_live_workers(), "terminal drain must own and join every worker");
+    }
 }
