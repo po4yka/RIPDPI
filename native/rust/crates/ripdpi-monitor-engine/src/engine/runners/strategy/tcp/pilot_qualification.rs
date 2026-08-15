@@ -1,17 +1,15 @@
-use std::sync::Arc;
-use std::sync::atomic::Ordering;
-use std::thread;
-
 use rustls::client::danger::ServerCertVerifier;
+use std::sync::Arc;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::execution::{CandidateExecution, StrategyLaneExecutor, eliminated_candidate_summary};
+use crate::execution::eliminated_candidate_summary;
 use crate::types::DomainTarget;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};
 use super::super::support::stratified_pilot_targets;
 use super::StrategyTcpRunner;
 use super::capability_gating::{TcpCapabilities, candidate_passes_pilot_without_execution};
+use super::pilot_execution::execute_pilot_batch;
 
 pub(super) fn qualify_pilot_candidates(
     runner: &StrategyTcpRunner,
@@ -58,34 +56,7 @@ pub(super) fn qualify_pilot_candidates(
             }
             continue;
         }
-        let cancel_token = runtime.cancel_token();
-        let deadline = ripdpi_diagnostics_contracts::util::active_scan_io_deadline();
-        let batch_results: Vec<(StrategyCandidateSpec, Option<CandidateExecution>)> = thread::scope(|s| {
-            let handles: Vec<_> = batch
-                .iter()
-                .map(|spec| {
-                    let spec_clone = spec.clone();
-                    s.spawn(move || {
-                        ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
-                            if cancel_token.load(Ordering::Acquire) {
-                                return (spec_clone, None);
-                            }
-                            let execution = runner.lane_executor.execute_tcp_candidate(
-                                &spec_clone,
-                                qualifier_targets,
-                                strategy_plan.runtime_context.as_ref(),
-                                strategy_plan.probe_seed,
-                                tls_verifier,
-                                plan.request.diagnostic_tls_keylog_path.as_deref(),
-                                cancel_token,
-                            );
-                            (spec_clone, Some(execution))
-                        })
-                    })
-                })
-                .collect();
-            handles.into_iter().map(|h| h.join().expect("qualifier thread panicked")).collect()
-        });
+        let batch_results = execute_pilot_batch(runner, plan, runtime, batch, qualifier_targets, tls_verifier);
 
         for (spec, maybe_execution) in batch_results {
             let Some(execution) = maybe_execution else {

@@ -2,6 +2,7 @@ mod baseline;
 mod batch_execution;
 mod candidate_ordering;
 mod capability_gating;
+mod pilot_execution;
 mod pilot_qualification;
 mod quic_pivot;
 mod result_recording;

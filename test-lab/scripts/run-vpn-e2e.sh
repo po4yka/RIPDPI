@@ -80,22 +80,6 @@ case "$profile" in
     ;;
 esac
 
-if [[ -z "$android_serial" ]]; then
-  echo "ANDROID_SERIAL is required; destructive device tests never auto-select a target." >&2
-  exit 2
-fi
-
-if [[ -z "$out_dir" ]]; then
-  out_dir="$lab_root/artifacts/vpn-e2e-$(date +%Y%m%d-%H%M%S)"
-fi
-mkdir -p "$out_dir"
-device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-vpn-device-state.XXXXXX")"
-device_state_dir="$device_state_root/session"
-
-maestro_ran=false
-lab_started=false
-archive_path=""
-
 resolve_maestro() {
   if [[ -n "${MAESTRO_BIN:-}" ]]; then
     if [[ -x "$MAESTRO_BIN" ]]; then
@@ -118,6 +102,28 @@ resolve_maestro() {
 
   return 1
 }
+
+if [[ "$skip_maestro" != "true" ]] && ! resolve_maestro; then
+  echo "maestro is not available; cannot drive the VPN connect flow." >&2
+  echo "Install Maestro, set MAESTRO_BIN, add it to PATH, or rerun with --skip-maestro only after manually connecting VPN mode." >&2
+  exit 2
+fi
+
+if [[ -z "$android_serial" ]]; then
+  echo "ANDROID_SERIAL is required; destructive device tests never auto-select a target." >&2
+  exit 2
+fi
+
+if [[ -z "$out_dir" ]]; then
+  out_dir="$lab_root/artifacts/vpn-e2e-$(date +%Y%m%d-%H%M%S)"
+fi
+mkdir -p "$out_dir"
+device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-vpn-device-state.XXXXXX")"
+device_state_dir="$device_state_root/session"
+
+maestro_ran=false
+lab_started=false
+archive_path=""
 
 seed_debug_automation_state() {
   adb shell am start \
@@ -243,18 +249,12 @@ if [[ "$skip_install" != "true" ]]; then
 fi
 
 if [[ "$skip_maestro" != "true" ]]; then
-  if resolve_maestro; then
-    grant_runtime_permissions
-    wake_unlock_device
-    seed_debug_automation_state
-    wake_unlock_device
-    maestro_ran=true
-    run_maestro_flow "$lab_root/maestro/connect-vpn.yaml"
-  else
-    echo "maestro is not available; cannot drive the VPN connect flow." >&2
-    echo "Install Maestro, set MAESTRO_BIN, add it to PATH, or rerun with --skip-maestro only after manually connecting VPN mode." >&2
-    exit 2
-  fi
+  grant_runtime_permissions
+  wake_unlock_device
+  seed_debug_automation_state
+  wake_unlock_device
+  maestro_ran=true
+  run_maestro_flow "$lab_root/maestro/connect-vpn.yaml"
 fi
 
 "$script_dir/adb-run-probe.sh" \
