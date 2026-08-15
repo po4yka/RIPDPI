@@ -16,7 +16,7 @@ The dedicated `codex/fix-relay-vpn-startup-cascade-20260814` worktree owns the r
 - [x] RLY-1786707671642403 Restore and integrate the VPN data-plane status projection so local runtime readiness, checking, validated, inconclusive, and exhausted states remain observably distinct across service telemetry, home UI, notification, and all locales #feature !high @item:RLY-1786707070050078
 - [x] RLY-1786707671668415 Restore privacy-safe runtime-scoped VLESS/REALITY attempt stages with one-shot success/failure/cancellation events, mux-reuse correctness, non-blocking bounded delivery, updated API snapshots, and focused Rust cancellation tests #feature !high @item:RLY-1786707070050078
 - [x] RLY-1786707671706117 Decode, migrate, persist, and export relay health decisions and native attempt stages with seeded Room migration, schema/manifests, completeness/redaction tests, and reviewed diagnostics goldens #feature !high @item:RLY-1786707070050078
-- [ ] RLY-1786707671742424 Rebase the complete slice onto current `origin/main`, run named Kotlin/Rust/architecture/static-analysis/contract gates, then validate the exact signed simple artifact and `dad-phone` matrix on Pixel 7 with restoration and a 10-minute recovery observation #feature !high @item:RLY-1786707070050078
+- [x] RLY-1786707671742424 Rebase the complete slice onto current `origin/main`, run named Kotlin/Rust/architecture/static-analysis/contract gates, then validate the exact signed simple artifact and `dad-phone` matrix on Pixel 7 with restoration and a 10-minute recovery observation #feature !high @item:RLY-1786707070050078
 
 ## Verification
 
