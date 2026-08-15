@@ -23,12 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.indicators.RipDpiStaticCircularProgressIndicator
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -66,6 +68,7 @@ fun RipDpiIconButton(
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val shape = RipDpiThemeTokens.shapes.xl
+    val inspectionMode = LocalInspectionMode.current
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
@@ -137,11 +140,20 @@ fun RipDpiIconButton(
             label = "iconButtonContent",
         ) { isLoading ->
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(iconSize),
-                    color = animatedIconTint,
-                    strokeWidth = RipDpiStroke.Thick,
-                )
+                if (shouldUseStaticButtonLoadingIndicator(inspectionMode, motion.allowsInfiniteMotion)) {
+                    RipDpiStaticCircularProgressIndicator(
+                        modifier = Modifier.size(iconSize),
+                        color = animatedIconTint,
+                        trackColor = RipDpiThemeTokens.colors.muted,
+                        strokeWidth = RipDpiStroke.Thick,
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(iconSize),
+                        color = animatedIconTint,
+                        strokeWidth = RipDpiStroke.Thick,
+                    )
+                }
             } else {
                 Icon(
                     imageVector = icon,

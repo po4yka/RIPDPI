@@ -188,7 +188,7 @@ internal fun ScanProgressCard(
                 }
             }
         }
-        RipDpiProgressBar(progress = progress.fraction)
+        RipDpiProgressBar(progress = progress.fraction, contentDescription = progress.activePhaseLabel())
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -211,6 +211,15 @@ internal fun ScanProgressCard(
         }
     }
 }
+
+/**
+ * Name of the phase the scan is currently in, for the progress bar's announcement.
+ *
+ * Already localized, and says more than a bare percentage; the numeric value still reaches the
+ * screen reader through the indicator's own progress semantics.
+ */
+private fun DiagnosticsProgressUiModel.activePhaseLabel(): String? =
+    phaseSteps.firstOrNull { it.state == PhaseState.Active }?.label
 
 @Composable
 private fun PhaseChip(step: PhaseStepUiModel) {

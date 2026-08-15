@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,11 +34,16 @@ private val ProgressBarHeight = 4.dp
 fun RipDpiProgressBar(
     progress: Float?,
     modifier: Modifier = Modifier,
+    contentDescription: String? = null,
 ) {
     val foreground = RipDpiThemeTokens.colors.foreground
     val track = RipDpiThemeTokens.colors.muted
     val progressDescription =
-        if (progress != null) {
+        if (contentDescription != null) {
+            // Callers that already show a phase name pass it here; "Progress 40%" tells a screen
+            // reader far less than the step the scan is actually on.
+            contentDescription
+        } else if (progress != null) {
             // Clamped like the fill below: an out-of-range value must not make a screen reader
             // announce a percentage the bar never draws.
             stringResource(
@@ -49,13 +57,28 @@ fun RipDpiProgressBar(
         modifier
             .fillMaxWidth()
             .height(ProgressBarHeight)
-            .semantics { contentDescription = progressDescription }
+            .semantics {
+                this.contentDescription = progressDescription
+                // Announced like the other indicators in this family: a bar that never speaks means
+                // a screen-reader user learns nothing between start and finish.
+                liveRegion = LiveRegionMode.Polite
+            }
     if (progress == null) {
-        LinearProgressIndicator(
-            modifier = baseModifier,
-            color = foreground,
-            trackColor = track,
-        )
+        if (LocalInspectionMode.current || !RipDpiThemeTokens.motion.allowsInfiniteMotion) {
+            // Indeterminate means an endless animation; under reduced motion show the bare track.
+            LinearProgressIndicator(
+                progress = { 0f },
+                modifier = baseModifier,
+                color = foreground,
+                trackColor = track,
+            )
+        } else {
+            LinearProgressIndicator(
+                modifier = baseModifier,
+                color = foreground,
+                trackColor = track,
+            )
+        }
     } else {
         LinearProgressIndicator(
             progress = { progress.coerceIn(0f, 1f) },

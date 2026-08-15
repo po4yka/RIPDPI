@@ -32,10 +32,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -71,6 +75,7 @@ fun RipDpiButton(
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val inspectionMode = LocalInspectionMode.current
+    val loadingStateDescription = stringResource(R.string.cd_loading)
     val type = RipDpiThemeTokens.type
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
@@ -141,7 +146,13 @@ fun RipDpiButton(
                     interactionSource = resolvedInteractionSource,
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,
-                ),
+                ).semantics {
+                    // Without this a screen reader hears the button go from enabled to disabled and
+                    // cannot tell "busy" from "unavailable".
+                    if (loading) {
+                        stateDescription = loadingStateDescription
+                    }
+                },
         contentAlignment = Alignment.Center,
     ) {
         Row(

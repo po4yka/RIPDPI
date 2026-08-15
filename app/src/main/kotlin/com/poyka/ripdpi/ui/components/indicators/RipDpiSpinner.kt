@@ -13,7 +13,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -68,7 +70,10 @@ fun RipDpiSpinner(
     val spinnerModifier =
         modifier
             .size(dimensions.size)
-            .semantics { contentDescription = loadingDescription }
+            .semantics {
+                contentDescription = loadingDescription
+                liveRegion = LiveRegionMode.Polite
+            }
     val foreground = RipDpiThemeTokens.colors.foreground
     val track = RipDpiThemeTokens.colors.muted
     val stroke = dimensions.stroke
