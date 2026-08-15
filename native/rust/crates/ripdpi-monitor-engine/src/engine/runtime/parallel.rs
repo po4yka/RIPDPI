@@ -67,6 +67,7 @@ pub(super) fn run_connectivity_group(
     let mut cancelled = false;
     let mut panic_message = None;
     for (stage, joined) in stages.iter().zip(thread_results) {
+        // Infallible: `stages` was built exclusively from keys present in `runners`.
         let runner = runners.get(stage).expect("runner present");
         let planned_steps = runner.total_steps(plan);
         let completed_before_stage = runtime.completed_steps;

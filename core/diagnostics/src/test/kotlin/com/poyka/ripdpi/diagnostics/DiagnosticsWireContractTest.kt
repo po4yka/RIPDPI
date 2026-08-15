@@ -190,6 +190,16 @@ class DiagnosticsWireContractTest {
                     shortCircuitQuicBurst = true,
                     familyFailureThreshold = 2,
                 ),
+            stageExecutions =
+                listOf(
+                    ExecutionStageSnapshot(
+                        stageId = "strategy_tcp_candidates",
+                        plannedSteps = 2,
+                        executedSteps = 1,
+                        skippedByStageBudgetSteps = 0,
+                        skippedByGlobalDeadlineSteps = 1,
+                    ),
+                ),
         )
 
     private fun sampleCandidatePlan(id: String) =

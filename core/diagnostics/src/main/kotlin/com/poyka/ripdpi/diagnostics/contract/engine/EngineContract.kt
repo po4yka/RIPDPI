@@ -32,9 +32,9 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v7: adds candidate x target x protocol attempt evidence. Must stay in sync
+// v8: adds execution-stage provenance and candidate-runtime cleanup receipts. Must stay in sync
 // with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 7
+const val DiagnosticsEngineSchemaVersion = 8
 
 @Serializable
 enum class EngineProbeTaskFamily {

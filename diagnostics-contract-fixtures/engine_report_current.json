@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "sessionId": "session-1",
   "profileId": "ru-web-connectivity",
   "pathMode": "RAW_PATH",
@@ -112,6 +112,21 @@
       "shortCircuitHostfake": true,
       "shortCircuitQuicBurst": true,
       "familyFailureThreshold": 3
-    }
+    },
+    "stageExecutions": [
+      {
+        "stageId": "strategy_tcp_candidates",
+        "plannedSteps": 2,
+        "executedSteps": 1,
+        "skippedByStageBudgetSteps": 0,
+        "skippedByGlobalDeadlineSteps": 1
+      }
+    ]
+  },
+  "candidateRuntimeCleanup": {
+    "started": 1,
+    "stopped": 1,
+    "joined": 1,
+    "forcedAbort": 0
   }
 }

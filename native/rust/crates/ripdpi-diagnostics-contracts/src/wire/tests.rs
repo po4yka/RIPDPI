@@ -362,6 +362,12 @@ fn execution_plan_fixture() -> ExecutionPlanSnapshot {
             short_circuit_quic_burst: true,
             family_failure_threshold: 3,
         }),
-        stage_executions: Vec::new(),
+        stage_executions: vec![crate::types::ExecutionStageSnapshot {
+            stage_id: "strategy_tcp_candidates".to_string(),
+            planned_steps: 2,
+            executed_steps: 1,
+            skipped_by_stage_budget_steps: 0,
+            skipped_by_global_deadline_steps: 1,
+        }],
     }
 }
