@@ -25,8 +25,6 @@ on:
       - "scripts/ci/check_fleet_fixtures.py"
       - "scripts/tests/test_fleet_fixtures.py"
       - ".github/workflows/fleet-fixtures.yml"
-  workflow_dispatch:
-
 permissions:
   contents: read
 

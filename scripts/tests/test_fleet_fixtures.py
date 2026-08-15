@@ -171,6 +171,7 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
         )
         self.assertIn("RIPDPI_VPN_DEPLOY_DIR", source)
         self.assertIn("push:\n    branches: [main]", source)
+        self.assertNotIn("workflow_dispatch:", source)
         self.assertIn("actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654", source)
         self.assertNotIn("uses: ./.github/actions/setup-android-rust", source)
         self.assertNotIn("actions/cache", source)
