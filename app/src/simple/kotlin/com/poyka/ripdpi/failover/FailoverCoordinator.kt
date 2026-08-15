@@ -242,6 +242,8 @@ class FailoverCoordinator
 
         private var lastPositiveDataPlaneEvidenceKey: String? = null
 
+        private var observedTunnelRxBytes: Long? = null
+
         private var lastRelayFailureEvidenceKey: String? = null
 
         private var lastRelayFailureDecision: RelayHealthDecision? = null
@@ -407,6 +409,7 @@ class FailoverCoordinator
                     // The debounce window always restarts for a new session.
                     failingsSince = null
                     observedProxyTotalErrors = null
+                    observedTunnelRxBytes = null
                     suspectedRelayFailure = false
                     setActiveCandidate(candidates[activeCandidateIndex])
                     Logger.i {
@@ -442,6 +445,7 @@ class FailoverCoordinator
             setActiveCandidate(null)
             failingsSince = null
             observedProxyTotalErrors = null
+            observedTunnelRxBytes = null
             suspectedRelayFailure = false
             lastPositiveDataPlaneEvidenceKey = null
             lastRelayFailureEvidenceKey = null
@@ -464,6 +468,9 @@ class FailoverCoordinator
 
         /** Updates [_activeCandidate] and the derived [_activeTransport] together. */
         private fun setActiveCandidate(candidate: FailoverCandidate?) {
+            if (_activeCandidate.value != candidate) {
+                observedTunnelRxBytes = null
+            }
             _activeCandidate.value = candidate
             _activeTransport.value = candidate?.toActiveTransportDescriptor()
         }
@@ -820,14 +827,17 @@ class FailoverCoordinator
             snapshot: ServiceTelemetrySnapshot,
         ): RelayHealthDecision? {
             val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return null
-            val evidence = snapshot.latestPositiveRelayDataPlaneEvidence() ?: return null
-            val evidenceKey = evidence.stableKey()
+            val evidence = snapshot.latestPositiveRelayDataPlaneEvidence()
+            val inboundWatermark = snapshot.observeInboundDataPlaneProgress()
+            if (evidence == null && inboundWatermark == null) return null
+            val evidenceKey = evidence?.stableKey() ?: "tunnel-rx:$inboundWatermark"
             if (evidenceKey == lastPositiveDataPlaneEvidenceKey) return null
             lastPositiveDataPlaneEvidenceKey = evidenceKey
             val coordinator = relayHealthProbeCoordinator ?: return null
+            val observedAt = clock.nowMillis()
             return coordinator.observe(
                 RelayHealthObservation(
-                    attemptId = "data-plane-$sessionGeneration-${evidence.createdAt}",
+                    attemptId = "data-plane-$sessionGeneration-$observedAt",
                     profileToken = opaqueRelayProfileToken(active.profileId),
                     relayKind = active.relayKind,
                     capabilityProof = activeRequirements.toRelayCapabilityProof(),
@@ -835,10 +845,17 @@ class FailoverCoordinator
                     source = RelayHealthObservationSource.DataPlane,
                     outcome = RelayHealthObservationOutcome.Succeeded,
                     targetCategory = RelayTargetCategory.Unavailable,
-                    observedAtMs = clock.nowMillis(),
-                    dataPlaneWatermark = evidence.createdAt.coerceAtLeast(0L),
+                    observedAtMs = observedAt,
+                    dataPlaneWatermark = evidence?.createdAt?.coerceAtLeast(0L) ?: inboundWatermark,
                 ),
             )
+        }
+
+        private fun ServiceTelemetrySnapshot.observeInboundDataPlaneProgress(): Long? {
+            val current = tunnelStats.rxBytes.coerceAtLeast(0L)
+            val previous = observedTunnelRxBytes
+            observedTunnelRxBytes = current
+            return current.takeIf { previous != null && current > previous }
         }
 
         private fun clearActiveRelayFailure(snapshot: ServiceTelemetrySnapshot) {

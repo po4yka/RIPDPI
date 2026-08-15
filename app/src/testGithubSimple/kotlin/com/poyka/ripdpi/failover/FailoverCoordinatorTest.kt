@@ -532,6 +532,40 @@ class FailoverCoordinatorTest {
         }
 
     @Test
+    fun `inbound tunnel progress suppresses relay failure switch and cooldown`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 1_000L)
+            val healthMemory = RecordingSimpleEgressHealthMemory()
+            var probeCalls = 0
+            val fixture =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressHealthMemory = healthMemory,
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            probeCalls++
+                            FailoverEgressProbeResult(succeeded = false, failure = "tcp_connect")
+                        },
+                )
+            fixture.coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy", tunnelRxBytes = 100L))
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed", tunnelRxBytes = 200L))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed", tunnelRxBytes = 200L))
+            advanceUntilIdle()
+
+            assertEquals(
+                Triple(1, 0, emptyList<RecordingSimpleEgressHealthMemory.Failure>()),
+                Triple(probeCalls, fixture.controller.transportRestartCalls.size, healthMemory.failures),
+            )
+            assertTrue(healthMemory.clears.isNotEmpty())
+            fixture.coordinator.stopObserving()
+        }
+
+    @Test
     fun `outbound only counters do not mask repeated native relay stage failure`() =
         runTest {
             val stateStore = FakeServiceStateStore()
