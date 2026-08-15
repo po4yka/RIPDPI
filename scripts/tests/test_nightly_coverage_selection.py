@@ -68,8 +68,12 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         fleet_job = workflow_job(
             FLEET_FIXTURES_WORKFLOW.read_text(encoding="utf-8"), "fleet-fixtures"
         )
-        self.assertIn('setup-rust: "false"', fleet_job)
-        self.assertIn('setup-android-ndk: "false"', fleet_job)
+        # This job executes the pinned external emitter. Keep all repository cache
+        # actions out of that execution context; it only needs a JDK for Gradle's
+        # JVM-only FleetCompat test.
+        self.assertIn("actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654", fleet_job)
+        self.assertNotIn("uses: ./.github/actions/setup-android-rust", fleet_job)
+        self.assertNotIn("actions/cache", fleet_job)
 
     def test_composite_setup_can_skip_unused_toolchains(self) -> None:
         source = SETUP_ACTION.read_text(encoding="utf-8")

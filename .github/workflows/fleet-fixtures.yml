@@ -78,16 +78,15 @@ jobs:
           scripts/refresh-fleet-fixtures.sh --write
           git diff --exit-code -- core/data/src/test/resources/fleet-fixtures
 
-      - uses: ./.github/actions/setup-android-rust
+      # This job executes the pinned deployer emitter. Do not give that execution
+      # access to repository caches; a malicious cache write from a default-branch
+      # run could be restored by another workflow. This JVM-only test needs no SDK,
+      # Rust, or Gradle cache setup.
+      - name: Set up JDK for app-contract parsing
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
+          distribution: temurin
           java-version: "21"
-          rust-components: ""
-          rust-targets: ""
-          rust-cache-shared-key: rust-fleet-fixtures
-          rust-cache-save: "false"
-          setup-rust: "false"
-          setup-android-ndk: "false"
-          gradle-cache-read-only: "true"
 
       - name: Parse materialized fleet bundles through the app contract
         run: >-
