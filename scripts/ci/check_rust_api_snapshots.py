@@ -25,6 +25,7 @@ PUBLIC_API_NORMALIZATIONS = {
     "core::io::error::Error": "std::io::error::Error",
     "core::io::error::Result": "std::io::error::Result",
 }
+LINUX_ONLY_SNAPSHOT_CRATES = frozenset({"ripdpi-runtime-platform"})
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,11 @@ def snapshot_path(crate: WorkspaceCrate) -> Path:
     return crate.manifest_path.parent / "api-snapshot.txt"
 
 
+def should_check_snapshot_on_host(target: SnapshotTarget, platform: str = sys.platform) -> bool:
+    """Keep cfg-gated API snapshots owned by their canonical CI host."""
+    return target.crate.name not in LINUX_ONLY_SNAPSHOT_CRATES or platform.startswith("linux")
+
+
 def cargo_public_api(crate: WorkspaceCrate) -> str:
     manifest_path = crate.manifest_path.relative_to(RUST_ROOT)
     result = subprocess.run(
@@ -213,6 +219,9 @@ def check_snapshots(update: bool) -> int:
         flush=True,
     )
     for target in targets:
+        if not should_check_snapshot_on_host(target):
+            print(f"  {target.crate.name}: skipped on {sys.platform}; canonical snapshot is Linux-owned", flush=True)
+            continue
         relative_snapshot_path = snapshot_path(target.crate).relative_to(REPO_ROOT)
         print(f"  {target.crate.name}: {target.reason} -> {relative_snapshot_path.as_posix()}", flush=True)
         try:

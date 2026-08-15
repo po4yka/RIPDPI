@@ -90,6 +90,11 @@ pub(super) fn run_connectivity_group(
                 planned_steps.saturating_sub(runtime.completed_steps - completed_before_stage),
             );
         } else if stage_cancelled {
+            if runtime.is_past_deadline() && !runtime.is_cancelled() {
+                runtime.record_active_global_deadline_skips(
+                    planned_steps.saturating_sub(runtime.completed_steps - completed_before_stage),
+                );
+            }
             cancelled = true;
         }
         runtime.finish_stage();

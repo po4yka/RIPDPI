@@ -166,6 +166,11 @@ pub enum ripdpi_diagnostics_contracts::types::TransportPivotViability
 pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Blocked
 pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Confirmed
 pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Unknown
+pub struct ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::forced_abort: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::joined: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::started: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::stopped: usize
 pub struct ripdpi_diagnostics_contracts::types::CircumventionObservationFact
 pub ripdpi_diagnostics_contracts::types::CircumventionObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::types::CircumventionObservationFact::handshake_failure: ripdpi_diagnostics_contracts::TransportFailureKind
@@ -287,6 +292,7 @@ pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::probe_task_famil
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::profile_family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::scan_deadline_ms: u64
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::scan_kind: ripdpi_diagnostics_contracts::ScanKind
+pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::stage_executions: alloc::vec::Vec<ripdpi_diagnostics_contracts::ExecutionStageSnapshot>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::stage_order: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::strategy: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionPlanSnapshot>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::target_counts: ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts
@@ -304,6 +310,12 @@ pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::tcp_target_c
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::telegram_target_count: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::throughput_target_count: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::whitelist_sni_count: usize
+pub struct ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::executed_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::planned_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::stage_id: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -368,6 +380,7 @@ pub ripdpi_diagnostics_contracts::types::ScanProgress::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanReport
+pub ripdpi_diagnostics_contracts::types::ScanReport::candidate_runtime_cleanup: core::option::Option<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt>
 pub ripdpi_diagnostics_contracts::types::ScanReport::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanReport::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::types::ScanReport::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
@@ -443,6 +456,7 @@ pub struct ripdpi_diagnostics_contracts::types::SharedState
 pub ripdpi_diagnostics_contracts::types::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::types::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::types::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
+pub ripdpi_diagnostics_contracts::types::SharedState::terminal_session_id: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::approximate_fallback_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::eligibility: alloc::string::String
@@ -979,6 +993,11 @@ pub enum ripdpi_diagnostics_contracts::TransportPivotViability
 pub ripdpi_diagnostics_contracts::TransportPivotViability::Blocked
 pub ripdpi_diagnostics_contracts::TransportPivotViability::Confirmed
 pub ripdpi_diagnostics_contracts::TransportPivotViability::Unknown
+pub struct ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::forced_abort: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::joined: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::started: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::stopped: usize
 pub struct ripdpi_diagnostics_contracts::CircumventionObservationFact
 pub ripdpi_diagnostics_contracts::CircumventionObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::CircumventionObservationFact::handshake_failure: ripdpi_diagnostics_contracts::TransportFailureKind
@@ -1176,6 +1195,7 @@ pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::probe_task_families: al
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::profile_family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::scan_deadline_ms: u64
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::scan_kind: ripdpi_diagnostics_contracts::ScanKind
+pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::stage_executions: alloc::vec::Vec<ripdpi_diagnostics_contracts::ExecutionStageSnapshot>
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::stage_order: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::strategy: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionPlanSnapshot>
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::target_counts: ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts
@@ -1193,6 +1213,12 @@ pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::tcp_target_count: u
 pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::telegram_target_count: usize
 pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::throughput_target_count: usize
 pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::whitelist_sni_count: usize
+pub struct ripdpi_diagnostics_contracts::ExecutionStageSnapshot
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::executed_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::planned_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::stage_id: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -1272,6 +1298,7 @@ pub ripdpi_diagnostics_contracts::ScanProgress::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanReport
+pub ripdpi_diagnostics_contracts::ScanReport::candidate_runtime_cleanup: core::option::Option<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt>
 pub ripdpi_diagnostics_contracts::ScanReport::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanReport::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::ScanReport::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
@@ -1347,6 +1374,7 @@ pub struct ripdpi_diagnostics_contracts::SharedState
 pub ripdpi_diagnostics_contracts::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
+pub ripdpi_diagnostics_contracts::SharedState::terminal_session_id: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::approximate_fallback_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::eligibility: alloc::string::String

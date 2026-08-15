@@ -1,5 +1,4 @@
 use std::sync::Mutex;
-use std::time::Duration;
 
 use super::{CandidateCleanupReceipt, CandidateProbeRuntime};
 
@@ -31,7 +30,11 @@ impl CandidateRuntimeSupervisor {
     /// shut down and joined.  A terminal event must not be published before
     /// this barrier succeeds.
     pub(crate) fn terminal_receipt(&self) -> Option<CandidateCleanupReceipt> {
-        (*self.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner) == 0).then(|| self.receipt())
+        if *self.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner) != 0 {
+            return None;
+        }
+        let receipt = self.receipt();
+        (receipt.started == receipt.stopped && receipt.stopped == receipt.joined).then_some(receipt)
     }
 }
 
@@ -47,10 +50,12 @@ pub(crate) struct CandidateRuntimeLease<'a> {
 
 impl CandidateRuntimeLease<'_> {
     pub(crate) fn runtime(&self) -> &dyn CandidateProbeRuntime {
+        // Infallible: a lease exposes its runtime only before shutdown consumes it.
         self.runtime.as_deref().expect("candidate runtime lease must be live")
     }
 
     pub(crate) fn shutdown(mut self) -> CandidateCleanupReceipt {
+        // Infallible: shutdown takes ownership of a still-live lease.
         let receipt = self.runtime.take().expect("candidate runtime lease must be live").shutdown();
         self.finish(receipt);
         receipt
@@ -59,6 +64,7 @@ impl CandidateRuntimeLease<'_> {
     fn finish(&mut self, receipt: CandidateCleanupReceipt) {
         self.supervisor.record(receipt);
         let mut active = self.supervisor.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Infallible: each supervised lease increments once and finishes once.
         *active = active.checked_sub(1).expect("candidate runtime lease active count underflow");
     }
 }
@@ -67,7 +73,7 @@ impl Drop for CandidateRuntimeLease<'_> {
     fn drop(&mut self) {
         if let Some(mut runtime) = self.runtime.take() {
             runtime.request_shutdown();
-            let receipt = runtime.force_abort_and_join(Duration::from_secs(1));
+            let receipt = runtime.force_abort_and_join();
             self.finish(receipt);
         }
     }
@@ -93,7 +99,7 @@ mod tests {
 
         fn request_shutdown(&mut self) {}
 
-        fn force_abort_and_join(&mut self, _grace: Duration) -> CandidateCleanupReceipt {
+        fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
             self.forced_aborts.fetch_add(1, Ordering::SeqCst);
             CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
         }
@@ -183,5 +189,13 @@ mod tests {
         let next = CandidateRuntimeSupervisor::default();
 
         assert_eq!(next.terminal_receipt(), Some(CandidateCleanupReceipt::default()));
+    }
+
+    #[test]
+    fn terminal_barrier_rejects_incomplete_cleanup_receipt() {
+        let supervisor = CandidateRuntimeSupervisor::default();
+        supervisor.record(CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1 });
+
+        assert_eq!(supervisor.terminal_receipt(), None);
     }
 }

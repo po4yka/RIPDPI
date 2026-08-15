@@ -22,11 +22,11 @@ pub use report::{build_network_environment_probe, summarize_probe_event};
 /// A terminal session has a single, irreversible progress transition.
 pub fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) -> bool {
     let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if guard.terminal_sessions.contains(&progress.session_id) {
+    if guard.terminal_session_id.as_deref() == Some(progress.session_id.as_str()) {
         return false;
     }
     if progress.is_finished {
-        guard.terminal_sessions.insert(progress.session_id.clone());
+        guard.terminal_session_id = Some(progress.session_id.clone());
     }
     guard.progress = Some(progress);
     true
@@ -143,13 +143,13 @@ pub fn push_event(
     level: &str,
     message: String,
 ) -> bool {
-    let log_context = {
-        let guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if guard.terminal_sessions.contains(session_id) && message != "Diagnostics finished" {
-            return false;
-        }
-        guard.log_context.clone()
-    };
+    // Keep the terminal check and emission under one serialization boundary so
+    // a concurrent terminal transition cannot admit a late event.
+    let guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if guard.terminal_session_id.as_deref() == Some(session_id) && message != "Diagnostics finished" {
+        return false;
+    }
+    let log_context = guard.log_context.clone();
     emit_diagnostics_event(log_context.as_ref(), session_id, profile_id, path_mode, source, level, &message);
     true
 }

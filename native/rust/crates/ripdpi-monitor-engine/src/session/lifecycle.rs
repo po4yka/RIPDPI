@@ -86,6 +86,7 @@ impl MonitorSession {
             shared.progress = None;
             shared.report = None;
             shared.log_context = request.as_wire().log_context.clone();
+            shared.terminal_session_id = None;
         }
         let domain_request = request.into();
         *worker_guard = Some(spawn_scan_worker(

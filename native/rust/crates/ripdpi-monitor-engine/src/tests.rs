@@ -57,7 +57,7 @@ impl CandidateProbeRuntime for DirectCandidateRuntime {
 
     fn request_shutdown(&mut self) {}
 
-    fn force_abort_and_join(&mut self, _grace: std::time::Duration) -> CandidateCleanupReceipt {
+    fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
         CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
     }
 

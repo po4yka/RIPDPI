@@ -25,18 +25,35 @@ impl CandidateRuntimeLauncher for ProductionCandidateRuntimeLauncher {
         &self,
         prepared: PreparedCandidateRuntime,
     ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
-        let listener = ripdpi_proxy_runtime::create_listener(&prepared.config)
-            .map_err(|err| CandidateRuntimeError::Launch(err.to_string()))?;
-        let addr = listener.local_addr().map_err(|err| CandidateRuntimeError::Launch(err.to_string()))?;
-        let control = Arc::new(EmbeddedProxyControl::new_with_context(None, prepared.runtime_context));
-        let worker_control = control.clone();
-        let handle = thread::spawn(move || {
-            ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(prepared.config, listener, worker_control)
-                .map_err(|err| err.to_string())
-        });
-        wait_for_listener(addr).map_err(CandidateRuntimeError::Launch)?;
-        Ok(Box::new(TemporaryProxyRuntime { addr, control, handle: Some(handle) }))
+        start_candidate_runtime_with_readiness(prepared, wait_for_listener)
     }
+}
+
+fn start_candidate_runtime_with_readiness(
+    prepared: PreparedCandidateRuntime,
+    readiness: impl FnOnce(SocketAddr) -> Result<(), String>,
+) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
+    let listener = ripdpi_proxy_runtime::create_listener(&prepared.config)
+        .map_err(|err| CandidateRuntimeError::Launch(err.to_string()))?;
+    let addr = listener.local_addr().map_err(|err| CandidateRuntimeError::Launch(err.to_string()))?;
+    let control = Arc::new(EmbeddedProxyControl::new_with_context(None, prepared.runtime_context));
+    let worker_control = control.clone();
+    let handle = thread::spawn(move || {
+        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(prepared.config, listener, worker_control)
+            .map_err(|err| err.to_string())
+    });
+    finish_runtime_readiness(TemporaryProxyRuntime { addr, control, handle: Some(handle) }, readiness)
+}
+
+fn finish_runtime_readiness(
+    mut runtime: TemporaryProxyRuntime,
+    readiness: impl FnOnce(SocketAddr) -> Result<(), String>,
+) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
+    if let Err(error) = readiness(runtime.addr) {
+        let _ = runtime.force_abort_and_join();
+        return Err(CandidateRuntimeError::Launch(error));
+    }
+    Ok(Box::new(runtime))
 }
 
 impl CandidateProbeRuntime for TemporaryProxyRuntime {
@@ -49,22 +66,29 @@ impl CandidateProbeRuntime for TemporaryProxyRuntime {
         let _ = TcpStream::connect(self.addr);
     }
 
-    fn force_abort_and_join(&mut self, _grace: std::time::Duration) -> CandidateCleanupReceipt {
+    fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
         self.request_shutdown();
-        let joined = self.handle.take().and_then(|handle| handle.join().ok()).and_then(Result::ok);
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: usize::from(joined.is_some()), forced_abort: 1 }
+        join_runtime(&mut self.handle, true)
     }
 
     fn shutdown(mut self: Box<Self>) -> CandidateCleanupReceipt {
         self.request_shutdown();
-        let joined = self.handle.take().and_then(|handle| handle.join().ok()).and_then(Result::ok);
-        CandidateCleanupReceipt {
-            started: 1,
-            stopped: 1,
-            joined: usize::from(joined.is_some()),
-            forced_abort: usize::from(joined.is_some_and(|receipt| receipt.forced_abort)),
-        }
+        join_runtime(&mut self.handle, false)
     }
+}
+
+fn join_runtime(
+    handle: &mut Option<JoinHandle<Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String>>>,
+    forced: bool,
+) -> CandidateCleanupReceipt {
+    let Some(handle) = handle.take() else {
+        return CandidateCleanupReceipt::default();
+    };
+    let forced_abort = match handle.join() {
+        Ok(Ok(receipt)) => usize::from(receipt.forced_abort),
+        Ok(Err(_)) | Err(_) => usize::from(forced),
+    };
+    CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort }
 }
 
 impl Drop for TemporaryProxyRuntime {
@@ -74,5 +98,47 @@ impl Drop for TemporaryProxyRuntime {
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn joined_runtime_error_still_counts_as_joined() {
+        let mut handle = Some(thread::spawn(|| Err("runtime failed".to_string())));
+
+        let receipt = join_runtime(&mut handle, false);
+
+        assert_eq!(receipt, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
+    }
+
+    #[test]
+    fn joined_runtime_panic_still_counts_as_joined() {
+        let mut handle = Some(thread::spawn(|| -> Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String> {
+            panic!("synthetic runtime panic")
+        }));
+
+        let receipt = join_runtime(&mut handle, true);
+
+        assert_eq!(receipt, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+    }
+
+    #[test]
+    fn readiness_failure_stops_spawned_runtime_before_returning() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind test listener");
+        let addr = listener.local_addr().expect("test listener address");
+        let control = Arc::new(EmbeddedProxyControl::new_with_context(None, None));
+        let handle = thread::spawn(move || {
+            let _ = listener.accept();
+            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::default())
+        });
+        let runtime = TemporaryProxyRuntime { addr, control, handle: Some(handle) };
+
+        let result = finish_runtime_readiness(runtime, |_| Err("synthetic readiness failure".to_string()));
+
+        assert!(matches!(result, Err(CandidateRuntimeError::Launch(_))));
+        assert!(TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(100)).is_err());
     }
 }

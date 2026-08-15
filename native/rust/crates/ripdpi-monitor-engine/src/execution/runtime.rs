@@ -97,7 +97,7 @@ mod tests {
 
         fn request_shutdown(&mut self) {}
 
-        fn force_abort_and_join(&mut self, _grace: Duration) -> CandidateCleanupReceipt {
+        fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
             CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
         }
 
@@ -247,7 +247,7 @@ mod tests {
             Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } });
 
         runtime.request_shutdown();
-        let receipt = runtime.force_abort_and_join(std::time::Duration::ZERO);
+        let receipt = runtime.force_abort_and_join();
 
         assert_eq!(receipt.forced_abort, 1);
         assert_eq!(receipt.joined, 1);

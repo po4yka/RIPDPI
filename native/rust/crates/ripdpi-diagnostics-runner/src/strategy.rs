@@ -64,10 +64,7 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
     let mut classified = None;
     let mut encrypted_ip_overrides: Vec<(String, IpAddr)> = Vec::new();
 
-    for target in targets {
-        if should_skip_strategy_dns_target(target) {
-            continue;
-        }
+    visit_strategy_dns_targets_until_cancelled(targets, &is_cancelled, |target| {
         let system_resolution = resolve_system_target(target);
         let oracle_assessment = fallback_encrypted_dns_assessment(
             target,
@@ -84,7 +81,7 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
             &system_resolution,
             &oracle_assessment,
         ) else {
-            continue;
+            return;
         };
         let encrypted_ips = evaluation.encrypted_ips;
         let tampering_detected = evaluation.tampering_detected;
@@ -101,9 +98,24 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
                 );
             }
         }
-    }
+    });
 
     classified.map(|failure| StrategyProbeBaseline { failure, results, encrypted_ip_overrides })
+}
+
+fn visit_strategy_dns_targets_until_cancelled(
+    targets: &[DomainTarget],
+    is_cancelled: &impl Fn() -> bool,
+    mut visit: impl FnMut(&DomainTarget),
+) {
+    for target in targets {
+        if is_cancelled() {
+            break;
+        }
+        if !should_skip_strategy_dns_target(target) {
+            visit(target);
+        }
+    }
 }
 
 fn evaluate_strategy_dns_target(
@@ -146,8 +158,8 @@ mod tests {
     use crate::strategy::adapters::dns_oracle::{DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles};
     use crate::types::DomainTarget;
 
-    use super::evaluate_strategy_dns_target;
     use super::resolution::SystemDnsResolution;
+    use super::{evaluate_strategy_dns_target, visit_strategy_dns_targets_until_cancelled};
 
     fn endpoint(id: &str) -> EncryptedDnsEndpoint {
         EncryptedDnsEndpoint {
@@ -189,6 +201,15 @@ mod tests {
             is_control: false,
             concurrency_probe: None,
         }
+    }
+
+    #[test]
+    fn cancelled_strategy_dns_does_not_start_system_resolution() {
+        let mut visited = 0;
+
+        visit_strategy_dns_targets_until_cancelled(&[target(), target()], &|| true, |_| visited += 1);
+
+        assert_eq!(visited, 0);
     }
 
     #[test]

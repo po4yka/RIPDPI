@@ -29,7 +29,7 @@ impl ExecutionCoordinator {
     ) -> RunnerOutcome {
         let mut parallel_done = HashSet::new();
 
-        for stage in &plan.stage_order {
+        for (stage_index, stage) in plan.stage_order.iter().enumerate() {
             if parallel_done.contains(stage) {
                 continue;
             }
@@ -38,6 +38,14 @@ impl ExecutionCoordinator {
 
                 if parallel_runners.len() > 1 {
                     if runtime.is_cancelled() || runtime.is_past_deadline() {
+                        if runtime.is_past_deadline() && !runtime.is_cancelled() {
+                            record_remaining_global_deadline_skips(
+                                plan,
+                                &self.runners,
+                                &plan.stage_order[stage_index..],
+                                runtime,
+                            );
+                        }
                         return RunnerOutcome::Cancelled;
                     }
                     let parallel_target_count = parallel::total_steps(&parallel_runners, &self.runners, plan);
@@ -55,8 +63,21 @@ impl ExecutionCoordinator {
                     let outcome =
                         parallel::run_connectivity_group(plan, runtime, &self.runners, &parallel_runners, tls_verifier);
                     runtime.set_stage_deadline(None);
-                    parallel_done.extend(parallel_runners);
+                    parallel_done.extend(parallel_runners.iter().copied());
                     if !matches!(outcome, RunnerOutcome::Completed) {
+                        if runtime.is_past_deadline() && !runtime.is_cancelled() {
+                            for remaining_stage in &plan.stage_order[stage_index..] {
+                                if parallel_done.contains(remaining_stage) {
+                                    continue;
+                                }
+                                if let Some(runner) = self.runners.get(remaining_stage) {
+                                    let planned_steps = runner.total_steps(plan);
+                                    if planned_steps > 0 {
+                                        runtime.record_global_deadline_stage(remaining_stage.as_str(), planned_steps);
+                                    }
+                                }
+                            }
+                        }
                         return outcome;
                     }
                     continue;
@@ -66,6 +87,14 @@ impl ExecutionCoordinator {
                 continue;
             };
             if runtime.is_cancelled() || runtime.is_past_deadline() {
+                if runtime.is_past_deadline() && !runtime.is_cancelled() {
+                    record_remaining_global_deadline_skips(
+                        plan,
+                        &self.runners,
+                        &plan.stage_order[stage_index..],
+                        runtime,
+                    );
+                }
                 return RunnerOutcome::Cancelled;
             }
             if runner.total_steps(plan) == 0 {
@@ -91,6 +120,17 @@ impl ExecutionCoordinator {
                     continue;
                 }
                 RunnerOutcome::Cancelled => {
+                    if runtime.is_past_deadline() && !runtime.is_cancelled() {
+                        runtime.record_active_global_deadline_skips(
+                            planned_stage_steps.saturating_sub(runtime.completed_steps - completed_before_stage),
+                        );
+                        record_remaining_global_deadline_skips(
+                            plan,
+                            &self.runners,
+                            &plan.stage_order[stage_index + 1..],
+                            runtime,
+                        );
+                    }
                     runtime.finish_stage();
                     return RunnerOutcome::Cancelled;
                 }
@@ -106,5 +146,25 @@ impl ExecutionCoordinator {
             runtime.finish_stage();
         }
         RunnerOutcome::Completed
+    }
+}
+fn record_remaining_global_deadline_skips(
+    plan: &ExecutionPlan,
+    runners: &BTreeMap<ExecutionStageId, Box<dyn ExecutionStageRunner + Send + Sync>>,
+    remaining_stages: &[ExecutionStageId],
+    runtime: &mut ExecutionRuntime,
+) {
+    let mut recorded = HashSet::new();
+    for stage in remaining_stages {
+        if !recorded.insert(stage.clone()) {
+            continue;
+        }
+        let Some(runner) = runners.get(stage) else {
+            continue;
+        };
+        let planned_steps = runner.total_steps(plan);
+        if planned_steps > 0 {
+            runtime.record_global_deadline_stage(stage.as_str(), planned_steps);
+        }
     }
 }

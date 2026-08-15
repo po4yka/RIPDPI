@@ -344,6 +344,32 @@ fn stage_budget_exhaustion_skips_only_its_stage_and_advances_progress() {
 }
 
 #[test]
+fn global_deadline_records_every_unstarted_stage_as_skipped() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    runtime.set_scan_deadline(std::time::Instant::now() - Duration::from_millis(1));
+    let mut plan = connectivity_parallel_plan();
+    plan.stage_order = vec![ExecutionStageId::Dns, ExecutionStageId::Service];
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Dns, work: Duration::from_millis(1) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Service, work: Duration::from_millis(1) }),
+    ]);
+
+    let outcome = coordinator.run(&plan, &mut runtime, None);
+    let snapshots = runtime.stage_executions();
+
+    assert!(matches!(outcome, RunnerOutcome::Cancelled));
+    assert_eq!(
+        snapshots
+            .iter()
+            .map(|stage| (stage.stage_id.as_str(), stage.skipped_by_global_deadline_steps))
+            .collect::<Vec<_>>(),
+        vec![("dns", 1), ("service", 1)]
+    );
+}
+
+#[test]
 fn small_executable_budget_is_fair_to_every_configured_late_stage() {
     let shared = Arc::new(Mutex::new(SharedState::default()));
     let cancel = Arc::new(AtomicBool::new(false));

@@ -29,6 +29,16 @@ def dependency(name: str, kind: str | None = None) -> dict[str, object]:
 
 
 class RustApiSnapshotTests(unittest.TestCase):
+    def test_runtime_platform_snapshot_is_checked_only_on_linux(self) -> None:
+        target = sut.SnapshotTarget(
+            crate=sut.WorkspaceCrate("ripdpi-runtime-platform", Path("crates/runtime/Cargo.toml")),
+            indegree=11,
+            reason="high indegree",
+        )
+
+        self.assertFalse(sut.should_check_snapshot_on_host(target, platform="darwin"))
+        self.assertTrue(sut.should_check_snapshot_on_host(target, platform="linux"))
+
     def test_workspace_crates_from_metadata_keeps_only_crates_root_members(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
