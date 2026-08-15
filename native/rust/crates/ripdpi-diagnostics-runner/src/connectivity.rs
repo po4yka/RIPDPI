@@ -18,15 +18,18 @@ pub use probes::{
 };
 pub use report::{build_network_environment_probe, summarize_probe_event};
 
-pub fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {
+/// Stores progress and returns whether this session transition was accepted.
+/// A terminal session has a single, irreversible progress transition.
+pub fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) -> bool {
     let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if guard.terminal_sessions.contains(&progress.session_id) {
-        return;
+        return false;
     }
     if progress.is_finished {
         guard.terminal_sessions.insert(progress.session_id.clone());
     }
     guard.progress = Some(progress);
+    true
 }
 
 pub fn set_report(shared: &Arc<Mutex<SharedState>>, report: ScanReport) {
@@ -247,5 +250,22 @@ mod tests {
             "info",
             "upstream connected".to_string(),
         ));
+        assert!(
+            !set_progress(
+                &shared,
+                ScanProgress {
+                    session_id: "terminal-session".to_string(),
+                    phase: "finished".to_string(),
+                    completed_steps: 1,
+                    total_steps: 1,
+                    message: "Diagnostics finished".to_string(),
+                    is_finished: true,
+                    latest_probe_target: None,
+                    latest_probe_outcome: None,
+                    strategy_probe_progress: None,
+                },
+            ),
+            "a session cannot publish a second terminal transition"
+        );
     }
 }

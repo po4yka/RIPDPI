@@ -274,7 +274,7 @@ fn publish_finished_progress(
     path_mode: &crate::types::ScanPathMode,
     total_steps: usize,
 ) {
-    set_progress(
+    if !set_progress(
         shared,
         ScanProgress {
             session_id: session_id.to_string(),
@@ -287,6 +287,8 @@ fn publish_finished_progress(
             latest_probe_outcome: None,
             strategy_probe_progress: None,
         },
-    );
+    ) {
+        return;
+    }
     push_event(shared, session_id, profile_id, path_mode, "engine", "info", "Diagnostics finished".to_string());
 }
