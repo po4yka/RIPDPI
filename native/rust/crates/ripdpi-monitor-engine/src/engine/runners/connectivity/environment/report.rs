@@ -8,7 +8,7 @@ pub(super) fn finish_offline_scan(plan: &ExecutionPlan, runtime: &mut ExecutionR
             session_id: plan.session_id.clone(),
             request: plan.request.clone(),
             started_at: plan.started_at,
-            execution_plan: Some(plan.snapshot()),
+            execution_plan: Some(plan.snapshot(runtime.stage_executions())),
         },
         connectivity_summary(&runtime.results, &plan.request.path_mode),
         runtime.results.clone(),

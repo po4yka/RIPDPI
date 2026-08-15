@@ -18,6 +18,16 @@ data class ExecutionPlanSnapshot(
     val probeTaskFamilies: List<ExecutionPlanProbeTaskFamily> = emptyList(),
     val targetCounts: ExecutionPlanTargetCounts,
     val strategy: StrategyExecutionPlanSnapshot? = null,
+    val stageExecutions: List<ExecutionStageSnapshot> = emptyList(),
+)
+
+@Serializable
+data class ExecutionStageSnapshot(
+    val stageId: String,
+    val plannedSteps: Int,
+    val executedSteps: Int,
+    val skippedByStageBudgetSteps: Int,
+    val skippedByGlobalDeadlineSteps: Int,
 )
 
 @Serializable

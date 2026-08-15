@@ -31,7 +31,7 @@ pub(in crate::engine) fn publish_cancelled_run(
             session_id: plan.session_id.clone(),
             request: plan.request.clone(),
             started_at: plan.started_at,
-            execution_plan: Some(plan.snapshot()),
+            execution_plan: Some(plan.snapshot(runtime.stage_executions())),
         },
         summary,
         runtime.results,

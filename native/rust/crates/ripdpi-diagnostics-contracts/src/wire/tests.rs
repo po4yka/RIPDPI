@@ -356,5 +356,6 @@ fn execution_plan_fixture() -> ExecutionPlanSnapshot {
             short_circuit_quic_burst: true,
             family_failure_threshold: 3,
         }),
+        stage_executions: Vec::new(),
     }
 }

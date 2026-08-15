@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
+use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -75,13 +76,58 @@ impl ExecutionCoordinator {
             if runner.total_steps(plan) == 0 {
                 continue;
             }
-            match runner.run(plan, runtime, tls_verifier) {
+            let completed_before_stage = runtime.completed_steps;
+            let planned_stage_steps = runner.total_steps(plan);
+            runtime.begin_stage(stage.as_str(), planned_stage_steps);
+            runtime.set_stage_deadline(stage_budget_deadline(plan, &self.runners, stage, runtime));
+            let outcome = runner.run(plan, runtime, tls_verifier);
+            let stage_exhausted = runtime.is_past_stage_deadline() && !runtime.is_past_deadline();
+            runtime.set_stage_deadline(None);
+            match outcome {
                 RunnerOutcome::Completed => {}
-                RunnerOutcome::Cancelled => return RunnerOutcome::Cancelled,
-                RunnerOutcome::Finished => return RunnerOutcome::Finished,
-                RunnerOutcome::Failed(message) => return RunnerOutcome::Failed(message),
+                RunnerOutcome::Cancelled if stage_exhausted => {
+                    runtime.record_stage_budget_skips(
+                        plan,
+                        runner.phase(),
+                        stage.as_str(),
+                        planned_stage_steps.saturating_sub(runtime.completed_steps - completed_before_stage),
+                    );
+                    runtime.finish_stage();
+                    continue;
+                }
+                RunnerOutcome::Cancelled => {
+                    runtime.finish_stage();
+                    return RunnerOutcome::Cancelled;
+                }
+                RunnerOutcome::Finished => {
+                    runtime.finish_stage();
+                    return RunnerOutcome::Finished;
+                }
+                RunnerOutcome::Failed(message) => {
+                    runtime.finish_stage();
+                    return RunnerOutcome::Failed(message);
+                }
             }
+            runtime.finish_stage();
         }
         RunnerOutcome::Completed
     }
+}
+
+fn stage_budget_deadline(
+    plan: &ExecutionPlan,
+    runners: &BTreeMap<ExecutionStageId, Box<dyn ExecutionStageRunner + Send + Sync>>,
+    current_stage: &ExecutionStageId,
+    runtime: &ExecutionRuntime,
+) -> Option<Instant> {
+    let global_deadline = runtime.scan_deadline()?;
+    let remaining_stages = plan
+        .stage_order
+        .iter()
+        .skip_while(|stage| *stage != current_stage)
+        .filter(|stage| runners.get(*stage).is_some_and(|runner| runner.total_steps(plan) > 0))
+        .count();
+    let remaining = global_deadline.checked_duration_since(Instant::now())?;
+    let stage_count = u32::try_from(remaining_stages.max(1)).unwrap_or(u32::MAX);
+    Some(Instant::now() + remaining / stage_count)
 }

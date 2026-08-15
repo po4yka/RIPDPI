@@ -1,5 +1,6 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use super::coordinator::ExecutionCoordinator;
 use super::recording::{CollectedStageOutcome, CollectedStep};
@@ -160,6 +161,89 @@ struct FakeStageRunner {
     panics: bool,
 }
 
+/// A probe runner which consumes all currently assigned I/O time when its
+/// configured work cannot fit. This mirrors a slow synchronous network probe:
+/// it must respect the runtime's active deadline rather than inventing its own
+/// timeout.
+struct DeadlineAwareStageRunner {
+    stage: ExecutionStageId,
+    work: Duration,
+}
+
+struct StageBudgetCancellingRunner {
+    stage: ExecutionStageId,
+    work: Duration,
+}
+
+impl ExecutionStageRunner for StageBudgetCancellingRunner {
+    fn id(&self) -> ExecutionStageId {
+        self.stage.clone()
+    }
+
+    fn phase(&self) -> &'static str {
+        "stage_budget_fake"
+    }
+
+    fn total_steps(&self, _plan: &ExecutionPlan) -> usize {
+        1
+    }
+
+    fn run_collecting(
+        &self,
+        _plan: &ExecutionPlan,
+        _cancel: &AtomicBool,
+        _tls_verifier: Option<&Arc<dyn rustls::client::danger::ServerCertVerifier>>,
+    ) -> CollectedStageOutcome {
+        let permitted = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(self.work)
+            .expect("stage begins with an assigned slice");
+        std::thread::sleep(permitted);
+        CollectedStageOutcome::Cancelled(Vec::new())
+    }
+}
+
+impl ExecutionStageRunner for DeadlineAwareStageRunner {
+    fn id(&self) -> ExecutionStageId {
+        self.stage.clone()
+    }
+
+    fn phase(&self) -> &'static str {
+        "deadline_aware_fake"
+    }
+
+    fn total_steps(&self, _plan: &ExecutionPlan) -> usize {
+        1
+    }
+
+    fn run_collecting(
+        &self,
+        _plan: &ExecutionPlan,
+        _cancel: &AtomicBool,
+        _tls_verifier: Option<&Arc<dyn rustls::client::danger::ServerCertVerifier>>,
+    ) -> CollectedStageOutcome {
+        let permitted = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(self.work)
+            .expect("coordinator must not start a stage after its assigned budget expires");
+        std::thread::sleep(permitted);
+        let probe = ProbeResult {
+            probe_type: self.stage.as_str().to_string(),
+            target: format!("{} target", self.stage.as_str()),
+            outcome: if permitted < self.work { "skipped_by_stage_budget" } else { "ok" }.to_string(),
+            details: Vec::new(),
+        };
+        CollectedStageOutcome::Completed(vec![CollectedStep {
+            phase: "deadline_aware_fake",
+            message: format!("{} completed", self.stage.as_str()),
+            latest_probe_target: Some(probe.target.clone()),
+            latest_probe_outcome: Some(probe.outcome.clone()),
+            artifacts: RunnerArtifacts::from_results(
+                vec![probe],
+                "deadline_aware_fake",
+                "info",
+                format!("{} completed", self.stage.as_str()),
+            ),
+        }])
+    }
+}
+
 impl ExecutionStageRunner for FakeStageRunner {
     fn id(&self) -> ExecutionStageId {
         self.stage.clone()
@@ -203,6 +287,85 @@ fn connectivity_parallel_plan() -> ExecutionPlan {
     plan.request.kind = ScanKind::Connectivity;
     plan.stage_order = vec![ExecutionStageId::Dns, ExecutionStageId::Tcp, ExecutionStageId::Quic];
     plan
+}
+
+#[test]
+fn slow_early_stages_leave_budget_for_all_configured_late_probe_families() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    runtime.set_scan_deadline(std::time::Instant::now() + Duration::from_millis(250));
+    let mut plan = connectivity_parallel_plan();
+    plan.stage_order = vec![
+        ExecutionStageId::Dns,
+        ExecutionStageId::Web,
+        ExecutionStageId::Service,
+        ExecutionStageId::Telegram,
+        ExecutionStageId::Throughput,
+    ];
+
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Dns, work: Duration::from_millis(140) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Web, work: Duration::from_millis(140) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Service, work: Duration::from_millis(1) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Telegram, work: Duration::from_millis(1) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Throughput, work: Duration::from_millis(1) }),
+    ]);
+
+    assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Completed));
+    let executed: Vec<&str> = runtime.results.iter().map(|result| result.probe_type.as_str()).collect();
+    assert!(executed.contains(&"service"), "service must retain an executable budget: {executed:?}");
+    assert!(executed.contains(&"telegram"), "telegram must retain an executable budget: {executed:?}");
+    assert!(executed.contains(&"throughput"), "throughput must retain an executable budget: {executed:?}");
+}
+
+#[test]
+fn stage_budget_exhaustion_skips_only_its_stage_and_advances_progress() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    runtime.set_scan_deadline(std::time::Instant::now() + Duration::from_millis(250));
+    let mut plan = connectivity_parallel_plan();
+    plan.total_steps = 2;
+    plan.stage_order = vec![ExecutionStageId::Dns, ExecutionStageId::Service];
+
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(StageBudgetCancellingRunner { stage: ExecutionStageId::Dns, work: Duration::from_millis(400) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Service, work: Duration::from_millis(1) }),
+    ]);
+
+    assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Completed));
+    assert_eq!(runtime.completed_steps, plan.total_steps, "skipped stage work must consume planned progress");
+    assert!(runtime.results.iter().any(|result| result.probe_type == "service"));
+    assert!(runtime.results.iter().any(|result| result.outcome == "skipped_by_stage_budget"));
+    assert_eq!(runtime.stage_executions()[0].executed_steps, 0);
+    assert_eq!(runtime.stage_executions()[0].skipped_by_stage_budget_steps, 1);
+    assert_eq!(runtime.stage_executions()[1].executed_steps, 1);
+}
+
+#[test]
+fn small_executable_budget_is_fair_to_every_configured_late_stage() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    runtime.set_scan_deadline(std::time::Instant::now() + Duration::from_millis(360));
+    let mut plan = connectivity_parallel_plan();
+    plan.stage_order = vec![
+        ExecutionStageId::Dns, ExecutionStageId::Web, ExecutionStageId::Service,
+        ExecutionStageId::Circumvention, ExecutionStageId::Telegram, ExecutionStageId::Throughput,
+    ];
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Dns, work: Duration::from_millis(120) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Web, work: Duration::from_millis(120) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Service, work: Duration::from_millis(1) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Circumvention, work: Duration::from_millis(1) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Telegram, work: Duration::from_millis(1) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Throughput, work: Duration::from_millis(1) }),
+    ]);
+    assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Completed));
+    for stage in ["service", "circumvention", "telegram", "throughput"] {
+        assert!(runtime.results.iter().any(|result| result.probe_type == stage), "missing {stage}");
+    }
 }
 
 #[test]

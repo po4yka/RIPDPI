@@ -2,14 +2,14 @@ use crate::candidates::{CandidateEligibility, CandidateWarmup, StrategyCandidate
 use crate::engine::strategy_plan::StrategyExecutionPlan;
 use crate::transport::TransportConfig;
 use crate::types::{
-    EXECUTION_PLAN_VERSION, ExecutionPlanSnapshot, ExecutionPlanTargetCounts, ProbeTaskFamily,
+    EXECUTION_PLAN_VERSION, ExecutionPlanSnapshot, ExecutionPlanTargetCounts, ExecutionStageSnapshot, ProbeTaskFamily,
     StrategyCandidatePlanSnapshot, StrategyExecutionPlanSnapshot,
 };
 
 use super::ExecutionPlan;
 
 impl ExecutionPlan {
-    pub(in crate::engine) fn snapshot(&self) -> ExecutionPlanSnapshot {
+    pub(in crate::engine) fn snapshot(&self, stage_executions: Vec<ExecutionStageSnapshot>) -> ExecutionPlanSnapshot {
         let mut probe_task_families: Vec<ProbeTaskFamily> = Vec::new();
         for task in &self.request.probe_tasks {
             if !probe_task_families.contains(&task.family) {
@@ -47,6 +47,7 @@ impl ExecutionPlan {
                 strategy_selected_quic_count: strategy_selection.map_or(0, |selection| selection.quic_hosts.len()),
             },
             strategy: self.strategy.as_ref().map(strategy_snapshot),
+            stage_executions,
         }
     }
 }

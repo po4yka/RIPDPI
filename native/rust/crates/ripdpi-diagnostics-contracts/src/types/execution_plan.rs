@@ -22,6 +22,18 @@ pub struct ExecutionPlanSnapshot {
     pub target_counts: ExecutionPlanTargetCounts,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy: Option<StrategyExecutionPlanSnapshot>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stage_executions: Vec<ExecutionStageSnapshot>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionStageSnapshot {
+    pub stage_id: String,
+    pub planned_steps: usize,
+    pub executed_steps: usize,
+    pub skipped_by_stage_budget_steps: usize,
+    pub skipped_by_global_deadline_steps: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

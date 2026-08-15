@@ -13,7 +13,7 @@ pub(super) fn run<Runner: ExecutionStageRunner + ?Sized>(
     runtime: &mut ExecutionRuntime,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> RunnerOutcome {
-    let deadline = runtime.scan_deadline();
+    let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
     let collected = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
         runner.run_collecting(plan, runtime.cancel_token(), tls_verifier)
     });
