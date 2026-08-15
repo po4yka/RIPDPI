@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -106,6 +106,11 @@ fun RipDpiButton(
                     components.buttons.focusedHorizontalPaddingOffset
             }
         }
+    val contentIconSize =
+        when (density) {
+            RipDpiControlDensity.Default -> RipDpiIconSizes.Default
+            RipDpiControlDensity.Compact -> RipDpiIconSizes.Small
+        }
     val animatedContainerColor by animateColorAsState(
         targetValue = state.container,
         animationSpec = motion.stateTween(),
@@ -170,7 +175,7 @@ fun RipDpiButton(
         ) {
             if (loading || leadingIcon != null) {
                 Box(
-                    modifier = Modifier.size(RipDpiIconSizes.Default),
+                    modifier = Modifier.size(contentIconSize),
                     contentAlignment = Alignment.Center,
                 ) {
                     AnimatedContent(
@@ -188,7 +193,7 @@ fun RipDpiButton(
                                 RipDpiStaticCircularProgressIndicator(
                                     modifier = Modifier.size(RipDpiIconSizes.Small),
                                     color = animatedContentColor,
-                                    trackColor = ProgressIndicatorDefaults.circularIndeterminateTrackColor,
+                                    trackColor = RipDpiThemeTokens.colors.muted,
                                     strokeWidth = RipDpiStroke.Thick,
                                 )
                             } else {
@@ -200,7 +205,7 @@ fun RipDpiButton(
                             }
                         } else {
                             leadingIcon?.let {
-                                RipDpiButtonIcon(icon = it, tint = animatedContentColor)
+                                RipDpiButtonIcon(icon = it, tint = animatedContentColor, size = contentIconSize)
                             }
                         }
                     }
@@ -218,7 +223,7 @@ fun RipDpiButton(
 
             if (trailingIcon != null) {
                 Box(
-                    modifier = Modifier.size(RipDpiIconSizes.Default),
+                    modifier = Modifier.size(contentIconSize),
                     contentAlignment = Alignment.Center,
                 ) {
                     AnimatedContent(
@@ -227,7 +232,7 @@ fun RipDpiButton(
                         label = "buttonTrailingContent",
                     ) { isLoading ->
                         if (!isLoading) {
-                            RipDpiButtonIcon(icon = trailingIcon, tint = animatedContentColor)
+                            RipDpiButtonIcon(icon = trailingIcon, tint = animatedContentColor, size = contentIconSize)
                         }
                     }
                 }
@@ -245,12 +250,13 @@ internal fun shouldUseStaticButtonLoadingIndicator(
 private fun RipDpiButtonIcon(
     icon: ImageVector,
     tint: Color,
+    size: Dp,
 ) {
     androidx.compose.material3.Icon(
         imageVector = icon,
         contentDescription = null,
         tint = tint,
-        modifier = Modifier.size(RipDpiIconSizes.Default),
+        modifier = Modifier.size(size),
     )
 }
 

@@ -154,8 +154,12 @@ private fun stageSegmentColor(
     val colors = RipDpiThemeTokens.colors
     return when {
         index < completedCount -> colors.success
+
         index < completedCount + failedCount -> colors.destructive
-        else -> colors.mutedForeground
+
+        // The empty part of a track is a surface, not text: RipDpiProgressBar and RipDpiSpinner
+        // both use `muted` for it, and `mutedForeground` read as a filled mid-grey segment.
+        else -> colors.muted
     }
 }
 
