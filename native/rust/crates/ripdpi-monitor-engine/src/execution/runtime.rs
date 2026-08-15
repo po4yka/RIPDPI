@@ -11,7 +11,10 @@ use std::time::Duration;
 
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
-pub use contracts::{CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime};
+pub use contracts::{
+    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
+    PreparedCandidateRuntime,
+};
 pub use launch::probe_runtime_transport;
 pub(crate) use tcp_launch::probe_tcp_runtime_transport;
 pub use unavailable::UnavailableCandidateRuntimeLauncher;

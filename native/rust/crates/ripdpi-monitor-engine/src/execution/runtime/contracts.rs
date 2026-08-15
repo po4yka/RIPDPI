@@ -27,8 +27,21 @@ pub struct PreparedCandidateRuntime {
     pub runtime_context: Option<ProxyRuntimeContext>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CandidateCleanupReceipt {
+    pub started: usize,
+    pub stopped: usize,
+    pub joined: usize,
+    pub forced_abort: usize,
+}
+
 pub trait CandidateProbeRuntime: Send {
     fn transport(&self) -> TransportConfig;
+
+    fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
+        drop(self);
+        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
+    }
 }
 
 pub trait CandidateRuntimeLauncher: Send + Sync {

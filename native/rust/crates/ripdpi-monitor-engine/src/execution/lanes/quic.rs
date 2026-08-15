@@ -38,7 +38,7 @@ pub fn execute_quic_candidate(
                 .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
                 if cancel.load(Ordering::Acquire) {
-                    drop(runtime);
+                    let _cleanup = runtime.shutdown();
                     return cancelled_candidate_execution(spec, score, 2);
                 }
                 if index > 0 {
@@ -46,7 +46,7 @@ pub fn execute_quic_candidate(
                 }
                 score.add(run_quic_strategy_probe(&transport, target, spec));
             }
-            drop(runtime);
+            let _cleanup = runtime.shutdown();
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",

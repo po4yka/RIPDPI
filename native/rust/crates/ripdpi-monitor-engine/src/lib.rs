@@ -35,7 +35,10 @@ mod test_fixtures;
 mod tests;
 
 pub use engine::probe_descriptors_as_json;
-pub use execution::{CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime};
+pub use execution::{
+    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
+    PreparedCandidateRuntime,
+};
 pub use platform::{MonitorPlatformBridge, ScopedMonitorLogLevel};
 pub use session::MonitorSession;
 

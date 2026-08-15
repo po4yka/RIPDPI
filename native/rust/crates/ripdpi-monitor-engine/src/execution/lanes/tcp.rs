@@ -43,7 +43,7 @@ pub fn execute_tcp_candidate(
             let key_log = keylog_path.map(tls_key_log_callback_for_path);
             run_candidate_warmup(spec, &transport, targets, tls_verifier, key_log.as_ref());
             if cancel.load(Ordering::Acquire) {
-                drop(runtime);
+                let _cleanup = runtime.shutdown();
                 return cancelled_candidate_execution(spec, CandidateScore::default(), 3);
             }
             let mut score = CandidateScore::default();
@@ -57,7 +57,7 @@ pub fn execute_tcp_candidate(
             const PARALLEL_DOMAIN_BATCH_SIZE: usize = 3;
             for (chunk_index, chunk) in ordered_targets.chunks(PARALLEL_DOMAIN_BATCH_SIZE).enumerate() {
                 if cancel.load(Ordering::Acquire) {
-                    drop(runtime);
+                    let _cleanup = runtime.shutdown();
                     return cancelled_candidate_execution(spec, score, 3);
                 }
                 if chunk_index > 0 {
@@ -71,11 +71,11 @@ pub fn execute_tcp_candidate(
                     }
                 }
                 if cancel.load(Ordering::Acquire) {
-                    drop(runtime);
+                    let _cleanup = runtime.shutdown();
                     return cancelled_candidate_execution(spec, score, 3);
                 }
             }
-            drop(runtime);
+            let _cleanup = runtime.shutdown();
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",
