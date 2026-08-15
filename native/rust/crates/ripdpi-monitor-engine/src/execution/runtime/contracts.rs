@@ -39,17 +39,13 @@ pub trait CandidateProbeRuntime: Send {
     fn transport(&self) -> TransportConfig;
 
     /// Requests cooperative cancellation of listener and connection work.
-    fn request_shutdown(&mut self) {}
+    fn request_shutdown(&mut self);
 
     /// Forces tracked I/O closed and joins the runtime after the grace period.
-    fn force_abort_and_join(&mut self, _grace: std::time::Duration) -> CandidateCleanupReceipt {
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
-    }
+    fn force_abort_and_join(&mut self, grace: std::time::Duration) -> CandidateCleanupReceipt;
 
-    fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
-        drop(self);
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
-    }
+    /// Completes cooperative shutdown and joins every owned worker.
+    fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt;
 }
 
 pub trait CandidateRuntimeLauncher: Send + Sync {

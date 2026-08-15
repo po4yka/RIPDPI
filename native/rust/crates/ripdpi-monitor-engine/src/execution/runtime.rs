@@ -94,6 +94,16 @@ mod tests {
         fn transport(&self) -> TransportConfig {
             self.transport.clone()
         }
+
+        fn request_shutdown(&mut self) {}
+
+        fn force_abort_and_join(&mut self, _grace: Duration) -> CandidateCleanupReceipt {
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
+        }
+
+        fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
+        }
     }
 
     struct FakeRuntimeLauncher;

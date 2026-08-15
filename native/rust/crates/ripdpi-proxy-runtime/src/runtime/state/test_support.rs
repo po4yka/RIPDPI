@@ -85,6 +85,7 @@ impl RuntimeState {
             decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
             active_tcp_sockets: ActiveSocketRegistry::default(),
+            active_upstream_tcp_sockets: ActiveSocketRegistry::default(),
             telemetry,
             runtime_context,
             control: None,

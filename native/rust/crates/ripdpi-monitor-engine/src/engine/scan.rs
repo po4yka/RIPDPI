@@ -91,7 +91,49 @@ pub fn run_engine_scan(
         std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
     );
     let outcome = coordinator.run(&plan, &mut runtime, tls_verifier.as_ref());
-    let cleanup_receipt = supervisor.receipt();
+    let Some(cleanup_receipt) = supervisor.terminal_receipt() else {
+        let message = "candidate runtime cleanup barrier did not join every runtime".to_string();
+        let mut report = build_report(
+            ReportBuildContext {
+                session_id: plan.session_id.clone(),
+                request: plan.request.clone(),
+                started_at: plan.started_at,
+                execution_plan: Some(plan.snapshot(runtime.stage_executions())),
+            },
+            message.clone(),
+            runtime.results,
+            runtime.observations,
+            runtime.strategy.strategy_probe_report,
+            None,
+        );
+        report.completion_kind = ScanCompletionKind::Terminated;
+        report.termination_reason = Some(ScanTerminationReason::EngineError);
+        set_report(&shared, report);
+        push_event(
+            &shared,
+            &plan.session_id,
+            &plan.request.profile_id,
+            &plan.request.path_mode,
+            "engine",
+            "error",
+            format!("Diagnostics terminated: {message}"),
+        );
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: plan.session_id,
+                phase: "error".to_string(),
+                completed_steps: runtime.completed_steps,
+                total_steps: plan.total_steps,
+                message: "Diagnostics terminated by candidate cleanup failure".to_string(),
+                is_finished: true,
+                latest_probe_target: None,
+                latest_probe_outcome: Some("candidate_cleanup_unjoined".to_string()),
+                strategy_probe_progress: None,
+            },
+        );
+        return;
+    };
     push_event(
         &shared,
         &plan.session_id,
@@ -226,7 +268,6 @@ fn publish_finished_progress(
     path_mode: &crate::types::ScanPathMode,
     total_steps: usize,
 ) {
-    push_event(shared, session_id, profile_id, path_mode, "engine", "info", "Diagnostics finished".to_string());
     set_progress(
         shared,
         ScanProgress {
@@ -241,4 +282,5 @@ fn publish_finished_progress(
             strategy_probe_progress: None,
         },
     );
+    push_event(shared, session_id, profile_id, path_mode, "engine", "info", "Diagnostics finished".to_string());
 }

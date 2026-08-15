@@ -32,14 +32,15 @@ pub fn execute_quic_candidate(
     let probe_started = std::time::Instant::now();
     match probe_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
-            let transport = runtime.transport();
+            let runtime = supervisor.supervise(runtime);
+            let transport = runtime.runtime().transport();
             let mut score = CandidateScore::default();
             let mut ordered_targets = targets.to_vec();
             ordered_targets
                 .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
                 if cancel.load(Ordering::Acquire) {
-                    supervisor.record(runtime.shutdown());
+                    runtime.shutdown();
                     return cancelled_candidate_execution(spec, score, 2);
                 }
                 if index > 0 {
@@ -47,7 +48,7 @@ pub fn execute_quic_candidate(
                 }
                 score.add(run_quic_strategy_probe(&transport, target, spec));
             }
-            supervisor.record(runtime.shutdown());
+            runtime.shutdown();
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",

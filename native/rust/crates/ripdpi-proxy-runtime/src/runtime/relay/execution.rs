@@ -20,6 +20,7 @@ pub(super) fn relay_with_uring_if_available(
     session_state: RelaySession,
     success_host: Option<String>,
 ) -> io::Result<RelaySession> {
+    let _active_upstream = state.register_active_upstream_tcp_socket(&upstream)?;
     let relay_settings = relay_stream_settings(state, route.group_index)?;
     let uring_driver =
         ripdpi_io_uring::io_uring_capabilities().fixed_buffers.then(|| state.io_uring_driver()).flatten();
@@ -48,6 +49,7 @@ pub(super) fn relay_with_uring_if_available(
     session_state: RelaySession,
     success_host: Option<String>,
 ) -> io::Result<RelaySession> {
+    let _active_upstream = state.register_active_upstream_tcp_socket(&upstream)?;
     let relay_settings = relay_stream_settings(state, route.group_index)?;
     relay_streams(client, upstream, state, route.group_index, relay_settings, session_state, success_host)
 }

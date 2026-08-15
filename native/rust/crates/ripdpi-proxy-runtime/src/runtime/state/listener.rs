@@ -27,6 +27,11 @@ impl ActiveSocketRegistry {
             let _ = socket.shutdown(std::net::Shutdown::Both);
         }
     }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).sockets.len()
+    }
 }
 
 pub(in crate::runtime) struct ActiveSocketGuard {
@@ -54,8 +59,22 @@ impl RuntimeState {
     pub(in crate::runtime) fn register_active_tcp_socket(&self, socket: &TcpStream) -> io::Result<ActiveSocketGuard> {
         self.active_tcp_sockets.register(socket)
     }
+    /// Keeps the upstream half cancellable while a connection handler owns it.
+    /// The registry stores only duplicated descriptors, never endpoint data.
+    pub(in crate::runtime) fn register_active_upstream_tcp_socket(
+        &self,
+        socket: &TcpStream,
+    ) -> io::Result<ActiveSocketGuard> {
+        self.active_upstream_tcp_sockets.register(socket)
+    }
     pub(in crate::runtime) fn shutdown_active_tcp_sockets(&self) {
         self.active_tcp_sockets.shutdown_all();
+        self.active_upstream_tcp_sockets.shutdown_all();
+    }
+
+    #[cfg(test)]
+    pub(in crate::runtime) fn active_upstream_socket_count(&self) -> usize {
+        self.active_upstream_tcp_sockets.len()
     }
     pub(in crate::runtime) fn note_listener_started(
         &self,
@@ -115,5 +134,32 @@ impl ClientSlotGuard {
 impl Drop for ClientSlotGuard {
     fn drop(&mut self) {
         self.active.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Read;
+    use std::net::{Ipv4Addr, TcpListener, TcpStream};
+    use std::time::Duration;
+
+    use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+
+    use super::RuntimeState;
+
+    #[test]
+    fn forced_shutdown_closes_tracked_upstream_socket() {
+        let state = RuntimeState::new(RuntimeConfig::default(), None);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream pair");
+        let mut peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
+        let (upstream, _) = listener.accept().expect("accept upstream");
+        let _guard = state.register_active_upstream_tcp_socket(&upstream).expect("register upstream");
+
+        assert_eq!(state.active_upstream_socket_count(), 1);
+        state.shutdown_active_tcp_sockets();
+
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("set peer timeout");
+        let mut byte = [0_u8; 1];
+        assert_eq!(peer.read(&mut byte).unwrap_or(0), 0, "forced shutdown must close upstream socket");
     }
 }

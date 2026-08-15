@@ -20,7 +20,7 @@ pub use report::{build_network_environment_probe, summarize_probe_event};
 
 pub fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {
     let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if guard.terminal_sessions.contains(&progress.session_id) && !progress.is_finished {
+    if guard.terminal_sessions.contains(&progress.session_id) {
         return;
     }
     if progress.is_finished {
@@ -139,15 +139,16 @@ pub fn push_event(
     source: &str,
     level: &str,
     message: String,
-) {
+) -> bool {
     let log_context = {
         let guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if guard.terminal_sessions.contains(session_id) && message != "Diagnostics finished" {
-            return;
+            return false;
         }
         guard.log_context.clone()
     };
     emit_diagnostics_event(log_context.as_ref(), session_id, profile_id, path_mode, source, level, &message);
+    true
 }
 
 #[cfg(test)]
@@ -217,5 +218,34 @@ mod tests {
 
         let guard = shared.lock().expect("state");
         assert_eq!(guard.progress.as_ref().expect("terminal progress").phase, "finished");
+    }
+
+    #[test]
+    fn terminal_event_gate_rejects_upstream_event_after_finished() {
+        let shared = Arc::new(Mutex::new(SharedState::default()));
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: "terminal-session".to_string(),
+                phase: "finished".to_string(),
+                completed_steps: 1,
+                total_steps: 1,
+                message: "Diagnostics finished".to_string(),
+                is_finished: true,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
+                strategy_probe_progress: None,
+            },
+        );
+
+        assert!(!push_event(
+            &shared,
+            "terminal-session",
+            "profile",
+            &ScanPathMode::RawPath,
+            "upstream",
+            "info",
+            "upstream connected".to_string(),
+        ));
     }
 }

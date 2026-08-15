@@ -46,11 +46,12 @@ pub fn execute_tcp_candidate(
     let probe_started = std::time::Instant::now();
     match probe_tcp_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
-            let transport = runtime.transport();
+            let runtime = context.supervisor.supervise(runtime);
+            let transport = runtime.runtime().transport();
             let key_log = context.keylog_path.map(tls_key_log_callback_for_path);
             run_candidate_warmup(spec, &transport, targets, context.tls_verifier, key_log.as_ref());
             if context.cancel.load(Ordering::Acquire) {
-                context.supervisor.record(runtime.shutdown());
+                runtime.shutdown();
                 return cancelled_candidate_execution(spec, CandidateScore::default(), 3);
             }
             let mut score = CandidateScore::default();
@@ -64,7 +65,7 @@ pub fn execute_tcp_candidate(
             const PARALLEL_DOMAIN_BATCH_SIZE: usize = 3;
             for (chunk_index, chunk) in ordered_targets.chunks(PARALLEL_DOMAIN_BATCH_SIZE).enumerate() {
                 if context.cancel.load(Ordering::Acquire) {
-                    context.supervisor.record(runtime.shutdown());
+                    runtime.shutdown();
                     return cancelled_candidate_execution(spec, score, 3);
                 }
                 if chunk_index > 0 {
@@ -78,11 +79,11 @@ pub fn execute_tcp_candidate(
                     }
                 }
                 if context.cancel.load(Ordering::Acquire) {
-                    context.supervisor.record(runtime.shutdown());
+                    runtime.shutdown();
                     return cancelled_candidate_execution(spec, score, 3);
                 }
             }
-            context.supervisor.record(runtime.shutdown());
+            runtime.shutdown();
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",

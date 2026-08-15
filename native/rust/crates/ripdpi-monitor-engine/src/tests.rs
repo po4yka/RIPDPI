@@ -18,7 +18,8 @@ use crate::tls::{NoCertificateVerification, TlsClientProfile, TlsObservation, cl
 use crate::transport::{TargetAddress, TransportConfig, direct_transport};
 use crate::util::{DEFAULT_DNS_SERVER, probe_session_seed};
 use crate::{
-    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, MonitorSession, PreparedCandidateRuntime,
+    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, MonitorSession,
+    PreparedCandidateRuntime,
 };
 
 use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
@@ -52,6 +53,16 @@ struct DirectCandidateRuntime;
 impl CandidateProbeRuntime for DirectCandidateRuntime {
     fn transport(&self) -> TransportConfig {
         TransportConfig::Direct { route_experiment: None }
+    }
+
+    fn request_shutdown(&mut self) {}
+
+    fn force_abort_and_join(&mut self, _grace: std::time::Duration) -> CandidateCleanupReceipt {
+        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
+    }
+
+    fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
+        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
     }
 }
 
