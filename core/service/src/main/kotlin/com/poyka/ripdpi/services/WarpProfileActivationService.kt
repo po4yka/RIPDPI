@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointStore
 import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
-import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpSetupStateNeedsAttention
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject

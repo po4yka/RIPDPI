@@ -47,7 +47,6 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList

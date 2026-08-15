@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.activities
 
 import app.cash.turbine.test
-import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.ui.logs.LogEntryMapper

@@ -3,7 +3,6 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.WarpRouteModeRules
-import com.poyka.ripdpi.service.warp.WarpRuntimeConfigResolver
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi

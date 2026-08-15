@@ -6,8 +6,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
-import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
-import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
@@ -22,7 +20,6 @@ import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
-import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer

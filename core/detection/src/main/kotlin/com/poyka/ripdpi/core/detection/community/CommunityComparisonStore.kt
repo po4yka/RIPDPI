@@ -7,7 +7,6 @@ import androidx.core.content.edit
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 

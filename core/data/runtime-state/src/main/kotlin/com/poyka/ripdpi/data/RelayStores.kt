@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
@@ -12,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 

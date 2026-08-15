@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies

@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily

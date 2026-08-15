@@ -26,7 +26,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.io.File
 import java.io.IOException
 import java.security.KeyPair
 import java.security.KeyPairGenerator

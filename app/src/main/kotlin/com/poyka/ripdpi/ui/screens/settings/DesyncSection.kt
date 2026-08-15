@@ -28,7 +28,6 @@ import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
-import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.state.SettingsUiState

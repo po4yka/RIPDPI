@@ -8,7 +8,6 @@ import com.poyka.ripdpi.core.testing.FakeManagedTunnel
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModePlainUdp
-import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProfile

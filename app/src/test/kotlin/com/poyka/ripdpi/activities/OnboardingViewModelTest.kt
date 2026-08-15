@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import android.content.Intent
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.DnsProviderAdGuard
-import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult

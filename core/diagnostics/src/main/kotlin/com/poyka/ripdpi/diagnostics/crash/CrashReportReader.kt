@@ -5,7 +5,6 @@ import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import java.io.File
 
 class CrashReportReader(

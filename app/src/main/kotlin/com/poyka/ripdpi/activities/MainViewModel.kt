@@ -7,7 +7,6 @@ import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.failover.ActiveTransportProvider
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.permissions.PermissionAction
@@ -26,7 +25,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch

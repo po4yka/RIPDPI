@@ -15,7 +15,6 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
-import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import javax.security.auth.x500.X500Principal
 

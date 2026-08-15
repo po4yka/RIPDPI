@@ -2,41 +2,33 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
-import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
-import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
-import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchTrigger
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.RememberedPolicyApplicationAudit
-import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 internal fun historyConnectionSession(
     id: String = "connection-1",

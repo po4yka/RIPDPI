@@ -6,10 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.DiagnosticsApproachMode
-import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
-import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection

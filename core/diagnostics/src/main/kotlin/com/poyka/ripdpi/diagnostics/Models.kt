@@ -2,7 +2,6 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 fun deriveProbeRetryCount(details: List<ProbeDetail>): Int? {
     val detailMap = details.associate { it.key to it.value }

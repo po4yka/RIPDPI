@@ -2,7 +2,6 @@ package com.poyka.ripdpi.proxyimport
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.ServiceStateStore

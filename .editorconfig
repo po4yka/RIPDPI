@@ -14,6 +14,9 @@ max_line_length = 120
 ktlint_standard_function-naming = disabled
 # Companion object vals in Android often use camelCase (e.g. intent extras, animation specs)
 ktlint_standard_property-naming = disabled
+# Opt-in since ktlint 1.7.0 (@Rule.OnlyWhenEnabledInEditorconfig). Without this line ktlintCheck runs
+# in CI and passes while unused imports accumulate -- 521 of them had, across 94 files.
+ktlint_standard_no-unused-imports = enabled
 
 [*.md]
 trim_trailing_whitespace = false

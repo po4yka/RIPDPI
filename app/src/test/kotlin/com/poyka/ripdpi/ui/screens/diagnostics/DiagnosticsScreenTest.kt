@@ -55,12 +55,9 @@ import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionReasonUiModel
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel
-import com.poyka.ripdpi.activities.FakeAppSettingsRepository
-import com.poyka.ripdpi.activities.FakeDiagnosticsManager
 import com.poyka.ripdpi.activities.HiddenProbeConflictDialogState
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
-import com.poyka.ripdpi.activities.createDiagnosticsViewModel
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence

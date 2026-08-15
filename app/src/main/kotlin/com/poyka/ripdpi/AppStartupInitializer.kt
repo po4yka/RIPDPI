@@ -7,7 +7,6 @@ import com.poyka.ripdpi.backup.ResetEventName
 import com.poyka.ripdpi.backup.ResetEventRecorder
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
-import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsRetentionWorker

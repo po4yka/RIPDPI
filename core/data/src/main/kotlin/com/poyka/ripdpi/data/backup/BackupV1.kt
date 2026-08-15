@@ -18,7 +18,6 @@ import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement

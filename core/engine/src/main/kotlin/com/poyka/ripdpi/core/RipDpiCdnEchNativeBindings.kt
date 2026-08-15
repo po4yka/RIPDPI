@@ -5,7 +5,6 @@ import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 
 // JNI bindings for the process-wide CdnEchUpdater.
 //

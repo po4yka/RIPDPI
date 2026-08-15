@@ -9,7 +9,6 @@ import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeFamilyUiModel

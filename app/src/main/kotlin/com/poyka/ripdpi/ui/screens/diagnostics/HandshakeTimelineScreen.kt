@@ -23,7 +23,6 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 
 // Label column width = section spacing × this factor (matches spec card layout).
 private const val LabelColumnSectionMultiplier = 4

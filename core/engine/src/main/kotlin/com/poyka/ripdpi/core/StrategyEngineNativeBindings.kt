@@ -4,7 +4,6 @@ import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 

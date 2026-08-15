@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized

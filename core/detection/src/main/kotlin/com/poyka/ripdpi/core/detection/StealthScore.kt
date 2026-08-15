@@ -2,8 +2,6 @@
 
 package com.poyka.ripdpi.core.detection
 
-import kotlin.math.roundToInt
-
 object StealthScore {
     private const val MAX_SCORE = 100
     private const val SPLIT_BYPASS_PENALTY = 40

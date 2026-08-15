@@ -2,7 +2,6 @@
 
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass

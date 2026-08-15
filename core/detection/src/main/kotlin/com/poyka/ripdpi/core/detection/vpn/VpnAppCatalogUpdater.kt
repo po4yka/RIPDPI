@@ -5,7 +5,6 @@ import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 @Serializable
 data class RemoteVpnAppEntry(

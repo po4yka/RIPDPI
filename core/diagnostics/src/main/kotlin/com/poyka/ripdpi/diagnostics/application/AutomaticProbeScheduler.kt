@@ -4,7 +4,6 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
@@ -17,7 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Named
 import javax.inject.Provider
 import javax.inject.Singleton
 

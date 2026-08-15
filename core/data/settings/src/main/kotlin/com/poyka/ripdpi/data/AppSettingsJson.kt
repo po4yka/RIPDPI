@@ -3,7 +3,6 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.serialization.RipDpiPrettyContractJson
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 

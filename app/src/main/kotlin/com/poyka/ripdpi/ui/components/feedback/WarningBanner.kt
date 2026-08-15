@@ -28,7 +28,6 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiBannerStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiBannerStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import androidx.compose.ui.graphics.ImageBitmap
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import org.junit.Ignore

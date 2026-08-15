@@ -3,10 +3,7 @@ package com.poyka.ripdpi.ui.screenshot
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.LogEntry
@@ -34,7 +31,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.ProfileVariantsScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.QualityGraphsScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
@@ -52,7 +48,6 @@ import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import com.poyka.ripdpi.ui.screens.logs.LogsStreamCard
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentSetOf
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner

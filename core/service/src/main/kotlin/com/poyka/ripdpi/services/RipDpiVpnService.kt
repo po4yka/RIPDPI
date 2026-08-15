@@ -10,7 +10,6 @@ import android.os.Build
 import androidx.annotation.Keep
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType

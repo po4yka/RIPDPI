@@ -8,7 +8,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton

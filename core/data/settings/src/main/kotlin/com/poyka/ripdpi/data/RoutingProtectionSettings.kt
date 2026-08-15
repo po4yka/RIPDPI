@@ -5,7 +5,6 @@ import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
 
 const val FakeTlsSourceProfile = "profile"
 const val FakeTlsSourceCapturedClientHello = "captured_client_hello"

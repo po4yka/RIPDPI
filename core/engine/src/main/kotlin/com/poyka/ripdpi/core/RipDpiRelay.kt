@@ -11,9 +11,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
-import kotlin.coroutines.coroutineContext
 
 /**
  * Thin JNI binding surface over the relay-transport native session in

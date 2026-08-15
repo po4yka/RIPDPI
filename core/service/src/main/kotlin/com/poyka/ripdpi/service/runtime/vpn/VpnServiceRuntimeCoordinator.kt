@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason

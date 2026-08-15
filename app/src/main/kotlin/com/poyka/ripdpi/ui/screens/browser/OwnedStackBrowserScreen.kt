@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -29,7 +28,6 @@ import com.poyka.ripdpi.services.OwnedStackExecutionTrace
 import com.poyka.ripdpi.services.OwnedStackNativeFallbackReason
 import com.poyka.ripdpi.services.SecureHttpEchMode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner

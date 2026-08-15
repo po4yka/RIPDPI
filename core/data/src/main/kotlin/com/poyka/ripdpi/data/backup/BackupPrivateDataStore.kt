@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.WarpCredentialStore
-import com.poyka.ripdpi.data.WarpEndpointStore
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao

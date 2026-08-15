@@ -15,9 +15,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
-import kotlin.coroutines.coroutineContext
 
 /**
  * Thin JNI binding surface over the WARP (WireGuard) native session in

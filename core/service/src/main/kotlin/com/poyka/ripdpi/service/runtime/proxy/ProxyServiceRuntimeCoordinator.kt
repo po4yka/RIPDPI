@@ -3,12 +3,8 @@ package com.poyka.ripdpi.service.runtime.proxy
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
-import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy

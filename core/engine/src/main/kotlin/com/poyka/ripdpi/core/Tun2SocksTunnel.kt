@@ -7,13 +7,11 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import com.poyka.ripdpi.serialization.RipDpiJson
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 /**

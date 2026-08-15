@@ -2,30 +2,14 @@
 
 package com.poyka.ripdpi.diagnostics
 
-import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
-import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
-import com.poyka.ripdpi.data.RememberedNetworkPolicySource
-import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.ServerCapabilityStore
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.activeDnsSettings
-import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
-import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -34,14 +18,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Named

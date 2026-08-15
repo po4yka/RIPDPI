@@ -7,7 +7,6 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith

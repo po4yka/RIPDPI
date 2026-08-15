@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.DnsResolverPlane
 import com.poyka.ripdpi.data.DnsResolverPlane.BLOCK
 import com.poyka.ripdpi.data.DnsResolverPlane.DIRECT
 import com.poyka.ripdpi.data.DnsResolverPlane.PROXY

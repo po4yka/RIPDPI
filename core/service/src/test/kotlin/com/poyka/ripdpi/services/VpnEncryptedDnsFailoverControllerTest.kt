@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.DnsProviderCloudflare
-import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.EncryptedDnsConfigInput
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
-import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.buildEncryptedDnsCandidatePlan

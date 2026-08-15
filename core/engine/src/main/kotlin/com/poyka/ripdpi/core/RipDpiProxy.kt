@@ -13,9 +13,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
-import kotlin.coroutines.coroutineContext
 
 interface RipDpiProxyRuntime {
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int

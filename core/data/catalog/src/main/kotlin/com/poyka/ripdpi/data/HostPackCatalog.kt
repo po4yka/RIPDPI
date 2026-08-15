@@ -6,7 +6,6 @@ import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.util.Locale
 
 const val HostPackTargetBlacklist = "blacklist"

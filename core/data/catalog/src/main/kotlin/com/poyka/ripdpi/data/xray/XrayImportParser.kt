@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data.xray
 
 import com.poyka.ripdpi.data.XrayConfigValidator
 import com.poyka.ripdpi.serialization.RipDpiJson
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.net.URLDecoder
 

@@ -43,7 +43,6 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
-import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord

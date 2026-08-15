@@ -4,7 +4,6 @@ import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
-import com.charleskorn.kaml.yamlMap
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import java.util.UUID

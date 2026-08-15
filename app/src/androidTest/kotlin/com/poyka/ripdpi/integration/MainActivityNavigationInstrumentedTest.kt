@@ -89,7 +89,6 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
 import com.poyka.ripdpi.testing.StubInstrumentedLastExitInspector
 import com.poyka.ripdpi.testing.StubInstrumentedMemoryProfilingRegistrar
-import com.poyka.ripdpi.testing.StubInstrumentedNativeMemoryProbe
 import com.poyka.ripdpi.testing.StubInstrumentedProxyPreferencesResolver
 import com.poyka.ripdpi.testing.StubInstrumentedRipDpiProxyFactory
 import com.poyka.ripdpi.testing.StubInstrumentedTun2SocksBridgeFactory

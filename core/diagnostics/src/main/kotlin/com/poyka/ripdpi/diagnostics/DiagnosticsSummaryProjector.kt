@@ -12,7 +12,6 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummarySection
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 

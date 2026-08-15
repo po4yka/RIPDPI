@@ -77,7 +77,6 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
 import com.poyka.ripdpi.testing.StubInstrumentedLastExitInspector
 import com.poyka.ripdpi.testing.StubInstrumentedMemoryProfilingRegistrar
-import com.poyka.ripdpi.testing.StubInstrumentedNativeMemoryProbe
 import com.poyka.ripdpi.testing.StubInstrumentedProxyPreferencesResolver
 import com.poyka.ripdpi.testing.StubInstrumentedRipDpiProxyFactory
 import com.poyka.ripdpi.testing.StubInstrumentedTun2SocksBridgeFactory
@@ -91,7 +90,6 @@ import dagger.hilt.android.testing.UninstallModules
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test

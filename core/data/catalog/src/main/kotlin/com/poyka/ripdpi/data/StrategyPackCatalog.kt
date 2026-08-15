@@ -4,7 +4,6 @@ import com.poyka.ripdpi.serialization.RipDpiPrettyTolerantJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 const val StrategyPackCatalogSourceBundled = "bundled"
 const val StrategyPackCatalogSourceDownloaded = "downloaded"

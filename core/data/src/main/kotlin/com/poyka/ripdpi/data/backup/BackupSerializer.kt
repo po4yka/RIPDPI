@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data.backup
 
 import com.poyka.ripdpi.serialization.RipDpiBackupJson
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import java.io.FilterOutputStream
 import java.io.OutputStream

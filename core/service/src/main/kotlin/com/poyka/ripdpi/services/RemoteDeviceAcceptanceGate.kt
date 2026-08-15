@@ -2,11 +2,8 @@ package com.poyka.ripdpi.services
 
 import android.database.SQLException
 import android.os.SystemClock
-import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneCounters
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ServiceStateStore

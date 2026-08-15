@@ -25,11 +25,9 @@ import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
-import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.diagnostics.ScanPathMode

@@ -42,7 +42,6 @@ import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 
 /** Fallback group labels injected by `ripdpi_default` runtime preset. */

@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject

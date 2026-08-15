@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.data.assets
 
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 

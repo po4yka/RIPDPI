@@ -8,7 +8,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTone
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode

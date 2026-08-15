@@ -4,7 +4,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.fail
-import java.util.regex.Pattern
 
 internal object GoldenContractSupport {
     fun assertJsonAsset(

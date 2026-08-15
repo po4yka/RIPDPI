@@ -36,7 +36,6 @@ import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.IpIdModeSeqGroup
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
-import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.SeqOverlapFakeModeRand

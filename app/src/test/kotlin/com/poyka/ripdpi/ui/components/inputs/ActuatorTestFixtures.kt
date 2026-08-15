@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.components.inputs
 
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
