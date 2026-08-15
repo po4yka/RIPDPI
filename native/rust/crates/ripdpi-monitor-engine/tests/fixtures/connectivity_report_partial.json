@@ -16,6 +16,15 @@
     "profileFamily": "GENERAL",
     "scanDeadlineMs": 360000,
     "scanKind": "CONNECTIVITY",
+    "stageExecutions": [
+      {
+        "executedSteps": 1,
+        "plannedSteps": 1,
+        "skippedByGlobalDeadlineSteps": 0,
+        "skippedByStageBudgetSteps": 0,
+        "stageId": "environment"
+      }
+    ],
     "stageOrder": [
       "environment",
       "dns",
