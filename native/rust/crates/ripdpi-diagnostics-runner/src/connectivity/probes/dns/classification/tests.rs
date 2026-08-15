@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
 
-use crate::connectivity::adapters::dns_oracle::{DnsOracleResponse, evaluate_dns_oracles};
+use crate::connectivity::adapters::dns_oracle::{DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles};
 use crate::types::ScanPathMode;
 
 use super::answer_classification::{DnsAnswerClass, classify_dns_answer_class};
@@ -38,7 +38,9 @@ fn dns_probe_gates_single_fallback_success_as_oracle_unavailable() {
         endpoint("primary"),
         &[endpoint("fallback")],
         1,
-        |endpoint| {
+        DnsOracleConfig::default(),
+        || false,
+        |endpoint, _| {
             answers
                 .get(endpoint.resolver_id.as_deref().unwrap_or_default())
                 .cloned()
@@ -115,7 +117,9 @@ fn dns_answer_class_marks_nxdomain_plus_encrypted_success_as_poisoned() {
         endpoint("primary"),
         &[],
         0,
-        |_| Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+        DnsOracleConfig::default(),
+        || false,
+        |_, _| Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
         |answer| answer.addresses.clone(),
     );
 
@@ -141,7 +145,9 @@ fn dns_answer_class_skips_poisoning_when_oracle_trust_is_single_fallback() {
         endpoint("primary"),
         &[endpoint("fallback")],
         1,
-        |endpoint| {
+        DnsOracleConfig::default(),
+        || false,
+        |endpoint, _| {
             answers
                 .get(endpoint.resolver_id.as_deref().unwrap_or_default())
                 .cloned()

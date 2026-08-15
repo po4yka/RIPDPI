@@ -133,7 +133,7 @@ mod tests {
     use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
     use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 
-    use crate::strategy::adapters::dns_oracle::{DnsOracleResponse, evaluate_dns_oracles};
+    use crate::strategy::adapters::dns_oracle::{DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles};
     use crate::types::DomainTarget;
 
     use super::evaluate_strategy_dns_target;
@@ -194,7 +194,9 @@ mod tests {
             endpoint("primary"),
             &[endpoint("fallback")],
             1,
-            |endpoint| {
+            DnsOracleConfig::default(),
+            || false,
+            |endpoint, _| {
                 answers
                     .get(endpoint.resolver_id.as_deref().unwrap_or_default())
                     .cloned()
@@ -235,7 +237,9 @@ mod tests {
             endpoint("primary"),
             &[endpoint("fallback")],
             1,
-            |endpoint| {
+            DnsOracleConfig::default(),
+            || false,
+            |endpoint, _| {
                 answers
                     .get(endpoint.resolver_id.as_deref().unwrap_or_default())
                     .cloned()

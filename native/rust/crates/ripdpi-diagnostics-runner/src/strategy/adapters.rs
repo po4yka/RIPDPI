@@ -10,7 +10,9 @@ pub(crate) mod dns {
 }
 
 pub(crate) mod dns_oracle {
-    pub use ripdpi_diagnostics_protocols::dns_oracle::{DnsOracleAssessment, DnsOracleResponse, evaluate_dns_oracles};
+    pub use ripdpi_diagnostics_protocols::dns_oracle::{
+        DnsOracleAssessment, DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles,
+    };
 }
 
 pub(crate) mod transport {

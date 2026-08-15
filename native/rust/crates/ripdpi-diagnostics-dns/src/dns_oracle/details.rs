@@ -27,8 +27,9 @@ pub(super) fn detail_entries<T>(assessment: &DnsOracleAssessment<T>) -> Vec<Prob
         })
         .collect::<Vec<_>>();
 
-    let mut details = Vec::with_capacity(9);
+    let mut details = Vec::with_capacity(10);
     push_detail(&mut details, "oracleTrust", assessment.trust.as_str().to_string());
+    push_detail(&mut details, "oracleTermination", assessment.termination.as_str().to_string());
     push_detail(&mut details, "oracleConfidenceScore", assessment.confidence_score.to_string());
     push_detail(
         &mut details,

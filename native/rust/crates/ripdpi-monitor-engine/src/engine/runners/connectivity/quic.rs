@@ -30,6 +30,7 @@ impl ConnectivityProbeFamily for QuicFamily {
         target: &Self::Target,
         plan: &ExecutionPlan,
         _probe_context: &ProbeExecutionContext,
+        _cancel: &std::sync::atomic::AtomicBool,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         run_quic_probe(target, &plan.transport)

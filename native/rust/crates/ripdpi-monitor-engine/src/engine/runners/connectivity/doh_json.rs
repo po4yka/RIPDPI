@@ -40,6 +40,7 @@ impl ConnectivityProbeFamily for DohJsonSurveyFamily {
         target: &Self::Target,
         _plan: &ExecutionPlan,
         _probe_context: &ProbeExecutionContext,
+        _cancel: &std::sync::atomic::AtomicBool,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         // Offline placeholder. Surfaces the JSON resolver panel that the live

@@ -2,7 +2,9 @@ use std::net::{IpAddr, SocketAddr};
 
 use crate::probe_context::ProbeExecutionContext;
 use crate::strategy::adapters::dns::resolve_via_encrypted_dns;
-use crate::strategy::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse, evaluate_dns_oracles};
+use crate::strategy::adapters::dns_oracle::{
+    DnsOracleAssessment, DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles,
+};
 use crate::strategy::adapters::transport::{TargetAddress, domain_connect_target, resolve_addresses};
 use crate::types::DomainTarget;
 
@@ -52,7 +54,9 @@ pub(super) fn fallback_encrypted_dns_assessment(
         resolver_endpoint,
         &fallback_endpoints,
         fallback_endpoints.len(),
-        |endpoint| {
+        DnsOracleConfig::default(),
+        || false,
+        |endpoint, _| {
             resolve_via_encrypted_dns(&target.host, endpoint.clone(), probe_context.transport())
                 .map(|addresses| DnsOracleResponse { addresses, raw_response: None })
         },

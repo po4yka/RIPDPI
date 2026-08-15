@@ -31,6 +31,7 @@ impl ConnectivityProbeFamily for WebFamily {
         target: &Self::Target,
         plan: &ExecutionPlan,
         _probe_context: &ProbeExecutionContext,
+        _cancel: &std::sync::atomic::AtomicBool,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         run_domain_probe_with_key_log(

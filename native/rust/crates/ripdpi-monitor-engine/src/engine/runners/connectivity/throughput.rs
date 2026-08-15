@@ -32,6 +32,7 @@ impl ConnectivityProbeFamily for ThroughputFamily {
         target: &Self::Target,
         plan: &ExecutionPlan,
         _probe_context: &ProbeExecutionContext,
+        _cancel: &std::sync::atomic::AtomicBool,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);

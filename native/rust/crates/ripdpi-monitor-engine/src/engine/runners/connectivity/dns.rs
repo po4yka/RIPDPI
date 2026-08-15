@@ -30,9 +30,10 @@ impl ConnectivityProbeFamily for DnsFamily {
         target: &Self::Target,
         plan: &ExecutionPlan,
         probe_context: &ProbeExecutionContext,
+        cancel: &AtomicBool,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
-        run_dns_probe_with_context(target, probe_context, &plan.request.path_mode)
+        run_dns_probe_with_context(target, probe_context, &plan.request.path_mode, cancel)
     }
 }
 

@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
 
-use super::contracts::{DnsOracleAssessment, DnsOracleAttempt, DnsOracleCandidate, DnsOracleTrust};
+use super::contracts::{
+    DnsOracleAssessment, DnsOracleAttempt, DnsOracleCandidate, DnsOracleTermination, DnsOracleTrust,
+};
 use super::resolver_label::resolver_label;
 
 pub(super) fn build_assessment<T>(
     attempts: Vec<DnsOracleAttempt>,
     successes: Vec<DnsOracleCandidate<T>>,
+    termination: DnsOracleTermination,
 ) -> DnsOracleAssessment<T>
 where
     T: Clone,
@@ -33,6 +36,7 @@ where
             agreement_resolver_ids,
             disagreement_resolver_ids,
             attempts,
+            termination,
         };
     }
 
@@ -46,6 +50,7 @@ where
                 agreement_resolver_ids: vec![primary_id],
                 disagreement_resolver_ids: Vec::new(),
                 attempts,
+                termination,
             };
         }
 
@@ -59,6 +64,7 @@ where
                 .map(|candidate| resolver_label(&candidate.endpoint))
                 .collect::<Vec<_>>(),
             attempts,
+            termination,
         };
     }
 
@@ -72,6 +78,7 @@ where
             agreement_resolver_ids: vec![fallback_id],
             disagreement_resolver_ids: Vec::new(),
             attempts,
+            termination,
         };
     }
 
@@ -91,5 +98,6 @@ where
         agreement_resolver_ids: Vec::new(),
         disagreement_resolver_ids,
         attempts,
+        termination,
     }
 }

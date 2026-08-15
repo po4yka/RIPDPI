@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::connectivity::adapters::dns::{resolve_via_encrypted_dns_with_raw, resolve_via_udp_with_observations};
-use crate::connectivity::adapters::dns_oracle::{DnsOracleResponse, evaluate_dns_oracles};
+use crate::connectivity::adapters::dns_oracle::{DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles};
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::connectivity::adapters::util::{DEFAULT_DNS_SERVER, is_suspected_dns_tampering_outcome};
 use crate::probe_context::ProbeExecutionContext;
@@ -58,13 +59,15 @@ pub fn is_dns_injection_suspected(udp_latency_ms: &str, outcome: &str) -> bool {
 
 pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let context = ProbeExecutionContext::new(transport.clone());
-    run_dns_probe_with_context(target, &context, path_mode)
+    let cancel = AtomicBool::new(false);
+    run_dns_probe_with_context(target, &context, path_mode, &cancel)
 }
 
 pub fn run_dns_probe_with_context(
     target: &DnsTarget,
     context: &ProbeExecutionContext,
     path_mode: &ScanPathMode,
+    cancel: &AtomicBool,
 ) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
     let resolvers = match context.resolvers_for_dns_target(target) {
@@ -77,7 +80,9 @@ pub fn run_dns_probe_with_context(
         resolvers.primary.clone(),
         &resolvers.fallback,
         2,
-        |endpoint| {
+        DnsOracleConfig::default(),
+        || cancel.load(Ordering::Acquire),
+        |endpoint, _| {
             let (result, raw_response) =
                 resolve_via_encrypted_dns_with_raw(&target.domain, endpoint.clone(), context.transport());
             result.map(|addresses| DnsOracleResponse { addresses, raw_response })

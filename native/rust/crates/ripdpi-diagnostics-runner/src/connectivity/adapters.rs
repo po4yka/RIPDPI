@@ -14,7 +14,7 @@ pub(crate) mod dns_analysis {
 
 pub(crate) mod dns_oracle {
     pub use ripdpi_diagnostics_protocols::dns_oracle::{
-        DnsOracleAssessment, DnsOracleResponse, DnsOracleTrust, evaluate_dns_oracles,
+        DnsOracleAssessment, DnsOracleConfig, DnsOracleResponse, DnsOracleTrust, evaluate_dns_oracles,
     };
 }
 

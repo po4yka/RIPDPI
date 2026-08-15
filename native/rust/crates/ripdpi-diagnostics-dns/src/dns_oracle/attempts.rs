@@ -1,20 +1,30 @@
-use std::time::Instant;
+use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
 
+use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_deadline};
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
-use super::contracts::{DnsOracleAttempt, DnsOracleCandidate};
+use super::contracts::{DnsOracleAttempt, DnsOracleCandidate, DnsOracleConfig, DnsOracleTermination};
 use super::normalization::normalize_answers;
 use super::resolver_label::resolver_label;
+
+pub(super) struct OracleAttempts<T> {
+    pub attempts: Vec<DnsOracleAttempt>,
+    pub successes: Vec<DnsOracleCandidate<T>>,
+    pub termination: DnsOracleTermination,
+}
 
 pub(super) fn execute_oracle_attempts<T, F, A>(
     primary_endpoint: EncryptedDnsEndpoint,
     fallback_endpoints: &[EncryptedDnsEndpoint],
     max_fallbacks: usize,
+    config: DnsOracleConfig,
+    is_cancelled: impl Fn() -> bool,
     mut resolve: F,
     answer_extractor: A,
-) -> (Vec<DnsOracleAttempt>, Vec<DnsOracleCandidate<T>>)
+) -> OracleAttempts<T>
 where
-    F: FnMut(&EncryptedDnsEndpoint) -> Result<T, String>,
+    F: FnMut(&EncryptedDnsEndpoint, Duration) -> Result<T, String>,
     A: Fn(&T) -> Vec<String>,
 {
     let mut attempts = Vec::new();
@@ -22,11 +32,27 @@ where
     let endpoints = std::iter::once(primary_endpoint)
         .chain(fallback_endpoints.iter().take(max_fallbacks).cloned())
         .collect::<Vec<_>>();
+    let deadline = Instant::now() + config.total_budget;
+    let mut termination = DnsOracleTermination::FallbackLimitReached;
 
     for (index, endpoint) in endpoints.into_iter().enumerate() {
+        if is_cancelled() {
+            termination = DnsOracleTermination::Cancelled;
+            break;
+        }
+        let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+            termination = DnsOracleTermination::CascadeBudgetExhausted;
+            break;
+        };
+        if remaining < config.min_attempt_budget {
+            termination = DnsOracleTermination::CascadeBudgetExhausted;
+            break;
+        }
         let is_primary = index == 0;
         let started = Instant::now();
-        match resolve(&endpoint) {
+        let attempt_budget = remaining.min(config.max_attempt_budget);
+        let attempt_deadline = active_scan_io_deadline().map_or(deadline, |scan_deadline| deadline.min(scan_deadline));
+        match with_scan_io_deadline(Some(attempt_deadline), || resolve(&endpoint, attempt_budget)) {
             Ok(value) => {
                 let answers = normalize_answers(answer_extractor(&value));
                 let latency_ms = started.elapsed().as_millis();
@@ -39,21 +65,38 @@ where
                 });
                 if !answers.is_empty() {
                     successes.push(DnsOracleCandidate { endpoint, value, answers, is_primary, latency_ms });
+                    if has_trusted_agreement(&successes) {
+                        termination = DnsOracleTermination::QuorumReached;
+                        break;
+                    }
                 }
             }
             Err(error) => {
+                let error = classify_oracle_error(&error).to_string();
                 attempts.push(DnsOracleAttempt {
                     resolver_id: resolver_label(&endpoint),
                     is_primary,
                     latency_ms: started.elapsed().as_millis(),
                     answers: Vec::new(),
-                    error: Some(classify_oracle_error(&error).to_string()),
+                    error: Some(error),
                 });
             }
         }
     }
 
-    (attempts, successes)
+    OracleAttempts { attempts, successes, termination }
+}
+
+fn has_trusted_agreement<T>(successes: &[DnsOracleCandidate<T>]) -> bool {
+    let mut agreement_counts = BTreeMap::<&[String], usize>::new();
+    for candidate in successes {
+        let count = agreement_counts.entry(&candidate.answers).or_default();
+        *count += 1;
+        if *count >= 2 {
+            return true;
+        }
+    }
+    false
 }
 
 fn classify_oracle_error(error: &str) -> &'static str {

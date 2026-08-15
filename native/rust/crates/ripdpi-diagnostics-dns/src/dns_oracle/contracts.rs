@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
 use crate::types::ProbeDetail;
@@ -12,6 +14,44 @@ pub enum DnsOracleTrust {
     SingleFallback,
     Disagreement,
     Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DnsOracleTermination {
+    QuorumReached,
+    CascadeBudgetExhausted,
+    Cancelled,
+    FallbackLimitReached,
+}
+
+impl DnsOracleTermination {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::QuorumReached => "quorum_reached",
+            Self::CascadeBudgetExhausted => "cascade_budget_exhausted",
+            Self::Cancelled => "cancelled",
+            Self::FallbackLimitReached => "fallback_limit_reached",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DnsOracleConfig {
+    pub total_budget: Duration,
+    pub max_attempt_budget: Duration,
+    pub min_attempt_budget: Duration,
+}
+
+impl DnsOracleConfig {
+    pub const fn new(total_budget: Duration, max_attempt_budget: Duration, min_attempt_budget: Duration) -> Self {
+        Self { total_budget, max_attempt_budget, min_attempt_budget }
+    }
+}
+
+impl Default for DnsOracleConfig {
+    fn default() -> Self {
+        Self::new(Duration::from_secs(8), Duration::from_secs(4), Duration::from_millis(250))
+    }
 }
 
 impl DnsOracleTrust {
@@ -62,6 +102,7 @@ pub struct DnsOracleAssessment<T> {
     pub agreement_resolver_ids: Vec<String>,
     pub disagreement_resolver_ids: Vec<String>,
     pub attempts: Vec<DnsOracleAttempt>,
+    pub termination: DnsOracleTermination,
 }
 
 impl<T> DnsOracleAssessment<T> {
