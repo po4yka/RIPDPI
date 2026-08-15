@@ -136,6 +136,7 @@ mod tests {
                 None,
             )),
             log_context: None,
+            terminal_sessions: std::collections::BTreeSet::new(),
         }));
 
         record_panic_terminal_state(

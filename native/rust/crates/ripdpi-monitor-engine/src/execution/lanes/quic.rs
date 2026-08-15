@@ -11,7 +11,7 @@ use crate::types::{ProbeDetail, ProbeResult, QuicTarget};
 use crate::util::{now_ms, stable_probe_hash};
 
 use super::support::candidate_probe_details;
-use crate::execution::runtime::{CandidateRuntimeLauncher, probe_runtime_transport};
+use crate::execution::runtime::{CandidateRuntimeLauncher, CandidateRuntimeSupervisor, probe_runtime_transport};
 use crate::execution::scoring::{
     CandidateExecution, CandidateScore, ProbeSample, build_candidate_execution, cancelled_candidate_execution,
     failed_candidate_execution, not_applicable_candidate_execution,
@@ -24,6 +24,7 @@ pub fn execute_quic_candidate(
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_seed: u64,
     cancel: &AtomicBool,
+    supervisor: &CandidateRuntimeSupervisor,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 2, "No QUIC targets configured");
@@ -38,7 +39,7 @@ pub fn execute_quic_candidate(
                 .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
                 if cancel.load(Ordering::Acquire) {
-                    let _cleanup = runtime.shutdown();
+                    supervisor.record(runtime.shutdown());
                     return cancelled_candidate_execution(spec, score, 2);
                 }
                 if index > 0 {
@@ -46,7 +47,7 @@ pub fn execute_quic_candidate(
                 }
                 score.add(run_quic_strategy_probe(&transport, target, spec));
             }
-            let _cleanup = runtime.shutdown();
+            supervisor.record(runtime.shutdown());
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",

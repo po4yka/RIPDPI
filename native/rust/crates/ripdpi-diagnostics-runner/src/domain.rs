@@ -215,7 +215,7 @@ mod tests {
             Box::new(FakeRunner { family: ProbeTaskFamily::Dns, steps: 1 }),
             Box::new(FakeRunner { family: ProbeTaskFamily::Tcp, steps: 1 }),
         ]);
-        let shared = Arc::new(Mutex::new(SharedState { progress: None, report: None, log_context: None }));
+        let shared = Arc::new(Mutex::new(SharedState::default()));
         let mut runtime = ExecutionRuntime::new(shared, Arc::new(AtomicBool::new(false)), Vec::new());
 
         assert!(matches!(coordinator.run(&plan(), &mut runtime, None), RunnerOutcome::Completed));

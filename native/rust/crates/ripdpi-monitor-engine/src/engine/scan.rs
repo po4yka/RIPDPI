@@ -54,7 +54,7 @@ pub fn run_engine_scan(
             return;
         }
     };
-    let coordinator = execution_coordinator(candidate_runtime_launcher);
+    let (coordinator, supervisor) = execution_coordinator(candidate_runtime_launcher);
     plan.total_steps = coordinator.total_steps(&plan);
 
     set_progress(
@@ -90,7 +90,21 @@ pub fn run_engine_scan(
     runtime.set_scan_deadline(
         std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
     );
-    match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
+    let outcome = coordinator.run(&plan, &mut runtime, tls_verifier.as_ref());
+    let cleanup_receipt = supervisor.receipt();
+    push_event(
+        &shared,
+        &plan.session_id,
+        &plan.request.profile_id,
+        &plan.request.path_mode,
+        "engine",
+        "info",
+        format!(
+            "Candidate cleanup started={} stopped={} joined={} forced_abort={}",
+            cleanup_receipt.started, cleanup_receipt.stopped, cleanup_receipt.joined, cleanup_receipt.forced_abort,
+        ),
+    );
+    match outcome {
         RunnerOutcome::Cancelled => {
             publish_cancelled_run(&plan, &shared, runtime);
         }

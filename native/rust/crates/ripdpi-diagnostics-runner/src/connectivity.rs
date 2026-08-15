@@ -20,6 +20,12 @@ pub use report::{build_network_environment_probe, summarize_probe_event};
 
 pub fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {
     let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if guard.terminal_sessions.contains(&progress.session_id) && !progress.is_finished {
+        return;
+    }
+    if progress.is_finished {
+        guard.terminal_sessions.insert(progress.session_id.clone());
+    }
     guard.progress = Some(progress);
 }
 
@@ -136,6 +142,9 @@ pub fn push_event(
 ) {
     let log_context = {
         let guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if guard.terminal_sessions.contains(session_id) && message != "Diagnostics finished" {
+            return;
+        }
         guard.log_context.clone()
     };
     emit_diagnostics_event(log_context.as_ref(), session_id, profile_id, path_mode, source, level, &message);
@@ -157,7 +166,7 @@ mod tests {
 
     #[test]
     fn set_progress_stores_value() {
-        let shared = Arc::new(Mutex::new(SharedState { progress: None, report: None, log_context: None }));
+        let shared = Arc::new(Mutex::new(SharedState::default()));
         let progress = ScanProgress {
             session_id: "test".to_string(),
             phase: "running".to_string(),
@@ -174,5 +183,39 @@ mod tests {
         let stored = guard.progress.as_ref().expect("progress stored");
         assert_eq!(stored.session_id, "test");
         assert_eq!(stored.completed_steps, 5);
+    }
+
+    #[test]
+    fn terminal_progress_rejects_late_candidate_progress_for_same_session() {
+        let shared = Arc::new(Mutex::new(SharedState::default()));
+        let finished = ScanProgress {
+            session_id: "session-a".to_string(),
+            phase: "finished".to_string(),
+            completed_steps: 2,
+            total_steps: 2,
+            message: "Diagnostics finished".to_string(),
+            is_finished: true,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
+            strategy_probe_progress: None,
+        };
+        set_progress(&shared, finished);
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: "session-a".to_string(),
+                phase: "candidate".to_string(),
+                completed_steps: 1,
+                total_steps: 2,
+                message: "upstream connect".to_string(),
+                is_finished: false,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
+                strategy_probe_progress: None,
+            },
+        );
+
+        let guard = shared.lock().expect("state");
+        assert_eq!(guard.progress.as_ref().expect("terminal progress").phase, "finished");
     }
 }

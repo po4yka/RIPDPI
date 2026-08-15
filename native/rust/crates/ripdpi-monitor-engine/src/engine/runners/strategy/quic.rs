@@ -7,7 +7,8 @@ use rustls::client::danger::ServerCertVerifier;
 use crate::candidates::{candidate_pause_ms, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities};
 use crate::classification::next_candidate_index;
 use crate::execution::{
-    CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, StrategyLaneExecutor, skipped_candidate_summary,
+    CandidateRuntimeLauncher, CandidateRuntimeSupervisor, DefaultStrategyLaneExecutor, StrategyLaneExecutor,
+    skipped_candidate_summary,
 };
 use crate::types::StrategyProbeProgressLane;
 
@@ -26,8 +27,11 @@ pub(in crate::engine::runners) struct StrategyQuicRunner {
 }
 
 impl StrategyQuicRunner {
-    pub(in crate::engine::runners) fn new(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
-        Self { lane_executor: DefaultStrategyLaneExecutor::new(candidate_runtime_launcher) }
+    pub(in crate::engine::runners) fn new(
+        candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+        supervisor: Arc<CandidateRuntimeSupervisor>,
+    ) -> Self {
+        Self { lane_executor: DefaultStrategyLaneExecutor::new(candidate_runtime_launcher, supervisor) }
     }
 }
 

@@ -19,4 +19,6 @@ pub struct SharedState {
     pub progress: Option<ScanProgress>,
     pub report: Option<ScanReport>,
     pub log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
+    /// Session ids that have crossed the terminal publication barrier.
+    pub terminal_sessions: std::collections::BTreeSet<String>,
 }

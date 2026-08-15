@@ -116,7 +116,7 @@ impl ClientWorkerPool {
             state.shutdown_active_tcp_sockets();
             self.wait_for_workers(Instant::now() + FORCED_DRAIN_TIMEOUT);
         }
-        self.retire_worker_handles(!self.has_live_workers());
+        self.join_worker_handles();
     }
 
     fn wait_for_workers(&self, deadline: Instant) {
@@ -135,19 +135,13 @@ impl ClientWorkerPool {
         }
     }
 
-    fn retire_worker_handles(&self, all_workers_exited: bool) {
+    fn join_worker_handles(&self) {
         let handles = {
             let mut workers = self.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             std::mem::take(&mut *workers)
         };
         for handle in handles {
-            if all_workers_exited || handle.is_finished() {
-                let _ = handle.join();
-            } else {
-                let _ = thread::Builder::new().name("ripdpi-worker-reaper".into()).spawn(move || {
-                    let _ = handle.join();
-                });
-            }
+            let _ = handle.join();
         }
     }
 
@@ -179,7 +173,7 @@ impl ClientWorkerPool {
 impl Drop for ClientWorkerPool {
     fn drop(&mut self) {
         self.close();
-        self.retire_worker_handles(false);
+        self.join_worker_handles();
     }
 }
 

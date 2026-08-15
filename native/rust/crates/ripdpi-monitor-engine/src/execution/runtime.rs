@@ -2,6 +2,7 @@ mod adaptive_freeze;
 mod contracts;
 mod launch;
 mod preparation;
+mod supervisor;
 mod tcp_launch;
 mod timeout;
 mod unavailable;
@@ -16,6 +17,7 @@ pub use contracts::{
     PreparedCandidateRuntime,
 };
 pub use launch::probe_runtime_transport;
+pub(crate) use supervisor::CandidateRuntimeSupervisor;
 pub(crate) use tcp_launch::probe_tcp_runtime_transport;
 pub use unavailable::UnavailableCandidateRuntimeLauncher;
 pub use warmup::run_candidate_warmup;
@@ -227,5 +229,17 @@ mod tests {
             panic!("probe runtime should expose SOCKS5 transport");
         };
         assert_eq!(host, "127.0.0.1");
+    }
+
+    #[test]
+    fn candidate_runtime_force_abort_is_accounted_before_join() {
+        let mut runtime: Box<dyn CandidateProbeRuntime> =
+            Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } });
+
+        runtime.request_shutdown();
+        let receipt = runtime.force_abort_and_join(std::time::Duration::ZERO);
+
+        assert_eq!(receipt.forced_abort, 1);
+        assert_eq!(receipt.joined, 1);
     }
 }

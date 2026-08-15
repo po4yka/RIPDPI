@@ -15,7 +15,9 @@ use crate::tls::tls_key_log_callback_for_path;
 use crate::types::DomainTarget;
 use crate::util::stable_probe_hash;
 
-use crate::execution::runtime::{CandidateRuntimeLauncher, probe_tcp_runtime_transport, run_candidate_warmup};
+use crate::execution::runtime::{
+    CandidateRuntimeLauncher, CandidateRuntimeSupervisor, probe_tcp_runtime_transport, run_candidate_warmup,
+};
 use crate::execution::scoring::{
     CandidateExecution, CandidateScore, build_candidate_execution, cancelled_candidate_execution,
     failed_candidate_execution, not_applicable_candidate_execution,
@@ -23,15 +25,20 @@ use crate::execution::scoring::{
 
 use self::domain_probe::probe_domain_chunk;
 
+pub(crate) struct TcpCandidateExecutionContext<'a> {
+    pub(crate) tls_verifier: Option<&'a Arc<dyn ServerCertVerifier>>,
+    pub(crate) keylog_path: Option<&'a str>,
+    pub(crate) cancel: &'a AtomicBool,
+    pub(crate) supervisor: &'a CandidateRuntimeSupervisor,
+}
+
 pub fn execute_tcp_candidate(
     runtime_launcher: &dyn CandidateRuntimeLauncher,
     spec: &StrategyCandidateSpec,
     targets: &[DomainTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_seed: u64,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    keylog_path: Option<&str>,
-    cancel: &AtomicBool,
+    context: TcpCandidateExecutionContext<'_>,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
@@ -40,10 +47,10 @@ pub fn execute_tcp_candidate(
     match probe_tcp_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
-            let key_log = keylog_path.map(tls_key_log_callback_for_path);
-            run_candidate_warmup(spec, &transport, targets, tls_verifier, key_log.as_ref());
-            if cancel.load(Ordering::Acquire) {
-                let _cleanup = runtime.shutdown();
+            let key_log = context.keylog_path.map(tls_key_log_callback_for_path);
+            run_candidate_warmup(spec, &transport, targets, context.tls_verifier, key_log.as_ref());
+            if context.cancel.load(Ordering::Acquire) {
+                context.supervisor.record(runtime.shutdown());
                 return cancelled_candidate_execution(spec, CandidateScore::default(), 3);
             }
             let mut score = CandidateScore::default();
@@ -56,26 +63,26 @@ pub fn execute_tcp_candidate(
             // state collision) while cutting wall-clock time from ~15-20s to ~6-8s.
             const PARALLEL_DOMAIN_BATCH_SIZE: usize = 3;
             for (chunk_index, chunk) in ordered_targets.chunks(PARALLEL_DOMAIN_BATCH_SIZE).enumerate() {
-                if cancel.load(Ordering::Acquire) {
-                    let _cleanup = runtime.shutdown();
+                if context.cancel.load(Ordering::Acquire) {
+                    context.supervisor.record(runtime.shutdown());
                     return cancelled_candidate_execution(spec, score, 3);
                 }
                 if chunk_index > 0 {
                     // Inter-chunk pause: use the first target in the chunk as the key.
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &chunk[0].host)));
                 }
-                let chunk_results = probe_domain_chunk(chunk, &transport, spec, tls_verifier, key_log.as_ref());
+                let chunk_results = probe_domain_chunk(chunk, &transport, spec, context.tls_verifier, key_log.as_ref());
                 for samples in chunk_results {
                     for sample in samples {
                         score.add(sample);
                     }
                 }
-                if cancel.load(Ordering::Acquire) {
-                    let _cleanup = runtime.shutdown();
+                if context.cancel.load(Ordering::Acquire) {
+                    context.supervisor.record(runtime.shutdown());
                     return cancelled_candidate_execution(spec, score, 3);
                 }
             }
-            let _cleanup = runtime.shutdown();
+            context.supervisor.record(runtime.shutdown());
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",

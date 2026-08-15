@@ -5,6 +5,7 @@ mod scoring;
 
 pub(crate) use lanes::DefaultStrategyLaneExecutor;
 pub(crate) use runner_contract::StrategyLaneExecutor;
+pub(crate) use runtime::CandidateRuntimeSupervisor;
 pub use runtime::{
     CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
     PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,

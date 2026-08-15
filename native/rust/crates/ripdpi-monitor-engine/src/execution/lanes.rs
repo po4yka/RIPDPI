@@ -13,16 +13,20 @@ use crate::candidates::StrategyCandidateSpec;
 use crate::types::{DomainTarget, QuicTarget};
 
 use super::runner_contract::StrategyLaneExecutor;
-use super::runtime::CandidateRuntimeLauncher;
+use super::runtime::{CandidateRuntimeLauncher, CandidateRuntimeSupervisor};
 use super::scoring::CandidateExecution;
 
 pub(crate) struct DefaultStrategyLaneExecutor {
     runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    supervisor: Arc<CandidateRuntimeSupervisor>,
 }
 
 impl DefaultStrategyLaneExecutor {
-    pub(crate) fn new(runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
-        Self { runtime_launcher }
+    pub(crate) fn new(
+        runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+        supervisor: Arc<CandidateRuntimeSupervisor>,
+    ) -> Self {
+        Self { runtime_launcher, supervisor }
     }
 }
 
@@ -43,9 +47,12 @@ impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
             targets,
             runtime_context,
             probe_seed,
-            tls_verifier,
-            keylog_path,
-            cancel,
+            tcp::TcpCandidateExecutionContext {
+                tls_verifier,
+                keylog_path,
+                cancel,
+                supervisor: self.supervisor.as_ref(),
+            },
         )
     }
 
@@ -57,7 +64,15 @@ impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
         probe_seed: u64,
         cancel: &AtomicBool,
     ) -> CandidateExecution {
-        quic::execute_quic_candidate(self.runtime_launcher.as_ref(), spec, targets, runtime_context, probe_seed, cancel)
+        quic::execute_quic_candidate(
+            self.runtime_launcher.as_ref(),
+            spec,
+            targets,
+            runtime_context,
+            probe_seed,
+            cancel,
+            self.supervisor.as_ref(),
+        )
     }
 }
 
@@ -115,8 +130,21 @@ mod tests {
             concurrency_probe: None,
         }];
         let cancel = AtomicBool::new(false);
+        let supervisor = CandidateRuntimeSupervisor::default();
 
-        let execution = tcp::execute_tcp_candidate(&launcher, &spec, &targets, None, 0, None, None, &cancel);
+        let execution = tcp::execute_tcp_candidate(
+            &launcher,
+            &spec,
+            &targets,
+            None,
+            0,
+            tcp::TcpCandidateExecutionContext {
+                tls_verifier: None,
+                keylog_path: None,
+                cancel: &cancel,
+                supervisor: &supervisor,
+            },
+        );
 
         assert_eq!(launcher.starts(), 1);
         assert_eq!(execution.summary.outcome, "failed");
@@ -134,8 +162,9 @@ mod tests {
             ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
         );
         let cancel = AtomicBool::new(false);
+        let supervisor = CandidateRuntimeSupervisor::default();
 
-        let execution = quic::execute_quic_candidate(&launcher, &spec, &[], None, 0, &cancel);
+        let execution = quic::execute_quic_candidate(&launcher, &spec, &[], None, 0, &cancel, &supervisor);
 
         assert_eq!(launcher.starts(), 0);
         assert_eq!(execution.summary.outcome, "not_applicable");
