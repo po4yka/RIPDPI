@@ -52,7 +52,7 @@ class DirectModePolicyPersistenceTest {
                                         ),
                                 ),
                             ),
-                    ),
+                    ).withAcceptedStrategyEvidence(),
                 existingRecords = emptyList(),
             ).single()
                 .second
@@ -87,7 +87,7 @@ class DirectModePolicyPersistenceTest {
                                         ),
                                 ),
                             ),
-                    ),
+                    ).withAcceptedStrategyEvidence(),
                 existingRecords = emptyList(),
             ).single()
                 .second
@@ -121,7 +121,7 @@ class DirectModePolicyPersistenceTest {
                                         ),
                                 ),
                             ),
-                    ),
+                    ).withAcceptedStrategyEvidence(),
                 existingRecords =
                     listOf(
                         ServerCapabilityRecord(
@@ -187,7 +187,7 @@ class DirectModePolicyPersistenceTest {
                                     details = listOf(ProbeDetail("targetHost", "example.org")),
                                 ),
                             ),
-                    ),
+                    ).withAcceptedStrategyEvidence(),
                 existingRecords = emptyList(),
             ).single()
                 .second
@@ -234,3 +234,14 @@ class DirectModePolicyPersistenceTest {
         assertNull(persisted.policyConfirmedAt)
     }
 }
+
+private fun ScanReport.withAcceptedStrategyEvidence(): ScanReport =
+    copy(
+        strategyProbeReport =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment = scanWorkflowAuditAssessment(),
+            ).strategyProbeReport,
+    )

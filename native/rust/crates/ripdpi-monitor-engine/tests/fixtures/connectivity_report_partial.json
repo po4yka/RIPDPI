@@ -23,6 +23,27 @@
         "skippedByGlobalDeadlineSteps": 0,
         "skippedByStageBudgetSteps": 0,
         "stageId": "environment"
+      },
+      {
+        "executedSteps": 1,
+        "plannedSteps": 1,
+        "skippedByGlobalDeadlineSteps": 0,
+        "skippedByStageBudgetSteps": 0,
+        "stageId": "dns"
+      },
+      {
+        "executedSteps": 1,
+        "plannedSteps": 1,
+        "skippedByGlobalDeadlineSteps": 0,
+        "skippedByStageBudgetSteps": 0,
+        "stageId": "tcp"
+      },
+      {
+        "executedSteps": 1,
+        "plannedSteps": 2,
+        "skippedByGlobalDeadlineSteps": 0,
+        "skippedByStageBudgetSteps": 0,
+        "stageId": "quic"
       }
     ],
     "stageOrder": [
