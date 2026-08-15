@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NoopStartupJournal
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -128,6 +129,7 @@ internal fun createDiagnosticsServices(
                                 .createTempDirectory("file-log-test")
                                 .toFile(),
                         ),
+                    startupJournal = NoopStartupJournal,
                     buildInfoProvider =
                         object : DiagnosticsArchiveBuildInfoProvider {
                             override fun buildProvenance(): DiagnosticsArchiveBuildProvenance =

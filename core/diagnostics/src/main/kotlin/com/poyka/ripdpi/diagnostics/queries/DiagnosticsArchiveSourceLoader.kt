@@ -4,7 +4,6 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.NoopStartupJournal
 import com.poyka.ripdpi.data.StartupJournal
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -36,7 +35,7 @@ internal class DiagnosticsArchiveSourceLoader
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         private val fileLogWriter: FileLogWriter,
-        private val startupJournal: StartupJournal = NoopStartupJournal,
+        private val startupJournal: StartupJournal,
         private val buildInfoProvider: DiagnosticsArchiveBuildInfoProvider,
         private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
         private val replayResultStore: ReplayResultStore,

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NoopStartupJournal
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -300,6 +301,7 @@ class DeveloperAnalyticsAllowListTest {
                                 .createTempDirectory("da-allowlist-test")
                                 .toFile(),
                         ),
+                    startupJournal = NoopStartupJournal,
                     buildInfoProvider = buildInfoProvider(),
                     diagnosticsHomeCompositeRunService = compositeRunService,
                     replayResultStore = ReplayResultStore(),

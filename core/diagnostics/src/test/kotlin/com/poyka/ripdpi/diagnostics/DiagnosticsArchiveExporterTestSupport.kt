@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NoopStartupJournal
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -139,6 +140,7 @@ internal fun createArchiveExporterForTest(
                 bypassUsageHistoryStore = stores,
                 logcatSnapshotCollector = logcatSnapshotCollector,
                 fileLogWriter = fileLogWriter,
+                startupJournal = NoopStartupJournal,
                 buildInfoProvider = archiveTestBuildInfoProvider(),
                 diagnosticsHomeCompositeRunService = compositeRunService,
                 replayResultStore = ReplayResultStore(),

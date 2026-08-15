@@ -12,6 +12,7 @@
         "profileFamily": "AUTOMATIC_AUDIT",
         "scanDeadlineMs": 270000,
         "scanKind": "STRATEGY_PROBE",
+        "stageExecutions": [],
         "stageOrder": [
             "environment",
             "strategy_dns_baseline",

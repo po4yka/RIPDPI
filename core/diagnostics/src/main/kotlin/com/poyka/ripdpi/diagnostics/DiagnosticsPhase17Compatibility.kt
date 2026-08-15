@@ -56,12 +56,14 @@ internal object DiagnosticsArchiveFormat {
     fun includedFiles(
         logcatIncluded: Boolean,
         fileLogIncluded: Boolean = false,
+        startupJournalIncluded: Boolean = false,
         composite: Boolean = false,
         replayIncluded: Boolean = false,
     ): List<String> =
         com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
             logcatIncluded = logcatIncluded,
             fileLogIncluded = fileLogIncluded,
+            startupJournalIncluded = startupJournalIncluded,
             composite = composite,
             replayIncluded = replayIncluded,
         )

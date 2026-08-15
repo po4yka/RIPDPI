@@ -4,6 +4,7 @@
         "logcatBytes": 524288,
         "nativeEvents": 200,
         "snapshots": 250,
+        "startupJournalBytes": 32768,
         "telemetrySamples": 120
     },
     "collectionWarnings": [
@@ -71,6 +72,7 @@
         "logcat": false,
         "nativeEvents": false,
         "snapshots": false,
+        "startupJournal": false,
         "telemetrySamples": false
     }
 }

@@ -146,6 +146,17 @@ internal fun buildLogcatCommand(
 
 internal const val Utf8ContinuationMask = 0xC0
 internal const val Utf8ContinuationTag = 0x80
+private const val Utf8ByteMask = 0xFF
+private const val Utf8TwoBytePrefixMask = 0xE0
+private const val Utf8TwoBytePrefix = 0xC0
+private const val Utf8ThreeBytePrefixMask = 0xF0
+private const val Utf8ThreeBytePrefix = 0xE0
+private const val Utf8FourBytePrefixMask = 0xF8
+private const val Utf8FourBytePrefix = 0xF0
+private const val Utf8SingleByteLength = 1
+private const val Utf8TwoByteLength = 2
+private const val Utf8ThreeByteLength = 3
+private const val Utf8FourByteLength = 4
 
 private class RollingByteTail(
     private val capacity: Int,
@@ -235,8 +246,9 @@ private fun headUtf8Bytes(
     bytes: ByteArray,
     maxBytes: Int,
 ): ByteArray {
-    if (maxBytes <= 0) return byteArrayOf()
-    if (bytes.size <= maxBytes) return bytes
+    if (maxBytes <= 0 || bytes.size <= maxBytes) {
+        return if (maxBytes <= 0) byteArrayOf() else bytes
+    }
     var end = maxBytes
     var continuationBytes = 0
     while (end - continuationBytes > 0 &&
@@ -246,16 +258,16 @@ private fun headUtf8Bytes(
     }
     val leadingIndex = end - continuationBytes - 1
     if (leadingIndex >= 0) {
-        val leadingByte = bytes[leadingIndex].toInt() and 0xFF
+        val leadingByte = bytes[leadingIndex].toInt() and Utf8ByteMask
         val expectedLength =
             when {
-                leadingByte and 0x80 == 0 -> 1
-                leadingByte and 0xE0 == 0xC0 -> 2
-                leadingByte and 0xF0 == 0xE0 -> 3
-                leadingByte and 0xF8 == 0xF0 -> 4
-                else -> 1
+                leadingByte and Utf8ContinuationTag == 0 -> Utf8SingleByteLength
+                leadingByte and Utf8TwoBytePrefixMask == Utf8TwoBytePrefix -> Utf8TwoByteLength
+                leadingByte and Utf8ThreeBytePrefixMask == Utf8ThreeBytePrefix -> Utf8ThreeByteLength
+                leadingByte and Utf8FourBytePrefixMask == Utf8FourBytePrefix -> Utf8FourByteLength
+                else -> Utf8SingleByteLength
             }
-        if (continuationBytes + 1 < expectedLength) end = leadingIndex
+        if (continuationBytes + Utf8SingleByteLength < expectedLength) end = leadingIndex
     }
     return bytes.copyOfRange(0, end)
 }
