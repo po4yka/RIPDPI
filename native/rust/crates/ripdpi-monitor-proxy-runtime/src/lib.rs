@@ -17,7 +17,7 @@ pub struct ProductionCandidateRuntimeLauncher;
 struct TemporaryProxyRuntime {
     addr: SocketAddr,
     control: Arc<EmbeddedProxyControl>,
-    handle: Option<JoinHandle<Result<(), String>>>,
+    handle: Option<JoinHandle<Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String>>>,
 }
 
 impl CandidateRuntimeLauncher for ProductionCandidateRuntimeLauncher {
@@ -31,7 +31,7 @@ impl CandidateRuntimeLauncher for ProductionCandidateRuntimeLauncher {
         let control = Arc::new(EmbeddedProxyControl::new_with_context(None, prepared.runtime_context));
         let worker_control = control.clone();
         let handle = thread::spawn(move || {
-            ripdpi_proxy_runtime::run_proxy_with_embedded_control(prepared.config, listener, worker_control)
+            ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(prepared.config, listener, worker_control)
                 .map_err(|err| err.to_string())
         });
         wait_for_listener(addr).map_err(CandidateRuntimeError::Launch)?;
@@ -51,14 +51,19 @@ impl CandidateProbeRuntime for TemporaryProxyRuntime {
 
     fn force_abort_and_join(&mut self, _grace: std::time::Duration) -> CandidateCleanupReceipt {
         self.request_shutdown();
-        let joined = self.handle.take().is_some_and(|handle| handle.join().is_ok());
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: usize::from(joined), forced_abort: 1 }
+        let joined = self.handle.take().and_then(|handle| handle.join().ok()).and_then(Result::ok);
+        CandidateCleanupReceipt { started: 1, stopped: 1, joined: usize::from(joined.is_some()), forced_abort: 1 }
     }
 
     fn shutdown(mut self: Box<Self>) -> CandidateCleanupReceipt {
         self.request_shutdown();
-        let joined = self.handle.take().is_some_and(|handle| handle.join().is_ok());
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: usize::from(joined), forced_abort: 0 }
+        let joined = self.handle.take().and_then(|handle| handle.join().ok()).and_then(Result::ok);
+        CandidateCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: usize::from(joined.is_some()),
+            forced_abort: usize::from(joined.is_some_and(|receipt| receipt.forced_abort)),
+        }
     }
 }
 

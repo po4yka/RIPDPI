@@ -219,6 +219,7 @@ mod tests {
             confirm_good_dpi_verdict: None,
             metrics_summary: None::<RecorderSnapshot>,
             execution_plan: None,
+            candidate_runtime_cleanup: None,
         });
 
         let report = session.take_report_json().expect("take finished report");

@@ -10,6 +10,19 @@ use crate::types::{
 
 use super::result::ProbeResult;
 
+/// Privacy-safe terminal accounting for candidate runtime cleanup.
+///
+/// This deliberately exposes only lifecycle counts; it contains no endpoint,
+/// address, port, host, or network identifier.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandidateRuntimeCleanupReceipt {
+    pub started: usize,
+    pub stopped: usize,
+    pub joined: usize,
+    pub forced_abort: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanReport {
@@ -42,4 +55,6 @@ pub struct ScanReport {
     pub metrics_summary: Option<RecorderSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_plan: Option<ExecutionPlanSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate_runtime_cleanup: Option<CandidateRuntimeCleanupReceipt>,
 }

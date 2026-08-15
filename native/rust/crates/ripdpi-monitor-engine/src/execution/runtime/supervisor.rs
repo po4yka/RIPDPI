@@ -111,13 +111,38 @@ mod tests {
     #[test]
     fn parallel_candidate_cleanup_receipts_leave_no_live_runtime_before_terminal_barrier() {
         let supervisor = CandidateRuntimeSupervisor::default();
-        supervisor.record(CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
-        supervisor.record(CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
+        let shutdowns = Arc::new(AtomicUsize::new(0));
+        let forced_aborts = Arc::new(AtomicUsize::new(0));
+        let first = supervisor.supervise(runtime(shutdowns.clone(), forced_aborts.clone()));
+        let second = supervisor.supervise(runtime(shutdowns.clone(), forced_aborts));
+
+        assert!(supervisor.terminal_receipt().is_none(), "two candidates are still live");
+        first.shutdown();
+        assert!(supervisor.terminal_receipt().is_none(), "one candidate remains live");
+        second.shutdown();
 
         assert_eq!(
-            supervisor.receipt(),
-            CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 }
+            supervisor.terminal_receipt(),
+            Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 })
         );
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn deadline_and_external_cancel_share_the_terminal_barrier() {
+        let make_cleanup = || {
+            let supervisor = CandidateRuntimeSupervisor::default();
+            let shutdowns = Arc::new(AtomicUsize::new(0));
+            let forced_aborts = Arc::new(AtomicUsize::new(0));
+            drop(supervisor.supervise(runtime(shutdowns, forced_aborts)));
+            supervisor.terminal_receipt().expect("cancellation cleanup barrier")
+        };
+
+        let deadline = make_cleanup();
+        let external_cancel = make_cleanup();
+
+        assert_eq!(deadline, external_cancel);
+        assert_eq!(deadline, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
     }
 
     #[test]

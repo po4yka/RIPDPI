@@ -5,7 +5,7 @@ mod result;
 
 pub use config::{RouteProbeConfig, ScanRequest};
 pub use progress::{ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane};
-pub use report::ScanReport;
+pub use report::{CandidateRuntimeCleanupReceipt, ScanReport};
 pub use result::{ProbeDetail, ProbeResult};
 
 #[cfg(test)]

@@ -17,6 +17,11 @@ use self::accept_loop::run_accept_loop;
 use super::config::RuntimeConfig;
 use super::state::RuntimeState;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ProxyRuntimeCleanupReceipt {
+    pub forced_abort: bool,
+}
+
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
     listener_platform::bind_tcp_listener(RuntimeState::listener_bind_addr(config))
 }
@@ -25,10 +30,11 @@ pub(super) fn run_proxy_with_listener_internal(
     config: RuntimeConfig,
     listener: TcpListener,
     control: Option<StdArc<EmbeddedProxyControl>>,
-) -> io::Result<()> {
+) -> io::Result<ProxyRuntimeCleanupReceipt> {
     let mut config = config;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let _root_helper = RootHelperRegistration::for_config(&config);
+    let embedded_candidate_runtime = control.is_some();
     let state = RuntimeState::new(config, control.clone());
     let client_capacity = state.listener_client_capacity();
     let listener_addr = listener.local_addr()?;
@@ -38,13 +44,20 @@ pub(super) fn run_proxy_with_listener_internal(
     // The policy port's ServicesState::drop handles persistence on shutdown.
     state.drain_autolearn_events();
 
-    super::warmup::spawn_warmup_thread(state.clone());
+    // Candidate diagnostics runtimes are stage-owned: they must not start
+    // fire-and-forget warmup or reprobe work that could outlive their
+    // supervisor. The long-lived service runtime retains these background
+    // optimizations.
+    if !embedded_candidate_runtime {
+        super::warmup::spawn_warmup_thread(state.clone());
 
-    // Check for network identity changes and trigger a lightweight reprobe
-    // if the network switched (e.g. WiFi -> cellular).
-    super::reprobe::maybe_spawn_reprobe(&state);
+        // Check for network identity changes and trigger a lightweight reprobe
+        // if the network switched (e.g. WiFi -> cellular).
+        super::reprobe::maybe_spawn_reprobe(&state);
+    }
 
-    let result = run_accept_loop(listener, state.clone(), RuntimeShutdown::new(control), client_capacity);
+    let result = run_accept_loop(listener, state.clone(), RuntimeShutdown::new(control), client_capacity)
+        .map(|forced_abort| ProxyRuntimeCleanupReceipt { forced_abort });
     state.flush_host_store();
     result
 }

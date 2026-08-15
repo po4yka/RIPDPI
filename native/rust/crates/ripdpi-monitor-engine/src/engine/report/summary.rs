@@ -70,6 +70,7 @@ pub(crate) fn build_report(
         confirm_good_dpi_verdict,
         metrics_summary: recorder::snapshot(),
         execution_plan,
+        candidate_runtime_cleanup: None,
     }
 }
 

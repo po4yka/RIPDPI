@@ -25,6 +25,7 @@ use std::net::TcpListener;
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
+pub use self::listeners::ProxyRuntimeCleanupReceipt;
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use self::state::RuntimeState;
 pub use geo::{RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, load_geo_database_versions, load_geoip_metadata};
@@ -47,7 +48,7 @@ pub fn validate_proxy_config(config: &RuntimeConfig) -> io::Result<()> {
 }
 
 pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, None)
+    run_proxy_with_listener_internal(config, listener, None).map(|_| ())
 }
 
 pub fn run_proxy_with_embedded_control(
@@ -55,13 +56,22 @@ pub fn run_proxy_with_embedded_control(
     listener: TcpListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
 ) -> io::Result<()> {
+    run_proxy_with_listener_internal(config, listener, Some(control)).map(|_| ())
+}
+
+/// Runs an embedded proxy and returns its terminal worker-cleanup receipt.
+pub fn run_proxy_with_embedded_control_receipt(
+    config: RuntimeConfig,
+    listener: TcpListener,
+    control: std::sync::Arc<EmbeddedProxyControl>,
+) -> io::Result<ProxyRuntimeCleanupReceipt> {
     run_proxy_with_listener_internal(config, listener, Some(control))
 }
 
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
-    use super::create_listener;
     use super::state::ClientSlotGuard;
+    use super::{create_listener, run_proxy_with_embedded_control_receipt};
     use crate::runtime::desync::DesyncSendRequest;
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
@@ -74,12 +84,14 @@ mod tests {
         encode_socks4_reply, encode_socks5_reply,
     };
     use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
-    use std::io::Read;
+    use std::io::{Read, Write};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     #[cfg(unix)]
     use std::os::fd::AsRawFd;
     use std::sync::atomic::Ordering;
+    use std::sync::mpsc;
     use std::thread;
+    use std::time::{Duration, Instant};
 
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
@@ -370,5 +382,49 @@ mod tests {
 
         assert!(result.is_err(), "connect to TEST-NET should fail");
         assert!(elapsed < Duration::from_secs(5), "connect should respect the 1s timeout, but took {elapsed:?}");
+    }
+
+    #[test]
+    fn blocking_upstream_relay_is_force_closed_and_joined_before_runtime_returns() {
+        let upstream_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream");
+        let target = upstream_listener.local_addr().expect("upstream address");
+        let (accepted_tx, accepted_rx) = mpsc::channel();
+        let upstream_worker = thread::spawn(move || {
+            let (mut upstream, _) = upstream_listener.accept().expect("accept upstream connection");
+            accepted_tx.send(()).expect("signal upstream accepted");
+            upstream.set_read_timeout(Some(Duration::from_secs(6))).expect("set upstream timeout");
+            let mut byte = [0_u8; 1];
+            let _ = upstream.read(&mut byte);
+        });
+
+        let mut config = RuntimeConfig::default();
+        config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        config.network.listen.listen_port = 0;
+        let listener = create_listener(&config).expect("create proxy listener");
+        let proxy_addr = listener.local_addr().expect("proxy address");
+        let control = Arc::new(ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl::new(None));
+        let worker_control = control.clone();
+        let proxy = thread::spawn(move || run_proxy_with_embedded_control_receipt(config, listener, worker_control));
+
+        let mut client = TcpStream::connect(proxy_addr).expect("connect proxy");
+        client.write_all(&[5, 1, 0]).expect("send SOCKS greeting");
+        let mut greeting = [0_u8; 2];
+        client.read_exact(&mut greeting).expect("read SOCKS greeting");
+        assert_eq!(greeting, [5, 0]);
+        client
+            .write_all(&[5, 1, 0, 1, 127, 0, 0, 1, (target.port() >> 8) as u8, target.port() as u8])
+            .expect("send SOCKS connect");
+        let mut reply = [0_u8; 10];
+        client.read_exact(&mut reply).expect("read SOCKS connect reply");
+        assert_eq!(reply[1], 0, "upstream must be connected before shutdown");
+        accepted_rx.recv_timeout(Duration::from_secs(2)).expect("upstream relay accepted");
+
+        let started = Instant::now();
+        control.request_shutdown();
+        let receipt = proxy.join().expect("join proxy").expect("proxy shutdown");
+
+        assert!(started.elapsed() < Duration::from_secs(5), "forced cleanup must remain bounded");
+        assert!(receipt.forced_abort, "hung relay must be reported as forced abort");
+        upstream_worker.join().expect("upstream worker joined");
     }
 }

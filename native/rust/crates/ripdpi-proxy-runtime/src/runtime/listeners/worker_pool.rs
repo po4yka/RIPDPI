@@ -108,15 +108,17 @@ impl ClientWorkerPool {
         }
     }
 
-    pub(crate) fn drain_gracefully(&self, state: &RuntimeState) {
+    pub(crate) fn drain_gracefully(&self, state: &RuntimeState) -> bool {
         self.close();
         self.wait_for_workers(Instant::now() + GRACEFUL_DRAIN_TIMEOUT);
-        if self.has_live_workers() {
+        let forced_abort = self.has_live_workers();
+        if forced_abort {
             tracing::debug!("graceful drain timeout reached; shutting down active client sockets");
             state.shutdown_active_tcp_sockets();
             self.wait_for_workers(Instant::now() + FORCED_DRAIN_TIMEOUT);
         }
         self.join_worker_handles();
+        forced_abort
     }
 
     fn wait_for_workers(&self, deadline: Instant) {
@@ -288,7 +290,7 @@ mod tests {
         let pool = ClientWorkerPool::new(1).expect("worker pool");
         let state = RuntimeState::new(RuntimeConfig::default(), None);
 
-        pool.drain_gracefully(&state);
+        let _ = pool.drain_gracefully(&state);
 
         assert!(!pool.has_live_workers(), "terminal drain must own and join every worker");
     }

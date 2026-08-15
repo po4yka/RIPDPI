@@ -90,7 +90,10 @@ pub fn run_engine_scan(
     runtime.set_scan_deadline(
         std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
     );
-    let outcome = coordinator.run(&plan, &mut runtime, tls_verifier.as_ref());
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        coordinator.run(&plan, &mut runtime, tls_verifier.as_ref())
+    }))
+    .unwrap_or_else(|payload| RunnerOutcome::Failed(crate::engine::panic_payload_message(&*payload)));
     let Some(cleanup_receipt) = supervisor.terminal_receipt() else {
         let message = "candidate runtime cleanup barrier did not join every runtime".to_string();
         let mut report = build_report(
@@ -148,10 +151,11 @@ pub fn run_engine_scan(
     );
     match outcome {
         RunnerOutcome::Cancelled => {
-            publish_cancelled_run(&plan, &shared, runtime);
+            publish_cancelled_run(&plan, &shared, runtime, Some(cleanup_receipt));
         }
         RunnerOutcome::Finished => {
-            if let Some(report) = runtime.final_report {
+            if let Some(mut report) = runtime.final_report {
+                report.candidate_runtime_cleanup = Some(cleanup_receipt);
                 let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
                     .then(|| connectivity_analytics_summary(&report.results, &report.path_mode));
                 set_report(&shared, report);
@@ -191,6 +195,7 @@ pub fn run_engine_scan(
             );
             report.completion_kind = ScanCompletionKind::Terminated;
             report.termination_reason = Some(ScanTerminationReason::EngineError);
+            report.candidate_runtime_cleanup = Some(cleanup_receipt);
             set_report(&shared, report);
             push_event(
                 &shared,
@@ -225,7 +230,7 @@ pub fn run_engine_scan(
             };
             let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
                 .then(|| connectivity_analytics_summary(&runtime.results, &plan.request.path_mode));
-            let report = build_report(
+            let mut report = build_report(
                 ReportBuildContext {
                     session_id: plan.session_id.clone(),
                     request: plan.request.clone(),
@@ -238,6 +243,7 @@ pub fn run_engine_scan(
                 runtime.strategy.strategy_probe_report,
                 None,
             );
+            report.candidate_runtime_cleanup = Some(cleanup_receipt);
             set_report(&shared, report);
             if let Some(analytics_summary) = analytics_summary {
                 push_event(

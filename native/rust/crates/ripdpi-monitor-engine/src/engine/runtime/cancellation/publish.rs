@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::connectivity::{push_event, set_report};
 use crate::engine::report::{ReportBuildContext, build_report};
 use crate::engine::runners::prepare_strategy_probe_report;
-use crate::types::{ScanCompletionKind, ScanTerminationReason, SharedState};
+use crate::types::{CandidateRuntimeCleanupReceipt, ScanCompletionKind, ScanTerminationReason, SharedState};
 
 use super::super::plan::ExecutionPlan;
 use super::super::state::ExecutionRuntime;
@@ -17,6 +17,7 @@ pub(in crate::engine) fn publish_cancelled_run(
     plan: &ExecutionPlan,
     shared: &Arc<Mutex<SharedState>>,
     mut runtime: ExecutionRuntime,
+    cleanup_receipt: Option<CandidateRuntimeCleanupReceipt>,
 ) {
     if runtime.strategy.strategy_probe_report.is_none() {
         prepare_strategy_probe_report(plan, &mut runtime);
@@ -46,6 +47,7 @@ pub(in crate::engine) fn publish_cancelled_run(
     } else {
         ScanTerminationReason::UserCancelled
     });
+    report.candidate_runtime_cleanup = cleanup_receipt;
     set_report(shared, report);
     push_event(
         shared,

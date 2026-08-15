@@ -27,13 +27,7 @@ pub struct PreparedCandidateRuntime {
     pub runtime_context: Option<ProxyRuntimeContext>,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct CandidateCleanupReceipt {
-    pub started: usize,
-    pub stopped: usize,
-    pub joined: usize,
-    pub forced_abort: usize,
-}
+pub type CandidateCleanupReceipt = crate::types::CandidateRuntimeCleanupReceipt;
 
 pub trait CandidateProbeRuntime: Send {
     fn transport(&self) -> TransportConfig;
