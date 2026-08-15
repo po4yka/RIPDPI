@@ -1,9 +1,11 @@
+mod outcome;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
 use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
-use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial, parse_quic_initial};
+use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial};
 
 use crate::candidates::{StrategyCandidateSpec, target_probe_pause_ms};
 use crate::transport::{TransportConfig, quic_connect_targets, relay_udp_payload_observed};
@@ -16,6 +18,7 @@ use crate::execution::scoring::{
     CandidateExecution, CandidateScore, ProbeSample, build_candidate_execution, cancelled_candidate_execution,
     failed_candidate_execution, not_applicable_candidate_execution,
 };
+use outcome::classify_quic_response;
 
 pub fn execute_quic_candidate(
     runtime_launcher: &dyn CandidateRuntimeLauncher,
@@ -70,26 +73,14 @@ pub(super) fn run_quic_strategy_probe(
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
     let response = relay_udp_payload_observed(&quic_connect_targets(target), target.port, transport, &payload);
     let latency_ms = now_ms().saturating_sub(started);
-    let (outcome, status, error, connected_addr) = match response {
-        Ok(result) if parse_quic_initial(&result.payload).is_some() => (
-            "quic_initial_response".to_string(),
-            "quic_initial_response".to_string(),
-            "none".to_string(),
-            result.connected_addr,
-        ),
-        Ok(result) if !result.payload.is_empty() => {
-            ("quic_response".to_string(), "quic_response".to_string(), "none".to_string(), result.connected_addr)
-        }
-        Ok(result) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string(), result.connected_addr),
-        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err, None),
-    };
+    let outcome = classify_quic_response(response);
     let mut details = candidate_probe_details(candidate, "QUIC", latency_ms);
     details.extend([
         ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
-        ProbeDetail { key: "status".to_string(), value: status },
-        ProbeDetail { key: "error".to_string(), value: error },
+        ProbeDetail { key: "status".to_string(), value: outcome.status.clone() },
+        ProbeDetail { key: "error".to_string(), value: outcome.error },
     ]);
-    if let Some(addr) = connected_addr {
+    if let Some(addr) = outcome.connected_addr {
         details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
         if let Some(provider) = crate::cdn_ech::opportunistic_ech_provider_for_ip(addr.ip()) {
             details.push(ProbeDetail { key: "cdnProvider".to_string(), value: provider.to_string() });
@@ -99,14 +90,14 @@ pub(super) fn run_quic_strategy_probe(
         result: ProbeResult {
             probe_type: "strategy_quic".to_string(),
             target: format!("{} · {}", candidate.label, target.host),
-            outcome: outcome.clone(),
+            outcome: outcome.kind.clone(),
             details,
         },
-        success: matches!(outcome.as_str(), "quic_initial_response" | "quic_response"),
+        success: matches!(outcome.kind.as_str(), "quic_initial_response" | "quic_response"),
         weight: 2,
         domain: Some(target.host.clone()),
         is_control: false,
-        quality: match outcome.as_str() {
+        quality: match outcome.kind.as_str() {
             "quic_initial_response" => 4,
             "quic_response" => 3,
             _ => 0,

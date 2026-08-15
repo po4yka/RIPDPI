@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+mod overrides;
+
+use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -68,22 +70,7 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
 
         // If we have encrypted IP overrides, build override targets so TCP/QUIC
         // runners can probe using trusted IPs instead of poisoned system DNS.
-        if !baseline.encrypted_ip_overrides.is_empty() {
-            let mut overrides = HashMap::new();
-            for (host, ip) in &baseline.encrypted_ip_overrides {
-                overrides.entry(host.as_str()).or_insert(ip);
-            }
-            let mut domain_ov = plan.request.domain_targets.clone();
-            for t in domain_ov.iter_mut().filter(|target| target.connect_ip.is_none()) {
-                t.connect_ip = overrides.get(t.host.as_str()).map(|ip| (*ip).to_string());
-            }
-            let mut quic_ov = plan.request.quic_targets.clone();
-            for t in quic_ov.iter_mut().filter(|target| target.connect_ip.is_none()) {
-                t.connect_ip = overrides.get(t.host.as_str()).map(|ip| (*ip).to_string());
-            }
-            runtime.strategy.dns_override_domain_targets = Some(domain_ov);
-            runtime.strategy.dns_override_quic_targets = Some(quic_ov);
-        }
+        overrides::record_dns_override_targets(plan, runtime, &baseline.encrypted_ip_overrides);
 
         // Continue to TCP/QUIC runners instead of short-circuiting, so we get
         // actual strategy effectiveness data even on DNS-tampered networks.
