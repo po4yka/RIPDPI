@@ -107,6 +107,7 @@ interface DiagnosticsScanController {
         scanDeadlineMs: Long? = null,
         maxCandidates: Int? = null,
         targetOverrides: DiagnosticsScanTargetOverrides? = null,
+        resumeRuntimeAfterRawPath: Boolean = false,
     ): DiagnosticsManualScanStartResult =
         startScan(
             pathMode = pathMode,

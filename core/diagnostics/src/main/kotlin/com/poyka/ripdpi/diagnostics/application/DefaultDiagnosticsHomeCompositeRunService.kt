@@ -3,7 +3,6 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
@@ -403,6 +402,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
         ) {
+            if (!stageExecutor.requireInPathRuntime(progressState, runId, stageIndex, spec)) return
             val selection =
                 buildPathComparisonSelection(
                     runId = runId,
@@ -479,6 +479,9 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     progressState = progressState,
                     targetOverrides = targetOverrides,
                 )
+            if (spec.key == "path_comparison") {
+                return result
+            }
             repeat(activeProbeSafetyPolicy.stageRetryBudget) {
                 if (result != null) return result
                 delay(activeProbeSafetyPolicy.stageRetryDelayMs)

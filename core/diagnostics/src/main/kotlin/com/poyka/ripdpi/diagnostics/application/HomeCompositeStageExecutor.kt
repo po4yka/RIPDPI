@@ -4,6 +4,7 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,24 @@ internal class HomeCompositeStageExecutor
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
+        }
+
+        fun requireInPathRuntime(
+            progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+        ): Boolean {
+            val (status, mode) = serviceStateStore.status.value
+            if (status == AppStatus.Running && mode == Mode.Proxy) return true
+            updateStage(progressState, runId, stageIndex) { current ->
+                current.copy(
+                    status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                    headline = "${spec.label} unavailable",
+                    summary = "The owner-controlled runtime was not ready for the in-path comparison.",
+                )
+            }
+            return false
         }
 
         suspend fun cancelRunStages(
@@ -182,6 +201,7 @@ internal class HomeCompositeStageExecutor
                     scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
+                    resumeRuntimeAfterRawPath = spec.pathMode == ScanPathMode.RAW_PATH,
                 )
             }.fold(
                 onSuccess = { result ->

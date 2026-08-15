@@ -175,7 +175,11 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             val startResult =
                 runtimeResumeIntentTracker.runIfOwned(resumeLease) {
                     serviceController.startForDiagnostics(mode)
-                } ?: return
+                }
+            if (startResult == null) {
+                waitForResumeResolution(resumeLease)
+                return
+            }
             if (resumeRuntime(startResult)) {
                 waitForResumeResolution(resumeLease)
             }
@@ -244,9 +248,17 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             waitState: ResumeWaitState,
         ): ResumeWaitState =
             when (ownership.intent) {
-                UserRuntimeIntent.Running -> waitState.copy(resolved = true)
-                UserRuntimeIntent.Stopped -> reconcileStoppedIntent(ownership, waitState)
-                UserRuntimeIntent.Unknown -> waitState.copy(resolved = false)
+                UserRuntimeIntent.Running -> {
+                    waitState.copy(resolved = serviceStateStore.status.value.first == AppStatus.Running)
+                }
+
+                UserRuntimeIntent.Stopped -> {
+                    reconcileStoppedIntent(ownership, waitState)
+                }
+
+                UserRuntimeIntent.Unknown -> {
+                    waitState.copy(resolved = false)
+                }
             }
 
         private fun reconcileStoppedIntent(

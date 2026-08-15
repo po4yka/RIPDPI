@@ -93,6 +93,7 @@ internal class DefaultDiagnosticsScanController
             scanDeadlineMs: Long?,
             maxCandidates: Int?,
             targetOverrides: DiagnosticsScanTargetOverrides?,
+            resumeRuntimeAfterRawPath: Boolean,
         ): DiagnosticsManualScanStartResult =
             startManualScan(
                 ownerId = ownerId,
@@ -103,6 +104,7 @@ internal class DefaultDiagnosticsScanController
                 scanDeadlineMs = scanDeadlineMs,
                 maxCandidates = maxCandidates,
                 targetOverrides = targetOverrides,
+                resumeRuntimeAfterRawPath = resumeRuntimeAfterRawPath,
             )
 
         private suspend fun startManualScan(
@@ -114,6 +116,7 @@ internal class DefaultDiagnosticsScanController
             scanDeadlineMs: Long?,
             maxCandidates: Int?,
             targetOverrides: DiagnosticsScanTargetOverrides?,
+            resumeRuntimeAfterRawPath: Boolean = false,
         ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
                 when (
@@ -141,7 +144,13 @@ internal class DefaultDiagnosticsScanController
                                         targetOverrides = targetOverrides,
                                         maxCandidates = maxCandidates,
                                     ),
-                                rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+                                rawPathRunner = { block ->
+                                    if (resumeRuntimeAfterRawPath) {
+                                        runtimeCoordinator.runAutomaticRawPathScan(block)
+                                    } else {
+                                        runtimeCoordinator.runRawPathScan(block)
+                                    }
+                                },
                                 ownerId = ownerId,
                             ),
                         )

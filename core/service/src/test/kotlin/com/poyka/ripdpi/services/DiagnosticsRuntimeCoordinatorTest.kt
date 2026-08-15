@@ -13,12 +13,14 @@ import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.DefaultRuntimeControlPlane
 import com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -389,6 +391,44 @@ class DiagnosticsRuntimeCoordinatorTest {
 
             assertEquals(listOf("diagnostics-stop", "user-stop", "user-start"), controller.operations)
             assertEquals(AppStatus.Running to Mode.Proxy, stateStore.status.value)
+        }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun `automatic raw path cleanup waits for newer user start readiness`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore).apply { transitionOnStart = false }
+            val settings = FakeCoordinatorSettingsRepository()
+            val coordinator =
+                DefaultDiagnosticsRuntimeCoordinator(
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
+                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    serviceStateStore = stateStore,
+                    appSettingsRepository = settings,
+                    runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
+                    serviceController = controller,
+                    waitAttempts = 50,
+                    waitDelayMs = 1,
+                )
+
+            val scan =
+                async {
+                    coordinator.runAutomaticRawPathScan {
+                        controller.start(Mode.Proxy)
+                    }
+                }
+            runCurrent()
+            val beforeReady = scan.isCompleted to stateStore.status.value.first
+
+            stateStore.setStatus(AppStatus.Running, Mode.Proxy)
+            scan.await()
+
+            assertEquals(
+                (false to AppStatus.Halted) to (true to AppStatus.Running),
+                beforeReady to (scan.isCompleted to stateStore.status.value.first),
+            )
         }
 }
 

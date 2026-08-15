@@ -60,16 +60,16 @@ internal val HomeCompositeStageSpecs =
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
-            key = "path_comparison",
-            label = "VPN vs direct path",
-            profileId = "path-comparison",
-            pathMode = ScanPathMode.IN_PATH,
-        ),
-        HomeCompositeStageSpec(
             key = "dpi_full",
             label = "DPI detector full",
             profileId = "ru-dpi-full",
             pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "path_comparison",
+            label = "VPN vs direct path",
+            profileId = "path-comparison",
+            pathMode = ScanPathMode.IN_PATH,
         ),
         HomeCompositeStageSpec(
             key = "dpi_strategy",
