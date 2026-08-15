@@ -399,12 +399,37 @@ def count_root_exports(text: str) -> int:
     return len(re.findall(r"^\s*pub\s+(?:mod|use)\b", text, re.MULTILINE))
 
 
+SHORT_TOKEN_MAX_LENGTH = 3
+
+
+def identifier_words(text: str) -> set[str]:
+    """Lowercased identifier words, splitting camelCase and non-alphanumerics."""
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text)
+    return {word.lower() for word in re.findall(r"[A-Za-z0-9]+", spaced)}
+
+
 def feature_families(text: str) -> set[str]:
+    """Feature families a source file touches.
+
+    Short tokens must match a whole identifier word; longer ones may match a substring.
+
+    The split is not cosmetic. Bare substring matching made "tun" fire on Tuner and
+    distinctUntilChanged, and "ech" fire on onToggleChanged and onValueChange -- between them
+    279 spurious attributions across the tracked tree. Requiring whole words everywhere fixes
+    those but breaks ordinary inflections: "protect" would stop matching Protection, "metric"
+    would stop matching Metrics, and the compound tokens directpath and zerotrust would match
+    nothing at all, since they are written DirectPath and ZeroTrust and split into two words.
+    Keeping substring matching above three characters preserves every one of those.
+    """
     lowered = text.lower()
+    words = identifier_words(text)
     return {
         family
         for family, tokens in FEATURE_FAMILIES.items()
-        if any(token in lowered for token in tokens)
+        if any(
+            (token in words) if len(token) <= SHORT_TOKEN_MAX_LENGTH else (token in lowered)
+            for token in tokens
+        )
     }
 
 

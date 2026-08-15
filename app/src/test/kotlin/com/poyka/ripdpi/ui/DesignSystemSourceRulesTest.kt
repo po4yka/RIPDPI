@@ -17,9 +17,9 @@ class DesignSystemSourceRulesTest {
         assertNoOffendingFiles(
             files = uiSourceFiles(),
             allowedPaths = setOf("app/src/main/kotlin/com/poyka/ripdpi/ui/theme/RipDpiIcons.kt"),
-            message = "Raw Material icon imports are not allowed outside RipDpiIcons.kt",
+            message = "Raw Material icon usage is not allowed outside RipDpiIcons.kt",
         ) { source ->
-            source.text.contains("import androidx.compose.material.icons")
+            rawMaterialIconUsage.containsMatchIn(source.text)
         }
     }
 
@@ -28,45 +28,26 @@ class DesignSystemSourceRulesTest {
         assertNoOffendingFiles(
             files = uiSourceFiles(),
             allowedPaths = setOf("app/src/main/kotlin/com/poyka/ripdpi/ui/components/RipDpiInteraction.kt"),
-            message = "Direct clickable imports bypass shared RIPDPI interaction semantics",
+            message = "Direct clickable usage bypasses shared RIPDPI interaction semantics",
         ) { source ->
-            source.text.contains("import androidx.compose.foundation.clickable")
+            rawClickableUsage.containsMatchIn(source.text)
         }
     }
 
     @Test
     fun `screens use shared design-system wrappers for governed Material primitives`() {
-        val governedMaterialImports =
-            Regex(
-                pattern =
-                    "^import androidx\\.compose\\.material3\\." +
-                        "(AlertDialog|AssistChip|Button|DropdownMenu|ElevatedButton|FilterChip|" +
-                        "IconButton|InputChip|ModalBottomSheet|NavigationBar|NavigationBarItem|" +
-                        "OutlinedButton|OutlinedTextField|Snackbar|SuggestionChip|Switch|" +
-                        "TextButton|TextField)\\b",
-                option = RegexOption.MULTILINE,
-            )
-
         assertNoOffendingFiles(
             files = uiSourceFiles(screenUiRoot),
             message =
                 "Screens must use shared RIPDPI wrappers for actions, inputs, modals, menus, " +
                     "and navigation chrome",
         ) { source ->
-            governedMaterialImports.containsMatchIn(source.text)
+            governedMaterialCalls.containsMatchIn(source.text)
         }
     }
 
     @Test
     fun `screens use shared design-system wrappers for loading indicators`() {
-        val governedProgressImports =
-            Regex(
-                pattern =
-                    "^import androidx\\.compose\\.material3\\." +
-                        "(CircularProgressIndicator|LinearProgressIndicator)\\b",
-                option = RegexOption.MULTILINE,
-            )
-
         assertNoOffendingFiles(
             files = uiSourceFiles(screenUiRoot),
             // The stealth-score meter encodes its verdict in the fill color, so it is a meter rather
@@ -75,7 +56,7 @@ class DesignSystemSourceRulesTest {
                 setOf("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionResultCards.kt"),
             message = "Screens must use RipDpiSpinner or RipDpiProgressBar for loading states",
         ) { source ->
-            governedProgressImports.containsMatchIn(source.text)
+            governedProgressCalls.containsMatchIn(source.text)
         }
     }
 
@@ -126,14 +107,44 @@ class DesignSystemSourceRulesTest {
             foregroundOnlyFiles +
                 "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PcapViewerScreen.kt"
 
+        // Two tiers. The per-file denylist stays as-is: in those files any accent use at all is wrong.
+        // The narrower content-role regex now sweeps the whole UI tree, so a new screen that tints
+        // content with the container token is caught instead of being invisible to a hardcoded list.
         assertNoOffendingFiles(
             files = governedPaths.map(::uiSource),
             message = "The accent token is a container role; use accentForeground, foreground, or info for content",
         ) { source ->
-            (source.path in foregroundOnlyFiles && source.text.contains("colors.accent")) ||
-                directAccentContent.containsMatchIn(source.text)
+            source.path in foregroundOnlyFiles && source.text.contains("colors.accent")
+        }
+
+        assertNoOffendingFiles(
+            files = uiSourceFiles(),
+            message = "The accent token is a container role; use accentForeground, foreground, or info for content",
+        ) { source ->
+            directAccentContent.containsMatchIn(source.text)
         }
     }
+
+    // Call sites rather than import lines: an import check is bypassed by a fully-qualified call,
+    // an aliased import or a same-file typealias, and the construct itself cannot hide the same way.
+    //
+    // The leading \\b on every alternative is load-bearing. Without it `Button\\s*\\(` also matches the
+    // tail of `RipDpiButton(`, `RipDpiTextButton(` and friends, which would fail dozens of files that are
+    // using the wrappers exactly as intended.
+    private val rawMaterialIconUsage = Regex("\\bIcons\\.")
+
+    private val rawClickableUsage = Regex("\\.clickable\\s*[({]")
+
+    private val governedProgressCalls =
+        Regex("\\b(CircularProgressIndicator|LinearProgressIndicator)\\s*\\(")
+
+    private val governedMaterialCalls =
+        Regex(
+            "\\b(AlertDialog|AssistChip|Button|DropdownMenu|ElevatedButton|FilterChip|" +
+                "IconButton|InputChip|ModalBottomSheet|NavigationBar|NavigationBarItem|" +
+                "OutlinedButton|OutlinedTextField|Snackbar|SuggestionChip|Switch|" +
+                "TextButton|TextField)\\s*\\(",
+        )
 
     private fun uiSource(path: String): UiSource {
         val file =

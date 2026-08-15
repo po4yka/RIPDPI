@@ -83,9 +83,9 @@
       "rule": "complexity-suppression",
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanWorkflow.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanWorkflow.kt carries 4 complexity suppressions",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanWorkflow.kt carries 2 complexity suppressions",
       "metricName": "suppressionCount",
-      "baselineValue": 4,
+      "baselineValue": 2,
       "limit": 0,
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
@@ -156,17 +156,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:adaptive-desync-diagnostics-dns-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsScanActions.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsScanActions.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticstelemetrymetrics.kt:adaptive-diagnostics-dns-relay-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,
@@ -200,13 +189,13 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:adaptive-desync-diagnostics-dns-relay-telemetry-tunnel",
+      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:adaptive-desync-diagnostics-dns-relay-telemetry",
       "rule": "kotlin-feature-spread",
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt references 7 feature families",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt references 6 feature families",
       "metricName": "featureFamilyCount",
-      "baselineValue": 7,
+      "baselineValue": 6,
       "limit": 5,
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
@@ -244,35 +233,13 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingsroute.kt:adaptive-desync-dns-routing-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsRoute.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsRoute.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingssections.kt:adaptive-desync-diagnostics-dns-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsSections.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsSections.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsscanprogress.kt:scanprogresscard",
       "rule": "long-function-or-composable",
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanProgress.kt",
-      "message": "ScanProgressCard spans 115 lines",
+      "message": "ScanProgressCard spans 113 lines",
       "metricName": "functionLines",
-      "baselineValue": 115,
+      "baselineValue": 113,
       "limit": 100,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
