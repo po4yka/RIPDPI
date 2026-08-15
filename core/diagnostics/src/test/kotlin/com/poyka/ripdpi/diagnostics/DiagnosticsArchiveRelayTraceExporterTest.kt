@@ -7,15 +7,143 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.zip.ZipFile
 
 internal class DiagnosticsArchiveRelayTraceExporterTest : DiagnosticsArchiveExporterTestBase() {
+    @Test
+    fun `createArchive keeps retained relay trace count and explains sequence gaps without raw identifiers`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-relay-trace-gaps",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Relay trace gaps",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val rawConnectionId = "connection-session-private-7"
+            val rawRuntimeId = "runtime-relay-private-7"
+
+            fun relayEvent(
+                sequence: Long,
+                stage: String,
+                outcome: String,
+                message: String = "relay trace",
+            ) = NativeSessionEventEntity(
+                id = "relay-trace-event-$sequence",
+                sessionId = session.id,
+                connectionSessionId = rawConnectionId,
+                source = "relay",
+                level = "info",
+                message = message,
+                createdAt = 100L + sequence,
+                runtimeId = rawRuntimeId,
+                subsystem = "relay",
+                attemptId = 7L,
+                attemptSequence = sequence,
+                stage = stage,
+                outcome = outcome,
+            )
+            stores.nativeEventsState.value =
+                listOf(
+                    relayEvent(10, "relay_stream", "succeeded"),
+                    relayEvent(
+                        1,
+                        "unsupported_stage",
+                        "unsupported_outcome",
+                        message = "unexportable typed relay event",
+                    ),
+                    relayEvent(7, "reality_tls", "succeeded"),
+                    relayEvent(6, "tcp_connect", "started"),
+                )
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 24L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val traceRaw =
+                    zip
+                        .getInputStream(zip.getEntry("relay-attempt-traces.jsonl"))
+                        .bufferedReader()
+                        .readText()
+                val records =
+                    traceRaw
+                        .lineSequence()
+                        .filter(String::isNotBlank)
+                        .map { line -> json.parseToJsonElement(line).jsonObject }
+                        .toList()
+                assertEquals(
+                    listOf(6L, 7L, 10L),
+                    records.map {
+                        it
+                            .getValue("sequence")
+                            .jsonPrimitive.content
+                            .toLong()
+                    },
+                )
+                assertEquals(3, records.size)
+
+                val completenessRaw =
+                    zip
+                        .getInputStream(zip.getEntry("completeness.json"))
+                        .bufferedReader()
+                        .readText()
+                val traceCompleteness =
+                    json
+                        .parseToJsonElement(completenessRaw)
+                        .jsonObject
+                        .getValue("relayAttemptTraces")
+                        .jsonObject
+                assertEquals(
+                    records.size.toString(),
+                    traceCompleteness.getValue("retainedEventCount").jsonPrimitive.content,
+                )
+
+                val attemptRefs = records.map { it.getValue("attemptRef").jsonPrimitive.content }
+                assertTrue(attemptRefs.all { it.matches(Regex("attempt-[0-9]+")) })
+                assertEquals(1, attemptRefs.toSet().size)
+
+                val sequenceGaps = traceCompleteness.getValue("sequenceGaps").jsonArray
+                assertEquals(
+                    setOf("1-5", "8-9"),
+                    sequenceGaps
+                        .map { gap ->
+                            "${gap.jsonObject.getValue("from").jsonPrimitive.content}-" +
+                                gap.jsonObject
+                                    .getValue("to")
+                                    .jsonPrimitive.content
+                        }.toSet(),
+                )
+                assertTrue(
+                    sequenceGaps.all { gap ->
+                        gap.jsonObject
+                            .getValue("reason")
+                            .jsonPrimitive.content
+                            .isNotBlank()
+                    },
+                )
+                assertFalse(traceRaw.contains(rawConnectionId))
+                assertFalse(traceRaw.contains(rawRuntimeId))
+                assertFalse(completenessRaw.contains(rawConnectionId))
+                assertFalse(completenessRaw.contains(rawRuntimeId))
+            }
+        }
+
     @Test
     fun `createArchive exports ordered privacy safe partial VLESS Reality attempt trace`() =
         runTest {
