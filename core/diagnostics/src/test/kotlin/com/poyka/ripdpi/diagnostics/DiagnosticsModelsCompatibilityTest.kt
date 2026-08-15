@@ -246,7 +246,7 @@ class DiagnosticsModelsCompatibilityTest {
                 EngineScanReportWire.serializer(),
                 """
                 {
-                  "schemaVersion": 6,
+                  "schemaVersion": 7,
                   "sessionId": "legacy",
                   "profileId": "default",
                   "pathMode": "RAW_PATH",
@@ -481,7 +481,7 @@ class DiagnosticsModelsCompatibilityTest {
             json.decodeEngineScanReportWire(
                 """
                 {
-                  "schemaVersion": 6,
+                  "schemaVersion": 7,
                   "sessionId": "session-1",
                   "profileId": "default",
                   "pathMode": "RAW_PATH",

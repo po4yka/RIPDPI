@@ -31,9 +31,9 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v6: adds the planned execution inventory to completed and partial reports. Must stay in sync
+// v7: adds candidate x target x protocol attempt evidence. Must stay in sync
 // with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 6
+const val DiagnosticsEngineSchemaVersion = 7
 
 @Serializable
 enum class EngineProbeTaskFamily {
