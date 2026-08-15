@@ -620,6 +620,75 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun failedTransportReplacementClosesTunBeforeReportingRollbackSafe() =
+        runTest {
+            var runtimeIndex = 0
+            val target = TransportFailoverTarget(RelayKindVlessReality, "broken-replacement")
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                policySignature = "broken-replacement",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).also { runtime ->
+                            if (runtimeIndex++ == 1) {
+                                runtime.startFailure = IOException("replacement relay unavailable")
+                            }
+                        }
+                    },
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ),
+                )
+            env.coordinator.start()
+            runCurrent()
+            val requestId = env.transportFailoverApplyTracker.begin()
+
+            val failure =
+                runCatching {
+                    env.coordinator.restartAfterTransportFailover(requestId, target)
+                }.exceptionOrNull()
+            runCurrent()
+
+            assertEquals(
+                listOf(
+                    true,
+                    TransportFailoverApplyOutcome.RollbackSafeFailure,
+                    true,
+                    1,
+                    null,
+                    listOf<Int?>(null),
+                    AppStatus.Halted to Mode.VPN,
+                ),
+                listOf(
+                    failure != null,
+                    env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+                    env.tunnelProvider.session.closed,
+                    env.bridgeFactory.bridge.stopCount,
+                    env.runtimeRegistry.current(Mode.VPN),
+                    env.host.stopRequests,
+                    env.store.status.value,
+                ),
+            )
+        }
+
+    @Test
     fun cancelledTransportFailoverCommandCannotMutateOrDemoteRuntime() =
         runTest {
             val env = newEnv()

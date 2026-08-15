@@ -392,6 +392,7 @@ internal class VpnServiceRuntimeCoordinator(
         requestId: Long,
         expectedTarget: TransportFailoverTarget,
     ) {
+        var terminalFailure: Exception? = null
         mutex.withLock {
             var runtimeClaimed = false
             var runtimeApplied = false
@@ -414,18 +415,26 @@ internal class VpnServiceRuntimeCoordinator(
                     }
                 }
             } catch (cancelled: CancellationException) {
-                handleTransportFailoverFailure(requestId, cancelled, runtimeClaimed, runtimeApplied)
-                return@withLock
+                if (!handleTransportFailoverFailure(requestId, cancelled, runtimeClaimed, runtimeApplied)) {
+                    terminalFailure = cancelled
+                }
             } catch (failure: Exception) {
                 if (handleTransportFailoverFailure(requestId, failure, runtimeClaimed, runtimeApplied)) {
                     return@withLock
                 }
-                throw failure
+                terminalFailure = failure
             } finally {
                 if (runtimeClaimed) {
                     transportFailoverApplyTracker.releaseRuntimeOwnership(requestId)
                 }
                 handoverRestarting = false
+            }
+        }
+        terminalFailure?.let { failure ->
+            val rollbackSafe = terminateFailedTransportReplacement(requestId)
+            transportFailoverApplyTracker.recordRuntimeFailure(requestId, rollbackSafe = rollbackSafe)
+            if (failure !is CancellationException) {
+                throw failure
             }
         }
     }
@@ -449,17 +458,27 @@ internal class VpnServiceRuntimeCoordinator(
             }
 
             else -> {
-                val failClosed =
-                    withContext(NonCancellable) {
-                        runCatching { runtimeCompositionCoordinator.retainFailClosedAfterHandoverFailure() }
-                            .onFailure { cleanupFailure ->
-                                Logger.e(cleanupFailure) { "Failed to retain fail-closed transport barrier" }
-                            }.getOrDefault(false)
-                    }
-                transportFailoverApplyTracker.recordRuntimeFailure(requestId, rollbackSafe = failClosed)
                 updateStatus(ServiceStatus.Failed, classifyFailureReason(failure, isTunnelContext = true))
                 false
             }
+        }
+
+    private suspend fun terminateFailedTransportReplacement(requestId: Long): Boolean =
+        withContext(NonCancellable) {
+            runCatching { stop() }
+                .onFailure { cleanupFailure ->
+                    Logger.e(cleanupFailure) {
+                        "Failed to terminate transport replacement request=$requestId"
+                    }
+                }
+            val cleanupCompleted =
+                runtimeSession == null &&
+                    !vpnTunnelRuntime.isRunning &&
+                    !vpnTunnelRuntime.isForwarding
+            if (!cleanupCompleted) {
+                Logger.e { "Transport replacement cleanup remained in flight request=$requestId" }
+            }
+            cleanupCompleted
         }
 
     private data class TransportFailoverPreparation(
