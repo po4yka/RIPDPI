@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.DefaultStartupJournal
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
@@ -15,6 +16,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServiceStatusReporterTest {
+    @Test
+    fun vpnStartupIsRecordedBeforeDiagnosticsCanReadTheJournal() {
+        val startupJournal = DefaultStartupJournal()
+        val reporter =
+            ServiceStatusReporter(
+                mode = Mode.VPN,
+                sender = Sender.VPN,
+                serviceStateStore = TestServiceStateStore(),
+                networkFingerprintProvider = TestNetworkFingerprintProvider(),
+                telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
+                startupJournal = startupJournal,
+                clock = TestServiceClock(now = 42L),
+            )
+
+        reporter.reportStatus(
+            newStatus = ServiceStatus.Connected,
+            activePolicy = null,
+            consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { null },
+            tunnelRecoveryRetryCount = 0L,
+        )
+
+        assertTrue(startupJournal.snapshot().content.contains("42 service_started mode=vpn"))
+    }
+
     @Test
     fun connectedStatusPublishesRunningSnapshotWithIdleTelemetry() {
         val store = TestServiceStateStore()

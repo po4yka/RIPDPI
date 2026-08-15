@@ -51,6 +51,14 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                     ),
                 )
             }
+            selection.startupJournalSnapshot?.let { snapshot ->
+                add(
+                    DiagnosticsArchiveEntry(
+                        name = "startup-journal.txt",
+                        bytes = snapshot.content.toByteArray(),
+                    ),
+                )
+            }
         }
 
     internal fun buildProbeResultsCsv(results: List<ProbeResultEntity>): String =

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.StartupJournalSnapshot
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -55,8 +56,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 7 adds ordered, privacy-safe VLESS/Reality relay attempt traces.
-    const val schemaVersion = 7
+    // Version 8 adds an in-app service-start journal for pre-scan VPN evidence.
+    const val schemaVersion = 8
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -69,6 +70,7 @@ internal object DiagnosticsArchiveFormat {
     fun includedFiles(
         logcatIncluded: Boolean,
         fileLogIncluded: Boolean = false,
+        startupJournalIncluded: Boolean = false,
         composite: Boolean = false,
         compositeStageKeys: List<String> = emptyList(),
         replayIncluded: Boolean = false,
@@ -113,6 +115,9 @@ internal object DiagnosticsArchiveFormat {
             if (fileLogIncluded) {
                 add("app-log.txt")
             }
+            if (startupJournalIncluded) {
+                add("startup-journal.txt")
+            }
             if (replayIncluded) {
                 add("replay-results.json")
             }
@@ -144,6 +149,7 @@ internal data class DiagnosticsArchiveSourceData(
     val collectionWarnings: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
+    val startupJournalSnapshot: StartupJournalSnapshot? = null,
     val replayResults: List<ReplayProbeResult> = emptyList(),
     val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
 )
@@ -187,6 +193,7 @@ internal data class DiagnosticsArchiveSelection(
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: FileLogSnapshot?,
+    val startupJournalSnapshot: StartupJournalSnapshot? = null,
     val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
 )
 
@@ -567,15 +574,6 @@ internal enum class DiagnosticsArchiveSectionStatus {
 }
 
 @Serializable
-internal data class DiagnosticsArchiveAppliedLimits(
-    val telemetrySamples: Int,
-    val nativeEvents: Int,
-    val snapshots: Int,
-    val logcatBytes: Int,
-    val appLogBytes: Long = com.poyka.ripdpi.diagnostics.FileLogWriter.MAX_LOG_FILE_BYTES,
-)
-
-@Serializable
 internal data class DiagnosticsArchiveArchiveWideCounts(
     val telemetrySamples: Int,
     val nativeEvents: Int,
@@ -595,16 +593,6 @@ internal data class DiagnosticsArchivePrimarySessionCounts(
 internal data class DiagnosticsArchiveScopedCounts(
     val archiveWide: DiagnosticsArchiveArchiveWideCounts,
     val primarySession: DiagnosticsArchivePrimarySessionCounts,
-)
-
-@Serializable
-internal data class DiagnosticsArchiveTruncation(
-    val telemetrySamples: Boolean = false,
-    val nativeEvents: Boolean = false,
-    val snapshots: Boolean = false,
-    val contexts: Boolean = false,
-    val logcat: Boolean = false,
-    val appLog: Boolean = false,
 )
 
 @Serializable

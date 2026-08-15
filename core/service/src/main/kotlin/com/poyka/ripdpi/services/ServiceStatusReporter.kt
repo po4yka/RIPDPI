@@ -4,10 +4,12 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NoopStartupJournal
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
+import com.poyka.ripdpi.data.StartupJournal
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryProjection
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
@@ -20,6 +22,7 @@ internal class ServiceStatusReporter(
     private val networkFingerprintProvider: NetworkFingerprintProvider,
     private val telemetryFingerprintHasher: TelemetryFingerprintHasher,
     private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
+    private val startupJournal: StartupJournal = NoopStartupJournal,
     private val clock: ServiceClock = SystemServiceClock,
 ) {
     // Sticky "foreign relay failed after connecting" signal. Set by the relay exit
@@ -27,6 +30,7 @@ internal class ServiceStatusReporter(
     // service stop (via clearForeignRelayFailed). Read on every telemetry update so the
     // signal survives the per-poll snapshot rebuild without being silently dropped.
     private val foreignRelayFailed = AtomicBoolean(false)
+    private val startupRecorded = AtomicBoolean(false)
 
     fun markForeignRelayFailed() {
         foreignRelayFailed.set(true)
@@ -68,6 +72,9 @@ internal class ServiceStatusReporter(
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     ) {
         statusPersistence.applyStatus(newStatus, failureReason)
+        if (newStatus == ServiceStatus.Connected && startupRecorded.compareAndSet(false, true)) {
+            startupJournal.recordServiceStarted(mode = mode, occurredAtMillis = clock.nowMillis())
+        }
         val currentTelemetry = serviceStateStore.telemetry.value
         serviceStateStore.updateTelemetry(
             telemetryProjection

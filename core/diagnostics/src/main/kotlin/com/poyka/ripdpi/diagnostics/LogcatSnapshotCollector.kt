@@ -47,18 +47,16 @@ open class LogcatSnapshotCollector
                         null
                     }
 
-                if (output.isNullOrBlank()) {
+                if (output == null || output.content.isBlank()) {
                     null
                 } else {
-                    val outputBytes = output.toByteArray(Charsets.UTF_8)
-                    val boundedBytes = tailUtf8Bytes(output, MAX_LOGCAT_BYTES)
                     val scope =
                         if (sinceTimestampMs != null) TimeBoundSnapshotScope else AppVisibleSnapshotScope
                     LogcatSnapshot(
-                        content = boundedBytes.toString(Charsets.UTF_8),
+                        content = output.content,
                         captureScope = scope,
-                        byteCount = boundedBytes.size,
-                        truncated = outputBytes.size > boundedBytes.size,
+                        byteCount = output.byteCount,
+                        truncated = output.truncated,
                     )
                 }
             }
@@ -68,31 +66,17 @@ open class LogcatSnapshotCollector
          * When [sinceTimestampMs] is provided, uses `-T` to capture logs from that
          * point forward instead of relying on the current circular buffer contents.
          */
-        protected open fun readLogcatOutput(sinceTimestampMs: Long? = null): String {
-            val command =
-                buildList {
-                    add("logcat")
-                    add("--pid=${android.os.Process.myPid()}")
-                    add("-d")
-                    if (sinceTimestampMs != null) {
-                        val formatter = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US)
-                        val timestamp = formatter.format(Date(sinceTimestampMs))
-                        add("-T")
-                        add(timestamp)
-                    }
-                    // Filter out noisy framework tags (View, Choreographer) that
-                    // drown out diagnostic-relevant log lines.
-                    add("-s")
-                    add("ripdpi-native:V")
-                    add("ripdpi:V")
-                    add("AndroidRuntime:E")
-                    add("*:W")
-                }
+        protected open fun readLogcatOutput(sinceTimestampMs: Long? = null): LogcatReadOutput {
+            val command = buildLogcatCommand(android.os.Process.myPid(), sinceTimestampMs)
             val process = Runtime.getRuntime().exec(command.toTypedArray())
             try {
                 process.errorStream.close()
                 return process.inputStream.bufferedReader().use { reader ->
-                    readBounded(reader)
+                    if (sinceTimestampMs == null) {
+                        readTailBounded(reader)
+                    } else {
+                        readHeadAndTailBounded(reader)
+                    }
                 }
             } finally {
                 process.destroy()
@@ -100,8 +84,8 @@ open class LogcatSnapshotCollector
             }
         }
 
-        private fun readBounded(reader: java.io.BufferedReader): String {
-            val buffer = RollingByteTail(MAX_LOGCAT_BYTES + MaxUtf8BytesPerCodePoint)
+        private fun readTailBounded(reader: java.io.BufferedReader): LogcatReadOutput {
+            val buffer = RollingByteTail(MAX_LOGCAT_BYTES)
             val charBuf = CharArray(READ_BUFFER_CHARS)
             var charsRead = reader.read(charBuf)
             while (charsRead != -1) {
@@ -109,23 +93,72 @@ open class LogcatSnapshotCollector
                 buffer.append(chunk.toByteArray(Charsets.UTF_8))
                 charsRead = reader.read(charBuf)
             }
-            return buffer.toByteArray().toString(Charsets.UTF_8)
+            val bytes = buffer.toByteArray()
+            return LogcatReadOutput(
+                content = bytes.toString(Charsets.UTF_8),
+                byteCount = bytes.size,
+                truncated = buffer.truncated,
+            )
         }
+
+        private fun readHeadAndTailBounded(reader: java.io.BufferedReader): LogcatReadOutput {
+            val buffer = RollingByteHeadAndTail(MAX_LOGCAT_BYTES)
+            val charBuf = CharArray(READ_BUFFER_CHARS)
+            var charsRead = reader.read(charBuf)
+            while (charsRead != -1) {
+                buffer.append(String(charBuf, 0, charsRead).toByteArray(Charsets.UTF_8))
+                charsRead = reader.read(charBuf)
+            }
+            val bytes = buffer.toByteArray()
+            return LogcatReadOutput(
+                content = bytes.toString(Charsets.UTF_8),
+                byteCount = bytes.size,
+                truncated = buffer.truncated,
+            )
+        }
+    }
+
+data class LogcatReadOutput(
+    val content: String,
+    val byteCount: Int,
+    val truncated: Boolean,
+)
+
+internal fun buildLogcatCommand(
+    pid: Int,
+    sinceTimestampMs: Long?,
+): List<String> =
+    buildList {
+        add("logcat")
+        add("--pid=$pid")
+        add("-d")
+        if (sinceTimestampMs != null) {
+            add("-T")
+            add(SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(Date(sinceTimestampMs)))
+        }
+        // Keep archive collection limited to this app process; no unrestricted logcat fallback.
+        add("-s")
+        add("ripdpi-native:V")
+        add("ripdpi:V")
+        add("AndroidRuntime:E")
+        add("*:W")
     }
 
 internal const val Utf8ContinuationMask = 0xC0
 internal const val Utf8ContinuationTag = 0x80
-private const val MaxUtf8BytesPerCodePoint = 4
 
 private class RollingByteTail(
     private val capacity: Int,
 ) {
     private var bytes = ByteArray(0)
+    var truncated: Boolean = false
+        private set
 
     fun append(chunk: ByteArray) {
         bytes =
             when {
                 chunk.size >= capacity -> {
+                    truncated = truncated || bytes.isNotEmpty() || chunk.size > capacity
                     chunk.copyOfRange(chunk.size - capacity, chunk.size)
                 }
 
@@ -134,6 +167,7 @@ private class RollingByteTail(
                 }
 
                 else -> {
+                    truncated = true
                     val keep = capacity - chunk.size
                     bytes.copyOfRange(bytes.size - keep, bytes.size) + chunk
                 }
@@ -147,6 +181,83 @@ private class RollingByteTail(
         }
         return bytes.copyOfRange(start, bytes.size)
     }
+}
+
+internal const val LogcatTruncationMarker = "\n[logcat truncated: head and tail retained]\n"
+
+internal fun headAndTailUtf8Bytes(
+    value: String,
+    maxBytes: Int,
+    truncationMarker: String = LogcatTruncationMarker,
+): ByteArray =
+    RollingByteHeadAndTail(maxBytes, truncationMarker.toByteArray(Charsets.UTF_8))
+        .apply { append(value.toByteArray(Charsets.UTF_8)) }
+        .toByteArray()
+
+private class RollingByteHeadAndTail(
+    private val capacity: Int,
+    private val truncationMarker: ByteArray = LogcatTruncationMarker.toByteArray(Charsets.UTF_8),
+) {
+    private var completeBytes = ByteArray(0)
+    private var headBytes = ByteArray(0)
+    private var tail = RollingByteTail(0)
+    var truncated: Boolean = false
+        private set
+
+    fun append(chunk: ByteArray) {
+        if (!truncated && completeBytes.size + chunk.size <= capacity) {
+            completeBytes += chunk
+            return
+        }
+        if (!truncated) {
+            truncated = true
+            val combined = completeBytes + chunk
+            val available = (capacity - truncationMarker.size).coerceAtLeast(0)
+            val headCapacity = available / 2
+            headBytes = headUtf8Bytes(combined, headCapacity)
+            tail = RollingByteTail(available - headBytes.size)
+            tail.append(combined.copyOfRange(headBytes.size, combined.size))
+            completeBytes = ByteArray(0)
+        } else {
+            tail.append(chunk)
+        }
+    }
+
+    fun toByteArray(): ByteArray =
+        if (!truncated) {
+            completeBytes
+        } else {
+            headBytes + truncationMarker + tail.toByteArray()
+        }
+}
+
+private fun headUtf8Bytes(
+    bytes: ByteArray,
+    maxBytes: Int,
+): ByteArray {
+    if (maxBytes <= 0) return byteArrayOf()
+    if (bytes.size <= maxBytes) return bytes
+    var end = maxBytes
+    var continuationBytes = 0
+    while (end - continuationBytes > 0 &&
+        bytes[end - continuationBytes - 1].toInt() and Utf8ContinuationMask == Utf8ContinuationTag
+    ) {
+        continuationBytes += 1
+    }
+    val leadingIndex = end - continuationBytes - 1
+    if (leadingIndex >= 0) {
+        val leadingByte = bytes[leadingIndex].toInt() and 0xFF
+        val expectedLength =
+            when {
+                leadingByte and 0x80 == 0 -> 1
+                leadingByte and 0xE0 == 0xC0 -> 2
+                leadingByte and 0xF0 == 0xE0 -> 3
+                leadingByte and 0xF8 == 0xF0 -> 4
+                else -> 1
+            }
+        if (continuationBytes + 1 < expectedLength) end = leadingIndex
+    }
+    return bytes.copyOfRange(0, end)
 }
 
 internal fun tailUtf8Bytes(

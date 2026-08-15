@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.StartupJournalSnapshot
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -529,7 +530,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(7, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(8, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -600,6 +601,81 @@ class DiagnosticsArchiveRendererTest {
         )
         assertTrue(completeness.truncation.logcat)
         assertTrue(completeness.truncation.appLog)
+    }
+
+    @Test
+    fun `renderer retains time bound logcat head marker after redaction`() {
+        val startupMarker = "vpn-startup-complete-marker"
+        val newestMarker = "latest-runtime-complete-marker"
+        val rawLog =
+            "$startupMarker\n" +
+                "http://private.example/path ".repeat(40_000) +
+                "\n$LogcatTruncationMarker$newestMarker\n"
+        val selection =
+            buildTruncationRendererSelection().copy(
+                includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true),
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = rawLog,
+                        captureScope = LogcatSnapshotCollector.TimeBoundSnapshotScope,
+                        byteCount = rawLog.toByteArray(Charsets.UTF_8).size,
+                        truncated = true,
+                    ),
+                fileLogSnapshot = null,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-time-bound-logcat", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-time-bound-logcat.zip",
+                createdAt = 47L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val logcat = entries.getValue("logcat.txt").bytes.decodeToString()
+
+        assertTrue(logcat.contains(startupMarker))
+        assertTrue(logcat.contains(newestMarker))
+        assertTrue(logcat.contains(LogcatTruncationMarker.trim()))
+        assertTrue(entries.getValue("logcat.txt").bytes.size <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+    }
+
+    @Test
+    fun `renderer includes startup journal as a bounded completeness section`() {
+        val journal =
+            StartupJournalSnapshot(
+                content = "42 service_started mode=vpn\n",
+                byteCount = 28,
+                truncated = true,
+            )
+        val selection =
+            buildFullRendererSelection().copy(
+                startupJournalSnapshot = journal,
+                includedFiles =
+                    DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = true,
+                        startupJournalIncluded = true,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-startup-journal", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-startup-journal.zip",
+                createdAt = 48L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+
+        assertEquals("42 service_started mode=vpn\n", entries.getValue("startup-journal.txt").bytes.decodeToString())
+        assertTrue(completeness.truncation.startupJournal)
+        assertEquals(
+            com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSectionStatus.TRUNCATED,
+            completeness.sectionStatuses["startup-journal.txt"],
+        )
     }
 
     @Test

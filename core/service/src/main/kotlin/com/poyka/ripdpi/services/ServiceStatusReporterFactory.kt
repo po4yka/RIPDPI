@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.StartupJournal
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -27,6 +28,7 @@ internal class DefaultServiceStatusReporterFactory
     @Inject
     constructor(
         private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
+        private val startupJournal: StartupJournal,
     ) : ServiceStatusReporterFactory {
         override fun create(
             mode: Mode,
@@ -43,6 +45,7 @@ internal class DefaultServiceStatusReporterFactory
                 networkFingerprintProvider = networkFingerprintProvider,
                 telemetryFingerprintHasher = telemetryFingerprintHasher,
                 runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
+                startupJournal = startupJournal,
                 clock = clock,
             )
     }

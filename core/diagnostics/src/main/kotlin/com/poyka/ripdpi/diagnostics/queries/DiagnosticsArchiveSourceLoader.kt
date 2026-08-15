@@ -4,6 +4,8 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.NoopStartupJournal
+import com.poyka.ripdpi.data.StartupJournal
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
@@ -34,6 +36,7 @@ internal class DiagnosticsArchiveSourceLoader
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         private val fileLogWriter: FileLogWriter,
+        private val startupJournal: StartupJournal = NoopStartupJournal,
         private val buildInfoProvider: DiagnosticsArchiveBuildInfoProvider,
         private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
         private val replayResultStore: ReplayResultStore,
@@ -72,6 +75,7 @@ internal class DiagnosticsArchiveSourceLoader
                     .readLogSnapshotResult()
                     .onFailure { error -> Logger.w { diagnosticsArchiveCaptureFailureLogText("app_log", error) } }
             val fileLogSnapshot = fileLogCapture.getOrNull()
+            val startupJournalSnapshot = startupJournal.snapshot().takeIf { it.byteCount > 0 }
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
                     scanSessions = sessions,
@@ -112,6 +116,7 @@ internal class DiagnosticsArchiveSourceLoader
                 collectionWarnings = collectionWarnings,
                 logcatSnapshot = logcatSnapshot,
                 fileLogSnapshot = fileLogSnapshot,
+                startupJournalSnapshot = startupJournalSnapshot,
                 replayResults = replayResultStore.recent(),
                 installedArtifact = buildInfoProvider.installedArtifact(),
             )

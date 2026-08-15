@@ -131,6 +131,7 @@ class DiagnosticsArchiveSessionSelector
                 includedFiles = includedFiles,
                 logcatSnapshot = sourceData.logcatSnapshot,
                 fileLogSnapshot = sourceData.fileLogSnapshot,
+                startupJournalSnapshot = sourceData.startupJournalSnapshot,
             )
         }
 
@@ -356,17 +357,20 @@ class DiagnosticsArchiveSessionSelector
         ): List<String> {
             val logcatIncluded = sourceData.logcatSnapshot != null
             val fileLogIncluded = sourceData.fileLogSnapshot != null
+            val startupJournalIncluded = sourceData.startupJournalSnapshot != null
             val replayIncluded = sourceData.replayResults.isNotEmpty()
             if (!isComposite) {
                 return DiagnosticsArchiveFormat.includedFiles(
                     logcatIncluded = logcatIncluded,
                     fileLogIncluded = fileLogIncluded,
+                    startupJournalIncluded = startupJournalIncluded,
                     replayIncluded = replayIncluded,
                 )
             }
             return DiagnosticsArchiveFormat.includedFiles(
                 logcatIncluded = logcatIncluded,
                 fileLogIncluded = fileLogIncluded,
+                startupJournalIncluded = startupJournalIncluded,
                 composite = true,
                 compositeStageKeys = compositeStages.map { it.stageSummary.stageKey },
                 replayIncluded = replayIncluded,

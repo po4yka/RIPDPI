@@ -200,6 +200,7 @@ private data class SectionTruncationFlags(
     val contexts: Boolean,
     val logcat: Boolean,
     val appLog: Boolean,
+    val startupJournal: Boolean,
 )
 
 private fun DiagnosticsArchiveSelection.rootNativeEventsTruncated(): Boolean =
@@ -233,6 +234,7 @@ internal fun buildSectionStatuses(
             contexts = selection.rootSourceCounts.primaryContexts > DiagnosticsArchiveFormat.snapshotLimit,
             logcat = selection.logcatSnapshot?.truncated == true,
             appLog = selection.fileLogSnapshot?.truncated == true,
+            startupJournal = selection.startupJournalSnapshot?.truncated == true,
         )
     return buildMap {
         selection.includedFiles.forEach { fileName ->
@@ -265,6 +267,7 @@ internal fun buildSectionStatuses(
                                     compositeStage.sourceContextCount > DiagnosticsArchiveFormat.snapshotLimit,
                                 logcat = false,
                                 appLog = false,
+                                startupJournal = false,
                             ),
                     )
                 } else {
@@ -322,6 +325,7 @@ internal fun buildCompleteness(
                 snapshots = DiagnosticsArchiveFormat.snapshotLimit,
                 logcatBytes = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
                 appLogBytes = com.poyka.ripdpi.diagnostics.FileLogWriter.MAX_LOG_FILE_BYTES,
+                startupJournalBytes = 32 * 1024,
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
@@ -385,6 +389,7 @@ private fun DiagnosticsArchiveSelection.truncation() =
         contexts = anyContextsTruncated(),
         logcat = logcatSnapshot?.truncated == true,
         appLog = fileLogSnapshot?.truncated == true,
+        startupJournal = startupJournalSnapshot?.truncated == true,
     )
 
 internal fun buildIntegrityPayload(
@@ -455,6 +460,14 @@ private fun sectionStatusForFileName(
 
         "logcat.txt" -> {
             if (flags.logcat) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.INCLUDED
+            }
+        }
+
+        "startup-journal.txt" -> {
+            if (flags.startupJournal) {
                 DiagnosticsArchiveSectionStatus.TRUNCATED
             } else {
                 DiagnosticsArchiveSectionStatus.INCLUDED
