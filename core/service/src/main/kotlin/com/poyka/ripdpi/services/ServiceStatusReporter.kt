@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryProjection
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 internal class ServiceStatusReporter(
     private val mode: Mode,
@@ -30,7 +31,7 @@ internal class ServiceStatusReporter(
     // service stop (via clearForeignRelayFailed). Read on every telemetry update so the
     // signal survives the per-poll snapshot rebuild without being silently dropped.
     private val foreignRelayFailed = AtomicBoolean(false)
-    private val startupRecorded = AtomicBoolean(false)
+    private val journalStatus = AtomicReference<ServiceStatus?>(null)
 
     fun markForeignRelayFailed() {
         foreignRelayFailed.set(true)
@@ -72,8 +73,25 @@ internal class ServiceStatusReporter(
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     ) {
         statusPersistence.applyStatus(newStatus, failureReason)
-        if (newStatus == ServiceStatus.Connected && startupRecorded.compareAndSet(false, true)) {
-            startupJournal.recordServiceStarted(mode = mode, occurredAtMillis = clock.nowMillis())
+        val priorJournalStatus = journalStatus.getAndSet(newStatus)
+        if (priorJournalStatus != newStatus) {
+            when (newStatus) {
+                ServiceStatus.Connected -> {
+                    startupJournal.recordServiceStarted(mode = mode, occurredAtMillis = clock.nowMillis())
+                }
+
+                ServiceStatus.Failed -> {
+                    startupJournal.recordServiceFailed(
+                        mode = mode,
+                        failureKind = failureReason.startupJournalKind(),
+                        occurredAtMillis = clock.nowMillis(),
+                    )
+                }
+
+                ServiceStatus.Disconnected -> {
+                    Unit
+                }
+            }
         }
         val currentTelemetry = serviceStateStore.telemetry.value
         serviceStateStore.updateTelemetry(
@@ -135,3 +153,18 @@ internal class ServiceStatusReporter(
         )
     }
 }
+
+private fun FailureReason?.startupJournalKind(): String =
+    when (this) {
+        is FailureReason.NativeError -> "native_error"
+        FailureReason.TunnelEstablishmentFailed -> "tunnel_establishment_failed"
+        is FailureReason.WarpProvisioningFailed -> "warp_provisioning_failed"
+        is FailureReason.WarpEndpointUnavailable -> "warp_endpoint_unavailable"
+        is FailureReason.WarpRuntimeFailed -> "warp_runtime_failed"
+        is FailureReason.RelayFingerprintPolicyRejected -> "relay_fingerprint_policy_rejected"
+        is FailureReason.RelayConfigRejected -> "relay_config_rejected"
+        is FailureReason.InitialTransportSelectionFailed -> "initial_transport_selection_failed"
+        is FailureReason.Unexpected -> "unexpected"
+        is FailureReason.PermissionLost -> "permission_lost"
+        null -> "unavailable"
+    }

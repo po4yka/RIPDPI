@@ -23,12 +23,24 @@ interface StartupJournal {
         occurredAtMillis: Long,
     )
 
+    fun recordServiceFailed(
+        mode: Mode,
+        failureKind: String,
+        occurredAtMillis: Long,
+    )
+
     fun snapshot(): StartupJournalSnapshot
 }
 
 object NoopStartupJournal : StartupJournal {
     override fun recordServiceStarted(
         mode: Mode,
+        occurredAtMillis: Long,
+    ) = Unit
+
+    override fun recordServiceFailed(
+        mode: Mode,
+        failureKind: String,
         occurredAtMillis: Long,
     ) = Unit
 
@@ -46,6 +58,12 @@ class DefaultStartupJournal
             mode: Mode,
             occurredAtMillis: Long,
         ) = delegate.recordServiceStarted(mode, occurredAtMillis)
+
+        override fun recordServiceFailed(
+            mode: Mode,
+            failureKind: String,
+            occurredAtMillis: Long,
+        ) = delegate.recordServiceFailed(mode, failureKind, occurredAtMillis)
 
         override fun snapshot(): StartupJournalSnapshot = delegate.snapshot()
     }
@@ -68,7 +86,22 @@ internal class BoundedStartupJournal(
         mode: Mode,
         occurredAtMillis: Long,
     ) {
-        val entry = "$occurredAtMillis service_started mode=${mode.name.lowercase()}\n".toByteArray(Charsets.UTF_8)
+        append("$occurredAtMillis service_started mode=${mode.name.lowercase()}\n")
+    }
+
+    @Synchronized
+    override fun recordServiceFailed(
+        mode: Mode,
+        failureKind: String,
+        occurredAtMillis: Long,
+    ) {
+        append(
+            "$occurredAtMillis service_status mode=${mode.name.lowercase()} status=failed failure=$failureKind\n",
+        )
+    }
+
+    private fun append(value: String) {
+        val entry = value.toByteArray(Charsets.UTF_8)
         val markerBytes = StartupJournalTruncationMarker.toByteArray(Charsets.UTF_8)
         while (entries.isNotEmpty() && entriesByteCount + entry.size + markerBytes.size > maxBytes) {
             entriesByteCount -= entries.removeFirst().size

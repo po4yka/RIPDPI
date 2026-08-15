@@ -46,6 +46,41 @@ class ServiceStatusReporterTest {
     }
 
     @Test
+    fun failedStartupIsRecordedWithoutSensitiveFailureText() {
+        val startupJournal = DefaultStartupJournal()
+        val reporter =
+            ServiceStatusReporter(
+                mode = Mode.VPN,
+                sender = Sender.VPN,
+                serviceStateStore = TestServiceStateStore(),
+                networkFingerprintProvider = TestNetworkFingerprintProvider(),
+                telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
+                startupJournal = startupJournal,
+                clock = TestServiceClock(now = 43L),
+            )
+
+        reporter.reportStatus(
+            newStatus = ServiceStatus.Failed,
+            activePolicy = null,
+            consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { null },
+            tunnelRecoveryRetryCount = 0L,
+            failureReason = FailureReason.InitialTransportSelectionFailed("vless://credential@private.example"),
+        )
+
+        val content = startupJournal.snapshot().content
+        assertTrue(
+            content.contains("43 service_status mode=vpn status=failed failure=initial_transport_selection_failed") &&
+                !content.contains("credential") &&
+                !content.contains("private.example"),
+        )
+    }
+
+    @Test
     fun connectedStatusPublishesRunningSnapshotWithIdleTelemetry() {
         val store = TestServiceStateStore()
         val reporter =
