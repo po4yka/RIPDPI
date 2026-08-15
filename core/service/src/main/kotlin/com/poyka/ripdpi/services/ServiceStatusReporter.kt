@@ -88,9 +88,7 @@ internal class ServiceStatusReporter(
                     )
                 }
 
-                ServiceStatus.Disconnected -> {
-                    Unit
-                }
+                ServiceStatus.Disconnected -> {}
             }
         }
         val currentTelemetry = serviceStateStore.telemetry.value
