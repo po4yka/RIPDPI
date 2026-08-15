@@ -297,6 +297,12 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
         classifier_version: Some("1.0".to_string()),
         pack_versions: BTreeMap::from([("core".to_string(), 1)]),
         execution_plan: Some(execution_plan_fixture()),
+        candidate_runtime_cleanup: Some(crate::types::CandidateRuntimeCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: 1,
+            forced_abort: 0,
+        }),
     };
 
     let json = serde_json::to_value(&report).expect("serialize report");

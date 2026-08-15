@@ -621,6 +621,7 @@ data class ScanReport(
     val packVersions: Map<String, Int> = emptyMap(),
     val logHealthSummary: LogHealthSummary? = null,
     val executionPlan: ExecutionPlanSnapshot? = null,
+    val candidateRuntimeCleanup: CandidateRuntimeCleanupReceipt? = null,
 )
 
 @Serializable

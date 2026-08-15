@@ -1,4 +1,8 @@
 [
+  "candidateRuntimeCleanup.forcedAbort",
+  "candidateRuntimeCleanup.joined",
+  "candidateRuntimeCleanup.started",
+  "candidateRuntimeCleanup.stopped",
   "classifierVersion",
   "confirmGoodDpiVerdict.evidence.applicationResponseBytes",
   "confirmGoodDpiVerdict.evidence.catalogProfileValidated",

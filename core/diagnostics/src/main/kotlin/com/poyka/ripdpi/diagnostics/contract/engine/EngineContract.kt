@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.contract.engine
 
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.CandidateRuntimeCleanupReceipt
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
 import com.poyka.ripdpi.diagnostics.ConfirmGoodDpiEvidence
 import com.poyka.ripdpi.diagnostics.ConfirmGoodDpiVerdict
@@ -139,6 +140,7 @@ data class EngineScanReportWire(
     val packVersions: Map<String, Int> = emptyMap(),
     val logHealthSummary: LogHealthSummary? = null,
     val executionPlan: ExecutionPlanSnapshot? = null,
+    val candidateRuntimeCleanup: CandidateRuntimeCleanupReceipt? = null,
 )
 
 @Serializable

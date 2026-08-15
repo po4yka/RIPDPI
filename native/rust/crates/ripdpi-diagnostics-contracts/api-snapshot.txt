@@ -754,6 +754,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanReportWire
+pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::candidate_runtime_cleanup: core::option::Option<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
@@ -1133,6 +1134,7 @@ pub ripdpi_diagnostics_contracts::EngineProgressWire::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanReportWire
+pub ripdpi_diagnostics_contracts::EngineScanReportWire::candidate_runtime_cleanup: core::option::Option<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>

@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -45,6 +46,15 @@ class DiagnosticsWireContractTest {
         val kotlinFields = extractReportFields()
         val missing = rustFields - kotlinFields
         assertTrue("Kotlin EngineScanReportWire is missing fields: $missing", missing.isEmpty())
+    }
+
+    @Test
+    fun `cleanup receipt survives kotlin wire codec`() {
+        val report = buildSampleReportForFieldExtraction()
+
+        val decoded = contractJson.decodeFromJsonElement<EngineScanReportWire>(contractJson.encodeToJsonElement(report))
+
+        assertEquals(report.candidateRuntimeCleanup, decoded.candidateRuntimeCleanup)
     }
 
     private fun readFieldManifest(filename: String): Set<String> {
@@ -82,6 +92,13 @@ class DiagnosticsWireContractTest {
             startedAt = 1000,
             finishedAt = 2000,
             summary = "ok",
+            candidateRuntimeCleanup =
+                CandidateRuntimeCleanupReceipt(
+                    started = 1,
+                    stopped = 1,
+                    joined = 1,
+                    forcedAbort = 0,
+                ),
             results =
                 listOf(
                     EngineProbeResultWire(

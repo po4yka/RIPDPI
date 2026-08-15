@@ -95,6 +95,7 @@ impl From<ScanReport> for EngineScanReportWire {
             classifier_version: value.classifier_version,
             pack_versions: value.pack_versions,
             execution_plan: value.execution_plan,
+            candidate_runtime_cleanup: value.candidate_runtime_cleanup,
         }
     }
 }
