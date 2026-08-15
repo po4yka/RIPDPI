@@ -46,48 +46,12 @@ pub fn ripdpi_runtime_platform::raw_packet::send_ordered_tcp_segments(&std::net:
 pub fn ripdpi_runtime_platform::raw_packet::send_ordered_tcp_segments_reserved(&std::net::tcp::TcpStream, &[ripdpi_privileged_ops::types::OrderedTcpSegment<'_>], usize, u8, core::option::Option<&str>, bool, core::option::Option<i32>, &[u16], ripdpi_privileged_ops::types::TcpStageWait) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::raw_packet::send_seqovl_tcp(&std::net::tcp::TcpStream, &[u8], &[u8], u8, core::option::Option<&str>, bool, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<ripdpi_config::model::tcp::IpIdMode>) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::raw_packet::send_seqovl_tcp_reserved(&std::net::tcp::TcpStream, &[u8], &[u8], u8, core::option::Option<&str>, bool, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<u16>) -> std::io::error::Result<()>
-pub mod ripdpi_runtime_platform::root_helper
-pub struct ripdpi_runtime_platform::root_helper::RootHelperGeneration(_)
-pub fn ripdpi_runtime_platform::root_helper::has_root_helper() -> bool
-pub fn ripdpi_runtime_platform::root_helper::register_root_helper(alloc::string::String)
-pub fn ripdpi_runtime_platform::root_helper::register_root_helper_versioned(alloc::string::String) -> ripdpi_runtime_platform::root_helper::RootHelperGeneration
-pub fn ripdpi_runtime_platform::root_helper::unregister_root_helper()
-pub fn ripdpi_runtime_platform::root_helper::unregister_root_helper_if(ripdpi_runtime_platform::root_helper::RootHelperGeneration) -> bool
-pub fn ripdpi_runtime_platform::root_helper::with_root_helper<F, R>(F) -> core::option::Option<R> where F: core::ops::function::FnOnce(&ripdpi_runtime_platform::root_helper_client::RootHelperClient) -> R
-pub mod ripdpi_runtime_platform::root_helper_client
-pub struct ripdpi_runtime_platform::root_helper_client::RootHelperClient
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::new(alloc::string::String) -> Self
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::socket_path(&self) -> alloc::string::String
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::probe_capabilities(&self) -> std::io::error::Result<ripdpi_privileged_ops::types::IpFragmentationCapabilities>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::recv_icmp_wrapped_udp(&self, ripdpi_privileged_ops::experimental_tier3::IcmpWrappedUdpRecvFilter) -> std::io::error::Result<ripdpi_privileged_ops::experimental_tier3::ReceivedIcmpWrappedUdp>
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_icmp_wrapped_udp(&self, &ripdpi_privileged_ops::experimental_tier3::IcmpWrappedUdpSpec) -> std::io::error::Result<()>
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_raw_ip_packet(&self, core::net::socket_addr::SocketAddr, &[u8]) -> std::io::error::Result<()>
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_syn_hide_tcp(&self, ripdpi_privileged_ops::experimental_tier3::SynHideTcpSpec) -> std::io::error::Result<()>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_fake_rst(&self, std::os::fd::owned::BorrowedFd<'_>, u8, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<u16>) -> std::io::error::Result<()>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_fake_tcp(&self, std::os::fd::owned::BorrowedFd<'_>, &[u8], &[u8], u8, bool, u8, &ripdpi_privileged_ops::types::FakeTcpOptions<'_>, ripdpi_privileged_ops::types::TcpStageWait) -> std::io::error::Result<core::option::Option<std::os::fd::owned::OwnedFd>>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_flagged_tcp_payload(&self, std::os::fd::owned::BorrowedFd<'_>, &[u8], u8, bool, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<u16>) -> std::io::error::Result<core::option::Option<std::os::fd::owned::OwnedFd>>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_ip_fragmented_tcp(&self, std::os::fd::owned::BorrowedFd<'_>, &[u8], usize, u8, bool, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<u16>) -> std::io::error::Result<core::option::Option<std::os::fd::owned::OwnedFd>>
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_ip_fragmented_udp(&self, std::os::fd::owned::BorrowedFd<'_>, core::net::socket_addr::SocketAddr, &[u8], usize, u8, bool, core::option::Option<u16>) -> std::io::error::Result<()>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_multi_disorder_tcp(&self, std::os::fd::owned::BorrowedFd<'_>, &[u8], &[ripdpi_privileged_ops::types::TcpPayloadSegment], u8, u32, bool, ripdpi_privileged_ops::types::TcpFlagOverrides, &[u16]) -> std::io::error::Result<core::option::Option<std::os::fd::owned::OwnedFd>>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_ordered_tcp_segments(&self, std::os::fd::owned::BorrowedFd<'_>, &[ripdpi_privileged_ops::types::OrderedTcpSegment<'_>], usize, u8, bool, core::option::Option<i32>, &[u16], ripdpi_privileged_ops::types::TcpStageWait) -> std::io::error::Result<core::option::Option<std::os::fd::owned::OwnedFd>>
-impl ripdpi_runtime_platform::root_helper_client::RootHelperClient
-pub fn ripdpi_runtime_platform::root_helper_client::RootHelperClient::send_seqovl_tcp(&self, std::os::fd::owned::BorrowedFd<'_>, &[u8], &[u8], u8, bool, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<u16>) -> std::io::error::Result<core::option::Option<std::os::fd::owned::OwnedFd>>
-pub fn ripdpi_runtime_platform::root_helper_client::capability_outcome_from_probe_json(&str) -> alloc::vec::Vec<(ripdpi_capabilities::RuntimeCapability, ripdpi_capabilities::CapabilityOutcome<bool>)>
 pub mod ripdpi_runtime_platform::socket
 pub fn ripdpi_runtime_platform::socket::attach_drop_sack(&std::net::tcp::TcpStream) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::socket::attach_strip_timestamps(&std::net::tcp::TcpStream) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::socket::bind_udp_low_port(&std::net::udp::UdpSocket, core::net::ip_addr::IpAddr, u16) -> std::io::error::Result<u16>
 pub fn ripdpi_runtime_platform::socket::detach_drop_sack(&std::net::tcp::TcpStream) -> std::io::error::Result<()>
-pub fn ripdpi_runtime_platform::socket::enable_tcp_fastopen_connect<T: std::os::fd::raw::AsRawFd>(&T) -> std::io::error::Result<()>
+pub fn ripdpi_runtime_platform::socket::enable_tcp_fastopen_connect<T>(&T) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::socket::original_dst(&std::net::tcp::TcpStream) -> std::io::error::Result<core::net::socket_addr::SocketAddr>
 pub fn ripdpi_runtime_platform::socket::set_rcvbuf(&impl std::os::fd::raw::AsRawFd, u32) -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::socket::set_tcp_md5sig(&std::net::tcp::TcpStream, u16) -> std::io::error::Result<()>

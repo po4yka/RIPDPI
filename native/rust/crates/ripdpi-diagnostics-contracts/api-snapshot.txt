@@ -287,6 +287,7 @@ pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::probe_task_famil
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::profile_family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::scan_deadline_ms: u64
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::scan_kind: ripdpi_diagnostics_contracts::ScanKind
+pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::stage_executions: alloc::vec::Vec<ripdpi_diagnostics_contracts::ExecutionStageSnapshot>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::stage_order: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::strategy: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionPlanSnapshot>
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanSnapshot::target_counts: ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts
@@ -304,6 +305,12 @@ pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::tcp_target_c
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::telegram_target_count: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::throughput_target_count: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionPlanTargetCounts::whitelist_sni_count: usize
+pub struct ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::executed_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::planned_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
+pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::stage_id: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -1176,6 +1183,7 @@ pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::probe_task_families: al
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::profile_family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::scan_deadline_ms: u64
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::scan_kind: ripdpi_diagnostics_contracts::ScanKind
+pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::stage_executions: alloc::vec::Vec<ripdpi_diagnostics_contracts::ExecutionStageSnapshot>
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::stage_order: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::strategy: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionPlanSnapshot>
 pub ripdpi_diagnostics_contracts::ExecutionPlanSnapshot::target_counts: ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts
@@ -1193,6 +1201,12 @@ pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::tcp_target_count: u
 pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::telegram_target_count: usize
 pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::throughput_target_count: usize
 pub ripdpi_diagnostics_contracts::ExecutionPlanTargetCounts::whitelist_sni_count: usize
+pub struct ripdpi_diagnostics_contracts::ExecutionStageSnapshot
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::executed_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::planned_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
+pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::stage_id: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
