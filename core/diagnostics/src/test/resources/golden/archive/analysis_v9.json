@@ -1,11 +1,7 @@
 {
     "failureEnvelope": {
-        "failureClassTransitions": [
-            "native:proxy:warning"
-        ],
-        "firstFailureTimestamp": 60,
-        "lastFailureTimestamp": 60,
-        "latestFailureClass": "warning",
+        "failureClassTransitions": [],
+        "failureRecords": [],
         "retryCounters": {
             "proxyRouteRetryCount": 1,
             "totalRetryCount": 1,
@@ -116,6 +112,7 @@
         "targetCohort": "Manual sensitive",
         "winnerCoveragePercent": 75
     },
+    "runtimeSnapshotTimeline": [],
     "strategyExecutionDetail": {
         "completionKind": "NORMAL",
         "quicCandidates": [

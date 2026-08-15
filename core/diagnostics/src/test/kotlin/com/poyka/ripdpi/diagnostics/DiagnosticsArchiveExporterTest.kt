@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.StartupJournal
+import com.poyka.ripdpi.data.StartupJournalSnapshot
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import kotlinx.coroutines.Job
@@ -11,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -45,6 +48,68 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
             compositeRunService = compositeRunService,
             json = json,
         )
+
+    protected fun createArchiveExporter(
+        stores: FakeDiagnosticsHistoryStores,
+        startupJournal: StartupJournal,
+    ): DefaultDiagnosticsArchiveExporter {
+        val context = TestContext()
+        val appSettings = defaultDiagnosticsAppSettings().toBuilder().setRootModeEnabled(false).build()
+        return DefaultDiagnosticsArchiveExporter(
+            exportRecordStore = stores,
+            sourceLoader =
+                DiagnosticsArchiveSourceLoader(
+                    appSettingsRepository = FakeAppSettingsRepository(appSettings),
+                    scanRecordStore = stores,
+                    artifactReadStore = stores,
+                    artifactQueryStore = stores,
+                    bypassUsageHistoryStore = stores,
+                    logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
+                    fileLogWriter =
+                        FileLogWriter(
+                            java.nio.file.Files
+                                .createTempDirectory("file-log-test")
+                                .toFile(),
+                        ),
+                    startupJournal = startupJournal,
+                    buildInfoProvider =
+                        object : DiagnosticsArchiveBuildInfoProvider {
+                            override fun buildProvenance(): DiagnosticsArchiveBuildProvenance =
+                                DiagnosticsArchiveBuildProvenance(
+                                    applicationId = "com.poyka.ripdpi",
+                                    appVersionName = "0.0.2-test",
+                                    appVersionCode = 2L,
+                                    buildType = "debug",
+                                    gitCommit = "test-commit",
+                                    nativeLibraries = emptyList(),
+                                )
+                        },
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    replayResultStore = ReplayResultStore(),
+                    json = json,
+                ),
+            sessionSelector = DiagnosticsArchiveSessionSelector(DiagnosticsArchiveRedactor(json), json),
+            renderer =
+                DiagnosticsArchiveRenderer(
+                    DiagnosticsArchiveRedactor(json),
+                    DiagnosticsSummaryProjector(),
+                    ReplayArchiveEntryBuilder(
+                        ReplayArchiveRedactor(),
+                        DiagnosticsArchiveClock { System.currentTimeMillis() },
+                        json,
+                    ),
+                    json,
+                ),
+            fileStore =
+                DiagnosticsArchiveFileStore(
+                    cacheDir = context.cacheDir,
+                    clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
+                ),
+            zipWriter = DiagnosticsArchiveZipWriter(),
+            idGenerator = DiagnosticsArchiveIdGenerator { "export-startup-journal" },
+            developerAnalyticsSource = NoopDeveloperAnalyticsSource,
+        )
+    }
 
     protected fun probeResultEntity(
         sessionId: String,
@@ -188,6 +253,65 @@ internal class ArchiveCompositeRunService : DiagnosticsHomeCompositeRunService {
 
 internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBase() {
     @Test
+    fun `createArchive inventories nonempty startup journal across zip manifest and completeness`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    "session-startup-journal",
+                    "default",
+                    ScanPathMode.IN_PATH.name,
+                    "Startup journal",
+                )
+            seedSingleSessionStore(stores, session)
+            val startupJournal =
+                object : StartupJournal {
+                    override fun recordServiceStarted(
+                        mode: com.poyka.ripdpi.data.Mode,
+                        occurredAtMillis: Long,
+                    ) = Unit
+
+                    override fun recordServiceFailed(
+                        mode: com.poyka.ripdpi.data.Mode,
+                        failureKind: String,
+                        occurredAtMillis: Long,
+                    ) = Unit
+
+                    override fun snapshot(): StartupJournalSnapshot =
+                        StartupJournalSnapshot(
+                            content = "1700000000000 service_started mode=vpn\n",
+                            byteCount = 39,
+                            truncated = false,
+                        )
+                }
+
+            val archive =
+                createArchiveExporter(stores, startupJournal)
+                    .createArchive(archiveRequestFor(session.id, 29L))
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val manifest =
+                    json.decodeFromString(
+                        DiagnosticsArchiveManifest.serializer(),
+                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+                    )
+                val completeness =
+                    json.decodeFromString(
+                        DiagnosticsArchiveCompletenessPayload.serializer(),
+                        zip.getInputStream(zip.getEntry("completeness.json")).bufferedReader().readText(),
+                    )
+                val inventoryLocations =
+                    buildSet {
+                        if (zip.getEntry("startup-journal.txt") != null) add("zip")
+                        if ("startup-journal.txt" in manifest.includedFiles) add("manifest")
+                        if ("startup-journal.txt" in completeness.sectionStatuses) add("completeness")
+                    }
+
+                assertEquals(setOf("zip", "manifest", "completeness"), inventoryLocations)
+            }
+        }
+
+    @Test
     fun `writeArchive reports io failure without leaving a cache archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -247,7 +371,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         }
 
     @Test
-    fun `createArchive persists requested session export and writes schema v8 archive`() =
+    fun `createArchive persists requested session export and writes schema v9 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -270,7 +394,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(8, archive.schemaVersion)
+            assertEquals(9, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -781,7 +905,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(8, archive.schemaVersion)
+            assertEquals(9, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -1039,7 +1163,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/execution-plan.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v7.json",
+            "archive/manifest_home_composite_v9.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(

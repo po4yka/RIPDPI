@@ -231,116 +231,116 @@ object VerdictEngine {
             }
         }
     }
-
-    private fun hasNeedsReviewFallback(
-        hasDirectHit: Boolean,
-        hasIndirectHit: Boolean,
-        hasGenericActive: Boolean,
-        ipComparison: IpComparisonResult?,
-        cdnPulling: CdnPullingResult?,
-        icmpSpoofing: IcmpSpoofingResult?,
-        rttTriangulation: RttTriangulationResult?,
-        nativeSigns: NativeSignsResult?,
-        bypassResult: BypassResult,
-        homeRoutedRoaming: Boolean,
-    ): Boolean =
-        hasDirectHit ||
-            hasIndirectHit ||
-            hasGenericActive ||
-            ipComparison?.category?.needsReview == true ||
-            (!homeRoutedRoaming && cdnPulling?.category.hasReviewSignal()) ||
-            (!homeRoutedRoaming && icmpSpoofing?.category.hasReviewSignal()) ||
-            rttTriangulation?.category.hasReviewSignal() ||
-            nativeSigns?.category.hasReviewSignal() ||
-            bypassResult.mtProtoReachable ||
-            bypassResult.stunReflexiveAddresses.isNotEmpty()
-
-    private fun CategoryResult?.hasReviewSignal(): Boolean =
-        this?.detected == true || this?.needsReview == true || this?.evidence?.any(EvidenceItem::detected) == true
-
-    private fun CategoryResult.isHomeRoutedRoaming(): Boolean {
-        if (findings.any { it.description == "home_routed_roaming:true" }) return true
-        val hasRussianNetwork = findings.any { it.description == "network_mcc_ru:true" }
-        val hasRoaming = findings.any { it.description == "Roaming: yes" }
-        val simMcc =
-            findings.firstNotNullOfOrNull { finding ->
-                SIM_MCC_REGEX.find(finding.description)?.groupValues?.get(1)
-            }
-        return hasRussianNetwork && hasRoaming && simMcc != null && simMcc != RUSSIA_MCC
-    }
-
-    private fun EvidenceItem.isDetected(vararg sources: EvidenceSource): Boolean = detected && source in sources
-
-    private fun explanation(
-        verdict: Verdict,
-        ruleApplied: String,
-        summary: String,
-        evidenceSummary: EvidenceSummary,
-    ): VerdictExplanation =
-        VerdictExplanation(
-            verdict = verdict,
-            ruleApplied = ruleApplied,
-            summary = summary,
-            appliedScopes = evidenceSummary.appliedScopes,
-            uniqueSignalCount = evidenceSummary.uniqueSignalCount,
-        )
-
-    private data class EvidenceSummary(
-        val appliedScopes: List<DetectionScope>,
-        val uniqueSignalCount: Int,
-    ) {
-        companion object {
-            fun from(evidence: List<EvidenceItem>): EvidenceSummary {
-                val detectedEvidence = evidence.filter(EvidenceItem::detected)
-                return EvidenceSummary(
-                    appliedScopes = detectedEvidence.map(EvidenceItem::scope).distinct(),
-                    uniqueSignalCount = detectedEvidence.map { it.logicalSignalKey() }.distinct().size,
-                )
-            }
-        }
-    }
-
-    private fun EvidenceItem.logicalSignalKey(): String =
-        when (scope) {
-            DetectionScope.LOCAL_INVENTORY -> {
-                listOfNotNull(packageName, family).firstOrNull()?.let { "inventory:$it" }
-                    ?: "inventory:${description.lowercase()}"
-            }
-
-            DetectionScope.LOCAL_OBSERVER_EXPOSURE -> {
-                if (source == EvidenceSource.NETWORK_CAPABILITIES) {
-                    "observer:active_vpn_capabilities"
-                } else {
-                    listOfNotNull(packageName, family).firstOrNull()?.let { "observer:$it" }
-                        ?: "observer:${source.name}:${description.lowercase()}"
-                }
-            }
-
-            DetectionScope.NETWORK_OBSERVATION -> {
-                "network:${source.name}:${family.orEmpty()}:${description.lowercase()}"
-            }
-        }
-
-    private fun ipConsensusDecisionEvidence(): List<EvidenceItem> =
-        listOf(
-            EvidenceItem(
-                source = EvidenceSource.IP_CONSENSUS,
-                detected = true,
-                confidence = EvidenceConfidence.HIGH,
-                description = "IP consensus decision signal",
-            ),
-        )
-
-    private fun networkContextDecisionEvidence(): List<EvidenceItem> =
-        listOf(
-            EvidenceItem(
-                source = EvidenceSource.GEO_IP,
-                detected = true,
-                confidence = EvidenceConfidence.MEDIUM,
-                description = "Network context and GeoIP decision signal",
-            ),
-        )
-
-    private const val RUSSIA_MCC = "250"
-    private val SIM_MCC_REGEX = Regex("""SIM MCC:\s*(\d+)""")
 }
+
+private fun hasNeedsReviewFallback(
+    hasDirectHit: Boolean,
+    hasIndirectHit: Boolean,
+    hasGenericActive: Boolean,
+    ipComparison: IpComparisonResult?,
+    cdnPulling: CdnPullingResult?,
+    icmpSpoofing: IcmpSpoofingResult?,
+    rttTriangulation: RttTriangulationResult?,
+    nativeSigns: NativeSignsResult?,
+    bypassResult: BypassResult,
+    homeRoutedRoaming: Boolean,
+): Boolean =
+    hasDirectHit ||
+        hasIndirectHit ||
+        hasGenericActive ||
+        ipComparison?.category?.needsReview == true ||
+        (!homeRoutedRoaming && cdnPulling?.category.hasReviewSignal()) ||
+        (!homeRoutedRoaming && icmpSpoofing?.category.hasReviewSignal()) ||
+        rttTriangulation?.category.hasReviewSignal() ||
+        nativeSigns?.category.hasReviewSignal() ||
+        bypassResult.mtProtoReachable ||
+        bypassResult.stunReflexiveAddresses.isNotEmpty()
+
+private fun CategoryResult?.hasReviewSignal(): Boolean =
+    this?.detected == true || this?.needsReview == true || this?.evidence?.any(EvidenceItem::detected) == true
+
+private fun CategoryResult.isHomeRoutedRoaming(): Boolean {
+    if (findings.any { it.description == "home_routed_roaming:true" }) return true
+    val hasRussianNetwork = findings.any { it.description == "network_mcc_ru:true" }
+    val hasRoaming = findings.any { it.description == "Roaming: yes" }
+    val simMcc =
+        findings.firstNotNullOfOrNull { finding ->
+            simMccRegex.find(finding.description)?.groupValues?.get(1)
+        }
+    return hasRussianNetwork && hasRoaming && simMcc != null && simMcc != RussiaMcc
+}
+
+private fun EvidenceItem.isDetected(vararg sources: EvidenceSource): Boolean = detected && source in sources
+
+private fun explanation(
+    verdict: Verdict,
+    ruleApplied: String,
+    summary: String,
+    evidenceSummary: EvidenceSummary,
+): VerdictExplanation =
+    VerdictExplanation(
+        verdict = verdict,
+        ruleApplied = ruleApplied,
+        summary = summary,
+        appliedScopes = evidenceSummary.appliedScopes,
+        uniqueSignalCount = evidenceSummary.uniqueSignalCount,
+    )
+
+private data class EvidenceSummary(
+    val appliedScopes: List<DetectionScope>,
+    val uniqueSignalCount: Int,
+) {
+    companion object {
+        fun from(evidence: List<EvidenceItem>): EvidenceSummary {
+            val detectedEvidence = evidence.filter(EvidenceItem::detected)
+            return EvidenceSummary(
+                appliedScopes = detectedEvidence.map(EvidenceItem::scope).distinct(),
+                uniqueSignalCount = detectedEvidence.map { it.logicalSignalKey() }.distinct().size,
+            )
+        }
+    }
+}
+
+private fun EvidenceItem.logicalSignalKey(): String =
+    when (scope) {
+        DetectionScope.LOCAL_INVENTORY -> {
+            listOfNotNull(packageName, family).firstOrNull()?.let { "inventory:$it" }
+                ?: "inventory:${description.lowercase()}"
+        }
+
+        DetectionScope.LOCAL_OBSERVER_EXPOSURE -> {
+            if (source == EvidenceSource.NETWORK_CAPABILITIES) {
+                "observer:active_vpn_capabilities"
+            } else {
+                listOfNotNull(packageName, family).firstOrNull()?.let { "observer:$it" }
+                    ?: "observer:${source.name}:${description.lowercase()}"
+            }
+        }
+
+        DetectionScope.NETWORK_OBSERVATION -> {
+            "network:${source.name}:${family.orEmpty()}:${description.lowercase()}"
+        }
+    }
+
+private fun ipConsensusDecisionEvidence(): List<EvidenceItem> =
+    listOf(
+        EvidenceItem(
+            source = EvidenceSource.IP_CONSENSUS,
+            detected = true,
+            confidence = EvidenceConfidence.HIGH,
+            description = "IP consensus decision signal",
+        ),
+    )
+
+private fun networkContextDecisionEvidence(): List<EvidenceItem> =
+    listOf(
+        EvidenceItem(
+            source = EvidenceSource.GEO_IP,
+            detected = true,
+            confidence = EvidenceConfidence.MEDIUM,
+            description = "Network context and GeoIP decision signal",
+        ),
+    )
+
+private const val RussiaMcc = "250"
+private val simMccRegex = Regex("""SIM MCC:\s*(\d+)""")

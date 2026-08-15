@@ -84,3 +84,10 @@ observed.
   pass found raw structured-target and PCAP privacy paths plus seven failure and
   truncation edge cases. Archive-v4 fixtures remain unchanged pending explicit
   approval for the exact generated fixture set.
+- 2026-08-15: Phase B execution uses isolated `path-comparison` and
+  `detection-semantics` worktrees. The path lane owns composite/runtime
+  lifecycle and stage ordering; the detection lane owns evidence scopes,
+  logical-signal deduplication, verdict rules, UI projection, and locale keys.
+  Archive models, archive schema/version, database migrations, completeness
+  projection, archive fixtures, and archive goldens remain a single serialized
+  lane that starts only after both behavior commits are integrated.

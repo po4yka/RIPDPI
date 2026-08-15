@@ -5,14 +5,19 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 
 internal fun buildStageIndexEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveStageIndexEntry> =
     selection.compositeStages.map { stage ->
-        stage.toArchiveStageIndexEntry()
+        stage.toArchiveStageIndexEntry(selection.detectionProvenance())
     }
 
-private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(): DiagnosticsArchiveStageIndexEntry =
+private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(
+    detectionProvenance: DiagnosticsArchiveDetectionProvenance?,
+): DiagnosticsArchiveStageIndexEntry =
     DiagnosticsArchiveStageIndexEntry(
         stageKey = stageSummary.stageKey,
         stageLabel = redactDiagnosticsArchiveText(stageSummary.stageLabel),
@@ -40,7 +45,33 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
         sourceTelemetryCount = sourceTelemetryCount,
         includedTelemetryCount = telemetry.size,
         telemetryTruncated = sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit,
+        detectionProvenance = detectionProvenance?.takeIf { stageSummary.stageKey == it.stageKey },
     )
+
+internal fun DiagnosticsArchiveSelection.detectionProvenance(): DiagnosticsArchiveDetectionProvenance? =
+    homeCompositeOutcome
+        ?.takeIf(DiagnosticsHomeCompositeOutcome::hasDetectionProvenance)
+        ?.let { outcome ->
+            val evidenceAvailable = outcome.detectionSignalCount != null
+            DiagnosticsArchiveDetectionProvenance(
+                stageKey = "detection_signals",
+                verdict = outcome.detectionVerdict?.name,
+                ruleApplied = outcome.detectionRuleApplied,
+                evidenceScopes = outcome.detectionEvidenceScopes.map { it.name },
+                evidenceStatus = if (evidenceAvailable) "available" else "unavailable",
+                uniqueSignalCount = outcome.detectionSignalCount?.let(::JsonPrimitive) ?: JsonNull,
+                localFindingCount = outcome.detectionLocalFindings.size.archiveCountOrNull(evidenceAvailable),
+                networkFindingCount = outcome.detectionNetworkFindings.size.archiveCountOrNull(evidenceAvailable),
+            )
+        }
+
+private fun DiagnosticsHomeCompositeOutcome.hasDetectionProvenance(): Boolean =
+    detectionVerdict != null ||
+        detectionRuleApplied != null ||
+        detectionEvidenceScopes.isNotEmpty()
+
+private fun Int.archiveCountOrNull(evidenceAvailable: Boolean) =
+    if (evidenceAvailable) JsonPrimitive(this) else JsonNull
 
 internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =
     buildTelemetryCsv(
@@ -288,34 +319,8 @@ internal fun buildCompleteness(
     snapshotPayload: DiagnosticsArchiveSnapshotPayload,
     contextPayload: DiagnosticsArchiveContextPayload,
 ): DiagnosticsArchiveCompletenessPayload {
-    val snapshotDecodeFailures =
-        (
-            selection.primarySnapshots.size +
-                if (selection.latestPassiveSnapshot != null) 1 else 0
-        ) -
-            (
-                snapshotPayload.sessionSnapshots.size +
-                    if (snapshotPayload.latestPassiveSnapshot != null) 1 else 0
-            )
-    val contextDecodeFailures =
-        (
-            selection.primaryContexts.size +
-                if (selection.latestPassiveContext != null) 1 else 0
-        ) -
-            (
-                contextPayload.sessionContexts.size +
-                    if (contextPayload.latestPassiveContext != null) 1 else 0
-            )
-    val collectionWarnings =
-        buildList {
-            addAll(selection.collectionWarnings)
-            if (snapshotDecodeFailures > 0) add("snapshot_decode_failed_count:$snapshotDecodeFailures")
-            if (contextDecodeFailures > 0) add("context_decode_failed_count:$contextDecodeFailures")
-            if (selection.buildProvenance.gitCommit == "unavailable") add("git_commit_unavailable")
-            selection.buildProvenance.nativeLibraries
-                .filter { it.version == "unavailable" }
-                .forEach { add("native_library_version_unavailable:${it.name}") }
-        }
+    val decodeFailures = selection.decodeFailures(snapshotPayload, contextPayload)
+    val relayCompleteness = selection.relayTraceCompleteness()
     return DiagnosticsArchiveCompletenessPayload(
         sectionStatuses = sectionStatuses,
         appliedLimits =
@@ -329,29 +334,119 @@ internal fun buildCompleteness(
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
-        relayAttemptTraces =
-            DiagnosticsArchiveRelayTraceCompleteness(
-                retainedEventCount =
-                    (selection.primaryEvents + selection.globalEvents).count { event ->
-                        !event.connectionSessionId.isNullOrBlank() &&
-                            !event.runtimeId.isNullOrBlank() &&
-                            event.attemptId != null &&
-                            event.attemptSequence != null
-                    },
-                droppedEventCount =
-                    (selection.payload.telemetry + selection.compositeStages.flatMap { it.telemetry })
-                        .groupBy { it.connectionSessionId ?: it.sessionId ?: it.id }
-                        .values
-                        .sumOf { samples -> samples.maxOfOrNull { it.relayNativeEventsDropped } ?: 0 },
-                retainedDecisionCount =
-                    (selection.primaryEvents + selection.globalEvents)
-                        .distinctBy { it.id }
-                        .count { event -> event.subsystem == "relay_health_decision" },
-            ),
-        collectionWarnings = collectionWarnings,
+        relayAttemptTraces = relayCompleteness.trace,
+        collectionWarnings = selection.completenessWarnings(decodeFailures),
+        reasons = selection.completenessReasons(decodeFailures, relayCompleteness),
         truncation = selection.truncation(),
     )
 }
+
+private data class DiagnosticsArchiveDecodeFailures(
+    val snapshotCount: Int,
+    val contextCount: Int,
+)
+
+private data class DiagnosticsArchiveRelayCompleteness(
+    val trace: DiagnosticsArchiveRelayTraceCompleteness,
+    val retainedEvents: List<NativeSessionEventEntity>,
+    val sequenceGaps: List<DiagnosticsArchiveRelaySequenceGap>,
+)
+
+private fun DiagnosticsArchiveSelection.decodeFailures(
+    snapshotPayload: DiagnosticsArchiveSnapshotPayload,
+    contextPayload: DiagnosticsArchiveContextPayload,
+): DiagnosticsArchiveDecodeFailures {
+    val sourceSnapshotIds =
+        (primarySnapshots + runtimeSnapshots + listOfNotNull(latestPassiveSnapshot))
+            .map { it.id }
+            .toSet()
+    val sourceContextCount =
+        primaryContexts.size +
+            if (latestPassiveContext != null) 1 else 0
+    val includedContextCount =
+        contextPayload.sessionContexts.size +
+            if (contextPayload.latestPassiveContext != null) 1 else 0
+    return DiagnosticsArchiveDecodeFailures(
+        snapshotCount = (sourceSnapshotIds - snapshotPayload.includedSourceIds).size,
+        contextCount = sourceContextCount - includedContextCount,
+    )
+}
+
+private fun DiagnosticsArchiveSelection.relayTraceCompleteness(): DiagnosticsArchiveRelayCompleteness {
+    val relaySourceEvents = (primaryEvents + globalEvents).distinctBy { it.id }
+    val relayTraceEvents = selectRelayAttemptTraceEvents(primaryEvents, globalEvents)
+    val droppedEventsByConnection =
+        (payload.telemetry + compositeStages.flatMap { it.telemetry })
+            .filter { !it.connectionSessionId.isNullOrBlank() }
+            .groupBy { requireNotNull(it.connectionSessionId) }
+            .mapValues { (_, samples) -> samples.maxOfOrNull { it.relayNativeEventsDropped } ?: 0 }
+    val sequenceGaps = buildRelaySequenceGaps(relayTraceEvents, relaySourceEvents, droppedEventsByConnection)
+    return DiagnosticsArchiveRelayCompleteness(
+        trace =
+            DiagnosticsArchiveRelayTraceCompleteness(
+                retainedEventCount = relayTraceEvents.size,
+                droppedEventCount = droppedEventsByConnection.values.sum(),
+                retainedDecisionCount = relaySourceEvents.count { event -> event.subsystem == "relay_health_decision" },
+                unsupportedAttemptCount = countUnsupportedRelayAttempts(relaySourceEvents, relayTraceEvents),
+                sequenceGaps = sequenceGaps,
+            ),
+        retainedEvents = relayTraceEvents,
+        sequenceGaps = sequenceGaps,
+    )
+}
+
+private fun DiagnosticsArchiveSelection.completenessWarnings(
+    decodeFailures: DiagnosticsArchiveDecodeFailures,
+): List<String> =
+    buildList {
+        addAll(collectionWarnings)
+        if (decodeFailures.snapshotCount > 0) add("snapshot_decode_failed_count:${decodeFailures.snapshotCount}")
+        if (decodeFailures.contextCount > 0) add("context_decode_failed_count:${decodeFailures.contextCount}")
+        if (buildProvenance.gitCommit == "unavailable") add("git_commit_unavailable")
+        buildProvenance.nativeLibraries
+            .filter { it.version == "unavailable" }
+            .forEach { add("native_library_version_unavailable:${it.name}") }
+    }
+
+private fun DiagnosticsArchiveSelection.completenessReasons(
+    decodeFailures: DiagnosticsArchiveDecodeFailures,
+    relayCompleteness: DiagnosticsArchiveRelayCompleteness,
+): List<DiagnosticsArchiveCompletenessReason> =
+    buildList {
+        if (decodeFailures.snapshotCount > 0) {
+            add(DiagnosticsArchiveCompletenessReason("snapshots", "decode_failed", decodeFailures.snapshotCount))
+        }
+        if (decodeFailures.contextCount > 0) {
+            add(DiagnosticsArchiveCompletenessReason("contexts", "decode_failed", decodeFailures.contextCount))
+        }
+        if (buildProvenance.gitCommit == "unavailable") {
+            add(DiagnosticsArchiveCompletenessReason("build_provenance", "git_commit_unavailable"))
+        }
+        buildProvenance.nativeLibraries
+            .count { it.version == "unavailable" }
+            .takeIf { it > 0 }
+            ?.let { count ->
+                add(
+                    DiagnosticsArchiveCompletenessReason(
+                        "build_provenance",
+                        "native_version_unavailable",
+                        count,
+                    ),
+                )
+            }
+        if (relayCompleteness.retainedEvents.isNotEmpty() && relayCompleteness.sequenceGaps.isNotEmpty()) {
+            add(DiagnosticsArchiveCompletenessReason("relay_attempt_traces", "sequence_gap"))
+        }
+        if (relayCompleteness.trace.unsupportedAttemptCount > 0) {
+            add(
+                DiagnosticsArchiveCompletenessReason(
+                    "relay_attempt_traces",
+                    "unsupported_attempt",
+                    relayCompleteness.trace.unsupportedAttemptCount,
+                ),
+            )
+        }
+    }
 
 private fun DiagnosticsArchiveSelection.includedCounts(
     snapshotPayload: DiagnosticsArchiveSnapshotPayload,
@@ -364,9 +459,7 @@ private fun DiagnosticsArchiveSelection.includedCounts(
             nativeEvents =
                 (primaryEvents + globalEvents + compositeStages.flatMap { it.events }).distinctBy { it.id }.size,
             snapshots =
-                (primarySnapshots + listOfNotNull(latestPassiveSnapshot) + compositeStages.flatMap { it.snapshots })
-                    .distinctBy { it.id }
-                    .size,
+                (snapshotPayload.includedSourceIds + compositeStages.flatMap { it.snapshots }.map { it.id }).size,
             contexts =
                 (primaryContexts + listOfNotNull(latestPassiveContext) + compositeStages.flatMap { it.contexts })
                     .distinctBy { it.id }

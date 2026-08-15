@@ -76,7 +76,6 @@
     ],
     "includedSessionId": "session-1",
     "integrityAlgorithm": "sha256",
-    "lastFailure": "proxy: warning",
     "latestTelemetrySummary": {
         "proxyRouteRetryCount": 1,
         "proxyRttBand": "50_99",
@@ -125,7 +124,7 @@
     ],
     "requestedSessionId": "session-1",
     "runType": "single_session",
-    "schemaVersion": 8,
+    "schemaVersion": 9,
     "scope": "hybrid",
     "sectionStatusSummary": {
         "analysis.json": "included",

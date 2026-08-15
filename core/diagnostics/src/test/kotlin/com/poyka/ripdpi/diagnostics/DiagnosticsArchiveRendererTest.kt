@@ -27,7 +27,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -92,6 +94,216 @@ class DiagnosticsArchiveRendererTest {
                     "emitterDowngraded=false;exactEmitterRequiresRoot=false",
             ),
             snapshot.detectabilityMetrics.evidence,
+        )
+    }
+
+    @Test
+    fun `analysis exports a chronological privacy-safe runtime snapshot timeline`() {
+        val connectionId = "persisted-connection-id"
+        val snapshots =
+            listOf(
+                rendererNetworkSnapshotEntity(
+                    id = "persisted-snapshot-c",
+                    sessionId = null,
+                    capturedAt = 30L,
+                ),
+                rendererNetworkSnapshotEntity(
+                    id = "persisted-snapshot-a",
+                    sessionId = null,
+                    capturedAt = 10L,
+                ),
+                rendererNetworkSnapshotEntity(
+                    id = "persisted-snapshot-b",
+                    sessionId = null,
+                    capturedAt = 20L,
+                ),
+            ).map { snapshot ->
+                snapshot.copy(
+                    connectionSessionId = connectionId,
+                    snapshotKind = "connection_sample",
+                )
+            }
+        val selection = buildFullRendererSelection().copy(primarySnapshots = snapshots)
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-runtime-snapshot-timeline", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-runtime-snapshot-timeline.zip",
+                createdAt = 42L,
+            )
+
+        val analysis =
+            renderer
+                .render(target, selection)
+                .single { entry -> entry.name == "analysis.json" }
+                .bytes
+                .decodeToString()
+                .let(json::parseToJsonElement)
+                .jsonObject
+
+        assertEquals(
+            json.parseToJsonElement(
+                """
+                [
+                    {"snapshotRef":"snapshot-1","connectionRef":"connection-1","capturedAt":10},
+                    {"snapshotRef":"snapshot-2","connectionRef":"connection-1","capturedAt":20},
+                    {"snapshotRef":"snapshot-3","connectionRef":"connection-1","capturedAt":30}
+                ]
+                """.trimIndent(),
+            ),
+            analysis["runtimeSnapshotTimeline"],
+        )
+    }
+
+    @Test
+    fun `runtime snapshot timeline references exported redacted snapshot records`() {
+        val persistedConnectionId = "persisted-connection-id"
+        val persistedSnapshotIds = listOf("persisted-snapshot-a", "persisted-snapshot-b")
+        val snapshots =
+            listOf(20L, 10L).mapIndexed { index, capturedAt ->
+                rendererNetworkSnapshotEntity(
+                    id = persistedSnapshotIds[index],
+                    sessionId = null,
+                    capturedAt = capturedAt,
+                ).copy(
+                    connectionSessionId = persistedConnectionId,
+                    snapshotKind = "connection_sample",
+                )
+            }
+        val selection = buildFullRendererSelection().copy(primarySnapshots = snapshots)
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-runtime-snapshot-records", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-runtime-snapshot-records.zip",
+                createdAt = 42L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val timeline =
+            entries
+                .getValue("analysis.json")
+                .bytes
+                .decodeToString()
+                .let(json::parseToJsonElement)
+                .jsonObject
+                .getValue("runtimeSnapshotTimeline")
+                .jsonArray
+        val networkSnapshots =
+            entries
+                .getValue("network-snapshots.json")
+                .bytes
+                .decodeToString()
+                .let(json::parseToJsonElement)
+                .jsonObject
+        val records = networkSnapshots.getValue("runtimeSnapshots").jsonArray
+
+        assertEquals(2, records.size)
+        timeline.zip(records).forEach { (timelineEntry, record) ->
+            val timelineObject = timelineEntry.jsonObject
+            val recordObject = record.jsonObject
+            assertEquals(timelineObject["snapshotRef"], recordObject["snapshotRef"])
+            assertEquals(timelineObject["connectionRef"], recordObject["connectionRef"])
+            assertEquals(timelineObject["capturedAt"], recordObject["capturedAt"])
+            val redactedSnapshot = recordObject.getValue("snapshot").jsonObject
+            assertEquals("wifi", redactedSnapshot.getValue("transport").jsonPrimitive.content)
+            assertEquals(
+                "redacted(1)",
+                redactedSnapshot
+                    .getValue("dnsServers")
+                    .jsonArray
+                    .single()
+                    .jsonPrimitive.content,
+            )
+            assertEquals("redacted", redactedSnapshot.getValue("publicIp").jsonPrimitive.content)
+            assertEquals("redacted", redactedSnapshot.getValue("publicAsn").jsonPrimitive.content)
+        }
+        val exportedRuntimeEvidence = timeline.toString() + records.toString()
+        assertFalse(exportedRuntimeEvidence.contains(persistedConnectionId))
+        persistedSnapshotIds.forEach { persistedId ->
+            assertFalse(exportedRuntimeEvidence.contains(persistedId))
+        }
+    }
+
+    @Test
+    fun `analysis correlates operational failures without promoting a later generic warning`() {
+        val connectionId = "persisted-connection-id"
+        val snapshots =
+            listOf(10L, 20L, 30L).mapIndexed { index, capturedAt ->
+                rendererNetworkSnapshotEntity(
+                    id = "persisted-snapshot-${index + 1}",
+                    sessionId = null,
+                    capturedAt = capturedAt,
+                ).copy(connectionSessionId = connectionId, snapshotKind = "connection_sample")
+            }
+
+        fun failure(
+            id: String,
+            failureClass: String,
+            createdAt: Long,
+            eventConnectionId: String = connectionId,
+        ) = NativeSessionEventEntity(
+            id = id,
+            connectionSessionId = eventConnectionId,
+            source = "runtime",
+            level = "error",
+            message = "typed operational failure",
+            createdAt = createdAt,
+            subsystem = "proxy",
+            failureStage = "connect",
+            failureClass = failureClass,
+        )
+        val failures =
+            listOf(
+                failure("persisted-failure-after", "after_failure", 5L),
+                failure("persisted-failure-exact", "exact_failure", 20L),
+                failure("persisted-failure-before", "before_failure", 25L),
+                failure("persisted-failure-unavailable", "unavailable_failure", 40L, "other-connection-id"),
+                rendererNativeEvent(id = "generic-later-warning", sessionId = null, level = "warn").copy(
+                    connectionSessionId = connectionId,
+                    message = "generic warning must not become latest failure",
+                    createdAt = 50L,
+                ),
+            )
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                payload = base.payload.copy(telemetry = emptyList(), globalEvents = failures),
+                primaryEvents = emptyList(),
+                globalEvents = failures,
+                runtimeSnapshots = snapshots,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-failure-snapshot-correlation", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-failure-snapshot-correlation.zip",
+                createdAt = 60L,
+            )
+
+        val failureEnvelope =
+            renderer
+                .render(target, selection)
+                .single { entry -> entry.name == "analysis.json" }
+                .bytes
+                .decodeToString()
+                .let(json::parseToJsonElement)
+                .jsonObject
+                .getValue("failureEnvelope")
+                .jsonObject
+
+        assertEquals(
+            listOf(
+                json.parseToJsonElement("\"unavailable_failure\""),
+                json.parseToJsonElement(
+                    """
+                    [
+                        {"failureClass":"after_failure","occurredAt":5,"correlation":"nearest_after","deltaMs":5,"snapshotRef":"snapshot-1"},
+                        {"failureClass":"exact_failure","occurredAt":20,"correlation":"exact","deltaMs":0,"snapshotRef":"snapshot-2"},
+                        {"failureClass":"before_failure","occurredAt":25,"correlation":"nearest_before","deltaMs":5,"snapshotRef":"snapshot-2"},
+                        {"failureClass":"unavailable_failure","occurredAt":40,"correlation":"unavailable"}
+                    ]
+                    """.trimIndent(),
+                ),
+            ),
+            listOf(failureEnvelope["latestFailureClass"], failureEnvelope["failureRecords"]),
         )
     }
 
@@ -530,7 +742,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(8, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(9, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -681,8 +893,15 @@ class DiagnosticsArchiveRendererTest {
     @Test
     fun `decode failure counts subtract successfully decoded artifacts`() {
         val base = buildFullRendererSelection()
-        val malformedSnapshot = rendererNetworkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")
-        val malformedContext = rendererDiagnosticContextEntity(sessionId = "session-1").copy(payloadJson = "{bad")
+        val malformedSnapshot =
+            rendererNetworkSnapshotEntity(id = "malformed-snapshot", sessionId = "session-1").copy(
+                connectionSessionId = "primary-connection",
+                payloadJson = "{bad",
+            )
+        val malformedContext =
+            rendererDiagnosticContextEntity(id = "malformed-context", sessionId = "session-1").copy(
+                payloadJson = "{bad",
+            )
         val selection =
             base.copy(
                 primarySnapshots = base.primarySnapshots + malformedSnapshot,
@@ -708,6 +927,52 @@ class DiagnosticsArchiveRendererTest {
 
         assertTrue(completeness.collectionWarnings.contains("snapshot_decode_failed_count:1"))
         assertTrue(completeness.collectionWarnings.contains("context_decode_failed_count:1"))
+    }
+
+    @Test
+    fun `runtime snapshot completeness counts exported records and decode failures`() {
+        val valid =
+            rendererNetworkSnapshotEntity(id = "runtime-valid", sessionId = null).copy(
+                connectionSessionId = "runtime-connection",
+            )
+        val malformed =
+            valid.copy(
+                id = "runtime-malformed",
+                payloadJson = "{bad",
+            )
+        val selection =
+            buildFullRendererSelection().copy(
+                primarySnapshots = emptyList(),
+                latestPassiveSnapshot = null,
+                runtimeSnapshots = listOf(valid, malformed),
+                compositeStages = emptyList(),
+            )
+        val entries =
+            renderer
+                .render(
+                    DiagnosticsArchiveTarget(
+                        file = Files.createTempFile("archive-runtime-completeness", ".zip").toFile(),
+                        fileName = "ripdpi-diagnostics-runtime-completeness.zip",
+                        createdAt = 45L,
+                    ),
+                    selection,
+                ).associateBy(DiagnosticsArchiveEntry::name)
+        val snapshotPayload =
+            json.parseToJsonElement(entries.getValue("network-snapshots.json").bytes.decodeToString()).jsonObject
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+
+        assertEquals(1, snapshotPayload.getValue("runtimeSnapshots").jsonArray.size)
+        assertEquals(1, completeness.includedCounts.archiveWide.snapshots)
+        assertTrue(completeness.collectionWarnings.contains("snapshot_decode_failed_count:1"))
+        assertTrue(
+            completeness.reasons.any {
+                it.section == "snapshots" && it.code == "decode_failed" && it.count == 1
+            },
+        )
     }
 
     @Test
@@ -1893,7 +2158,7 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v7.json",
+            "archive/manifest_v9.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -1905,15 +2170,15 @@ class DiagnosticsArchiveRendererTest {
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v6.json",
+            "archive/analysis_v9.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v7.json",
+            "archive/completeness_v9.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v7.json",
+            "archive/integrity_v9.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(

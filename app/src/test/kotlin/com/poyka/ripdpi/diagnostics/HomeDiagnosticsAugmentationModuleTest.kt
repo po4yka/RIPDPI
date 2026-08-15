@@ -27,80 +27,7 @@ class HomeDiagnosticsAugmentationModuleTest {
     @Test
     fun `inventory-only detection maps to one review signal without network claim`() =
         runTest {
-            val packageName = "com.example.targeted"
-            val family = "xray"
-            val installedApp =
-                EvidenceItem(
-                    source = EvidenceSource.INSTALLED_APP,
-                    detected = true,
-                    confidence = EvidenceConfidence.MEDIUM,
-                    description = "Targeted bypass app installed",
-                    family = family,
-                    packageName = packageName,
-                    kind = VpnAppKind.TARGETED_BYPASS,
-                )
-            val vpnServiceDeclaration =
-                EvidenceItem(
-                    source = EvidenceSource.VPN_SERVICE_DECLARATION,
-                    detected = true,
-                    confidence = EvidenceConfidence.MEDIUM,
-                    description = "Targeted bypass app declares VpnService",
-                    family = family,
-                    packageName = packageName,
-                    kind = VpnAppKind.TARGETED_BYPASS,
-                )
-            val directSigns =
-                CategoryResult(
-                    name = "Direct signs",
-                    detected = false,
-                    needsReview = true,
-                    findings =
-                        listOf(
-                            Finding("Targeted bypass app installed", detected = true),
-                            Finding("Targeted bypass app declares VpnService", detected = true),
-                        ),
-                    evidence = listOf(installedApp, vpnServiceDeclaration),
-                )
-            val emptyCategory = CategoryResult(name = "Empty", detected = false, findings = emptyList())
-            val result =
-                DetectionCheckResult(
-                    geoIp = emptyCategory,
-                    directSigns = directSigns,
-                    indirectSigns = emptyCategory,
-                    locationSignals = emptyCategory,
-                    bypassResult =
-                        BypassResult(
-                            proxyEndpoint = null,
-                            directIp = null,
-                            proxyIp = null,
-                            xrayApiScanResult = null,
-                            findings = emptyList(),
-                            detected = false,
-                        ),
-                    verdict = Verdict.NEEDS_REVIEW,
-                    verdictExplanation =
-                        VerdictExplanation(
-                            verdict = Verdict.NEEDS_REVIEW,
-                            ruleApplied = "R6",
-                            summary = "Local inventory evidence requires review",
-                            appliedScopes = listOf(DetectionScope.LOCAL_INVENTORY),
-                            uniqueSignalCount = 1,
-                        ),
-                )
-            val detectionRunner =
-                object : DetectionCheckRunner {
-                    override suspend fun run(
-                        context: Context,
-                        config: DetectionRunnerConfig,
-                        onProgress: (suspend (com.poyka.ripdpi.core.detection.DetectionProgress) -> Unit)?,
-                    ): DetectionCheckResult = result
-                }
-            val runner =
-                DefaultHomeDetectionStageRunner(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = FakeAppSettingsRepository(),
-                    detectionCheckRunner = detectionRunner,
-                )
+            val runner = detectionStageRunnerWith(inventoryOnlyDetectionResult())
 
             val outcome = runner.run { _, _ -> }
 
@@ -121,4 +48,82 @@ class HomeDiagnosticsAugmentationModuleTest {
                 ),
             )
         }
+
+    private fun inventoryOnlyDetectionResult(): DetectionCheckResult {
+        val packageName = "com.example.targeted"
+        val family = "xray"
+        val installedApp = targetedBypassEvidence(EvidenceSource.INSTALLED_APP, packageName, family)
+        val vpnServiceDeclaration = targetedBypassEvidence(EvidenceSource.VPN_SERVICE_DECLARATION, packageName, family)
+        val directSigns =
+            CategoryResult(
+                name = "Direct signs",
+                detected = false,
+                needsReview = true,
+                findings =
+                    listOf(
+                        Finding("Targeted bypass app installed", detected = true),
+                        Finding("Targeted bypass app declares VpnService", detected = true),
+                    ),
+                evidence = listOf(installedApp, vpnServiceDeclaration),
+            )
+        val emptyCategory = CategoryResult(name = "Empty", detected = false, findings = emptyList())
+        return DetectionCheckResult(
+            geoIp = emptyCategory,
+            directSigns = directSigns,
+            indirectSigns = emptyCategory,
+            locationSignals = emptyCategory,
+            bypassResult =
+                BypassResult(
+                    proxyEndpoint = null,
+                    directIp = null,
+                    proxyIp = null,
+                    xrayApiScanResult = null,
+                    findings = emptyList(),
+                    detected = false,
+                ),
+            verdict = Verdict.NEEDS_REVIEW,
+            verdictExplanation =
+                VerdictExplanation(
+                    verdict = Verdict.NEEDS_REVIEW,
+                    ruleApplied = "R6",
+                    summary = "Local inventory evidence requires review",
+                    appliedScopes = listOf(DetectionScope.LOCAL_INVENTORY),
+                    uniqueSignalCount = 1,
+                ),
+        )
+    }
+
+    private fun targetedBypassEvidence(
+        source: EvidenceSource,
+        packageName: String,
+        family: String,
+    ) = EvidenceItem(
+        source = source,
+        detected = true,
+        confidence = EvidenceConfidence.MEDIUM,
+        description =
+            when (source) {
+                EvidenceSource.INSTALLED_APP -> "Targeted bypass app installed"
+                else -> "Targeted bypass app declares VpnService"
+            },
+        family = family,
+        packageName = packageName,
+        kind = VpnAppKind.TARGETED_BYPASS,
+    )
+
+    private fun detectionStageRunnerWith(result: DetectionCheckResult): DefaultHomeDetectionStageRunner {
+        val detectionRunner =
+            object : DetectionCheckRunner {
+                override suspend fun run(
+                    context: Context,
+                    config: DetectionRunnerConfig,
+                    onProgress: (suspend (com.poyka.ripdpi.core.detection.DetectionProgress) -> Unit)?,
+                ): DetectionCheckResult = result
+            }
+        return DefaultHomeDetectionStageRunner(
+            context = RuntimeEnvironment.getApplication(),
+            appSettingsRepository = FakeAppSettingsRepository(),
+            detectionCheckRunner = detectionRunner,
+        )
+    }
 }

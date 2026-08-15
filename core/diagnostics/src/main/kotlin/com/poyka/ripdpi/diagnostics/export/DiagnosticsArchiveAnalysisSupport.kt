@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.export
 
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.ObservationFact
@@ -35,17 +34,7 @@ internal fun buildAnalysis(
         selection.payload.telemetry
             .map { it.redactForArchive() }
             .sortedBy { it.createdAt }
-    val failureSamples =
-        telemetry.filter {
-            !it.failureClass.isNullOrBlank() ||
-                !it.lastFailureClass.isNullOrBlank() ||
-                !it.lastFallbackAction.isNullOrBlank()
-        }
-    val failureEvents =
-        (selection.primaryEvents + selection.globalEvents)
-            .filter {
-                it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
-            }.sortedBy { it.createdAt }
+    val operationalFailures = projectOperationalFailures(selection)
     val latestTelemetry =
         selection.payload.telemetry
             .firstOrNull()
@@ -54,52 +43,146 @@ internal fun buildAnalysis(
     val strategyProbe = projectedReport?.strategyProbeReport
     val observations = projectedReport?.observations.orEmpty()
     val measurementSnapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
+    val runtimeSnapshotProjection = buildRuntimeSnapshotProjection(selection, redactor)
     return DiagnosticsArchiveAnalysisPayload(
-        failureEnvelope = buildFailureEnvelope(failureSamples, failureEvents, latestTelemetry),
+        failureEnvelope = buildFailureEnvelope(operationalFailures, latestTelemetry, runtimeSnapshotProjection),
         strategyExecutionDetail = buildStrategyExecutionDetail(strategyProbe, observations),
         recommendationTrace = buildRecommendationTrace(selection, projectedReport),
         measurementSnapshot = measurementSnapshot,
         connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
+        runtimeSnapshotTimeline = buildRuntimeSnapshotTimeline(runtimeSnapshotProjection),
     )
 }
 
+internal data class RuntimeSnapshotProjection(
+    val sourceId: String,
+    val connectionSessionId: String,
+    val capturedAt: Long,
+    val snapshotRef: String,
+    val connectionRef: String,
+    val redactedSnapshot: com.poyka.ripdpi.diagnostics.NetworkSnapshotModel,
+)
+
+private fun buildRuntimeSnapshotTimeline(
+    projection: List<RuntimeSnapshotProjection>,
+): List<DiagnosticsArchiveRuntimeSnapshotTimelineEntry> =
+    projection.map { snapshot ->
+        DiagnosticsArchiveRuntimeSnapshotTimelineEntry(
+            snapshotRef = snapshot.snapshotRef,
+            connectionRef = snapshot.connectionRef,
+            capturedAt = snapshot.capturedAt,
+        )
+    }
+
+internal fun buildRuntimeSnapshotProjection(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+): List<RuntimeSnapshotProjection> {
+    val snapshots =
+        (selection.primarySnapshots + selection.runtimeSnapshots + listOfNotNull(selection.latestPassiveSnapshot))
+            .filter { !it.connectionSessionId.isNullOrBlank() }
+            .distinctBy { it.id }
+            .sortedWith(compareBy({ it.capturedAt }, { it.id }))
+    val connectionRefs =
+        snapshots
+            .mapNotNull { it.connectionSessionId }
+            .distinct()
+            .mapIndexed { index, id -> id to "connection-${index + 1}" }
+            .toMap()
+    return snapshots.mapIndexedNotNull { index, snapshot ->
+        redactor.decodeNetworkSnapshot(snapshot)?.let(redactor::redact)?.let { redactedSnapshot ->
+            RuntimeSnapshotProjection(
+                sourceId = snapshot.id,
+                connectionSessionId = requireNotNull(snapshot.connectionSessionId),
+                capturedAt = snapshot.capturedAt,
+                snapshotRef = "snapshot-${index + 1}",
+                connectionRef = requireNotNull(connectionRefs[snapshot.connectionSessionId]),
+                redactedSnapshot = redactedSnapshot,
+            )
+        }
+    }
+}
+
 private fun buildFailureEnvelope(
-    failureSamples: List<TelemetrySampleEntity>,
-    failureEvents: List<NativeSessionEventEntity>,
+    failures: List<OperationalFailure>,
     latestTelemetry: TelemetrySampleEntity?,
+    runtimeSnapshots: List<RuntimeSnapshotProjection>,
 ): DiagnosticsArchiveFailureEnvelope =
     DiagnosticsArchiveFailureEnvelope(
-        firstFailureTimestamp =
-            listOfNotNull(
-                failureSamples.firstOrNull()?.createdAt,
-                failureEvents.firstOrNull()?.createdAt,
-            ).minOrNull(),
-        lastFailureTimestamp =
-            listOfNotNull(
-                failureSamples.lastOrNull()?.createdAt,
-                failureEvents.lastOrNull()?.createdAt,
-            ).maxOrNull(),
-        latestFailureClass =
-            latestTelemetry?.failureClass
-                ?: latestTelemetry?.lastFailureClass
-                ?: failureEvents.lastOrNull()?.message?.let(::redactDiagnosticsArchiveText),
-        lastFallbackAction = latestTelemetry?.lastFallbackAction,
+        firstFailureTimestamp = failures.firstOrNull()?.occurredAt,
+        lastFailureTimestamp = failures.lastOrNull()?.occurredAt,
+        latestFailureClass = failures.lastOrNull()?.failureClass,
+        lastFallbackAction = failures.lastOrNull { it.fallbackAction != null }?.fallbackAction,
         retryCounters =
             DiagnosticsArchiveRetryCounters(
                 proxyRouteRetryCount = latestTelemetry?.proxyRouteRetryCount ?: 0,
                 tunnelRecoveryRetryCount = latestTelemetry?.tunnelRecoveryRetryCount ?: 0,
                 totalRetryCount = latestTelemetry?.retryCount() ?: 0,
             ),
-        failureClassTransitions =
-            (
-                failureSamples.flatMap { sample ->
-                    listOfNotNull(sample.failureClass, sample.lastFailureClass)
-                } +
-                    failureEvents.map { event ->
-                        "native:${event.source}:${redactDiagnosticsArchiveText(event.message)}"
-                    }
-            ).distinctConsecutive(),
+        failureClassTransitions = failures.map(OperationalFailure::failureClass).distinctConsecutive(),
+        failureRecords = failures.map { it.correlateWith(runtimeSnapshots) },
     )
+
+private data class OperationalFailure(
+    val failureClass: String,
+    val occurredAt: Long,
+    val connectionSessionId: String?,
+    val fallbackAction: String? = null,
+)
+
+private fun projectOperationalFailures(selection: DiagnosticsArchiveSelection): List<OperationalFailure> =
+    buildList {
+        selection.payload.telemetry.forEach { sample ->
+            sample.failureClass?.takeIf(String::isNotBlank)?.let { failureClass ->
+                add(
+                    OperationalFailure(
+                        failureClass = redactDiagnosticsArchiveText(failureClass),
+                        occurredAt = sample.createdAt,
+                        connectionSessionId = sample.connectionSessionId,
+                        fallbackAction = sample.lastFallbackAction?.let(::redactDiagnosticsArchiveText),
+                    ),
+                )
+            }
+        }
+        (selection.primaryEvents + selection.globalEvents).distinctBy { it.id }.forEach { event ->
+            event.failureClass?.takeIf(String::isNotBlank)?.let { failureClass ->
+                add(
+                    OperationalFailure(
+                        failureClass = redactDiagnosticsArchiveText(failureClass),
+                        occurredAt = event.createdAt,
+                        connectionSessionId = event.connectionSessionId,
+                    ),
+                )
+            }
+        }
+    }.sortedWith(compareBy({ it.occurredAt }, { it.failureClass }))
+
+private fun OperationalFailure.correlateWith(
+    runtimeSnapshots: List<RuntimeSnapshotProjection>,
+): DiagnosticsArchiveFailureRecord {
+    val candidates =
+        runtimeSnapshots.filter { projection ->
+            projection.connectionSessionId == connectionSessionId
+        }
+    val exact = candidates.firstOrNull { it.capturedAt == occurredAt }
+    val before = candidates.lastOrNull { it.capturedAt < occurredAt }
+    val after = candidates.firstOrNull { it.capturedAt > occurredAt }
+    val correlated = exact ?: before ?: after
+    val correlation =
+        when {
+            correlated == null -> "unavailable"
+            correlated == exact -> "exact"
+            correlated == before -> "nearest_before"
+            else -> "nearest_after"
+        }
+    return DiagnosticsArchiveFailureRecord(
+        failureClass = failureClass,
+        occurredAt = occurredAt,
+        correlation = correlation,
+        deltaMs = correlated?.capturedAt?.minus(occurredAt)?.let { kotlin.math.abs(it) },
+        snapshotRef = correlated?.snapshotRef,
+    )
+}
 
 private fun buildStrategyExecutionDetail(
     strategyProbe: StrategyProbeReport?,

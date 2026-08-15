@@ -89,23 +89,8 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
         globalEvents: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
     ): String {
         val jsonLines = Json(json) { prettyPrint = false }
-        val events =
-            (primaryEvents + globalEvents)
-                .filter { event ->
-                    !event.connectionSessionId.isNullOrBlank() &&
-                        !event.runtimeId.isNullOrBlank() &&
-                        event.attemptId != null &&
-                        event.attemptSequence != null &&
-                        event.stage in RelayTraceStages &&
-                        event.outcome in RelayTraceOutcomes
-                }.sortedWith(
-                    compareBy(
-                        { it.connectionSessionId.orEmpty() },
-                        { it.runtimeId.orEmpty() },
-                        { it.attemptId },
-                        { it.attemptSequence },
-                    ),
-                )
+        val events = selectRelayAttemptTraceEvents(primaryEvents, globalEvents)
+        val attemptAliases = relayAttemptAliases(events)
         val connectionAliases =
             events.map { it.connectionSessionId.orEmpty() }.distinct().withIndex().associate {
                 it.value to "connection-${it.index + 1}"
@@ -121,7 +106,7 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                         DiagnosticsArchiveRelayAttemptTraceRecord(
                             connectionCorrelation = connectionAliases.getValue(event.connectionSessionId.orEmpty()),
                             runtimeCorrelation = runtimeAliases.getValue(event.runtimeId.orEmpty()),
-                            attemptId = requireNotNull(event.attemptId),
+                            attemptRef = requireNotNull(attemptAliases[event.relayAttemptKey()]),
                             sequence = requireNotNull(event.attemptSequence),
                             stage = requireNotNull(event.stage),
                             outcome = requireNotNull(event.outcome),
@@ -182,17 +167,6 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
     }
 }
 
-private val RelayTraceStages =
-    setOf(
-        "tcp_connect",
-        "reality_tls",
-        "vless_auth",
-        "vless_request",
-        "vless_response",
-        "socks_reply",
-        "relay_stream",
-    )
-private val RelayTraceOutcomes = setOf("started", "succeeded", "failed", "cancelled", "closed")
 private val RelayTraceToken = Regex("[a-z0-9_]{1,48}")
 private val RelayDecisionToken = Regex("[a-zA-Z0-9_-]{1,128}")
 

@@ -177,11 +177,11 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     serviceController.startForDiagnostics(mode)
                 }
             if (startResult == null) {
-                waitForResumeResolution(resumeLease)
+                waitForResumeResolution(resumeLease, compensateStoppedIntent = false)
                 return
             }
             if (resumeRuntime(startResult)) {
-                waitForResumeResolution(resumeLease)
+                waitForResumeResolution(resumeLease, compensateStoppedIntent = true)
             }
         }
 
@@ -207,10 +207,13 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             error("Timed out waiting for service status $target")
         }
 
-        private suspend fun waitForResumeResolution(resumeLease: ResumeLease) {
+        private suspend fun waitForResumeResolution(
+            resumeLease: ResumeLease,
+            compensateStoppedIntent: Boolean,
+        ) {
             var waitState = ResumeWaitState()
             for (attempt in 0 until waitAttempts) {
-                waitState = evaluateResumeAttempt(resumeLease, waitState)
+                waitState = evaluateResumeAttempt(resumeLease, waitState, compensateStoppedIntent)
                 if (waitState.resolved) {
                     break
                 }
@@ -235,17 +238,24 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private fun evaluateResumeAttempt(
             resumeLease: ResumeLease,
             waitState: ResumeWaitState,
+            compensateStoppedIntent: Boolean,
         ): ResumeWaitState {
             val status = serviceStateStore.status.value.first
             return when (val ownership = runtimeResumeIntentTracker.ownership(resumeLease)) {
-                ResumeLeaseOwnership.Owned -> waitState.copy(resolved = status == AppStatus.Running)
-                is ResumeLeaseOwnership.Superseded -> evaluateSupersededIntent(ownership, waitState)
+                ResumeLeaseOwnership.Owned -> {
+                    waitState.copy(resolved = status == AppStatus.Running)
+                }
+
+                is ResumeLeaseOwnership.Superseded -> {
+                    evaluateSupersededIntent(ownership, waitState, compensateStoppedIntent)
+                }
             }
         }
 
         private fun evaluateSupersededIntent(
             ownership: ResumeLeaseOwnership.Superseded,
             waitState: ResumeWaitState,
+            compensateStoppedIntent: Boolean,
         ): ResumeWaitState =
             when (ownership.intent) {
                 UserRuntimeIntent.Running -> {
@@ -253,7 +263,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 }
 
                 UserRuntimeIntent.Stopped -> {
-                    reconcileStoppedIntent(ownership, waitState)
+                    reconcileStoppedIntent(ownership, waitState, compensateStoppedIntent)
                 }
 
                 UserRuntimeIntent.Unknown -> {
@@ -264,7 +274,11 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private fun reconcileStoppedIntent(
             ownership: ResumeLeaseOwnership.Superseded,
             waitState: ResumeWaitState,
+            compensateStoppedIntent: Boolean,
         ): ResumeWaitState {
+            if (!compensateStoppedIntent && serviceStateStore.status.value.first == AppStatus.Halted) {
+                return waitState.copy(resolved = true)
+            }
             val stopped =
                 waitState.compensatedGeneration == ownership.generation ||
                     runtimeResumeIntentTracker.runCompensatingStopIfCurrent(ownership) {

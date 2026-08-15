@@ -10,7 +10,7 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] DGN-1786264762918792 Implement Harden remaining diagnostics evidence and verify its portfolio acceptance criteria #bug !high @item:DGN-1786264762917145
+- [x] DGN-1786264762918792 Implement Harden remaining diagnostics evidence and verify its portfolio acceptance criteria #bug !high @item:DGN-1786264762917145
 
 ## Verification
 

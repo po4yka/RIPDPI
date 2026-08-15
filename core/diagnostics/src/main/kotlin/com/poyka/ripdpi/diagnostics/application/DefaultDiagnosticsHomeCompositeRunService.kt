@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -62,6 +61,13 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
         private val runJobs = HomeCompositeRunJobs(scope)
         private val activeProbeSafetyPolicy = ActiveProbeSafetyPolicy()
+        private val detectionStageCoordinator =
+            HomeDetectionStageCoordinator(
+                detectionStageRunner = detectionStageRunner,
+                stageExecutor = stageExecutor,
+                progressState = progressState,
+                runDetectionResults = runDetectionResults,
+            )
 
         override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
             val runId = UUID.randomUUID().toString()
@@ -169,7 +175,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             maxCandidates = maxCandidates,
                         )
                     },
-                    runDetectionStage = ::runDetectionStage,
+                    runDetectionStage = detectionStageCoordinator::runStage,
                     markStageFailure = { rId, idx, headline, summary ->
                         stageExecutor.markStageFailure(progressState, rId, idx, headline, summary)
                     },
@@ -367,7 +373,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         val stageIndex = HomeCompositeStageSpecs.indexOf(spec)
                         launch {
                             if (spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
-                                runDetectionStage(runId, stageIndex, spec)
+                                detectionStageCoordinator.runStage(runId, stageIndex, spec)
                                 return@launch
                             }
                             val result =
@@ -479,79 +485,22 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     progressState = progressState,
                     targetOverrides = targetOverrides,
                 )
-            if (spec.key == "path_comparison") {
-                return result
-            }
-            repeat(activeProbeSafetyPolicy.stageRetryBudget) {
-                if (result != null) return result
-                delay(activeProbeSafetyPolicy.stageRetryDelayMs)
-                result =
-                    stageExecutor.executeStageWithTimeout(
-                        runId = runId,
-                        stageIndex = stageIndex,
-                        spec = spec,
-                        progressState = progressState,
-                        targetOverrides = targetOverrides,
-                    )
+            if (spec.key != "path_comparison") {
+                var retryCount = activeProbeSafetyPolicy.stageRetryBudget
+                while (result == null && retryCount > 0) {
+                    retryCount -= 1
+                    delay(activeProbeSafetyPolicy.stageRetryDelayMs)
+                    result =
+                        stageExecutor.executeStageWithTimeout(
+                            runId = runId,
+                            stageIndex = stageIndex,
+                            spec = spec,
+                            progressState = progressState,
+                            targetOverrides = targetOverrides,
+                        )
+                }
             }
             return result
-        }
-
-        private suspend fun runDetectionStage(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-        ) {
-            stageExecutor.updateStage(progressState, runId, stageIndex) { stage ->
-                stage.copy(
-                    status = DiagnosticsHomeCompositeStageStatus.RUNNING,
-                    headline = "${spec.label} running",
-                    summary = "Starting ${spec.label.lowercase()}.",
-                )
-            }
-            log.i { "stage ${spec.key} started (detection-runner)" }
-            val outcome =
-                runCatching {
-                    withTimeoutOrNull(DetectionStageTimeoutMs) {
-                        detectionStageRunner.run { label, detail ->
-                            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
-                                current.copy(summary = "$label: $detail")
-                            }
-                        }
-                    }
-                }.getOrNull()
-            if (outcome == null) {
-                log.w { "detection stage failed or timed out" }
-                stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
-                    current.copy(
-                        status = DiagnosticsHomeCompositeStageStatus.FAILED,
-                        headline = "${spec.label} failed",
-                        summary = "Detection checks did not complete within the allowed time.",
-                    )
-                }
-                return
-            }
-            runDetectionResults[runId] = outcome
-            val verdictText =
-                when (outcome.verdict) {
-                    DiagnosticsHomeDetectionVerdict.DETECTED -> "Detection signals were observed"
-                    DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> "Detection results need review"
-                    DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> "No detection signals observed"
-                }
-            val summaryLine =
-                if (outcome.detectedSignalCount > 0) {
-                    "$verdictText. ${outcome.detectedSignalCount} detection signal" +
-                        "${if (outcome.detectedSignalCount == 1) "" else "s"} observed."
-                } else {
-                    "$verdictText."
-                }
-            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
-                current.copy(
-                    status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                    headline = "${spec.label} complete",
-                    summary = summaryLine,
-                )
-            }
         }
 
         private fun skipRemainingStages(

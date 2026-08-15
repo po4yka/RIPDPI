@@ -125,7 +125,7 @@
     "recentNativeWarnings": [],
     "recommendedSessionId": "audit-session",
     "runType": "home_composite",
-    "schemaVersion": 8,
+    "schemaVersion": 9,
     "scope": "hybrid",
     "sectionStatusSummary": {
         "analysis.json": "included",

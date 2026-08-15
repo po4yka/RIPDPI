@@ -335,6 +335,7 @@ internal class DefaultDiagnosticsArchiveExporter
                     DiagnosticsArchiveFormat.includedFiles(
                         logcatIncluded = selection.logcatSnapshot != null,
                         fileLogIncluded = selection.fileLogSnapshot != null,
+                        startupJournalIncluded = selection.startupJournalSnapshot != null,
                         composite = selection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE,
                         compositeStageKeys = selection.compositeStages.map { it.stageSummary.stageKey },
                         replayIncluded = selection.replayResults.isNotEmpty(),

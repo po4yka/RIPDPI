@@ -150,17 +150,36 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 },
         )
 
-    internal fun buildSnapshotPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSnapshotPayload =
-        DiagnosticsArchiveSnapshotPayload(
-            sessionSnapshots =
-                selection.primarySnapshots
-                    .mapNotNull(redactor::decodeNetworkSnapshot)
-                    .map(redactor::redact),
-            latestPassiveSnapshot =
-                redactor
-                    .decodeNetworkSnapshot(selection.latestPassiveSnapshot)
-                    ?.let(redactor::redact),
+    internal fun buildSnapshotPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSnapshotPayload {
+        val sessionSnapshots =
+            selection.primarySnapshots.mapNotNull { entity ->
+                redactor.decodeNetworkSnapshot(entity)?.let(redactor::redact)?.let { entity.id to it }
+            }
+        val latestPassiveSnapshot =
+            selection.latestPassiveSnapshot?.let { entity ->
+                redactor.decodeNetworkSnapshot(entity)?.let(redactor::redact)?.let { entity.id to it }
+            }
+        val runtimeSnapshots = buildRuntimeSnapshotProjection(selection, redactor)
+        return DiagnosticsArchiveSnapshotPayload(
+            sessionSnapshots = sessionSnapshots.map { it.second },
+            latestPassiveSnapshot = latestPassiveSnapshot?.second,
+            runtimeSnapshots =
+                runtimeSnapshots.map { projection ->
+                    DiagnosticsArchiveRuntimeSnapshotRecord(
+                        snapshotRef = projection.snapshotRef,
+                        connectionRef = projection.connectionRef,
+                        capturedAt = projection.capturedAt,
+                        snapshot = projection.redactedSnapshot,
+                    )
+                },
+            includedSourceIds =
+                buildSet {
+                    sessionSnapshots.forEach { add(it.first) }
+                    latestPassiveSnapshot?.first?.let(::add)
+                    runtimeSnapshots.forEach { add(it.sourceId) }
+                },
         )
+    }
 
     internal fun buildContextPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveContextPayload =
         DiagnosticsArchiveContextPayload(
@@ -191,6 +210,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     ?: allEvents.latestCorrelation { it.fingerprintHash },
             )
         val recentWarnings = allEvents.recentWarningPreview()
+        val latestOperationalFailure = buildAnalysis(selection, redactor).failureEnvelope.latestFailureClass
         return DiagnosticsSummaryTextRenderer.render(
             document = summaryDocument,
             preludeLines =
@@ -231,7 +251,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                         add("fingerprintHash=$it")
                         add("networkScope=$it")
                     }
-                    recentWarnings.firstOrNull()?.let { add("lastFailure=$it") }
+                    latestOperationalFailure?.let { add("lastFailure=$it") }
                     allEvents.lifecycleMilestones().forEach { add("lifecycle=$it") }
                     selection.selectedApproachProjection()?.let {
                         add("approach=${it.displayName}")
@@ -291,6 +311,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             bundleSessionIds = outcome.bundleSessionIds,
                             connectivityAssessment = redactor.redact(outcome.connectivityAssessment),
                             internetLossReproAction = redactor.redact(outcome.internetLossReproAction),
+                            detectionProvenance = selection.detectionProvenance(),
                         ),
                 ),
             )
@@ -356,6 +377,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     ?: allEvents.latestCorrelation { it.fingerprintHash },
             )
         val recentWarnings = allEvents.recentWarningPreview()
+        val latestOperationalFailure = buildAnalysis(selection, redactor).failureEnvelope.latestFailureClass
         val isSingleSession = selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION
         return DiagnosticsArchiveManifest(
             fileName = target.fileName,
@@ -396,7 +418,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             policySignature = archiveStableCorrelatorProjection(policySignature),
             fingerprintHash = fingerprintHash,
             networkScope = fingerprintHash,
-            lastFailure = recentWarnings.firstOrNull(),
+            lastFailure = latestOperationalFailure,
             lifecycleMilestones = allEvents.lifecycleMilestones(),
             recentNativeWarnings = recentWarnings,
             classifierVersion = summaryDocument.classifierVersion,

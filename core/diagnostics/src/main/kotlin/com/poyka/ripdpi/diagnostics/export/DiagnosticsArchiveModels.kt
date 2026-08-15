@@ -15,7 +15,6 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
-import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.ExecutionPlanSnapshot
 import com.poyka.ripdpi.diagnostics.FileLogSnapshot
@@ -56,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 8 adds an in-app service-start journal for pre-scan VPN evidence.
-    const val schemaVersion = 8
+    // Version 9 adds correlated runtime evidence and structured provenance/completeness.
+    const val schemaVersion = 9
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -195,6 +194,7 @@ internal data class DiagnosticsArchiveSelection(
     val fileLogSnapshot: FileLogSnapshot?,
     val startupJournalSnapshot: StartupJournalSnapshot? = null,
     val installedArtifact: DiagnosticsArchiveInstalledArtifact? = null,
+    val runtimeSnapshots: List<NetworkSnapshotEntity> = emptyList(),
 )
 
 internal data class DiagnosticsArchiveRootSourceCounts(
@@ -272,6 +272,9 @@ internal data class ExecutionPlanArchivePayload(
 internal data class DiagnosticsArchiveSnapshotPayload(
     val sessionSnapshots: List<NetworkSnapshotModel>,
     val latestPassiveSnapshot: NetworkSnapshotModel?,
+    val runtimeSnapshots: List<DiagnosticsArchiveRuntimeSnapshotRecord> = emptyList(),
+    @kotlinx.serialization.Transient
+    val includedSourceIds: Set<String> = emptySet(),
 )
 
 @Serializable
@@ -427,6 +430,16 @@ internal data class DiagnosticsArchiveFailureEnvelope(
     val lastFallbackAction: String? = null,
     val retryCounters: DiagnosticsArchiveRetryCounters = DiagnosticsArchiveRetryCounters(),
     val failureClassTransitions: List<String> = emptyList(),
+    val failureRecords: List<DiagnosticsArchiveFailureRecord> = emptyList(),
+)
+
+@Serializable
+internal data class DiagnosticsArchiveFailureRecord(
+    val failureClass: String,
+    val occurredAt: Long,
+    val correlation: String,
+    val deltaMs: Long? = null,
+    val snapshotRef: String? = null,
 )
 
 @Serializable
@@ -547,15 +560,6 @@ internal data class DiagnosticsArchiveStrategyExecutionDetail(
 )
 
 @Serializable
-internal data class DiagnosticsArchiveAnalysisPayload(
-    val failureEnvelope: DiagnosticsArchiveFailureEnvelope,
-    val strategyExecutionDetail: DiagnosticsArchiveStrategyExecutionDetail,
-    val recommendationTrace: DiagnosticsArchiveRecommendationTrace? = null,
-    val measurementSnapshot: DiagnosticsArchiveMeasurementSnapshot = DiagnosticsArchiveMeasurementSnapshot(),
-    val connectivityAssessment: ConnectivityAssessment? = null,
-)
-
-@Serializable
 internal enum class DiagnosticsArchiveSectionStatus {
     @SerialName("included")
     INCLUDED,
@@ -596,17 +600,6 @@ internal data class DiagnosticsArchiveScopedCounts(
 )
 
 @Serializable
-internal data class DiagnosticsArchiveCompletenessPayload(
-    val sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
-    val appliedLimits: DiagnosticsArchiveAppliedLimits,
-    val sourceCounts: DiagnosticsArchiveScopedCounts,
-    val includedCounts: DiagnosticsArchiveScopedCounts,
-    val relayAttemptTraces: DiagnosticsArchiveRelayTraceCompleteness = DiagnosticsArchiveRelayTraceCompleteness(),
-    val collectionWarnings: List<String> = emptyList(),
-    val truncation: DiagnosticsArchiveTruncation = DiagnosticsArchiveTruncation(),
-)
-
-@Serializable
 internal data class DiagnosticsArchiveIntegrityFileEntry(
     val name: String,
     val byteCount: Int,
@@ -619,26 +612,6 @@ internal data class DiagnosticsArchiveIntegrityPayload(
     val schemaVersion: Int,
     val generatedAt: Long,
     val files: List<DiagnosticsArchiveIntegrityFileEntry>,
-)
-
-@Serializable
-internal data class DiagnosticsArchiveHomeAnalysisPayload(
-    val runId: String,
-    val fingerprintHash: String? = null,
-    val actionable: Boolean,
-    val headline: String,
-    val summary: String,
-    val recommendationSummary: String? = null,
-    val confidenceSummary: String? = null,
-    val coverageSummary: String? = null,
-    val recommendedSessionId: String? = null,
-    val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
-    val completedStageCount: Int,
-    val failedStageCount: Int,
-    val skippedStageCount: Int,
-    val bundleSessionIds: List<String> = emptyList(),
-    val connectivityAssessment: ConnectivityAssessment? = null,
-    val internetLossReproAction: HomeReproAction? = null,
 )
 
 @Serializable

@@ -26,10 +26,24 @@
             "snapshots": 1
         }
     },
+    "reasons": [
+        {
+            "code": "git_commit_unavailable",
+            "count": 1,
+            "section": "build_provenance"
+        },
+        {
+            "code": "native_version_unavailable",
+            "count": 2,
+            "section": "build_provenance"
+        }
+    ],
     "relayAttemptTraces": {
         "droppedEventCount": 0,
         "retainedDecisionCount": 0,
-        "retainedEventCount": 0
+        "retainedEventCount": 0,
+        "sequenceGaps": [],
+        "unsupportedAttemptCount": 0
     },
     "sectionStatuses": {
         "analysis.json": "included",

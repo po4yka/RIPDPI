@@ -132,6 +132,10 @@ class DiagnosticsArchiveSessionSelector
                 logcatSnapshot = sourceData.logcatSnapshot,
                 fileLogSnapshot = sourceData.fileLogSnapshot,
                 startupJournalSnapshot = sourceData.startupJournalSnapshot,
+                runtimeSnapshots =
+                    sourceData.snapshots
+                        .filter { it.sessionId == null && !it.connectionSessionId.isNullOrBlank() }
+                        .take(DiagnosticsArchiveFormat.snapshotLimit),
             )
         }
 

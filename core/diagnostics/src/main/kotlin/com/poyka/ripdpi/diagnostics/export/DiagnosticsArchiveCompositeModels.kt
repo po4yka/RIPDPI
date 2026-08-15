@@ -50,6 +50,7 @@ internal data class DiagnosticsArchiveStageIndexEntry(
     val sourceTelemetryCount: Int = 0,
     val includedTelemetryCount: Int = 0,
     val telemetryTruncated: Boolean = false,
+    val detectionProvenance: DiagnosticsArchiveDetectionProvenance? = null,
 )
 
 @Serializable
