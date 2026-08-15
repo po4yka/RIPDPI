@@ -236,6 +236,19 @@ class DirectModePolicySupportTest {
     }
 
     @Test
+    fun `missing strategy assessment suppresses definitive direct mode verdict`() {
+        val report =
+            reportWithResults(
+                strategyHttpsProbe(
+                    candidateId = "baseline_plain_direct",
+                    outcome = "tls_handshake_failed",
+                ),
+            ).copy(strategyProbeReport = null)
+
+        assertNull(deriveDirectModeVerdict(report))
+    }
+
+    @Test
     fun `partial dpi full quic error creates neither verdict nor cooldown`() {
         val report =
             reportWithResults(
@@ -480,5 +493,12 @@ class DirectModePolicySupportTest {
             finishedAt = 20L,
             summary = "summary",
             results = results.toList(),
+            strategyProbeReport =
+                scanReportWithStrategyProbe(
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    tcpFamily = "hostfake",
+                    quicFamily = "quic_realistic_burst",
+                    auditAssessment = scanWorkflowAuditAssessment(),
+                ).strategyProbeReport,
         )
 }

@@ -67,4 +67,21 @@ class DiagnosticsUiCommonSupportTest {
         assertEquals(2, confirmed.validatedScanCount)
         assertEquals(2, confirmed.validatedSuccessCount)
     }
+
+    @Test
+    fun `incomplete evidence remains visually neutral`() {
+        val incomplete =
+            sampleApproachSummary(BypassApproachKind.Profile, "profile")
+                .copy(
+                    verificationState = BypassApproachVerificationState.INCOMPLETE_EVIDENCE,
+                    validatedScanCount = 0,
+                    validatedSuccessCount = 0,
+                    validatedSuccessRate = null,
+                )
+
+        assertEquals(
+            DiagnosticsTone.Neutral to DiagnosticsTone.Neutral,
+            incomplete.toDiagnosticsTone() to incomplete.successMetricTone(),
+        )
+    }
 }

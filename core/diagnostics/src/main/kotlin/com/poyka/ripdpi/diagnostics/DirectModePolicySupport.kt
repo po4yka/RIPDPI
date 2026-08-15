@@ -83,7 +83,7 @@ private fun ScanReport.hasDefinitiveDirectModeEvidence(): Boolean =
                 strategyProbe.completionKind == StrategyProbeCompletionKind.NORMAL &&
                     DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) ==
                     DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
-            } ?: true
+            } ?: false
         )
 
 private fun ProbeResult.invalidatesDirectModeEvidence(): Boolean =

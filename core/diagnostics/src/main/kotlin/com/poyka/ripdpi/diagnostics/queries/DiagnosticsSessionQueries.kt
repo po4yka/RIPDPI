@@ -225,8 +225,9 @@ internal object DiagnosticsSessionQueries {
         matchingUsage: List<BypassUsageSessionEntity>,
         json: Json,
     ): BypassApproachSummary {
-        val validatedReports =
+        val decodedReports =
             matchingSessions.mapNotNull { session -> decodeScanReport(json, session.reportJson)?.let { session to it } }
+        val validatedReports = decodedReports.filter { (_, report) -> report.isValidatedApproachEvidence() }
         val allResults = classifyAllResults(validatedReports)
         val successfulReports = countSuccessfulReports(validatedReports)
         val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(RecentUsageLimit)
@@ -239,6 +240,7 @@ internal object DiagnosticsSessionQueries {
                 verificationStateFor(
                     reportCount = validatedReports.size,
                     successCount = successfulReports,
+                    incompleteReportCount = decodedReports.size - validatedReports.size,
                 ),
             validatedScanCount = validatedReports.size,
             validatedSuccessCount = successfulReports,
@@ -340,10 +342,18 @@ private fun parsePathModeOrDefault(value: String): ScanPathMode =
 private fun verificationStateFor(
     reportCount: Int,
     successCount: Int,
+    incompleteReportCount: Int,
 ): BypassApproachVerificationState =
     when {
+        reportCount == 0 && incompleteReportCount > 0 -> BypassApproachVerificationState.INCOMPLETE_EVIDENCE
         reportCount == 0 -> BypassApproachVerificationState.NOT_EVALUATED
         successCount == 0 -> BypassApproachVerificationState.EVALUATED_NO_SUCCESS
         successCount < reportCount -> BypassApproachVerificationState.EVALUATED_PARTIAL_SUCCESS
         else -> BypassApproachVerificationState.CONFIRMED_WORKING
     }
+
+private fun ScanReport.isValidatedApproachEvidence(): Boolean =
+    completionKind == ScanCompletionKind.NORMAL &&
+        terminationReason == null &&
+        results.isNotEmpty() &&
+        executionPlan?.stageExecutions?.any { stage -> stage.executedSteps > 0 } != false

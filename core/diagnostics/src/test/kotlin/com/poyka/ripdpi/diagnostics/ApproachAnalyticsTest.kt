@@ -87,6 +87,48 @@ class ApproachAnalyticsTest {
     }
 
     @Test
+    fun `partial report remains incomplete evidence instead of validated`() {
+        val partialSession =
+            approachScanSession(id = "partial", successful = true).copy(
+                reportJson =
+                    diagnosticsTestJson().encodeToString(
+                        EngineScanReportWire.serializer(),
+                        ScanReport(
+                            sessionId = "partial",
+                            profileId = "profile-fast",
+                            pathMode = ScanPathMode.RAW_PATH,
+                            startedAt = 10L,
+                            finishedAt = 20L,
+                            summary = "partial",
+                            completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                            terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED,
+                            results =
+                                listOf(
+                                    ProbeResult(
+                                        probeType = "strategy_http",
+                                        target = "example.org",
+                                        outcome = "http_ok",
+                                    ),
+                                ),
+                        ).toEngineScanReportWire(),
+                    ),
+            )
+
+        val summary =
+            DiagnosticsSessionQueries
+                .buildApproachSummaries(
+                    scanSessions = listOf(partialSession),
+                    usageSessions = emptyList(),
+                    json = diagnosticsTestJson(),
+                ).first { it.approachId.kind == BypassApproachKind.Profile }
+
+        assertEquals(
+            Triple(BypassApproachVerificationState.INCOMPLETE_EVIDENCE, 0, null),
+            Triple(summary.verificationState, summary.validatedScanCount, summary.lastValidatedResult),
+        )
+    }
+
+    @Test
     fun `deriveBypassStrategySignature includes fake tls profile when active`() {
         val settings =
             AppSettings

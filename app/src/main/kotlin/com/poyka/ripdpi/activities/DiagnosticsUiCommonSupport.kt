@@ -391,7 +391,8 @@ internal fun String?.shortFingerprintHash(): String? {
 
 internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
     when {
-        verificationState == BypassApproachVerificationState.NOT_EVALUATED -> DiagnosticsTone.Neutral
+        verificationState == BypassApproachVerificationState.NOT_EVALUATED ||
+            verificationState == BypassApproachVerificationState.INCOMPLETE_EVIDENCE -> DiagnosticsTone.Neutral
 
         verificationState == BypassApproachVerificationState.CONFIRMED_WORKING &&
             recentRuntimeHealth.totalErrors == 0L && recentRuntimeHealth.restartCount == 0 -> DiagnosticsTone.Positive
@@ -411,7 +412,10 @@ internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
  */
 internal fun BypassApproachSummary.successMetricTone(): DiagnosticsTone {
     val rate = validatedSuccessRate
-    return if (verificationState == BypassApproachVerificationState.NOT_EVALUATED) {
+    return if (
+        verificationState == BypassApproachVerificationState.NOT_EVALUATED ||
+        verificationState == BypassApproachVerificationState.INCOMPLETE_EVIDENCE
+    ) {
         DiagnosticsTone.Neutral
     } else {
         when {

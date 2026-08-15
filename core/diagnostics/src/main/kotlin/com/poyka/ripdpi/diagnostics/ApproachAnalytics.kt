@@ -63,6 +63,7 @@ enum class BypassApproachKind {
 @Serializable
 enum class BypassApproachVerificationState {
     NOT_EVALUATED,
+    INCOMPLETE_EVIDENCE,
     EVALUATED_NO_SUCCESS,
     EVALUATED_PARTIAL_SUCCESS,
     CONFIRMED_WORKING,
