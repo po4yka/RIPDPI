@@ -203,6 +203,178 @@ class DirectModePolicySupportTest {
     }
 
     @Test
+    fun `rejected strategy audit suppresses definitive direct mode verdict`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment =
+                    scanWorkflowAuditAssessment().copy(
+                        confidence =
+                            scanWorkflowAuditAssessment().confidence.copy(
+                                level = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                            ),
+                    ),
+            ).copy(
+                results =
+                    listOf(
+                        strategyHttpsProbe(
+                            candidateId = "baseline_plain_direct",
+                            outcome = "tls_handshake_failed",
+                        ),
+                        ProbeResult(
+                            probeType = "service_gateway",
+                            target = "example.org",
+                            outcome = "unreachable",
+                            details = listOf(ProbeDetail("targetHost", "example.org")),
+                        ),
+                    ),
+            )
+
+        assertNull(deriveDirectModeVerdict(report))
+    }
+
+    @Test
+    fun `partial dpi full quic error creates neither verdict nor cooldown`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "quic_reachability",
+                    target = "example.org",
+                    outcome = "quic_error",
+                    details = listOf(ProbeDetail("quicHost", "example.org")),
+                ),
+            ).copy(completionKind = ScanCompletionKind.PARTIAL_RESULTS)
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+
+        assertNull(deriveDirectModeVerdict(report))
+        assertNull(observation.transportPolicy)
+        assertNull(observation.cooldownUntil)
+    }
+
+    @Test
+    fun `mixed controls suppress no direct solution`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "service_gateway",
+                    target = "example.org",
+                    outcome = "unreachable",
+                    details =
+                        listOf(
+                            ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("controlOutcome", "mixed"),
+                        ),
+                ),
+            )
+
+        assertNull(deriveDirectModeVerdict(report))
+    }
+
+    @Test
+    fun `complete accepted audit preserves definitive direct verdict`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment = scanWorkflowAuditAssessment(),
+            ).copy(
+                results = listOf(strategyHttpsProbe("baseline_plain_direct", "tls_ok")),
+            )
+
+        assertEquals(DirectModeVerdictResult.TRANSPARENT_WORKS, deriveDirectModeVerdict(report)?.result)
+    }
+
+    @Test
+    fun `complete accepted audit preserves negative direct verdict and cooldown`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment = scanWorkflowAuditAssessment(),
+            ).copy(
+                results =
+                    listOf(
+                        strategyHttpsProbe("baseline_plain_direct", "tls_handshake_failed"),
+                        ProbeResult(
+                            probeType = "service_gateway",
+                            target = "example.org",
+                            outcome = "unreachable",
+                            details = listOf(ProbeDetail("targetHost", "example.org")),
+                        ),
+                    ),
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+
+        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, deriveDirectModeVerdict(report)?.result)
+        assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, observation.transportPolicy?.outcome)
+        assertNotNull(observation.cooldownUntil)
+    }
+
+    @Test
+    fun `deadline exceeded quic error creates neither verdict nor cooldown`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "quic_reachability",
+                    target = "example.org",
+                    outcome = "quic_error",
+                    details = listOf(ProbeDetail("quicHost", "example.org")),
+                ),
+            ).copy(
+                completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                terminationReason = ScanTerminationReason.DEADLINE_EXCEEDED,
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+
+        assertNull(deriveDirectModeVerdict(report))
+        assertNull(observation.transportPolicy)
+        assertNull(observation.cooldownUntil)
+    }
+
+    @Test
+    fun `post deadline and local setup samples suppress direct mode verdict`() {
+        val postDeadline =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "service_gateway",
+                    target = "example.org",
+                    outcome = "unreachable",
+                    details =
+                        listOf(
+                            ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("postDeadline", "true"),
+                        ),
+                ),
+            )
+        val localSetupFailure =
+            postDeadline.copy(
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "service_gateway",
+                            target = "example.org",
+                            outcome = "unreachable",
+                            details =
+                                listOf(
+                                    ProbeDetail("targetHost", "example.org"),
+                                    ProbeDetail("failureClass", "local_setup_failure"),
+                                ),
+                        ),
+                    ),
+            )
+
+        assertNull(deriveDirectModeVerdict(postDeadline))
+        assertNull(deriveDirectModeVerdict(localSetupFailure))
+    }
+
+    @Test
     fun `unreachable authority remains the ip block suspect path`() {
         val report =
             reportWithResults(

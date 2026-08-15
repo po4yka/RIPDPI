@@ -197,4 +197,40 @@ class DirectModePolicyPersistenceTest {
         assertEquals(200L, persisted.policyConfirmedAt)
         assertEquals(0, persisted.policyFailureCount)
     }
+
+    @Test
+    fun `partial evidence does not persist transport policy`() {
+        val persisted =
+            buildPersistableDirectPathObservations(
+                report =
+                    ScanReport(
+                        sessionId = "session",
+                        profileId = "dpi-detector-full",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        startedAt = 10L,
+                        finishedAt = 200L,
+                        summary = "partial",
+                        completionKind = ScanCompletionKind.PARTIAL_RESULTS,
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "strategy_quic",
+                                    target = "example.org",
+                                    outcome = "quic_error",
+                                    details =
+                                        listOf(
+                                            ProbeDetail("candidateId", "baseline_plain_direct"),
+                                            ProbeDetail("targetHost", "example.org"),
+                                        ),
+                                ),
+                            ),
+                    ),
+                existingRecords = emptyList(),
+            ).single()
+                .second
+
+        assertNull(persisted.transportPolicy)
+        assertNull(persisted.cooldownUntil)
+        assertNull(persisted.policyConfirmedAt)
+    }
 }

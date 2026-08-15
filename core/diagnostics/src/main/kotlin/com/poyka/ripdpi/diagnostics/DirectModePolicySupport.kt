@@ -41,7 +41,10 @@ private data class DirectModeDnsPolicyObservation(
 )
 
 internal fun deriveDirectModeVerdict(report: ScanReport): DirectModeVerdict? =
-    collectDirectModePolicyEvaluations(report)
+    report
+        .takeIf(ScanReport::hasDefinitiveDirectModeEvidence)
+        ?.let(::collectDirectModePolicyEvaluations)
+        .orEmpty()
         .maxByOrNull { it.priority() }
         ?.verdict
 
@@ -49,20 +52,45 @@ internal fun enrichDirectPathCapabilityObservation(
     report: ScanReport,
     authority: String,
     observation: ServerCapabilityObservation,
-): ServerCapabilityObservation {
-    val evaluation =
-        collectDirectModePolicyEvaluations(report)
-            .firstOrNull { it.authority == authority.normalizeDirectModeAuthority() }
-            ?: return observation
-    return observation.copy(
-        transportPolicy = evaluation.envelope.policy,
-        ipSetDigest = evaluation.envelope.ipSetDigest,
-        dnsClassification = evaluation.envelope.dnsClassification,
-        transportClass = evaluation.envelope.transportClass,
-        reasonCode = evaluation.envelope.reasonCode,
-        cooldownUntil = evaluation.envelope.cooldownUntil,
-    )
-}
+): ServerCapabilityObservation =
+    report
+        .takeIf(ScanReport::hasDefinitiveDirectModeEvidence)
+        ?.let {
+            val evaluation =
+                collectDirectModePolicyEvaluations(report)
+                    .firstOrNull { it.authority == authority.normalizeDirectModeAuthority() }
+            evaluation
+                ?.let { policy ->
+                    observation.copy(
+                        transportPolicy = policy.envelope.policy,
+                        ipSetDigest = policy.envelope.ipSetDigest,
+                        dnsClassification = policy.envelope.dnsClassification,
+                        transportClass = policy.envelope.transportClass,
+                        reasonCode = policy.envelope.reasonCode,
+                        cooldownUntil = policy.envelope.cooldownUntil,
+                    )
+                }
+                ?: observation
+        }
+        ?: observation
+
+private fun ScanReport.hasDefinitiveDirectModeEvidence(): Boolean =
+    completionKind == ScanCompletionKind.NORMAL &&
+        terminationReason == null &&
+        results.none(ProbeResult::invalidatesDirectModeEvidence) &&
+        (
+            strategyProbeReport?.let { strategyProbe ->
+                strategyProbe.completionKind == StrategyProbeCompletionKind.NORMAL &&
+                    DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) ==
+                    DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
+            } ?: true
+        )
+
+private fun ProbeResult.invalidatesDirectModeEvidence(): Boolean =
+    detailValue("postDeadline")?.toBooleanStrictOrNull() == true ||
+        detailValue("sampleAfterDeadline")?.toBooleanStrictOrNull() == true ||
+        detailValue("controlOutcome")?.contains("mixed", ignoreCase = true) == true ||
+        detailValue("failureClass")?.contains("setup", ignoreCase = true) == true
 
 private fun collectDirectModePolicyEvaluations(report: ScanReport): List<DirectModePolicyEvaluation> {
     val groupedResults =
