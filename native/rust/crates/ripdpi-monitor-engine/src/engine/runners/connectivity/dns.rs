@@ -3,10 +3,10 @@ use std::sync::{Arc, atomic::AtomicBool};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::{ProbeExecutionContext, run_dns_probe_with_context};
-use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::ExecutionPlan;
 use crate::types::{DnsTarget, ProbeResult};
 
-use super::support::{ConnectivityProbeFamily, collect_family_steps, target_count};
+use super::support::ConnectivityProbeFamily;
 
 pub(in crate::engine::runners) struct DnsRunner;
 
@@ -37,25 +37,4 @@ impl ConnectivityProbeFamily for DnsFamily {
     }
 }
 
-impl ExecutionStageRunner for DnsRunner {
-    fn id(&self) -> ExecutionStageId {
-        ExecutionStageId::Dns
-    }
-
-    fn phase(&self) -> &'static str {
-        DnsFamily::PHASE
-    }
-
-    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        target_count::<DnsFamily>(plan)
-    }
-
-    fn run_collecting(
-        &self,
-        plan: &ExecutionPlan,
-        cancel: &AtomicBool,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> CollectedStageOutcome {
-        collect_family_steps::<DnsFamily>(plan, cancel, tls_verifier)
-    }
-}
+impl_connectivity_runner!(DnsRunner, DnsFamily, Dns);

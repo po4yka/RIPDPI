@@ -10,7 +10,7 @@ macro_rules! impl_connectivity_runner {
             }
 
             fn total_steps(&self, plan: &crate::engine::runtime::ExecutionPlan) -> usize {
-                super::support::target_count::<$family>(plan)
+                <$family as super::support::ConnectivityProbeFamily>::targets(plan).len()
             }
 
             fn run_collecting(

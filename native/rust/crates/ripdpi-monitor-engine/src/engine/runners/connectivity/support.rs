@@ -25,10 +25,6 @@ pub(super) trait ConnectivityProbeFamily {
     ) -> ProbeResult;
 }
 
-pub(super) fn target_count<F: ConnectivityProbeFamily>(plan: &ExecutionPlan) -> usize {
-    F::targets(plan).len()
-}
-
 pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
     plan: &ExecutionPlan,
     cancel: &AtomicBool,

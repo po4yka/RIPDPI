@@ -1,12 +1,12 @@
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::{ProbeExecutionContext, run_quic_probe};
-use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::ExecutionPlan;
 use crate::types::{ProbeResult, QuicTarget};
 
-use super::support::{ConnectivityProbeFamily, collect_family_steps, target_count};
+use super::support::ConnectivityProbeFamily;
 
 pub(in crate::engine::runners) struct QuicRunner;
 
@@ -37,25 +37,4 @@ impl ConnectivityProbeFamily for QuicFamily {
     }
 }
 
-impl ExecutionStageRunner for QuicRunner {
-    fn id(&self) -> ExecutionStageId {
-        ExecutionStageId::Quic
-    }
-
-    fn phase(&self) -> &'static str {
-        QuicFamily::PHASE
-    }
-
-    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        target_count::<QuicFamily>(plan)
-    }
-
-    fn run_collecting(
-        &self,
-        plan: &ExecutionPlan,
-        cancel: &AtomicBool,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> CollectedStageOutcome {
-        collect_family_steps::<QuicFamily>(plan, cancel, tls_verifier)
-    }
-}
+impl_connectivity_runner!(QuicRunner, QuicFamily, Quic);

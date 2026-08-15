@@ -1,31 +1,24 @@
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
-use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
+use super::deadline::stage_budget_deadline;
 use super::parallel;
 use super::plan::ExecutionPlan;
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
+
+mod constructor;
+mod steps;
 
 pub(in crate::engine) struct ExecutionCoordinator {
     runners: BTreeMap<ExecutionStageId, Box<dyn ExecutionStageRunner + Send + Sync>>,
 }
 
 impl ExecutionCoordinator {
-    pub(in crate::engine) fn new(runners: Vec<Box<dyn ExecutionStageRunner + Send + Sync>>) -> Self {
-        let runners = runners.into_iter().map(|runner| (runner.id(), runner)).collect();
-        Self { runners }
-    }
-
     pub(in crate::engine) fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        plan.stage_order
-            .iter()
-            .filter_map(|stage| self.runners.get(stage))
-            .map(|runner| runner.total_steps(plan))
-            .sum::<usize>()
-            .max(1)
+        steps::total_steps(plan, &self.runners)
     }
 
     pub(in crate::engine) fn run(
@@ -112,22 +105,4 @@ impl ExecutionCoordinator {
         }
         RunnerOutcome::Completed
     }
-}
-
-fn stage_budget_deadline(
-    plan: &ExecutionPlan,
-    runners: &BTreeMap<ExecutionStageId, Box<dyn ExecutionStageRunner + Send + Sync>>,
-    current_stage: &ExecutionStageId,
-    runtime: &ExecutionRuntime,
-) -> Option<Instant> {
-    let global_deadline = runtime.scan_deadline()?;
-    let remaining_stages = plan
-        .stage_order
-        .iter()
-        .skip_while(|stage| *stage != current_stage)
-        .filter(|stage| runners.get(*stage).is_some_and(|runner| runner.total_steps(plan) > 0))
-        .count();
-    let remaining = global_deadline.checked_duration_since(Instant::now())?;
-    let stage_count = u32::try_from(remaining_stages.max(1)).unwrap_or(u32::MAX);
-    Some(Instant::now() + remaining / stage_count)
 }

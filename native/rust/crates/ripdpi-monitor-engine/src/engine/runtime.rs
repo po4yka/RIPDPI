@@ -1,13 +1,17 @@
 mod artifacts;
+mod budget;
 mod cancellation;
 mod coordinator;
+mod deadline;
 pub(crate) mod panic_recovery;
 mod parallel;
 mod plan;
 mod progress;
 mod recording;
 mod stage;
+mod stage_tracking;
 mod state;
+mod strategy_progress;
 
 #[cfg(test)]
 pub(super) use super::strategy_plan::StrategyExecutionPlan;

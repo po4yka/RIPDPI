@@ -1,12 +1,12 @@
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::ProbeExecutionContext;
-use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::ExecutionPlan;
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult};
 
-use super::support::{ConnectivityProbeFamily, collect_family_steps, target_count};
+use super::support::ConnectivityProbeFamily;
 
 /// DoH-JSON resolver survey stage.
 ///
@@ -64,25 +64,4 @@ impl ConnectivityProbeFamily for DohJsonSurveyFamily {
     }
 }
 
-impl ExecutionStageRunner for DohJsonSurveyRunner {
-    fn id(&self) -> ExecutionStageId {
-        ExecutionStageId::DohJsonSurvey
-    }
-
-    fn phase(&self) -> &'static str {
-        DohJsonSurveyFamily::PHASE
-    }
-
-    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        target_count::<DohJsonSurveyFamily>(plan)
-    }
-
-    fn run_collecting(
-        &self,
-        plan: &ExecutionPlan,
-        cancel: &AtomicBool,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> CollectedStageOutcome {
-        collect_family_steps::<DohJsonSurveyFamily>(plan, cancel, tls_verifier)
-    }
-}
+impl_connectivity_runner!(DohJsonSurveyRunner, DohJsonSurveyFamily, DohJsonSurvey);
