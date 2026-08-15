@@ -245,10 +245,17 @@ private class RollingByteHeadAndTail(
 private fun headUtf8Bytes(
     bytes: ByteArray,
     maxBytes: Int,
-): ByteArray {
-    if (maxBytes <= 0 || bytes.size <= maxBytes) {
-        return if (maxBytes <= 0) byteArrayOf() else bytes
+): ByteArray =
+    when {
+        maxBytes <= 0 -> byteArrayOf()
+        bytes.size <= maxBytes -> bytes
+        else -> headUtf8Prefix(bytes, maxBytes)
     }
+
+private fun headUtf8Prefix(
+    bytes: ByteArray,
+    maxBytes: Int,
+): ByteArray {
     var end = maxBytes
     var continuationBytes = 0
     while (end - continuationBytes > 0 &&
