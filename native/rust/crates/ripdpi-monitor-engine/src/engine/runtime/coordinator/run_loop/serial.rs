@@ -9,7 +9,7 @@ use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageId, 
 use super::super::ExecutionCoordinator;
 
 impl ExecutionCoordinator {
-    pub(crate) fn run_serial_stage(
+    pub(super) fn run_serial_stage(
         &self,
         plan: &ExecutionPlan,
         runtime: &mut ExecutionRuntime,

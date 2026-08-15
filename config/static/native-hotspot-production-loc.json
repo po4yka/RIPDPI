@@ -310,6 +310,10 @@
       "includeChildren": true
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/dns_baseline/overrides.rs",
+      "maxProductionLoc": 40
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/quic.rs",
       "maxProductionLoc": 198
     },
@@ -395,6 +399,19 @@
       "includeChildren": true
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime/coordinator/run_loop.rs",
+      "maxProductionLoc": 70,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime/coordinator/run_loop/parallel.rs",
+      "maxProductionLoc": 65
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime/coordinator/run_loop/serial.rs",
+      "maxProductionLoc": 65
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime/plan.rs",
       "maxProductionLoc": 21
     },
@@ -456,6 +473,10 @@
       "includeChildren": true
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/quic/outcome.rs",
+      "maxProductionLoc": 35
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/tcp.rs",
       "maxProductionLoc": 92
     },
@@ -465,6 +486,10 @@
       "includeChildren": true
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/dispatch.rs",
+      "maxProductionLoc": 56
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runner_contract.rs",
       "maxProductionLoc": 26
     },
@@ -472,6 +497,10 @@
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts.rs",
       "maxProductionLoc": 25,
       "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/error.rs",
+      "maxProductionLoc": 18
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/launch.rs",

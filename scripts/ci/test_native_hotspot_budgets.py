@@ -30,7 +30,7 @@ class NativeHotspotBudgetTests(unittest.TestCase):
 
             self.assertEqual(measurement.measured_production_loc, 0)
 
-    def test_included_child_module_inherits_parent_ceiling(self) -> None:
+    def test_included_children_aggregate_into_parent_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             parent = root / "native/rust/crates/example/src/coordinator.rs"
@@ -38,8 +38,8 @@ class NativeHotspotBudgetTests(unittest.TestCase):
             nested_child = root / "native/rust/crates/example/src/coordinator/run_loop/parallel.rs"
             nested_child.parent.mkdir(parents=True)
             parent.write_text("mod run_loop;\n", encoding="utf-8")
-            child.write_text("mod parallel;\n", encoding="utf-8")
-            nested_child.write_text("\n".join("pub(crate) fn step() {}" for _ in range(11)), encoding="utf-8")
+            child.write_text("pub(crate) fn child() {}\n", encoding="utf-8")
+            nested_child.write_text("\n".join("pub(crate) fn step() {}" for _ in range(10)), encoding="utf-8")
 
             measurements = sut.measure_hotspots(
                 root,
@@ -52,13 +52,9 @@ class NativeHotspotBudgetTests(unittest.TestCase):
                 ],
             )
 
-            self.assertEqual([item.path for item in measurements], [
-                "native/rust/crates/example/src/coordinator.rs",
-                "native/rust/crates/example/src/coordinator/run_loop.rs",
-                "native/rust/crates/example/src/coordinator/run_loop/parallel.rs",
-            ])
-            self.assertEqual(measurements[2].max_production_loc, 10)
-            self.assertEqual(measurements[2].measured_production_loc, 11)
+            self.assertEqual([item.path for item in measurements], ["native/rust/crates/example/src/coordinator.rs"])
+            self.assertEqual(measurements[0].max_production_loc, 10)
+            self.assertEqual(measurements[0].measured_production_loc, 12)
             self.assertIn("Over budget: 1", sut.format_summary(measurements))
 
     def test_explicit_child_budget_stops_parent_inheritance(self) -> None:
@@ -94,6 +90,8 @@ class NativeHotspotBudgetTests(unittest.TestCase):
                     "native/rust/crates/example/src/lanes/https.rs",
                 ],
             )
+            self.assertEqual(measurements[0].measured_production_loc, 1)
+            self.assertEqual(measurements[1].measured_production_loc, 1)
 
 
 if __name__ == "__main__":
