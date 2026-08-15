@@ -51,8 +51,10 @@ impl ExecutionCoordinator {
                         None,
                     );
 
+                    runtime.set_stage_deadline(stage_budget_deadline(plan, &self.runners, stage, runtime));
                     let outcome =
                         parallel::run_connectivity_group(plan, runtime, &self.runners, &parallel_runners, tls_verifier);
+                    runtime.set_stage_deadline(None);
                     parallel_done.extend(parallel_runners);
                     if !matches!(outcome, RunnerOutcome::Completed) {
                         return outcome;

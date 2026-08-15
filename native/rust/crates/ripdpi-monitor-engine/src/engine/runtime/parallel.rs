@@ -51,7 +51,10 @@ pub(super) fn run_connectivity_group(
         for stage in stages {
             let runner = runners.get(stage).expect("runner present");
             let cancel = runtime.cancel_token();
-            let deadline = runtime.scan_deadline();
+            let deadline = match (runtime.scan_deadline(), runtime.stage_deadline()) {
+                (Some(scan), Some(stage)) => Some(scan.min(stage)),
+                (scan, stage) => scan.or(stage),
+            };
             handles.push(scope.spawn(move || {
                 ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
                     runner.run_collecting(plan, cancel, tls_verifier)
@@ -64,18 +67,32 @@ pub(super) fn run_connectivity_group(
     let mut cancelled = false;
     let mut panic_message = None;
     for (stage, joined) in stages.iter().zip(thread_results) {
-        let steps = match joined {
-            JoinedStageOutcome::Collected(CollectedStageOutcome::Completed(steps)) => steps,
-            JoinedStageOutcome::Collected(CollectedStageOutcome::Cancelled(steps)) => {
-                cancelled = true;
-                steps
-            }
+        let runner = runners.get(stage).expect("runner present");
+        let planned_steps = runner.total_steps(plan);
+        let completed_before_stage = runtime.completed_steps;
+        runtime.begin_stage(stage.as_str(), planned_steps);
+        let (steps, stage_cancelled) = match joined {
+            JoinedStageOutcome::Collected(CollectedStageOutcome::Completed(steps)) => (steps, false),
+            JoinedStageOutcome::Collected(CollectedStageOutcome::Cancelled(steps)) => (steps, true),
             JoinedStageOutcome::Panicked(message) => {
                 panic_message.get_or_insert_with(|| message.clone());
-                panic_recovery::handle_panicked_runner(stage, &message)
+                (panic_recovery::handle_panicked_runner(stage, &message), false)
             }
         };
         record_steps(plan, runtime, steps);
+        let stage_budget_exhausted =
+            !runtime.is_cancelled() && runtime.is_past_stage_deadline() && !runtime.is_past_deadline();
+        if stage_budget_exhausted {
+            runtime.record_stage_budget_skips(
+                plan,
+                runner.phase(),
+                stage.as_str(),
+                planned_steps.saturating_sub(runtime.completed_steps - completed_before_stage),
+            );
+        } else if stage_cancelled {
+            cancelled = true;
+        }
+        runtime.finish_stage();
     }
     if cancelled {
         RunnerOutcome::Cancelled

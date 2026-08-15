@@ -369,6 +369,40 @@ fn small_executable_budget_is_fair_to_every_configured_late_stage() {
 }
 
 #[test]
+fn parallel_connectivity_group_reserves_budget_and_provenance_for_late_stage() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    runtime.set_scan_deadline(std::time::Instant::now() + Duration::from_millis(300));
+    let mut plan = connectivity_parallel_plan();
+    plan.total_steps = 4;
+    plan.stage_order = vec![
+        ExecutionStageId::Dns,
+        ExecutionStageId::Tcp,
+        ExecutionStageId::Quic,
+        ExecutionStageId::Service,
+    ];
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(StageBudgetCancellingRunner { stage: ExecutionStageId::Dns, work: Duration::from_millis(400) }),
+        Box::new(StageBudgetCancellingRunner { stage: ExecutionStageId::Tcp, work: Duration::from_millis(400) }),
+        Box::new(StageBudgetCancellingRunner { stage: ExecutionStageId::Quic, work: Duration::from_millis(400) }),
+        Box::new(DeadlineAwareStageRunner { stage: ExecutionStageId::Service, work: Duration::from_millis(1) }),
+    ]);
+
+    let outcome = coordinator.run(&plan, &mut runtime, None);
+    let snapshots = runtime.stage_executions();
+
+    assert!(
+        matches!(outcome, RunnerOutcome::Completed)
+            && runtime.results.iter().any(|result| result.probe_type == "service")
+            && snapshots.iter().map(|snapshot| snapshot.stage_id.as_str()).collect::<Vec<_>>()
+                == vec!["dns", "tcp", "quic", "service"]
+            && snapshots.iter().take(3).all(|snapshot| snapshot.skipped_by_stage_budget_steps == 1),
+        "parallel group must leave an accounted slice for service: snapshots={snapshots:?}",
+    );
+}
+
+#[test]
 fn parallel_runner_panic_terminates_scan_after_recording_sibling_results() {
     // One of the three parallel connectivity runners panics. Surviving results
     // are retained for support, but normal completion would falsely imply that

@@ -48,6 +48,7 @@ pub(super) fn fallback_encrypted_dns_assessment(
     resolver_endpoint: ripdpi_dns_resolver::EncryptedDnsEndpoint,
     primary_resolver_id: Option<&str>,
     probe_context: &ProbeExecutionContext,
+    is_cancelled: &impl Fn() -> bool,
 ) -> DnsOracleAssessment<DnsOracleResponse> {
     let fallback_endpoints = probe_context.approved_fallback_resolvers(primary_resolver_id);
     evaluate_dns_oracles(
@@ -55,7 +56,7 @@ pub(super) fn fallback_encrypted_dns_assessment(
         &fallback_endpoints,
         fallback_endpoints.len(),
         DnsOracleConfig::default(),
-        || false,
+        is_cancelled,
         |endpoint, _| {
             resolve_via_encrypted_dns(&target.host, endpoint.clone(), probe_context.transport())
                 .map(|addresses| DnsOracleResponse { addresses, raw_response: None })

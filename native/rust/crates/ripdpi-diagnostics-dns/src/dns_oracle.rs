@@ -137,6 +137,33 @@ mod tests {
     }
 
     #[test]
+    fn resolver_io_inherits_the_per_attempt_budget() {
+        let max_attempt_budget = Duration::from_millis(20);
+        let mut inherited_budgets = Vec::new();
+
+        let _assessment = evaluate_dns_oracles(
+            endpoint("primary"),
+            &[endpoint("fallback-a")],
+            1,
+            DnsOracleConfig::new(Duration::from_millis(200), max_attempt_budget, Duration::from_millis(1)),
+            || false,
+            |_, _| {
+                inherited_budgets.push(
+                    ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(Duration::from_secs(1))
+                        .expect("attempt has an active I/O deadline"),
+                );
+                Err("timeout".to_string())
+            },
+            |answer: &StubAnswer| answer.answers.clone(),
+        );
+
+        assert!(
+            inherited_budgets.len() == 2 && inherited_budgets.iter().all(|budget| *budget <= max_attempt_budget),
+            "each resolver must inherit its own cap: {inherited_budgets:?}",
+        );
+    }
+
+    #[test]
     fn disagreement_stays_untrusted_when_oracles_do_not_converge() {
         let primary = endpoint("primary");
         let fallback_a = endpoint("fallback-a");

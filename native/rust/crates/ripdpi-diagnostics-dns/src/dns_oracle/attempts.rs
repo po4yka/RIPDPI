@@ -51,7 +51,10 @@ where
         let is_primary = index == 0;
         let started = Instant::now();
         let attempt_budget = remaining.min(config.max_attempt_budget);
-        let attempt_deadline = active_scan_io_deadline().map_or(deadline, |scan_deadline| deadline.min(scan_deadline));
+        let attempt_deadline = Instant::now() + attempt_budget;
+        let attempt_deadline = deadline.min(attempt_deadline);
+        let attempt_deadline =
+            active_scan_io_deadline().map_or(attempt_deadline, |scan_deadline| attempt_deadline.min(scan_deadline));
         match with_scan_io_deadline(Some(attempt_deadline), || resolve(&endpoint, attempt_budget)) {
             Ok(value) => {
                 let answers = normalize_answers(answer_extractor(&value));

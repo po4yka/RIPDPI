@@ -45,6 +45,15 @@ pub fn detect_strategy_probe_dns_tampering_with_context(
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_context: &ProbeExecutionContext,
 ) -> Option<StrategyProbeBaseline> {
+    detect_strategy_probe_dns_tampering_with_context_and_cancellation(targets, runtime_context, probe_context, || false)
+}
+
+pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
+    targets: &[DomainTarget],
+    runtime_context: Option<&ProxyRuntimeContext>,
+    probe_context: &ProbeExecutionContext,
+    is_cancelled: impl Fn() -> bool,
+) -> Option<StrategyProbeBaseline> {
     if targets.is_empty() {
         return None;
     }
@@ -65,6 +74,7 @@ pub fn detect_strategy_probe_dns_tampering_with_context(
             resolver_endpoint.clone(),
             resolver_context.resolver_id.as_deref(),
             probe_context,
+            &is_cancelled,
         );
 
         let Some(evaluation) = evaluate_strategy_dns_target(
