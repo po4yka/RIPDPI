@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 10,
-    "identityHash": "7d1612e550929370d50a06d5599258ff",
+    "version": 11,
+    "identityHash": "6a1a2a8847bbeaa542e9148c1d09f4e5",
     "entities": [
       {
         "tableName": "diagnostic_profiles",
@@ -420,7 +420,7 @@
       },
       {
         "tableName": "telemetry_samples",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT, `connectionSessionId` TEXT, `diagnosticsRunId` TEXT, `diagnosticsStageKey` TEXT, `activeMode` TEXT, `connectionState` TEXT NOT NULL, `networkType` TEXT NOT NULL, `publicIp` TEXT, `failureClass` TEXT, `telemetryNetworkFingerprintHash` TEXT, `winningTcpStrategyFamily` TEXT, `winningQuicStrategyFamily` TEXT, `proxyRttBand` TEXT NOT NULL, `resolverRttBand` TEXT NOT NULL, `proxyRouteRetryCount` INTEGER NOT NULL, `tunnelRecoveryRetryCount` INTEGER NOT NULL, `resolverId` TEXT, `resolverProtocol` TEXT, `resolverEndpoint` TEXT, `resolverLatencyMs` INTEGER, `dnsFailuresTotal` INTEGER NOT NULL, `resolverFallbackActive` INTEGER NOT NULL, `resolverFallbackReason` TEXT, `networkHandoverClass` TEXT, `networkHandoverState` TEXT, `proxyTelemetryState` TEXT NOT NULL, `proxyTelemetryMessage` TEXT, `relayTelemetryState` TEXT NOT NULL, `relayTelemetryMessage` TEXT, `warpTelemetryState` TEXT NOT NULL, `warpTelemetryMessage` TEXT, `tunnelTelemetryState` TEXT NOT NULL, `tunnelTelemetryMessage` TEXT, `lastFailureClass` TEXT, `lastFallbackAction` TEXT, `txPackets` INTEGER NOT NULL, `txBytes` INTEGER NOT NULL, `rxPackets` INTEGER NOT NULL, `rxBytes` INTEGER NOT NULL, `nativeHeapBytes` INTEGER, `processRssBytes` INTEGER, `relayProtocolKind` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT, `connectionSessionId` TEXT, `diagnosticsRunId` TEXT, `diagnosticsStageKey` TEXT, `activeMode` TEXT, `connectionState` TEXT NOT NULL, `networkType` TEXT NOT NULL, `publicIp` TEXT, `failureClass` TEXT, `telemetryNetworkFingerprintHash` TEXT, `winningTcpStrategyFamily` TEXT, `winningQuicStrategyFamily` TEXT, `proxyRttBand` TEXT NOT NULL, `resolverRttBand` TEXT NOT NULL, `proxyRouteRetryCount` INTEGER NOT NULL, `tunnelRecoveryRetryCount` INTEGER NOT NULL, `resolverId` TEXT, `resolverProtocol` TEXT, `resolverEndpoint` TEXT, `resolverLatencyMs` INTEGER, `dnsFailuresTotal` INTEGER NOT NULL, `resolverFallbackActive` INTEGER NOT NULL, `resolverFallbackReason` TEXT, `networkHandoverClass` TEXT, `networkHandoverState` TEXT, `proxyTelemetryState` TEXT NOT NULL, `proxyTelemetryMessage` TEXT, `relayTelemetryState` TEXT NOT NULL, `relayTelemetryMessage` TEXT, `warpTelemetryState` TEXT NOT NULL, `warpTelemetryMessage` TEXT, `tunnelTelemetryState` TEXT NOT NULL, `tunnelTelemetryMessage` TEXT, `lastFailureClass` TEXT, `lastFallbackAction` TEXT, `txPackets` INTEGER NOT NULL, `txBytes` INTEGER NOT NULL, `rxPackets` INTEGER NOT NULL, `rxBytes` INTEGER NOT NULL, `nativeHeapBytes` INTEGER, `processRssBytes` INTEGER, `relayProtocolKind` TEXT, `relayNativeEventsDropped` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -655,6 +655,12 @@
             "affinity": "TEXT"
           },
           {
+            "fieldPath": "relayNativeEventsDropped",
+            "columnName": "relayNativeEventsDropped",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "createdAt",
             "columnName": "createdAt",
             "affinity": "INTEGER",
@@ -723,7 +729,7 @@
       },
       {
         "tableName": "native_session_events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT, `connectionSessionId` TEXT, `source` TEXT NOT NULL, `level` TEXT NOT NULL, `message` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `runtimeId` TEXT, `mode` TEXT, `policySignature` TEXT, `fingerprintHash` TEXT, `subsystem` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT, `connectionSessionId` TEXT, `source` TEXT NOT NULL, `level` TEXT NOT NULL, `message` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `runtimeId` TEXT, `mode` TEXT, `policySignature` TEXT, `fingerprintHash` TEXT, `subsystem` TEXT, `attemptId` INTEGER, `attemptSequence` INTEGER, `stage` TEXT, `outcome` TEXT, `durationMs` INTEGER, `failureStage` TEXT, `failureClass` TEXT, `ioErrorKind` TEXT, `osErrorCode` INTEGER, `peerClosePhase` TEXT, `carrierDisposition` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -788,6 +794,61 @@
           {
             "fieldPath": "subsystem",
             "columnName": "subsystem",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "attemptSequence",
+            "columnName": "attemptSequence",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "stage",
+            "columnName": "stage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "outcome",
+            "columnName": "outcome",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "durationMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "failureStage",
+            "columnName": "failureStage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "failureClass",
+            "columnName": "failureClass",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ioErrorKind",
+            "columnName": "ioErrorKind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "osErrorCode",
+            "columnName": "osErrorCode",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "peerClosePhase",
+            "columnName": "peerClosePhase",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "carrierDisposition",
+            "columnName": "carrierDisposition",
             "affinity": "TEXT"
           }
         ],
@@ -1466,7 +1527,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7d1612e550929370d50a06d5599258ff')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6a1a2a8847bbeaa542e9148c1d09f4e5')"
     ]
   }
 }

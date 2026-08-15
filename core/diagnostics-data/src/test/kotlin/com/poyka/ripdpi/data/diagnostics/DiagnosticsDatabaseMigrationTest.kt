@@ -115,6 +115,7 @@ class DiagnosticsDatabaseMigrationTest {
             legacyDb.execSQL("DROP TABLE diagnostics_durable_state")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
+            legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL("PRAGMA user_version = 7")
         }
@@ -163,6 +164,7 @@ class DiagnosticsDatabaseMigrationTest {
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportCompletionKind")
             legacyDb.execSQL("ALTER TABLE scan_sessions DROP COLUMN reportTerminationReason")
+            legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL("PRAGMA user_version = 8")
         }
@@ -192,7 +194,7 @@ class DiagnosticsDatabaseMigrationTest {
     }
 
     @Test
-    fun `migration 9 to 10 preserves native event rows and initializes relay trace columns`() {
+    fun `migration 9 to current preserves native event rows and initializes relay trace columns`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dbName = "diagnostics-v9-v10-${System.nanoTime()}.db"
         context.deleteDatabase(dbName)
@@ -202,6 +204,7 @@ class DiagnosticsDatabaseMigrationTest {
         }
 
         context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.dropStageTelemetryScope()
             legacyDb.dropRelayTraceColumns()
             legacyDb.execSQL(
                 "INSERT INTO native_session_events " +
@@ -252,7 +255,105 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `deployed version 10 database migrates without destructive fallback`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-deployed-v10-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.dropRelayTraceColumns()
+            legacyDb.execSQL(
+                "INSERT INTO native_session_events " +
+                    "(id, source, level, message, createdAt) VALUES " +
+                    "('deployed-v10-event', 'relay', 'warn', 'legacy relay event', 42)",
+            )
+            legacyDb.execSQL(
+                "UPDATE room_master_table SET identity_hash = " +
+                    "'7d1612e550929370d50a06d5599258ff' WHERE id = 42",
+            )
+            legacyDb.execSQL("PRAGMA user_version = 10")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query(
+                    "SELECT id, attemptId, healthAttemptId, relayHealthDecision " +
+                        "FROM native_session_events WHERE id = 'deployed-v10-event'",
+                ).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("deployed-v10-event", cursor.getString(0))
+                    assertTrue(cursor.isNull(1))
+                    assertTrue(cursor.isNull(2))
+                    assertTrue(cursor.isNull(3))
+                }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun `deployed version 11 database migrates relay health fields without losing attempt trace`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-deployed-v11-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase.execSQL(
+                "INSERT INTO native_session_events " +
+                    "(id, source, level, message, createdAt, attemptId, stage, outcome) VALUES " +
+                    "('deployed-v11-event', 'relay', 'warn', 'legacy relay event', 42, 7, " +
+                    "'reality_tls', 'failed')",
+            )
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.dropRelayHealthColumns()
+            legacyDb.execSQL(
+                "UPDATE room_master_table SET identity_hash = " +
+                    "'6a1a2a8847bbeaa542e9148c1d09f4e5' WHERE id = 42",
+            )
+            legacyDb.execSQL("PRAGMA user_version = 11")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query(
+                    "SELECT attemptId, stage, outcome, healthAttemptId, relayHealthDecision " +
+                        "FROM native_session_events WHERE id = 'deployed-v11-event'",
+                ).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(7L, cursor.getLong(0))
+                    assertEquals("reality_tls", cursor.getString(1))
+                    assertEquals("failed", cursor.getString(2))
+                    assertTrue(cursor.isNull(3))
+                    assertTrue(cursor.isNull(4))
+                }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
     private fun android.database.sqlite.SQLiteDatabase.dropRelayTraceColumns() {
+        dropRelayAttemptTraceColumns()
+        dropRelayHealthColumns()
+    }
+
+    private fun android.database.sqlite.SQLiteDatabase.dropStageTelemetryScope() {
+        execSQL("DROP INDEX index_telemetry_samples_diagnosticsRunId_diagnosticsStageKey_createdAt")
+        execSQL("ALTER TABLE telemetry_samples DROP COLUMN diagnosticsRunId")
+        execSQL("ALTER TABLE telemetry_samples DROP COLUMN diagnosticsStageKey")
+    }
+
+    private fun android.database.sqlite.SQLiteDatabase.dropRelayAttemptTraceColumns() {
         execSQL("ALTER TABLE telemetry_samples DROP COLUMN relayNativeEventsDropped")
         listOf(
             "attemptId",
@@ -266,6 +367,11 @@ class DiagnosticsDatabaseMigrationTest {
             "osErrorCode",
             "peerClosePhase",
             "carrierDisposition",
+        ).forEach { column -> execSQL("ALTER TABLE native_session_events DROP COLUMN $column") }
+    }
+
+    private fun android.database.sqlite.SQLiteDatabase.dropRelayHealthColumns() {
+        listOf(
             "healthAttemptId",
             "relayProfileToken",
             "relayTransport",

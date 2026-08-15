@@ -12,6 +12,8 @@ internal object DiagnosticsDatabaseMigrations {
             migration7To8,
             migration8To9,
             migration9To10,
+            migration10To11,
+            migration11To12,
         )
 }
 
@@ -63,9 +65,25 @@ private val migration8To9 =
         }
     }
 
-/** v9 → v10: persist privacy-safe VLESS/Reality relay attempt stage evidence. */
+/** v9 → v10: correlate runtime telemetry samples with a home diagnostics run and stage. */
 private val migration9To10 =
     object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN diagnosticsRunId TEXT")
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN diagnosticsStageKey TEXT")
+            db.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS
+                    index_telemetry_samples_diagnosticsRunId_diagnosticsStageKey_createdAt
+                ON telemetry_samples(diagnosticsRunId, diagnosticsStageKey, createdAt)
+                """.trimIndent(),
+            )
+        }
+    }
+
+/** v10 → v11: persist privacy-safe VLESS/Reality relay attempt stage evidence. */
+private val migration10To11 =
+    object : Migration(10, 11) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN relayNativeEventsDropped INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN attemptId INTEGER")
@@ -79,6 +97,13 @@ private val migration9To10 =
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN osErrorCode INTEGER")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN peerClosePhase TEXT")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN carrierDisposition TEXT")
+        }
+    }
+
+/** v11 → v12: persist privacy-safe relay-health decisions and cleanup provenance. */
+private val migration11To12 =
+    object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN healthAttemptId TEXT")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayProfileToken TEXT")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayTransport TEXT")

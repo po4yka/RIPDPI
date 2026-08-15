@@ -18,6 +18,10 @@ import kotlinx.serialization.Serializable
             value = ["connectionSessionId", "createdAt"],
         ),
         Index(
+            name = "index_telemetry_samples_diagnosticsRunId_diagnosticsStageKey_createdAt",
+            value = ["diagnosticsRunId", "diagnosticsStageKey", "createdAt"],
+        ),
+        Index(
             name = "index_telemetry_samples_createdAt",
             value = ["createdAt"],
         ),
@@ -32,6 +36,8 @@ data class TelemetrySampleEntity(
     @PrimaryKey val id: String,
     val sessionId: String? = null,
     val connectionSessionId: String? = null,
+    val diagnosticsRunId: String? = null,
+    val diagnosticsStageKey: String? = null,
     val activeMode: String? = null,
     val connectionState: String,
     val networkType: String,
