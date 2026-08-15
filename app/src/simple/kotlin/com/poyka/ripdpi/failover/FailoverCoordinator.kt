@@ -748,7 +748,7 @@ class FailoverCoordinator
                     if (active != null && pendingRelayHealthReceipt?.decision?.attemptId != decision.attemptId) {
                         egressHealthCache.recordConfirmedFailure(
                             scope = relayHealthScope(snapshot),
-                            proof = EgressProof.from(activeRequirements),
+                            proof = EgressProof.from(effectiveRequirements(active)),
                             relayKind = active.relayKind,
                             profileId = active.profileId,
                         )
@@ -830,7 +830,11 @@ class FailoverCoordinator
             val evidence = snapshot.latestPositiveRelayDataPlaneEvidence()
             val inboundWatermark = snapshot.observeInboundDataPlaneProgress()
             if (evidence == null && inboundWatermark == null) return null
-            val evidenceKey = evidence?.stableKey() ?: "tunnel-rx:$inboundWatermark"
+            val evidenceKey =
+                listOfNotNull(
+                    evidence?.stableKey(),
+                    inboundWatermark?.let { "tunnel-rx:$it" },
+                ).joinToString(separator = "|")
             if (evidenceKey == lastPositiveDataPlaneEvidenceKey) return null
             lastPositiveDataPlaneEvidenceKey = evidenceKey
             val coordinator = relayHealthProbeCoordinator ?: return null
@@ -840,13 +844,13 @@ class FailoverCoordinator
                     attemptId = "data-plane-$sessionGeneration-$observedAt",
                     profileToken = opaqueRelayProfileToken(active.profileId),
                     relayKind = active.relayKind,
-                    capabilityProof = activeRequirements.toRelayCapabilityProof(),
+                    capabilityProof = effectiveRequirements(active).toRelayCapabilityProof(),
                     scope = relayHealthScope(snapshot),
                     source = RelayHealthObservationSource.DataPlane,
                     outcome = RelayHealthObservationOutcome.Succeeded,
                     targetCategory = RelayTargetCategory.Unavailable,
                     observedAtMs = observedAt,
-                    dataPlaneWatermark = evidence?.createdAt?.coerceAtLeast(0L) ?: inboundWatermark,
+                    dataPlaneWatermark = inboundWatermark ?: evidence?.createdAt?.coerceAtLeast(0L),
                 ),
             )
         }
@@ -862,7 +866,7 @@ class FailoverCoordinator
             val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return
             egressHealthCache.clearConfirmedFailure(
                 scope = relayHealthScope(snapshot),
-                proof = EgressProof.from(activeRequirements),
+                proof = EgressProof.from(effectiveRequirements(active)),
                 relayKind = active.relayKind,
                 profileId = active.profileId,
             )
@@ -903,7 +907,8 @@ class FailoverCoordinator
 
         private fun hasSustainedXudpFailures(snapshot: ServiceTelemetrySnapshot): Boolean =
             activeRequirements.udpAssociate &&
-                candidates.getOrNull(activeCandidateIndex) is FailoverCandidate.Relay &&
+                (candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay)
+                    ?.supportsUdpAssociation == true &&
                 snapshot.relayTelemetry.protocolKind == RelayKindVlessReality &&
                 (snapshot.relayTelemetry.xudpTelemetry?.consecutiveUdpFailures ?: 0L) >=
                 XUDP_FAILURE_STREAK_THRESHOLD
@@ -911,10 +916,7 @@ class FailoverCoordinator
         private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): RelayHealthDecision? {
             val active = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay ?: return null
             val coordinator = relayHealthProbeCoordinator ?: return null
-            val probeRequirements =
-                activeRequirements.copy(
-                    udpAssociate = activeRequirements.udpAssociate && active.supportsUdpAssociation,
-                )
+            val probeRequirements = effectiveRequirements(active)
             val probePlan = activeProbePlan.copy(requirements = probeRequirements)
             snapshot.relayTelemetry.latestRelayFailureEvidence()?.let { evidence ->
                 val evidenceKey = evidence.stableKey()
@@ -972,6 +974,11 @@ class FailoverCoordinator
             }
             return decision
         }
+
+        private fun effectiveRequirements(active: FailoverCandidate.Relay): EgressRequirements =
+            activeRequirements.copy(
+                udpAssociate = activeRequirements.udpAssociate && active.supportsUdpAssociation,
+            )
 
         private fun createRelayHealthProbeCoordinator(scope: CoroutineScope): LifecycleRelayHealthProbeCoordinator =
             LifecycleRelayHealthProbeCoordinator(

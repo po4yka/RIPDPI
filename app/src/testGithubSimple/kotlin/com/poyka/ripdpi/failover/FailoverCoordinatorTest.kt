@@ -537,29 +537,83 @@ class FailoverCoordinatorTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 1_000L)
             val healthMemory = RecordingSimpleEgressHealthMemory()
-            var probeCalls = 0
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = true)
             val fixture =
                 buildCoordinator(
                     stateStore = stateStore,
                     clock = clock,
+                    settings = settings,
                     egressHealthMemory = healthMemory,
-                    egressProbe =
-                        FailoverEgressProbe { _, _ ->
-                            probeCalls++
-                            FailoverEgressProbeResult(succeeded = false, failure = "tcp_connect")
-                        },
                 )
             fixture.coordinator.startObserving(CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
 
-            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy", tunnelRxBytes = 100L))
-            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed", tunnelRxBytes = 200L))
-            clock.advance(21_000L)
-            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed", tunnelRxBytes = 200L))
+            val retainedEvidence =
+                NativeRuntimeEvent(
+                    source = "service",
+                    level = "info",
+                    message = "state=cross_layer_return_observed mode=vpn generation=1",
+                    createdAt = 1_000L,
+                    kind = "data_plane_correlation",
+                    subsystem = "data_plane",
+                )
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "healthy",
+                    tunnelRxBytes = 100L,
+                    proxyNativeEvents = listOf(retainedEvidence),
+                ),
+            )
+            clock.advance(30_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "healthy",
+                    tunnelRxBytes = 200L,
+                    proxyNativeEvents = listOf(retainedEvidence),
+                ),
+            )
+
+            fun failedStage(
+                attemptId: Long,
+                createdAt: Long,
+            ) = NativeRuntimeEvent(
+                source = "relay",
+                level = "error",
+                message = "event=relay_attempt_stage",
+                createdAt = createdAt,
+                kind = "relay_attempt_stage",
+                runtimeId = "runtime-1",
+                subsystem = "relay",
+                attemptId = attemptId,
+                attemptSequence = 4L,
+                stage = "vless_response",
+                outcome = "failed",
+                failureStage = "vless_response",
+                failureClass = "connection_reset",
+            )
+
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "failed",
+                    tunnelRxBytes = 200L,
+                    proxyNativeEvents = listOf(retainedEvidence),
+                    relayNativeEvents = listOf(failedStage(attemptId = 1L, createdAt = 32_000L)),
+                ),
+            )
+            clock.advance(20_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "failed",
+                    tunnelRxBytes = 200L,
+                    proxyNativeEvents = listOf(retainedEvidence),
+                    relayNativeEvents = listOf(failedStage(attemptId = 2L, createdAt = 52_000L)),
+                ),
+            )
             advanceUntilIdle()
 
             assertEquals(
-                Triple(1, 0, emptyList<RecordingSimpleEgressHealthMemory.Failure>()),
-                Triple(probeCalls, fixture.controller.transportRestartCalls.size, healthMemory.failures),
+                0 to emptyList<RecordingSimpleEgressHealthMemory.Failure>(),
+                fixture.controller.transportRestartCalls.size to healthMemory.failures,
             )
             assertTrue(healthMemory.clears.isNotEmpty())
             fixture.coordinator.stopObserving()
