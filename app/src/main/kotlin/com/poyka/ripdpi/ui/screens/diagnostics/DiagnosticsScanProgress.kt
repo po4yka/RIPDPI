@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,6 +106,7 @@ internal fun ScanProgressCard(
     TrackRecomposition("ScanProgressCard")
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
+    val timing = rememberScanTimingLabels(progress)
     RipDpiCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -121,7 +123,7 @@ internal fun ScanProgressCard(
                 tone = StatusIndicatorTone.Warning,
             )
             Text(
-                text = progress.elapsedLabel,
+                text = timing.elapsed,
                 style = RipDpiThemeTokens.type.monoInline,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
@@ -196,7 +198,7 @@ internal fun ScanProgressCard(
                 style = RipDpiThemeTokens.type.monoInline,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
-            progress.etaLabel?.let { eta ->
+            timing.eta?.let { eta ->
                 Text(
                     text = eta,
                     style = RipDpiThemeTokens.type.monoSmall,

@@ -36,7 +36,12 @@ fun RipDpiProgressBar(
     val track = RipDpiThemeTokens.colors.muted
     val progressDescription =
         if (progress != null) {
-            stringResource(R.string.cd_progress_percent, (progress * ProgressPercentFactor).toInt())
+            // Clamped like the fill below: an out-of-range value must not make a screen reader
+            // announce a percentage the bar never draws.
+            stringResource(
+                R.string.cd_progress_percent,
+                (progress.coerceIn(0f, 1f) * ProgressPercentFactor).toInt(),
+            )
         } else {
             stringResource(R.string.cd_loading)
         }

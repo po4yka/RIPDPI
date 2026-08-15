@@ -1751,8 +1751,7 @@ class DiagnosticsScreenTest {
         fraction = 0.25f,
         scanKind = scanKind,
         isFullAudit = false,
-        elapsedLabel = "30s",
-        etaLabel = "~1m 30s remaining",
+        scanStartedAtMs = 0L,
         phaseSteps =
             if (scanKind == ScanKind.STRATEGY_PROBE) {
                 persistentListOf(

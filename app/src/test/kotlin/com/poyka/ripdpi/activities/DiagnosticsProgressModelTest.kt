@@ -43,7 +43,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 5_000L,
             )
 
         assertEquals(8, model.phaseSteps.size)
@@ -65,7 +64,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 5_000L,
             )
 
         assertEquals(PhaseState.Completed, model.phaseSteps[0].state) // dns
@@ -86,7 +84,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 5_000L,
             )
 
         model.phaseSteps.forEach { step ->
@@ -102,7 +99,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         model.phaseSteps.forEach { step ->
@@ -118,7 +114,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals("DNS", model.phaseSteps[0].label)
@@ -141,7 +136,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.STRATEGY_PROBE,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 5_000L,
             )
 
         assertEquals(2, model.phaseSteps.size)
@@ -157,7 +151,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.STRATEGY_PROBE,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 5_000L,
             )
 
         assertEquals(PhaseState.Completed, model.phaseSteps[0].state) // tcp
@@ -172,7 +165,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.STRATEGY_PROBE,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals("TCP", model.phaseSteps[0].label)
@@ -189,7 +181,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals(DiagnosticsTone.Warning, model.phaseSteps[0].tone) // active
@@ -203,7 +194,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals(DiagnosticsTone.Positive, model.phaseSteps[0].tone) // dns = Completed
@@ -217,87 +207,52 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals(DiagnosticsTone.Neutral, model.phaseSteps[3].tone) // telegram = Pending
     }
 
-    // --- Elapsed label ---
+    // --- Scan start time ---
 
     @Test
-    fun `elapsed label shows seconds when under one minute`() {
+    fun `model carries the raw scan start so the card can drive its own clock`() {
         val model =
             support.toProgressUiModel(
                 progress = progress(phase = "dns"),
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
-                scanStartedAt = 0L,
-                now = 42_000L,
+                scanStartedAt = 1_234L,
             )
 
-        assertEquals("42s", model.elapsedLabel)
+        assertEquals(1_234L, model.scanStartedAtMs)
     }
 
+    // --- Fraction clamping ---
+
     @Test
-    fun `elapsed label shows minutes and seconds when over one minute`() {
+    fun `fraction is clamped when the engine reports more completed steps than planned`() {
         val model =
             support.toProgressUiModel(
-                progress = progress(phase = "dns"),
+                progress = progress(phase = "dns", completedSteps = 25, totalSteps = 20),
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 90_000L,
             )
 
-        assertEquals("1m 30s", model.elapsedLabel)
-    }
-
-    // --- ETA label ---
-
-    @Test
-    fun `eta label is null when fraction is below 10 percent`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "dns", completedSteps = 0, totalSteps = 20),
-                scanKind = ScanKind.CONNECTIVITY,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-                now = 5_000L,
-            )
-
-        assertNull(model.etaLabel)
+        assertEquals(1f, model.fraction)
     }
 
     @Test
-    fun `eta label is present when fraction is at or above 10 percent`() {
-        // 4 of 20 = 20% done, elapsed = 20s => ETA = 80s remaining
+    fun `fraction is zero when the plan reports no steps`() {
         val model =
             support.toProgressUiModel(
-                progress = progress(phase = "dns", completedSteps = 4, totalSteps = 20),
+                progress = progress(phase = "dns", completedSteps = 3, totalSteps = 0),
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 20_000L,
             )
 
-        assertNotNull(model.etaLabel)
-        // ~1m 20s remaining (80s)
-        assert(model.etaLabel!!.contains("remaining")) { "ETA label should contain 'remaining': ${model.etaLabel}" }
-    }
-
-    @Test
-    fun `eta label is null when total steps is zero`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "dns", completedSteps = 0, totalSteps = 0),
-                scanKind = ScanKind.CONNECTIVITY,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-                now = 10_000L,
-            )
-
-        assertNull(model.etaLabel)
+        assertEquals(0f, model.fraction)
     }
 
     // --- Current probe label ---
@@ -310,7 +265,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals("DNS probe youtube.com", model.currentProbeLabel)
@@ -336,7 +290,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.STRATEGY_PROBE,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals("TCP fake TLS", model.currentProbeLabel)
@@ -354,7 +307,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.STRATEGY_PROBE,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals("Testing TCP candidate", model.currentProbeLabel)
@@ -369,7 +321,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.STRATEGY_PROBE,
                 isFullAudit = true,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals(ScanKind.STRATEGY_PROBE, model.scanKind)
@@ -391,7 +342,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
                 completedProbes = probes,
             )
 
@@ -410,7 +360,6 @@ class DiagnosticsProgressModelTest {
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
-                now = 1_000L,
             )
 
         assertEquals(emptyList<CompletedProbeUiModel>(), model.completedProbes)

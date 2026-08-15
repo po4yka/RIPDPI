@@ -26,7 +26,6 @@ import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 private const val FingerprintHashShortLength = 12
 private const val FingerprintHashPrefixLength = 6
 private const val FingerprintHashSuffixLength = 4
-private const val EtaMinFractionThreshold = 0.1f
 private const val SuccessRateHighThreshold = 0.75f
 
 internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
@@ -216,7 +215,6 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     scanKind: ScanKind,
     isFullAudit: Boolean,
     scanStartedAt: Long,
-    now: Long = System.currentTimeMillis(),
     completedProbes: List<CompletedProbeUiModel> = emptyList(),
     candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     dnsBaselineStatus: DnsBaselineStatus? = null,
@@ -231,15 +229,6 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
             0f
         } else {
             (progress.completedSteps.toFloat() / progress.totalSteps.toFloat()).coerceIn(0f, 1f)
-        }
-    val elapsedMs = (now - scanStartedAt).coerceAtLeast(0L)
-    val elapsedLabel = formatDurationMs(elapsedMs)
-    val etaLabel =
-        if (fraction >= EtaMinFractionThreshold && elapsedMs > 0L) {
-            val etaMs = (elapsedMs / fraction * (1f - fraction)).toLong()
-            context.getString(R.string.diagnostics_eta_remaining, formatDurationMs(etaMs))
-        } else {
-            null
         }
     val phaseOrder =
         if (scanKind == ScanKind.STRATEGY_PROBE) strategyProbePhaseOrder else connectivityPhaseOrder
@@ -285,8 +274,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         fraction = fraction,
         scanKind = scanKind,
         isFullAudit = isFullAudit,
-        elapsedLabel = elapsedLabel,
-        etaLabel = etaLabel,
+        scanStartedAtMs = scanStartedAt,
         phaseSteps = phaseSteps.toImmutableList(),
         currentProbeLabel = strategyProbeProgress?.candidateLabel ?: progress.message,
         strategyProbeProgress = strategyProbeProgress,

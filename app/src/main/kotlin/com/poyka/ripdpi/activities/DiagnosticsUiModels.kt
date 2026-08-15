@@ -501,8 +501,8 @@ data class DiagnosticsProgressUiModel(
     val fraction: Float,
     val scanKind: com.poyka.ripdpi.diagnostics.ScanKind,
     val isFullAudit: Boolean,
-    val elapsedLabel: String,
-    val etaLabel: String?,
+    /** Wall-clock start of the run; the card re-derives elapsed and ETA from this on its own clock. */
+    val scanStartedAtMs: Long,
     val phaseSteps: ImmutableList<PhaseStepUiModel>,
     val currentProbeLabel: String,
     val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,

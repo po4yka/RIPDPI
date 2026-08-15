@@ -50,17 +50,7 @@ internal open class DiagnosticsUiFormatter
                 else -> "$bps Bps"
             }
 
-        open fun formatDurationMs(durationMs: Long): String {
-            val totalSeconds = (durationMs / MillisecondsPerSecond).coerceAtLeast(0L)
-            val hours = totalSeconds / SecondsPerHour
-            val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute
-            val seconds = totalSeconds % SecondsPerMinute
-            return when {
-                hours > 0L -> String.format(locale, "%dh %02dm", hours, minutes)
-                minutes > 0L -> String.format(locale, "%dm %02ds", minutes, seconds)
-                else -> "${seconds}s"
-            }
-        }
+        open fun formatDurationMs(durationMs: Long): String = formatScanDurationMs(durationMs, locale)
     }
 
 private const val BytesPerKilobyte = 1_000L
@@ -68,6 +58,29 @@ private const val BytesPerMegabyte = 1_000_000L
 private const val BytesPerGigabyte = 1_000_000_000L
 private const val BitsPerKilobit = 1_000L
 private const val BitsPerMegabit = 1_000_000L
+
+/**
+ * Shared duration formatter for scan-facing UI.
+ *
+ * Lives at the top level because two callers need it: this package's formatter class, and
+ * `ScanProgressCard`, which re-derives its elapsed label every second from its own clock rather
+ * than from the last engine event.
+ */
+internal fun formatScanDurationMs(
+    durationMs: Long,
+    locale: Locale,
+): String {
+    val totalSeconds = (durationMs / MillisecondsPerSecond).coerceAtLeast(0L)
+    val hours = totalSeconds / SecondsPerHour
+    val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute
+    val seconds = totalSeconds % SecondsPerMinute
+    return when {
+        hours > 0L -> String.format(locale, "%dh %02dm", hours, minutes)
+        minutes > 0L -> String.format(locale, "%dm %02ds", minutes, seconds)
+        else -> "${seconds}s"
+    }
+}
+
 private const val MillisecondsPerSecond = 1_000L
 private const val SecondsPerMinute = 60L
 private const val SecondsPerHour = 3_600L
