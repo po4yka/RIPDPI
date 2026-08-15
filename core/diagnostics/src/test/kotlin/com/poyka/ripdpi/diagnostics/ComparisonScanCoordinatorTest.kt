@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -10,6 +11,135 @@ class ComparisonScanCoordinatorTest {
             scanRecordStore = FakeDiagnosticsHistoryStores(),
             json = diagnosticsTestJson(),
         )
+
+    @Test
+    @Suppress("detekt.LongMethod")
+    fun `assessment text qualifies observed patterns and recommends paired inspection`() {
+        val jointRawFailure =
+            assessmentFor(
+                rawReport =
+                    minimalReport(
+                        observations =
+                            listOf(
+                                domainObservation(
+                                    host = "control.example",
+                                    isControl = true,
+                                    httpStatus = HttpProbeStatus.UNREACHABLE,
+                                ),
+                                domainObservation(
+                                    host = "affected.example",
+                                    tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                                ),
+                            ),
+                    ),
+            )
+        val selectiveAffectedFailure =
+            assessmentFor(
+                rawReport =
+                    minimalReport(
+                        observations =
+                            listOf(
+                                domainObservation(
+                                    host = "control.example",
+                                    isControl = true,
+                                    httpStatus = HttpProbeStatus.OK,
+                                ),
+                                domainObservation(
+                                    host = "affected.example",
+                                    tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                                ),
+                            ),
+                    ),
+            )
+        val resolverDivergenceWithMixedControls =
+            assessmentFor(
+                rawReport =
+                    minimalReport(
+                        observations =
+                            listOf(
+                                ObservationFact(
+                                    kind = ObservationKind.DNS,
+                                    target = "affected.example",
+                                    dns =
+                                        DnsObservationFact(
+                                            domain = "affected.example",
+                                            status = DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
+                                        ),
+                                ),
+                                domainObservation(
+                                    host = "passing-control.example",
+                                    isControl = true,
+                                    httpStatus = HttpProbeStatus.OK,
+                                ),
+                                domainObservation(
+                                    host = "failing-control.example",
+                                    isControl = true,
+                                    httpStatus = HttpProbeStatus.UNREACHABLE,
+                                ),
+                                domainObservation(
+                                    host = "affected.example",
+                                    tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                                ),
+                            ),
+                    ),
+            )
+        val pairedInPathRegression =
+            assessmentFor(
+                rawReport =
+                    minimalReport(
+                        observations =
+                            listOf(
+                                domainObservation(
+                                    host = "affected.example",
+                                    httpStatus = HttpProbeStatus.OK,
+                                ),
+                            ),
+                    ),
+                inPathReport =
+                    minimalReport(
+                        observations =
+                            listOf(
+                                domainObservation(
+                                    host = "affected.example",
+                                    tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                                ),
+                            ),
+                    ),
+            )
+        val noInPathEvidence = assessmentFor(rawReport = minimalReport())
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE, jointRawFailure.assessmentCode)
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING, selectiveAffectedFailure.assessmentCode)
+        assertEquals(
+            ConnectivityAssessmentCode.RESOLVER_INTERFERENCE,
+            resolverDivergenceWithMixedControls.assessmentCode,
+        )
+        assertEquals(ConnectivityAssessmentCode.VPN_PATH_REGRESSION, pairedInPathRegression.assessmentCode)
+        assertEquals(ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE, noInPathEvidence.assessmentCode)
+
+        listOf(
+            jointRawFailure,
+            selectiveAffectedFailure,
+            resolverDivergenceWithMixedControls,
+            pairedInPathRegression,
+            noInPathEvidence,
+        ).forEach { assessment ->
+            assertTrue(assessment.assessmentSummary.contains("Observed pattern"))
+            assertTrue(assessment.assessmentSummary.contains("cause is not established"))
+            assertTrue(assessment.recommendedNextAction.contains("paired raw-path and in-path"))
+            assertTrue(assessment.recommendedNextAction.contains("inspect"))
+            listOf(
+                "network looks broadly broken",
+                "points to selective blocking",
+                "points to a RIPDPI in-path regression",
+                "DNS interference is the likely cause",
+                "Treat this as a censorship/blocking issue",
+            ).forEach { forbiddenPhrase ->
+                assertFalse(assessment.assessmentSummary.contains(forbiddenPhrase))
+                assertFalse(assessment.recommendedNextAction.contains(forbiddenPhrase))
+            }
+        }
+    }
 
     @Test
     fun `assessConnectivity reports raw network general failure when controls and affected targets fail`() {
@@ -209,6 +339,17 @@ class ComparisonScanCoordinatorTest {
         diagnoses = diagnoses,
         observations = observations,
     )
+
+    private fun assessmentFor(
+        rawReport: ScanReport,
+        inPathReport: ScanReport? = null,
+    ): ConnectivityAssessment =
+        coordinator.assessConnectivity(
+            rawReports = listOf(rawReport),
+            inPathReport = inPathReport,
+            rawPathSessionIds = listOf("raw-1"),
+            inPathSessionId = inPathReport?.let { "in-path-1" },
+        )
 
     private fun domainObservation(
         host: String,

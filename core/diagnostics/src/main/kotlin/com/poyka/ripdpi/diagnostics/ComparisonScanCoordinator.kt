@@ -174,23 +174,25 @@ class ComparisonScanCoordinator
             private fun assessmentSummary(code: ConnectivityAssessmentCode): String =
                 when (code) {
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
-                        "Raw-path control targets failed alongside affected targets, so the " +
-                            "network looks broadly broken before RIPDPI enters the path."
+                        "Observed pattern: raw-path control and affected targets failed together. " +
+                            "This is consistent with a broader direct-network problem; cause is not established."
                     }
 
                     ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING -> {
-                        "Raw-path controls passed while affected targets still failed, which " +
-                            "points to selective blocking on the direct network path."
+                        "Observed pattern: raw-path controls passed while affected targets failed. " +
+                            "This is consistent with target-specific direct-path interference; " +
+                            "cause is not established."
                     }
 
                     ConnectivityAssessmentCode.VPN_PATH_REGRESSION -> {
-                        "The paired in-path run performed worse than raw path on the same " +
-                            "targets, which points to a RIPDPI in-path regression."
+                        "Observed pattern: the paired in-path run performed worse than raw path on the " +
+                            "same targets. This is a candidate signal of an in-path regression; " +
+                            "cause is not established."
                     }
 
                     ConnectivityAssessmentCode.RESOLVER_INTERFERENCE -> {
-                        "Resolver divergence was the strongest common signal across failed " +
-                            "targets, so DNS interference is the likely cause."
+                        "Observed pattern: resolver divergence accompanied affected-target failures. " +
+                            "This is a candidate signal for resolver interference; cause is not established."
                     }
 
                     ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> {
@@ -199,30 +201,31 @@ class ComparisonScanCoordinator
                     }
 
                     ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE -> {
-                        "The evidence is mixed, so the archive cannot yet isolate whether the " +
-                            "failure is raw-network, in-path, or both."
+                        "Observed pattern: evidence is mixed or lacks a paired in-path comparison. " +
+                            "The cause is not established."
                     }
                 }
 
             private fun assessmentNextAction(code: ConnectivityAssessmentCode): String =
                 when (code) {
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
-                        "Verify the underlying network without RIPDPI before retrying diagnostics."
+                        "Run a paired raw-path and in-path reproduction, then inspect underlying " +
+                            "network evidence before attributing a cause."
                     }
 
                     ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING -> {
-                        "Treat this as a direct-network censorship/blocking issue and compare " +
-                            "with a dedicated in-path repro only if the user reports VPN-only breakage."
+                        "Run a paired raw-path and in-path reproduction and inspect control and " +
+                            "affected-target evidence before attributing a cause."
                     }
 
                     ConnectivityAssessmentCode.VPN_PATH_REGRESSION -> {
-                        "Reproduce with RIPDPI enabled and inspect proxy/tunnel component state " +
-                            "plus the paired target list."
+                        "Run a paired raw-path and in-path reproduction, then inspect proxy/tunnel " +
+                            "component state and the paired target list."
                     }
 
                     ConnectivityAssessmentCode.RESOLVER_INTERFERENCE -> {
-                        "Retry with resolver override or encrypted DNS failover enabled and " +
-                            "inspect the mismatched hosts."
+                        "Run a paired raw-path and in-path reproduction with resolver override or " +
+                            "encrypted DNS failover, then inspect the mismatched hosts."
                     }
 
                     ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> {
@@ -231,8 +234,8 @@ class ComparisonScanCoordinator
                     }
 
                     ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE -> {
-                        "Run the targeted internet-loss repro to capture a paired raw-path and " +
-                            "in-path comparison on complaint-specific targets."
+                        "Run a paired raw-path and in-path reproduction on complaint-specific targets, " +
+                            "then inspect the captured evidence."
                     }
                 }
 

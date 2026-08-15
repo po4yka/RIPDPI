@@ -18,7 +18,7 @@
             "redacted(2)"
         ],
         "assessmentCode": "raw_network_selective_blocking",
-        "assessmentSummary": "Controls passed while blocked targets failed on raw path.",
+        "assessmentSummary": "Observed pattern: raw-path controls passed while affected targets failed. This is consistent with target-specific direct-path interference; cause is not established.",
         "confidence": "high",
         "controlOutcome": "raw_controls_passed",
         "inPathEvidence": {
@@ -46,7 +46,7 @@
                 "dpi-session"
             ]
         },
-        "recommendedNextAction": "Treat this as a direct-network blocking issue.",
+        "recommendedNextAction": "Run a paired raw-path and in-path reproduction and inspect control and affected-target evidence before attributing a cause.",
         "resolverAssessment": {
             "diagnosisCodes": [],
             "mismatchTargets": [],

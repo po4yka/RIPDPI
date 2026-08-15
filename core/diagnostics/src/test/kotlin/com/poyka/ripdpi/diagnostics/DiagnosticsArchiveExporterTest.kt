@@ -137,7 +137,10 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
             connectivityAssessment =
                 ConnectivityAssessment(
                     assessmentCode = ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING,
-                    assessmentSummary = "Controls passed while blocked targets failed on raw path.",
+                    assessmentSummary =
+                        "Observed pattern: raw-path controls passed while affected targets failed. " +
+                            "This is consistent with target-specific direct-path interference; " +
+                            "cause is not established.",
                     confidence = "high",
                     rawPathEvidence =
                         ConnectivityEvidence(
@@ -149,7 +152,9 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
                         ),
                     controlOutcome = "raw_controls_passed",
                     affectedTargets = listOf("www.youtube.com", "telegram.org"),
-                    recommendedNextAction = "Treat this as a direct-network blocking issue.",
+                    recommendedNextAction =
+                        "Run a paired raw-path and in-path reproduction and inspect control and " +
+                            "affected-target evidence before attributing a cause.",
                 ),
         )
 }
