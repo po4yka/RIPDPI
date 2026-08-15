@@ -298,6 +298,7 @@ internal fun createDiagnosticsServices(
             scanRecordStore = stores,
             artifactWriteStore = stores,
             runtimeCoordinator = runtimeCoordinator,
+            serviceStateStore = serviceStateStore,
             scanRequestFactory = requestFactory,
             scanAdmissionService = scanAdmissionService,
             activeScanRegistry = activeScanRegistry,

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
@@ -43,6 +44,7 @@ internal class DefaultDiagnosticsScanController
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
+        private val serviceStateStore: ServiceStateStore,
         private val scanRequestFactory: DiagnosticsScanRequestFactory,
         private val scanAdmissionService: ScanAdmissionService,
         private val activeScanRegistry: ActiveScanRegistry,

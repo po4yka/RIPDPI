@@ -850,6 +850,7 @@ internal fun executionCoordinatorFixtures(
             scanRecordStore = stores,
             artifactWriteStore = stores,
             runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+            serviceStateStore = serviceStateStore,
             scanRequestFactory = scanRequestFactory,
             scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json),
             activeScanRegistry = activeScanRegistry,
