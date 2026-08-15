@@ -515,7 +515,9 @@
     <string name="home_diagnostics_no_settings_applied">لم تُطبَّق أي إعدادات تلقائياً.</string>
     <string name="home_diagnostics_stage_results_label">نتائج المراحل</string>
     <string name="home_diagnostics_detection_section_label">إشارات الكشف</string>
-    <string name="home_diagnostics_detection_detected">يُرجَّح أن VPN قابل للكشف على هذه الشبكة</string>
+    <string name="home_diagnostics_detection_local_artifacts">آثار محلية</string>
+    <string name="home_diagnostics_detection_network_signs">مؤشرات الشبكة</string>
+    <string name="home_diagnostics_detection_detected">تمت ملاحظة إشارات كشف</string>
     <string name="home_diagnostics_detection_needs_review">نتائج الكشف تحتاج إلى مراجعة</string>
     <string name="home_diagnostics_detection_not_detected">لم تُرصد إشارات كشف</string>
     <string name="home_diagnostics_vpn_detectors_title">تطبيقات تكشف الـ VPN</string>

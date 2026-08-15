@@ -34,6 +34,32 @@ enum class EvidenceSource {
     CALL_TRANSPORT,
 }
 
+enum class DetectionScope {
+    LOCAL_INVENTORY,
+    LOCAL_OBSERVER_EXPOSURE,
+    NETWORK_OBSERVATION,
+}
+
+fun EvidenceSource.detectionScope(): DetectionScope =
+    when (this) {
+        EvidenceSource.INSTALLED_APP,
+        EvidenceSource.VPN_SERVICE_DECLARATION,
+        -> DetectionScope.LOCAL_INVENTORY
+
+        EvidenceSource.SYSTEM_PROXY,
+        EvidenceSource.ACTIVE_VPN,
+        EvidenceSource.LOCAL_PROXY,
+        EvidenceSource.XRAY_API,
+        EvidenceSource.NETWORK_INTERFACE,
+        EvidenceSource.ROUTING,
+        EvidenceSource.DUMPSYS,
+        EvidenceSource.NATIVE_SIGNS,
+        EvidenceSource.NETWORK_CAPABILITIES,
+        -> DetectionScope.LOCAL_OBSERVER_EXPOSURE
+
+        else -> DetectionScope.NETWORK_OBSERVATION
+    }
+
 enum class VpnAppKind {
     TARGETED_BYPASS,
     GENERIC_VPN,
@@ -57,6 +83,7 @@ data class EvidenceItem(
     val family: String? = null,
     val packageName: String? = null,
     val kind: VpnAppKind? = null,
+    val scope: DetectionScope = source.detectionScope(),
 )
 
 data class MatchedVpnApp(
@@ -230,6 +257,8 @@ data class VerdictExplanation(
     val verdict: Verdict,
     val ruleApplied: String,
     val summary: String,
+    val appliedScopes: List<DetectionScope> = emptyList(),
+    val uniqueSignalCount: Int = 0,
 )
 
 data class BypassResult(

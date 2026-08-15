@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
+import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TrimmableCache
 import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
@@ -346,6 +347,11 @@ data class DiagnosticsHomeCompositeOutcome(
     val bundleSessionIds: List<String> = emptyList(),
     val detectionVerdict: DiagnosticsHomeDetectionVerdict? = null,
     val detectionFindings: List<String> = emptyList(),
+    val detectionRuleApplied: String? = null,
+    val detectionEvidenceScopes: List<DetectionScope> = emptyList(),
+    val detectionSignalCount: Int? = null,
+    val detectionLocalFindings: List<String> = emptyList(),
+    val detectionNetworkFindings: List<String> = emptyList(),
     val installedVpnDetectorCount: Int? = null,
     val installedVpnDetectorTopApps: List<String> = emptyList(),
     val actionableHeadline: String? = null,

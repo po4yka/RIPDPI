@@ -519,7 +519,9 @@
     <string name="home_diagnostics_no_settings_applied">هیچ تنظیماتی به‌صورت خودکار اعمال نشد.</string>
     <string name="home_diagnostics_stage_results_label">نتایج مرحله</string>
     <string name="home_diagnostics_detection_section_label">سیگنال‌های تشخیص</string>
-    <string name="home_diagnostics_detection_detected">احتمالاً VPN در این شبکه قابل تشخیص است</string>
+    <string name="home_diagnostics_detection_local_artifacts">آثار محلی</string>
+    <string name="home_diagnostics_detection_network_signs">نشانه‌های شبکه</string>
+    <string name="home_diagnostics_detection_detected">نشانه‌های تشخیص مشاهده شد</string>
     <string name="home_diagnostics_detection_needs_review">نتایج تشخیص نیاز به بررسی دارد</string>
     <string name="home_diagnostics_detection_not_detected">هیچ سیگنال تشخیصی مشاهده نشد</string>
     <string name="home_diagnostics_vpn_detectors_title">برنامه‌هایی که VPN را تشخیص می‌دهند</string>

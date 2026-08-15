@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.detection.DetectionScope
+
 private const val MaxNextSteps = 4
 private const val DetectionFindingPreviewLimit = 2
 private const val FailedStageSpotlightLimit = 2
@@ -15,7 +17,12 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
 
     when (outcome.detectionVerdict) {
         DiagnosticsHomeDetectionVerdict.DETECTED -> {
-            headlineParts += "VPN is detectable on this network"
+            headlineParts +=
+                if (DetectionScope.NETWORK_OBSERVATION in outcome.detectionEvidenceScopes) {
+                    "Network-observed VPN detection pattern requires review"
+                } else {
+                    "Local observer found VPN-related artifacts"
+                }
             outcome.detectionFindings.take(DetectionFindingPreviewLimit).forEach { finding ->
                 steps += "Detection signal: $finding"
             }

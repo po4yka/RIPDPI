@@ -1875,8 +1875,10 @@ fake_burst 3</string>
     <string name="fake_payload_profile_status_separate">独立路径已激活</string>
     <string name="home_diagnostics_actionable_section">下一步操作</string>
     <string name="home_diagnostics_bufferbloat_summary">等级 %1$s · 空闲 %2$s · 负载 %3$s</string>
-    <string name="home_diagnostics_detection_detected">此网络上 VPN 可能可被检测</string>
+    <string name="home_diagnostics_detection_detected">观察到检测信号</string>
     <string name="home_diagnostics_detection_section_label">检测信号</string>
+    <string name="home_diagnostics_detection_local_artifacts">本地痕迹</string>
+    <string name="home_diagnostics_detection_network_signs">网络信号</string>
     <string name="home_diagnostics_dns_resolver_poisoning">可能检测到 DNS 投毒。</string>
     <string name="home_diagnostics_effectiveness_row_value">%1$d 通过 / %2$d 失败</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>

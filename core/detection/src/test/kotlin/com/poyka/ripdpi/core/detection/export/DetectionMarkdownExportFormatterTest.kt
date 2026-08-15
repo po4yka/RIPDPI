@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.core.detection.export
 
+import com.poyka.ripdpi.core.detection.DetectionScope
+import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.EvidenceItem
+import com.poyka.ripdpi.core.detection.EvidenceSource
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,6 +74,63 @@ class DetectionMarkdownExportFormatterTest {
         assertFalse(output.contains(FixturePublicIp))
         assertTrue(output.contains("5.6.*.*"))
         assertTrue(output.contains("127.0.0.1"))
+    }
+
+    @Test
+    fun `output contains scoped verdict provenance and evidence scopes`() {
+        val fixture = detectionExportFixture()
+        val result =
+            fixture.copy(
+                directSigns =
+                    fixture.directSigns.copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.INSTALLED_APP,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.MEDIUM,
+                                    description = "Targeted bypass app installed",
+                                ),
+                            ),
+                    ),
+                ipComparison =
+                    fixture.ipComparison?.copy(
+                        category =
+                            fixture.ipComparison.category.copy(
+                                evidence =
+                                    listOf(
+                                        EvidenceItem(
+                                            source = EvidenceSource.IP_COMPARISON,
+                                            detected = true,
+                                            confidence = EvidenceConfidence.HIGH,
+                                            description = "Regional paths report different public IPs",
+                                        ),
+                                    ),
+                            ),
+                    ),
+                verdictExplanation =
+                    fixture.verdictExplanation?.copy(
+                        appliedScopes =
+                            listOf(
+                                DetectionScope.LOCAL_INVENTORY,
+                                DetectionScope.NETWORK_OBSERVATION,
+                            ),
+                        uniqueSignalCount = 2,
+                    ),
+            )
+
+        val output = DetectionMarkdownExportFormatter.format(result, exportMetadata())
+
+        assertTrue(
+            output,
+            listOf(
+                "- appliedRule: R1",
+                "- appliedScopes: LOCAL_INVENTORY, NETWORK_OBSERVATION",
+                "- uniqueSignalCount: 2",
+                "  - [LOCAL_INVENTORY] Targeted bypass app installed",
+                "  - [NETWORK_OBSERVATION] Regional paths report different public IPs",
+            ).all(output::contains),
+        )
     }
 
     private fun exportMetadata(privacyMode: Boolean = false): DetectionExportMetadata =

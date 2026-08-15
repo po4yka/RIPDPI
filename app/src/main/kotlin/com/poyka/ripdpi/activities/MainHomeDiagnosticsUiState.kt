@@ -338,6 +338,8 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         shareBusy = runtime.shareBusy,
         detectionVerdict = detectionVerdict?.label(stringResolver),
         detectionFindings = detectionFindings.toImmutableList(),
+        detectionLocalFindings = detectionLocalFindings.toImmutableList(),
+        detectionNetworkFindings = detectionNetworkFindings.toImmutableList(),
         installedVpnDetectorCount = installedVpnDetectorCount,
         installedVpnDetectorTopApps = installedVpnDetectorTopApps.toImmutableList(),
         pcapRecordingRequested = runtime.pcapRecordingRequested,

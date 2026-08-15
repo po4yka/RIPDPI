@@ -263,7 +263,7 @@
     <string name="home_control_plane_strategy_packs_label">Paquetes de estrategia</string>
     <string name="home_diagnostics_applied_settings_label">Ajustes aplicados</string>
     <string name="home_diagnostics_busy_verifying">Espera a que termine la verificación de VPN primero.</string>
-    <string name="home_diagnostics_detection_detected">VPN probablemente detectable en esta red</string>
+    <string name="home_diagnostics_detection_detected">Se observaron señales de detección</string>
     <string name="home_diagnostics_disconnect_first">Desconecta la sesión actual antes de iniciar la VPN verificada.</string>
     <string name="home_diagnostics_dns_resolver_transparent_proxy">Posible proxy DNS transparente detectado.</string>
     <string name="home_diagnostics_finish_analysis_first">Termina el análisis completo antes de iniciar la VPN verificada.</string>
@@ -2505,6 +2505,8 @@ Origen: %2$s</string>
     <string name="home_diagnostics_busy_other_scan">Otra ejecución de diagnóstico ya está en curso.</string>
     <string name="home_diagnostics_coverage_label">Cobertura</string>
     <string name="home_diagnostics_detection_section_label">Señales de detección</string>
+    <string name="home_diagnostics_detection_local_artifacts">Artefactos locales</string>
+    <string name="home_diagnostics_detection_network_signs">Señales de red</string>
     <string name="home_diagnostics_dns_resolver_poisoning">Posible envenenamiento de DNS detectado.</string>
     <string name="home_diagnostics_effectiveness_section">Eficacia de la estrategia de bypass en esta red</string>
     <string name="home_diagnostics_network_transport">Transporte</string>

@@ -534,7 +534,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             runDetectionResults[runId] = outcome
             val verdictText =
                 when (outcome.verdict) {
-                    DiagnosticsHomeDetectionVerdict.DETECTED -> "VPN likely detectable on this network"
+                    DiagnosticsHomeDetectionVerdict.DETECTED -> "Detection signals were observed"
                     DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> "Detection results need review"
                     DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> "No detection signals observed"
                 }
@@ -660,6 +660,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 baseOutcome.copy(
                     detectionVerdict = detectionResult?.verdict,
                     detectionFindings = detectionResult?.findings.orEmpty(),
+                    detectionRuleApplied = detectionResult?.ruleApplied,
+                    detectionEvidenceScopes = detectionResult?.evidenceScopes.orEmpty(),
+                    detectionSignalCount = detectionResult?.detectedSignalCount,
+                    detectionLocalFindings = detectionResult?.localFindings.orEmpty(),
+                    detectionNetworkFindings = detectionResult?.networkFindings.orEmpty(),
                     installedVpnDetectorCount = catalogSnapshot.installedVpnDetectorCount.takeIf { it >= 0 },
                     installedVpnDetectorTopApps = catalogSnapshot.topDetectorPackages,
                     networkCharacter = networkCharacter,

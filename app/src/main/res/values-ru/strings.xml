@@ -2375,11 +2375,13 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_bufferbloat_summary">Оценка %1$s · в простое %2$s · под нагрузкой %3$s</string>
     <string name="home_diagnostics_capability_evidence_label">Наблюдаемые доказательства возможностей</string>
-    <string name="home_diagnostics_detection_detected">VPN, вероятно, обнаружим в этой сети</string>
+    <string name="home_diagnostics_detection_detected">Обнаружены сигналы распознавания</string>
     <string name="home_diagnostics_detection_needs_review">Результаты обнаружения требуют просмотра</string>
     <string name="home_diagnostics_detection_not_detected">Сигналы обнаружения не наблюдались</string>
     <string name="home_diagnostics_detection_permission_required">Некоторым проверкам нужны разрешения Android на местоположение или телефон, чтобы читать идентификаторы Wi-Fi или сотовой сети. RIPDPI использует это только для сравнения сетевых политик; сырые идентификаторы не сохраняются, а экспорт диагностики их редактирует.</string>
     <string name="home_diagnostics_detection_section_label">Сигналы обнаружения</string>
+    <string name="home_diagnostics_detection_local_artifacts">Локальные артефакты</string>
+    <string name="home_diagnostics_detection_network_signs">Сетевые признаки</string>
     <string name="home_diagnostics_dns_resolver_doh_preferred">Доступен зашифрованный DNS; предпочитайте DoH.</string>
     <string name="home_diagnostics_dns_resolver_doh_unreachable">Конечные точки DoH недоступны; путь DNS может быть перехвачен.</string>
     <string name="home_diagnostics_dns_resolver_ok">Системный резолвер соответствует базовой истине DoH.</string>

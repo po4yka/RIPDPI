@@ -2,12 +2,14 @@ package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.IcmpSpoofingResult
 import com.poyka.ripdpi.core.detection.IcmpSpoofingState
+import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.core.detection.consensus.ChannelConflict
@@ -126,6 +128,57 @@ class VerdictEngineTest {
     }
 
     @Test
+    fun `R1 provenance excludes irrelevant network evidence`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult =
+                    emptyBypass().copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.XRAY_API,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.HIGH,
+                                    description = "Local Xray API reachable",
+                                ),
+                            ),
+                    ),
+                ipComparison =
+                    IpComparisonResult(
+                        category =
+                            emptyCategory("IpComparison").copy(
+                                evidence =
+                                    listOf(
+                                        EvidenceItem(
+                                            source = EvidenceSource.IP_COMPARISON,
+                                            detected = true,
+                                            confidence = EvidenceConfidence.HIGH,
+                                            description = "Regional paths report different public IPs",
+                                        ),
+                                    ),
+                            ),
+                        endpoints = emptyList(),
+                        ruReflectedIps = emptySet(),
+                        nonRuReflectedIps = emptySet(),
+                    ),
+            )
+
+        assertEquals(
+            listOf("R1", listOf(DetectionScope.LOCAL_OBSERVER_EXPOSURE), 1, false),
+            listOf(
+                explanation.ruleApplied,
+                explanation.appliedScopes,
+                explanation.uniqueSignalCount,
+                DetectionScope.NETWORK_OBSERVATION in explanation.appliedScopes,
+            ),
+        )
+    }
+
+    @Test
     fun `R3 cross channel mismatch produces DETECTED`() {
         val explanation =
             VerdictEngine.evaluateDetailed(
@@ -139,6 +192,29 @@ class VerdictEngineTest {
 
         assertEquals(Verdict.DETECTED, explanation.verdict)
         assertEquals("R3", explanation.ruleApplied)
+    }
+
+    @Test
+    fun `R3 consensus mismatch reports network provenance without ip comparison`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                ipConsensus = crossChannelMismatchConsensus(),
+                ipComparison = null,
+            )
+
+        assertEquals(
+            Triple("R3", true, true),
+            Triple(
+                explanation.ruleApplied,
+                DetectionScope.NETWORK_OBSERVATION in explanation.appliedScopes,
+                explanation.uniqueSignalCount >= 1,
+            ),
+        )
     }
 
     @Test
@@ -198,6 +274,141 @@ class VerdictEngineTest {
     }
 
     @Test
+    fun `targeted installed app and vpn service declaration alone need review`() {
+        val direct =
+            emptyCategory("Direct").copy(
+                needsReview = true,
+                evidence =
+                    listOf(
+                        EvidenceItem(
+                            source = EvidenceSource.INSTALLED_APP,
+                            detected = true,
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = "Targeted bypass app installed",
+                            family = "xray",
+                            packageName = "com.example.targeted",
+                            kind = VpnAppKind.TARGETED_BYPASS,
+                        ),
+                        EvidenceItem(
+                            source = EvidenceSource.VPN_SERVICE_DECLARATION,
+                            detected = true,
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = "Targeted bypass app declares VpnService",
+                            family = "xray",
+                            packageName = "com.example.targeted",
+                            kind = VpnAppKind.TARGETED_BYPASS,
+                        ),
+                    ),
+            )
+
+        val verdict =
+            VerdictEngine.evaluate(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = direct,
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, verdict)
+    }
+
+    @Test
+    fun `inventory evidence reports one scoped logical signal`() {
+        val direct =
+            emptyCategory("Direct").copy(
+                needsReview = true,
+                evidence =
+                    listOf(
+                        EvidenceItem(
+                            source = EvidenceSource.INSTALLED_APP,
+                            detected = true,
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = "Targeted bypass app installed",
+                            family = "xray",
+                            packageName = "com.example.targeted",
+                            kind = VpnAppKind.TARGETED_BYPASS,
+                        ),
+                        EvidenceItem(
+                            source = EvidenceSource.VPN_SERVICE_DECLARATION,
+                            detected = true,
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = "Targeted bypass app declares VpnService",
+                            family = "xray",
+                            packageName = "com.example.targeted",
+                            kind = VpnAppKind.TARGETED_BYPASS,
+                        ),
+                    ),
+            )
+
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = direct,
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(
+            Triple(Verdict.NEEDS_REVIEW, listOf(DetectionScope.LOCAL_INVENTORY), 1),
+            Triple(explanation.verdict, explanation.appliedScopes, explanation.uniqueSignalCount),
+        )
+    }
+
+    @Test
+    fun `active vpn capability artifacts are one local observer signal`() {
+        val direct =
+            emptyCategory("Direct").copy(
+                evidence =
+                    listOf(
+                        EvidenceItem(
+                            source = EvidenceSource.NETWORK_CAPABILITIES,
+                            detected = true,
+                            confidence = EvidenceConfidence.HIGH,
+                            description = "Active network reports TRANSPORT_VPN",
+                            family = "wireguard",
+                            packageName = "com.example.vpn",
+                        ),
+                        EvidenceItem(
+                            source = EvidenceSource.NETWORK_CAPABILITIES,
+                            detected = true,
+                            confidence = EvidenceConfidence.HIGH,
+                            description = "NetworkCapabilities string contains IS_VPN",
+                            family = "wireguard",
+                            packageName = "com.example.vpn",
+                        ),
+                        EvidenceItem(
+                            source = EvidenceSource.NETWORK_CAPABILITIES,
+                            detected = true,
+                            confidence = EvidenceConfidence.HIGH,
+                            description = "NetworkCapabilities string contains VpnTransportInfo",
+                            family = "wireguard",
+                            packageName = "com.example.vpn",
+                        ),
+                    ),
+            )
+
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = direct,
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(
+            Triple(listOf(DetectionScope.LOCAL_OBSERVER_EXPOSURE), 1, false),
+            Triple(
+                explanation.appliedScopes,
+                explanation.uniqueSignalCount,
+                DetectionScope.NETWORK_OBSERVATION in explanation.appliedScopes,
+            ),
+        )
+    }
+
+    @Test
     fun `Russian MCC with foreign GeoIP returns DETECTED`() {
         val location =
             emptyCategory("Location").copy(
@@ -213,6 +424,30 @@ class VerdictEngineTest {
                 bypassResult = emptyBypass(),
             )
         assertEquals(Verdict.DETECTED, verdict)
+    }
+
+    @Test
+    fun `R4 flags report network provenance without evidence items`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP").copy(needsReview = true),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals =
+                    emptyCategory("Location").copy(
+                        findings = listOf(Finding("network_mcc_ru:true")),
+                    ),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(
+            Triple("R4", true, true),
+            Triple(
+                explanation.ruleApplied,
+                DetectionScope.NETWORK_OBSERVATION in explanation.appliedScopes,
+                explanation.uniqueSignalCount >= 1,
+            ),
+        )
     }
 
     @Test

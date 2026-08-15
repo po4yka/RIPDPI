@@ -66,8 +66,30 @@ private fun HomeDetectionSummarySection(sheet: HomeDiagnosticsAnalysisSheetUiSta
     )
     HomeAnalysisInsetColumn(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsDetectionSummary)) {
         Text(text = sheet.detectionVerdict, style = RipDpiThemeTokens.type.bodyEmphasis, color = colors.foreground)
-        sheet.detectionFindings.forEach { finding ->
-            Text(text = "• $finding", style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
+        if (sheet.detectionLocalFindings.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.home_diagnostics_detection_local_artifacts),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            sheet.detectionLocalFindings.forEach { finding ->
+                Text(text = "• $finding", style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
+            }
+        }
+        if (sheet.detectionNetworkFindings.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.home_diagnostics_detection_network_signs),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            sheet.detectionNetworkFindings.forEach { finding ->
+                Text(text = "• $finding", style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
+            }
+        }
+        if (sheet.detectionLocalFindings.isEmpty() && sheet.detectionNetworkFindings.isEmpty()) {
+            sheet.detectionFindings.forEach { finding ->
+                Text(text = "• $finding", style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
+            }
         }
     }
 }

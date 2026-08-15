@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -93,6 +94,7 @@ object TimingAnalysisChecker {
                 evidence.add(
                     EvidenceItem(
                         source = EvidenceSource.NETWORK_CAPABILITIES,
+                        scope = DetectionScope.NETWORK_OBSERVATION,
                         detected = true,
                         confidence = EvidenceConfidence.MEDIUM,
                         description =
@@ -118,6 +120,7 @@ object TimingAnalysisChecker {
                 evidence.add(
                     EvidenceItem(
                         source = EvidenceSource.NETWORK_CAPABILITIES,
+                        scope = DetectionScope.NETWORK_OBSERVATION,
                         detected = true,
                         confidence = EvidenceConfidence.LOW,
                         description = "Multiple targets show unusually consistent latency",

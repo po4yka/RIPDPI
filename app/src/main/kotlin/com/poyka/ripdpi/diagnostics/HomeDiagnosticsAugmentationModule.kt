@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import android.content.Context
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
+import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.Binds
@@ -64,10 +65,20 @@ class DefaultHomeDetectionStageRunner
                     .filter { it.detected || it.needsReview }
                     .map { "Bypass: ${it.description}" }
             val findings = (categoryFindings + bypassFindings).take(DetectionFindingLimit)
-            val detectedSignalCount =
-                categories.sumOf { category ->
-                    category.findings.count { it.detected }
-                } + result.bypassResult.findings.count { it.detected }
+            val evidence = categories.flatMap { it.evidence } + result.bypassResult.evidence
+            val localFindings =
+                evidence
+                    .filter { it.detected && it.scope != DetectionScope.NETWORK_OBSERVATION }
+                    .distinctBy { listOfNotNull(it.packageName, it.family).firstOrNull() ?: it.description }
+                    .map { it.description }
+                    .take(DetectionFindingLimit)
+            val networkFindings =
+                evidence
+                    .filter { it.detected && it.scope == DetectionScope.NETWORK_OBSERVATION }
+                    .distinctBy { "${it.source}:${it.family.orEmpty()}:${it.description}" }
+                    .map { it.description }
+                    .take(DetectionFindingLimit)
+            val detectedSignalCount = result.verdictExplanation?.uniqueSignalCount ?: 0
             val verdict =
                 when (result.verdict) {
                     com.poyka.ripdpi.core.detection.Verdict.DETECTED -> {
@@ -86,6 +97,10 @@ class DefaultHomeDetectionStageRunner
                 verdict = verdict,
                 detectedSignalCount = detectedSignalCount,
                 findings = findings,
+                ruleApplied = result.verdictExplanation?.ruleApplied,
+                evidenceScopes = result.verdictExplanation?.appliedScopes.orEmpty(),
+                localFindings = localFindings,
+                networkFindings = networkFindings,
             )
         }
 

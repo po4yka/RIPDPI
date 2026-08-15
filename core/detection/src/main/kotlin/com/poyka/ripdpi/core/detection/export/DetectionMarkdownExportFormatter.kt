@@ -71,6 +71,9 @@ object DetectionMarkdownExportFormatter {
         appendLine("- status: ${result.verdict}")
         result.verdictExplanation?.let {
             appendLine("- explanation: ${it.ruleApplied}: ${it.summary}")
+            appendLine("- appliedRule: ${it.ruleApplied}")
+            appendLine("- appliedScopes: ${it.appliedScopes.joinToString()}")
+            appendLine("- uniqueSignalCount: ${it.uniqueSignalCount}")
         }
         appendLine("- exposureStatus: ${narrative.exposureStatus.exportLabel()}")
         appendLine()
@@ -111,7 +114,7 @@ object DetectionMarkdownExportFormatter {
         }
         appendLine("- status: ${category.statusTag()}")
         appendRows("findings", category.findings.map(Finding::description))
-        appendRows("evidence", category.evidence.map(EvidenceItem::description))
+        appendRows("evidence", category.evidence.map { "[${it.scope}] ${it.description}" })
         appendLine()
     }
 

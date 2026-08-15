@@ -70,6 +70,14 @@ object DetectionJsonExportFormatter {
                 "status" to JsonPrimitive(result.verdict.name.lowercase()),
                 "explanation" to context.string(result.verdictExplanation?.summary),
                 "ruleApplied" to context.string(result.verdictExplanation?.ruleApplied),
+                "appliedScopes" to
+                    JsonArray(
+                        result.verdictExplanation
+                            ?.appliedScopes
+                            .orEmpty()
+                            .map { JsonPrimitive(it.name) },
+                    ),
+                "uniqueSignalCount" to JsonPrimitive(result.verdictExplanation?.uniqueSignalCount ?: 0),
                 "exposureStatus" to JsonPrimitive(narrative.exposureStatus.name),
                 "meaning" to JsonArray(listOf(context.string(narrative.exposureStatus.name.lowercase()))),
                 "discovered" to JsonArray(narrative.discoveredRows.map { it.toJson(context) }),
@@ -192,6 +200,7 @@ object DetectionJsonExportFormatter {
                 "description" to context.string(description),
                 "family" to context.string(family),
                 "packageName" to context.string(packageName),
+                "scope" to JsonPrimitive(scope.name),
             ),
         )
 

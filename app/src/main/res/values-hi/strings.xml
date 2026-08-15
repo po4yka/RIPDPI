@@ -517,7 +517,9 @@
     <string name="home_diagnostics_no_settings_applied">कोई सेटिंग स्वतः लागू नहीं की गई.</string>
     <string name="home_diagnostics_stage_results_label">चरण परिणाम</string>
     <string name="home_diagnostics_detection_section_label">पहचान संकेत</string>
-    <string name="home_diagnostics_detection_detected">इस नेटवर्क पर VPN की पहचान संभव है</string>
+    <string name="home_diagnostics_detection_local_artifacts">स्थानीय संकेत</string>
+    <string name="home_diagnostics_detection_network_signs">नेटवर्क संकेत</string>
+    <string name="home_diagnostics_detection_detected">पहचान संकेत देखे गए</string>
     <string name="home_diagnostics_detection_needs_review">पहचान परिणामों की समीक्षा आवश्यक है</string>
     <string name="home_diagnostics_detection_not_detected">कोई पहचान संकेत नहीं देखा गया</string>
     <string name="home_diagnostics_vpn_detectors_title">VPN पहचानने वाले ऐप्स</string>

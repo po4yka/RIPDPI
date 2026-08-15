@@ -103,6 +103,8 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val shareBusy: Boolean = false,
     val detectionVerdict: String? = null,
     val detectionFindings: ImmutableList<String> = persistentListOf(),
+    val detectionLocalFindings: ImmutableList<String> = persistentListOf(),
+    val detectionNetworkFindings: ImmutableList<String> = persistentListOf(),
     val installedVpnDetectorCount: Int? = null,
     val installedVpnDetectorTopApps: ImmutableList<String> = persistentListOf(),
     val pcapRecordingRequested: Boolean = false,

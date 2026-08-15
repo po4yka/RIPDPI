@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -78,17 +79,35 @@ object VerdictEngine {
                     icmpSpoofing?.category?.evidence?.let(::addAll)
                 }
                 rttTriangulation?.category?.evidence?.let(::addAll)
+                nativeSigns?.category?.evidence?.let(::addAll)
             }
+        val hardBypassEvidence =
+            evidence.filter { it.isDetected(EvidenceSource.SPLIT_TUNNEL_BYPASS, EvidenceSource.XRAY_API) }
 
-        if (evidence.any { it.isDetected(EvidenceSource.SPLIT_TUNNEL_BYPASS, EvidenceSource.XRAY_API) }) {
-            return explanation(Verdict.DETECTED, "R1", "Hard bypass evidence detected")
+        if (hardBypassEvidence.isNotEmpty()) {
+            return explanation(
+                Verdict.DETECTED,
+                "R1",
+                "Hard bypass evidence detected",
+                EvidenceSummary.from(hardBypassEvidence),
+            )
         }
 
         if (ipConsensus?.crossChannelMismatches?.isNotEmpty() == true || ipConsensus?.warpIndicator == true) {
-            return explanation(Verdict.DETECTED, "R3", "IP consensus found cross-channel divergence")
+            return explanation(
+                Verdict.DETECTED,
+                "R3",
+                "IP consensus found cross-channel divergence",
+                EvidenceSummary.from(ipConsensusDecisionEvidence()),
+            )
         }
         if (ipConsensus?.channelConflicts?.isNotEmpty() == true) {
-            return explanation(Verdict.NEEDS_REVIEW, "R3", "IP consensus found a single-channel conflict")
+            return explanation(
+                Verdict.NEEDS_REVIEW,
+                "R3",
+                "IP consensus found a single-channel conflict",
+                EvidenceSummary.from(ipConsensusDecisionEvidence()),
+            )
         }
 
         val networkMccIsRu =
@@ -101,7 +120,14 @@ object VerdictEngine {
                     it.source == EvidenceSource.GEO_IP && it.detected
                 }
         if (networkMccIsRu && hasGeoSignal) {
-            return explanation(Verdict.DETECTED, "R4", "Russian network context conflicts with GeoIP signal")
+            return explanation(
+                Verdict.DETECTED,
+                "R4",
+                "Russian network context conflicts with GeoIP signal",
+                EvidenceSummary.from(
+                    (geoIp.evidence + locationSignals.evidence).ifEmpty { networkContextDecisionEvidence() },
+                ),
+            )
         }
 
         val hasStrongTransport =
@@ -119,10 +145,6 @@ object VerdictEngine {
                         EvidenceSource.NETWORK_CAPABILITIES,
                     )
                 }
-        val hasTargetedInstalled =
-            evidence.any {
-                it.source == EvidenceSource.INSTALLED_APP && it.kind == VpnAppKind.TARGETED_BYPASS
-            }
         val hasTargetedActive =
             evidence.any {
                 it.source == EvidenceSource.ACTIVE_VPN && it.kind == VpnAppKind.TARGETED_BYPASS
@@ -134,20 +156,54 @@ object VerdictEngine {
         val hasIndirectHit =
             indirectSigns.detected ||
                 indirectSigns.needsReview ||
-                hasTargetedInstalled ||
                 hasTargetedActive
+        val geoAxisEvidence = geoIp.evidence
+        val directAxisEvidence = directSigns.evidence + bypassResult.evidence
+        val indirectAxisEvidence = indirectSigns.evidence + evidence.filter { it.source == EvidenceSource.ACTIVE_VPN }
 
         return when {
             hasGeoSignal && hasDirectHit && hasIndirectHit -> {
-                explanation(Verdict.DETECTED, "R5", "Geo, direct, and indirect detection axes are all set")
+                explanation(
+                    Verdict.DETECTED,
+                    "R5",
+                    "Geo, direct, and indirect detection axes are all set",
+                    EvidenceSummary.from(geoAxisEvidence + directAxisEvidence + indirectAxisEvidence),
+                )
             }
 
             hasDirectHit && hasIndirectHit -> {
-                explanation(Verdict.DETECTED, "R5", "Direct and indirect detection axes are both set")
+                explanation(
+                    Verdict.DETECTED,
+                    "R5",
+                    "Direct and indirect detection axes are both set",
+                    EvidenceSummary.from(directAxisEvidence + indirectAxisEvidence),
+                )
             }
 
             hasGeoSignal && (hasStrongTransport || hasDirectHit || hasIndirectHit) -> {
-                explanation(Verdict.DETECTED, "R5", "Geo axis and one additional detection axis are set")
+                explanation(
+                    Verdict.DETECTED,
+                    "R5",
+                    "Geo axis and one additional detection axis are set",
+                    EvidenceSummary.from(
+                        geoAxisEvidence +
+                            when {
+                                hasStrongTransport -> {
+                                    evidence.filter {
+                                        it.source == EvidenceSource.NETWORK_CAPABILITIES
+                                    }
+                                }
+
+                                hasDirectHit -> {
+                                    directAxisEvidence
+                                }
+
+                                else -> {
+                                    indirectAxisEvidence
+                                }
+                            },
+                    ),
+                )
             }
 
             hasNeedsReviewFallback(
@@ -162,11 +218,16 @@ object VerdictEngine {
                 bypassResult = bypassResult,
                 homeRoutedRoaming = homeRoutedRoaming,
             ) -> {
-                explanation(Verdict.NEEDS_REVIEW, "R6", "Review-only diagnostic signal present")
+                explanation(
+                    Verdict.NEEDS_REVIEW,
+                    "R6",
+                    "Review-only diagnostic signal present",
+                    EvidenceSummary.from(evidence),
+                )
             }
 
             else -> {
-                explanation(Verdict.NOT_DETECTED, "R0", "No detection rule matched")
+                explanation(Verdict.NOT_DETECTED, "R0", "No detection rule matched", EvidenceSummary.from(emptyList()))
             }
         }
     }
@@ -214,11 +275,70 @@ object VerdictEngine {
         verdict: Verdict,
         ruleApplied: String,
         summary: String,
+        evidenceSummary: EvidenceSummary,
     ): VerdictExplanation =
         VerdictExplanation(
             verdict = verdict,
             ruleApplied = ruleApplied,
             summary = summary,
+            appliedScopes = evidenceSummary.appliedScopes,
+            uniqueSignalCount = evidenceSummary.uniqueSignalCount,
+        )
+
+    private data class EvidenceSummary(
+        val appliedScopes: List<DetectionScope>,
+        val uniqueSignalCount: Int,
+    ) {
+        companion object {
+            fun from(evidence: List<EvidenceItem>): EvidenceSummary {
+                val detectedEvidence = evidence.filter(EvidenceItem::detected)
+                return EvidenceSummary(
+                    appliedScopes = detectedEvidence.map(EvidenceItem::scope).distinct(),
+                    uniqueSignalCount = detectedEvidence.map { it.logicalSignalKey() }.distinct().size,
+                )
+            }
+        }
+    }
+
+    private fun EvidenceItem.logicalSignalKey(): String =
+        when (scope) {
+            DetectionScope.LOCAL_INVENTORY -> {
+                listOfNotNull(packageName, family).firstOrNull()?.let { "inventory:$it" }
+                    ?: "inventory:${description.lowercase()}"
+            }
+
+            DetectionScope.LOCAL_OBSERVER_EXPOSURE -> {
+                if (source == EvidenceSource.NETWORK_CAPABILITIES) {
+                    "observer:active_vpn_capabilities"
+                } else {
+                    listOfNotNull(packageName, family).firstOrNull()?.let { "observer:$it" }
+                        ?: "observer:${source.name}:${description.lowercase()}"
+                }
+            }
+
+            DetectionScope.NETWORK_OBSERVATION -> {
+                "network:${source.name}:${family.orEmpty()}:${description.lowercase()}"
+            }
+        }
+
+    private fun ipConsensusDecisionEvidence(): List<EvidenceItem> =
+        listOf(
+            EvidenceItem(
+                source = EvidenceSource.IP_CONSENSUS,
+                detected = true,
+                confidence = EvidenceConfidence.HIGH,
+                description = "IP consensus decision signal",
+            ),
+        )
+
+    private fun networkContextDecisionEvidence(): List<EvidenceItem> =
+        listOf(
+            EvidenceItem(
+                source = EvidenceSource.GEO_IP,
+                detected = true,
+                confidence = EvidenceConfidence.MEDIUM,
+                description = "Network context and GeoIP decision signal",
+            ),
         )
 
     private const val RUSSIA_MCC = "250"
