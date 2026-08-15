@@ -248,7 +248,7 @@ internal fun sampleApproachSummary(
         approachId = BypassApproachId(kind = kind, value = id),
         displayName = "VPN Split",
         secondaryLabel = "Strategy",
-        verificationState = "validated",
+        verificationState = com.poyka.ripdpi.diagnostics.BypassApproachVerificationState.CONFIRMED_WORKING,
         validatedScanCount = 3,
         validatedSuccessCount = 2,
         validatedSuccessRate = 0.66f,

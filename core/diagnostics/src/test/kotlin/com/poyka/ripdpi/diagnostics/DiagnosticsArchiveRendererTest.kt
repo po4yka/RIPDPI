@@ -2029,7 +2029,7 @@ class DiagnosticsArchiveRendererTest {
             approachId = BypassApproachId(BypassApproachKind.Strategy, strategyId),
             displayName = "Fast Strategy",
             secondaryLabel = "Strategy",
-            verificationState = "validated",
+            verificationState = BypassApproachVerificationState.CONFIRMED_WORKING,
             validatedScanCount = 1,
             validatedSuccessCount = 1,
             validatedSuccessRate = 1.0f,

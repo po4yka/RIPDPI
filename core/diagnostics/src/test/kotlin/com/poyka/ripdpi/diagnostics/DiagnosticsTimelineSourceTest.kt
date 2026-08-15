@@ -95,7 +95,7 @@ class DiagnosticsTimelineSourceTest {
                 val strategySummary = summaries.first { it.approachId.kind == BypassApproachKind.Strategy }
 
                 assertEquals("profile-fast", profileSummary.approachId.value)
-                assertEquals("validated", profileSummary.verificationState)
+                assertEquals(BypassApproachVerificationState.EVALUATED_NO_SUCCESS, profileSummary.verificationState)
                 assertEquals(1, profileSummary.validatedScanCount)
                 assertEquals(1, profileSummary.usageCount)
                 assertEquals(listOf("dns_blocked (1)"), profileSummary.topFailureOutcomes)

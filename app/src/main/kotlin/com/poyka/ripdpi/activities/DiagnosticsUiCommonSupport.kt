@@ -5,6 +5,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -390,25 +391,35 @@ internal fun String?.shortFingerprintHash(): String? {
 
 internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
     when {
-        verificationState.equals("unverified", ignoreCase = true) -> DiagnosticsTone.Neutral
-        (validatedSuccessRate ?: 0f) >= SuccessRateHighThreshold -> DiagnosticsTone.Positive
-        (validatedSuccessRate ?: 0f) > 0f -> DiagnosticsTone.Warning
+        verificationState == BypassApproachVerificationState.NOT_EVALUATED -> DiagnosticsTone.Neutral
+
+        verificationState == BypassApproachVerificationState.CONFIRMED_WORKING &&
+            recentRuntimeHealth.totalErrors == 0L && recentRuntimeHealth.restartCount == 0 -> DiagnosticsTone.Positive
+
+        verificationState == BypassApproachVerificationState.EVALUATED_PARTIAL_SUCCESS ||
+            verificationState == BypassApproachVerificationState.CONFIRMED_WORKING -> DiagnosticsTone.Warning
+
         else -> DiagnosticsTone.Negative
     }
 
 /**
  * Tone for the SUCCESS metric badge specifically.
  *
- * Unlike [toDiagnosticsTone] (used for the overall row), this treats
- * unverified and 0 % success as neutral states rather than failures.
- * Red / Negative is reserved for genuine error indicators elsewhere.
+ * Unlike [toDiagnosticsTone] (used for the overall row), this leaves only a
+ * genuinely not-evaluated approach neutral. A completed evaluation with no
+ * successful reports is negative evidence.
  */
 internal fun BypassApproachSummary.successMetricTone(): DiagnosticsTone {
-    val rate = validatedSuccessRate ?: return DiagnosticsTone.Neutral
-    return when {
-        rate >= SuccessRateHighThreshold -> DiagnosticsTone.Positive
-        rate > 0f -> DiagnosticsTone.Warning
-        else -> DiagnosticsTone.Neutral // 0 % -- not yet proven, not an error
+    val rate = validatedSuccessRate
+    return if (verificationState == BypassApproachVerificationState.NOT_EVALUATED) {
+        DiagnosticsTone.Neutral
+    } else {
+        when {
+            rate == null -> DiagnosticsTone.Negative
+            rate >= SuccessRateHighThreshold -> DiagnosticsTone.Positive
+            rate > 0f -> DiagnosticsTone.Warning
+            else -> DiagnosticsTone.Negative
+        }
     }
 }
 

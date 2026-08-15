@@ -61,6 +61,14 @@ enum class BypassApproachKind {
 }
 
 @Serializable
+enum class BypassApproachVerificationState {
+    NOT_EVALUATED,
+    EVALUATED_NO_SUCCESS,
+    EVALUATED_PARTIAL_SUCCESS,
+    CONFIRMED_WORKING,
+}
+
+@Serializable
 data class BypassStrategySignature(
     val mode: String,
     val configSource: String,
@@ -123,7 +131,7 @@ data class BypassApproachSummary(
     val approachId: BypassApproachId,
     val displayName: String,
     val secondaryLabel: String,
-    val verificationState: String,
+    val verificationState: BypassApproachVerificationState,
     val validatedScanCount: Int,
     val validatedSuccessCount: Int,
     val validatedSuccessRate: Float?,

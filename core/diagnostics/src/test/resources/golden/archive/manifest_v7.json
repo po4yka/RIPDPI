@@ -169,7 +169,7 @@
         "validatedScanCount": 1,
         "validatedSuccessCount": 1,
         "validatedSuccessRate": 1.0,
-        "verificationState": "validated"
+        "verificationState": "CONFIRMED_WORKING"
     },
     "selectedSessionId": "session-1",
     "sessionEventCount": 1,

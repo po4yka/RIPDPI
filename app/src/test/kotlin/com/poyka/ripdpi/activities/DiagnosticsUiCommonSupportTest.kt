@@ -2,6 +2,9 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
+import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -40,5 +43,28 @@ class DiagnosticsUiCommonSupportTest {
             context.getString(R.string.diagnostics_source_unknown),
             RememberedNetworkPolicySource.UNKNOWN.displaySourceLabel(stringResolver),
         )
+    }
+
+    @Test
+    fun `runtime errors and restarts downgrade confirmed approach tone without changing evidence`() {
+        val confirmed =
+            sampleApproachSummary(BypassApproachKind.Strategy, "strategy")
+                .copy(
+                    verificationState = BypassApproachVerificationState.CONFIRMED_WORKING,
+                    validatedScanCount = 2,
+                    validatedSuccessCount = 2,
+                    validatedSuccessRate = 1f,
+                    recentRuntimeHealth = BypassRuntimeHealthSummary(),
+                )
+
+        assertEquals(DiagnosticsTone.Positive, confirmed.toDiagnosticsTone())
+        assertEquals(
+            DiagnosticsTone.Warning,
+            confirmed
+                .copy(recentRuntimeHealth = BypassRuntimeHealthSummary(totalErrors = 1, restartCount = 1))
+                .toDiagnosticsTone(),
+        )
+        assertEquals(2, confirmed.validatedScanCount)
+        assertEquals(2, confirmed.validatedSuccessCount)
     }
 }

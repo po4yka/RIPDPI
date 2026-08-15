@@ -1445,7 +1445,9 @@ class MainViewModelTest {
                                 approachId = BypassApproachId(BypassApproachKind.Strategy, strategyId),
                                 displayName = "VPN Split",
                                 secondaryLabel = "Strategy",
-                                verificationState = "validated",
+                                verificationState =
+                                    com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
+                                        .EVALUATED_PARTIAL_SUCCESS,
                                 validatedScanCount = 4,
                                 validatedSuccessCount = 3,
                                 validatedSuccessRate = 0.75f,
@@ -1468,7 +1470,7 @@ class MainViewModelTest {
             val summary = viewModel.uiState.value.approachSummary
 
             assertEquals("VPN Split", summary?.title)
-            assertEquals("Validated", summary?.verification)
+            assertEquals("Evaluated partial success", summary?.verification)
             assertEquals("75%", summary?.successRate)
             collector.cancel()
         }
@@ -2061,7 +2063,7 @@ private class FakeMainDiagnosticsTimelineSource : com.poyka.ripdpi.diagnostics.D
                     approachId = BypassApproachId(BypassApproachKind.Strategy, "strategy-a"),
                     displayName = "VPN Split",
                     secondaryLabel = "Strategy",
-                    verificationState = "validated",
+                    verificationState = com.poyka.ripdpi.diagnostics.BypassApproachVerificationState.CONFIRMED_WORKING,
                     validatedScanCount = 2,
                     validatedSuccessCount = 2,
                     validatedSuccessRate = 1f,

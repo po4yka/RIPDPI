@@ -12,20 +12,80 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.proto.ActivationFilter
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.proto.StrategyTcpStep
+import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApproachAnalyticsTest {
+    @Test
+    fun `approach verification state matrix preserves scan counts across runtime faults`() {
+        val matrix =
+            listOf(
+                VerificationStateCase(
+                    reports = 0,
+                    successes = 0,
+                    runtimeErrors = 0,
+                    restarts = 0,
+                    expectedState = BypassApproachVerificationState.NOT_EVALUATED,
+                ),
+                VerificationStateCase(
+                    reports = 1,
+                    successes = 0,
+                    runtimeErrors = 2,
+                    restarts = 1,
+                    expectedState = BypassApproachVerificationState.EVALUATED_NO_SUCCESS,
+                ),
+                VerificationStateCase(
+                    reports = 2,
+                    successes = 1,
+                    runtimeErrors = 3,
+                    restarts = 2,
+                    expectedState = BypassApproachVerificationState.EVALUATED_PARTIAL_SUCCESS,
+                ),
+                VerificationStateCase(
+                    reports = 2,
+                    successes = 2,
+                    runtimeErrors = 4,
+                    restarts = 3,
+                    expectedState = BypassApproachVerificationState.CONFIRMED_WORKING,
+                ),
+            )
+
+        matrix.forEachIndexed { index, case ->
+            val summary =
+                DiagnosticsSessionQueries
+                    .buildApproachSummaries(
+                        scanSessions =
+                            (0 until case.reports).map { reportIndex ->
+                                approachScanSession(
+                                    id = "scan-$index-$reportIndex",
+                                    successful = reportIndex < case.successes,
+                                )
+                            },
+                        usageSessions = listOf(approachUsageSession(case.runtimeErrors, case.restarts)),
+                        json = diagnosticsTestJson(),
+                    ).first { it.approachId.kind == BypassApproachKind.Profile }
+
+            assertEquals(case.expectedState, summary.verificationState)
+            assertEquals(case.reports, summary.validatedScanCount)
+            assertEquals(case.successes, summary.validatedSuccessCount)
+            assertEquals(case.runtimeErrors.toLong(), summary.recentRuntimeHealth.totalErrors)
+            assertEquals(case.restarts, summary.recentRuntimeHealth.restartCount)
+        }
+    }
+
     @Test
     fun `deriveBypassStrategySignature includes fake tls profile when active`() {
         val settings =
@@ -502,6 +562,70 @@ class ApproachAnalyticsTest {
         assertEquals("tcp: split(adaptive HTTP method)", signature.chainSummary)
     }
 }
+
+private data class VerificationStateCase(
+    val reports: Int,
+    val successes: Int,
+    val runtimeErrors: Int,
+    val restarts: Int,
+    val expectedState: BypassApproachVerificationState,
+)
+
+private fun approachScanSession(
+    id: String,
+    successful: Boolean,
+) = diagnosticsSession(
+    id = id,
+    profileId = "profile-fast",
+    pathMode = ScanPathMode.RAW_PATH.name,
+    summary = if (successful) "ok" else "blocked",
+    reportJson =
+        diagnosticsTestJson().encodeToString(
+            EngineScanReportWire.serializer(),
+            ScanReport(
+                sessionId = id,
+                profileId = "profile-fast",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = if (successful) "ok" else "blocked",
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "strategy_http",
+                            target = "example.org",
+                            outcome = if (successful) "http_ok" else "http_unreachable",
+                        ),
+                    ),
+            ).toEngineScanReportWire(),
+        ),
+).copy(
+    approachProfileId = "profile-fast",
+    approachProfileName = "Profile Fast",
+)
+
+private fun approachUsageSession(
+    totalErrors: Int,
+    restartCount: Int,
+) = BypassUsageSessionEntity(
+    id = "usage",
+    startedAt = 30L,
+    finishedAt = 40L,
+    updatedAt = 40L,
+    serviceMode = "VPN",
+    approachProfileId = "profile-fast",
+    approachProfileName = "Profile Fast",
+    strategyId = "",
+    strategyLabel = "",
+    strategyJson = "",
+    networkType = "wifi",
+    txBytes = 0L,
+    rxBytes = 0L,
+    totalErrors = totalErrors.toLong(),
+    routeChanges = 0L,
+    restartCount = restartCount,
+    endedReason = "stopped",
+)
 
 private fun AppSettings.Builder.withPrimaryTcpStep(
     kind: TcpChainStepKind,

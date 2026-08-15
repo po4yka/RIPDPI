@@ -135,7 +135,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
         kind = mode,
         title = summary.displayName,
         subtitle = summary.secondaryLabel,
-        verificationState = summary.verificationState.replaceFirstChar { it.uppercase() },
+        verificationState = summary.verificationState.uiLabel(),
         lastValidatedResult =
             summary.lastValidatedResult ?: context.getString(R.string.diagnostics_approach_unverified),
         dominantFailurePattern =

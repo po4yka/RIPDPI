@@ -135,9 +135,13 @@ internal class MainConnectionActions(
         val summary = strategySummary ?: profileSummary ?: return null
         return HomeApproachSummaryUiState(
             title = summary.displayName,
-            verification = summary.verificationState.replaceFirstChar { it.uppercase() },
+            verification =
+                summary.verificationState.name
+                    .replace('_', ' ')
+                    .lowercase()
+                    .replaceFirstChar { it.uppercase() },
             successRate =
-                summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Unverified",
+                summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",
             supportingText =
                 buildString {
                     append(summary.lastValidatedResult ?: "No validated diagnostics run yet")

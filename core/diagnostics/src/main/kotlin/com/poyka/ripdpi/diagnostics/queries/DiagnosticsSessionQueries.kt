@@ -235,7 +235,11 @@ internal object DiagnosticsSessionQueries {
             approachId = BypassApproachId(kind = kind, value = id),
             displayName = displayName,
             secondaryLabel = secondaryLabel,
-            verificationState = if (validatedReports.isEmpty()) "unverified" else "validated",
+            verificationState =
+                verificationStateFor(
+                    reportCount = validatedReports.size,
+                    successCount = successfulReports,
+                ),
             validatedScanCount = validatedReports.size,
             validatedSuccessCount = successfulReports,
             validatedSuccessRate =
@@ -332,3 +336,14 @@ private data class ClassifiedReportResult(
 
 private fun parsePathModeOrDefault(value: String): ScanPathMode =
     runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)
+
+private fun verificationStateFor(
+    reportCount: Int,
+    successCount: Int,
+): BypassApproachVerificationState =
+    when {
+        reportCount == 0 -> BypassApproachVerificationState.NOT_EVALUATED
+        successCount == 0 -> BypassApproachVerificationState.EVALUATED_NO_SUCCESS
+        successCount < reportCount -> BypassApproachVerificationState.EVALUATED_PARTIAL_SUCCESS
+        else -> BypassApproachVerificationState.CONFIRMED_WORKING
+    }

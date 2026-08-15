@@ -503,7 +503,7 @@ internal fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5)
 internal fun BypassApproachSummary.successRateLabel(): String =
     validatedSuccessRate?.let { rate ->
         "${(rate * SuccessRatePercentScale).toInt()}%"
-    } ?: "unverified"
+    } ?: verificationState.name.lowercase()
 
 internal fun BypassApproachSummary.projectForArchive(index: Int? = null): BypassApproachSummary {
     val kindLabel = approachId.kind.name.lowercase()
@@ -512,7 +512,6 @@ internal fun BypassApproachSummary.projectForArchive(index: Int? = null): Bypass
         approachId = BypassApproachId(kind = approachId.kind, value = categoricalId),
         displayName = "redacted",
         secondaryLabel = kindLabel,
-        verificationState = verificationState.takeIf { it in setOf("validated", "unverified") } ?: "unknown",
         lastValidatedResult = lastValidatedResult?.let { "redacted" },
         recentRuntimeHealth =
             recentRuntimeHealth.copy(
