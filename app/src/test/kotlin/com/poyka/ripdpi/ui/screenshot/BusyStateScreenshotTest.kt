@@ -80,25 +80,28 @@ class BusyStateScreenshotTest {
                     HomeModeCardUiState(
                         mode = HomeMode.Diagnostic,
                         title = "Diagnostics",
-                        primaryLabel = "Stage 3 of 4 - testing TLS handshakes",
+                        primaryLabel = "Stage 4 of 8 - testing TLS handshakes",
                         secondaryLabel = "Analysing this network",
                         isLoading = true,
                         primaryActionLabel = "Cancel",
                         configureLabel = "Configure",
                         analysisProgress =
                             AnalysisProgressUiState(
-                                // Four stages, not five: PipelineRow renders stages[0..3] against a
-                                // fixed [audit] -> [connectivity | dpi_full] -> [strategy] topology and
-                                // silently drops anything past index 3, so a longer fixture would lock
-                                // a picture that hides its own truncation.
+                                // Eight stages, matching HomeCompositeStageSpecs: a full run emits
+                                // exactly this many, and the fixture is the only place the screenshot
+                                // suite ever sees the real length.
                                 stages =
                                     persistentListOf(
                                         AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
                                         AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
                                         AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.4f),
                                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
                                     ),
-                                activeStageIndex = 2,
+                                activeStageIndex = 3,
                             ),
                     ),
                 onPrimaryAction = {},

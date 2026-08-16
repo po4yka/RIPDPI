@@ -58,10 +58,6 @@ private const val ShimmerDurationMs = 1800
 private const val ShimmerMinAlpha = 0.4f
 private const val ShimmerMaxAlpha = 0.7f
 private const val CompletionScalePeak = 1.06f
-private const val ParallelStageMinCount = 3
-private const val StrategyStageMinCount = 4
-private const val ParallelColumnWeight = 3f
-private const val OuterColumnWeight = 2f
 private const val FillOriginY = 0.5f
 
 private data class PipelineAlphas(
@@ -174,73 +170,37 @@ private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotio
     return PipelineAlphas(pulse = pulseAlpha, shimmer = shimmerAlpha)
 }
 
+/**
+ * One equal-width segment per stage, which is both what the spec draws
+ * (`docs/design/rds/preview/components-analysis-progress.html` lays the pipeline out as
+ * `repeat(N, 1fr)`) and the only shape that can show the run it reports on.
+ *
+ * This used to hardcode `[audit] -> [connectivity | dpi_full] -> [strategy]`: segments at indices
+ * 0, 1, 2 and 3, arrow glyphs between them, and 1 and 2 stacked as a parallel pair. That topology
+ * matched neither the spec nor the runner. `HomeCompositeStageSpecs` is a flat list of eight
+ * sequential stages -- `activeStageIndex` is a single Int, so nothing runs in parallel -- so the
+ * hardcoded indices dropped the last four stages of every full run without a trace. A quick scan
+ * emits three stages and happened to survive; a two-stage list would have lost its second stage
+ * and drawn two arrows pointing at nothing.
+ */
 @Composable
 private fun PipelineRow(
     stages: ImmutableList<AnalysisStageUiState>,
     activeStageIndex: Int?,
     pipelineAlphas: PipelineAlphas,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val typeScale = RipDpiThemeTokens.type
-    // Pipeline topology: [audit] → [connectivity | dpi_full] → [strategy]
-    // Stages 1 and 2 run in parallel and are stacked vertically.
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(SegmentGap),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        // Stage 0 — audit
-        if (stages.isNotEmpty()) {
+        stages.forEachIndexed { index, stage ->
             PipelineSegment(
-                stage = stages[0],
-                index = 0,
+                stage = stage,
+                index = index,
                 activeStageIndex = activeStageIndex,
                 pipelineAlphas = pipelineAlphas,
-                modifier = Modifier.weight(OuterColumnWeight),
-            )
-        }
-        // Arrow connector
-        Text(
-            text = "\u203A",
-            style = typeScale.monoSmall,
-            color = colors.mutedForeground,
-        )
-        // Stages 1 & 2 — parallel (stacked)
-        if (stages.size >= ParallelStageMinCount) {
-            Column(
-                modifier = Modifier.weight(ParallelColumnWeight),
-                verticalArrangement = Arrangement.spacedBy(SegmentGap),
-            ) {
-                PipelineSegment(
-                    stage = stages[1],
-                    index = 1,
-                    activeStageIndex = activeStageIndex,
-                    pipelineAlphas = pipelineAlphas,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                PipelineSegment(
-                    stage = stages[2],
-                    index = 2,
-                    activeStageIndex = activeStageIndex,
-                    pipelineAlphas = pipelineAlphas,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-        // Arrow connector
-        Text(
-            text = "\u203A",
-            style = typeScale.monoSmall,
-            color = colors.mutedForeground,
-        )
-        // Stage 3 — strategy
-        if (stages.size >= StrategyStageMinCount) {
-            PipelineSegment(
-                stage = stages[3],
-                index = 3,
-                activeStageIndex = activeStageIndex,
-                pipelineAlphas = pipelineAlphas,
-                modifier = Modifier.weight(OuterColumnWeight),
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -262,7 +222,7 @@ private fun PipelineSegment(
             AnalysisStageStatus.COMPLETED -> colors.success
             AnalysisStageStatus.FAILED -> colors.destructive
             AnalysisStageStatus.RUNNING -> colors.info
-            AnalysisStageStatus.PENDING -> colors.muted
+            AnalysisStageStatus.PENDING -> colors.outlineVariant
         }
     val animatedColor =
         animateColorAsState(
@@ -308,14 +268,17 @@ private fun PipelineSegment(
                     scaleY = completionScale.value
                 },
     ) {
-        // Background track
+        // Empty track. outlineVariant, not muted: muted is #F5F5F5 against a #F1F4FD container,
+        // which measures 1.02:1 and leaves every unstarted stage invisible, so a full eight-stage
+        // run still read as four. outlineVariant is also the token the contrast ladder strengthens
+        // for Medium/High, which muted is not, so the segments now respond to that setting at all.
         Box(
             modifier =
                 Modifier
                     .matchParentSize()
                     .graphicsLayer {
                         alpha = if (isPending) pipelineAlphas.shimmer.value else 1f
-                    }.background(colors.muted, segmentShape),
+                    }.background(colors.outlineVariant, segmentShape),
         )
         // Animated fill overlay
         Box(
@@ -368,6 +331,22 @@ private fun AnalysisProgressIndicatorPreview() {
                     ),
                 activeStageIndex = 0,
                 stageLabel = "Stage 1 of 3 \u00B7 Initializing scan",
+            )
+            // The shape a full run actually produces: HomeCompositeStageSpecs has eight stages.
+            AnalysisProgressIndicator(
+                stages =
+                    persistentListOf(
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.FAILED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.55f),
+                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                    ),
+                activeStageIndex = 4,
+                stageLabel = "Stage 5 of 8 \u00B7 DPI detector full",
             )
         }
     }
