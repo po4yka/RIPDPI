@@ -31,5 +31,5 @@ pub(crate) fn send_transport_oob_payload(
     prefix: &[u8],
     urgent_byte: u8,
 ) -> Result<usize, OutboundSendError> {
-    send_out_of_band(writer, prefix, urgent_byte).map(|()| prefix.len() + 1).map_err(OutboundSendError::Transport)
+    send_out_of_band(writer, prefix, urgent_byte).map(|()| prefix.len() + 1).map_err(OutboundSendError::transport)
 }

@@ -103,7 +103,7 @@ pub(crate) fn execute_tcp_plan(
         );
     }
     if send_steps.len() < plan.steps.len() {
-        return Err(OutboundSendError::Transport(io::Error::new(
+        return Err(OutboundSendError::transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "tcp plan steps exceed configured send steps",
         )));
@@ -113,13 +113,13 @@ pub(crate) fn execute_tcp_plan(
     let mut bytes_committed = 0usize;
     for (index, step) in plan.steps.iter().enumerate() {
         let start = usize::try_from(step.start).map_err(|_| {
-            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
+            OutboundSendError::transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
         })?;
         let end = usize::try_from(step.end).map_err(|_| {
-            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))
+            OutboundSendError::transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))
         })?;
         if start < cursor || end < start || end > plan.tampered.len() {
-            return Err(OutboundSendError::Transport(io::Error::new(
+            return Err(OutboundSendError::transport(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid tcp desync step bounds",
             )));

@@ -4,6 +4,10 @@ use std::sync::Arc;
 use ripdpi_config::OffsetBase;
 use ripdpi_desync::{DesyncAction, DesyncPlan};
 
+const RECEIPT_COUNTER_MAX: usize = u16::MAX as usize;
+const RECEIPT_DELTA_MIN: i64 = -4096;
+const RECEIPT_DELTA_MAX: i64 = 4096;
+
 /// Callback invoked for each packet written during desync execution.
 /// The bool parameter is `true` for outbound packets.
 pub type PcapHook = Arc<dyn Fn(&[u8], bool) + Send + Sync>;
@@ -140,7 +144,7 @@ pub struct TcpExecutionReceipt {
     pub configured_family: Option<TcpStrategyFamily>,
     pub effective_family: Option<TcpStrategyFamily>,
     pub marker_base: Option<TcpOffsetMarkerBase>,
-    pub marker_delta: Option<i64>,
+    pub marker_delta: Option<i16>,
     pub resolved_offset: Option<usize>,
     pub planned_steps: usize,
     pub attempted_actions: usize,
@@ -160,7 +164,7 @@ impl TcpExecutionReceipt {
     ) -> Self {
         let first_send_step = group.effective_tcp_chain().into_iter().find(|step| !step.kind().is_tls_prelude());
         let (marker_base, marker_delta) = first_send_step.map_or((None, None), |step| {
-            (Some(TcpOffsetMarkerBase::from_offset_base(step.offset().base)), Some(step.offset().delta))
+            (Some(TcpOffsetMarkerBase::from_offset_base(step.offset().base)), Some(bounded_delta(step.offset().delta)))
         });
         let summary = TcpActionReceiptSummary::from_actions(&plan.actions);
 
@@ -171,12 +175,12 @@ impl TcpExecutionReceipt {
             marker_base,
             marker_delta,
             resolved_offset: plan.steps.first().and_then(|step| usize::try_from(step.end).ok()),
-            planned_steps: plan.steps.len(),
-            attempted_actions: summary.actions,
-            completed_actions: summary.actions,
-            real_writes_committed: summary.real_writes,
-            completed_awaits: summary.awaits,
-            payload_bytes_committed: summary.payload_bytes,
+            planned_steps: bounded_count(plan.steps.len()),
+            attempted_actions: bounded_count(summary.actions),
+            completed_actions: bounded_count(summary.actions),
+            real_writes_committed: bounded_count(summary.real_writes),
+            completed_awaits: bounded_count(summary.awaits),
+            payload_bytes_committed: bounded_count(summary.payload_bytes),
             fallback_reason: None,
             terminal_reason: None,
         }
@@ -195,9 +199,36 @@ impl TcpExecutionReceipt {
             completed_actions: 1,
             real_writes_committed: 1,
             completed_awaits: 0,
-            payload_bytes_committed: bytes_committed,
+            payload_bytes_committed: bounded_count(bytes_committed),
             fallback_reason: None,
             terminal_reason: None,
+        }
+    }
+
+    pub fn failed_strategy_execution(
+        strategy_family: Option<&'static str>,
+        attempted_actions: usize,
+        completed_actions: usize,
+        real_writes_committed: usize,
+        completed_awaits: usize,
+        payload_bytes_committed: usize,
+        terminal_reason: TcpTerminalReason,
+    ) -> Self {
+        Self {
+            disposition: TcpExecutionDisposition::ExecutionFailed,
+            configured_family: strategy_family.map(TcpStrategyFamily::from_token),
+            effective_family: strategy_family.map(TcpStrategyFamily::from_token),
+            marker_base: None,
+            marker_delta: None,
+            resolved_offset: None,
+            planned_steps: 0,
+            attempted_actions: bounded_count(attempted_actions),
+            completed_actions: bounded_count(completed_actions),
+            real_writes_committed: bounded_count(real_writes_committed),
+            completed_awaits: bounded_count(completed_awaits),
+            payload_bytes_committed: bounded_count(payload_bytes_committed),
+            fallback_reason: None,
+            terminal_reason: Some(terminal_reason),
         }
     }
 }
@@ -207,6 +238,14 @@ struct TcpActionReceiptSummary {
     real_writes: usize,
     awaits: usize,
     payload_bytes: usize,
+}
+
+fn bounded_count(value: usize) -> usize {
+    value.min(RECEIPT_COUNTER_MAX)
+}
+
+fn bounded_delta(value: i64) -> i16 {
+    value.clamp(RECEIPT_DELTA_MIN, RECEIPT_DELTA_MAX) as i16
 }
 
 impl TcpActionReceiptSummary {
@@ -254,18 +293,26 @@ impl TcpActionReceiptSummary {
 
 #[derive(Debug)]
 pub enum OutboundSendError {
-    Transport(io::Error),
+    Transport {
+        source: io::Error,
+        execution_receipt: Option<Box<TcpExecutionReceipt>>,
+    },
     StrategyExecution {
         action: &'static str,
         strategy_family: &'static str,
         fallback: Option<&'static str>,
         bytes_committed: usize,
         source_errno: Option<i32>,
+        execution_receipt: Box<TcpExecutionReceipt>,
         source: io::Error,
     },
 }
 
 impl OutboundSendError {
+    pub fn transport(source: io::Error) -> Self {
+        Self::Transport { source, execution_receipt: None }
+    }
+
     pub fn into_io_error(self) -> io::Error {
         let kind = self.kind();
         io::Error::new(kind, self)
@@ -273,15 +320,47 @@ impl OutboundSendError {
 
     pub fn kind(&self) -> io::ErrorKind {
         match self {
-            Self::Transport(source) => source.kind(),
+            Self::Transport { source, .. } => source.kind(),
             Self::StrategyExecution { source, .. } => source.kind(),
         }
     }
 
     pub fn source_error(&self) -> &io::Error {
         match self {
-            Self::Transport(source) => source,
+            Self::Transport { source, .. } => source,
             Self::StrategyExecution { source, .. } => source,
+        }
+    }
+
+    pub fn with_execution_receipt(self, execution_receipt: TcpExecutionReceipt) -> Self {
+        match self {
+            Self::StrategyExecution {
+                action,
+                strategy_family,
+                fallback,
+                bytes_committed,
+                source_errno,
+                source,
+                ..
+            } => Self::StrategyExecution {
+                action,
+                strategy_family,
+                fallback,
+                bytes_committed,
+                source_errno,
+                execution_receipt: Box::new(execution_receipt),
+                source,
+            },
+            Self::Transport { source, .. } => {
+                Self::Transport { source, execution_receipt: Some(Box::new(execution_receipt)) }
+            }
+        }
+    }
+
+    pub fn execution_receipt(&self) -> Option<&TcpExecutionReceipt> {
+        match self {
+            Self::Transport { execution_receipt, .. } => execution_receipt.as_deref(),
+            Self::StrategyExecution { execution_receipt, .. } => Some(execution_receipt.as_ref()),
         }
     }
 }
@@ -289,7 +368,7 @@ impl OutboundSendError {
 impl std::fmt::Display for OutboundSendError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Transport(source) => source.fmt(formatter),
+            Self::Transport { source, .. } => source.fmt(formatter),
             Self::StrategyExecution { action, strategy_family, fallback, bytes_committed, source, .. } => {
                 write!(
                     formatter,
@@ -312,6 +391,6 @@ impl std::error::Error for OutboundSendError {
 
 impl From<io::Error> for OutboundSendError {
     fn from(value: io::Error) -> Self {
-        Self::Transport(value)
+        Self::Transport { source: value, execution_receipt: None }
     }
 }

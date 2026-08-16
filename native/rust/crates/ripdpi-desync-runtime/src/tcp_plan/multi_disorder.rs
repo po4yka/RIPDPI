@@ -54,13 +54,13 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
     strategy_family: Option<&'static str>,
 ) -> Result<PreparedMultiDisorderTcpPlan, OutboundSendError> {
     if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind() != TcpChainStepKind::MultiDisorder) {
-        return Err(OutboundSendError::Transport(io::Error::new(
+        return Err(OutboundSendError::transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "invalid multidisorder tcp chain configuration",
         )));
     }
     if plan.steps.len() < 3 || plan.steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
-        return Err(OutboundSendError::Transport(io::Error::new(
+        return Err(OutboundSendError::transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "multidisorder requires at least three non-empty planned segments",
         )));
@@ -70,13 +70,13 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
     let mut segments = Vec::with_capacity(plan.steps.len());
     for step in &plan.steps {
         let start = usize::try_from(step.start).map_err(|_| {
-            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
+            OutboundSendError::transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
         })?;
         let end = usize::try_from(step.end).map_err(|_| {
-            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))
+            OutboundSendError::transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))
         })?;
         if start != cursor || end <= start || end > plan.tampered.len() {
-            return Err(OutboundSendError::Transport(io::Error::new(
+            return Err(OutboundSendError::transport(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid multidisorder tcp segment bounds",
             )));
@@ -85,7 +85,7 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
         cursor = end;
     }
     if cursor != plan.tampered.len() {
-        return Err(OutboundSendError::Transport(io::Error::new(
+        return Err(OutboundSendError::transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "multidisorder tcp plan does not cover the full payload",
         )));

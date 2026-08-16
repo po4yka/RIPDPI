@@ -16,7 +16,10 @@ use ripdpi_session::OutboundProgress;
 
 use crate::sync::AtomicBool;
 
-pub use ripdpi_desync_runtime::{OutboundSendError, OutboundSendOutcome, PcapHook, primary_tcp_strategy_family};
+pub use ripdpi_desync_runtime::{
+    OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionReceipt, TcpTerminalReason,
+    primary_tcp_strategy_family,
+};
 
 #[derive(Clone)]
 pub struct TcpDesyncExecutor {

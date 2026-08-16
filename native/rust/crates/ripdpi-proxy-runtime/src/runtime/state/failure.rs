@@ -39,7 +39,7 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
         match error {
-            OutboundSendError::Transport(source) => {
+            OutboundSendError::Transport { source, .. } => {
                 runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source)
             }
             OutboundSendError::StrategyExecution {
@@ -49,6 +49,7 @@ impl RuntimeState {
                 bytes_committed,
                 source_errno,
                 source,
+                ..
             } => {
                 let mut failure = runtime_classify_strategy_execution_failure(
                     RuntimeFailureStage::FirstWrite,

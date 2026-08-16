@@ -26,7 +26,7 @@ fn outbound_send_error_preserves_strategy_execution_metadata() {
             assert_eq!(bytes_committed, 0);
             assert_eq!(source_errno, Some(libc::EINVAL));
         }
-        OutboundSendError::Transport(_) => panic!("expected strategy execution error"),
+        OutboundSendError::Transport { .. } => panic!("expected strategy execution error"),
     }
     assert!(err.to_string().contains("desync action=set_ttl_disorder"));
 }
@@ -46,7 +46,7 @@ fn outbound_send_error_into_io_error_preserves_fallback_details() {
     assert_eq!(
         io_error.get_ref().and_then(|inner| inner.downcast_ref::<OutboundSendError>()).and_then(|inner| match inner {
             OutboundSendError::StrategyExecution { fallback, .. } => *fallback,
-            OutboundSendError::Transport(_) => None,
+            OutboundSendError::Transport { .. } => None,
         }),
         Some("split")
     );
@@ -98,7 +98,7 @@ fn strategy_result_err_wraps_metadata() {
             assert_eq!(fallback, Some("disorder"));
             assert_eq!(bytes_committed, 100);
         }
-        OutboundSendError::Transport(err) => panic!("expected StrategyExecution, got Transport({err})"),
+        OutboundSendError::Transport { source, .. } => panic!("expected StrategyExecution, got Transport({source})"),
     }
 }
 
@@ -112,7 +112,7 @@ fn transport_result_ok_passes_through() {
 fn transport_result_err_wraps_as_transport() {
     let result: Result<i32, OutboundSendError> =
         transport_result(Err(io::Error::new(io::ErrorKind::BrokenPipe, "broken")));
-    assert!(matches!(result.unwrap_err(), OutboundSendError::Transport(_)));
+    assert!(matches!(result.unwrap_err(), OutboundSendError::Transport { .. }));
 }
 
 // ---------------------------------------------------------------
@@ -166,7 +166,7 @@ fn write_transport_payload_error_is_transport() {
         }
     }
     let err = last_err.expect("expected transport error after filling kernel buffer");
-    assert!(matches!(err, OutboundSendError::Transport(_)));
+    assert!(matches!(err, OutboundSendError::Transport { .. }));
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn write_strategy_named_error_has_metadata() {
             assert_eq!(strategy_family, "split");
             assert_eq!(fallback, Some("disorder"));
         }
-        OutboundSendError::Transport(err) => panic!("expected StrategyExecution, got Transport({err})"),
+        OutboundSendError::Transport { source, .. } => panic!("expected StrategyExecution, got Transport({source})"),
     }
 }
 

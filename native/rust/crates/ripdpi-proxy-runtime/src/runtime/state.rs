@@ -352,6 +352,7 @@ fn connection_concurrency_runtime_state(runtime_context: Option<&ProxyRuntimeCon
 #[cfg(test)]
 mod state_coverage_tests {
     use super::*;
+    use ripdpi_proxy_runtime_adapter::desync_platform::{TcpExecutionReceipt, TcpTerminalReason};
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
     use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
     use std::io::Cursor;
@@ -427,12 +428,28 @@ mod state_coverage_tests {
             fallback: None,
             bytes_committed: 37,
             source_errno: None,
+            execution_receipt: test_strategy_execution_receipt("tls_record_split", 37),
             source: io::Error::new(io::ErrorKind::BrokenPipe, "partial write"),
         });
 
         state.note_upstream_application_send_result(&result);
 
         assert_eq!(telemetry.bytes.load(AtomicOrdering::Relaxed), 37);
+    }
+
+    fn test_strategy_execution_receipt(
+        strategy_family: &'static str,
+        bytes_committed: usize,
+    ) -> Box<TcpExecutionReceipt> {
+        Box::new(TcpExecutionReceipt::failed_strategy_execution(
+            Some(strategy_family),
+            0,
+            0,
+            0,
+            0,
+            bytes_committed,
+            TcpTerminalReason::StrategyExecution,
+        ))
     }
 
     #[test]

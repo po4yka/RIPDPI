@@ -19,7 +19,7 @@ use crate::strategy_family::{await_writable_action_name, strategy_fallback_famil
 use crate::sync::AtomicBool;
 use crate::tcp_lowering::TcpLoweringCapabilities;
 use crate::transport_io::{await_transport_writable_action, await_writable_action_named, set_stream_ttl};
-use crate::types::{OutboundSendError, PcapHook};
+use crate::types::{OutboundSendError, PcapHook, TcpTerminalReason};
 
 const RESTORE_WINDOW_CLAMP: u32 = 1_000_000;
 
@@ -46,6 +46,7 @@ pub(crate) fn execute_tcp_actions(
 
     let result = (|| -> Result<usize, OutboundSendError> {
         for action in actions {
+            accounting.begin_action();
             match action {
                 DesyncAction::Write(bytes) => {
                     let handled_by_ttl_fallback = TtlOobActionExecutor::write_payload_with_ttl_fallback(
@@ -59,6 +60,7 @@ pub(crate) fn execute_tcp_actions(
                     if !handled_by_ttl_fallback {
                         RawWriteActionExecutor::write_payload(writer, bytes, &context, &mut accounting)?;
                     }
+                    accounting.complete_real_write(bytes.len());
                     if let Some(hook) = pcap_hook {
                         hook(bytes, true);
                     }
@@ -73,6 +75,7 @@ pub(crate) fn execute_tcp_actions(
                         &context,
                         &mut accounting,
                     )?;
+                    accounting.complete_real_write(prefix.len().saturating_add(1));
                 }
                 DesyncAction::SetTtl(ttl) => {
                     TtlOobActionExecutor::set_ttl(
@@ -83,6 +86,7 @@ pub(crate) fn execute_tcp_actions(
                         &context,
                         &accounting,
                     )?;
+                    accounting.complete_action();
                 }
                 DesyncAction::RestoreDefaultTtl => {
                     TtlOobActionExecutor::restore_default_ttl(
@@ -93,12 +97,18 @@ pub(crate) fn execute_tcp_actions(
                         &context,
                         &accounting,
                     )?;
+                    accounting.complete_action();
                 }
                 DesyncAction::SetMd5Sig { key_len } => {
                     PrivilegedActionExecutor::set_md5sig(writer, *key_len, &context, &accounting)?;
+                    accounting.complete_action();
                 }
-                DesyncAction::AttachDropSack => {}
-                DesyncAction::DetachDropSack => {}
+                DesyncAction::AttachDropSack => {
+                    accounting.complete_action();
+                }
+                DesyncAction::DetachDropSack => {
+                    accounting.complete_action();
+                }
                 DesyncAction::WriteIpFragmentedTcp { bytes, split_offset, disorder, ipv6_ext } => {
                     PrivilegedActionExecutor::write_ip_fragmented_tcp(
                         writer,
@@ -109,6 +119,7 @@ pub(crate) fn execute_tcp_actions(
                         &context,
                         &mut accounting,
                     )?;
+                    accounting.complete_real_write(bytes.len());
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
                     PrivilegedActionExecutor::write_seq_overlap(
@@ -119,9 +130,10 @@ pub(crate) fn execute_tcp_actions(
                         &context,
                         &mut accounting,
                     )?;
+                    accounting.complete_real_writes(2, real_chunk.len().saturating_add(remainder.len()));
                 }
                 DesyncAction::WriteIpFragmentedUdp { .. } => {
-                    return Err(OutboundSendError::Transport(io::Error::new(
+                    return Err(OutboundSendError::transport(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "udp fragmentation action reached tcp executor",
                     )));
@@ -140,26 +152,33 @@ pub(crate) fn execute_tcp_actions(
                     } else {
                         await_transport_writable_action(writer, wait_send, await_interval)?;
                     }
+                    accounting.complete_await();
                 }
                 DesyncAction::SetWindowClamp(size) => {
                     let _ = platform::set_tcp_window_clamp(writer, *size);
+                    accounting.complete_action();
                 }
                 DesyncAction::RestoreWindowClamp => {
                     let _ = platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP);
+                    accounting.complete_action();
                 }
                 DesyncAction::SetWsize { window } => {
                     let _ = platform::set_tcp_window_clamp(writer, *window);
+                    accounting.complete_action();
                 }
                 DesyncAction::RestoreWsize => {
                     let _ = platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP);
+                    accounting.complete_action();
                 }
                 DesyncAction::SendFakeRst => {
                     PrivilegedActionExecutor::send_fake_rst(writer, &context);
+                    accounting.complete_action();
                 }
                 DesyncAction::Delay(ms) => {
                     // std-thread-safe: each connection runs on its own dedicated OS thread
                     // (mio + std::thread, no tokio worker pool). Blocking here is correct.
                     std::thread::sleep(Duration::from_millis(u64::from(*ms)));
+                    accounting.complete_action();
                 }
             }
         }
@@ -175,5 +194,11 @@ pub(crate) fn execute_tcp_actions(
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
 
-    result
+    result.map_err(|err| {
+        let terminal_reason = match &err {
+            OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
+            OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,
+        };
+        err.with_execution_receipt(accounting.failure_receipt(strategy_family, terminal_reason))
+    })
 }

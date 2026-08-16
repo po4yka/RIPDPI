@@ -117,7 +117,7 @@ impl PrivilegedActionExecutor {
                     let committed = write_transport_payload(writer, bytes)?;
                     accounting.set_bytes_committed(committed);
                 }
-                Err(err) => return Err(OutboundSendError::Transport(err)),
+                Err(err) => return Err(OutboundSendError::transport(err)),
             }
         }
         Ok(())
@@ -151,7 +151,7 @@ impl PrivilegedActionExecutor {
                 accounting.add_bytes_committed(committed);
                 Self::write_seq_overlap_remainder(writer, remainder, accounting)?;
             }
-            Err(err) => return Err(OutboundSendError::Transport(err)),
+            Err(err) => return Err(OutboundSendError::transport(err)),
         }
         Ok(())
     }

@@ -51,7 +51,15 @@ fn actions_write_with_strategy() {
 fn action_error_carries_receipt_for_completed_steps_before_failure() {
     let (mut client, _server) = connected_pair();
     let unavailable = default_ttl_unavailable();
-    let actions = vec![DesyncAction::Write(b"hello".to_vec()), DesyncAction::SetMd5Sig { key_len: 5 }];
+    let actions = vec![
+        DesyncAction::Write(b"hello".to_vec()),
+        DesyncAction::WriteIpFragmentedUdp {
+            bytes: b"data".to_vec(),
+            split_offset: 2,
+            disorder: false,
+            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        },
+    ];
 
     let err = execute_tcp_actions(
         &mut client,
@@ -65,19 +73,20 @@ fn action_error_carries_receipt_for_completed_steps_before_failure() {
         None,
         None,
     )
-    .expect_err("unsupported md5sig should fail after the first write");
+    .expect_err("udp fragmentation should fail in tcp executor after the first write");
 
     match err {
-        OutboundSendError::StrategyExecution { execution_receipt, .. } => {
+        OutboundSendError::Transport { execution_receipt: Some(execution_receipt), .. } => {
             assert_eq!(execution_receipt.disposition, TcpExecutionDisposition::ExecutionFailed);
             assert_eq!(execution_receipt.effective_family, Some(TcpStrategyFamily::Split));
             assert_eq!(execution_receipt.attempted_actions, 2);
             assert_eq!(execution_receipt.completed_actions, 1);
             assert_eq!(execution_receipt.real_writes_committed, 1);
             assert_eq!(execution_receipt.payload_bytes_committed, 5);
-            assert_eq!(execution_receipt.terminal_reason, Some(TcpTerminalReason::StrategyExecution));
+            assert_eq!(execution_receipt.terminal_reason, Some(TcpTerminalReason::Transport));
         }
-        OutboundSendError::Transport(err) => panic!("expected StrategyExecution, got Transport({err})"),
+        OutboundSendError::Transport { execution_receipt: None, .. } => panic!("transport error missed receipt"),
+        OutboundSendError::StrategyExecution { .. } => panic!("expected transport failure"),
     }
 }
 

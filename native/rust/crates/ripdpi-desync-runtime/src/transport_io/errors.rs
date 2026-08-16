@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::types::OutboundSendError;
+use crate::types::{OutboundSendError, TcpExecutionReceipt, TcpTerminalReason};
 
 pub(crate) fn strategy_execution_error(
     action: &'static str,
@@ -15,6 +15,15 @@ pub(crate) fn strategy_execution_error(
         fallback,
         bytes_committed,
         source_errno: source.raw_os_error(),
+        execution_receipt: Box::new(TcpExecutionReceipt::failed_strategy_execution(
+            Some(strategy_family),
+            0,
+            0,
+            0,
+            0,
+            bytes_committed,
+            TcpTerminalReason::StrategyExecution,
+        )),
         source,
     }
 }
@@ -34,5 +43,5 @@ pub(crate) fn strategy_result<T>(
 }
 
 pub(crate) fn transport_result<T>(result: io::Result<T>) -> Result<T, OutboundSendError> {
-    result.map_err(OutboundSendError::Transport)
+    result.map_err(OutboundSendError::transport)
 }

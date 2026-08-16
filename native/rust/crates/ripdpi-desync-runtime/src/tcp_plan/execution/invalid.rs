@@ -16,5 +16,5 @@ pub(super) fn execute_unknown_step() -> Result<(usize, TcpStepControl), Outbound
 }
 
 fn invalid_data(message: &'static str) -> Result<(usize, TcpStepControl), OutboundSendError> {
-    Err(OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, message)))
+    Err(OutboundSendError::transport(io::Error::new(io::ErrorKind::InvalidData, message)))
 }

@@ -107,7 +107,7 @@ impl RuntimeState {
         let bytes_committed = match result {
             Ok(outcome) => outcome.bytes_committed,
             Err(OutboundSendError::StrategyExecution { bytes_committed, .. }) => *bytes_committed,
-            Err(OutboundSendError::Transport(_)) => 0,
+            Err(OutboundSendError::Transport { .. }) => 0,
         };
         if bytes_committed > 0 {
             self.note_upstream_application_bytes_forwarded(bytes_committed as u64, now_epoch_ms());

@@ -67,6 +67,8 @@ pub(super) fn relay(
 mod tests {
     use std::time::{Duration, Instant};
 
+    use ripdpi_proxy_runtime_adapter::desync_platform::{TcpExecutionReceipt, TcpTerminalReason};
+
     use super::super::config::{
         DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST, RuntimeConfig,
         first_response_settings,
@@ -94,6 +96,7 @@ mod tests {
             fallback: Some("split"),
             bytes_committed: 0,
             source_errno: Some(libc::EINVAL),
+            execution_receipt: test_strategy_execution_receipt("disorder", 0),
             source: io::Error::from_raw_os_error(libc::EINVAL),
         });
 
@@ -111,6 +114,7 @@ mod tests {
             fallback: None,
             bytes_committed: 0,
             source_errno: None,
+            execution_receipt: test_strategy_execution_receipt("split", 0),
             source: io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
         });
 
@@ -128,6 +132,7 @@ mod tests {
             fallback: Some("split"),
             bytes_committed: 0,
             source_errno: Some(libc::EROFS),
+            execution_receipt: test_strategy_execution_receipt("disorder", 0),
             source: io::Error::from_raw_os_error(libc::EROFS),
         });
 
@@ -144,6 +149,7 @@ mod tests {
             fallback: None,
             bytes_committed: 0,
             source_errno: Some(libc::EROFS),
+            execution_receipt: test_strategy_execution_receipt("split", 0),
             source: io::Error::from_raw_os_error(libc::EROFS),
         });
 
@@ -161,12 +167,28 @@ mod tests {
             fallback: None,
             bytes_committed: 3,
             source_errno: Some(libc::EROFS),
+            execution_receipt: test_strategy_execution_receipt("split", 3),
             source: io::Error::from_raw_os_error(libc::EROFS),
         });
 
         assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
         assert_eq!(failure.action, RuntimeFailureAction::SurfaceOnly);
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=3"));
+    }
+
+    fn test_strategy_execution_receipt(
+        strategy_family: &'static str,
+        bytes_committed: usize,
+    ) -> Box<TcpExecutionReceipt> {
+        Box::new(TcpExecutionReceipt::failed_strategy_execution(
+            Some(strategy_family),
+            0,
+            0,
+            0,
+            0,
+            bytes_committed,
+            TcpTerminalReason::StrategyExecution,
+        ))
     }
 
     #[test]
