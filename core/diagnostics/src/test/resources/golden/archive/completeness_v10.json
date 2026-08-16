@@ -1,0 +1,92 @@
+{
+    "appliedLimits": {
+        "appLogBytes": 524288,
+        "logcatBytes": 524288,
+        "nativeEvents": 200,
+        "snapshots": 250,
+        "startupJournalBytes": 32768,
+        "telemetrySamples": 120
+    },
+    "collectionWarnings": [
+        "git_commit_unavailable",
+        "native_library_version_unavailable:libripdpi.so",
+        "native_library_version_unavailable:libripdpi-tunnel.so"
+    ],
+    "includedCounts": {
+        "archiveWide": {
+            "contexts": 2,
+            "nativeEvents": 2,
+            "snapshots": 2,
+            "telemetrySamples": 1
+        },
+        "primarySession": {
+            "contexts": 1,
+            "events": 1,
+            "results": 1,
+            "snapshots": 1
+        }
+    },
+    "reasons": [
+        {
+            "code": "git_commit_unavailable",
+            "count": 1,
+            "section": "build_provenance"
+        },
+        {
+            "code": "native_version_unavailable",
+            "count": 2,
+            "section": "build_provenance"
+        }
+    ],
+    "relayAttemptTraces": {
+        "droppedEventCount": 0,
+        "retainedDecisionCount": 0,
+        "retainedEventCount": 0,
+        "sequenceGaps": [],
+        "unsupportedAttemptCount": 0
+    },
+    "sectionStatuses": {
+        "analysis.json": "included",
+        "archive-provenance.json": "included",
+        "completeness.json": "included",
+        "developer-analytics.json": "included",
+        "diagnostic-context.json": "redacted",
+        "execution-plan.json": "redacted",
+        "integrity.json": "included",
+        "logcat.txt": "included",
+        "manifest.json": "redacted",
+        "native-events.csv": "included",
+        "network-snapshots.json": "redacted",
+        "probe-results.csv": "included",
+        "relay-attempt-traces.jsonl": "included",
+        "relay-health-decisions.jsonl": "included",
+        "report.json": "redacted",
+        "runtime-config.json": "included",
+        "strategy-matrix.json": "included",
+        "summary.txt": "redacted",
+        "telemetry.csv": "included"
+    },
+    "sourceCounts": {
+        "archiveWide": {
+            "contexts": 2,
+            "nativeEvents": 2,
+            "snapshots": 2,
+            "telemetrySamples": 1
+        },
+        "primarySession": {
+            "contexts": 1,
+            "events": 1,
+            "results": 1,
+            "snapshots": 1
+        }
+    },
+    "truncation": {
+        "appLog": false,
+        "contexts": false,
+        "logcat": false,
+        "nativeEvents": false,
+        "snapshots": false,
+        "startupJournal": false,
+        "telemetrySamples": false
+    }
+}

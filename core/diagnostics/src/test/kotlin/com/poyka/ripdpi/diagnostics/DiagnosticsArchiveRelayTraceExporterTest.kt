@@ -313,7 +313,7 @@ internal class DiagnosticsArchiveRelayTraceExporterTest : DiagnosticsArchiveExpo
                     ),
                 )
 
-            assertEquals(9, archive.schemaVersion)
+            assertEquals(10, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 val traceEntry = zip.getEntry("relay-attempt-traces.jsonl")
                 assertNotNull(traceEntry)

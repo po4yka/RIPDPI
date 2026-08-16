@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -57,6 +58,7 @@ class DiagnosticsArchiveRedactor
                         )
                     },
                 cellularDetails = model.cellularDetails?.redactForArchive(),
+                pathValidation = model.pathValidation?.sanitizeVpnRouteEvidenceForArchive(),
             )
 
         fun redact(model: DiagnosticContextModel): DiagnosticContextModel =

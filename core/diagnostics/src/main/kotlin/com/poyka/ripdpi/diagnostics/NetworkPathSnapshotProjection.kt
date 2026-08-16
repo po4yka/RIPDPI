@@ -10,6 +10,12 @@ import com.poyka.ripdpi.data.NetworkPathAssociationActiveDefault
 import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
 import com.poyka.ripdpi.data.NetworkPathAssociationUnknown
 import com.poyka.ripdpi.data.NetworkPathObservation
+import com.poyka.ripdpi.data.VpnRouteAppRoutingShape
+import com.poyka.ripdpi.data.VpnRouteCallbackState
+import com.poyka.ripdpi.data.VpnRouteConsistency
+import com.poyka.ripdpi.data.VpnRouteEvidence
+import com.poyka.ripdpi.data.VpnRouteLifecycleState
+import com.poyka.ripdpi.data.VpnRouteOwnerVerification
 import com.poyka.ripdpi.data.boundedNetworkPathCount
 import com.poyka.ripdpi.data.networkPathBandwidthBand
 import com.poyka.ripdpi.data.networkPathCountWasTruncated
@@ -30,15 +36,20 @@ internal fun resolvePathValidationEvidence(
     permissionAvailable: Boolean,
     activePath: NetworkPathCapabilities?,
     underlay: NetworkPathObservation,
+    vpnRouteEvidence: VpnRouteEvidenceSnapshot? = null,
 ): NetworkPathValidationEvidence {
     if (!permissionAvailable) {
-        return NetworkPathValidationEvidence(captureStatus = "permission_unavailable")
+        return NetworkPathValidationEvidence(
+            captureStatus = "permission_unavailable",
+            vpnRouteEvidence = vpnRouteEvidence,
+        )
     }
 
     val vpn = activePath?.takeIf { it.isVpn }
     val authoritativeUnderlay = underlay.takeIf { it.association == NetworkPathAssociationServiceBinder }
     return NetworkPathValidationEvidence(
         captureStatus = "captured",
+        callingDefaultObserverRole = "calling_uid_default",
         underlayAssociation = authoritativeUnderlay?.association ?: NetworkPathAssociationUnknown,
         underlayGeneration = authoritativeUnderlay?.generation,
         underlayPresent = authoritativeUnderlay?.let { true },
@@ -51,8 +62,144 @@ internal fun resolvePathValidationEvidence(
         vpnInternet = vpn?.hasInternet,
         vpnValidated = vpn?.validated,
         vpnCaptivePortal = vpn?.captivePortal,
+        vpnRouteEvidence = vpnRouteEvidence,
     )
 }
+
+internal fun VpnRouteEvidence.toDiagnosticsSnapshot(): VpnRouteEvidenceSnapshot =
+    VpnRouteEvidenceSnapshot(
+        observerRole = observerRole.takeIf { it == "vpn_owner_service" } ?: "unavailable",
+        observerSource = observerSource.takeIf { it == "service_network_callback" } ?: "unavailable",
+        lifecycleGeneration = lifecycle?.generation,
+        lifecycleState = lifecycle?.state.toWireValue(),
+        callbackState = callbackState.toWireValue(),
+        callbackRevision = callbackRevision,
+        ownerVerification = ownerVerification.toWireValue(),
+        evidenceAgeBand = evidenceAgeBand.takeIf(::isSupportedEvidenceAgeBand) ?: "unknown",
+        intendedDefaultRouteFamilies = lifecycle?.intendedDefaultRouteFamilies.orEmpty().filterRouteFamilies(),
+        observedDefaultRouteFamilies = observedDefaultRouteFamilies.filterRouteFamilies(),
+        addressFamilies = lifecycle?.addressFamilies.orEmpty().filterRouteFamilies(),
+        dnsServerFamilies = lifecycle?.dnsServerFamilies.orEmpty().filterRouteFamilies(),
+        appRoutingShape = lifecycle?.appRoutingShape.toWireValue(),
+        configuredAppCount = lifecycle?.configuredAppCount?.let(::boundedNetworkPathCount),
+        ownPackageExcluded = lifecycle?.ownPackageExcluded,
+        mtuBand = lifecycle?.mtuBand?.takeIf(::isSupportedMtuBand) ?: "unknown",
+        metered = lifecycle?.metered,
+        appliedTunnelReceiptGeneration = lifecycle?.appliedTunnelReceiptGeneration,
+        routeConsistency = routeConsistency.toWireValue(),
+        vpnPresent = vpnPresent,
+        hasInternet = hasInternet,
+        validated = validated,
+        captivePortal = captivePortal,
+        forwardingOutcome = forwardingOutcome.takeIf(AllowedForwardingOutcomes::contains) ?: "unavailable",
+        forwardingLifecycleGeneration = forwardingLifecycleGeneration,
+        forwardingTerminal = forwardingTerminal,
+    ).sanitizeForArchive()
+
+private fun VpnRouteLifecycleState?.toWireValue(): String =
+    when (this) {
+        VpnRouteLifecycleState.Intended -> "intended"
+        VpnRouteLifecycleState.Established -> "established"
+        VpnRouteLifecycleState.BridgeReady -> "bridge_ready"
+        VpnRouteLifecycleState.FailClosed -> "fail_closed"
+        VpnRouteLifecycleState.Closed -> "closed"
+        null -> "unavailable"
+    }
+
+private fun VpnRouteCallbackState.toWireValue(): String =
+    when (this) {
+        VpnRouteCallbackState.Unavailable -> "unavailable"
+        VpnRouteCallbackState.Awaiting -> "awaiting"
+        VpnRouteCallbackState.TimedOut -> "timed_out"
+        VpnRouteCallbackState.Complete -> "complete"
+        VpnRouteCallbackState.Lost -> "lost"
+    }
+
+private fun VpnRouteOwnerVerification.toWireValue(): String =
+    when (this) {
+        VpnRouteOwnerVerification.Verified -> "verified"
+        VpnRouteOwnerVerification.Unavailable -> "unavailable"
+    }
+
+private fun VpnRouteAppRoutingShape?.toWireValue(): String =
+    when (this) {
+        VpnRouteAppRoutingShape.AllowOnly -> "allow_only"
+        VpnRouteAppRoutingShape.Disallow -> "disallow"
+        null -> "unavailable"
+    }
+
+private fun VpnRouteConsistency.toWireValue(): String =
+    when (this) {
+        VpnRouteConsistency.Consistent -> "consistent"
+        VpnRouteConsistency.Mismatch -> "mismatch"
+        VpnRouteConsistency.Unavailable -> "unavailable"
+    }
+
+private fun List<String>.filterRouteFamilies(): List<String> =
+    filter { it == "ipv4" || it == "ipv6" }.distinct().sorted()
+
+private fun isSupportedEvidenceAgeBand(value: String): Boolean =
+    value == "fresh" || value == "recent" || value == "stale" || value == "unknown"
+
+private fun isSupportedMtuBand(value: String): Boolean =
+    value == "sub_ipv6_minimum" ||
+        value == "reduced" ||
+        value == "standard" ||
+        value == "jumbo" ||
+        value == "unknown"
+
+private val AllowedLifecycleStates =
+    setOf("intended", "established", "bridge_ready", "fail_closed", "closed", "unavailable")
+private val AllowedCallbackStates = setOf("unavailable", "awaiting", "timed_out", "complete", "lost")
+private val AllowedOwnerVerifications = setOf("verified", "unavailable")
+private val AllowedAppRoutingShapes = setOf("allow_only", "disallow")
+private val AllowedRouteConsistencies = setOf("consistent", "mismatch", "unavailable")
+private val AllowedForwardingOutcomes =
+    setOf(
+        "unavailable",
+        "fail_closed",
+        "evidence_unavailable",
+        "evidence_unavailable_partial",
+        "no_flow",
+        "tun_ingress_no_upstream",
+        "upstream_open_no_payload",
+        "outbound_only",
+        "tun_return_without_proxy_outbound",
+        "proxy_outbound_observed",
+        "cross_layer_return_observed",
+    )
+
+internal fun VpnRouteEvidenceSnapshot.sanitizeForArchive(): VpnRouteEvidenceSnapshot =
+    copy(
+        observerRole = observerRole.takeIf { it == "vpn_owner_service" } ?: "unavailable",
+        observerSource = observerSource.takeIf { it == "service_network_callback" } ?: "unavailable",
+        lifecycleState = lifecycleState.takeIf(AllowedLifecycleStates::contains) ?: "unavailable",
+        callbackState = callbackState.takeIf(AllowedCallbackStates::contains) ?: "unavailable",
+        ownerVerification = ownerVerification.takeIf(AllowedOwnerVerifications::contains) ?: "unavailable",
+        evidenceAgeBand = evidenceAgeBand.takeIf(::isSupportedEvidenceAgeBand) ?: "unknown",
+        intendedDefaultRouteFamilies = intendedDefaultRouteFamilies.filterRouteFamilies(),
+        observedDefaultRouteFamilies = observedDefaultRouteFamilies.filterRouteFamilies(),
+        addressFamilies = addressFamilies.filterRouteFamilies(),
+        dnsServerFamilies = dnsServerFamilies.filterRouteFamilies(),
+        appRoutingShape = appRoutingShape.takeIf(AllowedAppRoutingShapes::contains) ?: "unavailable",
+        configuredAppCount = configuredAppCount?.let(::boundedNetworkPathCount),
+        mtuBand = mtuBand.takeIf(::isSupportedMtuBand) ?: "unknown",
+        routeConsistency = routeConsistency.takeIf(AllowedRouteConsistencies::contains) ?: "unavailable",
+        forwardingOutcome = forwardingOutcome.takeIf(AllowedForwardingOutcomes::contains) ?: "unavailable",
+        forwardingLifecycleGeneration =
+            forwardingLifecycleGeneration.takeIf { forwardingOutcome in AllowedForwardingOutcomes - "unavailable" },
+        forwardingTerminal =
+            forwardingTerminal.takeIf {
+                forwardingOutcome in AllowedForwardingOutcomes - "unavailable"
+            },
+    )
+
+internal fun NetworkPathValidationEvidence.sanitizeVpnRouteEvidenceForArchive(): NetworkPathValidationEvidence =
+    copy(
+        callingDefaultObserverRole =
+            callingDefaultObserverRole.takeIf { it == "calling_uid_default" } ?: "unavailable",
+        vpnRouteEvidence = vpnRouteEvidence?.sanitizeForArchive(),
+    )
 
 internal fun NetworkCapabilities.toNetworkPathCapabilities(): NetworkPathCapabilities =
     NetworkPathCapabilities(
@@ -68,6 +215,7 @@ internal fun captureCurrentPathValidationEvidence(
     connectivityManager: ConnectivityManager,
     permissionAvailable: Boolean,
     underlay: NetworkPathObservation,
+    vpnRouteEvidence: VpnRouteEvidenceSnapshot? = null,
 ): NetworkPathValidationEvidence =
     resolvePathValidationEvidence(
         permissionAvailable = permissionAvailable,
@@ -80,6 +228,7 @@ internal fun captureCurrentPathValidationEvidence(
                 null
             },
         underlay = underlay,
+        vpnRouteEvidence = vpnRouteEvidence,
     )
 
 internal fun sanitizeAuthoritativeUnderlayObservation(observation: NetworkPathObservation): NetworkPathObservation =

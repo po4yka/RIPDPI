@@ -22,6 +22,121 @@ import java.util.concurrent.atomic.AtomicReference
 
 class DataPlaneEvidenceCollectorTest {
     @Test
+    fun lifecycleGenerationChangeRejectsPreviousForwardingOutcome() =
+        runTest {
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.VPN,
+                    proxyEvidenceProvider = { error("explicit evidence observation expected") },
+                )
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(ProxyForwardingEvidence(upstreamApplicationBytes = 100)),
+                RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunWriteBytes = 100)),
+                lifecycleGeneration = 1L,
+            )
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(ProxyForwardingEvidence(upstreamApplicationBytes = 200)),
+                RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunWriteBytes = 200)),
+                lifecycleGeneration = 1L,
+            )
+            assertEquals("cross_layer_return_observed", collector.currentOutcome().wireValue)
+            assertFalse(collector.currentOutcome().terminalFailure)
+
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(ProxyForwardingEvidence(upstreamApplicationBytes = 200)),
+                RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunWriteBytes = 200)),
+                lifecycleGeneration = 2L,
+            )
+
+            assertEquals("evidence_unavailable_partial", collector.currentOutcome().wireValue)
+            assertFalse(collector.currentOutcome().terminalFailure)
+        }
+
+    @Test
+    fun olderPollFinishingAfterReplacementCannotMutateReplacementOutcome() =
+        runTest {
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.VPN,
+                    proxyEvidenceProvider = { error("explicit evidence observation expected") },
+                )
+            val replacement =
+                collector.enrichWithOutcome(
+                    runningTelemetrySnapshot(),
+                    RuntimeForwardingEvidence.Available(ProxyForwardingEvidence(upstreamApplicationBytes = 100)),
+                    RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunWriteBytes = 100)),
+                    lifecycleGeneration = 2L,
+                )
+
+            val stale =
+                collector.enrichWithOutcome(
+                    runningTelemetrySnapshot(),
+                    RuntimeForwardingEvidence.Available(ProxyForwardingEvidence.Empty),
+                    RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunReadBytes = 10_000)),
+                    lifecycleGeneration = 1L,
+                )
+
+            assertEquals(replacement.outcome, stale.outcome)
+            assertEquals(replacement.outcome, collector.currentOutcome())
+        }
+
+    @Test
+    fun terminalForwardingFailureRequiresRepeatedCurrentGenerationEvidence() =
+        runTest {
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.VPN,
+                    proxyEvidenceProvider = { error("explicit evidence observation expected") },
+                )
+
+            repeat(2) {
+                collector.enrich(
+                    runningTelemetrySnapshot(),
+                    RuntimeForwardingEvidence.Available(ProxyForwardingEvidence.Empty),
+                    RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunReadBytes = 100)),
+                )
+                assertFalse(collector.currentOutcome().terminalFailure)
+            }
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(ProxyForwardingEvidence.Empty),
+                RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunReadBytes = 100)),
+            )
+
+            assertEquals("tun_ingress_no_upstream", collector.currentOutcome().wireValue)
+            assertTrue(collector.currentOutcome().terminalFailure)
+        }
+
+    @Test
+    fun transientNegativePollClearsTerminalFailureCandidateWhenTrafficRecovers() =
+        runTest {
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.VPN,
+                    proxyEvidenceProvider = { error("explicit evidence observation expected") },
+                )
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(ProxyForwardingEvidence.Empty),
+                RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunReadBytes = 100)),
+            )
+            assertEquals("tun_ingress_no_upstream", collector.currentOutcome().wireValue)
+            assertFalse(collector.currentOutcome().terminalFailure)
+
+            collector.enrich(
+                runningTelemetrySnapshot(),
+                RuntimeForwardingEvidence.Available(ProxyForwardingEvidence(upstreamApplicationBytes = 100)),
+                RuntimeForwardingEvidence.Available(TunForwardingEvidence(tunReadBytes = 100, tunWriteBytes = 100)),
+            )
+
+            assertEquals("cross_layer_return_observed", collector.currentOutcome().wireValue)
+            assertFalse(collector.currentOutcome().terminalFailure)
+        }
+
+    @Test
     fun transientZeroPayloadWithoutRunningTelemetryKeepsCurrentGeneration() =
         runTest {
             var polls = 0

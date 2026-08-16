@@ -246,6 +246,60 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `vpn validation-only warning is rendered on network stage`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
+                vpnValidationWarning = true,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(
+            HomeConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Network }.state,
+        )
+        assertEquals(
+            HomeConnectionActuatorStageState.Complete,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
+        )
+    }
+
+    @Test
+    fun `vpn forwarding-only warning is rendered on tunnel stage`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
+                vpnForwardingWarning = true,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(
+            HomeConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Tunnel }.state,
+        )
+        assertEquals(
+            HomeConnectionActuatorStageState.Complete,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
+        )
+    }
+
+    @Test
     fun `connection actuator labels relay backed vpn as vpn`() {
         val stringResolver = ResourceStringResolver()
         val directVpn =

@@ -369,7 +369,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
         }
 
     @Test
-    fun `createArchive persists requested session export and writes schema v9 archive`() =
+    fun `createArchive persists requested session export and writes schema v10 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -392,7 +392,7 @@ internal class DiagnosticsArchiveExporterTest : DiagnosticsArchiveExporterTestBa
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(9, archive.schemaVersion)
+            assertEquals(10, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -903,7 +903,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(9, archive.schemaVersion)
+            assertEquals(10, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -1161,7 +1161,7 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/execution-plan.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v9.json",
+            "archive/manifest_home_composite_v10.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
             scrub = { manifest ->
                 JsonObject(

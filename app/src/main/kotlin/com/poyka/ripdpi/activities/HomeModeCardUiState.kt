@@ -358,7 +358,9 @@ private fun vpnModeStatusLabel(
                     stringResolver.getString(R.string.home_connection_actuator_state_vpn_unverified)
                 }
 
-                VpnDataPlaneStatus.Unavailable -> {
+                VpnDataPlaneStatus.Unavailable,
+                VpnDataPlaneStatus.Degraded,
+                -> {
                     stringResolver.getString(R.string.home_connection_actuator_state_vpn_unavailable)
                 }
 

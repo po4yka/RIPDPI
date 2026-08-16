@@ -122,6 +122,7 @@ internal class VpnTelemetryCoordinator(
         evidenceCollector: DataPlaneEvidenceCollector,
         finalCapture: Boolean = false,
     ): VpnTelemetrySnapshot {
+        val routeForwardingEvidenceSink = dependencies.vpnTunnelRuntime.routeForwardingEvidenceSink
         val proxyPoll = dependencies.proxyRuntimeSupervisor.pollTelemetryAndForwardingEvidence()
         val proxyTelemetryOutcome = proxyPoll.telemetry
         val relayTelemetryOutcome = dependencies.upstreamRelaySupervisor.pollTelemetry()
@@ -143,19 +144,29 @@ internal class VpnTelemetryCoordinator(
                 tunnelTelemetry = state.applyPendingNetworkHandoverClass(tunnelTelemetry),
                 tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
             )
-        return if (finalCapture) {
-            evidenceCollector.finalizeAndEnrich(
-                snapshot,
-                proxyPoll.forwardingEvidence,
-                tunnelPoll.forwardingEvidence,
-            )
-        } else {
-            evidenceCollector.enrich(
-                snapshot,
-                proxyPoll.forwardingEvidence,
-                tunnelPoll.forwardingEvidence,
-            )
-        }
+        val evidenceResult =
+            if (finalCapture) {
+                evidenceCollector.finalizeAndEnrichWithOutcome(
+                    snapshot,
+                    proxyPoll.forwardingEvidence,
+                    tunnelPoll.forwardingEvidence,
+                    routeForwardingEvidenceSink?.generation,
+                )
+            } else {
+                evidenceCollector.enrichWithOutcome(
+                    snapshot,
+                    proxyPoll.forwardingEvidence,
+                    tunnelPoll.forwardingEvidence,
+                    routeForwardingEvidenceSink?.generation,
+                )
+            }
+        val forwardingOutcome = evidenceResult.outcome
+        routeForwardingEvidenceSink?.record(
+            outcome = forwardingOutcome.wireValue,
+            terminal = forwardingOutcome.terminalFailure,
+            revision = forwardingOutcome.revision,
+        )
+        return evidenceResult.snapshot
     }
 
     private fun nextTelemetryPollInterval(): Long =

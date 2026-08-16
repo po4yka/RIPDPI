@@ -742,7 +742,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(9, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(10, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -1340,6 +1340,13 @@ class DiagnosticsArchiveRendererTest {
             )
 
         DiagnosticsArchiveZipWriter().write(target.file, renderer.render(target, selection))
+        ZipFile(target.file).use { zip ->
+            val snapshots =
+                zip.getInputStream(zip.getEntry("network-snapshots.json")).bufferedReader().readText()
+            assertTrue(snapshots.contains("\"observerRole\": \"vpn_owner_service\""))
+            assertTrue(snapshots.contains("\"callingDefaultObserverRole\": \"unavailable\""))
+            assertTrue(snapshots.contains("\"forwardingOutcome\": \"cross_layer_return_observed\""))
+        }
         assertZipExcludes(target, hostileArchiveValues())
     }
 
@@ -1490,6 +1497,7 @@ class DiagnosticsArchiveRendererTest {
             "private-truncated-key-material",
             "native-secret-token",
             "approach-private-value",
+            "route-owner-private.example/uid-4242/192.0.2.222",
             "Private Approach Name",
             "private-validation-result",
             "private-runtime-end-reason",
@@ -1637,6 +1645,28 @@ class DiagnosticsArchiveRendererTest {
                     band = "5 GHz",
                     wifiStandard = "802.11ax",
                     gateway = "192.0.2.1",
+                ),
+            pathValidation =
+                NetworkPathValidationEvidence(
+                    captureStatus = "captured",
+                    callingDefaultObserverRole = "route-owner-private.example/uid-4242/192.0.2.222",
+                    vpnRouteEvidence =
+                        VpnRouteEvidenceSnapshot(
+                            observerRole = "vpn_owner_service",
+                            observerSource = "route-owner-private.example/uid-4242/192.0.2.222",
+                            lifecycleGeneration = 12L,
+                            lifecycleState = "bridge_ready",
+                            callbackState = "complete",
+                            ownerVerification = "verified",
+                            intendedDefaultRouteFamilies =
+                                listOf("ipv4", "route-owner-private.example/uid-4242/192.0.2.222"),
+                            observedDefaultRouteFamilies = listOf("ipv4"),
+                            routeConsistency = "consistent",
+                            vpnPresent = true,
+                            forwardingOutcome = "cross_layer_return_observed",
+                            forwardingLifecycleGeneration = 12L,
+                            forwardingTerminal = true,
+                        ),
                 ),
             capturedAt = 46L,
         )
@@ -2158,7 +2188,7 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v9.json",
+            "archive/manifest_v10.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -2170,15 +2200,15 @@ class DiagnosticsArchiveRendererTest {
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v9.json",
+            "archive/analysis_v10.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v9.json",
+            "archive/completeness_v10.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v9.json",
+            "archive/integrity_v10.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(

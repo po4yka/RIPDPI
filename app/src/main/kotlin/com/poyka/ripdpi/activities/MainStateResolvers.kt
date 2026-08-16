@@ -196,6 +196,18 @@ private fun buildMainConnectionActuator(
         configuredMode = configuredMode,
         connectionState = connectionState,
         vpnDataPlaneStatus = vpnDataPlaneStatus,
+        vpnValidationWarning =
+            vpnValidationWarning(
+                appStatus = inputs.statusAndMode.first,
+                activeMode = inputs.statusAndMode.second,
+                evidence = inputs.pathValidation,
+            ),
+        vpnForwardingWarning =
+            vpnForwardingWarning(
+                appStatus = inputs.statusAndMode.first,
+                activeMode = inputs.statusAndMode.second,
+                evidence = inputs.pathValidation,
+            ),
         runtime = inputs.runtime,
         telemetry = inputs.telemetry,
         approachSummary = approachSummary,
@@ -241,6 +253,8 @@ internal fun buildConnectionActuatorUiState(
     configuredMode: Mode,
     connectionState: ConnectionState,
     vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
+    vpnValidationWarning: Boolean = false,
+    vpnForwardingWarning: Boolean = false,
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: HomeApproachSummaryUiState?,
@@ -251,8 +265,12 @@ internal fun buildConnectionActuatorUiState(
     val egressBacked = isForeignExitLive(settings, telemetry)
     val vpnWarning = vpnDataPlaneWarning(connectionState, vpnDataPlaneStatus)
     val warningStage =
-        (HomeConnectionActuatorStage.Route.takeIf { vpnWarning != null } ?: telemetryWarningStage(telemetry))
-            .takeIf { connectionState == ConnectionState.Connected }
+        (
+            HomeConnectionActuatorStage.Route.takeIf { vpnWarning != null }
+                ?: HomeConnectionActuatorStage.Network.takeIf { vpnValidationWarning }
+                ?: HomeConnectionActuatorStage.Tunnel.takeIf { vpnForwardingWarning }
+                ?: telemetryWarningStage(telemetry)
+        ).takeIf { connectionState == ConnectionState.Connected }
     val failedStage =
         telemetryFailureStage(telemetry)
             .takeIf { connectionState == ConnectionState.Error }

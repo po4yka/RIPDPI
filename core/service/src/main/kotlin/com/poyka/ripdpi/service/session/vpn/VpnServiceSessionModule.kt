@@ -38,6 +38,7 @@ import com.poyka.ripdpi.services.VpnCoordinatorHost
 import com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController
 import com.poyka.ripdpi.services.VpnProtectFailureMonitor
 import com.poyka.ripdpi.services.VpnProtectSocketServer
+import com.poyka.ripdpi.services.VpnRouteLifecycleReceiptStore
 import com.poyka.ripdpi.services.VpnServiceSessionComponent
 import com.poyka.ripdpi.services.VpnServiceXrayProtectController
 import com.poyka.ripdpi.services.VpnTunnelAppliedNetworkReceiptStore
@@ -101,6 +102,7 @@ internal object VpnServiceSessionModule {
         flowAttributionBridge: FlowAttributionBridge,
         recoveryReceiptCollector: RemoteDeviceRecoveryReceiptCollector,
         appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore,
+        routeLifecycleReceiptStore: VpnRouteLifecycleReceiptStore,
         pcapCaptureRuntimeController: PcapCaptureRuntimeController,
     ): VpnTunnelRuntime =
         createVpnTunnelRuntime(
@@ -111,6 +113,7 @@ internal object VpnServiceSessionModule {
             flowAttributionBridge = flowAttributionBridge,
             recoveryReceiptCollector = recoveryReceiptCollector,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
+            routeLifecycleReceiptStore = routeLifecycleReceiptStore,
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             recoveryServiceInstanceId =
                 (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
@@ -133,6 +136,7 @@ internal object VpnServiceSessionModule {
         recoveryGenerationProvider: () -> String? = { null },
         geositeDbPath: String? = null,
         appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
+        routeLifecycleReceiptStore: VpnRouteLifecycleReceiptStore = VpnRouteLifecycleReceiptStore(),
         pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
@@ -154,6 +158,7 @@ internal object VpnServiceSessionModule {
                 ),
             flowAttributionBridge = flowAttributionBridge,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
+            routeLifecycleReceiptStore = routeLifecycleReceiptStore,
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
             callbacks =
                 VpnTunnelRuntimeCallbacks(

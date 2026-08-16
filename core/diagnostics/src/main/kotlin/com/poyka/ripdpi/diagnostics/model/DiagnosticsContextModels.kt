@@ -68,6 +68,7 @@ data class NetworkPathSnapshotPair(
 @Serializable
 data class NetworkPathValidationEvidence(
     val captureStatus: String,
+    val callingDefaultObserverRole: String = "unavailable",
     val underlayAssociation: String = "unknown",
     val underlayGeneration: Long? = null,
     val underlayPresent: Boolean? = null,
@@ -80,6 +81,38 @@ data class NetworkPathValidationEvidence(
     val vpnInternet: Boolean? = null,
     val vpnValidated: Boolean? = null,
     val vpnCaptivePortal: Boolean? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val vpnRouteEvidence: VpnRouteEvidenceSnapshot? = null,
+)
+
+@Serializable
+data class VpnRouteEvidenceSnapshot(
+    val observerRole: String = "unavailable",
+    val observerSource: String = "service_network_callback",
+    val lifecycleGeneration: Long? = null,
+    val lifecycleState: String = "unavailable",
+    val callbackState: String = "unavailable",
+    val callbackRevision: Long? = null,
+    val ownerVerification: String = "unavailable",
+    val evidenceAgeBand: String = "unknown",
+    val intendedDefaultRouteFamilies: List<String> = emptyList(),
+    val observedDefaultRouteFamilies: List<String> = emptyList(),
+    val addressFamilies: List<String> = emptyList(),
+    val dnsServerFamilies: List<String> = emptyList(),
+    val appRoutingShape: String = "unavailable",
+    val configuredAppCount: Int? = null,
+    val ownPackageExcluded: Boolean? = null,
+    val mtuBand: String = "unknown",
+    val metered: Boolean? = null,
+    val appliedTunnelReceiptGeneration: Long? = null,
+    val routeConsistency: String = "unavailable",
+    val vpnPresent: Boolean? = null,
+    val hasInternet: Boolean? = null,
+    val validated: Boolean? = null,
+    val captivePortal: Boolean? = null,
+    val forwardingOutcome: String = "unavailable",
+    val forwardingLifecycleGeneration: Long? = null,
+    val forwardingTerminal: Boolean? = null,
 )
 
 @Serializable

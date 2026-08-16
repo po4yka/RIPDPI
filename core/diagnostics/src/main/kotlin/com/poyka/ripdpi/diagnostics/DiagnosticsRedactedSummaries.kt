@@ -105,7 +105,7 @@ internal fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
         localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",
         networkValidated = networkValidated,
         captivePortalDetected = captivePortalDetected,
-        pathValidation = pathValidation,
+        pathValidation = pathValidation?.sanitizeVpnRouteEvidenceForArchive(),
         pathSnapshots = pathSnapshots,
         wifiDetails =
             wifiDetails?.let {

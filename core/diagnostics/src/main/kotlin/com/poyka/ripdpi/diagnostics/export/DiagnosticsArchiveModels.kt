@@ -55,8 +55,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 9 adds correlated runtime evidence and structured provenance/completeness.
-    const val schemaVersion = 9
+    // Version 10 adds service-correlated, privacy-safe owned-VPN route evidence.
+    const val schemaVersion = 10
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5

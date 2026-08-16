@@ -59,7 +59,10 @@ internal class DataPlaneEvidenceCollector(
 ) {
     private val tracker = DataPlaneCorrelationTracker(mode, clock)
     private val pollMutex = Mutex()
+    private val forwardingOutcomeTracker = DataPlaneForwardingOutcomeTracker()
     private var finalized = false
+    private var lifecycleGeneration: Long? = null
+    private var lifecycleResetPending = false
 
     suspend fun enrich(snapshot: VpnTelemetrySnapshot): VpnTelemetrySnapshot =
         pollMutex.withLock {
@@ -70,13 +73,26 @@ internal class DataPlaneEvidenceCollector(
         snapshot: VpnTelemetrySnapshot,
         proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
         tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence> = RuntimeForwardingEvidence.Unavailable,
-    ): VpnTelemetrySnapshot =
+        lifecycleGeneration: Long? = null,
+    ): VpnTelemetrySnapshot = enrichWithOutcome(snapshot, proxyEvidence, tunEvidence, lifecycleGeneration).snapshot
+
+    suspend fun enrichWithOutcome(
+        snapshot: VpnTelemetrySnapshot,
+        proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
+        tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence> = RuntimeForwardingEvidence.Unavailable,
+        lifecycleGeneration: Long? = null,
+    ): DataPlaneEvidenceResult =
         pollMutex.withLock {
-            if (finalized) {
-                replayOnto(snapshot)
-            } else {
-                observeAndEnrich(snapshot, proxyEvidence, tunEvidence, finalCapture = false)
+            if (!bindLifecycleGenerationLocked(lifecycleGeneration)) {
+                return@withLock DataPlaneEvidenceResult(replayOnto(snapshot), forwardingOutcomeTracker.current())
             }
+            val enriched =
+                if (finalized) {
+                    replayOnto(snapshot)
+                } else {
+                    observeAndEnrich(snapshot, proxyEvidence, tunEvidence, finalCapture = false)
+                }
+            DataPlaneEvidenceResult(enriched, forwardingOutcomeTracker.current())
         }
 
     suspend fun finalizeAndEnrich(snapshot: VpnTelemetrySnapshot): VpnTelemetrySnapshot =
@@ -91,13 +107,51 @@ internal class DataPlaneEvidenceCollector(
         snapshot: VpnTelemetrySnapshot,
         proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
         tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence> = RuntimeForwardingEvidence.Unavailable,
+        lifecycleGeneration: Long? = null,
     ): VpnTelemetrySnapshot =
+        finalizeAndEnrichWithOutcome(snapshot, proxyEvidence, tunEvidence, lifecycleGeneration).snapshot
+
+    suspend fun finalizeAndEnrichWithOutcome(
+        snapshot: VpnTelemetrySnapshot,
+        proxyEvidence: RuntimeForwardingEvidence<ProxyForwardingEvidence>,
+        tunEvidence: RuntimeForwardingEvidence<TunForwardingEvidence> = RuntimeForwardingEvidence.Unavailable,
+        lifecycleGeneration: Long? = null,
+    ): DataPlaneEvidenceResult =
         pollMutex.withLock {
-            if (finalized) return@withLock replayOnto(snapshot)
-            val finalizedSnapshot = observeAndEnrich(snapshot, proxyEvidence, tunEvidence, finalCapture = true)
-            finalized = true
-            finalizedSnapshot
+            if (!bindLifecycleGenerationLocked(lifecycleGeneration)) {
+                return@withLock DataPlaneEvidenceResult(replayOnto(snapshot), forwardingOutcomeTracker.current())
+            }
+            val enriched =
+                if (finalized) {
+                    replayOnto(snapshot)
+                } else {
+                    observeAndEnrich(snapshot, proxyEvidence, tunEvidence, finalCapture = true).also {
+                        finalized = true
+                    }
+                }
+            DataPlaneEvidenceResult(enriched, forwardingOutcomeTracker.current())
         }
+
+    fun currentOutcome(): DataPlaneForwardingOutcome = forwardingOutcomeTracker.current()
+
+    private fun bindLifecycleGenerationLocked(generation: Long?): Boolean {
+        val currentGeneration = lifecycleGeneration
+        return when {
+            generation == null || currentGeneration == generation -> {
+                true
+            }
+
+            currentGeneration != null && generation < currentGeneration -> {
+                false
+            }
+
+            else -> {
+                lifecycleGeneration = generation
+                lifecycleResetPending = true
+                true
+            }
+        }
+    }
 
     private suspend fun pollAndEnrich(
         snapshot: VpnTelemetrySnapshot,
@@ -123,17 +177,23 @@ internal class DataPlaneEvidenceCollector(
     ): VpnTelemetrySnapshot {
         val proxyValue = proxyEvidence.valueOrNull()
         val tunValue = tunEvidence.valueOrNull()
+        val tunSupport =
+            if (!tunProviderSupported) {
+                TunEvidenceSupport.Unsupported
+            } else if (tunEvidence === RuntimeForwardingEvidence.Unavailable) {
+                TunEvidenceSupport.Unavailable
+            } else {
+                TunEvidenceSupport.Supported
+            }
+        if (lifecycleResetPending) {
+            tracker.beginLifecycleGeneration(proxyValue, tunValue, tunSupport)
+            lifecycleResetPending = false
+            forwardingOutcomeTracker.resetConfirmation()
+        }
         tracker.observe(
             proxyEvidence = proxyValue,
             tunEvidence = tunValue,
-            tunSupport =
-                if (!tunProviderSupported) {
-                    TunEvidenceSupport.Unsupported
-                } else if (tunEvidence === RuntimeForwardingEvidence.Unavailable) {
-                    TunEvidenceSupport.Unavailable
-                } else {
-                    TunEvidenceSupport.Supported
-                },
+            tunSupport = tunSupport,
             proxyGenerationAuthoritative =
                 proxyEvidence is RuntimeForwardingEvidence.Available &&
                     snapshot.proxyTelemetry.hasAuthoritativeRunningGeneration(snapshot.proxyTelemetryStatus.state),
@@ -142,6 +202,7 @@ internal class DataPlaneEvidenceCollector(
                     snapshot.tunnelTelemetry.hasAuthoritativeRunningGeneration(snapshot.tunnelTelemetryStatus.state),
         )
         if (finalCapture) tracker.finalEvent()
+        forwardingOutcomeTracker.publish(tracker.currentState())
         return replayOnto(snapshot)
     }
 
@@ -264,6 +325,31 @@ internal class DataPlaneCorrelationTracker(
     }
 
     fun events(): List<NativeRuntimeEvent> = replayEvents.toList()
+
+    fun currentState(): DataPlaneCorrelationState = previousState ?: DataPlaneCorrelationState.EvidenceUnavailable
+
+    fun beginLifecycleGeneration(
+        proxyEvidence: ProxyForwardingEvidence?,
+        tunEvidence: TunForwardingEvidence?,
+        tunSupport: TunEvidenceSupport,
+    ) {
+        generation += 1
+        bestProxyEvidence = null
+        bestTunEvidence = null
+        lastProxyEvidence = proxyEvidence
+        lastTunEvidence = tunEvidence
+        proxyEvidenceSeen = proxyEvidence != null
+        tunEvidenceSeen = tunEvidence != null
+        proxyCurrentGenerationEvidenceSeen = false
+        tunCurrentGenerationEvidenceSeen = false
+        proxyGenerationBaseline = proxyEvidence
+        tunGenerationBaseline = tunEvidence
+        bestTunSupport = tunSupport
+        emittedStates.clear()
+        previousState = null
+        lastPublishedSummary = null
+        finalEventEmitted = false
+    }
 
     private fun beginNextGeneration(
         proxyReset: Boolean,
@@ -393,7 +479,7 @@ internal enum class TunEvidenceSupport(
 }
 
 internal enum class DataPlaneCorrelationState(
-    private val wireValue: String,
+    val wireValue: String,
 ) {
     EvidenceUnavailable("evidence_unavailable"),
     PartialEvidence("evidence_unavailable_partial"),
@@ -405,6 +491,12 @@ internal enum class DataPlaneCorrelationState(
     ProxyOutboundObserved("proxy_outbound_observed"),
     CrossLayerReturnObserved("cross_layer_return_observed"),
     ;
+
+    val isTerminalFailure: Boolean
+        get() =
+            this == TunIngressNoUpstream ||
+                this == UpstreamOpenNoPayload ||
+                this == OutboundOnly
 
     fun redactedMessage(
         mode: Mode,

@@ -17,6 +17,8 @@ import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.NetworkPathObservation
+import com.poyka.ripdpi.data.VpnRouteEvidence
+import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
@@ -165,6 +167,7 @@ class AndroidNetworkMetadataProvider
         @param:ApplicationContext private val context: Context,
         private val publicIpInfoResolver: PublicIpInfoResolver,
         private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
+        private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
     ) : NetworkMetadataProvider {
         // System Private DNS status is read behind an injectable seam so the
         // status-mapping logic is unit-tested without a device. The default
@@ -196,6 +199,10 @@ class AndroidNetworkMetadataProvider
                     permissionAvailable = hasNetworkPermission,
                     activePath = capabilities?.toNetworkPathCapabilities(),
                     underlay = underlayObservation,
+                    vpnRouteEvidence =
+                        runCatching(vpnRouteEvidenceProvider::capture)
+                            .getOrDefault(VpnRouteEvidence())
+                            .toDiagnosticsSnapshot(),
                 )
             val pathSnapshots =
                 NetworkPathSnapshotPair(

@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
+import com.poyka.ripdpi.data.VpnRouteLifecycleState
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.proto.AppSettings
@@ -32,6 +33,19 @@ internal data class VpnTunnelRuntimeCallbacks(
     val onTunnelReady: () -> Unit = {},
     val onTunnelTelemetry: (com.poyka.ripdpi.data.NativeRuntimeSnapshot) -> Unit = {},
 )
+
+internal class VpnRouteForwardingEvidenceSink(
+    val generation: Long,
+    private val receiptStore: VpnRouteLifecycleReceiptStore,
+) {
+    fun record(
+        outcome: String,
+        terminal: Boolean,
+        revision: Long,
+    ) {
+        receiptStore.recordForwardingOutcome(generation, outcome, terminal, revision)
+    }
+}
 
 internal data class VpnTunnelRuntimeEnvironment(
     val protectPath: String? = null,
@@ -60,6 +74,7 @@ internal class VpnTunnelRuntime(
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
     private val callbacks: VpnTunnelRuntimeCallbacks = VpnTunnelRuntimeCallbacks(),
     private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
+    private val routeLifecycleReceiptStore: VpnRouteLifecycleReceiptStore = VpnRouteLifecycleReceiptStore(),
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
     private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
@@ -74,6 +89,11 @@ internal class VpnTunnelRuntime(
 
     @Volatile
     private var pendingSession: VpnTunnelSession? = null
+
+    @Volatile
+    private var retiringSession: VpnTunnelSession? = null
+    private var activeRouteLifecycleGeneration: Long? = null
+    private var pendingRouteLifecycleGeneration: Long? = null
     private val forwardingLease = AtomicReference<TunnelForwardingLease?>()
     private var tunnelStartCount: Int = 0
 
@@ -89,7 +109,7 @@ internal class VpnTunnelRuntime(
         private set
 
     val isRunning: Boolean
-        get() = tunSession != null
+        get() = tunSession != null || retiringSession != null
 
     val isForwarding: Boolean
         get() = tun2SocksBridge != null
@@ -137,6 +157,7 @@ internal class VpnTunnelRuntime(
         // it. Closing it here would briefly restore direct routing before the
         // service can publish Failed.
         pendingSession = pendingTunnel.session
+        pendingRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
         startBridge(pendingTunnel, retainFailedBridge = false)
     }
 
@@ -157,14 +178,16 @@ internal class VpnTunnelRuntime(
         forceTunnelDns: Boolean = false,
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
+        val previouslyRetiringSession = retiringSession
+        if (previouslyRetiringSession != null) {
+            previouslyRetiringSession.close()
+            if (retiringSession === previouslyRetiringSession) retiringSession = null
+        }
         val previousSession = checkNotNull(tunSession) { "VPN tunnel is not running" }
         check(tun2SocksBridge == null || retiringBridge == null || tun2SocksBridge === retiringBridge) {
             "VPN tunnel has multiple bridges pending retirement"
         }
-        val previousBridge =
-            checkNotNull(tun2SocksBridge ?: retiringBridge) {
-                "VPN tunnel has no bridge to replace"
-            }
+        val previousBridge = tun2SocksBridge ?: retiringBridge
         val pendingTunnel =
             prepareTunnel(
                 activeDns = activeDns,
@@ -179,23 +202,29 @@ internal class VpnTunnelRuntime(
         // Publish it before retiring the old bridge so every subsequent failure keeps
         // a live interface that captures traffic instead of falling back to direct.
         tunSession = pendingTunnel.session
+        activeRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
         forwardingLease.set(null)
         appliedNetworkReceiptStore.invalidate()
         tun2SocksBridge = null
         retiringBridge = null
+        retiringSession = previousSession
         try {
             try {
                 try {
-                    pcapCaptureRuntimeController?.retireTunnel(previousBridge)
-                    previousBridge.stop()
+                    retireAndStopBridge(previousBridge)
                 } catch (error: Exception) {
                     retiringBridge = previousBridge
                     throw error
                 }
             } finally {
                 previousSession.close()
+                if (retiringSession === previousSession) retiringSession = null
             }
         } catch (error: Exception) {
+            routeLifecycleReceiptStore.markEnded(
+                pendingTunnel.lifecycleGeneration,
+                VpnRouteLifecycleState.FailClosed,
+            )
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.FailClosed)
             throw error
         }
@@ -250,18 +279,23 @@ internal class VpnTunnelRuntime(
                     uidPolicy = uidPolicy,
                     geositeDbPath = environment.geositeDbPath,
                 )
-            val tunnelSession =
-                vpnTunnelSessionProvider.establish(
-                    host = vpnHost,
+            val (tunnelSession, lifecycleGeneration) =
+                establishRouteObservedTunnel(
                     dns = dnsPlan.builderDnsAddress,
                     ipv6 = ipv6,
                     appRoutingPlan = appRoutingPlan,
                     httpProxyPort = interfacePolicy.httpProxyPort,
-                    interfaceSettings = settings,
+                    settings = settings,
                     networkParameters = tunnelNetworkParameters,
                 )
             return PendingTunnel(
-                session = tunnelSession,
+                session =
+                    GenerationBoundVpnTunnelSession(
+                        delegate = tunnelSession,
+                        lifecycleGeneration = lifecycleGeneration,
+                        receiptStore = routeLifecycleReceiptStore,
+                    ),
+                lifecycleGeneration = lifecycleGeneration,
                 config = config,
                 directDnsPrepareToken = directDnsPrepareToken,
                 dnsSignature =
@@ -278,6 +312,42 @@ internal class VpnTunnelRuntime(
             vpnHost.finishDirectDnsUnderlay(directDnsPrepareToken, DirectDnsUnderlayAction.Abort)
             throw error
         }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun establishRouteObservedTunnel(
+        dns: String,
+        ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
+        httpProxyPort: Int?,
+        settings: AppSettings,
+        networkParameters: VpnTunnelNetworkParameters,
+    ): Pair<VpnTunnelSession, Long> {
+        val generation =
+            routeLifecycleReceiptStore.beginIntended(
+                ipv6Enabled = ipv6,
+                dns = dns,
+                appRoutingPlan = appRoutingPlan,
+                networkParameters = networkParameters,
+                apiLevel = sdkInt,
+            )
+        val session =
+            try {
+                vpnTunnelSessionProvider.establish(
+                    host = vpnHost,
+                    dns = dns,
+                    ipv6 = ipv6,
+                    appRoutingPlan = appRoutingPlan,
+                    httpProxyPort = httpProxyPort,
+                    interfaceSettings = settings,
+                    networkParameters = networkParameters,
+                )
+            } catch (error: Exception) {
+                routeLifecycleReceiptStore.abortIntended(generation)
+                throw error
+            }
+        routeLifecycleReceiptStore.markEstablished(generation)
+        return session to generation
     }
 
     private suspend fun desiredInterfacePolicySignature(): String {
@@ -311,59 +381,142 @@ internal class VpnTunnelRuntime(
         pendingTunnel: PendingTunnel,
         retainFailedBridge: Boolean,
     ) {
-        val tunnelBridge = tun2SocksBridgeFactory.create()
-        flowAttributionBridge?.activateUidPolicy(
-            NativeUidPolicy(
-                mode = pendingTunnel.config.uidPolicyMode,
-                uids = pendingTunnel.config.uidPolicyUids,
-            ),
-        )
+        var createdBridge: Tun2SocksBridge? = null
+        var startSucceeded = false
         try {
+            val tunnelBridge = tun2SocksBridgeFactory.create()
+            createdBridge = tunnelBridge
+            flowAttributionBridge?.activateUidPolicy(
+                NativeUidPolicy(
+                    mode = pendingTunnel.config.uidPolicyMode,
+                    uids = pendingTunnel.config.uidPolicyUids,
+                ),
+            )
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.Commit)
             withTimeout(NativeTunnelStartTimeoutMillis) {
                 tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
             }
+            startSucceeded = true
+            publishBridgeReady(pendingTunnel, tunnelBridge)
         } catch (error: Exception) {
+            val rollback =
+                createdBridge
+                    ?.takeIf { startSucceeded }
+                    ?.let { rollbackStartedBridge(it) }
+                    ?: BridgeRollbackResult(forwardingStopped = true)
+            if (rollback.forwardingStopped) {
+                routeLifecycleReceiptStore.markEnded(
+                    pendingTunnel.lifecycleGeneration,
+                    VpnRouteLifecycleState.FailClosed,
+                )
+            }
+            rollback.failure?.let(error::addSuppressed)
             flowAttributionBridge?.deactivateUidPolicy()
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.FailClosed)
-            if (retainFailedBridge) retiringBridge = tunnelBridge
+            if (retainFailedBridge && startSucceeded && !rollback.forwardingStopped) {
+                retiringBridge = createdBridge
+            }
             throw error
         }
+    }
+
+    private suspend fun rollbackStartedBridge(tunnelBridge: Tun2SocksBridge): BridgeRollbackResult {
+        forwardingLease.set(null)
+        appliedNetworkReceiptStore.invalidate()
+        if (tun2SocksBridge === tunnelBridge) tun2SocksBridge = null
+        currentDnsSignature = null
+        currentInterfacePolicySignature = null
+
+        var rollbackFailure =
+            runCatching {
+                pcapCaptureRuntimeController?.retireTunnel(tunnelBridge)
+            }.exceptionOrNull()
+        var forwardingStopped = false
+        val bridgeStopFailure =
+            runCatching {
+                tunnelBridge.stop()
+                forwardingStopped = true
+                retiringBridge = null
+            }.exceptionOrNull()
+        if (bridgeStopFailure != null) {
+            rollbackFailure = rollbackFailure.combineCleanupFailure(bridgeStopFailure)
+            retiringBridge = tunnelBridge
+        }
+        return BridgeRollbackResult(forwardingStopped = forwardingStopped, failure = rollbackFailure)
+    }
+
+    private suspend fun publishBridgeReady(
+        pendingTunnel: PendingTunnel,
+        tunnelBridge: Tun2SocksBridge,
+    ) {
         tun2SocksBridge = tunnelBridge
         pcapCaptureRuntimeController?.bindTunnel(tunnelBridge)
         forwardingLease.set(TunnelForwardingLease(tunnelBridge))
         retiringBridge = null
         tunSession = pendingTunnel.session
+        activeRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
         if (pendingSession === pendingTunnel.session) {
             pendingSession = null
+            pendingRouteLifecycleGeneration = null
         }
         currentDnsSignature = pendingTunnel.dnsSignature
         currentInterfacePolicySignature = pendingTunnel.interfacePolicySignature
-        appliedNetworkReceiptStore.publish(pendingTunnel.networkParameters, sdkInt)
+        val appliedReceipt = appliedNetworkReceiptStore.publish(pendingTunnel.networkParameters, sdkInt)
+        routeLifecycleReceiptStore.markBridgeReady(
+            generation = pendingTunnel.lifecycleGeneration,
+            appliedTunnelReceiptGeneration = appliedReceipt.generation,
+        )
+        callbacks.onTunnelReady()
         if (tunnelStartCount > 0) {
             tunnelRecoveryRetryCount += 1
         }
         tunnelStartCount += 1
-        callbacks.onTunnelReady()
     }
 
     suspend fun stop() {
-        val session = tunSession ?: pendingSession ?: return
+        val session = tunSession ?: pendingSession
+        val oldSession = retiringSession
+        if (session == null && oldSession == null) return
         appliedNetworkReceiptStore.invalidate()
         val activeBridge = tun2SocksBridge
         val inactiveBridge = retiringBridge
 
         forwardingLease.set(null)
-        try {
-            stopBridges(activeBridge, inactiveBridge)
-        } finally {
-            tun2SocksBridge = null
-            retiringBridge = null
-            session.close()
-            tunSession = null
-            pendingSession = null
-            flowAttributionBridge?.deactivateUidPolicy()
+        var stopFailure =
+            runCatching {
+                stopBridges(activeBridge, inactiveBridge)
+            }.exceptionOrNull()
+        tun2SocksBridge = null
+        retiringBridge = null
+        val sessionCloseFailure = session?.let { runCatching { it.close() }.exceptionOrNull() }
+        if (sessionCloseFailure == null) {
+            if (tunSession === session) {
+                tunSession = null
+                activeRouteLifecycleGeneration = null
+            }
+            if (pendingSession === session) {
+                pendingSession = null
+                pendingRouteLifecycleGeneration = null
+            }
         }
+        val oldSessionCloseFailure =
+            oldSession
+                ?.takeUnless { it === session }
+                ?.let { runCatching { it.close() }.exceptionOrNull() }
+        if (oldSessionCloseFailure == null && retiringSession === oldSession) retiringSession = null
+        sessionCloseFailure?.let { failure ->
+            stopFailure = stopFailure.combineCleanupFailure(failure)
+        }
+        oldSessionCloseFailure?.let { failure ->
+            stopFailure = stopFailure.combineCleanupFailure(failure)
+        }
+        if (sessionCloseFailure != null || oldSessionCloseFailure != null) {
+            (activeRouteLifecycleGeneration ?: pendingRouteLifecycleGeneration)?.let { generation ->
+                routeLifecycleReceiptStore.markEnded(generation, VpnRouteLifecycleState.FailClosed)
+            }
+        }
+        flowAttributionBridge?.deactivateUidPolicy()
+        stopFailure?.let { throw it }
     }
 
     private suspend fun stopBridges(
@@ -453,6 +606,11 @@ internal class VpnTunnelRuntime(
             }
         forwardingLease.set(null)
         appliedNetworkReceiptStore.invalidate()
+        (activeRouteLifecycleGeneration ?: pendingRouteLifecycleGeneration)?.let(
+            { generation ->
+                routeLifecycleReceiptStore.markEnded(generation, VpnRouteLifecycleState.FailClosed)
+            },
+        )
         tun2SocksBridge = null
         retiringBridge = null
 
@@ -487,6 +645,12 @@ internal class VpnTunnelRuntime(
         }
     }
 
+    val routeForwardingEvidenceSink: VpnRouteForwardingEvidenceSink?
+        get() =
+            activeRouteLifecycleGeneration?.let { generation ->
+                VpnRouteForwardingEvidenceSink(generation, routeLifecycleReceiptStore)
+            }
+
     fun resetRuntimeState() {
         appliedNetworkReceiptStore.invalidate()
         currentDnsSignature = null
@@ -497,6 +661,7 @@ internal class VpnTunnelRuntime(
 
     private data class PendingTunnel(
         val session: VpnTunnelSession,
+        val lifecycleGeneration: Long,
         val config: Tun2SocksConfig,
         val directDnsPrepareToken: Long,
         val dnsSignature: String,
@@ -515,11 +680,33 @@ internal class VpnTunnelRuntime(
         val httpProxyPort: Int?,
         val signature: String,
     )
+
+    private data class BridgeRollbackResult(
+        val forwardingStopped: Boolean,
+        val failure: Throwable? = null,
+    )
 }
 
 private class TunnelForwardingLease(
     val bridge: Tun2SocksBridge,
 )
+
+private class GenerationBoundVpnTunnelSession(
+    private val delegate: VpnTunnelSession,
+    private val lifecycleGeneration: Long,
+    private val receiptStore: VpnRouteLifecycleReceiptStore,
+) : VpnTunnelSession {
+    override val tunFd: Int
+        get() = delegate.tunFd
+
+    override fun close() {
+        delegate.close()
+        receiptStore.markEnded(lifecycleGeneration, VpnRouteLifecycleState.Closed)
+    }
+}
+
+private fun Throwable?.combineCleanupFailure(additionalFailure: Throwable): Throwable =
+    this?.also { it.addSuppressed(additionalFailure) } ?: additionalFailure
 
 /**
  * Returns the effective local listener port using the same resolution logic as

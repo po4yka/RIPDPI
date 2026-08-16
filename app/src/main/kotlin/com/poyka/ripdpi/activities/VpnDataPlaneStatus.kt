@@ -13,6 +13,7 @@ internal enum class VpnDataPlaneStatus {
     Working,
     Unverified,
     Unavailable,
+    Degraded,
 }
 
 internal fun vpnDataPlaneWarning(
@@ -21,9 +22,42 @@ internal fun vpnDataPlaneWarning(
 ): VpnDataPlaneStatus? =
     status.takeIf {
         connectionState == ConnectionState.Connected &&
-            it != VpnDataPlaneStatus.Working &&
-            it != VpnDataPlaneStatus.NotApplicable
+            (it == VpnDataPlaneStatus.Unavailable || it == VpnDataPlaneStatus.Degraded)
     }
+
+internal fun vpnValidationWarning(
+    appStatus: AppStatus,
+    activeMode: Mode,
+    evidence: NetworkPathValidationEvidence?,
+): Boolean {
+    val routeEvidence = evidence?.vpnRouteEvidence
+    return appStatus == AppStatus.Running &&
+        activeMode == Mode.VPN &&
+        routeEvidence?.callbackState == "complete" &&
+        routeEvidence.vpnPresent == true &&
+        (routeEvidence.validated == false || routeEvidence.captivePortal == true)
+}
+
+internal fun vpnForwardingWarning(
+    appStatus: AppStatus,
+    activeMode: Mode,
+    evidence: NetworkPathValidationEvidence?,
+): Boolean {
+    val routeEvidence = evidence?.vpnRouteEvidence
+    return appStatus == AppStatus.Running &&
+        activeMode == Mode.VPN &&
+        routeEvidence?.forwardingTerminal == true &&
+        routeEvidence.forwardingLifecycleGeneration == routeEvidence.lifecycleGeneration &&
+        routeEvidence.forwardingOutcome in TerminalForwardingFailures
+}
+
+private val TerminalForwardingFailures =
+    setOf(
+        "fail_closed",
+        "tun_ingress_no_upstream",
+        "upstream_open_no_payload",
+        "outbound_only",
+    )
 
 internal fun vpnDataPlaneActuatorDescription(
     status: VpnDataPlaneStatus?,
@@ -51,28 +85,48 @@ internal fun resolveVpnDataPlaneStatus(
     appStatus: AppStatus,
     activeMode: Mode,
     evidence: NetworkPathValidationEvidence?,
-): VpnDataPlaneStatus =
-    when {
+): VpnDataPlaneStatus {
+    val routeEvidence = evidence?.vpnRouteEvidence
+    return when {
         appStatus != AppStatus.Running || activeMode != Mode.VPN -> {
             VpnDataPlaneStatus.NotApplicable
         }
 
-        evidence?.captureStatus != "captured" -> {
+        routeEvidence == null -> {
             VpnDataPlaneStatus.Unverified
         }
 
-        evidence.vpnPresent == false ||
-            evidence.vpnInternet == false ||
-            evidence.vpnValidated == false ||
-            evidence.vpnCaptivePortal == true -> {
+        routeEvidence.callbackState == "lost" || routeEvidence.lifecycleState == "closed" -> {
             VpnDataPlaneStatus.Unavailable
         }
 
-        evidence.vpnPresent == true && evidence.vpnInternet == true && evidence.vpnValidated == true -> {
+        routeEvidence.callbackState == "timed_out" -> {
+            VpnDataPlaneStatus.Unverified
+        }
+
+        routeEvidence.lifecycleState == "intended" || routeEvidence.callbackState == "awaiting" -> {
+            VpnDataPlaneStatus.Checking
+        }
+
+        routeEvidence.callbackState == "unavailable" ||
+            routeEvidence.ownerVerification != "verified" -> {
+            VpnDataPlaneStatus.Unverified
+        }
+
+        routeEvidence.callbackState == "complete" &&
+            routeEvidence.vpnPresent == true &&
+            routeEvidence.routeConsistency == "consistent" -> {
             VpnDataPlaneStatus.Working
         }
 
+        routeEvidence.callbackState == "complete" &&
+            routeEvidence.vpnPresent == true &&
+            routeEvidence.routeConsistency == "mismatch" -> {
+            VpnDataPlaneStatus.Degraded
+        }
+
         else -> {
-            VpnDataPlaneStatus.Checking
+            VpnDataPlaneStatus.Unverified
         }
     }
+}

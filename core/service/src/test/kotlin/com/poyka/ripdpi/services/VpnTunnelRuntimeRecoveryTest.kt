@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.VpnRouteLifecycleState
 import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -221,7 +222,58 @@ class VpnTunnelRuntimeRecoveryTest {
             assertTrue(runtime.isRunning)
             assertTrue(runtime.isForwarding)
             assertEquals(3, bridge.startedConfigs.size)
-            assertEquals(2, bridge.stopCount)
+            assertEquals(1, bridge.stopCount)
+        }
+
+    @Test
+    fun rebuildRetryCannotOverwriteAStillUnclosedRetiringSession() =
+        runTest {
+            val events = mutableListOf<String>()
+            val bridge = TestTun2SocksBridge(events)
+            val originalSession = TestVpnTunnelSession(events = events)
+            val sessionProvider = TestVpnTunnelSessionProvider(events = events, session = originalSession)
+            val receiptStore = VpnRouteLifecycleReceiptStore()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                    routeLifecycleReceiptStore = receiptStore,
+                )
+            val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
+            runtime.start(activeDns, null, null, localProxyEndpoint)
+            val replacementSession = TestVpnTunnelSession(tunFd = 8, events = events)
+            sessionProvider.session = replacementSession
+            originalSession.beforeClose = { throw java.io.IOException("old descriptor close failed") }
+
+            assertTrue(runCatching { runtime.rebuild(activeDns, null, null, localProxyEndpoint) }.isFailure)
+            assertTrue(runtime.isRunning)
+            assertFalse(originalSession.closed)
+            assertFalse(replacementSession.closed)
+            assertEquals(2, events.count { it == "vpn:establish" })
+
+            val recoveredSession = TestVpnTunnelSession(tunFd = 9, events = events)
+            sessionProvider.session = recoveredSession
+            assertTrue(runCatching { runtime.rebuild(activeDns, null, null, localProxyEndpoint) }.isFailure)
+            assertEquals(2, events.count { it == "vpn:establish" })
+            assertFalse(originalSession.closed)
+            assertFalse(recoveredSession.closed)
+
+            originalSession.beforeClose = null
+            runtime.rebuild(activeDns, null, null, localProxyEndpoint)
+
+            assertTrue(originalSession.closed)
+            assertTrue(replacementSession.closed)
+            assertFalse(recoveredSession.closed)
+            assertEquals(3, events.count { it == "vpn:establish" })
+            assertTrue(runtime.isRunning)
+            assertTrue(runtime.isForwarding)
+
+            runtime.stop()
+            assertTrue(recoveredSession.closed)
+            assertEquals(VpnRouteLifecycleState.Closed, receiptStore.lifecycleReceipt?.state)
         }
 
     @Test

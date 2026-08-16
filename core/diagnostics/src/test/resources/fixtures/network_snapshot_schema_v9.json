@@ -1,0 +1,39 @@
+{
+  "transport": "wifi",
+  "capabilities": ["validated"],
+  "dnsServers": ["redacted(1)"],
+  "privateDnsMode": "system",
+  "mtu": 1500,
+  "localAddresses": ["redacted(1)"],
+  "publicIp": "redacted",
+  "publicAsn": "redacted",
+  "captivePortalDetected": false,
+  "networkValidated": true,
+  "systemPrivateDnsStatus": "unknown",
+  "pathValidation": {
+    "captureStatus": "captured",
+    "underlayAssociation": "service_binder",
+    "underlayGeneration": 3,
+    "underlayPresent": true,
+    "underlayTransport": "wifi",
+    "underlayInternet": true,
+    "underlayValidated": true,
+    "underlayCaptivePortal": false,
+    "vpnAssociation": "unknown",
+    "vpnPresent": false
+  },
+  "pathSnapshots": {
+    "captureGeneration": 7,
+    "vpn": {
+      "association": "unknown"
+    },
+    "underlay": {
+      "association": "service_binder",
+      "generation": 3,
+      "transport": "wifi",
+      "hasInternet": true,
+      "validated": true
+    }
+  },
+  "capturedAt": 1700000000000
+}

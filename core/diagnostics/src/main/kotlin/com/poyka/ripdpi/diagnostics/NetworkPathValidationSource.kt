@@ -13,6 +13,8 @@ import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.NetworkPathObservation
+import com.poyka.ripdpi.data.VpnRouteEvidence
+import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,9 +22,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -41,6 +45,7 @@ internal class AndroidNetworkPathValidationSource
         @ApplicationContext private val context: Context,
         @ApplicationScope private val scope: CoroutineScope,
         private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
+        private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
         private val sessionCoordinator: RuntimeSessionCoordinator,
     ) : NetworkPathValidationSource {
         private val connectivityManager =
@@ -129,9 +134,20 @@ internal class AndroidNetworkPathValidationSource
                             publishCurrentEvidence()
                         }
                     }
+                val vpnRouteObserver =
+                    launch {
+                        vpnRouteEvidenceProvider.changes.collectLatest {
+                            publishCurrentEvidence()
+                            vpnRouteEvidenceProvider.convergenceRefreshDelayMillis()?.let { delayMillis ->
+                                delay(delayMillis)
+                                publishCurrentEvidence()
+                            }
+                        }
+                    }
                 publishCurrentEvidence()
                 awaitClose {
                     authorityObserver.cancel()
+                    vpnRouteObserver.cancel()
                     runCatching { connectivityManager.unregisterNetworkCallback(callback) }
                 }
             }.distinctUntilChanged()
@@ -144,6 +160,10 @@ internal class AndroidNetworkPathValidationSource
                     sanitizeAuthoritativeUnderlayObservation(
                         runCatching(underlayObservationProvider::capture).getOrDefault(NetworkPathObservation()),
                     ),
+                vpnRouteEvidence =
+                    runCatching(vpnRouteEvidenceProvider::capture)
+                        .getOrDefault(VpnRouteEvidence())
+                        .toDiagnosticsSnapshot(),
             )
 
         private fun hasNetworkStatePermission(): Boolean =

@@ -88,6 +88,9 @@ class RipDpiVpnService :
     internal lateinit var directDnsUnderlayAuthority: DirectDnsUnderlayAuthority
 
     @Inject
+    internal lateinit var vpnRouteObservationAuthority: VpnRouteObservationAuthority
+
+    @Inject
     internal lateinit var transportFailoverApplyTracker: TransportFailoverApplyTracker
 
     @Inject
@@ -120,6 +123,7 @@ class RipDpiVpnService :
         notificationController.registerChannel(this)
         underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
         underlyingNetworkBinder.start()
+        vpnRouteObservationAuthority.start()
         sessionLifecycle =
             VpnServiceSessionLifecycle(
                 service = this,
@@ -152,6 +156,7 @@ class RipDpiVpnService :
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
         selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
+        vpnRouteObservationAuthority.stop()
         underlyingNetworkBinder.stop()
         rootHelperManager.stop()
         super.onDestroy()
