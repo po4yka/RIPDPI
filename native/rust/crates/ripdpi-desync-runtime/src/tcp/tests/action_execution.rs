@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::{TcpStrategyFamily, TcpTerminalReason};
+
 #[test]
 fn actions_write_only_no_strategy() {
     let (mut client, mut server) = connected_pair();
@@ -43,6 +45,40 @@ fn actions_write_with_strategy() {
         None,
     );
     assert_eq!(result.unwrap(), 5);
+}
+
+#[test]
+fn action_error_carries_receipt_for_completed_steps_before_failure() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::Write(b"hello".to_vec()), DesyncAction::SetMd5Sig { key_len: 5 }];
+
+    let err = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("split"),
+        &unavailable,
+        false,
+        None,
+        None,
+    )
+    .expect_err("unsupported md5sig should fail after the first write");
+
+    match err {
+        OutboundSendError::StrategyExecution { execution_receipt, .. } => {
+            assert_eq!(execution_receipt.disposition, TcpExecutionDisposition::ExecutionFailed);
+            assert_eq!(execution_receipt.effective_family, Some(TcpStrategyFamily::Split));
+            assert_eq!(execution_receipt.attempted_actions, 2);
+            assert_eq!(execution_receipt.completed_actions, 1);
+            assert_eq!(execution_receipt.real_writes_committed, 1);
+            assert_eq!(execution_receipt.payload_bytes_committed, 5);
+            assert_eq!(execution_receipt.terminal_reason, Some(TcpTerminalReason::StrategyExecution));
+        }
+        OutboundSendError::Transport(err) => panic!("expected StrategyExecution, got Transport({err})"),
+    }
 }
 
 #[test]
