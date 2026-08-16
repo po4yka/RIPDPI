@@ -4141,6 +4141,11 @@ Quelle: %2$s</string>
     <string name="strategy_config_restoring_draft">Gespeicherten Entwurf wiederherstellen…</string>
     <string name="strategy_config_draft_save_failed_title">Entwurf nicht gespeichert</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI versucht erneut, den Entwurf lokal zu speichern. Lass diesen Bildschirm geöffnet, bis die Warnung verschwindet.</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">Abnahme des entfernten Geräts</string>
     <string name="diagnostics_device_gate_body">Führen Sie die Prüfung aus, während das VPN das Ziel-Relay oder den Ziel-VPN-Transport verwendet. Stellen Sie danach die Verbindung erneut her, wechseln Sie zwischen WLAN und Mobilfunk, schalten Sie den Bildschirm für mindestens fünf Minuten aus und danach wieder ein. Der Bericht bleibt unvollständig, bis alle Ereignisse erfasst wurden; nicht unterstützte oder nicht konfigurierte Transporte bleiben unvollständig.</string>
     <string name="diagnostics_device_gate_run">Abnahmeprüfung starten</string>

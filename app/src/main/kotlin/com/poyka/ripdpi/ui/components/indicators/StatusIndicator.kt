@@ -51,6 +51,13 @@ fun StatusIndicator(
     label: String,
     modifier: Modifier = Modifier,
     tone: StatusIndicatorTone = StatusIndicatorTone.Active,
+    /**
+     * Whether the marker pulses. Defaults to the tone-derived guess this component has always made,
+     * which is only ever right for something happening right now: a stored result carries the same
+     * tone as a live one, so a finished scan pulses forever, including inside list items that stay
+     * on screen. Pass false wherever the indicator reports a completed or persisted state.
+     */
+    pulsing: Boolean = tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error,
 ) {
     val colors = RipDpiThemeTokens.colors
     val indicatorColor =
@@ -60,7 +67,7 @@ fun StatusIndicator(
             StatusIndicatorTone.Warning -> colors.warning
             StatusIndicatorTone.Error -> colors.destructive
         }
-    val animation = rememberStatusIndicatorAnimation(indicatorColor, tone)
+    val animation = rememberStatusIndicatorAnimation(indicatorColor, pulsing)
     val statusDescription = stringResource(R.string.status_indicator_description, label)
     val indicators = RipDpiThemeTokens.components.indicators
 
@@ -85,14 +92,13 @@ fun StatusIndicator(
 @Composable
 private fun rememberStatusIndicatorAnimation(
     indicatorColor: Color,
-    tone: StatusIndicatorTone,
+    requestedPulsing: Boolean,
 ): StatusIndicatorAnimation {
     val motion = RipDpiThemeTokens.motion
     val pulsing =
-        !LocalInspectionMode.current &&
-            motion.allowsInfiniteMotion &&
-            tone != StatusIndicatorTone.Idle &&
-            tone != StatusIndicatorTone.Error
+        requestedPulsing &&
+            !LocalInspectionMode.current &&
+            motion.allowsInfiniteMotion
     val animatedIndicatorColor =
         animateColorAsState(
             targetValue = indicatorColor,

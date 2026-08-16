@@ -4272,6 +4272,11 @@ Source: %2$s</string>
     <string name="strategy_config_restoring_draft">Restoring saved draft…</string>
     <string name="strategy_config_draft_save_failed_title">Draft not saved</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">Remote device acceptance</string>
     <string name="diagnostics_device_gate_body">Run while the VPN uses the target relay or VPN transport. Then reconnect, switch between Wi-Fi and mobile data, and keep the screen off for at least five minutes before turning it on. The report stays incomplete until every event is observed; unsupported or unconfigured transports remain incomplete.</string>
     <string name="diagnostics_device_gate_run">Start acceptance check</string>

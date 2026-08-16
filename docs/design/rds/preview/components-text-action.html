@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 220px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.txt-action { display:inline-flex; align-items:center; justify-content:center;
+  min-height:48px; padding:0; background:transparent; border:0; border-radius:0;
+  font: var(--rdp-type-button); color: var(--rdp-muted-foreground); cursor:pointer; user-select:none;
+  transition: color var(--rdp-duration-state) var(--rdp-ease-standard);
+}
+.txt-action.emphasis { color: var(--rdp-foreground); }
+.txt-action.disabled { color: var(--rdp-muted-foreground); opacity: 0.38; pointer-events:none; }
+.target { position:relative; display:inline-flex; }
+.target::after { content:""; position:absolute; inset:0; min-width:48px; min-height:48px;
+  border:1px dashed var(--rdp-border); border-radius:8px; pointer-events:none; }
+.footrow { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground) }
+</style>
+
+<div class="col" style="gap:18px">
+  <div class="row" style="gap:24px; flex-wrap:wrap; align-items:center">
+    <span class="txt-action">Skip</span>
+    <span class="txt-action emphasis">Finish anyway</span>
+    <span class="txt-action disabled">Skip</span>
+  </div>
+
+  <div class="row" style="gap:24px; align-items:center">
+    <span class="target"><span class="txt-action">Skip</span></span>
+    <span class="footrow">Dashed outline marks the 48dp touch target, which is preserved even though the
+      visible text is smaller. Compact density shrinks content, never the target.</span>
+  </div>
+
+  <div class="footrow">RipDpiTextAction — the low-emphasis, text-only action. No container, no border, no button
+    padding: RipDpiButton owns everything that needs chrome, this owns the cases that read as a link (Skip,
+    Finish anyway, inline dismissals). Colour and type scale come from the caller, because a text action
+    inherits the tone of the surface it sits on rather than carrying a variant palette; the default is
+    type.button at muted-foreground. Routed through ripDpiClickable, so haptics, focus and the minimum
+    interactive size match every other control. Disabled falls to muted-foreground.</div>
+</div>
+
+</div></body></html>

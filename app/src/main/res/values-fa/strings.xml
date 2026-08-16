@@ -4146,6 +4146,11 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restoring_draft">در حال بازیابی پیش‌نویس ذخیره‌شده…</string>
     <string name="strategy_config_draft_save_failed_title">پیش‌نویس ذخیره نشد</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI در حال تلاش دوباره برای ذخیره محلی پیش‌نویس است. تا ناپدید شدن هشدار این صفحه را باز نگه دارید.</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">پذیرش دستگاه راه‌دور</string>
     <string name="diagnostics_device_gate_body">در حالی اجرا کنید که VPN از relay هدف یا ترابری VPN هدف استفاده می‌کند. سپس دوباره وصل شوید، بین Wi‑Fi و دادهٔ همراه جابه‌جا شوید، و پیش از روشن کردن صفحه آن را دست‌کم پنج دقیقه خاموش نگه دارید. گزارش تا زمانی که همهٔ رویدادها مشاهده نشوند ناقص می‌ماند؛ ترابری‌های پشتیبانی‌نشده یا پیکربندی‌نشده نیز ناقص می‌مانند.</string>
     <string name="diagnostics_device_gate_run">شروع آزمون پذیرش</string>

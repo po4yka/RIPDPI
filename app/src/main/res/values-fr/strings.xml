@@ -4141,6 +4141,11 @@ Source : %2$s</string>
     <string name="strategy_config_restoring_draft">Restauration du brouillon enregistré…</string>
     <string name="strategy_config_draft_save_failed_title">Brouillon non enregistré</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI réessaie d’enregistrer le brouillon localement. Gardez cet écran ouvert jusqu’à ce que l’avertissement disparaisse.</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">Validation de l’appareil distant</string>
     <string name="diagnostics_device_gate_body">Lancez la vérification pendant que le VPN utilise le relais cible ou le transport VPN. Reconnectez-vous ensuite, basculez entre le Wi-Fi et les données mobiles, puis laissez l’écran éteint pendant au moins cinq minutes avant de le rallumer. Le rapport reste incomplet tant que tous les événements n’ont pas été observés ; les transports non pris en charge ou non configurés restent incomplets.</string>
     <string name="diagnostics_device_gate_run">Démarrer la validation</string>

@@ -39,6 +39,8 @@ internal fun ConnectionSessionCard(
         StatusIndicator(
             label = session.connectionState,
             tone = statusTone(session.tone),
+            // A stored session, not a live one: the whole screen is past records.
+            pulsing = false,
         )
         session.rememberedPolicyBadge?.let { badge ->
             Box(
@@ -90,6 +92,7 @@ internal fun DiagnosticsSessionCard(
         StatusIndicator(
             label = session.completionLabel ?: session.status,
             tone = statusTone(session.tone),
+            pulsing = false,
         )
         if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
             Box(
@@ -166,6 +169,7 @@ internal fun EventRow(
             StatusIndicator(
                 label = event.severity,
                 tone = statusTone(event.tone),
+                pulsing = false,
             )
             if (occurrenceCount > 1) {
                 Box(

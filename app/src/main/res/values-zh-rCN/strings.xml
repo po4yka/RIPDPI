@@ -4130,6 +4130,11 @@ fake_burst 3</string>
     <string name="strategy_config_restoring_draft">正在恢复已保存的草稿…</string>
     <string name="strategy_config_draft_save_failed_title">草稿未保存</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI 正在重试将草稿保存到本地。请保持此页面打开，直到警告消失。</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">远程设备验收</string>
     <string name="diagnostics_device_gate_body">在 VPN 使用目标中继或 VPN 传输方式时运行检查。然后重新连接，在 Wi-Fi 和移动数据之间切换，并将屏幕关闭至少五分钟后再重新开启。观察到所有事件之前，报告将保持不完整；不受支持或未配置的传输方式也会使报告保持不完整。</string>
     <string name="diagnostics_device_gate_run">开始验收检查</string>

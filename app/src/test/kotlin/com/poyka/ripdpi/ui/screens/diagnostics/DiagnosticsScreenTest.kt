@@ -2043,7 +2043,8 @@ class DiagnosticsScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsDeviceAcceptanceCard).assertIsDisplayed()
         composeRule.onNodeWithText("SM-S928B", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("reality_tcp: pass", substring = true).assertIsDisplayed()
+        // The status reads as a localized label now; the step id stays a raw wire token by design.
+        composeRule.onNodeWithText("reality_tcp: Passed", substring = true).assertIsDisplayed()
         composeRule.onAllNodesWithText("endpoint", substring = true).assertCountEquals(0)
     }
 

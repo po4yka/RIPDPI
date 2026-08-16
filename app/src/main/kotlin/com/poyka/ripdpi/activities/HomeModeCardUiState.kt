@@ -41,6 +41,8 @@ data class HomeModeCardUiState(
     val primaryActionEnabled: Boolean = !isLoading,
     val primaryActionDisabledHint: String = "",
     val summaryFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
+    /** Live per-stage progress while a diagnostic run is in flight; null when nothing is running. */
+    val analysisProgress: AnalysisProgressUiState? = null,
 )
 
 internal val DefaultHomeModeCards: ImmutableList<HomeModeCardUiState> =
@@ -264,6 +266,8 @@ internal fun buildDiagnosticCard(
         primaryActionEnabled = homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy,
         isActive = false,
         isLoading = homeDiagnostics.analysisAction.busy,
+        // Only while a run is in flight: the card otherwise shows the last audit, not a pipeline.
+        analysisProgress = homeDiagnostics.analysisProgress.takeIf { homeDiagnostics.analysisAction.busy },
     )
 }
 

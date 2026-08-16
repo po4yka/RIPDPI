@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -180,7 +181,16 @@ private fun HomeModeCardBody(uiState: HomeModeCardUiState) {
         )
     }
 
-    if (uiState.summaryFacets.isNotEmpty()) {
+    val analysisProgress = uiState.analysisProgress
+    if (analysisProgress != null) {
+        // A running scan has real per-stage progress; showing a static "Busy" line for the whole run
+        // was the only thing standing between this component and the data it was built for.
+        AnalysisProgressIndicator(
+            stages = analysisProgress.stages,
+            activeStageIndex = analysisProgress.activeStageIndex,
+            stageLabel = uiState.primaryLabel,
+        )
+    } else if (uiState.summaryFacets.isNotEmpty()) {
         HomeModeSummaryStrip(facets = uiState.summaryFacets)
     } else if (uiState.primaryLabel.isNotBlank()) {
         Text(

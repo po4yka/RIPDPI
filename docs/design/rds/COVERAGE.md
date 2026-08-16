@@ -1,10 +1,10 @@
 # RDS Design System Coverage Audit
 
 **Last Verified:** 2026-08-14
-**Spec Inventory:** 146 HTML preview files  
+**Spec Inventory:** 147 HTML preview files  
 **Note (2026-08-14):** rows for specs whose Kotlin implementation was deleted as unused have been
 removed from this audit per maintainer decision. Section totals below therefore count audited rows,
-not preview files, and no longer reconcile against the 146-file inventory.
+not preview files, and no longer reconcile against the 147-file inventory.
 **Audit Scope:** Kotlin implementation alignment with RDS specs
 
 ---
@@ -13,7 +13,7 @@ not preview files, and no longer reconcile against the 146-file inventory.
 
 | Category | Count | Have | Partial | Missing | Status |
 |----------|-------|------|---------|---------|--------|
-| **Components** | 29 | 29 | 0 | 0 | ✅ Complete |
+| **Components** | 30 | 30 | 0 | 0 | ✅ Complete |
 | **VPN flow screens** | 36 | 36 | 0 | 0 | ✅ Complete |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 8 | 0 | 1 | ⚠️ Missing |
@@ -24,13 +24,13 @@ not preview files, and no longer reconcile against the 146-file inventory.
 | **One-offs** | 6 | 5 | 0 | 1 | ⚠️ Missing |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 108 of 113 audited specs have verified Kotlin implementations; 5 are missing an implementation.
+**Overall Coverage:** 109 of 114 audited specs have verified Kotlin implementations; 5 are missing an implementation.
 
-Row totals are a recount of the audited bullets in this file: 29 components + 36 vpn flow screens + 16 android platform surfaces + 9 motion specs + 7 diagnostic screens + 5 share flow + 3 gesture interactions + 2 onboarding + 6 one-offs = **113 audited**, plus 17 reference-only cards. They no longer equal the 146 `preview/*.html` inventory: rows whose Kotlin implementation was deleted as unused on 2026-08-14 were removed from the audit while their preview specs remain on disk.
+Row totals are a recount of the audited bullets in this file: 30 components + 36 vpn flow screens + 16 android platform surfaces + 9 motion specs + 7 diagnostic screens + 5 share flow + 3 gesture interactions + 2 onboarding + 6 one-offs = **114 audited**, plus 17 reference-only cards. They no longer equal the 146 `preview/*.html` inventory: rows whose Kotlin implementation was deleted as unused on 2026-08-14 were removed from the audit while their preview specs remain on disk.
 
 ---
 
-## Components (29 entries, 29 ✅ = 100% implemented)
+## Components (30 entries, 30 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -38,6 +38,12 @@ Row totals are a recount of the audited bullets in this file: 29 components + 36
   - `RipDpiButton` composable with 5 variants: Primary, Secondary, Outline, Ghost, Destructive
   - Loading state support; enabled/disabled states
   - File: `/app/src/main/kotlin/com/poyka/ripdpi/ui/components/buttons/RipDpiButton.kt`
+
+- **Text Action** (`components-text-action.html`)
+  - `RipDpiTextAction` composable: the text-only, container-less action `TextButton` used to stand in for
+  - Caller supplies type scale and colour; enabled/disabled states; 48dp touch target preserved
+  - File: `/app/src/main/kotlin/com/poyka/ripdpi/ui/components/buttons/RipDpiTextAction.kt`; golden
+    `RipDpiDesignSystemScreenshotTest.designSystemCatalog*` (Text Action row)
 
 - **Card** (`components-card.html`)
   - `RipDpiCard` composable; `HomeModeCard`, `ConnectionSessionCard`, `DiagnosticsSessionCard`, `FilterCard`
@@ -57,7 +63,10 @@ Row totals are a recount of the audited bullets in this file: 29 components + 36
 - **Bottom Nav** (`components-bottom-nav.html`) — `NavigationBar` and `BottomNavBar` implemented
 - **Tabs** (`components-tabs.html`) — Tab/TabRow usage in diagnostics and settings
 - **Chips** (`components-chips.html`) — FilterChip, InputChip, SuggestionChip in use
-- **Icon Buttons** (`components-icon-buttons.html`) — IconButton usage throughout navigation
+- **Icon Buttons** (`components-icon-buttons.html`) — `RipDpiIconButton` with 6 styles: Ghost, Tonal, Filled,
+  Outline, Destructive, Warning. File:
+  `/app/src/main/kotlin/com/poyka/ripdpi/ui/components/buttons/RipDpiIconButton.kt`; goldens
+  `RipDpiDesignSystemScreenshotTest.designSystemCatalog*` (Icon Buttons rows)
 - **Snackbar/Toast** (`components-snackbar.html`) — Snackbar implementation for feedback
 - **Status Indicator** (`components-status-indicator.html`) — Custom status badges in home/history
 - **Settings Row** (`components-settings-row.html`) — Standardized settings list items
@@ -268,8 +277,8 @@ These are design tokens, brand guidelines, and accessibility references — no d
 ## Key Findings
 
 ### Strengths
-- 108 of 113 audited specs have verified production implementations
-- All 29 audited atomic components have full implementations; Command Palette remains a placeholder
+- 109 of 114 audited specs have verified production implementations
+- All 30 audited atomic components have full implementations; Command Palette remains a placeholder
 - Glance widget theme parity enforced by `GlanceWidgetThemeParityTest`
 - 8 of 9 motion specs ship as `RipDpiMotion` helpers with live consumers; `shimmerSpec()` is orphaned
 - All 16 Android platform surfaces ship (splash, qs-tile, nav-rail, glance-widget, notifications, etc.)
@@ -282,7 +291,7 @@ These are design tokens, brand guidelines, and accessibility references — no d
 
 ---
 
-**Audit Date:** 2026-08-14 | **Coverage:** 108 complete, 0 partial, 5 missing | **Audited specs:** 113 | **Reference specs:** 17 | Preview inventory on disk remains 146; deleted-implementation rows are no longer audited.
+**Audit Date:** 2026-08-14 | **Coverage:** 109 complete, 0 partial, 5 missing | **Audited specs:** 114 | **Reference specs:** 17 | Preview inventory on disk is 147; deleted-implementation rows are no longer audited.
 
 ---
 

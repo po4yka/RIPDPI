@@ -31,7 +31,7 @@ internal fun RemoteDeviceAcceptanceCard(
         variant = RipDpiCardVariant.Outlined,
     ) {
         StatusIndicator(
-            label = report.status.wireValue,
+            label = report.status.displayLabel(),
             tone = statusTone(report.status.toDiagnosticsTone()),
         )
         androidx.compose.material3.Text(
@@ -83,7 +83,7 @@ private fun RemoteDeviceAcceptanceSteps(report: RemoteDeviceAcceptanceReport) {
         report.steps.forEach { step ->
             val detail =
                 listOfNotNull(
-                    step.status.wireValue,
+                    step.status.displayLabel(),
                     step.durationMs?.let { "${it}ms" },
                     step.errorClass,
                 ).joinToString(" · ")
@@ -111,3 +111,19 @@ private fun RemoteDeviceAcceptanceStatus.toDiagnosticsTone(): DiagnosticsTone =
 
 private fun RemoteDeviceAcceptanceReport.deviceSummary(): String =
     "${device.model} · CSC ${device.csc} · API ${device.api} · ${device.abi} · $transportKind"
+
+/**
+ * User-facing name for an acceptance status.
+ *
+ * `wireValue` is the serialization contract and stays English on purpose; splicing it into the card
+ * showed raw protocol tokens to all nine locales.
+ */
+@Composable
+private fun RemoteDeviceAcceptanceStatus.displayLabel(): String =
+    when (this) {
+        RemoteDeviceAcceptanceStatus.Idle -> stringResource(R.string.diagnostics_device_gate_status_idle)
+        RemoteDeviceAcceptanceStatus.Running -> stringResource(R.string.diagnostics_device_gate_status_running)
+        RemoteDeviceAcceptanceStatus.Incomplete -> stringResource(R.string.diagnostics_device_gate_status_incomplete)
+        RemoteDeviceAcceptanceStatus.Pass -> stringResource(R.string.diagnostics_device_gate_status_pass)
+        RemoteDeviceAcceptanceStatus.Fail -> stringResource(R.string.diagnostics_device_gate_status_fail)
+    }

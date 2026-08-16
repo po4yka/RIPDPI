@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">Приёмочная проверка устройства</string>
     <string name="diagnostics_device_gate_body">Запустите проверку, когда VPN использует целевой релей или VPN-транспорт. Затем переподключитесь, переключитесь между Wi-Fi и мобильной сетью, выключите экран минимум на пять минут, а затем включите его. Отчёт останется неполным, пока не будут зафиксированы все события; для неподдерживаемых или ненастроенных транспортов он останется неполным.</string>
     <string name="diagnostics_device_gate_run">Начать приёмочную проверку</string>

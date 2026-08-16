@@ -4169,6 +4169,11 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restoring_draft">جارٍ استرداد المسودة المحفوظة…</string>
     <string name="strategy_config_draft_save_failed_title">لم تُحفظ المسودة</string>
     <string name="strategy_config_draft_save_failed_body">يعيد RIPDPI محاولة حفظ المسودة محليًا. أبقِ هذه الشاشة مفتوحة حتى يختفي التحذير.</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">قبول الجهاز البعيد</string>
     <string name="diagnostics_device_gate_body">شغّل الفحص بينما يستخدم VPN الناقل المرحّل أو ناقل VPN المستهدف. بعد ذلك أعد الاتصال، وبدّل بين Wi‑Fi وبيانات الجوال، واترك الشاشة مطفأة لمدة خمس دقائق على الأقل قبل تشغيلها. يبقى التقرير غير مكتمل حتى تتم ملاحظة كل حدث؛ وتبقى النواقل غير المدعومة أو غير المكوّنة غير مكتملة.</string>
     <string name="diagnostics_device_gate_run">بدء فحص القبول</string>

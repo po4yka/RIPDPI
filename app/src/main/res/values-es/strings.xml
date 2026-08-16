@@ -4141,6 +4141,11 @@ Origen: %2$s</string>
     <string name="strategy_config_restoring_draft">Restaurando el borrador guardado…</string>
     <string name="strategy_config_draft_save_failed_title">El borrador no se guardó</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI está reintentando guardar el borrador localmente. Mantén esta pantalla abierta hasta que desaparezca el aviso.</string>
+    <string name="diagnostics_device_gate_status_idle">Idle</string>
+    <string name="diagnostics_device_gate_status_running">Running</string>
+    <string name="diagnostics_device_gate_status_incomplete">Incomplete</string>
+    <string name="diagnostics_device_gate_status_pass">Passed</string>
+    <string name="diagnostics_device_gate_status_fail">Failed</string>
     <string name="diagnostics_device_gate_title">Validación del dispositivo remoto</string>
     <string name="diagnostics_device_gate_body">Ejecuta la comprobación mientras la VPN utiliza el relay de destino o el transporte VPN. Después, vuelve a conectar, cambia entre Wi-Fi y datos móviles y mantén la pantalla apagada durante al menos cinco minutos antes de encenderla. El informe permanece incompleto hasta que se observan todos los eventos; los transportes no compatibles o no configurados permanecen incompletos.</string>
     <string name="diagnostics_device_gate_run">Iniciar validación</string>
