@@ -18,7 +18,9 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_proxy_runtime_adapter::model::config::{OffsetBase, OffsetExpr};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyUiConfig, runtime_config_from_ui};
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{
+    DesyncExecutionEvidence, DesyncExecutionEvidenceSink, EmbeddedProxyControl, RuntimeTelemetrySink,
+};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -712,6 +714,23 @@ struct TelemetrySnapshot {
     autolearn_events: Vec<AutolearnEvent>,
 }
 
+#[derive(Default)]
+struct RecordingDesyncEvidenceSink {
+    evidence: Mutex<Vec<DesyncExecutionEvidence>>,
+}
+
+impl RecordingDesyncEvidenceSink {
+    fn snapshot(&self) -> Vec<DesyncExecutionEvidence> {
+        self.evidence.lock().expect("lock desync evidence").clone()
+    }
+}
+
+impl DesyncExecutionEvidenceSink for RecordingDesyncEvidenceSink {
+    fn on_desync_execution_evidence(&self, evidence: DesyncExecutionEvidence) {
+        self.evidence.lock().expect("lock desync evidence").push(evidence);
+    }
+}
+
 impl RuntimeTelemetrySink for RecordingTelemetry {
     fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {
         self.started.fetch_add(1, Ordering::Relaxed);
@@ -816,6 +835,34 @@ fn socks5_tcp_round_trip(fixture: &FixtureStack) {
             .any(|route| route.target.port() == fixture.manifest().tcp_echo_port && route.phase == "initial")
     );
     assert!(fixture.events().snapshot().iter().any(|event| event.service == "tcp_echo" && event.detail == "echo"));
+}
+
+fn socks_connect_with_userpass_ip(proxy_port: u16, username: &str, password: &str, dst_port: u16) -> TcpStream {
+    let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, proxy_port)).expect("connect to proxy");
+    stream.set_read_timeout(Some(support::SOCKET_TIMEOUT)).expect("set socks auth read timeout");
+    stream.set_write_timeout(Some(support::SOCKET_TIMEOUT)).expect("set socks auth write timeout");
+    stream.write_all(&[0x05, 0x01, 0x02]).expect("write socks userpass greeting");
+    assert_eq!(recv_exact(&mut stream, 2), b"\x05\x02");
+
+    let username = username.as_bytes();
+    let password = password.as_bytes();
+    assert!(username.len() <= u8::MAX as usize, "SOCKS username fits RFC1929");
+    assert!(password.len() <= u8::MAX as usize, "SOCKS password fits RFC1929");
+    let mut auth = Vec::with_capacity(3 + username.len() + password.len());
+    auth.extend([0x01, username.len() as u8]);
+    auth.extend(username);
+    auth.push(password.len() as u8);
+    auth.extend(password);
+    stream.write_all(&auth).expect("write socks userpass auth");
+    assert_eq!(recv_exact(&mut stream, 2), b"\x01\x00");
+
+    let mut request = vec![0x05, 0x01, 0x00, 0x01];
+    request.extend(Ipv4Addr::LOCALHOST.octets());
+    request.extend(dst_port.to_be_bytes());
+    stream.write_all(&request).expect("write socks connect");
+    let reply = support::socks5::recv_socks5_reply(&mut stream);
+    assert_eq!(reply[1], 0, "SOCKS5 connect failed: {reply:?}");
+    stream
 }
 
 fn socks5_udp_round_trip(fixture: &FixtureStack) {
@@ -1418,6 +1465,78 @@ fn tcp_chain_split_then_disorder_delivers_payload() {
     );
     assert_eq!(body, b"chained split+disorder payload");
     drop(proxy);
+}
+
+#[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn authenticated_socks_split_host_attempt_receipt_preserves_candidate_identity_without_endpoint_join() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let generation = 1_786_885_745_241_507_u64;
+    let attempt_token = "attempt-token-red-a";
+    let runtime_secret = "runtime-secret-red-a";
+    let host = "receipt-red.example.test";
+    let payload = format!("GET /receipt-red HTTP/1.1\r\nHost: {host}\r\n\r\n").into_bytes();
+
+    let evidence_sink = Arc::new(RecordingDesyncEvidenceSink::default());
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1", "--split", "host+1"]);
+    config.network.listen.auth_token = Some(runtime_secret.to_string());
+    let listener = ripdpi_proxy_runtime::create_listener(&config).expect("create proxy listener");
+    let proxy_addr = listener.local_addr().expect("proxy listener addr");
+    let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(
+        None,
+        None,
+        generation,
+        Some(evidence_sink.clone() as Arc<dyn DesyncExecutionEvidenceSink>),
+    ));
+    let worker_control = control.clone();
+    let worker = std::thread::spawn(move || {
+        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(config, listener, worker_control)
+    });
+
+    let mut stream = socks_connect_with_userpass_ip(
+        proxy_addr.port(),
+        attempt_token,
+        runtime_secret,
+        fixture.manifest().tcp_echo_port,
+    );
+    stream.write_all(&payload).expect("write HTTP payload through authenticated SOCKS");
+    assert_eq!(recv_exact(&mut stream, payload.len()), payload);
+    drop(stream);
+
+    control.request_shutdown();
+    let _ = TcpStream::connect(proxy_addr);
+    let terminal = worker.join().expect("join proxy worker").expect("proxy terminal receipt");
+    let published = evidence_sink.snapshot();
+    let terminal_evidence = terminal.desync_execution_evidence();
+
+    assert_eq!(published.len(), 1, "first outbound split receipt must publish exactly once");
+    assert_eq!(terminal_evidence.len(), 1, "terminal receipt must retain exactly one desync receipt");
+    assert_eq!(published, terminal_evidence);
+
+    let evidence = terminal_evidence.first().expect("desync evidence");
+    assert_eq!(evidence.generation(), generation);
+    assert_eq!(evidence.attempt_token().as_opaque_str(), attempt_token);
+    assert_eq!(evidence.send_ordinal(), 1);
+    assert_eq!(evidence.receipt().real_writes_committed(), 2);
+    assert_eq!(evidence.receipt().completed_awaits(), 1);
+    assert_eq!(evidence.receipt().payload_bytes_committed(), payload.len());
+    assert_eq!(terminal.shutdown_mode(), ripdpi_proxy_runtime::ProxyRuntimeShutdownMode::Cooperative);
+    assert_eq!(terminal.worker_outcome(), ripdpi_proxy_runtime::ProxyRuntimeWorkerOutcome::Clean);
+    assert!(!terminal.desync_execution_evidence_overflowed());
+
+    let evidence_debug = format!("{evidence:?}");
+    assert!(!evidence_debug.contains(host), "receipt must not join domain/host into evidence");
+    assert!(!evidence_debug.contains("127.0.0.1"), "receipt must not join IP into evidence");
+    assert!(
+        !evidence_debug.contains(&fixture.manifest().tcp_echo_port.to_string()),
+        "receipt must not join port into evidence"
+    );
+    assert!(
+        !evidence_debug.contains(std::str::from_utf8(&payload).expect("payload utf8")),
+        "receipt must not join raw payload into evidence"
+    );
+    assert!(!evidence_debug.contains(runtime_secret), "receipt debug must redact SOCKS password/runtime secret");
 }
 
 // ── Window clamp + desync combination (Linux-only) ──
