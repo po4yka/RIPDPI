@@ -6,3 +6,10 @@ hooks = true
 
 [sandbox_workspace_write]
 network_access = false
+
+[mcp_servers.60fps]
+url = "https://mcp.60fps.design/mcp"
+bearer_token_env_var = "SIXTYFPS_LICENSE_KEY"
+
+[mcp_servers.mobbin]
+url = "https://api.mobbin.com/mcp"
