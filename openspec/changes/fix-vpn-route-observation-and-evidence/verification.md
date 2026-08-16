@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1786867116840500
 change: fix-vpn-route-observation-and-evidence
-commit_sha: null
+commit_sha: 2dcfb0d96bd064e6092bde6c72a58cd4d252d61b
 local: required
 local_evidence: "Service 1814/1814, app 1740/1740, and diagnostics 1264/1264 unit tests passed; the explicitly approved five-file schema-10 golden family, focused detekt, ktlint, assemble, architecture, task, diff, signing, and ELF evidence is recorded below."
 remote_ci: required
@@ -9,7 +9,7 @@ remote_ci_evidence: null
 device: required
 device_evidence: null
 artifact: required
-artifact_evidence: "githubFull arm64-v8a debug APK SHA-256 2a7b58f91f0065d54d6d7a73d9b503ebe737c35e95f10143a0ddc21a9ccf0e41; v2 Android Debug certificate c048a6d6124a61149f7d6d3d8aa80055d39335ff76f14e1584d508408798de15; packaged native ELF verification passed."
+artifact_evidence: "githubFull arm64-v8a debug APK SHA-256 b7e8f85ece0dd9c89096a19d7ef2562e191fd104eb025c7308f17cb53dbf0408; v2 Android Debug certificate c048a6d6124a61149f7d6d3d8aa80055d39335ff76f14e1584d508408798de15; packaged native ELF verification passed."
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -52,14 +52,12 @@ reviewed.
 - `python3 scripts/ci/check_architecture_health.py`: 22/22 checks passed.
 - `./taskctl validate`: 49 tasks and 233 execution steps passed.
 - `git diff --check`: passed.
-- `./gradlew staticAnalysis`: blocked in Android lint by a missing generated
-  Hilt source for `AppStartupInitializerTest`; detekt and ktlint were run and
-  passed separately.
+- `./gradlew staticAnalysis`: passed on the rebased implementation commit.
 
 ## Artifact evidence
 
 - APK: `app/build/outputs/apk/githubFull/debug/app-github-full-arm64-v8a-debug.apk`.
-- SHA-256: `2a7b58f91f0065d54d6d7a73d9b503ebe737c35e95f10143a0ddc21a9ccf0e41`.
+- SHA-256: `b7e8f85ece0dd9c89096a19d7ef2562e191fd104eb025c7308f17cb53dbf0408`.
 - APK Signature Scheme v2 verified; signer is the Android Debug certificate,
   SHA-256 `c048a6d6124a61149f7d6d3d8aa80055d39335ff76f14e1584d508408798de15`.
 - Packaged arm64-v8a native ELF metadata verification passed.
