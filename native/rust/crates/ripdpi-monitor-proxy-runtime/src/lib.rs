@@ -8,7 +8,7 @@ use ripdpi_diagnostics_transport::transport::TransportConfig;
 use ripdpi_diagnostics_transport::transport::wait_for_listener;
 use ripdpi_monitor_engine::{
     CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
-    PreparedCandidateRuntime,
+    CandidateRuntimeTerminalReceipt, PreparedCandidateRuntime,
 };
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
@@ -66,29 +66,51 @@ impl CandidateProbeRuntime for TemporaryProxyRuntime {
         let _ = TcpStream::connect(self.addr);
     }
 
-    fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
+    fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
         self.request_shutdown();
-        join_runtime(&mut self.handle, true)
+        join_runtime_terminal(&mut self.handle, true)
     }
 
-    fn shutdown(mut self: Box<Self>) -> CandidateCleanupReceipt {
+    fn shutdown(mut self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
         self.request_shutdown();
-        join_runtime(&mut self.handle, false)
+        join_runtime_terminal(&mut self.handle, false)
     }
 }
 
-fn join_runtime(
+fn join_runtime_terminal(
     handle: &mut Option<JoinHandle<Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String>>>,
     forced: bool,
-) -> CandidateCleanupReceipt {
+) -> CandidateRuntimeTerminalReceipt {
     let Some(handle) = handle.take() else {
-        return CandidateCleanupReceipt::default();
+        return CandidateRuntimeTerminalReceipt::already_joined();
     };
-    let forced_abort = match handle.join() {
-        Ok(Ok(receipt)) => usize::from(receipt.forced_abort),
-        Ok(Err(_)) | Err(_) => usize::from(forced),
-    };
-    CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort }
+    match handle.join() {
+        Ok(Ok(receipt)) => {
+            let cleanup = CandidateCleanupReceipt {
+                started: 1,
+                stopped: 1,
+                joined: 1,
+                forced_abort: usize::from(receipt.forced_abort),
+            };
+            if receipt.forced_abort {
+                CandidateRuntimeTerminalReceipt::forced_abort(cleanup)
+            } else {
+                CandidateRuntimeTerminalReceipt::clean_shutdown(cleanup)
+            }
+        }
+        Ok(Err(_)) => CandidateRuntimeTerminalReceipt::runtime_failed(CandidateCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: 1,
+            forced_abort: usize::from(forced),
+        }),
+        Err(_) => CandidateRuntimeTerminalReceipt::runtime_panicked(CandidateCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: 1,
+            forced_abort: usize::from(forced),
+        }),
+    }
 }
 
 impl Drop for TemporaryProxyRuntime {
@@ -104,14 +126,17 @@ impl Drop for TemporaryProxyRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ripdpi_monitor_engine::CandidateRuntimeTerminalStatus;
 
     #[test]
-    fn joined_runtime_error_still_counts_as_joined() {
+    fn joined_runtime_error_is_preserved_as_runtime_failed_terminal_receipt() {
         let mut handle = Some(thread::spawn(|| Err("runtime failed".to_string())));
 
-        let receipt = join_runtime(&mut handle, false);
+        let receipt = join_runtime_terminal(&mut handle, false);
 
-        assert_eq!(receipt, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
+        assert_eq!(receipt.cleanup, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
+        assert_eq!(receipt.terminal_status, CandidateRuntimeTerminalStatus::RuntimeFailed);
+        assert!(receipt.execution_evidence.is_empty());
     }
 
     #[test]
@@ -120,9 +145,10 @@ mod tests {
             panic!("synthetic runtime panic")
         }));
 
-        let receipt = join_runtime(&mut handle, true);
+        let receipt = join_runtime_terminal(&mut handle, true);
 
-        assert_eq!(receipt, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(receipt.cleanup, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(receipt.terminal_status, CandidateRuntimeTerminalStatus::RuntimePanicked);
     }
 
     #[test]

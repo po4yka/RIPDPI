@@ -94,7 +94,7 @@ pub fn run_engine_scan(
         coordinator.run(&plan, &mut runtime, tls_verifier.as_ref())
     }))
     .unwrap_or_else(|payload| RunnerOutcome::Failed(crate::engine::panic_payload_message(&*payload)));
-    let Some(cleanup_receipt) = supervisor.terminal_receipt() else {
+    let Some(terminal_receipt) = supervisor.terminal_receipt() else {
         let message = "candidate runtime cleanup barrier did not join every runtime".to_string();
         let mut report = build_report(
             ReportBuildContext {
@@ -137,6 +137,7 @@ pub fn run_engine_scan(
         );
         return;
     };
+    let cleanup_receipt = terminal_receipt.cleanup;
     push_event(
         &shared,
         &plan.session_id,
@@ -145,8 +146,12 @@ pub fn run_engine_scan(
         "engine",
         "info",
         format!(
-            "Candidate cleanup started={} stopped={} joined={} forced_abort={}",
-            cleanup_receipt.started, cleanup_receipt.stopped, cleanup_receipt.joined, cleanup_receipt.forced_abort,
+            "Candidate cleanup status={:?} started={} stopped={} joined={} forced_abort={}",
+            terminal_receipt.terminal_status,
+            cleanup_receipt.started,
+            cleanup_receipt.stopped,
+            cleanup_receipt.joined,
+            cleanup_receipt.forced_abort,
         ),
     );
     match outcome {

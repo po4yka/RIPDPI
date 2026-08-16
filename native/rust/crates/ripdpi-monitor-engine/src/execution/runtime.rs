@@ -13,8 +13,9 @@ use std::time::Duration;
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
 pub use contracts::{
-    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
-    PreparedCandidateRuntime,
+    CandidateCleanupReceipt, CandidateDesyncExecutionDisposition, CandidateDesyncExecutionReceipt,
+    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeExecutionEvidence, CandidateRuntimeLauncher,
+    CandidateRuntimeTerminalReceipt, CandidateRuntimeTerminalStatus, PreparedCandidateRuntime,
 };
 pub use launch::probe_runtime_transport;
 pub(crate) use supervisor::CandidateRuntimeSupervisor;
@@ -97,12 +98,22 @@ mod tests {
 
         fn request_shutdown(&mut self) {}
 
-        fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
+        fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
+            CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
+                started: 1,
+                stopped: 1,
+                joined: 1,
+                forced_abort: 1,
+            })
         }
 
-        fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
+        fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
+            CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt {
+                started: 1,
+                stopped: 1,
+                joined: 1,
+                forced_abort: 0,
+            })
         }
     }
 
@@ -249,7 +260,8 @@ mod tests {
         runtime.request_shutdown();
         let receipt = runtime.force_abort_and_join();
 
-        assert_eq!(receipt.forced_abort, 1);
-        assert_eq!(receipt.joined, 1);
+        assert_eq!(receipt.cleanup.forced_abort, 1);
+        assert_eq!(receipt.cleanup.joined, 1);
+        assert_eq!(receipt.terminal_status, CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 }

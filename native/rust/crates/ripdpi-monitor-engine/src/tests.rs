@@ -18,8 +18,8 @@ use crate::tls::{NoCertificateVerification, TlsClientProfile, TlsObservation, cl
 use crate::transport::{TargetAddress, TransportConfig, direct_transport};
 use crate::util::{DEFAULT_DNS_SERVER, probe_session_seed};
 use crate::{
-    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, MonitorSession,
-    PreparedCandidateRuntime,
+    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
+    CandidateRuntimeTerminalReceipt, MonitorSession, PreparedCandidateRuntime,
 };
 
 use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
@@ -57,12 +57,22 @@ impl CandidateProbeRuntime for DirectCandidateRuntime {
 
     fn request_shutdown(&mut self) {}
 
-    fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
+    fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
+        CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: 1,
+            forced_abort: 1,
+        })
     }
 
-    fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
-        CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
+    fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
+        CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: 1,
+            forced_abort: 0,
+        })
     }
 }
 

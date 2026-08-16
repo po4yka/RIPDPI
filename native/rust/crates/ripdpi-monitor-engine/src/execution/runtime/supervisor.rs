@@ -1,10 +1,10 @@
 use std::sync::Mutex;
 
-use super::{CandidateCleanupReceipt, CandidateProbeRuntime};
+use super::{CandidateProbeRuntime, CandidateRuntimeTerminalReceipt, CandidateRuntimeTerminalStatus};
 
 #[derive(Default)]
 pub(crate) struct CandidateRuntimeSupervisor {
-    receipt: Mutex<CandidateCleanupReceipt>,
+    receipt: Mutex<CandidateRuntimeTerminalReceipt>,
     active: Mutex<usize>,
 }
 
@@ -14,27 +14,46 @@ impl CandidateRuntimeSupervisor {
         CandidateRuntimeLease { supervisor: self, runtime: Some(runtime) }
     }
 
-    pub(crate) fn record(&self, receipt: CandidateCleanupReceipt) {
+    pub(crate) fn record(&self, receipt: CandidateRuntimeTerminalReceipt) {
         let mut total = self.receipt.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        total.started += receipt.started;
-        total.stopped += receipt.stopped;
-        total.joined += receipt.joined;
-        total.forced_abort += receipt.forced_abort;
+        total.cleanup.started += receipt.cleanup.started;
+        total.cleanup.stopped += receipt.cleanup.stopped;
+        total.cleanup.joined += receipt.cleanup.joined;
+        total.cleanup.forced_abort += receipt.cleanup.forced_abort;
+        total.terminal_status = merge_terminal_status(total.terminal_status, receipt.terminal_status);
+        total.execution_evidence.extend(receipt.execution_evidence);
     }
 
-    pub(crate) fn receipt(&self) -> CandidateCleanupReceipt {
-        *self.receipt.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    pub(crate) fn receipt(&self) -> CandidateRuntimeTerminalReceipt {
+        self.receipt.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
 
     /// Returns the aggregate only after every registered candidate has been
     /// shut down and joined.  A terminal event must not be published before
     /// this barrier succeeds.
-    pub(crate) fn terminal_receipt(&self) -> Option<CandidateCleanupReceipt> {
+    pub(crate) fn terminal_receipt(&self) -> Option<CandidateRuntimeTerminalReceipt> {
         if *self.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner) != 0 {
             return None;
         }
         let receipt = self.receipt();
-        (receipt.started == receipt.stopped && receipt.stopped == receipt.joined).then_some(receipt)
+        (receipt.cleanup.started == receipt.cleanup.stopped && receipt.cleanup.stopped == receipt.cleanup.joined)
+            .then_some(receipt)
+    }
+}
+
+fn merge_terminal_status(
+    current: CandidateRuntimeTerminalStatus,
+    next: CandidateRuntimeTerminalStatus,
+) -> CandidateRuntimeTerminalStatus {
+    use CandidateRuntimeTerminalStatus::{AlreadyJoined, CleanShutdown, ForcedAbort, RuntimeFailed, RuntimePanicked};
+
+    match (current, next) {
+        (RuntimePanicked, _) | (_, RuntimePanicked) => RuntimePanicked,
+        (RuntimeFailed, _) | (_, RuntimeFailed) => RuntimeFailed,
+        (ForcedAbort, _) | (_, ForcedAbort) => ForcedAbort,
+        (CleanShutdown, status) => status,
+        (status, CleanShutdown) => status,
+        (AlreadyJoined, AlreadyJoined) => AlreadyJoined,
     }
 }
 
@@ -54,14 +73,14 @@ impl CandidateRuntimeLease<'_> {
         self.runtime.as_deref().expect("candidate runtime lease must be live")
     }
 
-    pub(crate) fn shutdown(mut self) -> CandidateCleanupReceipt {
+    pub(crate) fn shutdown(mut self) -> CandidateRuntimeTerminalReceipt {
         // Infallible: shutdown takes ownership of a still-live lease.
         let receipt = self.runtime.take().expect("candidate runtime lease must be live").shutdown();
-        self.finish(receipt);
+        self.finish(receipt.clone());
         receipt
     }
 
-    fn finish(&mut self, receipt: CandidateCleanupReceipt) {
+    fn finish(&mut self, receipt: CandidateRuntimeTerminalReceipt) {
         self.supervisor.record(receipt);
         let mut active = self.supervisor.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         // Infallible: each supervised lease increments once and finishes once.
@@ -85,6 +104,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+    use crate::CandidateCleanupReceipt;
     use crate::transport::TransportConfig;
 
     struct TrackingRuntime {
@@ -99,14 +119,24 @@ mod tests {
 
         fn request_shutdown(&mut self) {}
 
-        fn force_abort_and_join(&mut self) -> CandidateCleanupReceipt {
+        fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
             self.forced_aborts.fetch_add(1, Ordering::SeqCst);
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 }
+            CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
+                started: 1,
+                stopped: 1,
+                joined: 1,
+                forced_abort: 1,
+            })
         }
 
-        fn shutdown(self: Box<Self>) -> CandidateCleanupReceipt {
+        fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
             self.shutdowns.fetch_add(1, Ordering::SeqCst);
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 }
+            CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt {
+                started: 1,
+                stopped: 1,
+                joined: 1,
+                forced_abort: 0,
+            })
         }
     }
 
@@ -128,7 +158,7 @@ mod tests {
         second.shutdown();
 
         assert_eq!(
-            supervisor.terminal_receipt(),
+            supervisor.terminal_receipt().map(|receipt| receipt.cleanup),
             Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 })
         );
         assert_eq!(shutdowns.load(Ordering::SeqCst), 2);
@@ -144,11 +174,12 @@ mod tests {
             supervisor.terminal_receipt().expect("cancellation cleanup barrier")
         };
 
-        let deadline = make_cleanup();
+        let deadline = make_cleanup().cleanup;
         let external_cancel = make_cleanup();
 
-        assert_eq!(deadline, external_cancel);
+        assert_eq!(deadline, external_cancel.cleanup);
         assert_eq!(deadline, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(external_cancel.terminal_status, CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 
     #[test]
@@ -162,7 +193,7 @@ mod tests {
         lease.shutdown();
 
         assert_eq!(shutdowns.load(Ordering::SeqCst), 1);
-        assert_eq!(supervisor.terminal_receipt().expect("joined barrier").joined, 1);
+        assert_eq!(supervisor.terminal_receipt().expect("joined barrier").cleanup.joined, 1);
     }
 
     #[test]
@@ -176,7 +207,8 @@ mod tests {
 
         let receipt = supervisor.terminal_receipt().expect("forced cleanup joined");
         assert_eq!(forced_aborts.load(Ordering::SeqCst), 1);
-        assert_eq!(receipt, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(receipt.cleanup, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(receipt.terminal_status, CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 
     #[test]
@@ -188,13 +220,21 @@ mod tests {
 
         let next = CandidateRuntimeSupervisor::default();
 
-        assert_eq!(next.terminal_receipt(), Some(CandidateCleanupReceipt::default()));
+        assert_eq!(
+            next.terminal_receipt(),
+            Some(CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt::default()))
+        );
     }
 
     #[test]
     fn terminal_barrier_rejects_incomplete_cleanup_receipt() {
         let supervisor = CandidateRuntimeSupervisor::default();
-        supervisor.record(CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1 });
+        supervisor.record(CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
+            started: 1,
+            stopped: 1,
+            joined: 0,
+            forced_abort: 1,
+        }));
 
         assert_eq!(supervisor.terminal_receipt(), None);
     }
