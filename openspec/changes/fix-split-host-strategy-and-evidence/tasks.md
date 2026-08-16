@@ -8,9 +8,11 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
 
 ## Ownership
 
-- Native execution lane owns `ripdpi-desync-runtime`,
-  `ripdpi-monitor-proxy-runtime`, the narrow evidence port, terminal receipt,
-  generation correlation, and production-runtime behavior tests.
+- Native execution lane owns `ripdpi-desync-runtime`, `ripdpi-runtime-api`,
+  `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-proxy-runtime`,
+  `ripdpi-diagnostics-transport`, `ripdpi-monitor-proxy-runtime`, the narrow
+  evidence port, terminal receipt, attempt/generation correlation, and
+  production-runtime behavior tests.
 - Candidate/contract lane owns `ripdpi-diagnostics-candidates`,
   `ripdpi-monitor-engine`, `ripdpi-diagnostics-contracts`, engine schema 9,
   Kotlin engine mirrors, wire fixtures, API snapshots, and field manifests.
@@ -30,11 +32,15 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
 
 - [ ] RST-1786885745241507 Add a candidate-generation-bound `DesyncExecutionEvidenceSink`, stack-local first-write receipt, typed terminal runtime receipt, and RED/GREEN production SOCKS tests proving applied `split(host+1)`, plain fallback, activation skip, partial write, worker error, and late-receipt rejection #feature !high @item:DGN-1786885244559735
 
-  Owned paths: `native/rust/crates/ripdpi-desync-runtime`,
-  `ripdpi-monitor-proxy-runtime`, the smallest required adapter call sites, and
-  focused tests. Publish once after send completion, keep packet bytes out of
-  the receipt, avoid `PcapHook` and per-action callbacks, return typed runtime
-  errors, and keep endpoint response outside the execution disposition.
+  Owned paths: `native/rust/crates/ripdpi-desync-runtime`, `ripdpi-runtime-api`,
+  `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-proxy-runtime`,
+  `ripdpi-diagnostics-transport`, `ripdpi-monitor-proxy-runtime`, the smallest
+  required monitor-engine runtime contracts, and focused tests. Return the
+  scalar receipt from desync execution, publish once after send completion at
+  the proxy boundary, carry an opaque attempt token only across the authenticated
+  loopback SOCKS hop, keep packet bytes and auth secrets out of evidence, avoid
+  `PcapHook` and per-action callbacks, return typed runtime errors, and keep
+  endpoint response outside the execution disposition.
 
 - [ ] DGN-1786885745283306 Isolate canonical candidate configuration, correlate per-attempt execution and response evidence, reject unproved candidates from evaluation or promotion, and atomically bump the Rust/Kotlin diagnostics engine contract from schema 8 to 9 with fixtures, manifests, and API snapshots #feature !high @item:DGN-1786885244559735
 

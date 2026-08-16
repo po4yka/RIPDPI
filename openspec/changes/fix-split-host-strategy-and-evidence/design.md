@@ -44,12 +44,14 @@ unbounded callbacks on the outbound hot path.
 
 ## Decisions
 
-### 1. A narrow execution-evidence port owns the hot-path boundary
+### 1. A typed return value and narrow proxy evidence port own the hot-path boundary
 
-Add an optional `DesyncExecutionEvidenceSink` at the desync-runtime boundary.
-The TCP execution stack builds one scalar receipt locally for the first outbound
-payload and publishes it once after the send outcome is known. Planner and
-action internals remain private. `PcapHook` is rejected because it handles raw
+The desync runtime builds one scalar receipt locally for the first outbound
+payload and returns it through `OutboundSendOutcome` or `OutboundSendError`.
+Planner and action internals remain private. A separate optional one-method
+`DesyncExecutionEvidenceSink` lives beside `EmbeddedProxyControl` in
+`ripdpi-runtime-api`; the proxy calls it once after the returned send outcome is
+known and outside internal locks. `PcapHook` is rejected because it handles raw
 bytes, runs for each write, and increases both contention and privacy risk.
 
 The receipt contains only:
@@ -66,6 +68,20 @@ The evidence does not include candidate ID inside the stack-local receipt;
 `ripdpi-monitor-proxy-runtime` binds it to the candidate generation before it
 crosses into the monitor engine.
 
+Candidate generation alone is not an attempt join key. One ephemeral runtime
+serves warm-up traffic and multiple HTTP/HTTPS samples concurrently, while a
+single HTTPS sample can open several TLS connections. Each logical sample is
+therefore assigned a bounded opaque `AttemptToken`. The diagnostics transport
+carries that token in the username of the existing loopback-only SOCKS5 RFC
+1929 exchange, while a per-runtime random secret remains the password. The
+proxy strips the token at the local handshake boundary and binds every
+first-write receipt to `{ candidateGeneration, attemptToken,
+connectionOrdinal }`. Warm-up traffic uses an explicit non-evaluable role.
+Timestamp, destination, domain, address, local port, and payload joins are
+forbidden. Starting one proxy runtime per attempt is rejected because it would
+change the measured path and add launch/warm-up cost; a candidate-wide receipt
+is rejected because it cannot identify which concurrent sample executed it.
+
 ### 2. Execution and endpoint outcome are independent
 
 `APPLIED` means the effective actions and real writes completed as evidenced; it
@@ -77,10 +93,12 @@ Planner failure followed by a plain write becomes
 ### 3. Candidate shutdown returns an authoritative terminal receipt
 
 Replace cleanup-only candidate shutdown results with
-`CandidateRuntimeTerminalReceipt { cleanup, terminal_status,
-execution_evidence }`. Both normal shutdown and forced abort return the same
-typed contract. Worker errors and panics remain terminal runtime failures even
-when cleanup succeeds. Late receipts are rejected by candidate generation.
+`CandidateRuntimeTerminalReceipt { generation, cleanup, shutdown_mode,
+worker_outcome, receipts, overflowed }`. Both normal shutdown and forced abort
+return the same typed contract. Worker errors and panics remain terminal runtime
+failures even when cleanup succeeds. Receipts are bounded and correlated by
+attempt token; overflow, unknown tokens, and late receipts make the affected
+attempt unverified rather than applied.
 
 ### 4. Catalog candidates use an isolated base
 
@@ -137,10 +155,19 @@ cross the archive privacy boundary.
 
 ## Contracts and ownership
 
-- `ripdpi-desync-runtime`: constructs the stack-local execution receipt after
-  plan selection and send completion.
+- `ripdpi-desync-runtime`: constructs and returns the stack-local execution
+  receipt after plan selection and send completion.
+- `ripdpi-runtime-api`: owns the narrow optional execution-evidence port carried
+  by `EmbeddedProxyControl`.
+- `ripdpi-proxy-runtime` and `ripdpi-proxy-runtime-desync-adapter`: preserve the
+  typed send receipt, extract the loopback-only attempt tag, and publish once
+  after first-write completion.
+- `ripdpi-diagnostics-transport`: carries the opaque attempt token in the
+  authenticated ephemeral SOCKS transport without exposing its password in
+  `Debug` or diagnostics output.
 - `ripdpi-monitor-proxy-runtime`: owns the optional evidence sink, candidate
-  generation binding, runtime terminal receipt, and late-receipt rejection.
+  generation and attempt-token binding, bounded per-attempt collection, runtime
+  terminal receipt, and late-receipt rejection.
 - `ripdpi-diagnostics-candidates`: owns isolated candidate construction and the
   exact distinction between `baseline_current host+1` and catalog
   `split_host host+2`.
