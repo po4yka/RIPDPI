@@ -8,6 +8,7 @@ use crate::platform::{
     FakeTcpOptions, OrderedTcpSegment, TcpActivationState, TcpFakeSender, TcpFlagOverrides, TcpFragmentSender,
     TcpPayloadSegment, TcpPayloadSender, TcpPlatformCapabilities, TcpSocketOptions, TcpStageWait,
 };
+use crate::types::{TcpExecutionDisposition, TcpOffsetMarkerBase, TcpStrategyFamily};
 
 struct ReceiptTestPlatform;
 

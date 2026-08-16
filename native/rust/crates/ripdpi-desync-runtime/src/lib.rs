@@ -35,6 +35,9 @@ pub use activation::activation_context_from_progress;
 pub use capability_policy::apply_tcp_capability_policy;
 pub use strategy_family::primary_tcp_strategy_family;
 pub use tcp::send_prepared_with_group;
-pub use types::{OutboundSendError, OutboundSendOutcome, PcapHook};
+pub use types::{
+    OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
+    TcpOffsetMarkerBase, TcpStrategyFamily, TcpTerminalReason,
+};
 
 pub const DESYNC_SEED_BASE: u32 = 7;

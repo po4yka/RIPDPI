@@ -11,7 +11,7 @@ use crate::sync::AtomicBool;
 use crate::tcp_actions::execute_tcp_actions;
 use crate::tcp_plan::{execute_tcp_plan, requires_special_tcp_execution};
 use crate::transport_io::write_transport_payload;
-use crate::types::{OutboundSendError, OutboundSendOutcome, PcapHook};
+use crate::types::{OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt};
 use crate::{DESYNC_SEED_BASE, platform};
 
 #[allow(clippy::too_many_arguments)]
@@ -53,7 +53,11 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         strategy_family,
                         session_ttl_unavailable,
                     )?;
-                    Ok(OutboundSendOutcome { bytes_committed, strategy_family })
+                    Ok(OutboundSendOutcome {
+                        bytes_committed,
+                        strategy_family,
+                        execution_receipt: TcpExecutionReceipt::applied(group, &plan, strategy_family),
+                    })
                 }
                 Ok(plan) => {
                     let bytes_committed = execute_tcp_actions(
@@ -68,16 +72,34 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         group.actions.ip_id_mode,
                         pcap_hook,
                     )?;
-                    Ok(OutboundSendOutcome { bytes_committed, strategy_family })
+                    Ok(OutboundSendOutcome {
+                        bytes_committed,
+                        strategy_family,
+                        execution_receipt: TcpExecutionReceipt::applied(group, &plan, strategy_family),
+                    })
                 }
                 Err(_) => {
                     let bytes_committed = write_transport_payload(writer, &effective_payload)?;
-                    Ok(OutboundSendOutcome { bytes_committed, strategy_family: None })
+                    Ok(OutboundSendOutcome {
+                        bytes_committed,
+                        strategy_family: None,
+                        execution_receipt: TcpExecutionReceipt::plain(
+                            TcpExecutionDisposition::PlanFailedPlainFallback,
+                            bytes_committed,
+                        ),
+                    })
                 }
             }
         } else {
             let bytes_committed = write_transport_payload(writer, &effective_payload)?;
-            Ok(OutboundSendOutcome { bytes_committed, strategy_family: None })
+            Ok(OutboundSendOutcome {
+                bytes_committed,
+                strategy_family: None,
+                execution_receipt: TcpExecutionReceipt::plain(
+                    TcpExecutionDisposition::ActivationSkipped,
+                    bytes_committed,
+                ),
+            })
         }
     })
 }
