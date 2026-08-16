@@ -61,6 +61,23 @@ class DesignSystemSourceRulesTest {
     }
 
     @Test
+    fun `diagnostics tool headers report liveness alongside tone`() {
+        // Every tool state folds Running into DiagnosticsTone.Info, which the StatusIndicator palette
+        // renders as Idle, so a header that reads tone alone shows a running probe as inert while a
+        // finished one pulses. The header is copy-pasted per tool, so pair the two calls by count
+        // rather than parsing a multi-line argument list.
+        val toneReads = Regex("\\btool\\.state\\.tone\\(\\)")
+        val livenessReads = Regex("\\btool\\.state\\.running\\(\\)")
+
+        assertNoOffendingFiles(
+            files = uiSourceFiles(screenUiRoot),
+            message = "A tool header reading tool.state.tone() must also pass pulsing = tool.state.running()",
+        ) { source ->
+            toneReads.findAll(source.text).count() != livenessReads.findAll(source.text).count()
+        }
+    }
+
+    @Test
     fun `animation sources consume shared motion tokens`() {
         val animationImport = Regex("^import androidx\\.compose\\.animation", RegexOption.MULTILINE)
 

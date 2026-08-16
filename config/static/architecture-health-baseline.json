@@ -233,17 +233,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsscanprogress.kt:scanprogresscard",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanProgress.kt",
-      "message": "ScanProgressCard spans 113 lines",
-      "metricName": "functionLines",
-      "baselineValue": 113,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
       "id": "long-function-or-composable:build-logic-convention-src-main-kotlin-diagnosticscatalogrendering.kt:diagnosticscataloglegalsafetyrule",
       "rule": "long-function-or-composable",
       "priority": 3,

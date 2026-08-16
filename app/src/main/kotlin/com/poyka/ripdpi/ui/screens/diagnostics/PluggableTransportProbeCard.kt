@@ -29,6 +29,7 @@ internal fun PluggableTransportProbeCard(
         StatusIndicator(
             label = tool.state.name.lowercase(Locale.US),
             tone = statusTone(tool.state.tone()),
+            pulsing = tool.state.running(),
         )
         androidx.compose.material3.Text(
             text = stringResource(R.string.diagnostics_pt_reachability_title),
@@ -81,3 +82,5 @@ private fun DiagnosticsPluggableTransportState.tone(): DiagnosticsTone =
         DiagnosticsPluggableTransportState.Disabled -> DiagnosticsTone.Neutral
         DiagnosticsPluggableTransportState.Failed -> DiagnosticsTone.Negative
     }
+
+private fun DiagnosticsPluggableTransportState.running(): Boolean = this == DiagnosticsPluggableTransportState.Running

@@ -344,6 +344,15 @@ private fun <T> FilterChipRow(
 
 @Suppress("LongMethod")
 @Composable
+private fun LogsStreamStatus(streaming: Boolean) {
+    StatusIndicator(
+        label = stringResource(if (streaming) R.string.logs_status_live else R.string.logs_status_empty),
+        tone = if (streaming) StatusIndicatorTone.Active else StatusIndicatorTone.Idle,
+        pulsing = streaming,
+    )
+}
+
+@Composable
 private fun LogsOverviewCard(
     uiState: LogsUiState,
     onSaveLogs: () -> Unit,
@@ -362,22 +371,7 @@ private fun LogsOverviewCard(
             style = RipDpiThemeTokens.type.sectionTitle,
             color = colors.mutedForeground,
         )
-        StatusIndicator(
-            label =
-                stringResource(
-                    if (uiState.logs.isEmpty()) {
-                        R.string.logs_status_empty
-                    } else {
-                        R.string.logs_status_live
-                    },
-                ),
-            tone =
-                if (uiState.logs.isEmpty()) {
-                    StatusIndicatorTone.Idle
-                } else {
-                    StatusIndicatorTone.Active
-                },
-        )
+        LogsStreamStatus(streaming = uiState.logs.isNotEmpty())
         Text(
             text = stringResource(R.string.logs_overview_title),
             style = RipDpiThemeTokens.type.screenTitle,

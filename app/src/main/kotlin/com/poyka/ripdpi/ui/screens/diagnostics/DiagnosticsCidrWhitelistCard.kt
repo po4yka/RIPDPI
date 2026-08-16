@@ -34,6 +34,7 @@ internal fun CidrWhitelistDetectionCard(
         StatusIndicator(
             label = tool.state.name.lowercase(Locale.US),
             tone = statusTone(tool.state.tone()),
+            pulsing = tool.state.running(),
         )
         androidx.compose.material3.Text(
             text = stringResource(R.string.diagnostics_cidr_whitelist_title),
@@ -101,3 +102,5 @@ private fun DiagnosticsCidrWhitelistState.tone(): DiagnosticsTone =
         DiagnosticsCidrWhitelistState.Complete -> DiagnosticsTone.Positive
         DiagnosticsCidrWhitelistState.Failed -> DiagnosticsTone.Negative
     }
+
+private fun DiagnosticsCidrWhitelistState.running(): Boolean = this == DiagnosticsCidrWhitelistState.Running

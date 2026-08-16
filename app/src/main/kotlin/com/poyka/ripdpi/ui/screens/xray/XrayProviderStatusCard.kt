@@ -66,13 +66,15 @@ internal fun XrayProviderStatusCard(
     val spacing = RipDpiThemeTokens.spacing
     val snapshot = report.snapshot
     val stage = XrayConnectionStage.fromSnapshot(snapshot)
+    val stageTone = stage.tone()
     RipDpiCard(
         variant = RipDpiCardVariant.Outlined,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.XrayProviderStatusCard),
     ) {
         StatusIndicator(
             label = stage.title(),
-            tone = stage.tone().statusTone(),
+            tone = stageTone.statusTone(),
+            pulsing = stageTone == XrayProviderTone.Progress,
         )
         Text(
             text = stringResource(R.string.xray_provider_card_title),

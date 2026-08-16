@@ -33,6 +33,7 @@ internal fun RemoteDeviceAcceptanceCard(
         StatusIndicator(
             label = report.status.displayLabel(),
             tone = statusTone(report.status.toDiagnosticsTone()),
+            pulsing = report.status == RemoteDeviceAcceptanceStatus.Running,
         )
         androidx.compose.material3.Text(
             text = stringResource(R.string.diagnostics_device_gate_title),

@@ -172,6 +172,7 @@ internal fun OverviewSection(
                     StatusIndicator(
                         label = live.statusLabel,
                         tone = statusTone(live.statusTone),
+                        pulsing = live.health != DiagnosticsHealth.Idle,
                     )
                     MetricsRow(metrics = live.highlights)
                 }

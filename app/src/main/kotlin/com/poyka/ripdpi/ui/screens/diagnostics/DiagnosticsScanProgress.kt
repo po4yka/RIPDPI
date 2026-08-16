@@ -25,6 +25,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.CompletedProbeUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeLiveProgressUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DnsBaselineStatus
@@ -82,6 +83,8 @@ internal fun ScanProgressCard(
                     } else {
                         stringResource(R.string.diagnostics_status_running)
                     },
+                // This card only renders under scan.activeProgress, so a scan is always in flight here.
+                pulsing = true,
                 tone = StatusIndicatorTone.Warning,
             )
             Text(
@@ -91,30 +94,7 @@ internal fun ScanProgressCard(
             )
         }
         progress.strategyProbeProgress?.let { liveProgress ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StatusIndicator(
-                    label =
-                        when (liveProgress.lane) {
-                            DiagnosticsStrategyProbeProgressLaneUiModel.TCP -> {
-                                stringResource(R.string.diagnostics_phase_tcp)
-                            }
-
-                            DiagnosticsStrategyProbeProgressLaneUiModel.QUIC -> {
-                                stringResource(R.string.diagnostics_phase_quic)
-                            }
-                        },
-                    tone = StatusIndicatorTone.Warning,
-                )
-                Text(
-                    text = "${liveProgress.candidateIndex}/${liveProgress.candidateTotal}",
-                    style = RipDpiThemeTokens.type.monoInline,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-            }
+            StrategyProbeLaneRow(liveProgress)
         }
         progress.dnsBaselineStatus?.let { dnsStatus ->
             DnsBaselineBadge(status = dnsStatus)
@@ -180,6 +160,36 @@ internal fun ScanProgressCard(
  * Already localized, and says more than a bare percentage; the numeric value still reaches the
  * screen reader through the indicator's own progress semantics.
  */
+@Composable
+private fun StrategyProbeLaneRow(liveProgress: DiagnosticsStrategyProbeLiveProgressUiModel) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatusIndicator(
+            label =
+                when (liveProgress.lane) {
+                    DiagnosticsStrategyProbeProgressLaneUiModel.TCP -> {
+                        stringResource(R.string.diagnostics_phase_tcp)
+                    }
+
+                    DiagnosticsStrategyProbeProgressLaneUiModel.QUIC -> {
+                        stringResource(R.string.diagnostics_phase_quic)
+                    }
+                },
+            tone = StatusIndicatorTone.Warning,
+            // strategyProbeProgress is only non-null while that lane is probing.
+            pulsing = true,
+        )
+        Text(
+            text = "${liveProgress.candidateIndex}/${liveProgress.candidateTotal}",
+            style = RipDpiThemeTokens.type.monoInline,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+    }
+}
+
 private fun DiagnosticsProgressUiModel.activePhaseLabel(): String? =
     phaseSteps.firstOrNull { it.state == PhaseState.Active }?.label
 

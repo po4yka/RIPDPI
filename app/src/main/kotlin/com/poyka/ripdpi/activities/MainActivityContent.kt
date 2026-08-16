@@ -89,6 +89,8 @@ private fun StartupRecoveryGateContent(
                 ),
             steps = persistentListOf(),
             tone = if (failed) StatusIndicatorTone.Error else StatusIndicatorTone.Active,
+            // Startup recovery is still running until it either succeeds or reports failure.
+            pulsing = !failed,
             actionLabel =
                 if (failed) {
                     androidx.compose.ui.res

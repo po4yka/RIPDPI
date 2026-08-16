@@ -41,6 +41,7 @@ internal fun Ipv4WhitelistSubnetDiscoveryCard(
         StatusIndicator(
             label = tool.state.name.lowercase(Locale.US),
             tone = statusTone(tool.state.tone()),
+            pulsing = tool.state.running(),
         )
         Text(
             text = stringResource(R.string.diagnostics_ipv4_whitelist_title),
@@ -148,3 +149,5 @@ private fun DiagnosticsIpv4WhitelistState.tone(): DiagnosticsTone =
         DiagnosticsIpv4WhitelistState.Complete -> DiagnosticsTone.Positive
         DiagnosticsIpv4WhitelistState.Failed -> DiagnosticsTone.Negative
     }
+
+private fun DiagnosticsIpv4WhitelistState.running(): Boolean = this == DiagnosticsIpv4WhitelistState.Running

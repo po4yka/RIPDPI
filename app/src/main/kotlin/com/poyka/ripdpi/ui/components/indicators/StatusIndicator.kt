@@ -52,12 +52,14 @@ fun StatusIndicator(
     modifier: Modifier = Modifier,
     tone: StatusIndicatorTone = StatusIndicatorTone.Active,
     /**
-     * Whether the marker pulses. Defaults to the tone-derived guess this component has always made,
-     * which is only ever right for something happening right now: a stored result carries the same
-     * tone as a live one, so a finished scan pulses forever, including inside list items that stay
-     * on screen. Pass false wherever the indicator reports a completed or persisted state.
+     * Whether the marker pulses, meaning the state it reports is changing right now. Tone cannot
+     * answer that: it carries severity, and a stored result carries the same severity as a live one.
+     * Deriving pulsing from tone was wrong in both directions -- a finished scan pulsed forever
+     * inside a list item that stays on screen, while a running probe mapped to Idle and never
+     * pulsed at all. Most indicators report a stored or configured state, so this stays false
+     * unless the call site can name what is in flight.
      */
-    pulsing: Boolean = tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error,
+    pulsing: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
     val indicatorColor =
@@ -212,7 +214,7 @@ private fun DrawScope.drawStatusMarker(
 private fun StatusIndicatorPreview() {
     RipDpiComponentPreview {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatusIndicator(label = "Running")
+            StatusIndicator(label = "Running", pulsing = true)
             StatusIndicator(label = "Idle", tone = StatusIndicatorTone.Idle)
             StatusIndicator(label = "Warning", tone = StatusIndicatorTone.Warning)
             StatusIndicator(label = "Error", tone = StatusIndicatorTone.Error)

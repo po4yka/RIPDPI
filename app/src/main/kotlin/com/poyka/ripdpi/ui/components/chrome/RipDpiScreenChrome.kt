@@ -165,6 +165,8 @@ fun RipDpiRemediationCard(
     steps: ImmutableList<String>,
     tone: StatusIndicatorTone,
     modifier: Modifier = Modifier,
+    /** Forwarded to [StatusIndicator]: true only while the remediation subject is still changing. */
+    pulsing: Boolean = false,
     cardVariant: RipDpiCardVariant = RipDpiCardVariant.Elevated,
     cardTestTag: String? = null,
     actionLabel: String? = null,
@@ -189,6 +191,7 @@ fun RipDpiRemediationCard(
         StatusIndicator(
             label = title,
             tone = tone,
+            pulsing = pulsing,
         )
         Text(
             text = summary,

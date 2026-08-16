@@ -45,6 +45,7 @@ internal fun DpiProbeSuiteCard(
         StatusIndicator(
             label = tool.state.name.lowercase(Locale.US),
             tone = statusTone(tool.state.tone()),
+            pulsing = tool.state.running(),
         )
         Text(
             text = stringResource(R.string.diagnostics_dpi_suite_title),
@@ -201,3 +202,5 @@ private fun DiagnosticsDpiSuiteState.tone(): DiagnosticsTone =
         DiagnosticsDpiSuiteState.Cancelled -> DiagnosticsTone.Neutral
         DiagnosticsDpiSuiteState.Failed -> DiagnosticsTone.Negative
     }
+
+private fun DiagnosticsDpiSuiteState.running(): Boolean = this == DiagnosticsDpiSuiteState.Running

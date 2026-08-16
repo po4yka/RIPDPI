@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -154,6 +155,7 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
                 StatusIndicator(
                     label = live.statusLabel,
                     tone = statusTone(live.statusTone),
+                    pulsing = live.health != DiagnosticsHealth.Idle,
                 )
                 EventBadge(
                     text = liveBadgeText,

@@ -162,6 +162,8 @@ private fun HomeModeCardStatus(
     StatusIndicator(
         label = statusLabel,
         tone = homeModeStatusTone(uiState),
+        // isActive is a steady connected state; only the transition into it is in flight.
+        pulsing = uiState.isLoading,
     )
 }
 

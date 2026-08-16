@@ -47,6 +47,7 @@ internal fun ByohCompatibilityCard(
         StatusIndicator(
             label = tool.state.name.lowercase(Locale.US),
             tone = statusTone(tool.state.tone()),
+            pulsing = tool.state.running(),
         )
         Text(
             text = stringResource(R.string.diagnostics_byoh_title),
@@ -155,3 +156,5 @@ private fun DiagnosticsByohCompatibilityState.tone(): DiagnosticsTone =
         DiagnosticsByohCompatibilityState.Complete -> DiagnosticsTone.Positive
         DiagnosticsByohCompatibilityState.Failed -> DiagnosticsTone.Negative
     }
+
+private fun DiagnosticsByohCompatibilityState.running(): Boolean = this == DiagnosticsByohCompatibilityState.Running

@@ -36,6 +36,7 @@ internal fun RknBlockDiagnosisScreen(
         StatusIndicator(
             label = tool.state.name.lowercase(Locale.US),
             tone = statusTone(tool.state.tone()),
+            pulsing = tool.state.running(),
         )
         androidx.compose.material3.Text(
             text = tool.headline,
@@ -149,3 +150,5 @@ private fun DiagnosticsRknBlockDiagnosisState.tone(): DiagnosticsTone =
         DiagnosticsRknBlockDiagnosisState.Complete -> DiagnosticsTone.Positive
         DiagnosticsRknBlockDiagnosisState.Failed -> DiagnosticsTone.Negative
     }
+
+private fun DiagnosticsRknBlockDiagnosisState.running(): Boolean = this == DiagnosticsRknBlockDiagnosisState.Running

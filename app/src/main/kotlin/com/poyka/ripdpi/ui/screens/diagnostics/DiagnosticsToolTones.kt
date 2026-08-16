@@ -55,3 +55,18 @@ internal fun DiagnosticsAllowlistSniState.tone(): DiagnosticsTone =
         DiagnosticsAllowlistSniState.Complete -> DiagnosticsTone.Positive
         DiagnosticsAllowlistSniState.Failed -> DiagnosticsTone.Negative
     }
+
+// Liveness, kept separate from tone() on purpose. Every tone() above folds Running into
+// DiagnosticsTone.Info, which the StatusIndicator palette renders as Idle, so tone alone cannot
+// tell a probe that is running from one that never started.
+internal fun DiagnosticsDnsIntegrityState.running(): Boolean = this == DiagnosticsDnsIntegrityState.Running
+
+internal fun DiagnosticsDnsAvailabilityState.running(): Boolean = this == DiagnosticsDnsAvailabilityState.Running
+
+internal fun DiagnosticsDomainReachabilityState.running(): Boolean = this == DiagnosticsDomainReachabilityState.Running
+
+internal fun DiagnosticsCompressionProbeState.running(): Boolean = this == DiagnosticsCompressionProbeState.Running
+
+internal fun DiagnosticsTcp16FatHeaderState.running(): Boolean = this == DiagnosticsTcp16FatHeaderState.Running
+
+internal fun DiagnosticsAllowlistSniState.running(): Boolean = this == DiagnosticsAllowlistSniState.Running
