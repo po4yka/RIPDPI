@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -246,6 +247,75 @@ private fun RipDpiDesignSystemCatalog(
                                 },
                             )
                         }
+                    },
+            )
+
+            PreviewMatrixRow(
+                title = "Icon Buttons (Destructive)",
+                cells =
+                    buildList {
+                        add(
+                            "Enabled" to {
+                                RipDpiIconButton(
+                                    icon = RipDpiIcons.Delete,
+                                    contentDescription = "Delete",
+                                    onClick = {},
+                                    style = RipDpiIconButtonStyle.Destructive,
+                                )
+                            },
+                        )
+                        add(
+                            "Disabled" to {
+                                RipDpiIconButton(
+                                    icon = RipDpiIcons.Delete,
+                                    contentDescription = "Delete",
+                                    onClick = {},
+                                    style = RipDpiIconButtonStyle.Destructive,
+                                    enabled = false,
+                                )
+                            },
+                        )
+                    },
+            )
+
+            PreviewMatrixRow(
+                title = "Icon Buttons (Warning)",
+                cells =
+                    buildList {
+                        add(
+                            "Enabled" to {
+                                RipDpiIconButton(
+                                    icon = RipDpiIcons.Close,
+                                    contentDescription = "Dismiss",
+                                    onClick = {},
+                                    style = RipDpiIconButtonStyle.Warning,
+                                )
+                            },
+                        )
+                        add(
+                            "Disabled" to {
+                                RipDpiIconButton(
+                                    icon = RipDpiIcons.Close,
+                                    contentDescription = "Dismiss",
+                                    onClick = {},
+                                    style = RipDpiIconButtonStyle.Warning,
+                                    enabled = false,
+                                )
+                            },
+                        )
+                    },
+            )
+
+            PreviewMatrixRow(
+                title = "Text Action",
+                cells =
+                    buildList {
+                        add("Enabled" to { RipDpiTextAction(text = "Skip", onClick = {}) })
+                        add(
+                            "Disabled" to {
+                                RipDpiTextAction(text = "Skip", onClick = {}, enabled = false)
+                            },
+                        )
                     },
             )
 
