@@ -8254,9 +8254,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-boring"
-version = "5.0.0"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "888f55b68689784b01b8625c9c1486080d8a790972355d45a1bef231b5f5aa83"
+checksum = "f7c8b403954655fa821f069961b8c414b52d3bc67597e993463946c633fe4b46"
 dependencies = [
  "boring",
  "boring-sys",
