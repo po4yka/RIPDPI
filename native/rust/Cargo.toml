@@ -306,7 +306,7 @@ yamux = "0.14"
 # update cannot silently swap in a vendored-BoringSSL revision that
 # renames or removes any of those symbols. See
 # docs/design/reality-boringssl-patch.md.
-boring = "=5.1.0"
+boring = "=5.2.0"
 tokio-boring = "=5.1.0"
 webpki-roots = "1.0"
 io-uring = "=0.7.14"
