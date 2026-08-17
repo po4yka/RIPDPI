@@ -307,7 +307,7 @@ yamux = "0.14"
 # renames or removes any of those symbols. See
 # docs/design/reality-boringssl-patch.md.
 boring = "=5.1.0"
-tokio-boring = "=5.0.0"
+tokio-boring = "=5.1.0"
 webpki-roots = "1.0"
 io-uring = "=0.7.13"
 flume = "0.12"
