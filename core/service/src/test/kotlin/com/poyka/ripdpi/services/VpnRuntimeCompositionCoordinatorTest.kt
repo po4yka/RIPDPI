@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -99,10 +101,17 @@ class VpnRuntimeCompositionCoordinatorTest {
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
 
-            val result = coordinator.start(VpnRuntimeSession("runtime-test"), sampleResolution(mode = Mode.VPN))
+            val session = VpnRuntimeSession("runtime-test")
+            val result = coordinator.start(session, sampleResolution(mode = Mode.VPN))
 
             assertTrue(result != null)
             assertSame(readySnapshot, result?.readySnapshot)
+            val routeLease = session.diagnosticsInPathRouteLease
+            assertNotNull(routeLease)
+            assertEquals(result?.endpoint?.host, routeLease?.host)
+            assertEquals(result?.endpoint?.port, routeLease?.port)
+            assertEquals(result?.endpoint?.username, routeLease?.credentials?.username)
+            assertEquals(result?.endpoint?.password, routeLease?.credentials?.password)
             coordinator.stop(skipRuntimeShutdown = false)
         }
 }
