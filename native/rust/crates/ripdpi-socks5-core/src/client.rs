@@ -87,7 +87,10 @@ where
         self.target_addr = Some(target_addr);
 
         // Request Lifecycle
-        debug!("Requesting headers `{:?}`...", &self.target_addr);
+        debug!(
+            "Requesting SOCKS5 header: command={cmd:?}, target_kind={}",
+            target_addr_kind(self.target_addr.as_ref()),
+        );
         self.request_header(cmd).await?;
         let bind_addr = self.read_request_reply().await?;
 
@@ -265,7 +268,6 @@ where
                     padding = 10;
 
                     packet[3] = 0x01;
-                    debug!("addr ip {:?}", (*addr.ip()).octets());
                     packet[4..8].copy_from_slice(&(addr.ip()).octets()); // ip
                     packet[8..padding].copy_from_slice(&addr.port().to_be_bytes());
                     // port
@@ -275,7 +277,6 @@ where
                     padding = 22;
 
                     packet[3] = 0x04;
-                    debug!("addr ip {:?}", (*addr.ip()).octets());
                     packet[4..20].copy_from_slice(&(addr.ip()).octets()); // ip
                     packet[20..padding].copy_from_slice(&addr.port().to_be_bytes());
                     // port
@@ -296,9 +297,7 @@ where
             },
         }
 
-        debug!("Bytes long version: {:?}", &packet[..]);
-        debug!("Bytes shorted version: {:?}", &packet[..padding]);
-        debug!("Padding: {}", &padding);
+        debug!("SOCKS5 request header encoded: command={cmd:?}");
 
         // we limit the end of the packet right after the domain + port number, we don't need to print
         // useless 0 bytes, otherwise other protocol won't understand the request (like HTTP servers).
@@ -332,7 +331,7 @@ where
         }
 
         let address = read_address(&mut self.socket, address_type).await?;
-        debug!("Remote server bind on {}.", address);
+        debug!("SOCKS5 request accepted: bind_kind={}", target_addr_kind(Some(&address)));
 
         Ok(address)
     }
@@ -419,7 +418,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
     async fn create_out_sock<U: ToSocketAddrs>(client_bind_addr: U) -> Result<UdpSocket> {
         let client_bind_addr = client_bind_addr.to_socket_addrs()?.next().context("unreachable")?;
         let out_sock = UdpSocket::bind(client_bind_addr).await?;
-        debug!("UdpSocket client socket bind to {}", client_bind_addr);
+        debug!("SOCKS5 UDP client socket bound");
         Ok(out_sock)
     }
 
@@ -437,7 +436,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
         let proxy_addr = proxy_stream.request(Socks5Command::UDPAssociate, client_src).await?;
 
         let proxy_addr_resolved = proxy_addr.to_socket_addrs()?.next().context("unreachable")?;
-        debug!("UdpSocket client connecting to {}", proxy_addr_resolved);
+        debug!("SOCKS5 UDP client connecting to proxy relay");
         out_sock.connect(proxy_addr_resolved).await?;
         debug!("UdpSocket client connected");
 
@@ -539,7 +538,7 @@ impl Socks5Stream<TcpStream> {
             None => tcp_connect(addr).await?,
             Some(connect_timeout) => tcp_connect_with_timeout(addr, connect_timeout).await?,
         };
-        debug!("Connected @ {}", &socket.peer_addr()?);
+        debug!("Connected to SOCKS5 proxy");
 
         // Specify the target, here domain name, dns will be resolved on the server side
         let target_addr = (target_addr.as_str(), target_port)
@@ -551,6 +550,15 @@ impl Socks5Stream<TcpStream> {
         socks_stream.request(cmd, target_addr).await?;
 
         Ok(socks_stream)
+    }
+}
+
+fn target_addr_kind(target: Option<&TargetAddr>) -> &'static str {
+    match target {
+        Some(TargetAddr::Ip(SocketAddr::V4(_))) => "ipv4",
+        Some(TargetAddr::Ip(SocketAddr::V6(_))) => "ipv6",
+        Some(TargetAddr::Domain(_, _)) => "domain",
+        None => "none",
     }
 }
 
@@ -588,8 +596,44 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Mutex, Once};
+
     use super::*;
+    use log::{LevelFilter, Log, Metadata, Record};
     use tokio::io::DuplexStream;
+
+    struct CapturingLogger {
+        messages: Mutex<Vec<String>>,
+    }
+
+    impl Log for CapturingLogger {
+        fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
+            true
+        }
+
+        fn log(&self, record: &Record<'_>) {
+            if self.enabled(record.metadata()) {
+                self.messages.lock().expect("lock captured logs").push(record.args().to_string());
+            }
+        }
+
+        fn flush(&self) {}
+    }
+
+    static CAPTURING_LOGGER: CapturingLogger = CapturingLogger { messages: Mutex::new(Vec::new()) };
+    static CAPTURING_LOGGER_INIT: Once = Once::new();
+
+    fn reset_captured_logs() {
+        CAPTURING_LOGGER_INIT.call_once(|| {
+            log::set_logger(&CAPTURING_LOGGER).expect("install capturing logger");
+        });
+        log::set_max_level(LevelFilter::Debug);
+        CAPTURING_LOGGER.messages.lock().expect("lock captured logs").clear();
+    }
+
+    fn captured_logs() -> String {
+        CAPTURING_LOGGER.messages.lock().expect("lock captured logs").join("\n")
+    }
 
     /// Build a `Socks5Stream` over an in-memory duplex socket without running
     /// the SOCKS handshake, so a single sub-negotiation method can be exercised
@@ -605,6 +649,33 @@ mod tests {
             AuthenticationMethod::None,
             AuthenticationMethod::Password { username: username.to_owned(), password: password.to_owned() },
         ]
+    }
+
+    // cancel-safe: cancellation drops both in-memory stream halves and leaves no shared protocol state.
+    #[tokio::test(flavor = "current_thread")]
+    async fn socks5_domain_request_preserves_wire_target_without_logging_it() {
+        reset_captured_logs();
+        let domain = "privacy-sentinel.youtube.example";
+        let port = 443;
+        let (mut stream, mut server) = duplex_stream();
+        stream.target_addr = Some(TargetAddr::Domain(domain.to_owned(), port));
+        let mut frame = vec![0u8; 5 + domain.len() + 2];
+
+        let (request_result, read_result) =
+            tokio::join!(stream.request_header(Socks5Command::TCPConnect), server.read_exact(&mut frame),);
+        request_result.expect("encode and write SOCKS5 domain request");
+        read_result.expect("drain SOCKS5 domain request");
+
+        assert_eq!(frame[0..5], [consts::SOCKS5_VERSION, consts::SOCKS5_CMD_TCP_CONNECT, 0, 3, domain.len() as u8]);
+        assert_eq!(&frame[5..5 + domain.len()], domain.as_bytes());
+        assert_eq!(&frame[5 + domain.len()..], &port.to_be_bytes());
+
+        let logs = captured_logs();
+        let decimal_domain = domain.as_bytes().iter().map(u8::to_string).collect::<Vec<_>>().join(", ");
+        assert!(
+            !logs.contains(domain) && !logs.contains(&decimal_domain),
+            "SOCKS5 debug logs must not reveal the domain as text or decimal bytes; logs: {logs}",
+        );
     }
 
     /// A 256-byte username must be rejected with a clean error rather than

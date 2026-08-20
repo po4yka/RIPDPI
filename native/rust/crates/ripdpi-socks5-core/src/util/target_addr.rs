@@ -62,14 +62,17 @@ impl TargetAddr {
         match self {
             TargetAddr::Ip(ip) => Ok(TargetAddr::Ip(ip)),
             TargetAddr::Domain(domain, port) => {
-                debug!("Attempt to DNS resolve the domain {}...", &domain);
+                debug!("Attempting SOCKS5 target DNS resolution");
 
                 let socket_addr = lookup_host((&domain[..], port))
                     .await
                     .map_err(|err| AddrError::DNSResolutionFailed(err))?
                     .next()
                     .ok_or(AddrError::NoDNSRecords)?;
-                debug!("domain name resolved to {}", socket_addr);
+                debug!(
+                    "SOCKS5 target DNS resolution succeeded: family={}",
+                    if socket_addr.is_ipv4() { "ipv4" } else { "ipv6" }
+                );
 
                 // has been converted to an ip
                 Ok(TargetAddr::Ip(socket_addr))
@@ -103,7 +106,6 @@ impl TargetAddr {
 
                 buf.extend_from_slice(&[SOCKS5_ADDR_TYPE_IPV4]);
 
-                debug!("addr ip {:?}", (*addr.ip()).octets());
                 buf.extend_from_slice(&(addr.ip()).octets()); // ip
                 buf.extend_from_slice(&addr.port().to_be_bytes()); // port
             }
@@ -111,7 +113,6 @@ impl TargetAddr {
                 debug!("TargetAddr::IpV6");
                 buf.extend_from_slice(&[consts::SOCKS5_ADDR_TYPE_IPV6]);
 
-                debug!("addr ip {:?}", (*addr.ip()).octets());
                 buf.extend_from_slice(&(addr.ip()).octets()); // ip
                 buf.extend_from_slice(&addr.port().to_be_bytes()); // port
             }
