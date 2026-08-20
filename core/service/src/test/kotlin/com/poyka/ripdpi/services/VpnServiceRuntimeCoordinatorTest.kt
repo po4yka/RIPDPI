@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -69,6 +70,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val preferredPaths: TestNetworkDnsPathPreferenceStore,
         val transportFailoverApplyTracker: TransportFailoverApplyTracker,
         val events: MutableList<String>,
+        val autolearnReceipts: List<AutolearnActivationReceipt>,
     )
 
     @Test
@@ -83,6 +85,9 @@ class VpnServiceRuntimeCoordinatorTest {
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
             assertEquals(1, env.host.underlyingNetworkSyncs)
+            assertEquals("running", env.store.telemetry.value.proxyTelemetry.state)
+            assertEquals(RuntimeTelemetryState.Snapshot, env.store.telemetry.value.proxyTelemetryStatus.state)
+            assertEquals(1, env.autolearnReceipts.size)
         }
 
     @Test
@@ -391,6 +396,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 replacementEstablishedAt in 1..<oldTunnelRetiredAt,
             )
             assertEquals(2, env.host.underlyingNetworkSyncs)
+            assertEquals(listOf(1L, 2L), env.autolearnReceipts.map { it.generation })
         }
 
     @Test
@@ -439,6 +445,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 TransportFailoverApplyOutcome.Applied,
                 env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
             )
+            assertEquals(listOf(1L, 2L), env.autolearnReceipts.map { it.generation })
         }
 
     @Test
@@ -837,6 +844,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     updatedPolicy.canonicalDigest,
                     (env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession).currentDestinationRoutingDigest,
                 )
+                assertEquals(listOf(1L, 2L), env.autolearnReceipts.map { it.generation })
 
                 env.coordinator.stop()
                 runCurrent()
@@ -1627,6 +1635,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     ripDpiProxyFactory = proxyFactory,
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                 ),
+            autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
             statusReporter =
                 ServiceStatusReporter(
                     mode = Mode.VPN,
@@ -1916,6 +1925,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val preferredPaths = TestNetworkDnsPathPreferenceStore()
         val clock = TestServiceClock(now = 1_000L)
         val transportFailoverApplyTracker = TransportFailoverApplyTracker()
+        val autolearnReceipts = mutableListOf<AutolearnActivationReceipt>()
         val tunnelRuntime =
             VpnTunnelRuntime(
                 vpnHost = host,
@@ -1978,6 +1988,10 @@ class VpnServiceRuntimeCoordinatorTest {
                         ripDpiProxyFactory = factory,
                         networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                     ),
+                autolearnActivationReceiptPublisher =
+                    testAutolearnActivationReceiptPublisher(
+                        AutolearnActivationRecorder { autolearnReceipts += it },
+                    ),
                 statusReporter =
                     ServiceStatusReporter(
                         mode = Mode.VPN,
@@ -2013,6 +2027,7 @@ class VpnServiceRuntimeCoordinatorTest {
             preferredPaths = preferredPaths,
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             events = events,
+            autolearnReceipts = autolearnReceipts,
         )
     }
 }

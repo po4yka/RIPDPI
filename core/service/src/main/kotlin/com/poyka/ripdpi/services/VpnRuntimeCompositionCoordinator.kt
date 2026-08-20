@@ -52,9 +52,7 @@ internal class VpnRuntimeCompositionCoordinator(
     suspend fun start(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ) {
-        startComposedRuntime(session, resolution)
-    }
+    ): ProxyRuntimeStartResult? = startComposedRuntime(session, resolution)
 
     suspend fun stop(skipRuntimeShutdown: Boolean) {
         if (providerDelegate?.tryStop() == true) {
@@ -109,9 +107,9 @@ internal class VpnRuntimeCompositionCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
         restartReason: String,
-    ) {
+    ): ProxyRuntimeStartResult? {
         if (providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason) == true) {
-            return
+            return null
         }
         session.currentDns = null
         session.currentDnsSignature = null
@@ -124,17 +122,18 @@ internal class VpnRuntimeCompositionCoordinator(
         currentLocalProxyEndpoint = null
         applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
-        val localProxyEndpoint = startProxyRuntime(resolution, logContext)
+        val proxyStartResult = startProxyRuntime(resolution, logContext)
         vpnTunnelRuntime.rebuild(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
-            localProxyEndpoint = localProxyEndpoint,
+            localProxyEndpoint = proxyStartResult.endpoint,
             forceTunnelDns =
                 forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
         updateRuntimeDnsState(session, resolution)
+        return proxyStartResult
     }
 
     fun updateRuntimeDnsState(
@@ -164,32 +163,33 @@ internal class VpnRuntimeCompositionCoordinator(
     private suspend fun startComposedRuntime(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ) {
+    ): ProxyRuntimeStartResult? {
         // PROVIDER SEAM: let the delegate take over only when it reports it
         // handled the start. Everything below this guard is the native
         // composition, unchanged.
         if (providerDelegate?.tryStart(session, resolution) == true) {
-            return
+            return null
         }
 
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
-        val localProxyEndpoint = startProxyRuntime(resolution, logContext)
+        val proxyStartResult = startProxyRuntime(resolution, logContext)
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
-            localProxyEndpoint = localProxyEndpoint,
+            localProxyEndpoint = proxyStartResult.endpoint,
             forceTunnelDns =
                 forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
         updateRuntimeDnsState(session, resolution)
+        return proxyStartResult
     }
 
     private suspend fun startProxyRuntime(
         resolution: ConnectionPolicyResolution,
         logContext: RipDpiLogContext,
-    ): LocalProxyEndpoint {
+    ): ProxyRuntimeStartResult {
         val authToken =
             UUID
                 .randomUUID()
@@ -223,6 +223,6 @@ internal class VpnRuntimeCompositionCoordinator(
                 initialRelayRacePlan = racePlan,
                 onInitialRelayRaceState = { state -> initialRelayRacePolicy?.onStateChanged(state) },
                 onInitialRelaySelected = { result -> initialRelayRacePolicy?.onSelected(result) },
-            ).also { currentLocalProxyEndpoint = it }
+            ).also { currentLocalProxyEndpoint = it.endpoint }
     }
 }

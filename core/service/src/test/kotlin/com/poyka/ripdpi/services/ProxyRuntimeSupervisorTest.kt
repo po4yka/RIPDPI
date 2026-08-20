@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
@@ -183,12 +184,12 @@ class ProxyRuntimeSupervisorTest {
                 )
             val exits = mutableListOf<SupervisorExitCause>()
 
-            val endpoint = supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
+            val result = supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
 
             assertSame(runtime, supervisor.runtime)
             assertEquals(1, runtime.updatedSnapshots)
-            assertEquals("127.0.0.1", endpoint.host)
-            assertEquals(1080, endpoint.port)
+            assertEquals("127.0.0.1", result.endpoint.host)
+            assertEquals(1080, result.endpoint.port)
 
             supervisor.stop()
             advanceUntilIdle()
@@ -197,6 +198,37 @@ class ProxyRuntimeSupervisorTest {
             assertEquals(1, runtime.stopCount)
             assertEquals(1, exits.size)
             assertEquals(SupervisorExitCause.ExpectedStop, exits.single())
+        }
+
+    @Test
+    fun `start returns endpoint with ready time native snapshot`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val readySnapshot =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    health = "healthy",
+                    listenerAddress = "127.0.0.1:18080",
+                    autolearnEnabled = true,
+                    capturedAt = 1787231291789069L,
+                )
+            val runtime = TestProxyRuntime().apply { telemetry = readySnapshot }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            val result = supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertEquals("127.0.0.1", result.endpoint.host)
+            assertEquals(18080, result.endpoint.port)
+            assertSame(readySnapshot, result.readySnapshot)
+
+            supervisor.stop()
         }
 
     @Test
@@ -433,12 +465,14 @@ class ProxyRuntimeSupervisorTest {
                 )
 
             val endpoint =
-                supervisor.start(
-                    RipDpiProxyUIPreferences().withSessionLocalProxyOverrides(
-                        listenPortOverride = 0,
-                        authToken = TestLocalProxyAuth,
-                    ),
-                ) {}
+                supervisor
+                    .start(
+                        RipDpiProxyUIPreferences().withSessionLocalProxyOverrides(
+                            listenPortOverride = 0,
+                            authToken = TestLocalProxyAuth,
+                        ),
+                    ) {}
+                    .endpoint
 
             assertEquals("127.0.0.1", endpoint.host)
             assertEquals(1080, endpoint.port)

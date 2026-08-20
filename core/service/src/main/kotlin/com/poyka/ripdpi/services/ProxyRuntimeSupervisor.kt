@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -16,6 +17,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+
+internal data class ProxyRuntimeStartResult(
+    val endpoint: LocalProxyEndpoint,
+    val readySnapshot: NativeRuntimeSnapshot,
+)
 
 /**
  * Supervises the native proxy runtime — starts it, owns its coroutine `Job`,
@@ -44,7 +50,7 @@ internal class ProxyRuntimeSupervisor(
     suspend fun start(
         preferences: RipDpiProxyPreferences,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
-    ): LocalProxyEndpoint {
+    ): ProxyRuntimeStartResult {
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
@@ -74,25 +80,20 @@ internal class ProxyRuntimeSupervisor(
             }
         proxyJob = job
 
-        job.invokeOnCompletion {
-            scope.launch(dispatcher) {
-                if (proxyRuntime !== proxyInstance) {
-                    return@launch
-                }
-                if (!shouldReportExit.get()) {
-                    return@launch
-                }
-                onUnexpectedExit(exitCause.await())
-            }
-        }
+        installUnexpectedExitHandler(job, proxyInstance, shouldReportExit, exitCause, onUnexpectedExit)
 
         @Suppress("TooGenericExceptionCaught")
-        val endpoint =
+        val startResult =
             try {
                 proxyInstance.awaitReady()
-                resolveLocalProxyEndpoint(
-                    telemetry = proxyInstance.pollTelemetry(),
-                    authToken = preferences.localAuthToken,
+                val readySnapshot = proxyInstance.pollTelemetry()
+                ProxyRuntimeStartResult(
+                    endpoint =
+                        resolveLocalProxyEndpoint(
+                            telemetry = readySnapshot,
+                            authToken = preferences.localAuthToken,
+                        ),
+                    readySnapshot = readySnapshot,
                 )
             } catch (readinessError: Exception) {
                 val proxyStartWasActive = job.isActive
@@ -122,8 +123,28 @@ internal class ProxyRuntimeSupervisor(
                 )
             }
 
+        updateNetworkSnapshot(proxyInstance)
+        return startResult
+    }
+
+    private suspend fun updateNetworkSnapshot(proxyInstance: RipDpiProxyRuntime) {
         runCatching { proxyInstance.updateNetworkSnapshot(networkSnapshotProvider.capture()) }
-        return endpoint
+    }
+
+    private fun installUnexpectedExitHandler(
+        job: Job,
+        proxyInstance: RipDpiProxyRuntime,
+        shouldReportExit: AtomicBoolean,
+        exitCause: CompletableDeferred<SupervisorExitCause>,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+    ) {
+        job.invokeOnCompletion {
+            scope.launch(dispatcher) {
+                if (proxyRuntime === proxyInstance && shouldReportExit.get()) {
+                    onUnexpectedExit(exitCause.await())
+                }
+            }
+        }
     }
 
     suspend fun stop() {

@@ -96,6 +96,10 @@ internal class TestServiceClock(
     }
 }
 
+internal fun testAutolearnActivationReceiptPublisher(
+    recorder: AutolearnActivationRecorder = AutolearnActivationRecorder { },
+): AutolearnActivationReceiptPublisher = AutolearnActivationReceiptPublisher(recorder)
+
 internal class TestServiceStateStore(
     initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
 ) : ServiceStateStore {

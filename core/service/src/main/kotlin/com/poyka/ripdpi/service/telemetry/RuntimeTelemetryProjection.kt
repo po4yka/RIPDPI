@@ -210,7 +210,7 @@ internal class RuntimeTelemetryProjection(
     ): NativeRuntimeSnapshot =
         when (newStatus) {
             ServiceStatus.Connected -> {
-                NativeRuntimeSnapshot.idle(source = source)
+                current
             }
 
             ServiceStatus.Disconnected -> {
@@ -244,10 +244,8 @@ internal class RuntimeTelemetryProjection(
     ): RuntimeTelemetryStatus =
         when (newStatus) {
             ServiceStatus.Failed -> reportedStatus ?: currentStatus
-
-            ServiceStatus.Connected,
-            ServiceStatus.Disconnected,
-            -> reportedStatus ?: RuntimeTelemetryStatus.NoData
+            ServiceStatus.Connected -> reportedStatus ?: currentStatus
+            ServiceStatus.Disconnected -> reportedStatus ?: RuntimeTelemetryStatus.NoData
         }
 
     private fun applyPendingNetworkHandoverClass(

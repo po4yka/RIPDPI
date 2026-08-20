@@ -19,6 +19,7 @@ import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.AutolearnActivationReceiptPublisher
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.InMemoryVpnProtectFailureMonitor
@@ -65,6 +66,7 @@ internal data class VpnCoordinatorServices(
     val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    val autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
     val statusReporter: ServiceStatusReporter,
     val directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
     val rootHelperManager: RootHelperManager,
@@ -325,6 +327,7 @@ internal object VpnServiceSessionModule {
         warpRuntimeSupervisor: WarpRuntimeSupervisor,
         amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
         proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+        autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
         statusReporter: ServiceStatusReporter,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
         rootHelperManager: RootHelperManager,
@@ -335,6 +338,7 @@ internal object VpnServiceSessionModule {
             warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor,
+            autolearnActivationReceiptPublisher,
             statusReporter,
             directPathPolicyTelemetryConsumer,
             rootHelperManager,
@@ -371,6 +375,7 @@ internal object VpnServiceSessionModule {
             warpRuntimeSupervisor = services.warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = services.amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = services.proxyRuntimeSupervisor,
+            autolearnActivationReceiptPublisher = services.autolearnActivationReceiptPublisher,
             statusReporter = services.statusReporter,
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             screenStateObserver = runtimeDependencies.screenStateObserver,

@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NoopStartupJournal
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -148,6 +149,46 @@ internal class ServiceStatusReporter(
                     failureReason = failureReason,
                     xrayProviderSnapshot = xrayProviderSnapshot,
                 ).copy(relayFailed = foreignRelayFailed.get()),
+        )
+    }
+
+    fun reportRuntimeStartTelemetry(
+        activePolicy: ActiveConnectionPolicy?,
+        currentNetworkHandoverState: () -> String?,
+        proxyTelemetry: NativeRuntimeSnapshot,
+        tunnelRecoveryRetryCount: Long,
+        xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
+    ) {
+        val currentTelemetry = serviceStateStore.telemetry.value
+        val projected =
+            telemetryProjection.liveTelemetry(
+                currentTelemetry = currentTelemetry,
+                activePolicy = activePolicy,
+                consumePendingNetworkHandoverClass = { null },
+                currentNetworkHandoverState = currentNetworkHandoverState,
+                proxyTelemetry = proxyTelemetry,
+                relayTelemetry = NativeRuntimeSnapshot.idle(source = "relay"),
+                warpTelemetry = NativeRuntimeSnapshot.idle(source = "warp"),
+                awgTelemetry = NativeRuntimeSnapshot.idle(source = "amneziawg"),
+                tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                proxyTelemetryStatus = RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot),
+                relayTelemetryStatus = RuntimeTelemetryStatus.NoData,
+                warpTelemetryStatus = RuntimeTelemetryStatus.NoData,
+                awgTelemetryStatus = RuntimeTelemetryStatus.NoData,
+                tunnelTelemetryStatus = RuntimeTelemetryStatus.NoData,
+                tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                failureReason = null,
+                xrayProviderSnapshot = xrayProviderSnapshot,
+            )
+        serviceStateStore.updateTelemetry(
+            projected.copy(
+                status = currentTelemetry.status,
+                serviceStartedAt = currentTelemetry.serviceStartedAt,
+                restartCount = currentTelemetry.restartCount,
+                lastFailureSender = currentTelemetry.lastFailureSender,
+                lastFailureAt = currentTelemetry.lastFailureAt,
+                relayFailed = currentTelemetry.relayFailed,
+            ),
         )
     }
 }

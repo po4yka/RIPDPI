@@ -27,6 +27,7 @@ abstract class ServiceRuntimeSession
         final override val mode: Mode,
         final override val runtimeId: String = UUID.randomUUID().toString(),
     ) : ServiceRuntimeHandle {
+        private var autolearnActivationGeneration: Long = 0L
         private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
 
         final override val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?> =
@@ -42,6 +43,11 @@ abstract class ServiceRuntimeSession
 
         fun clearActiveConnectionPolicy() {
             activeConnectionPolicyState.value = null
+        }
+
+        internal fun nextAutolearnActivationGeneration(): Long {
+            autolearnActivationGeneration += 1L
+            return autolearnActivationGeneration
         }
     }
 

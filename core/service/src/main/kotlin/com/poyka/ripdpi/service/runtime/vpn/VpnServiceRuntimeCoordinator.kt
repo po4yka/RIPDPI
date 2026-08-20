@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.AutolearnActivationReceiptPublisher
 import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
@@ -29,9 +30,11 @@ import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NoOpDirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.PermissionChangeEvent
 import com.poyka.ripdpi.services.PermissionWatchdog
+import com.poyka.ripdpi.services.ProxyRuntimeStartResult
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RootHelperManager
+import com.poyka.ripdpi.services.RuntimeStartEvidence
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
@@ -72,6 +75,7 @@ import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.XrayProviderSessionController
+import com.poyka.ripdpi.services.toRuntimeStartEvidence
 import com.poyka.ripdpi.services.transportFailoverTargetOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -89,7 +93,7 @@ import javax.inject.Inject
  * running VPN session and drives start / stop / handover. The coordinator
  * (DI-wiring) half of the `service` layer over the `services` implementations.
  */
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "TooManyFunctions")
 internal class VpnServiceRuntimeCoordinator(
     vpnHost: VpnCoordinatorHost,
     connectionPolicyResolver: ConnectionPolicyResolver,
@@ -107,6 +111,7 @@ internal class VpnServiceRuntimeCoordinator(
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    private val autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
     private val statusReporter: ServiceStatusReporter,
     private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
     private val screenStateObserver: ScreenStateObserver,
@@ -265,12 +270,14 @@ internal class VpnServiceRuntimeCoordinator(
                     ) {
                         if (runtimeSession?.runtimeId != session.runtimeId) return
                         withContext(NonCancellable) {
-                            runtimeCompositionCoordinator.restartAfterPolicyChange(
-                                session = session,
-                                resolution = resolution,
-                                appliedAt = clock.nowMillis(),
-                                restartReason = "routing_policy_refresh",
-                            )
+                            val startResult =
+                                runtimeCompositionCoordinator.restartAfterPolicyChange(
+                                    session = session,
+                                    resolution = resolution,
+                                    appliedAt = clock.nowMillis(),
+                                    restartReason = "routing_policy_refresh",
+                                )
+                            publishReplacementEvidence(session, resolution, startResult)
                         }
                     }
 
@@ -300,6 +307,7 @@ internal class VpnServiceRuntimeCoordinator(
                     resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
                     applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
                     startResolvedRuntime = ::startResolvedRuntime,
+                    publishRuntimeStartEvidence = ::publishRuntimeStartEvidence,
                     startModeTelemetryUpdates = ::startModeTelemetryUpdates,
                 ),
             stopHooks =
@@ -360,8 +368,30 @@ internal class VpnServiceRuntimeCoordinator(
     private suspend fun startResolvedRuntime(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
+    ): RuntimeStartEvidence {
+        val startResult = runtimeCompositionCoordinator.start(session, resolution)
+        return startResult.toRuntimeStartEvidence()
+    }
+
+    private suspend fun publishRuntimeStartEvidence(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        evidence: RuntimeStartEvidence,
     ) {
-        runtimeCompositionCoordinator.start(session, resolution)
+        if (evidence !is RuntimeStartEvidence.ProxySnapshot) return
+        autolearnActivationReceiptPublisher.publish(
+            session = session,
+            resolution = resolution,
+            evidence = evidence,
+            observedAt = clock.nowMillis(),
+        )
+        statusReporter.reportRuntimeStartTelemetry(
+            activePolicy = session.currentActiveConnectionPolicy,
+            currentNetworkHandoverState = currentNetworkHandoverState,
+            proxyTelemetry = evidence.snapshot,
+            tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
+            xrayProviderSnapshot = xrayProviderSessionController?.takeIf { it.isActive }?.currentSnapshot(),
+        )
     }
 
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
@@ -377,7 +407,8 @@ internal class VpnServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
-        runtimeCompositionCoordinator.restartAfterHandover(session, resolution, appliedAt)
+        val startResult = runtimeCompositionCoordinator.restartAfterHandover(session, resolution, appliedAt)
+        publishReplacementEvidence(session, resolution, startResult)
     }
 
     /**
@@ -401,12 +432,14 @@ internal class VpnServiceRuntimeCoordinator(
                         val preparation = prepareTransportFailover(requestId, expectedTarget) ?: return@withTimeout
                         runtimeClaimed = true
                         handoverRestarting = true
-                        runtimeCompositionCoordinator.restartAfterPolicyChange(
-                            session = preparation.session,
-                            resolution = preparation.resolution,
-                            appliedAt = clock.nowMillis(),
-                            restartReason = "transport_failover",
-                        )
+                        val startResult =
+                            runtimeCompositionCoordinator.restartAfterPolicyChange(
+                                session = preparation.session,
+                                resolution = preparation.resolution,
+                                appliedAt = clock.nowMillis(),
+                                restartReason = "transport_failover",
+                            )
+                        publishReplacementEvidence(preparation.session, preparation.resolution, startResult)
                         check(transportFailoverApplyTracker.recordApplied(requestId)) {
                             "Transport failover apply request expired before runtime acknowledgement"
                         }
@@ -436,6 +469,14 @@ internal class VpnServiceRuntimeCoordinator(
                 throw failure
             }
         }
+    }
+
+    private suspend fun publishReplacementEvidence(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        startResult: ProxyRuntimeStartResult?,
+    ) {
+        publishRuntimeStartEvidence(session, resolution, startResult.toRuntimeStartEvidence())
     }
 
     private suspend fun handleTransportFailoverFailure(

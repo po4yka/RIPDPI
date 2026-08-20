@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveContextPayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotPayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
 import com.poyka.ripdpi.diagnostics.export.buildCompleteness
+import com.poyka.ripdpi.diagnostics.export.buildNativeEventsCsv
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.diagnostics.export.buildStageIndexEntries
 import com.poyka.ripdpi.proto.AppSettings
@@ -226,6 +227,38 @@ class DiagnosticsArchiveComponentsTest {
         assertFalse(encoded.contains("abc123"))
         assertFalse(encoded.contains("relay-password"))
         assertTrue(encoded.contains("redacted"))
+    }
+
+    @Test
+    fun `native events export keeps autolearn activation receipt but redacts correlators`() {
+        val event =
+            NativeSessionEventEntity(
+                id = "autolearn-activation-fixture",
+                sessionId = null,
+                source = "app",
+                level = "warn",
+                message =
+                    "autolearn_activation persisted=enabled resolved=enabled " +
+                        "effective=disabled source=baseline_settings",
+                createdAt = 22L,
+                runtimeId = "rt-token=runtime-private-id",
+                mode = "proxy",
+                policySignature = "policy-private-signature",
+                fingerprintHash = "fingerprint-private-hash",
+                subsystem = "autolearn_activation",
+                attemptSequence = 2L,
+                stage = "runtime_ready",
+                outcome = "mismatch",
+            )
+
+        val csv = buildNativeEventsCsv(primaryEvents = emptyList(), globalEvents = listOf(event))
+
+        assertTrue(csv.contains("autolearn_activation persisted=enabled resolved=enabled"))
+        assertTrue(csv.contains("autolearn_activation"))
+        assertTrue(csv.contains("\"redacted\""))
+        assertFalse(csv.contains("runtime-private-id"))
+        assertFalse(csv.contains("policy-private-signature"))
+        assertFalse(csv.contains("fingerprint-private-hash"))
     }
 
     @Test

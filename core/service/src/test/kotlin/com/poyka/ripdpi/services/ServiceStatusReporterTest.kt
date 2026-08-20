@@ -112,6 +112,59 @@ class ServiceStatusReporterTest {
     }
 
     @Test
+    fun connectedStatusPreservesPublishedReadyAutolearnSnapshotAndStatus() {
+        val store = TestServiceStateStore()
+        val reporter = testReporter(store = store, mode = Mode.Proxy, sender = Sender.Proxy, now = 42L)
+        val readySnapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                autolearnEnabled = true,
+                learnedHostCount = 3,
+                capturedAt = 41L,
+            )
+
+        reporter.reportRuntimeStartTelemetry(
+            activePolicy = null,
+            currentNetworkHandoverState = { null },
+            proxyTelemetry = readySnapshot,
+            tunnelRecoveryRetryCount = 0L,
+        )
+
+        assertEquals(com.poyka.ripdpi.data.AppStatus.Halted, store.telemetry.value.status)
+        assertPublishedReadyAutolearnSnapshot(store.telemetry.value.proxyTelemetry, readySnapshot)
+        assertEquals(
+            com.poyka.ripdpi.data.RuntimeTelemetryState.Snapshot,
+            store.telemetry.value.proxyTelemetryStatus.state,
+        )
+
+        reporter.reportStatus(
+            newStatus = ServiceStatus.Connected,
+            activePolicy = null,
+            consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { null },
+            tunnelRecoveryRetryCount = 0L,
+        )
+
+        assertPublishedReadyAutolearnSnapshot(store.telemetry.value.proxyTelemetry, readySnapshot)
+        assertEquals(
+            com.poyka.ripdpi.data.RuntimeTelemetryState.Snapshot,
+            store.telemetry.value.proxyTelemetryStatus.state,
+        )
+    }
+
+    private fun assertPublishedReadyAutolearnSnapshot(
+        actual: NativeRuntimeSnapshot,
+        expected: NativeRuntimeSnapshot,
+    ) {
+        assertEquals(expected.source, actual.source)
+        assertEquals(expected.state, actual.state)
+        assertEquals(expected.autolearnEnabled, actual.autolearnEnabled)
+        assertEquals(expected.learnedHostCount, actual.learnedHostCount)
+        assertEquals(expected.capturedAt, actual.capturedAt)
+    }
+
+    @Test
     fun failedStatusEmitsFailureEvent() {
         val store = TestServiceStateStore()
         val reporter =

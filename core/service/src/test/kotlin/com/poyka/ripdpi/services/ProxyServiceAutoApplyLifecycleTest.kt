@@ -272,6 +272,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                                 networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                             ),
                     ),
+                autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
                 statusReporter =
                     ServiceStatusReporter(
                         mode = Mode.Proxy,

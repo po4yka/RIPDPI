@@ -68,6 +68,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
                     resolveInitialConnectionPolicy = hooks.startHooks.resolveInitialConnectionPolicy,
                     applyActiveConnectionPolicy = hooks.startHooks.applyActiveConnectionPolicy,
                     startResolvedRuntime = hooks.startHooks.startResolvedRuntime,
+                    publishRuntimeStartEvidence = hooks.startHooks.publishRuntimeStartEvidence,
                     stopModeRuntime = hooks.stopHooks.stopModeRuntime,
                     captureFinalTelemetry = hooks.stopHooks.captureFinalTelemetry,
                     startModeTelemetryUpdates = {

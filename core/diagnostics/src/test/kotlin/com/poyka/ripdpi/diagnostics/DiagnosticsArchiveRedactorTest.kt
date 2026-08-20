@@ -207,6 +207,39 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
+    fun `redactor retains autolearn activation envelope while redacting correlators`() {
+        val event =
+            NativeSessionEventEntity(
+                id = "autolearn-activation-fixture",
+                source = "app",
+                level = "warn",
+                message =
+                    "autolearn_activation persisted=enabled resolved=enabled " +
+                        "effective=disabled source=baseline_settings",
+                createdAt = 22L,
+                runtimeId = "rt-token=runtime-private-id",
+                mode = "proxy",
+                policySignature = "policy-private-signature",
+                fingerprintHash = "fingerprint-private-hash",
+                subsystem = "autolearn_activation",
+                attemptSequence = 2L,
+                stage = "runtime_ready",
+                outcome = "mismatch",
+            )
+
+        val redacted = redactor.redact(event)
+
+        assertEquals("autolearn_activation", redacted.subsystem)
+        assertEquals("runtime_ready", redacted.stage)
+        assertEquals("mismatch", redacted.outcome)
+        assertEquals(2L, redacted.attemptSequence)
+        assertTrue(redacted.message.contains("source=baseline_settings"))
+        assertFalse(redacted.runtimeId.orEmpty().contains("runtime-private-id"))
+        assertFalse(redacted.policySignature.orEmpty().contains("policy-private-signature"))
+        assertFalse(redacted.fingerprintHash.orEmpty().contains("fingerprint-private-hash"))
+    }
+
+    @Test
     fun `redactor projects probe detail key value pairs by declared sensitive key`() {
         val entity =
             ProbeResultEntity(

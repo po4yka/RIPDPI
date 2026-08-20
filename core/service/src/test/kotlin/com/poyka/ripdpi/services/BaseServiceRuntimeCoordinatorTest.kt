@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,6 +37,36 @@ class BaseServiceRuntimeCoordinatorTest {
 
             assertEquals(1, env.coordinator.startCalls)
             assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `start publishes runtime evidence before connected status`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.readySnapshot =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    health = "healthy",
+                    listenerAddress = "127.0.0.1:18083",
+                    autolearnEnabled = true,
+                    capturedAt = 1787231291791410L,
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            val runtimeId = checkNotNull(env.coordinator.publishedRuntimeId)
+            assertEquals(
+                listOf(
+                    "runtime_start",
+                    "publish_evidence:$runtimeId",
+                    "status:Connected",
+                ),
+                env.coordinator.startLifecycleEvents,
+            )
+            val evidence = env.coordinator.publishedEvidence as RuntimeStartEvidence.ProxySnapshot
+            assertSame(env.coordinator.readySnapshot, evidence.snapshot)
         }
 
     @Test
@@ -668,8 +700,12 @@ private class TestCoordinator(
     var finalTelemetryFailuresRemaining: Int = 0
     var finalTelemetryCalls: Int = 0
     var cancelFinalTelemetry: Boolean = false
+    var readySnapshot: NativeRuntimeSnapshot = NativeRuntimeSnapshot(source = "proxy")
+    var publishedEvidence: RuntimeStartEvidence? = null
+    var publishedRuntimeId: String? = null
     val handoverResolutionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val statusTransitions = mutableListOf<ServiceStatus>()
+    val startLifecycleEvents = mutableListOf<String>()
     val stopLifecycleEvents = mutableListOf<String>()
 
     override val runtimeHooks: ServiceRuntimeModeHooks<ProxyRuntimeSession> =
@@ -681,6 +717,7 @@ private class TestCoordinator(
                     resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
                     applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
                     startResolvedRuntime = ::startResolvedRuntime,
+                    publishRuntimeStartEvidence = ::publishRuntimeStartEvidence,
                     startModeTelemetryUpdates = ::startModeTelemetryUpdates,
                 ),
             stopHooks =
@@ -741,11 +778,24 @@ private class TestCoordinator(
     private suspend fun startResolvedRuntime(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ) {
+    ): RuntimeStartEvidence {
+        startLifecycleEvents += "runtime_start"
         startCalls += 1
         if (failOnStart) {
             error("boom")
         }
+        return RuntimeStartEvidence.ProxySnapshot(readySnapshot)
+    }
+
+    @Suppress("UnusedParameter")
+    private suspend fun publishRuntimeStartEvidence(
+        session: ProxyRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        evidence: RuntimeStartEvidence,
+    ) {
+        publishedRuntimeId = session.runtimeId
+        publishedEvidence = evidence
+        startLifecycleEvents += "publish_evidence:${session.runtimeId}"
     }
 
     @Suppress("UnusedParameter")
@@ -799,6 +849,7 @@ private class TestCoordinator(
     ) {
         status = newStatus
         statusTransitions += newStatus
+        startLifecycleEvents += "status:$newStatus"
     }
 
     private fun classifyStartupFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)

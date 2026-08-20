@@ -78,6 +78,7 @@ class ServiceSessionModuleTest {
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
                     permissionWatchdog = TestPermissionWatchdog(),
                     supervisors = supervisors,
+                    autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
                     statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
                     directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
@@ -142,6 +143,7 @@ class ServiceSessionModuleTest {
         }
 
     @Test
+    @Suppress("LongMethod")
     fun vpnSessionModuleUsesInjectedFactories() =
         runTest {
             val relayFactory = RecordingUpstreamRelaySupervisorFactory()
@@ -213,6 +215,7 @@ class ServiceSessionModuleTest {
                                     dispatchers,
                                 ),
                             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                            autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
                             statusReporter = statusReporter,
                             directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
                             rootHelperManager = RootHelperManager(),

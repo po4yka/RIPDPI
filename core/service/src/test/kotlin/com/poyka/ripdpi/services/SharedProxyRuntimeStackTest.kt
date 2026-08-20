@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -83,6 +84,34 @@ class SharedProxyRuntimeStackTest {
             assertEquals(LocalProxyEndpoint("127.0.0.1", 10_808), probedEndpoint)
             assertEquals("https://probe.example/generate_204", probedUrl)
             assertEquals(EgressRequirements(tcpConnect = true, udpAssociate = false), probedRequirements)
+            fixture.stack.stop(skipRuntimeShutdown = false)
+        }
+
+    @Test
+    fun `start preserves proxy ready snapshot in start result`() =
+        runTest {
+            val readySnapshot =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    health = "healthy",
+                    listenerAddress = "127.0.0.1:18081",
+                    autolearnEnabled = true,
+                    capturedAt = 1787231291789069L,
+                )
+            val fixture = createFixture(proxyReadySnapshot = readySnapshot)
+
+            val result =
+                fixture.stack.start(
+                    proxyPreferences = RipDpiProxyUIPreferences(),
+                    onRelayExit = {},
+                    onWarpExit = {},
+                    onAwgExit = {},
+                    onProxyExit = {},
+                )
+
+            assertEquals(LocalProxyEndpoint("127.0.0.1", 18_081), result.endpoint)
+            assertSame(readySnapshot, result.readySnapshot)
             fixture.stack.stop(skipRuntimeShutdown = false)
         }
 
@@ -352,6 +381,7 @@ class SharedProxyRuntimeStackTest {
                     RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
                 }
             },
+        proxyReadySnapshot: NativeRuntimeSnapshot? = null,
         renderer: (RipDpiProxyPreferences, RipDpiRelayConfig, String, Int) -> RipDpiProxyPreferences =
             { preferences, selection, host, port ->
                 preferences.withRelayRuntimeSelection(selection, host, port)
@@ -389,7 +419,12 @@ class SharedProxyRuntimeStackTest {
                     },
                 initialRelayRaceRunnerFactory = InitialRelayRaceRunnerFactory(relayActiveProbe),
             )
-        val proxyFactory = TestRipDpiProxyFactory()
+        val proxyFactory =
+            TestRipDpiProxyFactory {
+                TestProxyRuntime().apply {
+                    proxyReadySnapshot?.let { telemetry = it }
+                }
+            }
         val awgFactory = TestRipDpiAmneziaWgFactory()
         val awgSupervisor =
             AmneziaWgRuntimeSupervisor(

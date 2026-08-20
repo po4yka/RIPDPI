@@ -42,9 +42,15 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                     "initial_start",
                     dependencies.clock.nowMillis(),
                 )
-                callbacks.startResolvedRuntime(
+                val runtimeStartEvidence =
+                    callbacks.startResolvedRuntime(
+                        session,
+                        resolution,
+                    )
+                callbacks.publishRuntimeStartEvidence(
                     session,
                     resolution,
+                    runtimeStartEvidence,
                 )
                 callbacks.setRuntimeSession(session)
                 dependencies.serviceRuntimeRegistry.register(session)
@@ -217,7 +223,8 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
     val createRuntimeSession: () -> TSession,
     val resolveInitialConnectionPolicy: suspend () -> ConnectionPolicyResolution,
     val applyActiveConnectionPolicy: (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
-    val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> Unit,
+    val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> RuntimeStartEvidence,
+    val publishRuntimeStartEvidence: suspend (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
     val captureFinalTelemetry: suspend () -> Unit = {},
     val stopModeRuntime: suspend (Boolean) -> Unit,
     val startModeTelemetryUpdates: () -> Unit,

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
@@ -47,6 +48,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         val handoverMonitor: TestNetworkHandoverMonitor,
         val handoverEvents: TestPolicyHandoverEventStore,
         val resolver: TestConnectionPolicyResolver,
+        val autolearnReceipts: List<AutolearnActivationReceipt>,
     )
 
     @Test
@@ -60,6 +62,25 @@ class ProxyServiceRuntimeCoordinatorTest {
             assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
             assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(1, env.factory.runtimes.size)
+            assertEquals("running", env.store.telemetry.value.proxyTelemetry.state)
+            assertEquals(RuntimeTelemetryState.Snapshot, env.store.telemetry.value.proxyTelemetryStatus.state)
+            assertEquals(1, env.autolearnReceipts.size)
+        }
+
+    @Test
+    fun receiptPersistenceFailureDoesNotBlockConnectedState() =
+        runTest {
+            val env =
+                newEnv(
+                    activationRecorder = AutolearnActivationRecorder { error("database unavailable") },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(RuntimeTelemetryState.Snapshot, env.store.telemetry.value.proxyTelemetryStatus.state)
         }
 
     @Test
@@ -320,6 +341,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                     .single()
                     .currentCaptivePortalDetected,
             )
+            assertEquals(listOf(1L, 2L), env.autolearnReceipts.map { it.generation })
         }
 
     @Test
@@ -429,6 +451,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                                 },
                         ),
                 ),
+            autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
             statusReporter =
                 ServiceStatusReporter(
                     mode = Mode.Proxy,
@@ -591,6 +614,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
             listOf(sampleResolution(mode = Mode.Proxy)),
         runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
+        activationRecorder: AutolearnActivationRecorder? = null,
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val events = mutableListOf<String>()
@@ -606,6 +630,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
+        val autolearnReceipts = mutableListOf<AutolearnActivationReceipt>()
         val supervisors = buildProxySupervisorBundle(dispatcher, factory, relayFactory, warpFactory, awgFactory)
         val coordinator =
             ProxyServiceRuntimeCoordinator(
@@ -617,6 +642,10 @@ class ProxyServiceRuntimeCoordinatorTest {
                 policyHandoverEventStore = handoverEvents,
                 permissionWatchdog = TestPermissionWatchdog(),
                 supervisors = supervisors,
+                autolearnActivationReceiptPublisher =
+                    testAutolearnActivationReceiptPublisher(
+                        activationRecorder ?: AutolearnActivationRecorder { autolearnReceipts += it },
+                    ),
                 statusReporter =
                     ServiceStatusReporter(
                         mode = Mode.Proxy,
@@ -647,6 +676,7 @@ class ProxyServiceRuntimeCoordinatorTest {
             handoverMonitor = handoverMonitor,
             handoverEvents = handoverEvents,
             resolver = resolver,
+            autolearnReceipts = autolearnReceipts,
         )
     }
 

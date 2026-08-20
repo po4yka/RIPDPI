@@ -47,7 +47,7 @@ internal class SharedProxyRuntimeStack(
         initialRelayRacePlan: InitialRelayRacePlan? = null,
         onInitialRelayRaceState: (InitialTransportRaceSnapshot) -> Unit = {},
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
-    ): LocalProxyEndpoint {
+    ): ProxyRuntimeStartResult {
         val awgRequest = proxyPreferences.awgConfigOrNull()
         val configuredEgressRequirements =
             EgressRequirements(

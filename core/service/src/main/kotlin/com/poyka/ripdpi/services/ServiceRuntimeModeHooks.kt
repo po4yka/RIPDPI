@@ -20,7 +20,8 @@ internal class ServiceRuntimeStartHooks<TSession>(
     val createRuntimeSession: () -> TSession,
     val resolveInitialConnectionPolicy: suspend () -> ConnectionPolicyResolution,
     val applyActiveConnectionPolicy: (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
-    val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> Unit,
+    val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> RuntimeStartEvidence,
+    val publishRuntimeStartEvidence: suspend (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
     val startModeTelemetryUpdates: (TelemetryJobReplacer) -> Unit,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
 
