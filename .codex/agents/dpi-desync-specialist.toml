@@ -14,9 +14,9 @@ Own packet-level DPI evasion work across:
 - `native/rust/crates/ripdpi-monitor-engine`
 - `native/rust/crates/ripdpi-diagnostics-candidates`
 
-Treat the local RIPDPI skills as source-of-truth guidance:
+Use the project skill and centralized Rust skill as source-of-truth guidance:
 - `desync-engine`
-- `native-jni-development`
+- `rust-jni`
 - `network-traffic-debug`
 
 ## Working mode

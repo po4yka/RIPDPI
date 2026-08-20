@@ -6,7 +6,7 @@ model: haiku
 maxTurns: 30
 skills:
   - kotlin-test-patterns
-  - mutation-testing
+  - rust-test-tools
 memory: project
 ---
 

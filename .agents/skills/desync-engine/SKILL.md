@@ -399,7 +399,7 @@ If a Rust-native uTLS equivalent emerges (a port of utls to rustls or a ClientHe
 
 - `ws-tunnel-telegram` — the WS-over-TLS tunnel consumes the same TLS fingerprint profiles and shares the 517-byte invariant concern.
 - `rust-panic-safety` — desync execution paths must handle all panic cases at the JNI boundary; `ripdpi-desync` errors are typed via `thiserror`.
-- `rust-io-loop` — UDP desync interacts with the tunnel io_loop; when adding UDP fake-packet injection, consult the io_loop skill for the correct integration point.
+- `rust-async-internals` — UDP desync interacts with the tunnel io_loop; consult its manual-poll bridge guidance before adding UDP fake-packet injection.
 
 ## TLS ClientHello semantic markers
 

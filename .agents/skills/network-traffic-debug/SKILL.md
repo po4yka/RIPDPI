@@ -243,5 +243,5 @@ adb logcat | grep -i "session_id\|conn_id\|<specific-value>"
 ## See Also
 
 - `android-device-debug` -- Device connection, logcat basics, crash debugging, fixture port forwarding
-- `native-jni-development` -- JNI exports, lifecycle rules, build pipeline
-- `native-profiling` -- CPU/memory profiling when investigating performance-related network issues
+- `rust-jni` -- JNI exports, lifecycle rules, and native crash triage
+- `rust-performance` -- CPU/memory profiling when investigating performance-related network issues

@@ -487,7 +487,7 @@ when `root_mode_enabled` is off or root is unavailable.
   it in the matching Kotlin coordinator.
 - For a discrete event (not a counter), use the **bounded event ring** — it is
   size-capped on purpose; do not make it unbounded.
-- Use the `rust-android-telemetry` skill for channel selection.
+- Use the `rust-observability` skill for channel selection and redaction.
 
 ### Compatibility checks
 
@@ -652,9 +652,9 @@ tree, so a single edit to a manifest propagates to both languages.
 | Crate taxonomy + dependency direction | [`NATIVE_RUST.md`](NATIVE_RUST.md) |
 | Desync chains, `TcpChainStep`, fake-TTL | `desync-engine` skill |
 | Scan pipeline, `ScanRequest`, probe families | `diagnostics-system` skill |
-| Telemetry channels, bounded ring, goldens | `rust-android-telemetry` skill |
+| Telemetry channels, bounded ring, goldens | `rust-observability` skill |
 | Proto field discipline, DataStore round-trip | `protobuf-schema-evolution`, `protobuf-datastore` skills |
-| JNI export safety | `rust-android-jni` skill |
+| JNI export safety | `rust-jni` skill |
 | Golden bless discipline | [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md) |
 | Socket-protect invariant | [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md) |
 | Network-fingerprint privacy | [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md) |

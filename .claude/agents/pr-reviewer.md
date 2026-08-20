@@ -7,7 +7,7 @@ maxTurns: 30
 skills:
   - rust-discipline
   - rust-unsafe
-  - rust-android-jni
+  - rust-jni
   - rust-async-internals
   - compose
   - desync-engine

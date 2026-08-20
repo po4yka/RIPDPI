@@ -21,6 +21,9 @@ SCAN_ROOTS = (
     REPO_ROOT / "quality" / "release-gates" / "cross-language-runtime-contracts.json",
     REPO_ROOT / "scripts" / "ci",
 )
+EXCLUDED_ROOTS = (
+    REPO_ROOT / ".agents" / "vendor",
+)
 TEXT_SUFFIXES = {".json", ".md", ".py", ".sh", ".toml", ".yaml", ".yml"}
 SELF = Path(__file__).resolve()
 CARGO_COMMAND = re.compile(
@@ -29,6 +32,11 @@ CARGO_COMMAND = re.compile(
     r"|cargo\s+(?:deny|bloat|llvm-lines|flamegraph|llvm-cov)\b"
     r"|cargo(?:\s+\+\S+)?\s+(?:build|bench|check|clippy|doc|fetch|metadata|run|test|tree)\b"
 )
+
+
+def is_excluded(path: Path) -> bool:
+    """Return whether path belongs to an independently validated vendor tree."""
+    return any(path.is_relative_to(root) for root in EXCLUDED_ROOTS)
 
 
 def files_to_scan() -> list[Path]:
@@ -40,7 +48,7 @@ def files_to_scan() -> list[Path]:
             paths.extend(
                 path
                 for path in root.rglob("*")
-                if path.is_file() and path.suffix in TEXT_SUFFIXES
+                if not is_excluded(path) and path.is_file() and path.suffix in TEXT_SUFFIXES
             )
     return sorted({path for path in paths if path.resolve() != SELF})
 

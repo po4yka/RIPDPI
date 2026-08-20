@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-check_harness_policy.py -- CI guard for drift between the rust-lints SKILL.md
-canonical template and the actual native/rust/Cargo.toml + native/rust/clippy.toml.
+check_harness_policy.py -- CI guard for drift between the repository-owned
+Rust lint policy and native/rust/Cargo.toml + native/rust/clippy.toml.
 
 Algorithm
 ---------
-1. Extract the first ```toml block under each canonical heading from SKILL.md.
-2. Parse both blocks with tomllib.
-3. Compare every lint level in the canonical set against the project files.
-4. Report MISSING_IN_PROJECT and LEVEL_MISMATCH findings.
+1. Parse quality/rust-lint-policy.toml.
+2. Compare every lint level in the canonical set against the project files.
+3. Report MISSING_IN_PROJECT and LEVEL_MISMATCH findings.
    EXTRA_IN_PROJECT is intentionally skipped (project may legitimately tighten).
 
 EXIT CODES
@@ -20,7 +19,6 @@ EXIT CODES
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -54,45 +52,6 @@ def _is_weaker(project_level: str, canonical_level: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# SKILL.md extraction
-# ---------------------------------------------------------------------------
-
-_HEADING_WORKSPACE_LINTS = re.compile(
-    r"##\s+`\[workspace\.lints\]`\s+[—\-]+\s+canonical template", re.IGNORECASE
-)
-_HEADING_CLIPPY_TOML = re.compile(
-    r"##\s+`clippy\.toml`\s+[—\-]+\s+canonical thresholds", re.IGNORECASE
-)
-_FENCE_START = re.compile(r"^```toml\s*$")
-_FENCE_END = re.compile(r"^```\s*$")
-
-
-def _extract_first_toml_block_after(lines: list[str], heading_re: re.Pattern[str]) -> str:
-    """Find the first ```toml ... ``` block after a heading that matches heading_re."""
-    found_heading = False
-    in_block = False
-    block_lines: list[str] = []
-
-    for line in lines:
-        stripped = line.rstrip()
-        if not found_heading:
-            if heading_re.search(stripped):
-                found_heading = True
-            continue
-        # Inside the section — look for a toml fence
-        if not in_block:
-            if _FENCE_START.match(stripped):
-                in_block = True
-            continue
-        # Inside the block
-        if _FENCE_END.match(stripped):
-            return "\n".join(block_lines)
-        block_lines.append(line.rstrip())
-
-    raise ValueError(f"Could not find ```toml block after heading matching: {heading_re.pattern!r}")
-
-
-# ---------------------------------------------------------------------------
 # TOML lint-level extraction helpers
 # ---------------------------------------------------------------------------
 
@@ -110,23 +69,6 @@ def _flatten_lint_section(table: object) -> dict[str, str]:
         elif isinstance(val, dict) and "level" in val:
             result[key] = str(val["level"])
     return result
-
-
-def _extract_workspace_lints(toml_text: str) -> dict[str, dict[str, str]]:
-    """Parse a workspace-lints TOML block. Returns {section: {lint: level}}."""
-    data = tomllib.loads(toml_text)
-    workspace = data.get("workspace", data)   # block may or may not have [workspace] wrapper
-    lints = workspace.get("lints", {})
-    result: dict[str, dict[str, str]] = {}
-    for section_name, section_val in lints.items():
-        result[section_name] = _flatten_lint_section(section_val)
-    return result
-
-
-def _extract_clippy_toml_scalars(toml_text: str) -> dict[str, object]:
-    """Return scalar (non-list, non-dict) entries from clippy.toml for comparison."""
-    data = tomllib.loads(toml_text)
-    return {k: v for k, v in data.items() if isinstance(v, (int, float, str, bool))}
 
 
 # ---------------------------------------------------------------------------
@@ -147,12 +89,12 @@ class HarnessPolicyAuditor:
         self.report_only = report_only
         self.findings: list[str] = []   # formatted lines, collected and printed together
 
-    def _load_skill_md(self) -> list[str]:
-        skill_path = self.root / ".agents" / "skills" / "rust-lints" / "SKILL.md"
-        if not skill_path.exists():
-            print(f"ERROR: SKILL.md not found: {skill_path}", file=sys.stderr)
+    def _load_policy(self) -> dict:
+        policy_path = self.root / "quality" / "rust-lint-policy.toml"
+        if not policy_path.exists():
+            print(f"ERROR: lint policy not found: {policy_path}", file=sys.stderr)
             sys.exit(1)
-        return skill_path.read_text(encoding="utf-8").splitlines()
+        return tomllib.loads(policy_path.read_text(encoding="utf-8"))
 
     def _load_project_cargo_toml(self) -> dict:
         cargo_path = self.root / "native" / "rust" / "Cargo.toml"
@@ -248,27 +190,16 @@ class HarnessPolicyAuditor:
     # ------------------------------------------------------------------
 
     def run(self) -> int:
-        skill_lines = self._load_skill_md()
-
-        # Extract canonical blocks from SKILL.md
-        try:
-            workspace_toml_text = _extract_first_toml_block_after(
-                skill_lines, _HEADING_WORKSPACE_LINTS
-            )
-        except ValueError as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            return 1
-
-        try:
-            clippy_toml_text = _extract_first_toml_block_after(
-                skill_lines, _HEADING_CLIPPY_TOML
-            )
-        except ValueError as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            return 1
-
-        canonical_workspace = _extract_workspace_lints(workspace_toml_text)
-        canonical_clippy_scalars = _extract_clippy_toml_scalars(clippy_toml_text)
+        policy = self._load_policy()
+        canonical_workspace = {
+            section: _flatten_lint_section(table)
+            for section, table in policy.get("workspace", {}).get("lints", {}).items()
+        }
+        canonical_clippy_scalars = {
+            key: value
+            for key, value in policy.get("clippy", {}).items()
+            if isinstance(value, (int, float, str, bool))
+        }
 
         project_cargo = self._load_project_cargo_toml()
         project_clippy = self._load_project_clippy_toml()
@@ -282,7 +213,7 @@ class HarnessPolicyAuditor:
         print("HARNESS POLICY AUDIT")
         print("====================")
         print(
-            "Compared: .agents/skills/rust-lints/SKILL.md vs "
+            "Compared: quality/rust-lint-policy.toml vs "
             "native/rust/{Cargo.toml,clippy.toml}"
         )
         print()
@@ -314,7 +245,7 @@ class HarnessPolicyAuditor:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Compare the canonical rust-lints SKILL.md template against "
+            "Compare the repository-owned Rust lint policy against "
             "native/rust/Cargo.toml and native/rust/clippy.toml."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

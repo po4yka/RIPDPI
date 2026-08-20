@@ -88,5 +88,5 @@ Rules:
 ### Cross-references
 
 - `rust-async-internals` skill — JNI-to-async bridge canonical pattern.
-- `rust-android-jni` skill — JNI panic safety and pthread setname.
+- `rust-jni` skill — JNI panic safety and thread attachment discipline.
 - `network-fingerprint-privacy.md` rule — state that must survive kill includes per-network policy.

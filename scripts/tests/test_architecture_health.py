@@ -41,6 +41,34 @@ class ArchitectureHealthTest(unittest.TestCase):
                 self.assertEqual("pub fn staged() {}\n", snapshot_source.read_text())
                 self.assertEqual({"ripdpi-staged"}, dependencies)
 
+    def test_staged_snapshot_skips_gitlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            source = repo / "native/rust/crates/ripdpi-example/src/lib.rs"
+            self._write(source, "pub fn staged() {}\n")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "update-index",
+                    "--add",
+                    "--cacheinfo",
+                    "160000,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,vendor/catalog",
+                ],
+                cwd=repo,
+                check=True,
+            )
+
+            tracked = sut.git_staged_paths(repo)
+            self.assertIn("vendor/catalog", tracked)
+            with sut.materialize_git_index_snapshot(repo, tracked) as snapshot:
+                self.assertEqual(
+                    "pub fn staged() {}\n",
+                    (snapshot / source.relative_to(repo)).read_text(),
+                )
+                self.assertFalse((snapshot / "vendor/catalog").exists())
+
     def test_dependency_hub_and_discouraged_edges_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)

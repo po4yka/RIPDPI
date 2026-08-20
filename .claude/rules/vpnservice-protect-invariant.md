@@ -31,6 +31,6 @@ A non-loopback direct socket that can run while the VPN callback is active and b
 
 ### Cross-references
 
-- `rust-android-jni` skill for JNI callback safety.
+- `rust-jni` skill for JNI callback safety.
 - `jni-bridge-verifier` agent for Kotlin/Rust bridge verification.
 - `llm-rust-prompts.md` for review sentinels.

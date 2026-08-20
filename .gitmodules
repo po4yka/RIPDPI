@@ -1,0 +1,4 @@
+[submodule ".agents/vendor/rust-skills"]
+	path = .agents/vendor/rust-skills
+	url = https://github.com/po4yka/rust-skills.git
+	shallow = true

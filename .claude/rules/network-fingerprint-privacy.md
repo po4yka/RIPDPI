@@ -38,6 +38,6 @@ Classify hits by whether they remain transient hash inputs, are reduced to `Netw
 
 ### Cross-references
 
-- `rust-android-telemetry` skill for telemetry channel selection.
+- `rust-observability` skill for telemetry channel selection and redaction.
 - `android-vpn-lifecycle.md` for remembered state lifecycle.
 - `llm-rust-prompts.md` for raw-identifier review sentinels.

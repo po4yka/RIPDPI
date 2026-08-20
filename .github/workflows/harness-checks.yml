@@ -5,6 +5,7 @@ on:
     paths:
       - 'AGENTS.md'
       - 'CLAUDE.md'
+      - '.gitmodules'
       - '.agents/**'
       - '.claude/**'
       - '.codex/**'
@@ -13,16 +14,19 @@ on:
       - 'lefthook.yml'
       - 'native/rust/Cargo.toml'
       - 'native/rust/clippy.toml'
+      - 'quality/rust-lint-policy.toml'
       - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/ci/check_codex_skills_sync.py'
       - 'scripts/ci/check-rules-drift.sh'
       - 'scripts/tests/test_agent_hooks.py'
+      - 'scripts/tests/test_check_harness_cargo_locked.py'
   push:
     branches: [main]
     paths:
       - 'AGENTS.md'
       - 'CLAUDE.md'
+      - '.gitmodules'
       - '.agents/**'
       - '.claude/**'
       - '.codex/**'
@@ -31,11 +35,13 @@ on:
       - 'lefthook.yml'
       - 'native/rust/Cargo.toml'
       - 'native/rust/clippy.toml'
+      - 'quality/rust-lint-policy.toml'
       - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/ci/check_codex_skills_sync.py'
       - 'scripts/ci/check-rules-drift.sh'
       - 'scripts/tests/test_agent_hooks.py'
+      - 'scripts/tests/test_check_harness_cargo_locked.py'
 
 permissions:
   contents: read
@@ -46,6 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -67,4 +75,6 @@ jobs:
       - name: Test committed agent hooks
         run: python3 scripts/tests/test_agent_hooks.py
       - name: Test harness-owned scanners
-        run: python3 -m unittest scripts.tests.test_network_surface_scanner
+        run: python3 -m unittest
+          scripts.tests.test_check_harness_cargo_locked
+          scripts.tests.test_network_surface_scanner

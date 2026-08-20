@@ -254,7 +254,7 @@ adb shell dumpsys activity processes com.poyka.ripdpi
 adb pull /data/anr/traces.txt
 ```
 
-Common RIPDPI ANR cause: JNI call blocking the main thread. The proxy `jniStart` is intentionally blocking -- see `native-jni-development` skill.
+Common RIPDPI ANR cause: JNI call blocking the main thread. The proxy `jniStart` is intentionally blocking -- see the `rust-jni` skill.
 
 ## Emulator Management
 
@@ -301,6 +301,6 @@ avdmanager delete avd -n ripdpi-debug
 
 ## See Also
 
-- `native-profiling` -- CPU flamegraphs with simpleperf, HWASan memory debugging, offline symbolication
+- `rust-performance` -- CPU flamegraphs with simpleperf, HWASan memory debugging, offline symbolication
 - `network-traffic-debug` -- mitmproxy SOCKS5 inspection, tcpdump on TUN, PCAPdroid, log correlation
-- `native-jni-development` -- Build pipeline, JNI exports, lifecycle rules
+- `rust-jni` -- JNI exports, lifecycle rules, and native crash triage

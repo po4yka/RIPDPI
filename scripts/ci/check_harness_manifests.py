@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import configparser
 import re
 import sys
 import tomllib
@@ -13,6 +14,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL_SKILLS = REPO_ROOT / ".agents" / "skills"
+CENTRAL_RUST_SKILLS = REPO_ROOT / ".agents" / "vendor" / "rust-skills" / "skills"
 SKILL_MIRRORS = (
     REPO_ROOT / ".claude" / "skills",
     REPO_ROOT / ".codex" / "skills",
@@ -21,6 +23,17 @@ SKILL_MIRRORS = (
 ALLOWED_SANDBOX_MODES = {"read-only", "workspace-write", "danger-full-access"}
 WRITE_CAPABLE_AGENTS = {"golden-blesser", "native-verifier", "ripdpi-vault-sync"}
 CODEX_WORKSPACE_WRITERS = WRITE_CAPABLE_AGENTS | {"ripdpi-doc-exporter"}
+REMOVED_LOCAL_RUST_SKILLS = {
+    "mutation-testing",
+    "native-jni-development",
+    "native-profiling",
+    "rust-android-jni",
+    "rust-android-ndk",
+    "rust-android-telemetry",
+    "rust-io-loop",
+    "rust-jni-bridge",
+    "rust-lint-config",
+}
 
 
 def frontmatter(path: Path) -> dict[str, object]:
@@ -50,6 +63,42 @@ def skill_names() -> set[str]:
     if not names:
         raise ValueError("no canonical skills found under .agents/skills")
     return names
+
+
+def validate_central_rust_skills(names: set[str]) -> None:
+    gitmodules_path = REPO_ROOT / ".gitmodules"
+    gitmodules = configparser.ConfigParser()
+    gitmodules.read(gitmodules_path, encoding="utf-8")
+    section = 'submodule ".agents/vendor/rust-skills"'
+    if not gitmodules.has_section(section):
+        raise ValueError("central Rust skill submodule is not registered")
+    if gitmodules.get(section, "path", fallback="") != ".agents/vendor/rust-skills":
+        raise ValueError("central Rust skill submodule path is incorrect")
+    if gitmodules.get(section, "url", fallback="") != "https://github.com/po4yka/rust-skills.git":
+        raise ValueError("central Rust skill submodule URL is incorrect")
+
+    if not CENTRAL_RUST_SKILLS.is_dir():
+        raise ValueError("central Rust skill submodule is not initialized")
+    source_names = {path.parent.name for path in CENTRAL_RUST_SKILLS.glob("*/SKILL.md")}
+    if not source_names:
+        raise ValueError("central Rust skill catalog is empty")
+
+    missing = sorted(source_names - names)
+    local_rust = {name for name in names if name.startswith("rust-")}
+    extra = sorted((local_rust - source_names) | (names & REMOVED_LOCAL_RUST_SKILLS))
+    if missing or extra:
+        raise ValueError(f"central Rust skill exposure mismatch: missing={missing}, extra={extra}")
+
+    for name in sorted(source_names):
+        path = CANONICAL_SKILLS / name
+        if not path.is_symlink():
+            raise ValueError(f"{path.relative_to(REPO_ROOT)}: central Rust skill must be a symlink")
+        expected = (CENTRAL_RUST_SKILLS / name).resolve(strict=True)
+        actual = path.resolve(strict=True)
+        if actual != expected:
+            raise ValueError(
+                f"{path.relative_to(REPO_ROOT)}: resolves to {actual}, expected {expected}"
+            )
 
 
 def validate_mirrors(names: set[str]) -> None:
@@ -260,7 +309,7 @@ def validate_factual_ground_truth() -> None:
         CANONICAL_SKILLS / "edge-to-edge" / "SKILL.md",
         CANONICAL_SKILLS / "r8-jni-keep-rules" / "SKILL.md",
         CANONICAL_SKILLS / "rust-async-internals" / "SKILL.md",
-        CANONICAL_SKILLS / "rust-io-loop" / "SKILL.md",
+        CANONICAL_SKILLS / "rust-event-loop-state" / "SKILL.md",
         CANONICAL_SKILLS / "rust-panic-safety" / "SKILL.md",
         CANONICAL_SKILLS / "rust-unsafe" / "SKILL.md",
         REPO_ROOT / ".claude" / "agents" / "kotlin-design-auditor.md",
@@ -335,6 +384,7 @@ def validate_factual_ground_truth() -> None:
 def main() -> int:
     try:
         names = skill_names()
+        validate_central_rust_skills(names)
         validate_mirrors(names)
         validate_claude_agents(names)
         validate_codex_agents()

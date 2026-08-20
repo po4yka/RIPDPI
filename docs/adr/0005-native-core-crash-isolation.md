@@ -50,7 +50,7 @@ Keep most of the core in-process; move only the panic-prone surface out.
 Rationale: in RIPDPI the panic-prone surface *is* the latency-critical data plane (untrusted-byte parsing on the per-packet smoltcp path), so the only isolation that would meaningfully reduce crash blast radius (option b) also IPC-es the gigabit hot path — defeating the throughput goal — while **not** clearly improving availability (an LMK-eligible child can be killed asymmetrically, and Android 17's memory cap is app-wide). Hybrid (c) cannot cleanly separate panic-risk from latency, so it degenerates toward (b) for any isolation that matters. xivpn's model fits xivpn because it shells out to an opaque Go core it does not control; RIPDPI owns its Rust core and can harden it in place.
 
 Instead, continue investing in **option (a)**:
-- Keep `catch_unwind` panic traps at every JNI export and at tokio task boundaries (per `rust-android-jni`).
+- Keep `catch_unwind` panic traps at every JNI export and at tokio task boundaries (per `rust-jni`).
 - Keep the process-wide SIGPIPE handler and the `JNI_OnUnload`/tokio-shutdown discipline in `android-vpn-lifecycle.md`.
 - Keep classifying in-process crashes via `SupervisorExitCause` and restarting the in-process runtime.
 - Continue running only genuinely-external binaries (`naiveproxy`/`snowflake`/`obfs4`) as supervised subprocesses — that boundary is for foreign code, not for the owned Rust core.

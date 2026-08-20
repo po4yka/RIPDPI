@@ -1,0 +1,49 @@
+# Deployed RIPDPI minimums enforced by scripts/ci/check_harness_policy.py.
+# Generic Rust guidance lives in the centralized rust-lints skill.
+
+[workspace.lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+style = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+cloned_instead_of_copied = "warn"
+explicit_iter_loop = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+map_unwrap_or = "warn"
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+unnested_or_patterns = "warn"
+manual_let_else = "warn"
+trivially_copy_pass_by_ref = "warn"
+unused_self = "warn"
+default_trait_access = "warn"
+explicit_into_iter_loop = "warn"
+match_wildcard_for_single_variants = "warn"
+missing_safety_doc = "allow"
+not_unsafe_ptr_arg_deref = "allow"
+undocumented_unsafe_blocks = "allow"
+mut_from_ref = "deny"
+transmute_ptr_to_ptr = "deny"
+useless_transmute = "deny"
+multiple_unsafe_ops_per_block = "allow"
+as_ptr_cast_mut = "warn"
+ptr_as_ptr = "warn"
+cast_ptr_alignment = "deny"
+crosspointer_transmute = "deny"
+transmute_undefined_repr = "warn"
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+rc_mutex = "deny"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+improper_ctypes = "warn"
+improper_ctypes_definitions = "warn"
+
+[clippy]
+msrv = "1.96.0"
+too-many-arguments-threshold = 8
+type-complexity-threshold = 300

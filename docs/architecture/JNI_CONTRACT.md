@@ -549,5 +549,5 @@ granularity.
 | Socket-protect invariant | [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md) |
 | LMK / Doze / tokio-shutdown / thread naming | [`.claude/rules/android-vpn-lifecycle.md`](../../.claude/rules/android-vpn-lifecycle.md) |
 | AI-generated JNI diff acceptance gate | [`.claude/rules/llm-rust-prompts.md`](../../.claude/rules/llm-rust-prompts.md) |
-| JNI authoring patterns | `rust-android-jni` skill |
+| JNI authoring patterns | `rust-jni` skill |
 | Root helper IPC narrative | [`AGENTS.md`](../../AGENTS.md) § Root Helper IPC |

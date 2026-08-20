@@ -117,7 +117,7 @@ Use only `./taskctl` for task state, mdtask access, OpenSpec archival, validatio
 
 ## Skills and subagents
 
-Portable project skills are canonical under `.agents/skills/`. `.claude/skills/`, `.codex/skills/`, and `.github/skills/` contain compatibility symlinks to the same directories; never maintain copied skill bodies. Use only skills and agents present in the active tool's catalog, and read the selected `SKILL.md` completely before acting.
+Portable project skills are exposed under `.agents/skills/`. The centralized Rust catalog is pinned as the `.agents/vendor/rust-skills` submodule from `https://github.com/po4yka/rust-skills` and exposed through symlinks; initialize it with `git submodule update --init --depth 1 .agents/vendor/rust-skills`. `.claude/skills/`, `.codex/skills/`, and `.github/skills/` contain compatibility symlinks to the same entries. Never copy or locally fork centralized Rust skill bodies. Use only skills and agents present in the active tool's catalog, and read the selected `SKILL.md` completely before acting.
 
 Claude subagents live in `.claude/agents/`; Codex subagents live in `.codex/agents/`. Prefer the narrowest specialist matching the task. Audit/review/verifier agents must be technically read-only; write-capable agents must use worktree isolation.
 

@@ -193,6 +193,27 @@ def read_git_index_file(repo_root: Path, relative_path: str) -> bytes:
     return completed.stdout
 
 
+def git_index_blob_paths(repo_root: Path, relative_paths: Sequence[str]) -> set[str]:
+    if not relative_paths:
+        return set()
+    completed = subprocess.run(
+        ["git", "ls-files", "--stage", "-z", "--", *relative_paths],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    blob_paths: set[str] = set()
+    for record in completed.stdout.split(b"\0"):
+        if not record:
+            continue
+        metadata, encoded_path = record.split(b"\t", maxsplit=1)
+        mode, _object_id, stage = metadata.split(b" ", maxsplit=2)
+        if mode == b"160000" or stage != b"0":
+            continue
+        blob_paths.add(encoded_path.decode("utf-8", errors="surrogateescape"))
+    return blob_paths
+
+
 @contextmanager
 def materialize_git_index_snapshot(
     repo_root: Path,
@@ -200,6 +221,7 @@ def materialize_git_index_snapshot(
 ) -> Iterable[Path]:
     snapshot_paths = set(git_index_manifest_paths(repo_root))
     snapshot_paths.update(tracked_paths)
+    snapshot_paths = git_index_blob_paths(repo_root, sorted(snapshot_paths))
     with tempfile.TemporaryDirectory(prefix="ripdpi-architecture-index-") as temp_dir:
         snapshot_root = Path(temp_dir)
         for relative_path in sorted(snapshot_paths):

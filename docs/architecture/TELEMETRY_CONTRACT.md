@@ -69,7 +69,7 @@ The process-global counter / gauge / latency-histogram recorder
 latency histograms are projected into `NativeRuntimeSnapshot.latencyDistributions`
 (`dnsResolution` / `tcpConnect` / `tlsHandshake`, each an optional
 `LatencyPercentiles`). Recorded with data-plane `AtomicU64` discipline — see
-the `rust-android-telemetry` skill.
+the `rust-observability` skill.
 
 ### 3. Native events — `NativeRuntimeEvent`
 
@@ -134,7 +134,7 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
   must not be emitted in telemetry JSON; use the opaque profile id and carrier
   counters instead. See
   [`network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md)
-  and the `rust-android-telemetry` skill.
+  and the `rust-observability` skill.
 
 ---
 
@@ -208,6 +208,6 @@ runtime is already safe with no Kotlin change at all.
 | Sibling config-JSON contract; `schemaVersion` discussion | [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §5, §8 |
 | Diagnostics scan wire contract (versioned) | [`DIAGNOSTICS_ARCHITECTURE.md`](DIAGNOSTICS_ARCHITECTURE.md) |
 | The JNI boundary the JSON crosses | [`JNI_CONTRACT.md`](JNI_CONTRACT.md) |
-| Telemetry emission discipline (channels, rings, counters) | `rust-android-telemetry` skill |
+| Telemetry emission discipline (channels, rings, counters) | `rust-observability` skill |
 | Telemetry privacy bounds | [`network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md) |
 | Golden bless discipline | [`golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md) |

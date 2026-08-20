@@ -6,7 +6,7 @@ model: sonnet
 maxTurns: 30
 skills:
   - cargo-workflows
-  - mutation-testing
+  - rust-test-tools
 memory: project
 ---
 
