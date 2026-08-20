@@ -40,6 +40,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.zip.ZipFile
 
 @Suppress("detekt.LargeClass")
@@ -635,6 +636,60 @@ class DiagnosticsArchiveRendererTest {
         assertFalse(logcatText.contains("private.example"))
         assertFalse(logcatText.contains("203.0.113.9:443"))
         assertFalse(logcatText.contains("token=abc"))
+    }
+
+    @Test
+    fun `renderer removes reversibly encoded hostnames from logcat entry`() {
+        val hostname = "privacy-sentinel.youtube.example"
+        val hostnameBytes = hostname.encodeToByteArray()
+        val socksRequest =
+            byteArrayOf(5, 1, 0, 3, hostnameBytes.size.toByte()) +
+                hostnameBytes +
+                byteArrayOf(1, 187.toByte())
+        val decimalCarrier = socksRequest.joinToString(", ") { byte -> (byte.toInt() and 0xff).toString() }
+        val hexCarrier = socksRequest.joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+        val base64Payload = hostnameBytes + byteArrayOf(0xfb.toByte())
+        val base64Carrier = Base64.getEncoder().encodeToString(base64Payload)
+        val base64UrlCarrier = Base64.getUrlEncoder().withoutPadding().encodeToString(base64Payload)
+        val benignDecimalCarrier = "[1, 2, 3, 4, 5, 6, 7, 8]"
+        val benignBase64Carrier = Base64.getEncoder().encodeToString("diagnostics-payload".encodeToByteArray())
+        val safeEvidence = "class=tls_reset stage=tls_handshake"
+        val rawLogcat =
+            "03-12 10:00:00.010 I/ripdpi-native: Bytes shorted version: [$decimalCarrier]\n" +
+                "03-12 10:00:00.011 I/ripdpi-native: request_hex=$hexCarrier\n" +
+                "03-12 10:00:00.012 I/ripdpi-native: request_base64=$base64Carrier\n" +
+                "03-12 10:00:00.013 I/ripdpi-native: request_base64url=$base64UrlCarrier\n" +
+                "03-12 10:00:00.014 I/ripdpi-native: diagnostic_bytes=$benignDecimalCarrier\n" +
+                "03-12 10:00:00.015 I/ripdpi-native: diagnostic_base64=$benignBase64Carrier\n" +
+                "03-12 10:00:00.016 I/ripdpi-native: failure classified $safeEvidence\n"
+        val selection =
+            buildFullRendererSelection().copy(
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = rawLogcat,
+                        captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                        byteCount = rawLogcat.toByteArray(Charsets.UTF_8).size,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-encoded-hostname", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-encoded-hostname.zip",
+                createdAt = 45L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val logcatText = entries.getValue("logcat.txt").bytes.decodeToString()
+
+        assertTrue(logcatText.contains(safeEvidence))
+        assertTrue(logcatText.contains(benignDecimalCarrier))
+        assertTrue(logcatText.contains(benignBase64Carrier))
+        listOf(hostname, decimalCarrier, hexCarrier, base64Carrier, base64UrlCarrier).forEach { sensitive ->
+            assertFalse(
+                "encoded hostname carrier must not remain in logcat: $sensitive",
+                logcatText.contains(sensitive),
+            )
+        }
     }
 
     @Test

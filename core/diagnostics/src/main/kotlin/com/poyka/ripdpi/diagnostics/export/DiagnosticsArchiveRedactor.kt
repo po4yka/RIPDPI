@@ -445,6 +445,7 @@ internal fun redactDiagnosticsFreeText(value: String): String =
 
 internal fun redactDiagnosticsLogcat(value: String): String =
     redactDiagnosticsFreeText(value)
+        .let(::redactEncodedHostCarriers)
         .replaceWhenContainsAny(UrlRegex, "<url-redacted>", "http://", "https://")
         .let(::redactDiagnosticsPaths)
         .replace(DnsNameRegex, "<host-redacted>")
@@ -556,6 +557,9 @@ private val DnsNameRegex =
             "(?:[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]{0,61}[\\p{L}\\p{N}])?[.\\u3002\\uFF0E\\uFF61])+" +
             "(?:xn--[a-z0-9-]{2,59}|[\\p{L}]{2,63})(?![\\p{L}\\p{N}_-])",
     )
+
+internal fun containsDiagnosticsDnsName(value: CharSequence): Boolean = DnsNameRegex.containsMatchIn(value)
+
 private val LogicalLineContentRegex = Regex("[^\\r\\n]+")
 private val KnownAppLogcatPrefixRegex =
     Regex(
