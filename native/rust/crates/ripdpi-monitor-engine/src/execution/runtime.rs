@@ -19,7 +19,7 @@ pub use contracts::{
     CandidateRuntimeTerminalStatus, CandidateRuntimeWorkerOutcome, PreparedCandidateRuntime,
 };
 pub use launch::probe_runtime_transport;
-pub(crate) use supervisor::CandidateRuntimeSupervisor;
+pub(crate) use supervisor::{CandidateRuntimeLease, CandidateRuntimeSupervisor};
 pub(crate) use tcp_launch::probe_tcp_runtime_transport;
 pub use unavailable::UnavailableCandidateRuntimeLauncher;
 pub use warmup::run_candidate_warmup;

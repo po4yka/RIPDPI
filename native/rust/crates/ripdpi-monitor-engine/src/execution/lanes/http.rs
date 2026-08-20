@@ -1,8 +1,5 @@
-use std::sync::LazyLock;
-
-use crate::blockpage_fingerprints::{BlockpageFingerprint, load_fingerprints};
 use crate::candidates::StrategyCandidateSpec;
-use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request_targets};
+use crate::http::try_http_request_targets;
 use crate::transport::{TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 use crate::util::now_ms;
@@ -10,7 +7,9 @@ use crate::util::now_ms;
 use super::support::candidate_probe_details;
 use crate::execution::scoring::ProbeSample;
 
-static BLOCKPAGE_FINGERPRINTS: LazyLock<Vec<BlockpageFingerprint>> = LazyLock::new(load_fingerprints);
+mod outcome;
+
+use outcome::classify_http_observation;
 
 pub(super) fn run_http_strategy_probe(
     transport: &TransportConfig,
@@ -23,28 +22,7 @@ pub(super) fn run_http_strategy_probe(
     let observation =
         try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
     let latency_ms = now_ms().saturating_sub(started);
-    // Try fingerprint-based classification first, then fall back to heuristics.
-    let (outcome, fingerprint_name) = if let Some(response) = &observation.response {
-        let (fp_outcome, fp_name) = classify_http_response_with_fingerprints(response, &BLOCKPAGE_FINGERPRINTS);
-        let outcome = if fp_name.is_some() {
-            fp_outcome
-        } else if is_blockpage(&observation) {
-            "http_blockpage".to_string()
-        } else if observation.status == "http_ok" {
-            "http_ok".to_string()
-        } else if observation.status.starts_with("http_status_3") {
-            "http_redirect".to_string()
-        } else if observation.error.is_some() {
-            "http_unreachable".to_string()
-        } else {
-            observation.status.clone()
-        };
-        (outcome, fp_name)
-    } else if observation.error.is_some() {
-        ("http_unreachable".to_string(), None)
-    } else {
-        (observation.status.clone(), None)
-    };
+    let (outcome, fingerprint_name) = classify_http_observation(&observation);
     let h3 = observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).is_some_and(|v| v.contains("h3"));
     let mut details = candidate_probe_details(candidate, "HTTP", latency_ms);
     details.extend([

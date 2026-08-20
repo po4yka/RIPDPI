@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use crate::CandidateAttemptCorrelationId;
 use crate::types::ProbeResult;
 
+use super::ProbeSample;
+
 #[derive(Default)]
 pub struct CandidateScore {
     pub results: Vec<ProbeResult>,
@@ -59,17 +61,4 @@ impl CandidateScore {
     pub fn is_full_success(&self) -> bool {
         self.total_targets > 0 && self.succeeded_targets == self.total_targets
     }
-}
-
-pub struct ProbeSample {
-    pub result: ProbeResult,
-    pub success: bool,
-    pub weight: usize,
-    pub quality: usize,
-    pub latency_ms: u64,
-    /// The domain this sample was probed against, for per-domain outcome tracking.
-    pub domain: Option<String>,
-    /// Whether the exact planned domain target is a neutral control.
-    pub is_control: bool,
-    pub attempt_token: Option<CandidateAttemptCorrelationId>,
 }

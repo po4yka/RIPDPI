@@ -9,10 +9,13 @@ use ripdpi_diagnostics_transport::transport::wait_for_listener;
 use ripdpi_diagnostics_transport::transport::{Socks5Credentials, TransportConfig};
 use ripdpi_monitor_engine::{
     CandidateAttemptCorrelationId, CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError,
-    CandidateRuntimeExecutionEvidence, CandidateRuntimeLauncher, CandidateRuntimeTerminalReceipt,
-    PreparedCandidateRuntime,
+    CandidateRuntimeLauncher, CandidateRuntimeTerminalReceipt, PreparedCandidateRuntime,
 };
 use ripdpi_runtime_api::EmbeddedProxyControl;
+
+mod evidence_projection;
+
+use evidence_projection::{CandidateExecutionEvidenceProjection, project_runtime_execution_evidence_batch};
 
 pub struct ProductionCandidateRuntimeLauncher;
 
@@ -124,6 +127,8 @@ fn join_runtime_terminal(
     };
     match handle.join() {
         Ok(Ok(receipt)) => {
+            let projection = candidate_execution_evidence(&receipt);
+            let CandidateExecutionEvidenceProjection { evidence, rejected } = projection;
             let cleanup = CandidateCleanupReceipt {
                 started: 1,
                 stopped: 1,
@@ -135,52 +140,56 @@ fn join_runtime_terminal(
                     control.desync_execution_generation(),
                     cleanup,
                     terminal_shutdown_mode(forced),
-                    candidate_execution_evidence(&receipt),
+                    evidence,
                 );
                 // Infallible: a joined panicking worker has one started/joined runtime and coherent abort counts.
                 let terminal = terminal.expect("worker panic has coherent cleanup");
-                terminal.with_execution_evidence_overflowed(receipt.desync_execution_evidence_overflowed())
+                terminal.with_execution_evidence_overflowed(receipt.desync_execution_evidence_overflowed() || rejected)
             } else if receipt.forced_abort() {
                 let terminal = CandidateRuntimeTerminalReceipt::forced_abort(
                     control.desync_execution_generation(),
                     cleanup,
-                    candidate_execution_evidence(&receipt),
+                    evidence,
                 );
                 // Infallible: the proxy receipt reports one started/stopped/joined forced-abort runtime.
                 let terminal = terminal.expect("proxy cleanup receipt is a completed forced abort");
-                terminal.with_execution_evidence_overflowed(receipt.desync_execution_evidence_overflowed())
+                terminal.with_execution_evidence_overflowed(receipt.desync_execution_evidence_overflowed() || rejected)
             } else {
                 let terminal = CandidateRuntimeTerminalReceipt::clean_shutdown(
                     control.desync_execution_generation(),
                     cleanup,
-                    candidate_execution_evidence(&receipt),
+                    evidence,
                 );
                 // Infallible: the proxy receipt reports one started/stopped/joined graceful runtime.
                 let terminal = terminal.expect("proxy cleanup receipt is a completed clean shutdown");
-                terminal.with_execution_evidence_overflowed(receipt.desync_execution_evidence_overflowed())
+                terminal.with_execution_evidence_overflowed(receipt.desync_execution_evidence_overflowed() || rejected)
             }
         }
         Ok(Err(_)) => {
+            let CandidateExecutionEvidenceProjection { evidence, rejected } =
+                candidate_execution_evidence_from_runtime(&control.desync_execution_evidence());
             let terminal = CandidateRuntimeTerminalReceipt::runtime_failed(
                 control.desync_execution_generation(),
                 CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: usize::from(forced) },
                 terminal_shutdown_mode(forced),
-                candidate_execution_evidence_from_runtime(control.desync_execution_evidence()),
+                evidence,
             );
             // Infallible: the joined error path creates one started/joined runtime with coherent abort counts.
             let terminal = terminal.expect("joined runtime failure has coherent cleanup");
-            terminal.with_execution_evidence_overflowed(control.desync_execution_evidence_overflowed())
+            terminal.with_execution_evidence_overflowed(control.desync_execution_evidence_overflowed() || rejected)
         }
         Err(_) => {
+            let CandidateExecutionEvidenceProjection { evidence, rejected } =
+                candidate_execution_evidence_from_runtime(&control.desync_execution_evidence());
             let terminal = CandidateRuntimeTerminalReceipt::runtime_panicked(
                 control.desync_execution_generation(),
                 CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: usize::from(forced) },
                 terminal_shutdown_mode(forced),
-                candidate_execution_evidence_from_runtime(control.desync_execution_evidence()),
+                evidence,
             );
             // Infallible: the joined panic path creates one started/joined runtime with coherent abort counts.
             let terminal = terminal.expect("joined runtime panic has coherent cleanup");
-            terminal.with_execution_evidence_overflowed(control.desync_execution_evidence_overflowed())
+            terminal.with_execution_evidence_overflowed(control.desync_execution_evidence_overflowed() || rejected)
         }
     }
 }
@@ -195,14 +204,14 @@ fn terminal_shutdown_mode(forced: bool) -> ripdpi_monitor_engine::CandidateRunti
 
 fn candidate_execution_evidence(
     receipt: &ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt,
-) -> Vec<CandidateRuntimeExecutionEvidence> {
-    candidate_execution_evidence_from_runtime(receipt.desync_execution_evidence().to_vec())
+) -> CandidateExecutionEvidenceProjection {
+    candidate_execution_evidence_from_runtime(receipt.desync_execution_evidence())
 }
 
 fn candidate_execution_evidence_from_runtime(
-    evidence: Vec<ripdpi_runtime_api::DesyncExecutionEvidence>,
-) -> Vec<CandidateRuntimeExecutionEvidence> {
-    evidence.iter().filter_map(CandidateRuntimeExecutionEvidence::from_runtime_desync).collect()
+    evidence: &[ripdpi_runtime_api::DesyncExecutionEvidence],
+) -> CandidateExecutionEvidenceProjection {
+    project_runtime_execution_evidence_batch(evidence)
 }
 
 impl Drop for TemporaryProxyRuntime {
@@ -219,6 +228,10 @@ impl Drop for TemporaryProxyRuntime {
 mod tests {
     use super::*;
     use ripdpi_monitor_engine::CandidateRuntimeTerminalStatus;
+    use ripdpi_runtime_api::{
+        AttemptCorrelationId, DesyncExecutionDisposition, DesyncExecutionEvidence, DesyncExecutionReceipt,
+        DesyncExecutionTransport, DesyncOffsetMarkerBase, DesyncStrategyFamily,
+    };
 
     #[test]
     fn production_candidate_runtime_uses_generation_bound_redacted_socks_auth() {
@@ -263,6 +276,67 @@ mod tests {
         assert_eq!(receipt.cleanup(), CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
         assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimeFailed);
         assert!(receipt.execution_evidence().is_empty());
+    }
+
+    #[test]
+    fn rejected_runtime_receipt_marks_the_clean_terminal_evidence_incomplete() {
+        let token = AttemptCorrelationId::new("p-0000000000000001-0000000000000001").expect("attempt token");
+        let valid = DesyncExecutionReceipt::try_new(
+            DesyncExecutionTransport::Tcp,
+            DesyncExecutionDisposition::Applied,
+            Some(DesyncStrategyFamily::Split),
+            Some(DesyncStrategyFamily::Split),
+            Some(DesyncOffsetMarkerBase::Host),
+            Some(1),
+            Some(10),
+            1,
+            3,
+            3,
+            2,
+            1,
+            100,
+            false,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("valid split receipt");
+        let unknown = DesyncExecutionReceipt::try_new(
+            DesyncExecutionTransport::Tcp,
+            DesyncExecutionDisposition::Applied,
+            Some(DesyncStrategyFamily::Unknown),
+            Some(DesyncStrategyFamily::Unknown),
+            None,
+            None,
+            None,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            false,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("forward-compatible runtime receipt");
+        let evidence = vec![
+            DesyncExecutionEvidence::new(1, token.clone(), 1, valid).expect("valid evidence"),
+            DesyncExecutionEvidence::new(1, token, 2, unknown).expect("unknown evidence"),
+        ];
+        let mut handle = Some(thread::spawn(move || {
+            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, evidence, false))
+        }));
+        let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
+
+        let terminal = join_runtime_terminal(&mut handle, false, &control);
+
+        assert_eq!(terminal.terminal_status(), CandidateRuntimeTerminalStatus::CleanShutdown);
+        assert_eq!(terminal.execution_evidence().len(), 1);
+        assert!(terminal.execution_evidence_overflowed());
     }
 
     #[test]

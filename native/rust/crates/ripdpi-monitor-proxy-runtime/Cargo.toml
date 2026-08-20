@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-monitor-engine = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }

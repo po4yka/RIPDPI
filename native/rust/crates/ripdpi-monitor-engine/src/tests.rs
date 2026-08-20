@@ -61,15 +61,13 @@ impl DirectCandidateRuntime {
             .filter(|token| token.is_evaluable())
             .cloned()
             .map(|attempt_token| {
-                crate::CandidateRuntimeExecutionEvidence::Desync(crate::CandidateDesyncExecutionReceipt {
-                    disposition: crate::CandidateDesyncExecutionDisposition::Applied,
-                    generation: 99,
-                    attempt_token,
+                let receipt = crate::types::StrategyDesyncExecutionReceipt {
                     connection_ordinal: 1,
-                    transport: ripdpi_runtime_api::DesyncExecutionTransport::Tcp,
-                    configured_family: Some(ripdpi_runtime_api::DesyncStrategyFamily::Split),
-                    effective_family: Some(ripdpi_runtime_api::DesyncStrategyFamily::Split),
-                    marker_base: Some(ripdpi_runtime_api::DesyncOffsetMarkerBase::Host),
+                    transport: crate::types::StrategyExecutionTransport::Tcp,
+                    disposition: crate::types::StrategyExecutionDisposition::Applied,
+                    configured_family: Some(crate::types::StrategyExecutionFamily::Split),
+                    effective_family: Some(crate::types::StrategyExecutionFamily::Split),
+                    marker_base: Some(crate::types::StrategyOffsetMarkerBase::Host),
                     marker_delta: Some(1),
                     resolved_offset: Some(16),
                     planned_steps: 1,
@@ -88,7 +86,9 @@ impl DirectCandidateRuntime {
                     udp_ipv6_extension_profile: None,
                     fallback_reason: None,
                     terminal_reason: None,
-                })
+                };
+                crate::CandidateRuntimeExecutionEvidence::checked_desync(99, attempt_token, receipt)
+                    .expect("direct runtime evidence is valid")
             })
             .collect()
     }

@@ -379,7 +379,12 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/tcp/result_recording.rs",
-      "maxProductionLoc": 100
+      "maxProductionLoc": 100,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/tcp/result_recording/executed.rs",
+      "maxProductionLoc": 61
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/tcp.rs",
@@ -441,7 +446,12 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/http.rs",
-      "maxProductionLoc": 88
+      "maxProductionLoc": 88,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/http/outcome.rs",
+      "maxProductionLoc": 32
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/https/detail_builder.rs",
@@ -477,8 +487,21 @@
       "maxProductionLoc": 35
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/quic/candidate_execution.rs",
+      "maxProductionLoc": 71
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/tcp.rs",
-      "maxProductionLoc": 92
+      "maxProductionLoc": 92,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/tcp/domain_probe.rs",
+      "maxProductionLoc": 70
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/tcp/execution.rs",
+      "maxProductionLoc": 84
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs",
@@ -503,12 +526,50 @@
       "maxProductionLoc": 18
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/attempt_correlation.rs",
+      "maxProductionLoc": 58
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/desync_receipt.rs",
+      "maxProductionLoc": 52,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/desync_receipt/validation.rs",
+      "maxProductionLoc": 86
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/execution_evidence.rs",
+      "maxProductionLoc": 31
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/runtime_boundary.rs",
+      "maxProductionLoc": 40
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/terminal_receipt.rs",
+      "maxProductionLoc": 184
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/contracts/terminal_status.rs",
+      "maxProductionLoc": 44
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/launch.rs",
       "maxProductionLoc": 22
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/preparation.rs",
-      "maxProductionLoc": 28
+      "maxProductionLoc": 28,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/preparation/config.rs",
+      "maxProductionLoc": 32
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/preparation/generation.rs",
+      "maxProductionLoc": 12
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/runtime/warmup.rs",
@@ -519,8 +580,29 @@
       "maxProductionLoc": 58
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/sample.rs",
+      "maxProductionLoc": 15
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary.rs",
-      "maxProductionLoc": 180
+      "maxProductionLoc": 180,
+      "includeChildren": true
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary/builders.rs",
+      "maxProductionLoc": 147
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary/execution.rs",
+      "maxProductionLoc": 119
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary/features.rs",
+      "maxProductionLoc": 33
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary/synthetic.rs",
+      "maxProductionLoc": 71
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/execution/scoring.rs",
@@ -549,6 +631,10 @@
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/test_fixtures.rs",
       "maxProductionLoc": 696
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-proxy-runtime/src/evidence_projection.rs",
+      "maxProductionLoc": 216
     },
     {
       "path": "native/rust/crates/ripdpi-tunnel-android/src/config/defaults.rs",

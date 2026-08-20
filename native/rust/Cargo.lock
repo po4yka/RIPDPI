@@ -5947,7 +5947,6 @@ dependencies = [
  "ripdpi-monitor-adapter",
  "ripdpi-monitor-lane-adapter",
  "ripdpi-packets",
- "ripdpi-runtime-api",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
  "ripdpi-tls-profiles",
@@ -5978,6 +5977,7 @@ dependencies = [
 name = "ripdpi-monitor-proxy-runtime"
 version = "0.1.0"
 dependencies = [
+ "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-transport",
  "ripdpi-monitor-engine",
  "ripdpi-proxy-runtime",

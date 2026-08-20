@@ -18,6 +18,7 @@ native/rust/crates/ripdpi-monitor-engine/src/engine/runners/connectivity/quic.rs
 native/rust/crates/ripdpi-monitor-engine/src/engine/runners/connectivity/web.rs
 native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs
 native/rust/crates/ripdpi-monitor-engine/src/execution/runtime.rs
-native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary.rs
+native/rust/crates/ripdpi-monitor-engine/src/execution/scoring/summary/execution.rs
+native/rust/crates/ripdpi-monitor-proxy-runtime/src/evidence_projection.rs
 native/rust/crates/ripdpi-diagnostics-classification/src/observations.rs
 native/rust/crates/ripdpi-android/src/lib.rs

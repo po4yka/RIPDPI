@@ -127,6 +127,10 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             "pub(super) fn run_http_strategy_probe",
         ),
         (
+            "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/http/outcome.rs",
+            "pub(super) fn classify_http_observation",
+        ),
+        (
             "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/https.rs",
             "pub(super) fn run_https_strategy_probe",
         ),
