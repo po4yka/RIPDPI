@@ -17,6 +17,7 @@ include_ignored="${RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED:-0}"
 default_report_package_specs=(
     ripdpi-ws-tunnel
     ripdpi-proxy-runtime
+    ripdpi-monitor-proxy-runtime
     ripdpi-tunnel-core
     ripdpi-monitor-engine
     ripdpi-diagnostics-classification

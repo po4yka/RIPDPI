@@ -49,8 +49,8 @@ mod tests {
     use std::thread;
 
     use ripdpi_root_helper_protocol::{
-        CAPABILITY_VERSION, CMD_SEND_RAW_IP_PACKET, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message,
-        send_message,
+        CAPABILITY_VERSION, CMD_PROTOCOL_PREFLIGHT, CMD_SEND_RAW_IP_PACKET, HelperRequest, HelperResponse,
+        PROTOCOL_VERSION, recv_message, send_message,
     };
 
     use super::RootHelperClient;
@@ -67,6 +67,18 @@ mod tests {
         std::fs::write(&nonce_path, test_session_nonce()).expect("write nonce");
         let listener = UnixListener::bind(&socket_path).expect("bind helper socket");
         let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept protocol preflight");
+            let (payload, fd) = recv_message(&stream, "client closed").expect("preflight request");
+            assert!(fd.is_none());
+            let request: HelperRequest = serde_json::from_slice(&payload).expect("preflight JSON");
+            assert_eq!(request.command, CMD_PROTOCOL_PREFLIGHT);
+            assert_eq!(request.session_nonce.as_deref(), Some(test_session_nonce()));
+            let response = serde_json::to_vec(
+                &HelperResponse::success(serde_json::Value::Null).with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION),
+            )
+            .expect("preflight response JSON");
+            send_message(&stream, &response, None).expect("preflight response");
+
             let (stream, _) = listener.accept().expect("accept helper client");
             let (payload, fd) = recv_message(&stream, "client closed").expect("request");
             assert!(fd.is_none());

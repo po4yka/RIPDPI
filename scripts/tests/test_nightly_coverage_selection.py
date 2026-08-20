@@ -13,6 +13,7 @@ CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 FLEET_FIXTURES_WORKFLOW = ROOT / ".github/workflows/fleet-fixtures.yml"
 SETUP_ACTION = ROOT / ".github/actions/setup-android-rust/action.yml"
 COVERAGE_SCRIPT = ROOT / "scripts/ci/run-rust-coverage.sh"
+COVERAGE_CRITICAL_FILES = ROOT / "scripts/ci/rust-coverage-critical-files.txt"
 RELAY_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-relay-emulator-smoke.sh"
 PACKET_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-packet-smoke.sh"
 
@@ -53,6 +54,32 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn('test_package_specs="$report_package_specs"', source)
         self.assertIn('test_scope_args+=(--package "$package")', source)
         self.assertIn('"${test_scope_args[@]}"', source)
+
+    def test_every_critical_rust_file_is_in_the_default_report_scope(self) -> None:
+        source = COVERAGE_SCRIPT.read_text(encoding="utf-8")
+        match = re.search(
+            r"(?ms)^default_report_package_specs=\(\n(?P<body>.*?)^\)",
+            source,
+        )
+        self.assertIsNotNone(match, "missing default Rust coverage package list")
+        default_packages = {
+            line.split("#", 1)[0].strip()
+            for line in match.group("body").splitlines()
+            if line.split("#", 1)[0].strip()
+        }
+
+        for raw_path in COVERAGE_CRITICAL_FILES.read_text(encoding="utf-8").splitlines():
+            path = raw_path.strip()
+            if not path or path.startswith("#"):
+                continue
+            parts = Path(path).parts
+            self.assertGreaterEqual(len(parts), 4, f"unexpected critical path: {path}")
+            self.assertEqual(parts[:3], ("native", "rust", "crates"))
+            self.assertIn(
+                parts[3],
+                default_packages,
+                f"critical file owner {parts[3]} is absent from default coverage packages",
+            )
 
     def test_kotlin_only_jobs_do_not_provision_rust_or_ndk(self) -> None:
         ci_source = CI_WORKFLOW.read_text(encoding="utf-8")

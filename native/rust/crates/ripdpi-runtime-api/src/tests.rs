@@ -310,6 +310,7 @@ fn desync_connection_ordinals_are_monotonic_per_attempt() {
     assert_eq!(control.next_desync_connection_ordinal(&second), Some(1));
 }
 
+#[cfg(not(feature = "loom"))]
 #[test]
 fn concurrent_desync_connections_receive_unique_contiguous_ordinals() {
     let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 7));
