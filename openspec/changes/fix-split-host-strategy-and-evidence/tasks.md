@@ -30,7 +30,7 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
 
 ## Execution
 
-- [ ] RST-1786885745241507 Add a candidate-generation-bound `DesyncExecutionEvidenceSink`, stack-local first-write receipt, typed terminal runtime receipt, and RED/GREEN production SOCKS tests proving applied `split(host+1)`, plain fallback, activation skip, partial write, worker error, and late-receipt rejection #feature !high @item:DGN-1786885244559735
+- [x] RST-1786885745241507 Add a candidate-generation-bound `DesyncExecutionEvidenceSink`, stack-local first-write receipt, typed terminal runtime receipt, and RED/GREEN production SOCKS tests proving applied `split(host+1)`, plain fallback, activation skip, partial write, worker error, and late-receipt rejection #feature !high @item:DGN-1786885244559735
 
   Owned paths: `native/rust/crates/ripdpi-desync-runtime`, `ripdpi-runtime-api`,
   `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-proxy-runtime`,
@@ -52,7 +52,7 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
   HTTP/HTTPS attempts without timestamp joins, and make launch/terminal failures
   non-promotable.
 
-- [ ] DGN-1786885745300444 Replace whole-report strategy attribution with a pure baseline-current evaluator, separate RAW_PATH candidate and active-service IN_PATH roles, add precise UI/archive states, and bump archive schema 10 to 11 with v10 decode, hostile whole-ZIP privacy tests, and an explicitly approved golden family #bug !high @item:DGN-1786885244559735
+- [x] DGN-1786885745300444 Replace whole-report strategy attribution with a pure baseline-current evaluator, separate RAW_PATH candidate and active-service IN_PATH roles, add precise UI/archive states, and bump archive schema 10 to 11 with v10 decode, hostile whole-ZIP privacy tests, and an explicitly approved golden family #bug !high @item:DGN-1786885244559735
 
   Owned paths: `core/diagnostics` session queries, path-stage execution,
   persistence/export/redaction, archive models and tests, plus the minimal `app`
