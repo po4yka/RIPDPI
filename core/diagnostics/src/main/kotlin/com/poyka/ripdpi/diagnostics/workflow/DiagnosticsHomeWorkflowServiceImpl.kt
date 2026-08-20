@@ -386,7 +386,7 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
 
         private fun hasUnverifiedStrategyWinner(report: StrategyProbeReport?): Boolean {
             val strategyProbe = report ?: return false
-            val recommendation = strategyProbe.recommendation
+            val recommendation = strategyProbe.recommendation ?: return false
             val winningCandidates =
                 listOfNotNull(
                     strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId },
