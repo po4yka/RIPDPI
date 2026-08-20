@@ -42,7 +42,7 @@ project a current-strategy verdict only from complete candidate-scoped evidence.
   `PcapHook` and per-action callbacks, return typed runtime errors, and keep
   endpoint response outside the execution disposition.
 
-- [ ] DGN-1786885745283306 Isolate canonical candidate configuration, correlate per-attempt execution and response evidence, reject unproved candidates from evaluation or promotion, and atomically bump the Rust/Kotlin diagnostics engine contract from schema 8 to 9 with fixtures, manifests, and API snapshots #feature !high @item:DGN-1786885244559735
+- [x] DGN-1786885745283306 Isolate canonical candidate configuration, correlate per-attempt execution and response evidence, reject unproved candidates from evaluation or promotion, and atomically bump the Rust/Kotlin diagnostics engine contract from schema 8 to 9 with fixtures, manifests, and API snapshots #feature !high @item:DGN-1786885244559735
 
   Owned paths: `ripdpi-diagnostics-candidates`, `ripdpi-monitor-engine`,
   `ripdpi-diagnostics-contracts`, Kotlin `EngineContract.kt` and codecs, exact

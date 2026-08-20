@@ -1,27 +1,26 @@
 ---
 task_id: DGN-1786885244559735
 change: fix-split-host-strategy-and-evidence
-commit_sha: 7b6f436c7499e33bc725fa47e05fa3a189019af9
+commit_sha: c75d5bc15
 local: required
-local_evidence: Implementation and local source gates pass; ripdpi-desync API snapshot blessing remains pending, and the scripted snapshot checker is currently blocked by the local cargo guard.
+local_evidence: Combined Rust, Kotlin, contract, privacy, architecture, lint, harness, API-snapshot, and task gates pass on the rebased code commit.
 remote_ci: required
 remote_ci_evidence: Pending push and hosted workflow completion for the final SHA.
 device: required
-device_evidence: Pixel 7 arm64 API 37 connected; current-branch APK was not installed because artifact assembly exhausted host disk space.
+device_evidence: Pixel 7 arm64 API 37 ran proxySplitHostPlusOneRoutesTlsTraffic successfully against the local TLS fixture; exact on-wire PCAP and cellular/handover coverage remain unavailable on this locked no-SIM device.
 artifact: required
-artifact_evidence: assembleGithubFullDebug arm64-v8a failed with ENOSPC during native compilation/linking; no artifact result is credited.
+artifact_evidence: githubFullDebug arm64 APK assembled with native assets; SHA-256 ee6e9b9d99e484d057d7cde146904e82c6d4ecc6a1a51132c387eac9e715ec69, valid Android debug v2 signature, and arm64 ELF verification passed.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
 
 # Verification
 
-The implementation and local source-level gates are complete except for the
-separately governed `ripdpi-desync` API snapshot. The direct snapshot diff
-confirms that unapproved public-surface drift; the full scripted checker is
-currently blocked by the local cargo guard before it can report a complete
-current run. Hosted CI, an assembled APK, and physical-device path evidence
-remain distinct pending acceptance layers.
+The implementation, local source-level gates, governed API and archive
+snapshots, arm64 artifact, and physical-device application-path smoke are
+complete. Hosted CI, raw-PCAP proof of the exact TCP split boundary, and the
+full Wi-Fi/cellular/handover device matrix remain distinct pending acceptance
+layers and are not upgraded from missing evidence to PASS.
 
 ## Requirement evidence
 
@@ -29,7 +28,7 @@ remain distinct pending acceptance layers.
 |---|---|---|---|
 | REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Rust candidate/config, exact-plan, marker, TLS-prelude, TCP/UDP receipt, and promotion tests passed in the affected nine-package suite | PASS |
 | REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Typed applied/skipped/plain-fallback/execution/runtime-failure receipt tests passed; UDP production proxy E2E ran on macOS | PASS |
-| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Bounded action/write/await/byte counter tests and exact PCAP reconstruction harness tests passed; authenticated TCP proxy E2E remains Linux/Android-only | PARTIAL |
+| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Bounded action/write/await/byte counter tests and exact PCAP reconstruction harness tests passed; physical arm64 split(host+1) TLS round-trip passed, while exact on-wire PCAP remains unavailable on the locked device | PARTIAL |
 | REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation, terminal-status, late-receipt, panic, cancellation, and worker-join tests passed | PASS |
 | REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate isolation and effective route-feature matching tests passed | PASS |
 | REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Authorized schema-11 golden family reviewed; unblessed owner tests and hostile whole-ZIP privacy scans passed | PASS |
@@ -64,6 +63,14 @@ remain distinct pending acceptance layers.
 - Phase-16 PCAP reconstruction tests and Android packet-smoke shell harness:
   PASS, including fail-closed zero-executed-scenario coverage.
 - Harness manifest/link/policy/Cargo-lock/skill/rule drift suite: PASS.
-- Direct `cargo-public-api` check for `ripdpi-desync`: FAIL only for the
-  unblessed public TLS-prelude surface. Full scripted Rust API snapshot checker:
-  BLOCKED in this shell by local cargo guard rejecting `cargo public-api`.
+- Canonical `ripdpi-desync` API snapshot update and the final unblessed
+  `check_rust_api_snapshots.py` run: PASS; the approved snapshot contains only
+  the typed TLS-prelude surface.
+- `assembleGithubFullDebug` with `arm64-v8a` native assets: PASS. The APK
+  signature, package, native ABI/ELF metadata, and root-helper packaging were
+  verified before installation.
+- Pixel 7 arm64 API 37 instrumentation:
+  `proxySplitHostPlusOneRoutesTlsTraffic` PASS (1/1) against the repository TLS
+  fixture. `adbd` cannot run as root on the production build and no on-device
+  `tcpdump` is available, so this proves the Android service/TLS path but not
+  the precise packet boundary.
