@@ -24,7 +24,7 @@ use self::resolution::{
 
 struct StrategyDnsTargetEvaluation {
     result: ProbeResult,
-    tampering_detected: bool,
+    resolver_override_needed: bool,
     encrypted_ips: Vec<std::net::IpAddr>,
 }
 
@@ -84,15 +84,16 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
             return;
         };
         let encrypted_ips = evaluation.encrypted_ips;
-        let tampering_detected = evaluation.tampering_detected;
+        let resolver_override_needed = evaluation.resolver_override_needed;
         results.push(evaluation.result);
-        if tampering_detected {
+        if resolver_override_needed {
             collect_encrypted_ip_override(&mut encrypted_ip_overrides, target, &encrypted_ips);
             if classified.is_none() {
                 classified = build_strategy_dns_failure(
                     target,
                     &system_resolution.targets,
                     system_resolution.failed(),
+                    system_resolution.error_kind,
                     &encrypted_ips,
                     &resolver_label,
                 );
@@ -128,6 +129,7 @@ fn evaluate_strategy_dns_target(
     let classification = classify_target_dns_integrity(
         &system_resolution.targets,
         system_resolution.failed(),
+        system_resolution.error_kind,
         &system_resolution.latency_ms,
         oracle_assessment,
     )?;
@@ -142,7 +144,7 @@ fn evaluate_strategy_dns_target(
 
     Some(StrategyDnsTargetEvaluation {
         result,
-        tampering_detected: classification.tampering_detected,
+        resolver_override_needed: classification.resolver_override_needed,
         encrypted_ips: classification.encrypted_ips,
     })
 }
@@ -243,13 +245,14 @@ mod tests {
             &SystemDnsResolution {
                 targets: vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443)],
                 latency_ms: "20".to_string(),
+                error_kind: None,
             },
             &assessment,
         )
         .expect("probe result");
 
         assert_eq!(evaluation.result.outcome, "dns_oracle_unavailable");
-        assert!(!evaluation.tampering_detected);
+        assert!(!evaluation.resolver_override_needed);
     }
 
     #[test]
@@ -286,13 +289,103 @@ mod tests {
             &SystemDnsResolution {
                 targets: vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443)],
                 latency_ms: "20".to_string(),
+                error_kind: None,
             },
             &assessment,
         )
         .expect("probe result");
 
         assert_eq!(evaluation.result.outcome, "dns_sinkhole_substitution");
-        assert!(evaluation.tampering_detected);
+        assert!(evaluation.resolver_override_needed);
         assert_eq!(evaluation.encrypted_ips, vec![IpAddr::V4(Ipv4Addr::new(198, 51, 100, 77))]);
+    }
+
+    #[test]
+    fn strategy_baseline_preserves_system_dns_timeout_without_claiming_nxdomain() {
+        let answers = BTreeMap::from([
+            (
+                "primary".to_string(),
+                Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+            ),
+            (
+                "fallback".to_string(),
+                Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+            ),
+        ]);
+        let assessment = evaluate_dns_oracles(
+            endpoint("primary"),
+            &[endpoint("fallback")],
+            1,
+            DnsOracleConfig::default(),
+            || false,
+            |endpoint, _| {
+                answers
+                    .get(endpoint.resolver_id.as_deref().unwrap_or_default())
+                    .cloned()
+                    .unwrap_or_else(|| Err("missing".to_string()))
+            },
+            |answer| answer.addresses.clone(),
+        );
+
+        let evaluation = evaluate_strategy_dns_target(
+            &target(),
+            &resolver_context(),
+            "primary",
+            &SystemDnsResolution {
+                targets: Vec::new(),
+                latency_ms: "5000".to_string(),
+                error_kind: Some(crate::strategy::adapters::transport::DnsResolveError::Timeout),
+            },
+            &assessment,
+        )
+        .expect("probe result");
+
+        let details = evaluation
+            .result
+            .details
+            .iter()
+            .map(|detail| (detail.key.as_str(), detail.value.as_str()))
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(evaluation.result.outcome, "dns_system_resolution_failed");
+        assert!(evaluation.resolver_override_needed);
+        assert_eq!(details.get("systemDnsErrorKind"), Some(&"dns_resolve_timeout"));
+        assert_eq!(details.get("udpAddresses"), Some(&""));
+    }
+
+    #[test]
+    fn strategy_baseline_rejects_trusted_empty_oracle_answers() {
+        let answers = BTreeMap::from([
+            ("primary".to_string(), Ok(DnsOracleResponse { addresses: Vec::new(), raw_response: None })),
+            ("fallback".to_string(), Ok(DnsOracleResponse { addresses: Vec::new(), raw_response: None })),
+        ]);
+        let assessment = evaluate_dns_oracles(
+            endpoint("primary"),
+            &[endpoint("fallback")],
+            1,
+            DnsOracleConfig::default(),
+            || false,
+            |endpoint, _| {
+                answers
+                    .get(endpoint.resolver_id.as_deref().unwrap_or_default())
+                    .cloned()
+                    .unwrap_or_else(|| Err("missing".to_string()))
+            },
+            |answer| answer.addresses.clone(),
+        );
+
+        let evaluation = evaluate_strategy_dns_target(
+            &target(),
+            &resolver_context(),
+            "primary",
+            &SystemDnsResolution {
+                targets: Vec::new(),
+                latency_ms: "5000".to_string(),
+                error_kind: Some(crate::strategy::adapters::transport::DnsResolveError::Timeout),
+            },
+            &assessment,
+        );
+
+        assert!(evaluation.is_none());
     }
 }

@@ -44,8 +44,10 @@ pub fn relay_udp_payload_observed(
                 let destination = match target {
                     TargetAddress::Ip(ip) => SocketAddr::new(*ip, port),
                     TargetAddress::Host(host_name) => {
-                        let Some(address) =
-                            resolve_addresses(&TargetAddress::Host(host_name.clone()), port)?.into_iter().next()
+                        let Some(address) = resolve_addresses(&TargetAddress::Host(host_name.clone()), port)
+                            .map_err(|error| error.to_string())?
+                            .into_iter()
+                            .next()
                         else {
                             continue;
                         };

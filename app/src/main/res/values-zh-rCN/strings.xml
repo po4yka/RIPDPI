@@ -3950,6 +3950,7 @@ fake_burst 3</string>
     <string name="diagnostics_rkn_unknown_isp">未知 ISP</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS：干净</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS：被篡改（DoH 后备）</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS：系统解析失败</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI：%1$s</string>
     <string name="diagnostics_scan_network_not_validated">未验证</string>
     <string name="diagnostics_tcp16_complete_clean">在 %1$d 个目标中未检测到 TCP16 肥头部关闭模式。</string>

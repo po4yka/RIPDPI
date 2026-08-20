@@ -39,14 +39,22 @@ pub fn event_level_for_outcome(probe_type: &str, path_mode: &ScanPathMode, outco
 /// those cases, `None` otherwise.
 fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str> {
     match (probe_type, outcome) {
-        ("dns_integrity", "dns_sinkhole_substitution" | "dns_nxdomain_mismatch" | "dns_suspicious_divergence")
+        (
+            "dns_integrity",
+            "dns_sinkhole_substitution"
+            | "dns_nxdomain_mismatch"
+            | "dns_system_resolution_failed"
+            | "dns_suspicious_divergence",
+        )
         | ("domain_reachability", "tls_cert_invalid" | "http_blockpage")
         | ("service_reachability", "service_blocked")
         | ("circumvention_reachability", "circumvention_blocked")
         | ("telegram_availability", "blocked")
         | ("strategy_http", "http_blockpage")
         | ("strategy_https", "tls_cert_invalid")
-        | ("strategy_failure_classification", "http_blockpage" | "dns_tampering") => Some("warn"),
+        | ("strategy_failure_classification", "http_blockpage" | "dns_tampering" | "dns_resolution_failure") => {
+            Some("warn")
+        }
         _ => None,
     }
 }
@@ -69,7 +77,10 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
             "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,
             "udp_skipped_or_blocked" => ProbeOutcomeBucket::Inconclusive,
-            "dns_sinkhole_substitution" | "dns_nxdomain_mismatch" | "dns_unavailable" => ProbeOutcomeBucket::Failed,
+            "dns_sinkhole_substitution"
+            | "dns_nxdomain_mismatch"
+            | "dns_system_resolution_failed"
+            | "dns_unavailable" => ProbeOutcomeBucket::Failed,
             "dns_oracle_unavailable" => ProbeOutcomeBucket::Inconclusive,
             _ => legacy_outcome_bucket(outcome),
         },
@@ -136,6 +147,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "confirm_good_dpi_suspected" => ProbeOutcomeBucket::Attention,
             "unknown"
             | "dns_tampering"
+            | "dns_resolution_failure"
             | "tcp_reset"
             | "silent_drop"
             | "tls_alert"

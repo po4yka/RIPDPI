@@ -107,12 +107,7 @@ internal class DiagnosticsScanActions(
                     val outcome = progress.latestProbeOutcome
                     scanLifecycle.update {
                         it.copy(
-                            dnsBaselineStatus =
-                                if (outcome == "dns_tampering") {
-                                    DnsBaselineStatus.TAMPERED
-                                } else {
-                                    DnsBaselineStatus.CLEAN
-                                },
+                            dnsBaselineStatus = dnsBaselineStatusForOutcome(outcome),
                         )
                     }
                 } else if (target == "baseline_failure_class" && scanLifecycle.value.dpiFailureClass == null) {
@@ -497,6 +492,13 @@ internal class DiagnosticsScanActions(
         }
     }
 }
+
+internal fun dnsBaselineStatusForOutcome(outcome: String?): DnsBaselineStatus =
+    when (outcome) {
+        "dns_tampering" -> DnsBaselineStatus.TAMPERED
+        "dns_resolution_failure" -> DnsBaselineStatus.RESOLUTION_FAILED
+        else -> DnsBaselineStatus.CLEAN
+    }
 
 private suspend fun DiagnosticsMutationRunner.handleStartedScan(
     sessionId: String,

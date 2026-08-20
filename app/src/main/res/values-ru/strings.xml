@@ -3866,6 +3866,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_rkn_unknown_isp">Неизвестный ISP</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: чисто</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: подменён (запасной DoH)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: системный резолвер недоступен</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Не проверено</string>
     <string name="diagnostics_tcp16_complete_clean">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</string>

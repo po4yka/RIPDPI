@@ -5,12 +5,13 @@ use crate::strategy::adapters::dns::resolve_via_encrypted_dns;
 use crate::strategy::adapters::dns_oracle::{
     DnsOracleAssessment, DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles,
 };
-use crate::strategy::adapters::transport::{TargetAddress, domain_connect_target, resolve_addresses};
+use crate::strategy::adapters::transport::{DnsResolveError, TargetAddress, domain_connect_target, resolve_addresses};
 use crate::types::DomainTarget;
 
 pub(super) struct SystemDnsResolution {
     pub(super) targets: Vec<SocketAddr>,
     pub(super) latency_ms: String,
+    pub(super) error_kind: Option<DnsResolveError>,
 }
 
 impl SystemDnsResolution {
@@ -19,11 +20,7 @@ impl SystemDnsResolution {
     }
 
     pub(super) fn addresses_detail(&self) -> String {
-        if self.failed() {
-            "nxdomain".to_string()
-        } else {
-            self.targets.iter().map(ToString::to_string).collect::<Vec<_>>().join("|")
-        }
+        self.targets.iter().map(ToString::to_string).collect::<Vec<_>>().join("|")
     }
 }
 
@@ -33,14 +30,18 @@ pub(super) fn should_skip_strategy_dns_target(target: &DomainTarget) -> bool {
 
 pub(super) fn resolve_system_target(target: &DomainTarget) -> SystemDnsResolution {
     let system_started = std::time::Instant::now();
-    let targets = match domain_connect_target(target) {
-        TargetAddress::Ip(ip) => vec![SocketAddr::new(ip, target.https_port.unwrap_or(443))],
+    let (targets, error_kind) = match domain_connect_target(target) {
+        TargetAddress::Ip(ip) => (vec![SocketAddr::new(ip, target.https_port.unwrap_or(443))], None),
         TargetAddress::Host(host) => {
-            resolve_addresses(&TargetAddress::Host(host), target.https_port.unwrap_or(443)).unwrap_or_default()
+            match resolve_addresses(&TargetAddress::Host(host), target.https_port.unwrap_or(443)) {
+                Ok(targets) if targets.is_empty() => (targets, Some(DnsResolveError::Failure)),
+                Ok(targets) => (targets, None),
+                Err(error) => (Vec::new(), Some(error)),
+            }
         }
     };
     let latency_ms = system_started.elapsed().as_millis().to_string();
-    SystemDnsResolution { targets, latency_ms }
+    SystemDnsResolution { targets, latency_ms, error_kind }
 }
 
 pub(super) fn fallback_encrypted_dns_assessment(

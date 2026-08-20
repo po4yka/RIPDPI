@@ -222,6 +222,89 @@ class ComparisonScanCoordinatorTest {
     }
 
     @Test
+    fun `assessConnectivity does not attribute unrelated DNS divergence to affected TLS failure`() {
+        val report =
+            minimalReport(
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.DNS,
+                            target = "healthy.example",
+                            dns =
+                                DnsObservationFact(
+                                    domain = "healthy.example",
+                                    status = DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
+                                ),
+                        ),
+                        domainObservation(
+                            host = "control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.OK,
+                        ),
+                        domainObservation(
+                            host = "healthy.example",
+                            httpStatus = HttpProbeStatus.OK,
+                        ),
+                        domainObservation(
+                            host = "blocked.example",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                        ),
+                    ),
+            )
+
+        val assessment =
+            coordinator.assessConnectivity(
+                rawReports = listOf(report),
+                inPathReport = null,
+                rawPathSessionIds = listOf("raw-1"),
+                inPathSessionId = null,
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING, assessment.assessmentCode)
+        assertEquals(listOf("blocked.example"), assessment.affectedTargets)
+        assertEquals(listOf("healthy.example"), assessment.resolverAssessment.mismatchTargets)
+    }
+
+    @Test
+    fun `assessConnectivity does not treat compatible DNS divergence as resolver interference`() {
+        val report =
+            minimalReport(
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.DNS,
+                            target = "blocked.example",
+                            dns =
+                                DnsObservationFact(
+                                    domain = "blocked.example",
+                                    status = DnsObservationStatus.COMPATIBLE_DIVERGENCE,
+                                ),
+                        ),
+                        domainObservation(
+                            host = "control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.OK,
+                        ),
+                        domainObservation(
+                            host = "blocked.example",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                        ),
+                    ),
+            )
+
+        val assessment =
+            coordinator.assessConnectivity(
+                rawReports = listOf(report),
+                inPathReport = null,
+                rawPathSessionIds = listOf("raw-1"),
+                inPathSessionId = null,
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING, assessment.assessmentCode)
+        assertTrue(assessment.resolverAssessment.mismatchTargets.isEmpty())
+    }
+
+    @Test
     fun `resolver divergence without diagnosis and with mixed controls does not claim high confidence`() {
         val report =
             minimalReport(
@@ -265,6 +348,98 @@ class ComparisonScanCoordinatorTest {
         assertEquals("medium", assessment.confidence)
         assertEquals("raw_controls_mixed", assessment.controlOutcome)
         assertTrue(assessment.resolverAssessment.diagnosisCodes.isEmpty())
+    }
+
+    @Test
+    fun `resolver interference summary keeps unrelated failures explicit`() {
+        val report =
+            minimalReport(
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.DNS,
+                            target = "dns-failed.example",
+                            dns =
+                                DnsObservationFact(
+                                    domain = "dns-failed.example",
+                                    status = DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
+                                ),
+                        ),
+                        domainObservation(
+                            host = "control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.OK,
+                        ),
+                        domainObservation(
+                            host = "dns-failed.example",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                        ),
+                        domainObservation(
+                            host = "route-failed.example",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                        ),
+                    ),
+            )
+
+        val assessment =
+            coordinator.assessConnectivity(
+                rawReports = listOf(report),
+                inPathReport = null,
+                rawPathSessionIds = listOf("raw-1"),
+                inPathSessionId = null,
+            )
+
+        assertEquals(ConnectivityAssessmentCode.RESOLVER_INTERFERENCE, assessment.assessmentCode)
+        assertTrue(assessment.assessmentSummary.contains("1 of 2 affected-target failures"))
+        assertTrue(assessment.assessmentSummary.contains("1 failure remains unexplained by DNS evidence"))
+    }
+
+    @Test
+    fun `trusted system DNS failure outcome is correlated with its affected target`() {
+        val report =
+            minimalReport(
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "blocked.example",
+                            outcome = "dns_system_resolution_failed",
+                            details = listOf(ProbeDetail("oracleTrust", "trusted_agreement")),
+                        ),
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "unstable-oracle.example",
+                            outcome = "dns_oracle_unavailable",
+                            details = listOf(ProbeDetail("oracleTrust", "disagreement")),
+                        ),
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "single-fallback.example",
+                            outcome = "dns_oracle_unavailable",
+                            details = listOf(ProbeDetail("oracleTrust", "single_fallback")),
+                        ),
+                    ),
+                observations =
+                    listOf(
+                        domainObservation(
+                            host = "control.example",
+                            isControl = true,
+                            httpStatus = HttpProbeStatus.OK,
+                        ),
+                        domainObservation(
+                            host = "blocked.example",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                        ),
+                    ),
+            )
+
+        val assessment = assessmentFor(report)
+
+        assertEquals(ConnectivityAssessmentCode.RESOLVER_INTERFERENCE, assessment.assessmentCode)
+        assertEquals(listOf("blocked.example"), assessment.resolverAssessment.mismatchTargets)
+        assertTrue(assessment.resolverAssessment.summary.contains("Across 3 DNS checks"))
+        assertTrue(assessment.resolverAssessment.summary.contains("1 trusted agreement"))
+        assertTrue(assessment.resolverAssessment.summary.contains("2 limited, disagreement, or unavailable"))
     }
 
     @Test
@@ -327,6 +502,7 @@ class ComparisonScanCoordinatorTest {
     }
 
     private fun minimalReport(
+        results: List<ProbeResult> = emptyList(),
         observations: List<ObservationFact> = emptyList(),
         diagnoses: List<Diagnosis> = emptyList(),
     ) = ScanReport(
@@ -336,6 +512,7 @@ class ComparisonScanCoordinatorTest {
         startedAt = 0L,
         finishedAt = 1L,
         summary = "test",
+        results = results,
         diagnoses = diagnoses,
         observations = observations,
     )

@@ -1,3 +1,5 @@
+use std::fmt;
+use std::io;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -62,13 +64,55 @@ const DNS_RESOLVER_QUEUE_CAPACITY: usize = 64;
 const DNS_RESOLVER_REPLACEMENT_FACTOR: usize = 2;
 const DNS_SUPERVISOR_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, String> + Send + Sync + 'static;
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DnsResolveError {
+    Nxdomain,
+    Timeout,
+    Busy,
+    Unavailable,
+    Failure,
+}
 
-static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, String>> = LazyLock::new(|| {
+impl DnsResolveError {
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Nxdomain => "dns_nxdomain",
+            Self::Timeout => "dns_resolve_timeout",
+            Self::Busy => "dns_resolver_busy",
+            Self::Unavailable => "dns_resolver_unavailable",
+            Self::Failure => "dns_resolution_error",
+        }
+    }
+}
+
+impl fmt::Display for DnsResolveError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.code())
+    }
+}
+
+impl std::error::Error for DnsResolveError {}
+
+fn classify_system_resolver_error(error: &io::Error) -> DnsResolveError {
+    if error.kind() == io::ErrorKind::NotFound || error.raw_os_error() == Some(libc::EAI_NONAME) {
+        DnsResolveError::Nxdomain
+    } else {
+        DnsResolveError::Failure
+    }
+}
+
+type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, DnsResolveError> + Send + Sync + 'static;
+
+static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, DnsResolveError>> = LazyLock::new(|| {
     ResolverExecutor::new(
         DNS_RESOLVER_WORKERS,
         DNS_RESOLVER_QUEUE_CAPACITY,
-        Arc::new(|host, port| (host, port).to_socket_addrs().map(Iterator::collect).map_err(|err| err.to_string())),
+        Arc::new(|host, port| {
+            (host, port)
+                .to_socket_addrs()
+                .map(Iterator::collect)
+                .map_err(|error| classify_system_resolver_error(&error))
+        }),
     )
 });
 
@@ -76,7 +120,7 @@ struct ResolveJob {
     host: String,
     port: u16,
     deadline: Instant,
-    response: mpsc::Sender<Result<Vec<SocketAddr>, String>>,
+    response: mpsc::Sender<Result<Vec<SocketAddr>, DnsResolveError>>,
 }
 
 struct ResolverExecutor {
@@ -113,10 +157,9 @@ impl Drop for LookupPermit {
 }
 
 impl ResolverExecutor {
-    fn new(worker_count: usize, queue_capacity: usize, resolver: Arc<ResolveFn>) -> Result<Self, String> {
-        let lookup_limit = worker_count
-            .checked_mul(DNS_RESOLVER_REPLACEMENT_FACTOR)
-            .ok_or_else(|| "dns resolver executor capacity overflow".to_string())?;
+    fn new(worker_count: usize, queue_capacity: usize, resolver: Arc<ResolveFn>) -> Result<Self, DnsResolveError> {
+        let lookup_limit =
+            worker_count.checked_mul(DNS_RESOLVER_REPLACEMENT_FACTOR).ok_or(DnsResolveError::Unavailable)?;
         Self::new_with_lookup_limit(worker_count, queue_capacity, lookup_limit, resolver)
     }
 
@@ -125,11 +168,9 @@ impl ResolverExecutor {
         queue_capacity: usize,
         lookup_limit: usize,
         resolver: Arc<ResolveFn>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, DnsResolveError> {
         if worker_count == 0 || queue_capacity == 0 || lookup_limit < worker_count {
-            return Err(
-                "dns resolver executor requires non-zero capacity and at least one lookup per worker".to_string()
-            );
+            return Err(DnsResolveError::Unavailable);
         }
         let (jobs, receiver) = mpsc::sync_channel::<ResolveJob>(queue_capacity);
         let receiver = Arc::new(Mutex::new(receiver));
@@ -153,7 +194,8 @@ impl ResolverExecutor {
                     for worker in workers {
                         let _ = worker.join();
                     }
-                    return Err(format!("failed to spawn diagnostics DNS resolver worker: {error}"));
+                    let _ = error;
+                    return Err(DnsResolveError::Unavailable);
                 }
             };
             workers.push(worker);
@@ -166,25 +208,25 @@ impl ResolverExecutor {
         host: String,
         port: u16,
         timeout: Duration,
-    ) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, String>>, String> {
+    ) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, DnsResolveError>>, DnsResolveError> {
         let (response, result) = mpsc::channel();
-        let jobs = self.jobs.as_ref().ok_or_else(|| "dns_resolver_unavailable".to_string())?;
-        let deadline = Instant::now().checked_add(timeout).ok_or_else(|| "dns_resolve_timeout".to_string())?;
+        let jobs = self.jobs.as_ref().ok_or(DnsResolveError::Unavailable)?;
+        let deadline = Instant::now().checked_add(timeout).ok_or(DnsResolveError::Timeout)?;
         jobs.try_send(ResolveJob { host, port, deadline, response }).map_err(|error| match error {
-            mpsc::TrySendError::Full(_) => "dns_resolver_busy".to_string(),
-            mpsc::TrySendError::Disconnected(_) => "dns_resolver_unavailable".to_string(),
+            mpsc::TrySendError::Full(_) => DnsResolveError::Busy,
+            mpsc::TrySendError::Disconnected(_) => DnsResolveError::Unavailable,
         })?;
         Ok(result)
     }
 
-    fn resolve(&self, host: String, port: u16, timeout: Duration) -> Result<Vec<SocketAddr>, String> {
+    fn resolve(&self, host: String, port: u16, timeout: Duration) -> Result<Vec<SocketAddr>, DnsResolveError> {
         let started = Instant::now();
         let result = self.submit(host, port, timeout)?;
         let remaining = timeout.saturating_sub(started.elapsed());
         match result.recv_timeout(remaining) {
             Ok(result) => result,
-            Err(mpsc::RecvTimeoutError::Timeout) => Err("dns_resolve_timeout".to_string()),
-            Err(mpsc::RecvTimeoutError::Disconnected) => Err("dns_resolver_unavailable".to_string()),
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(DnsResolveError::Timeout),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(DnsResolveError::Unavailable),
         }
     }
 }
@@ -230,16 +272,16 @@ fn resolve_job(
 ) {
     let ResolveJob { host, port, deadline, response } = job;
     if deadline <= Instant::now() {
-        let _ = response.send(Err("dns_resolve_timeout".to_string()));
+        let _ = response.send(Err(DnsResolveError::Timeout));
         return;
     }
     // Ordering: pairs with the Release store during executor shutdown.
     if shutdown.load(Ordering::Acquire) {
-        let _ = response.send(Err("dns_resolver_unavailable".to_string()));
+        let _ = response.send(Err(DnsResolveError::Unavailable));
         return;
     }
     let Some(permit) = lookup_budget.try_acquire() else {
-        let _ = response.send(Err("dns_resolver_busy".to_string()));
+        let _ = response.send(Err(DnsResolveError::Busy));
         return;
     };
     let (lookup_response, lookup_result) = mpsc::channel();
@@ -247,15 +289,14 @@ fn resolve_job(
     let lookup = thread::Builder::new().name("ripdpi-dns-lookup".to_string()).spawn(move || {
         let _permit = permit;
         let result = if deadline <= Instant::now() {
-            Err("dns_resolve_timeout".to_string())
+            Err(DnsResolveError::Timeout)
         } else {
-            catch_unwind(AssertUnwindSafe(|| resolver(&host, port)))
-                .unwrap_or_else(|_| Err("dns_resolver_unavailable".to_string()))
+            catch_unwind(AssertUnwindSafe(|| resolver(&host, port))).unwrap_or(Err(DnsResolveError::Unavailable))
         };
         let _ = lookup_response.send(result);
     });
     let Ok(lookup) = lookup else {
-        let _ = response.send(Err("dns_resolver_unavailable".to_string()));
+        let _ = response.send(Err(DnsResolveError::Unavailable));
         return;
     };
     drop(lookup);
@@ -263,32 +304,32 @@ fn resolve_job(
 }
 
 fn wait_for_lookup(
-    result: mpsc::Receiver<Result<Vec<SocketAddr>, String>>,
+    result: mpsc::Receiver<Result<Vec<SocketAddr>, DnsResolveError>>,
     deadline: Instant,
     shutdown: &AtomicBool,
-) -> Result<Vec<SocketAddr>, String> {
+) -> Result<Vec<SocketAddr>, DnsResolveError> {
     loop {
         // Ordering: pairs with the Release store during executor shutdown.
         if shutdown.load(Ordering::Acquire) {
-            return Err("dns_resolver_unavailable".to_string());
+            return Err(DnsResolveError::Unavailable);
         }
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
             return match result.try_recv() {
                 Ok(result) => result,
-                Err(mpsc::TryRecvError::Empty) => Err("dns_resolve_timeout".to_string()),
-                Err(mpsc::TryRecvError::Disconnected) => Err("dns_resolver_unavailable".to_string()),
+                Err(mpsc::TryRecvError::Empty) => Err(DnsResolveError::Timeout),
+                Err(mpsc::TryRecvError::Disconnected) => Err(DnsResolveError::Unavailable),
             };
         }
         match result.recv_timeout(remaining.min(DNS_SUPERVISOR_POLL_INTERVAL)) {
             Ok(result) => return result,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => return Err("dns_resolver_unavailable".to_string()),
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Err(DnsResolveError::Unavailable),
         }
     }
 }
 
-pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, String> {
+pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, DnsResolveError> {
     match target {
         TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
         TargetAddress::Host(host) => {
@@ -298,7 +339,7 @@ pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<Socket
 }
 
 pub fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, String> {
-    resolve_first_socket_addr_with(value, DNS_RESOLVER.as_ref().map_err(Clone::clone)?)
+    resolve_first_socket_addr_with(value, DNS_RESOLVER.as_ref().map_err(ToString::to_string)?)
 }
 
 fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> Result<SocketAddr, String> {
@@ -312,7 +353,8 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
     }
     let port = port.parse::<u16>().map_err(|error| format!("invalid_socket_port: {error}"))?;
     resolver
-        .resolve(host.to_string(), port, DNS_RESOLVE_TIMEOUT)?
+        .resolve(host.to_string(), port, DNS_RESOLVE_TIMEOUT)
+        .map_err(|error| error.to_string())?
         .into_iter()
         .next()
         .ok_or_else(|| "no_socket_addrs".to_string())
@@ -403,6 +445,21 @@ mod tests {
     }
 
     #[test]
+    fn system_resolver_classifies_nxdomain_from_typed_os_error() {
+        let error = io::Error::from_raw_os_error(libc::EAI_NONAME);
+
+        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Nxdomain);
+        assert_eq!(DnsResolveError::Nxdomain.code(), "dns_nxdomain");
+    }
+
+    #[test]
+    fn system_resolver_does_not_parse_generic_error_text_as_nxdomain() {
+        let error = io::Error::other("localized nxdomain-looking message");
+
+        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Failure);
+    }
+
+    #[test]
     fn socket_address_helper_uses_bounded_resolver_for_hostnames() {
         let calls = Arc::new(AtomicUsize::new(0));
         let resolver: Arc<ResolveFn> = Arc::new({
@@ -444,7 +501,7 @@ mod tests {
 
         for index in 0..REQUESTS {
             let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
-            assert_eq!(result, Err("dns_resolve_timeout".to_string()));
+            assert_eq!(result, Err(DnsResolveError::Timeout));
         }
         let observed = active.load(Ordering::SeqCst);
         let (released, wake) = &*release;
@@ -480,7 +537,7 @@ mod tests {
 
         for index in 0..WORKERS {
             let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
-            assert_eq!(result, Err("dns_resolve_timeout".to_string()));
+            assert_eq!(result, Err(DnsResolveError::Timeout));
         }
         wait_for_count(&active, WORKERS);
 
@@ -522,12 +579,12 @@ mod tests {
 
         for index in 0..LOOKUP_LIMIT {
             let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
-            assert_eq!(result, Err("dns_resolve_timeout".to_string()));
+            assert_eq!(result, Err(DnsResolveError::Timeout));
             wait_for_count(&active, index + 1);
         }
         let overflow = executor.resolve("overflow.example".to_string(), 443, Duration::from_millis(100));
 
-        assert_eq!(overflow, Err("dns_resolver_busy".to_string()));
+        assert_eq!(overflow, Err(DnsResolveError::Busy));
         assert_eq!(peak.load(Ordering::SeqCst), LOOKUP_LIMIT);
 
         release_all(&release);
@@ -558,7 +615,7 @@ mod tests {
             .resolve("recovered.example".to_string(), 443, Duration::from_millis(100))
             .expect("replacement lookup must succeed after panic");
 
-        assert_eq!(panicked, Err("dns_resolver_unavailable".to_string()));
+        assert_eq!(panicked, Err(DnsResolveError::Unavailable));
         assert_eq!(recovered, vec!["192.0.2.55:443".parse().expect("fixture socket")]);
         assert_eq!(calls.load(Ordering::SeqCst), 2);
     }
@@ -598,7 +655,7 @@ mod tests {
         blocked.recv_timeout(Duration::from_millis(100)).expect("blocked response").expect("blocked result");
         assert_eq!(
             expired.recv_timeout(Duration::from_millis(100)).expect("expired response"),
-            Err("dns_resolve_timeout".to_string())
+            Err(DnsResolveError::Timeout)
         );
         assert_eq!(
             *calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
@@ -677,7 +734,7 @@ mod tests {
         drop(first);
         drop(second);
         drop(executor);
-        assert_eq!(third.expect_err("full resolver queue must reject work"), "dns_resolver_busy");
+        assert_eq!(third.expect_err("full resolver queue must reject work"), DnsResolveError::Busy);
     }
 
     fn wait_for_count(counter: &AtomicUsize, expected: usize) {

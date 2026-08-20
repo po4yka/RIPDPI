@@ -104,6 +104,10 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             "pub(super) fn classify_dns_probe_outcome",
         ),
         (
+            "native/rust/crates/ripdpi-diagnostics-runner/src/strategy/classification.rs",
+            "pub(super) fn classify_target_dns_integrity",
+        ),
+        (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
             "pub fn run_domain_probe_with_key_log",
         ),

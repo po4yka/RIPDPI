@@ -230,7 +230,7 @@ mod tests {
         }
 
         // Classes with zero trigger mask
-        for class in [FailureClass::QuicBreakage, FailureClass::Unknown] {
+        for class in [FailureClass::DnsResolutionFailure, FailureClass::QuicBreakage, FailureClass::Unknown] {
             let failure =
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
             assert_eq!(RuntimeState::failure_trigger_mask(&failure), 0, "{class:?} should have zero mask");
@@ -250,6 +250,7 @@ mod tests {
         let non_penalizing = [
             FailureClass::DnsTampering,
             FailureClass::ConnectFailure,
+            FailureClass::DnsResolutionFailure,
             FailureClass::StrategyExecutionFailure,
             FailureClass::QuicBreakage,
             FailureClass::Unknown,

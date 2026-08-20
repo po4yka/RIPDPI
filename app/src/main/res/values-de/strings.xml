@@ -3960,6 +3960,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_rkn_unknown_isp">Unbekannter ISP</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: Sauber</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: Manipuliert (DoH-Fallback)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: Systemauflösung fehlgeschlagen</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Nicht validiert</string>
     <string name="diagnostics_tcp16_complete_clean">Kein TCP16-Fat-Header-Closure-Muster über %1$d Ziele hinweg erkannt.</string>

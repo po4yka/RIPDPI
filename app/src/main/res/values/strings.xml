@@ -4090,6 +4090,7 @@ Source: %2$s</string>
     <string name="diagnostics_rkn_unknown_isp">Unknown ISP</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: Clean</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: Tampered (DoH fallback)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: System resolution failed</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Not validated</string>
     <string name="diagnostics_tcp16_complete_clean">No TCP16 fat-header closure pattern detected across %1$d targets.</string>

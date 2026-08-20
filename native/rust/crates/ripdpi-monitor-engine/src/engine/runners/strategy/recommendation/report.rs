@@ -79,7 +79,12 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
             }),
         })
     });
-    let is_dns_tampered = runtime.strategy.dns_override_domain_targets.is_some();
+    let has_dns_fallback = runtime.strategy.dns_override_domain_targets.is_some();
+    let is_dns_tampered = has_dns_fallback
+        && runtime
+            .results
+            .iter()
+            .any(|result| result.probe_type == "dns_integrity" && is_confirmed_dns_tampering_outcome(&result.outcome));
     let audit_assessment = recommendation.as_ref().and_then(|recommendation| {
         resolve_strategy_probe_audit_assessment(
             &strategy_plan.suite_id,
@@ -130,6 +135,10 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
     });
     runtime.strategy.summary = Some(summary);
     true
+}
+
+fn is_confirmed_dns_tampering_outcome(outcome: &str) -> bool {
+    matches!(outcome, "dns_nxdomain_mismatch" | "dns_sinkhole_substitution")
 }
 
 fn active_path_evidence(plan: &ExecutionPlan, runtime: &ExecutionRuntime) -> Option<StrategyActivePathObservation> {
@@ -306,5 +315,13 @@ mod tests {
         assert!(authenticated_in_path_transport_matches(&route, &matching));
         assert!(!authenticated_in_path_transport_matches(&route, &direct));
         assert!(!authenticated_in_path_transport_matches(&route, &missing_auth));
+    }
+
+    #[test]
+    fn system_resolver_failure_is_not_confirmed_dns_tampering() {
+        assert!(is_confirmed_dns_tampering_outcome("dns_nxdomain_mismatch"));
+        assert!(is_confirmed_dns_tampering_outcome("dns_sinkhole_substitution"));
+        assert!(!is_confirmed_dns_tampering_outcome("dns_system_resolution_failed"));
+        assert!(!is_confirmed_dns_tampering_outcome("dns_compatible_divergence"));
     }
 }

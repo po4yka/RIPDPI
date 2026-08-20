@@ -188,6 +188,7 @@ private fun bucketDnsIntegrity(
         "dns_sinkhole_substitution",
         "dns_nxdomain",
         "dns_nxdomain_mismatch",
+        "dns_system_resolution_failed",
         "encrypted_dns_blocked",
         "dns_unavailable",
         -> {
@@ -300,6 +301,7 @@ private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOut
 
         "unknown",
         "dns_tampering",
+        "dns_resolution_failure",
         "tcp_reset",
         "silent_drop",
         "tls_alert",
@@ -378,6 +380,7 @@ private fun eventLevelOverride(
         "dns_integrity" to "encrypted_dns_blocked",
         "dns_integrity" to "dns_nxdomain",
         "dns_integrity" to "dns_nxdomain_mismatch",
+        "dns_integrity" to "dns_system_resolution_failed",
         "domain_reachability" to "tls_cert_invalid",
         "domain_reachability" to "http_blockpage",
         "service_reachability" to "service_blocked",
@@ -387,6 +390,7 @@ private fun eventLevelOverride(
         "strategy_https" to "tls_cert_invalid",
         "strategy_failure_classification" to "http_blockpage",
         "strategy_failure_classification" to "dns_tampering",
+        "strategy_failure_classification" to "dns_resolution_failure",
         -> "warn"
 
         else -> null

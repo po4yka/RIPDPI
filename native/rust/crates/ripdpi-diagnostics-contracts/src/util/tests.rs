@@ -188,12 +188,14 @@ fn event_level_is_warn_for_censorship_findings() {
     for (probe, outcome, bucket) in [
         ("dns_integrity", "dns_sinkhole_substitution", ProbeOutcomeBucket::Failed),
         ("dns_integrity", "dns_nxdomain_mismatch", ProbeOutcomeBucket::Failed),
+        ("dns_integrity", "dns_system_resolution_failed", ProbeOutcomeBucket::Failed),
         ("dns_integrity", "dns_suspicious_divergence", ProbeOutcomeBucket::Attention),
         ("domain_reachability", "tls_cert_invalid", ProbeOutcomeBucket::Failed),
         ("domain_reachability", "http_blockpage", ProbeOutcomeBucket::Failed),
         ("service_reachability", "service_blocked", ProbeOutcomeBucket::Failed),
         ("circumvention_reachability", "circumvention_blocked", ProbeOutcomeBucket::Failed),
         ("telegram_availability", "blocked", ProbeOutcomeBucket::Failed),
+        ("strategy_failure_classification", "dns_resolution_failure", ProbeOutcomeBucket::Failed),
     ] {
         let c = classify_probe_outcome(probe, &ScanPathMode::RawPath, outcome);
         assert_eq!(c.bucket, bucket, "{probe}/{outcome} should keep its expected bucket");

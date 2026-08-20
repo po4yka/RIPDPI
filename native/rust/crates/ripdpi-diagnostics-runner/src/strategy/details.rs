@@ -21,6 +21,9 @@ pub(super) fn build_dns_integrity_result(
     } else {
         classification.encrypted_addresses.join("|")
     };
+    let system_dns_error_kind = system_resolution
+        .error_kind
+        .map(|error_kind| ProbeDetail { key: "systemDnsErrorKind".to_string(), value: error_kind.code().to_string() });
 
     let mut result = ProbeResult {
         probe_type: "dns_integrity".to_string(),
@@ -74,6 +77,9 @@ pub(super) fn build_dns_integrity_result(
             },
         ],
     };
+    if let Some(detail) = system_dns_error_kind {
+        result.details.push(detail);
+    }
     result.details.extend(oracle_assessment.detail_entries());
     result
 }

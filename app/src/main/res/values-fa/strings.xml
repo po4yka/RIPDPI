@@ -3965,6 +3965,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_rkn_unknown_isp">ISP ناشناخته</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: پاک</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: دستکاری‌شده (جایگزین DoH)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: تفکیک نام سیستم ناموفق بود</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">تأییدنشده</string>
     <string name="diagnostics_tcp16_complete_clean">در %1$d هدف هیچ الگوی بسته‌شدن سرآیند چاق TCP16 شناسایی نشد.</string>

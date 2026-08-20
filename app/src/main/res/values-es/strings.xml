@@ -3960,6 +3960,7 @@ Origen: %2$s</string>
     <string name="diagnostics_rkn_unknown_isp">ISP desconocido</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: Limpio</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: Manipulado (respaldo DoH)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: Falló la resolución del sistema</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">No validada</string>
     <string name="diagnostics_tcp16_complete_clean">No se detectó ningún patrón de cierre de encabezado gordo TCP16 en %1$d objetivos.</string>

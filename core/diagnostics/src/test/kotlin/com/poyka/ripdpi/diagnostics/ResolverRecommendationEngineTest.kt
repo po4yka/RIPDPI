@@ -451,6 +451,45 @@ class ResolverRecommendationEngineComputeTest {
     }
 
     @Test
+    fun `compute recommends resolver for system DNS failure with encrypted answers`() {
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        dnsIntegrityResult(
+                            outcome = "dns_system_resolution_failed",
+                            resolverId = DnsProviderCloudflare,
+                            protocol = EncryptedDnsProtocolDoh,
+                            host = "cloudflare-dns.com",
+                            endpoint = "https://cloudflare-dns.com/dns-query",
+                            bootstrapIps = "1.1.1.1",
+                            encryptedAddresses = "1.2.3.4",
+                            latencyMs = "25",
+                        ),
+                    ),
+            )
+
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = null,
+            )
+
+        assertNotNull(result)
+        assertEquals(DnsProviderCloudflare, result!!.selectedResolverId)
+        assertEquals("dns_system_resolution_failed", result.triggerOutcome)
+    }
+
+    @Test
     fun `compute recommends resolver for sinkhole substitution with encrypted answers`() {
         val report =
             ScanReport(

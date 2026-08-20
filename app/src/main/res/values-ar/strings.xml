@@ -3984,6 +3984,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_rkn_unknown_isp">ISP غير معروف</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: نظيف</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: تم العبث به (احتياطي DoH)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: فشل تحليل النظام</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">غير مُتحقَّق منه</string>
     <string name="diagnostics_tcp16_complete_clean">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</string>

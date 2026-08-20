@@ -333,6 +333,31 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
+    fun `temporary resolver override applied for system DNS failure after partial strategy completion`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
+            ).copy(
+                resolverRecommendation =
+                    resolverRecommendation().copy(triggerOutcome = "dns_system_resolution_failed"),
+            )
+        val plainUdpSettings = settingsWithPlainUdpDns()
+
+        assertTrue(
+            DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                report = report,
+                settings = plainUdpSettings,
+                serviceStatus = AppStatus.Running,
+                serviceMode = Mode.VPN,
+                pathMode = ScanPathMode.RAW_PATH,
+            ),
+        )
+    }
+
+    @Test
     fun `temporary resolver override applied when strategy probe dns short circuited`() {
         val report =
             scanReportWithStrategyProbe(
@@ -485,6 +510,28 @@ class DiagnosticsScanWorkflowTest {
             )
 
         assertFalse(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.RAW_PATH,
+                resolverOverrideApplied = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `reprobe recommended for system DNS failure after partial strategy completion`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
+            ).copy(
+                resolverRecommendation =
+                    resolverRecommendation().copy(triggerOutcome = "dns_system_resolution_failed"),
+            )
+
+        assertTrue(
             DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
                 report = report,
                 pathMode = ScanPathMode.RAW_PATH,

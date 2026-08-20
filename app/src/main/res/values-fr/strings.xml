@@ -3960,6 +3960,7 @@ Source : %2$s</string>
     <string name="diagnostics_rkn_unknown_isp">ISP inconnu</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS : propre</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS : falsifié (repli DoH)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS : échec de la résolution système</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI : %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Non validé</string>
     <string name="diagnostics_tcp16_complete_clean">Aucun motif de fermeture par en-tête volumineux TCP16 détecté parmi %1$d cibles.</string>

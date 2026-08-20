@@ -25,6 +25,7 @@ private const val OutcomeDnsSubstitution = "dns_substitution"
 private const val OutcomeDnsSinkholeSubstitution = "dns_sinkhole_substitution"
 private const val OutcomeDnsNxdomain = "dns_nxdomain"
 private const val OutcomeDnsNxdomainMismatch = "dns_nxdomain_mismatch"
+private const val OutcomeDnsSystemResolutionFailed = "dns_system_resolution_failed"
 private const val OutcomeUdpBlocked = "udp_blocked"
 private const val OutcomeUdpSkippedOrBlocked = "udp_skipped_or_blocked"
 private const val OutcomeUdpTimeoutTransient = "udp_timeout_transient"
@@ -230,6 +231,7 @@ private fun List<ProbeResult>.firstRecommendationTrigger(): ProbeResult? =
             it.outcome == OutcomeDnsSinkholeSubstitution ||
             it.outcome == OutcomeDnsNxdomain ||
             it.outcome == OutcomeDnsNxdomainMismatch ||
+            it.outcome == OutcomeDnsSystemResolutionFailed ||
             it.outcome == OutcomeUdpBlocked ||
             it.outcome == OutcomeUdpSkippedOrBlocked ||
             it.outcome == OutcomeUdpTimeoutTransient

@@ -32,7 +32,7 @@ pub fn run_domain_probe_with_key_log(
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_target = domain_connect_target(target);
-    let resolved = resolve_addresses(&connect_target, https_port);
+    let resolved = resolve_addresses(&connect_target, https_port).map_err(|error| error.to_string());
     let tls13 = try_tls_handshake_with_optional_key_log(
         &connect_target,
         https_port,

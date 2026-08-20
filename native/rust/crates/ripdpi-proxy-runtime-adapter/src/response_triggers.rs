@@ -89,6 +89,7 @@ pub fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
 pub fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
     match failure.class {
         FailureClass::DnsTampering => DETECT_DNS_TAMPER,
+        FailureClass::DnsResolutionFailure => 0,
         FailureClass::TcpReset => DETECT_TCP_RESET,
         FailureClass::SilentDrop => DETECT_SILENT_DROP,
         FailureClass::TlsAlert => DETECT_TLS_ALERT,

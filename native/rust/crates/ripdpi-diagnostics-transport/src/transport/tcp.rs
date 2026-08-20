@@ -65,7 +65,7 @@ pub(super) fn connect_direct_observed(
 pub(super) fn resolve_candidate_addresses(targets: &[TargetAddress], port: u16) -> Result<Vec<SocketAddr>, String> {
     let mut resolved = Vec::new();
     for target in targets {
-        for address in resolve_addresses(target, port)? {
+        for address in resolve_addresses(target, port).map_err(|error| error.to_string())? {
             if !resolved.contains(&address) {
                 resolved.push(address);
             }

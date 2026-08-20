@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum FailureClass {
     Unknown,
     DnsTampering,
+    DnsResolutionFailure,
     TcpReset,
     SilentDrop,
     TlsAlert,
@@ -47,6 +48,7 @@ impl FailureClass {
         match self {
             Self::Unknown => "unknown",
             Self::DnsTampering => "dns_tampering",
+            Self::DnsResolutionFailure => "dns_resolution_failure",
             Self::TcpReset => "tcp_reset",
             Self::SilentDrop => "silent_drop",
             Self::TlsAlert => "tls_alert",
@@ -214,6 +216,7 @@ mod tests {
         let cases = [
             (FailureClass::Unknown, "unknown"),
             (FailureClass::DnsTampering, "dns_tampering"),
+            (FailureClass::DnsResolutionFailure, "dns_resolution_failure"),
             (FailureClass::TcpReset, "tcp_reset"),
             (FailureClass::SilentDrop, "silent_drop"),
             (FailureClass::TlsAlert, "tls_alert"),
@@ -296,6 +299,7 @@ mod tests {
         for class in [
             FailureClass::Unknown,
             FailureClass::DnsTampering,
+            FailureClass::DnsResolutionFailure,
             FailureClass::TcpReset,
             FailureClass::SilentDrop,
             FailureClass::TlsAlert,

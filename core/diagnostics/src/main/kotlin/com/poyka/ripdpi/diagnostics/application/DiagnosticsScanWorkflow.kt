@@ -33,6 +33,7 @@ internal object DiagnosticsScanWorkflow {
     private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
     private const val BackgroundAutoPersistMinMatrixCoveragePercent = 75
     private const val BackgroundAutoPersistMinWinnerCoveragePercent = 50
+    private const val OutcomeDnsSystemResolutionFailed = "dns_system_resolution_failed"
     private val DerivableTcpStrategyFamilies =
         setOf(
             "hostfake",
@@ -204,7 +205,8 @@ internal object DiagnosticsScanWorkflow {
         return (
             report.strategyProbeReport == null ||
                 report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED ||
-                report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK
+                report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK ||
+                report.hasSystemDnsResolutionFailureRecommendation()
         ) &&
             serviceMode == Mode.VPN &&
             (
@@ -234,9 +236,13 @@ internal object DiagnosticsScanWorkflow {
             strategyProbe == null -> false
             strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> true
             strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> true
+            report.hasSystemDnsResolutionFailureRecommendation() -> true
             else -> false
         }
     }
+
+    private fun ScanReport.hasSystemDnsResolutionFailureRecommendation(): Boolean =
+        resolverRecommendation?.triggerOutcome == OutcomeDnsSystemResolutionFailed
 
     fun evaluateBackgroundAutoPersistEligibility(
         strategyProbe: StrategyProbeReport,

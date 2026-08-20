@@ -16,7 +16,9 @@ pub(crate) mod dns_oracle {
 }
 
 pub(crate) mod transport {
-    pub use ripdpi_diagnostics_protocols::transport::{TargetAddress, domain_connect_target, resolve_addresses};
+    pub use ripdpi_diagnostics_protocols::transport::{
+        DnsResolveError, TargetAddress, domain_connect_target, resolve_addresses,
+    };
 }
 
 pub(crate) mod util {

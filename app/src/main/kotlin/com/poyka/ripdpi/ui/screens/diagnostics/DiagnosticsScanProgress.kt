@@ -229,12 +229,22 @@ private fun DnsBaselineBadge(status: DnsBaselineStatus) {
         when (status) {
             DnsBaselineStatus.CLEAN -> DiagnosticsTone.Positive
             DnsBaselineStatus.TAMPERED -> DiagnosticsTone.Warning
+            DnsBaselineStatus.RESOLUTION_FAILED -> DiagnosticsTone.Warning
         }
     RipDpiMetricPill(
         text =
             when (status) {
-                DnsBaselineStatus.CLEAN -> stringResource(R.string.diagnostics_scan_dns_baseline_clean)
-                DnsBaselineStatus.TAMPERED -> stringResource(R.string.diagnostics_scan_dns_baseline_tampered)
+                DnsBaselineStatus.CLEAN -> {
+                    stringResource(R.string.diagnostics_scan_dns_baseline_clean)
+                }
+
+                DnsBaselineStatus.TAMPERED -> {
+                    stringResource(R.string.diagnostics_scan_dns_baseline_tampered)
+                }
+
+                DnsBaselineStatus.RESOLUTION_FAILED -> {
+                    stringResource(R.string.diagnostics_scan_dns_baseline_resolution_failed)
+                }
             },
         tone = metricTone(tone),
         shape = RipDpiThemeTokens.shapes.full,

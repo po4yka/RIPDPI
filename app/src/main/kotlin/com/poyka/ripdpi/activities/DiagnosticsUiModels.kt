@@ -459,6 +459,7 @@ data class DiagnosticsStrategyProbeLiveProgressUiModel(
 enum class DnsBaselineStatus {
     CLEAN,
     TAMPERED,
+    RESOLUTION_FAILED,
 }
 
 enum class DpiFailureClass {

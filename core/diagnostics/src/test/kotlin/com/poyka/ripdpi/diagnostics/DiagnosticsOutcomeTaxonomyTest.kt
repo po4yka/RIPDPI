@@ -124,6 +124,20 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `system DNS resolution failure is a failed warning outcome`() {
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                probeType = "dns_integrity",
+                pathMode = ScanPathMode.RAW_PATH,
+                outcome = "dns_system_resolution_failed",
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Failed, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Negative, classification.uiTone)
+        assertEquals("warn", classification.eventLevel)
+    }
+
+    @Test
     fun `aggregate collapses repeated udp transient artifacts when dns has healthy evidence`() {
         val bucket =
             DiagnosticsOutcomeTaxonomy.aggregateBucket(

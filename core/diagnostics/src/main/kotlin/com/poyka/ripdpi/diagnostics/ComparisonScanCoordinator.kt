@@ -87,14 +87,20 @@ class ComparisonScanCoordinator
             val rawControlSuccess = rawEvidence.controlSuccessCount > 0
             val rawControlFailure = rawEvidence.controlFailureCount > 0
             val rawAffectedFailure = rawEvidence.affectedTargetFailureCount > 0
+            val resolverMismatchAuthorities =
+                resolverAssessment.mismatchTargets.map(String::normalizedProbeAuthority).toSet()
+            val resolverLinkedFailureCount =
+                rawEvidence.affectedTargets.count { affectedTarget ->
+                    affectedTarget.normalizedProbeAuthority() in resolverMismatchAuthorities
+                }
             val inPathRegression = detectInPathRegression(rawTargets, inPathTargets)
             val code =
                 deriveAssessmentCode(
                     rawControlSuccess = rawControlSuccess,
                     rawControlFailure = rawControlFailure,
                     rawAffectedFailure = rawAffectedFailure,
+                    resolverLinkedFailure = resolverLinkedFailureCount > 0,
                     inPathRegression = inPathRegression,
-                    resolverAssessment = resolverAssessment,
                     serviceRuntimeAssessment = serviceRuntimeAssessment,
                     inPathReport = inPathReport,
                     inPathEvidence = inPathEvidence,
@@ -118,7 +124,12 @@ class ComparisonScanCoordinator
                 }
             return ConnectivityAssessment(
                 assessmentCode = code,
-                assessmentSummary = assessmentSummary(code),
+                assessmentSummary =
+                    assessmentSummary(
+                        code = code,
+                        resolverLinkedFailureCount = resolverLinkedFailureCount,
+                        affectedTargetFailureCount = rawEvidence.affectedTargetFailureCount,
+                    ),
                 confidence = confidence,
                 rawPathEvidence = rawEvidence,
                 inPathEvidence = inPathEvidence,
@@ -135,8 +146,8 @@ class ComparisonScanCoordinator
                 rawControlSuccess: Boolean,
                 rawControlFailure: Boolean,
                 rawAffectedFailure: Boolean,
+                resolverLinkedFailure: Boolean,
                 inPathRegression: Boolean,
-                resolverAssessment: ConnectivityResolverAssessment,
                 serviceRuntimeAssessment: ConnectivityServiceRuntimeAssessment,
                 inPathReport: ScanReport?,
                 inPathEvidence: ConnectivityEvidence,
@@ -150,7 +161,7 @@ class ComparisonScanCoordinator
                         ConnectivityAssessmentCode.VPN_PATH_REGRESSION
                     }
 
-                    resolverAssessment.mismatchTargets.isNotEmpty() && rawAffectedFailure -> {
+                    resolverLinkedFailure && rawAffectedFailure -> {
                         ConnectivityAssessmentCode.RESOLVER_INTERFERENCE
                     }
 
@@ -171,7 +182,11 @@ class ComparisonScanCoordinator
                     }
                 }
 
-            private fun assessmentSummary(code: ConnectivityAssessmentCode): String =
+            private fun assessmentSummary(
+                code: ConnectivityAssessmentCode,
+                resolverLinkedFailureCount: Int,
+                affectedTargetFailureCount: Int,
+            ): String =
                 when (code) {
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
                         "Observed pattern: raw-path control and affected targets failed together. " +
@@ -191,8 +206,17 @@ class ComparisonScanCoordinator
                     }
 
                     ConnectivityAssessmentCode.RESOLVER_INTERFERENCE -> {
-                        "Observed pattern: resolver divergence accompanied affected-target failures. " +
-                            "This is a candidate signal for resolver interference; cause is not established."
+                        val unexplainedFailureCount = affectedTargetFailureCount - resolverLinkedFailureCount
+                        val unexplainedSummary =
+                            if (unexplainedFailureCount > 0) {
+                                val noun = if (unexplainedFailureCount == 1) "failure remains" else "failures remain"
+                                " $unexplainedFailureCount $noun unexplained by DNS evidence."
+                            } else {
+                                ""
+                            }
+                        "Observed pattern: resolver divergence aligned with $resolverLinkedFailureCount of " +
+                            "$affectedTargetFailureCount affected-target failures. This is a candidate signal " +
+                            "for resolver interference; cause is not established.$unexplainedSummary"
                     }
 
                     ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> {
@@ -243,10 +267,13 @@ class ComparisonScanCoordinator
                 setOf(
                     "dns_tampering",
                     "dns_nxdomain_mismatch",
+                    "dns_system_resolution_failed",
                     "dns_record_divergence",
                     "dns_compatible_divergence",
                     "dns_sinkhole_substitution",
                 )
+            private val TrustedResolverEvidence = setOf("trusted_agreement", "primary_only")
+            private val LimitedResolverEvidence = setOf("single_fallback", "disagreement", "unavailable")
 
             private fun detectInPathRegression(
                 rawTargets: Map<String, TargetOutcome>,
@@ -258,7 +285,11 @@ class ComparisonScanCoordinator
                 }
 
             private fun buildResolverAssessment(rawReports: List<ScanReport>): ConnectivityResolverAssessment {
-                val mismatchTargets =
+                val dnsResults =
+                    rawReports
+                        .flatMap(ScanReport::results)
+                        .filter { result -> result.probeType == "dns_integrity" }
+                val observationMismatchTargets =
                     rawReports
                         .flatMap(ScanReport::observations)
                         .filter { observation ->
@@ -268,10 +299,15 @@ class ComparisonScanCoordinator
                                     DnsObservationStatus.SUSPICIOUS_DIVERGENCE,
                                     DnsObservationStatus.SINKHOLE_SUBSTITUTION,
                                     DnsObservationStatus.NXDOMAIN_MISMATCH,
-                                    DnsObservationStatus.COMPATIBLE_DIVERGENCE,
                                 )
                         }.map { it.target }
-                        .distinct()
+                val systemResolutionFailureTargets =
+                    dnsResults
+                        .filter { result ->
+                            result.outcome == "dns_system_resolution_failed" &&
+                                result.detailValue("oracleTrust") in TrustedResolverEvidence
+                        }.map(ProbeResult::target)
+                val mismatchTargets = (observationMismatchTargets + systemResolutionFailureTargets).distinct()
                 val diagnosisCodes =
                     rawReports
                         .flatMap(ScanReport::diagnoses)
@@ -284,7 +320,7 @@ class ComparisonScanCoordinator
                         mismatchTargets.isNotEmpty() -> "dns_divergence"
                         else -> "none"
                     }
-                val summary =
+                val resolverSignalSummary =
                     when {
                         mismatchTargets.isNotEmpty() -> {
                             "Encrypted and raw resolver signals diverged for ${mismatchTargets.joinToString(", ")}."
@@ -297,6 +333,23 @@ class ComparisonScanCoordinator
                         else -> {
                             "No resolver interference signal recorded."
                         }
+                    }
+                val trustedAgreementCount = dnsResults.count { it.detailValue("oracleTrust") == "trusted_agreement" }
+                val primaryOnlyCount = dnsResults.count { it.detailValue("oracleTrust") == "primary_only" }
+                val limitedOracleCount =
+                    dnsResults.count { it.detailValue("oracleTrust") in LimitedResolverEvidence }
+                val oracleEvidenceSummary =
+                    listOfNotNull(
+                        trustedAgreementCount.takeIf { it > 0 }?.let { "$it trusted agreement" },
+                        primaryOnlyCount.takeIf { it > 0 }?.let { "$it primary-only" },
+                        limitedOracleCount.takeIf { it > 0 }?.let { "$it limited, disagreement, or unavailable" },
+                    ).joinToString(", ")
+                val summary =
+                    if (oracleEvidenceSummary.isEmpty()) {
+                        resolverSignalSummary
+                    } else {
+                        "$resolverSignalSummary Across ${dnsResults.size} DNS checks, " +
+                            "oracle evidence: $oracleEvidenceSummary."
                     }
                 return ConnectivityResolverAssessment(
                     strongestSignal = strongestSignal,

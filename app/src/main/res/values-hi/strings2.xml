@@ -2130,6 +2130,7 @@
     <string name="diagnostics_rkn_unknown_isp">अज्ञात ISP</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: साफ़</string>
     <string name="diagnostics_scan_dns_baseline_tampered">DNS: छेड़छाड़ की गई (DoH fallback)</string>
+    <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: सिस्टम रिज़ॉल्यूशन विफल</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">सत्यापित नहीं</string>
     <string name="diagnostics_tcp16_complete_clean">%1$d लक्ष्यों में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</string>
