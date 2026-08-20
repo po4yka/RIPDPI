@@ -102,6 +102,7 @@ pub ripdpi_desync::DesyncPlan::actions: alloc::vec::Vec<ripdpi_desync::DesyncAct
 pub ripdpi_desync::DesyncPlan::proto: ripdpi_desync::ProtoInfo
 pub ripdpi_desync::DesyncPlan::steps: alloc::vec::Vec<ripdpi_desync::PlannedStep>
 pub ripdpi_desync::DesyncPlan::tampered: alloc::vec::Vec<u8>
+pub ripdpi_desync::DesyncPlan::tls_prelude: ripdpi_desync::TlsPreludeApplication
 pub struct ripdpi_desync::FakePacketPlan
 pub ripdpi_desync::FakePacketPlan::bytes: alloc::vec::Vec<u8>
 pub ripdpi_desync::FakePacketPlan::fake_offset: usize
@@ -135,6 +136,7 @@ pub ripdpi_desync::QuicInitialIr::version: u32
 pub struct ripdpi_desync::TamperResult
 pub ripdpi_desync::TamperResult::bytes: alloc::vec::Vec<u8>
 pub ripdpi_desync::TamperResult::proto: ripdpi_desync::ProtoInfo
+pub ripdpi_desync::TamperResult::tls_prelude: ripdpi_desync::TlsPreludeApplication
 pub struct ripdpi_desync::TcpDesyncStrategy<'a>
 impl<'a> ripdpi_desync::TcpDesyncStrategy<'a>
 pub fn ripdpi_desync::TcpDesyncStrategy<'a>::new(&'a ripdpi_config::model::group::DesyncGroup, u32, u8, ripdpi_desync::ActivationContext) -> Self
@@ -167,6 +169,13 @@ pub struct ripdpi_desync::TlsExtensionBoundary
 pub ripdpi_desync::TlsExtensionBoundary::data_range: core::ops::range::Range<usize>
 pub ripdpi_desync::TlsExtensionBoundary::ext_type: u16
 pub ripdpi_desync::TlsExtensionBoundary::type_range: core::ops::range::Range<usize>
+pub struct ripdpi_desync::TlsPreludeApplication
+pub ripdpi_desync::TlsPreludeApplication::applied_count: usize
+pub ripdpi_desync::TlsPreludeApplication::configured_count: usize
+pub ripdpi_desync::TlsPreludeApplication::kind: core::option::Option<ripdpi_config::model::tcp::TcpChainStepKind>
+pub ripdpi_desync::TlsPreludeApplication::marker_base: core::option::Option<ripdpi_config::model::offset::OffsetBase>
+pub ripdpi_desync::TlsPreludeApplication::marker_delta: core::option::Option<i16>
+pub ripdpi_desync::TlsPreludeApplication::resolved_offset: core::option::Option<usize>
 pub struct ripdpi_desync::TlsRecordBoundary
 pub ripdpi_desync::TlsRecordBoundary::handshake: core::ops::range::Range<usize>
 pub ripdpi_desync::TlsRecordBoundary::header: core::ops::range::Range<usize>
