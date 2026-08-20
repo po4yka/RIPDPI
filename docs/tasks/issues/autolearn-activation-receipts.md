@@ -2,7 +2,7 @@
 id: DGN-1787230878672684
 title: Record authoritative Autolearn activation receipts
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: codex
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: record-autolearn-activation-receipts
 created: 2026-08-20
 updated: 2026-08-20
+status_detail: Implementation and rebased local gates passed; remote CI pending after push.
 ---
 
 ## Goal

@@ -1,9 +1,9 @@
 ---
 task_id: DGN-1787230878672684
 change: record-autolearn-activation-receipts
-commit_sha: null
+commit_sha: e511309619a5681f456dddcb3caf78d848d01220
 local: passed
-local_evidence: Rebased combined-tree evidence pending; pre-rebase combined service and diagnostics unit suites plus staticAnalysis passed with 751 Gradle tasks, architecture health reported 0 new and 0 worsened indicators, locked Cargo metadata succeeded, and strict OpenSpec plus taskctl validation passed.
+local_evidence: Rebased combined-tree service and diagnostics unit suites plus staticAnalysis passed with 751 Gradle tasks; architecture health reported 0 new, 0 worsened, and 0 stale indicators; locked Cargo metadata, strict OpenSpec validation, and taskctl validation passed.
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
