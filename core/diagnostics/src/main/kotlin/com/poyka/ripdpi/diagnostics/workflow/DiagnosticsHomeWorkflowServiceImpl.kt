@@ -384,18 +384,19 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
                 executedCandidates.none { it.succeededTargets > 0 }
         }
 
-        private fun hasUnverifiedStrategyWinner(report: StrategyProbeReport?): Boolean {
-            val strategyProbe = report ?: return false
-            val recommendation = strategyProbe.recommendation ?: return false
-            val winningCandidates =
-                listOfNotNull(
-                    strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId },
-                    strategyProbe.quicCandidates.firstOrNull { it.id == recommendation.quicCandidateId },
-                )
-            return winningCandidates.any { it.succeededTargets > 0 } &&
-                DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) is
-                    DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected
-        }
+        private fun hasUnverifiedStrategyWinner(report: StrategyProbeReport?): Boolean =
+            report?.let { strategyProbe ->
+                strategyProbe.recommendation?.let { recommendation ->
+                    val winningCandidates =
+                        listOfNotNull(
+                            strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId },
+                            strategyProbe.quicCandidates.firstOrNull { it.id == recommendation.quicCandidateId },
+                        )
+                    winningCandidates.any { it.succeededTargets > 0 } &&
+                        DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) is
+                            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected
+                } ?: false
+            } ?: false
 
         private fun buildAuditHeadline(
             strategyApplied: StrategyApplyResult?,

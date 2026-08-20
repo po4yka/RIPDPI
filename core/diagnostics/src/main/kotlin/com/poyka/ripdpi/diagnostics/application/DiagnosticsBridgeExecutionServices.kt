@@ -172,6 +172,17 @@ class BridgePollingService
             return null
         }
 
+        private suspend fun claimCompletionOrCancel(
+            prepared: PreparedDiagnosticsScan,
+            handle: BridgeSessionHandle,
+            activeScanRegistry: ActiveScanRegistry,
+            reportJson: String,
+        ) {
+            if (!activeScanRegistry.claimCompletion(prepared.sessionId, handle.bridge, reportJson)) {
+                throw CancellationException("Diagnostics scan cancellation owns the terminal report")
+            }
+        }
+
         internal suspend fun awaitCompletion(
             prepared: PreparedDiagnosticsScan,
             handle: BridgeSessionHandle,
@@ -183,9 +194,7 @@ class BridgePollingService
                     while (true) {
                         persistPassiveEvents(handle)
                         handle.bridge.takeReportJson()?.let { reportJson ->
-                            if (!activeScanRegistry.claimCompletion(prepared.sessionId, handle.bridge, reportJson)) {
-                                throw CancellationException("Diagnostics scan cancellation owns the terminal report")
-                            }
+                            claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
                             onFinishedReportJson(reportJson)
                             return@withTimeout
                         }
@@ -198,9 +207,7 @@ class BridgePollingService
                                 checkNotNull(awaitFinishedReportJson(handle)) {
                                     "Diagnostics scan completed without a report"
                                 }
-                            if (!activeScanRegistry.claimCompletion(prepared.sessionId, handle.bridge, reportJson)) {
-                                throw CancellationException("Diagnostics scan cancellation owns the terminal report")
-                            }
+                            claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
                             onFinishedReportJson(reportJson)
                             break
                         }
@@ -209,9 +216,7 @@ class BridgePollingService
                 }
             } catch (error: TimeoutCancellationException) {
                 awaitFinishedReportJson(handle)?.let { reportJson ->
-                    if (!activeScanRegistry.claimCompletion(prepared.sessionId, handle.bridge, reportJson)) {
-                        throw CancellationException("Diagnostics scan cancellation owns the terminal report")
-                    }
+                    claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
                     onFinishedReportJson(reportJson)
                     return
                 }

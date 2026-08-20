@@ -42,7 +42,8 @@ class DiagnosticsArchiveRedactorTest {
                 target = "fixture",
                 outcome = "reachable",
                 detailJson =
-                    """{"password":"password-canary","token":"token-canary","authToken":"auth-canary","secret":"secret-canary"}""",
+                    """{"password":"password-canary","token":"token-canary",""" +
+                        """"authToken":"auth-canary","secret":"secret-canary"}""",
                 createdAt = 2L,
             )
 
