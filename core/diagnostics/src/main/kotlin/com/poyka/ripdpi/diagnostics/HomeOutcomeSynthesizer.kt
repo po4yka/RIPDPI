@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.detection.DetectionScope
 private const val MaxNextSteps = 4
 private const val DetectionFindingPreviewLimit = 2
 private const val FailedStageSpotlightLimit = 2
+private val ResolverAppliedSettingLabels = setOf("Resolver", "Protocol")
 
 /**
  * Pure derivation of a plain-language headline + 2-4 next-step recommendations
@@ -50,9 +51,15 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
     }
 
     if (outcome.actionable && outcome.appliedSettings.isNotEmpty()) {
+        val settingKind =
+            if (outcome.appliedSettings.all { it.label in ResolverAppliedSettingLabels }) {
+                "DNS setting"
+            } else {
+                "bypass setting"
+            }
         headlineParts +=
             "Applied ${outcome.appliedSettings.size} " +
-            "bypass setting${if (outcome.appliedSettings.size == 1) "" else "s"}"
+            "$settingKind${if (outcome.appliedSettings.size == 1) "" else "s"}"
     }
 
     if (outcome.failedStageCount > 0) {

@@ -205,7 +205,7 @@ mod tests {
         // The ECH profile is TLS 1.3-only, even before live ECH config discovery.
         let profile = TlsClientProfile::Tls13WithEch;
         let _builder = match profile {
-            TlsClientProfile::Auto => {
+            TlsClientProfile::Auto | TlsClientProfile::AutoHttp11 => {
                 ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                     .with_safe_default_protocol_versions()
                     .expect("ring provider supports default TLS versions")
@@ -267,6 +267,12 @@ mod tests {
     fn standard_client_config_uses_template_alpn() {
         let config = build_standard_client_config(TlsClientProfile::Tls13Only, None);
         assert_eq!(config.alpn_protocols, vec![b"h2".to_vec(), b"http/1.1".to_vec()]);
+    }
+
+    #[test]
+    fn http11_client_profile_restricts_alpn() {
+        let config = build_standard_client_config(TlsClientProfile::AutoHttp11, None);
+        assert_eq!(config.alpn_protocols, vec![b"http/1.1".to_vec()]);
     }
 
     #[test]

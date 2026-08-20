@@ -36,6 +36,7 @@ pub struct TlsObservation {
 #[derive(Clone, Copy, Debug)]
 pub enum TlsClientProfile {
     Auto,
+    AutoHttp11,
     Tls12Only,
     Tls13Only,
     Tls13WithEch,

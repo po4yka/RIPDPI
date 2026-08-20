@@ -306,6 +306,7 @@ class DiagnosticsHomeWorkflowServiceTest {
 
             val savedSettings = appSettingsRepository.snapshot()
             assertTrue(outcome.actionable)
+            assertEquals("DNS settings applied", outcome.headline)
             assertEquals("cloudflare", savedSettings.dnsProviderId)
             assertEquals("doh", savedSettings.encryptedDnsProtocol)
             assertEquals("cloudflare-dns.com", savedSettings.encryptedDnsHost)

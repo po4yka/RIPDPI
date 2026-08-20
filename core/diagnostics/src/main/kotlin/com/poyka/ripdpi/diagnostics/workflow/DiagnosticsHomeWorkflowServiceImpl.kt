@@ -353,20 +353,15 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
             strategyRecommendation: StrategyRecommendation?,
             resolverApplied: List<DiagnosticsAppliedSetting>,
             strategyProbe: StrategyProbeReport?,
-        ): StrategyAdequacy? {
-            val dnsOnlyWithUnverifiedStrategy =
-                resolverApplied.isNotEmpty() &&
-                    strategyProbe?.let(::hasUnverifiedStrategyEvidence) == true
-            return when {
+        ): StrategyAdequacy? =
+            when {
                 strategyApplied != null -> StrategyAdequacy.STRATEGY_APPLIED
-                strategyProbe != null && allCandidatesFailed(strategyProbe) -> StrategyAdequacy.ALL_CANDIDATES_FAILED
-                dnsOnlyWithUnverifiedStrategy -> StrategyAdequacy.DNS_ONLY_STRATEGY_UNVERIFIED
                 strategyRecommendation?.actionable == true -> StrategyAdequacy.STRATEGY_RECOMMENDED
+                strategyProbe != null && allCandidatesFailed(strategyProbe) -> StrategyAdequacy.ALL_CANDIDATES_FAILED
                 resolverApplied.isNotEmpty() -> StrategyAdequacy.DNS_ONLY_APPLIED
                 strategyProbe == null -> StrategyAdequacy.NO_STRATEGY_PROBE
                 else -> null
             }
-        }
 
         private fun resolveAppliedSettings(
             strategyApplied: StrategyApplyResult?,
@@ -381,9 +376,18 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
                 executedCandidates.none { it.succeededTargets > 0 }
         }
 
-        private fun hasUnverifiedStrategyEvidence(report: StrategyProbeReport): Boolean =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(report) is
-                DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected
+        private fun hasUnverifiedStrategyWinner(report: StrategyProbeReport?): Boolean {
+            val strategyProbe = report ?: return false
+            val recommendation = strategyProbe.recommendation
+            val winningCandidates =
+                listOfNotNull(
+                    strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId },
+                    strategyProbe.quicCandidates.firstOrNull { it.id == recommendation.quicCandidateId },
+                )
+            return winningCandidates.any { it.succeededTargets > 0 } &&
+                DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) is
+                    DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected
+        }
 
         private fun buildAuditHeadline(
             strategyApplied: StrategyApplyResult?,
@@ -405,8 +409,12 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
                     "All bypass strategies failed on this network"
                 }
 
-                strategyAdequacy == StrategyAdequacy.DNS_ONLY_STRATEGY_UNVERIFIED -> {
+                strategyAdequacy == StrategyAdequacy.DNS_ONLY_APPLIED && hasUnverifiedStrategyWinner(strategyProbe) -> {
                     "DNS settings applied, but bypass strategy needs more evidence"
+                }
+
+                strategyAdequacy == StrategyAdequacy.DNS_ONLY_APPLIED -> {
+                    "DNS settings applied"
                 }
 
                 actionable -> {
