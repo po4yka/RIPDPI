@@ -27,25 +27,13 @@
 #
 # As of 2026-05-17 the two highest-leverage call sites (DoQ bootstrap
 # and xHTTP resolver) have been refactored to `tokio::net::lookup_host`.
-# The remaining 6 entries below are vendored SOCKS5/ShadowTLS
-# client/server paths that need follow-up review:
+# The remaining 3 review-needed entries below are vendored SOCKS5
+# client paths:
 #
-#   - The SOCKS5 SERVER paths (`server/tcp.rs:10`, `server/udp.rs:117`)
-#     run on the proxy runtime worker pool and need either replacement
-#     with `tokio::net::lookup_host` OR a written argument that the
-#     `to_socket_addrs` call resolves an already-validated SocketAddr
-#     (no actual DNS) -- the latter is the case for `server/udp.rs:117`
-#     where `resolve_dns().await?` precedes the iterator call.
-#
-#   - The SOCKS5 CLIENT paths (`client.rs:420/439/537`) run once per
+#   - The SOCKS5 CLIENT paths (`client.rs:419/438/536`) run once per
 #     outbound connection from the proxy CLI tooling; blocking briefly
 #     here is tolerable but should be lifted to `lookup_host`
 #     opportunistically.
-#
-#   - ShadowTLS `connect()` (`client.rs`) is called once per session at
-#     session-establishment time before any per-packet hot path begins;
-#     the blocking is acceptable but should be lifted whenever that crate
-#     is touched.
 #
 # Each entry below carries `executor_strategy = "review-needed: ..."`
 # to make the follow-up explicit. New blocking-in-async additions are
@@ -62,18 +50,9 @@ owner = "transport-team"
 review_date = "2026-11-22"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-shadowtls/src/client.rs"
-pattern = "to_socket_addrs"
-line = 56
-executor_strategy = "review-needed: session-establishment path, called once per ShadowTLS client connect; switch to `tokio::net::lookup_host` when the crate is next touched."
-reason = "ShadowTLS client connect() resolves the configured server address."
-owner = "transport-team"
-review_date = "2026-11-17"
-
-[[entries]]
 file = "native/rust/crates/ripdpi-socks5-core/src/client.rs"
 pattern = "to_socket_addrs"
-line = 420
+line = 419
 executor_strategy = "review-needed: SOCKS5 client outbound bind address resolution. Called from CLI/tool code paths, not from the proxy runtime worker pool. Switch to `lookup_host` when ripdpi-socks5-core is next touched."
 reason = "SOCKS5 client resolves its outbound bind IP."
 owner = "transport-team"
@@ -82,7 +61,7 @@ review_date = "2026-11-17"
 [[entries]]
 file = "native/rust/crates/ripdpi-socks5-core/src/client.rs"
 pattern = "to_socket_addrs"
-line = 439
+line = 438
 executor_strategy = "review-needed: SOCKS5 client proxy address resolution. Called from CLI/tool code paths, not from the proxy runtime worker pool."
 reason = "SOCKS5 client resolves the proxy server address."
 owner = "transport-team"
@@ -91,7 +70,7 @@ review_date = "2026-11-17"
 [[entries]]
 file = "native/rust/crates/ripdpi-socks5-core/src/client.rs"
 pattern = "to_socket_addrs"
-line = 537
+line = 536
 executor_strategy = "review-needed: SOCKS5 client session-establishment, called once per session. Switch to `lookup_host` when the crate is next touched."
 reason = "SOCKS5 client resolves the SOCKS server address."
 owner = "transport-team"
