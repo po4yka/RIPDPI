@@ -199,6 +199,11 @@ pub(crate) fn execute_tcp_actions(
             OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
             OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,
         };
-        err.with_execution_receipt(accounting.failure_receipt(strategy_family, terminal_reason))
+        let observed_bytes_committed = err.bytes_committed();
+        err.with_execution_receipt(accounting.failure_receipt(
+            strategy_family,
+            terminal_reason,
+            observed_bytes_committed,
+        ))
     })
 }

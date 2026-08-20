@@ -6,6 +6,8 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.Mode
@@ -14,6 +16,8 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineInPathRouteWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProxyCredentialsWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
@@ -134,6 +138,82 @@ class DiagnosticsScanPolicyFinalizationTest {
         }
 
     @Test
+    fun `in-path route generation change after report does not discard historical scan evidence`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    json = json,
+                )
+            val initialLease =
+                DiagnosticsInPathRouteLease(
+                    runtimeId = "vpn-runtime",
+                    routeGeneration = 1,
+                    host = "127.0.0.1",
+                    port = 19080,
+                    credentials = DiagnosticsProxyCredentials("scan-user", "scan-secret"),
+                )
+            fixtures.runtimeCoordinator.updateInPathRouteLease(initialLease)
+            val base =
+                preparedDiagnosticsScan(
+                    sessionId = "session-route-generation-change",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            val request =
+                EngineScanRequestWire(
+                    profileId = base.intent.profileId,
+                    displayName = base.intent.displayName,
+                    pathMode = ScanPathMode.RAW_PATH,
+                )
+            val prepared =
+                base.copy(
+                    pathMode = ScanPathMode.IN_PATH,
+                    context = base.context.copy(pathMode = ScanPathMode.IN_PATH),
+                    requestJson =
+                        json.encodeToString(
+                            EngineScanRequestWire.serializer(),
+                            request.copy(
+                                pathMode = ScanPathMode.IN_PATH,
+                                inPathRoute =
+                                    EngineInPathRouteWire(
+                                        host = initialLease.host,
+                                        port = initialLease.port,
+                                        credentials =
+                                            EngineProxyCredentialsWire(
+                                                username = initialLease.credentials.username,
+                                                password = initialLease.credentials.password,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    initialSession = base.initialSession.copy(pathMode = ScanPathMode.IN_PATH.name),
+                    inPathRouteLease = initialLease,
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = fixtures.bridgeFactory.bridge
+            bridge.afterStartScan = {
+                fixtures.runtimeCoordinator.updateInPathRouteLease(
+                    initialLease.copy(routeGeneration = 2, credentials = DiagnosticsProxyCredentials("new", "secret")),
+                )
+            }
+            bridge.startScan(prepared.requestJson, prepared.sessionId)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("completed", session.status)
+            assertNotNull(session.reportJson)
+        }
+
+    @Test
     fun `finalization applies raw path dns fallback override while service is halted and returns corrected dns path`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -248,6 +328,15 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
 
             backgroundScope.launch {
                 delay(50)
+                fixtures.runtimeCoordinator.updateInPathRouteLease(
+                    DiagnosticsInPathRouteLease(
+                        runtimeId = "vpn-runtime",
+                        routeGeneration = 7,
+                        host = "127.0.0.1",
+                        port = 19080,
+                        credentials = DiagnosticsProxyCredentials("reprobe-user", "reprobe-secret"),
+                    ),
+                )
                 serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             }
 
@@ -258,6 +347,10 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
             val reprobeRuntimeDns = decodeRuntimeDns(reprobeRequest)
 
             assertEquals("cloudflare", reprobeRuntimeDns.resolverId)
+            assertEquals("127.0.0.1", reprobeRequest.inPathRoute?.host)
+            assertEquals(19080, reprobeRequest.inPathRoute?.port)
+            assertEquals("reprobe-user", reprobeRequest.inPathRoute?.credentials?.username)
+            assertEquals("reprobe-secret", reprobeRequest.inPathRoute?.credentials?.password)
             assertTrue(
                 stores.sessionsState.value.any { session ->
                     session.pathMode == ScanPathMode.IN_PATH.name && session.status == "completed"
@@ -761,6 +854,7 @@ internal data class ExecutionCoordinatorFixtures(
     val activeScanRegistry: ActiveScanRegistry,
     val bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
     val finalizationService: ScanFinalizationService,
+    val runtimeCoordinator: FakeDiagnosticsRuntimeCoordinator,
 )
 
 @Suppress("LongMethod")
@@ -834,6 +928,7 @@ internal fun executionCoordinatorFixtures(
             activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
             json = json,
         )
+    val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
     val coordinator =
         DiagnosticsScanExecutionCoordinator(
             scanRecordStore = stores,
@@ -843,13 +938,14 @@ internal fun executionCoordinatorFixtures(
             scanFinalizationService = scanFinalizationService,
             scanRequestFactory = scanRequestFactory,
             serviceStateStore = serviceStateStore,
+            runtimeCoordinator = runtimeCoordinator,
         )
     val scanController =
         DefaultDiagnosticsScanController(
             appSettingsRepository = appSettingsRepository,
             scanRecordStore = stores,
             artifactWriteStore = stores,
-            runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+            runtimeCoordinator = runtimeCoordinator,
             serviceStateStore = serviceStateStore,
             scanRequestFactory = scanRequestFactory,
             scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json),
@@ -865,6 +961,7 @@ internal fun executionCoordinatorFixtures(
         activeScanRegistry = activeScanRegistry,
         bridgeFactory = bridgeFactory,
         finalizationService = scanFinalizationService,
+        runtimeCoordinator = runtimeCoordinator,
     )
 }
 

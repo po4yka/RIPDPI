@@ -15,6 +15,7 @@ tracing = { workspace = true }
 libc = { workspace = true }
 loom = { workspace = true, optional = true }
 ripdpi-io-uring = { workspace = true, optional = true }
+constant_time_eq = { workspace = true }
 
 [features]
 daemonize = ["ripdpi-proxy-runtime-adapter/daemonize"]

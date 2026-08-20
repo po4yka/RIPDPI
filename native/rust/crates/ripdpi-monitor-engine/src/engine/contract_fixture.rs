@@ -51,6 +51,7 @@ fn parity_fixture_plan() -> super::runtime::ExecutionPlan {
         pack_refs: Vec::new(),
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: Vec::new(),
         domain_targets: Vec::new(),
         dns_targets: Vec::new(),
@@ -144,6 +145,7 @@ fn connectivity_partial_report_request() -> ScanRequest {
         pack_refs: Vec::new(),
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![
             crate::types::ProbeTask {
                 family: crate::types::ProbeTaskFamily::Dns,

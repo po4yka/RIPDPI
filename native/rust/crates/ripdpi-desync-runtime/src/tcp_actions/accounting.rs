@@ -79,6 +79,7 @@ impl FallbackAccounting {
         &self,
         strategy_family: Option<&'static str>,
         terminal_reason: TcpTerminalReason,
+        observed_bytes_committed: usize,
     ) -> TcpExecutionReceipt {
         TcpExecutionReceipt::failed_strategy_execution(
             strategy_family,
@@ -86,7 +87,7 @@ impl FallbackAccounting {
             self.completed_actions,
             self.real_writes_committed,
             self.completed_awaits,
-            self.payload_bytes_committed,
+            self.payload_bytes_committed.max(observed_bytes_committed),
             terminal_reason,
         )
     }

@@ -14,7 +14,8 @@ use self::offset_plan::{resolve_send_step_offset, seqovl_hard_gate_matches};
 use crate::fake::build_seqovl_fake_prefix;
 use crate::tls_prelude::apply_tls_prelude_steps;
 use crate::types::{
-    ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo, activation_filter_matches,
+    ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo, TlsPreludeApplication,
+    activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
@@ -151,6 +152,7 @@ fn plan_tcp_with_fake_reference(
             steps: Vec::new(),
             proto: ProtoInfo::default(),
             actions: vec![DesyncAction::Write(input.to_vec())],
+            tls_prelude: TlsPreludeApplication::default(),
         });
     }
     let chain = group.effective_tcp_chain();
@@ -165,6 +167,7 @@ fn plan_tcp_with_fake_reference(
     // the first fake step so non-fake chains pay nothing.
     let fake_is_padded = !(std::ptr::eq(fake_reference, input) || fake_reference == input);
     let mut fake_tampered: Option<Vec<u8>> = None;
+    let tls_prelude = tampered.tls_prelude.clone();
     let mut info = tampered.proto;
     let mut rng = OracleRng::seeded(seed);
     let mut steps = Vec::new();
@@ -174,7 +177,7 @@ fn plan_tcp_with_fake_reference(
 
     if send_steps.iter().any(|step| step.kind() == TcpChainStepKind::MultiDisorder) {
         let steps = plan_multi_disorder_steps(&send_steps, &tampered.bytes, &mut info, &mut rng, context)?;
-        return Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions });
+        return Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions, tls_prelude });
     }
 
     for step in send_steps {
@@ -300,5 +303,5 @@ fn plan_tcp_with_fake_reference(
         actions.push(DesyncAction::Write(tampered.bytes[lp as usize..].to_vec()));
     }
 
-    Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions })
+    Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions, tls_prelude })
 }

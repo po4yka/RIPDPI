@@ -8,9 +8,11 @@ helpers shared by the privileged helper binary and its in-app client.
 ## Stable identifiers / contracts
 
 This crate **is** the root-helper contract. The `CMD_*` string constants in
-`src/commands.rs` (`probe_capabilities`, `send_fake_rst`, `send_seqovl_tcp`,
-`send_multi_disorder_tcp`, `send_ip_fragmented_tcp/udp`, `send_raw_ip_packet`,
-`shutdown`, …) are a **frozen wire contract** — add, never rename or repurpose.
+`src/commands.rs` (`v3/protocol_preflight`, `v3/probe_capabilities`, `v3/send_fake_rst`,
+`v3/send_seqovl_tcp`, `v3/send_multi_disorder_tcp`, `v3/send_ip_fragmented_tcp/udp`,
+`v3/send_raw_ip_packet`, `v3/shutdown`, …) are a **frozen wire contract**. The
+version namespace makes an older helper reject newer privileged operations
+before dispatch, even if the helper changes after the preflight.
 The helper binary and the client must change in lock-step. Full contract:
 [`ROOT_HELPER_CONTRACT.md`](../../../../docs/architecture/ROOT_HELPER_CONTRACT.md).
 

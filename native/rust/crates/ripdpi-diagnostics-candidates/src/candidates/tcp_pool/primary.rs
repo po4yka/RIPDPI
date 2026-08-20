@@ -4,7 +4,10 @@ use super::allows_direct_tfo_candidates;
 
 pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let plain_direct = plain_direct_probe_config(base);
-    let baseline = sanitize_current_probe_config(base);
+    let baseline_config = sanitize_current_probe_config(base);
+    let mut baseline = candidate_spec("baseline_current", "Current strategy", "baseline", baseline_config);
+    baseline.preserve_adaptive_fake_ttl = true;
+    baseline.active_snapshot_faithful = !base.host_autolearn.enabled;
     let parser_only = build_parser_only_candidate(base);
     let parser_unixeol = build_parser_unixeol_candidate(base);
     let parser_methodeol = build_parser_methodeol_candidate(base);
@@ -21,7 +24,7 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
 
     let mut candidates = vec![
         candidate_spec("baseline_plain_direct", "Plain direct", "baseline", plain_direct),
-        candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
+        baseline,
         candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host.clone()),
         candidate_spec_with_notes(
             "tlsrec_hostfake_split",

@@ -1,0 +1,249 @@
+{
+    "failureEnvelope": {
+        "failureClassTransitions": [],
+        "failureRecords": [],
+        "retryCounters": {
+            "proxyRouteRetryCount": 1,
+            "totalRetryCount": 1,
+            "tunnelRecoveryRetryCount": 0
+        }
+    },
+    "measurementSnapshot": {
+        "acceptanceMetrics": {
+            "acceptanceCorpusVersion": "phase16_acceptance_corpus_v1",
+            "confidenceLevel": "HIGH",
+            "confidenceScore": 86,
+            "matrixCoveragePercent": 82,
+            "quicCandidatesExecuted": 1,
+            "quicCandidatesPlanned": 1,
+            "quicWinnerSucceededTargets": 2,
+            "quicWinnerTotalTargets": 3,
+            "tcpCandidatesExecuted": 1,
+            "tcpCandidatesPlanned": 2,
+            "tcpWinnerSucceededTargets": 3,
+            "tcpWinnerTotalTargets": 4,
+            "winnerCoveragePercent": 75
+        },
+        "capabilitySnapshot": {
+            "evidence": [
+                "root_helper_available"
+            ],
+            "inferredUnavailableCapabilities": [
+                "root_helper_available"
+            ],
+            "source": "strategy_report_inference_v1"
+        },
+        "detectabilityMetrics": {
+            "capabilitySkippedCandidates": 1,
+            "downgradedCandidates": 0,
+            "evidence": [
+                "lane=tcp;candidateId=tcp-candidate-1;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false",
+                "lane=quic;candidateId=quic-candidate-1;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false"
+            ],
+            "exactRootRequiredCandidates": 1,
+            "labOnlyCandidates": 0,
+            "notes": [
+                "capability_skips_present",
+                "proxy_mode_browser_native_tls_suppressed"
+            ],
+            "recommendedUsesRootedEmitter": false,
+            "recommendedWasDowngraded": false,
+            "rootedProductionCandidates": 1,
+            "skippedCandidates": 1
+        },
+        "networkIdentityBucket": "wifi:steady:redacted",
+        "recommendedQuicEmitterTier": "NON_ROOT_PRODUCTION",
+        "recommendedTcpEmitterTier": "NON_ROOT_PRODUCTION",
+        "rolloutGateAssessment": {
+            "overallPassed": false,
+            "policyVersion": "phase16_rollout_gates_v1",
+            "results": [
+                {
+                    "actual": "matrix=82;winner=75",
+                    "id": "acceptance",
+                    "passed": true,
+                    "threshold": "matrixCoveragePercent >= 75 and winnerCoveragePercent >= 60"
+                },
+                {
+                    "actual": "120",
+                    "id": "latency_budget",
+                    "passed": true,
+                    "threshold": "recommendedLatencyMs <= 250"
+                },
+                {
+                    "actual": "1",
+                    "id": "instability_budget",
+                    "passed": true,
+                    "threshold": "retryCount <= 2"
+                },
+                {
+                    "actual": "rooted=false;downgraded=false",
+                    "id": "detectability_budget",
+                    "passed": true,
+                    "rationale": "lane=tcp;candidateId=tcp-candidate-1;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false | lane=quic;candidateId=quic-candidate-1;emitterTier=NON_ROOT_PRODUCTION;emitterDowngraded=false;exactEmitterRequiresRoot=false",
+                    "threshold": "recommended winner stays non-root and non-downgraded"
+                },
+                {
+                    "actual": "root_helper_available",
+                    "id": "android_compat_budget",
+                    "passed": false,
+                    "threshold": "no inferred missing runtime capabilities"
+                }
+            ]
+        },
+        "targetBucket": "pilot-bucket-1|pilot-bucket-2"
+    },
+    "recommendationTrace": {
+        "confidenceLevel": "HIGH",
+        "confidenceScore": 86,
+        "coveragePercent": 82,
+        "evidence": [
+            "candidate_recommendation",
+            "resolver:fallback",
+            "Renderer fixture confidence",
+            "targetCohort=cohort",
+            "tcpWinner=tcp-candidate-1",
+            "quicWinner=quic-candidate-1"
+        ],
+        "quicLayoutFamily": "quic_layout",
+        "selectedApproach": "redacted",
+        "selectedResolver": "AdGuard",
+        "selectedStrategy": "tcp-candidate-1 + quic-candidate-1",
+        "targetCohort": "cohort",
+        "winnerCoveragePercent": 75
+    },
+    "runtimeSnapshotTimeline": [],
+    "strategyExecutionDetail": {
+        "completionKind": "NORMAL",
+        "currentStrategyAssessment": {
+            "activePathOutcome": "UNVERIFIED",
+            "candidateVerdict": "UNVERIFIED_EXECUTION",
+            "lastProvenStage": "NONE",
+            "observationRole": "UNAVAILABLE",
+            "reason": "STRATEGY_SNAPSHOT_MISMATCH"
+        },
+        "quicCandidates": [
+            {
+                "averageLatencyMs": 90,
+                "desyncExecutionRequired": true,
+                "executionAttempts": [],
+                "executionEvidenceComplete": false,
+                "factBreakdown": {
+                    "observationCount": 0,
+                    "statusCounts": {},
+                    "tlsErrorSamples": [],
+                    "transportFailureCounts": {}
+                },
+                "family": "quic_candidate",
+                "id": "quic-candidate-1",
+                "label": "quic-candidate-1",
+                "lane": "quic",
+                "notes": [],
+                "observationRole": "EPHEMERAL_CANDIDATE_RAW_PATH",
+                "outcome": "success",
+                "qualityScore": 4,
+                "quicLayoutFamily": "quic_layout",
+                "rationale": "success",
+                "routeFeatures": [],
+                "runtimeTerminalStatus": "UNAVAILABLE",
+                "skipReasons": [],
+                "skipped": false,
+                "succeededTargets": 2,
+                "totalTargets": 3,
+                "totalWeight": 6,
+                "weightedSuccessScore": 4
+            }
+        ],
+        "suiteId": "full_matrix_v1",
+        "tcpCandidates": [
+            {
+                "averageLatencyMs": 120,
+                "desyncExecutionRequired": true,
+                "executionAttempts": [
+                    {
+                        "complete": true,
+                        "probeSucceeded": false,
+                        "receipts": [
+                            {
+                                "attemptedActions": 3,
+                                "completedActions": 3,
+                                "completedAwaits": 1,
+                                "configuredFamily": "SPLIT",
+                                "connectionOrdinal": 0,
+                                "disposition": "APPLIED",
+                                "effectiveFamily": "SPLIT",
+                                "markerBase": "HOST",
+                                "markerDelta": 1,
+                                "payloadBytesCommitted": 96,
+                                "plannedSteps": 1,
+                                "realWritesCommitted": 2,
+                                "resolvedOffset": 18,
+                                "tlsPreludeAppliedCount": 0,
+                                "tlsPreludeConfiguredCount": 0,
+                                "tlsRecordPreludeApplied": false,
+                                "transport": "TCP"
+                            }
+                        ],
+                        "responseStage": "UNAVAILABLE"
+                    }
+                ],
+                "executionEvidenceComplete": true,
+                "factBreakdown": {
+                    "observationCount": 0,
+                    "statusCounts": {},
+                    "tlsErrorSamples": [],
+                    "transportFailureCounts": {}
+                },
+                "family": "tcp_candidate",
+                "id": "tcp-candidate-1",
+                "label": "tcp-candidate-1",
+                "lane": "tcp",
+                "notes": [],
+                "observationRole": "EPHEMERAL_CANDIDATE_RAW_PATH",
+                "outcome": "success",
+                "qualityScore": 9,
+                "rationale": "success",
+                "routeFeatures": [
+                    "UPSTREAM_RELAY"
+                ],
+                "runtimeTerminalStatus": "UNAVAILABLE",
+                "skipReasons": [],
+                "skipped": false,
+                "succeededTargets": 3,
+                "totalTargets": 4,
+                "totalWeight": 12,
+                "weightedSuccessScore": 9
+            },
+            {
+                "desyncExecutionRequired": true,
+                "executionAttempts": [],
+                "executionEvidenceComplete": false,
+                "factBreakdown": {
+                    "observationCount": 0,
+                    "statusCounts": {},
+                    "tlsErrorSamples": [],
+                    "transportFailureCounts": {}
+                },
+                "family": "tcp_candidate",
+                "id": "tcp-candidate-2",
+                "label": "tcp-candidate-2",
+                "lane": "tcp",
+                "notes": [],
+                "observationRole": "EPHEMERAL_CANDIDATE_RAW_PATH",
+                "outcome": "unavailable",
+                "qualityScore": 0,
+                "rationale": "unavailable",
+                "routeFeatures": [],
+                "runtimeTerminalStatus": "UNAVAILABLE",
+                "skipReasons": [
+                    "skipped"
+                ],
+                "skipped": true,
+                "succeededTargets": 0,
+                "totalTargets": 4,
+                "totalWeight": 12,
+                "weightedSuccessScore": 0
+            }
+        ]
+    }
+}

@@ -3,10 +3,10 @@ use std::sync::{Arc, Mutex};
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::CandidateRuntimeLauncher;
 use crate::connectivity::{push_event, set_progress, set_report};
 use crate::transport::transport_for_request_with_session;
 use crate::types::{ScanCompletionKind, ScanKind, ScanProgress, ScanRequest, ScanTerminationReason, SharedState};
+use crate::{CandidateRuntimeLauncher, CandidateRuntimeTerminalStatus};
 
 use super::plan::build_execution_plan;
 use super::report::{ReportBuildContext, build_report, connectivity_analytics_summary, connectivity_summary};
@@ -137,7 +137,8 @@ pub fn run_engine_scan(
         );
         return;
     };
-    let cleanup_receipt = terminal_receipt.cleanup;
+    let terminal_status = terminal_receipt.terminal_status();
+    let cleanup_receipt = terminal_receipt.cleanup();
     push_event(
         &shared,
         &plan.session_id,
@@ -147,13 +148,70 @@ pub fn run_engine_scan(
         "info",
         format!(
             "Candidate cleanup status={:?} started={} stopped={} joined={} forced_abort={}",
-            terminal_receipt.terminal_status,
+            terminal_receipt.terminal_status(),
             cleanup_receipt.started,
             cleanup_receipt.stopped,
             cleanup_receipt.joined,
             cleanup_receipt.forced_abort,
         ),
     );
+    if matches!(
+        terminal_status,
+        CandidateRuntimeTerminalStatus::RuntimeFailed
+            | CandidateRuntimeTerminalStatus::RuntimePanicked
+            | CandidateRuntimeTerminalStatus::AlreadyJoined
+    ) {
+        let latest_probe_outcome = match terminal_status {
+            CandidateRuntimeTerminalStatus::RuntimeFailed => "candidate_runtime_failed",
+            CandidateRuntimeTerminalStatus::RuntimePanicked => "candidate_runtime_panicked",
+            CandidateRuntimeTerminalStatus::AlreadyJoined => "candidate_runtime_already_joined",
+            CandidateRuntimeTerminalStatus::CleanShutdown | CandidateRuntimeTerminalStatus::ForcedAbort => {
+                "candidate_runtime_failed"
+            }
+        };
+        let message = format!("candidate runtime terminal failure: {terminal_status:?}");
+        let mut report = build_report(
+            ReportBuildContext {
+                session_id: plan.session_id.clone(),
+                request: plan.request.clone(),
+                started_at: plan.started_at,
+                execution_plan: Some(plan.snapshot(runtime.stage_executions())),
+            },
+            message.clone(),
+            runtime.results,
+            runtime.observations,
+            runtime.strategy.strategy_probe_report,
+            None,
+        );
+        report.completion_kind = ScanCompletionKind::Terminated;
+        report.termination_reason = Some(ScanTerminationReason::EngineError);
+        report.candidate_runtime_cleanup = Some(cleanup_receipt);
+        set_report(&shared, report);
+        push_event(
+            &shared,
+            &plan.session_id,
+            &plan.request.profile_id,
+            &plan.request.path_mode,
+            "engine",
+            "error",
+            format!("Diagnostics terminated: {message}"),
+        );
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: plan.session_id,
+                phase: "error".to_string(),
+                completed_steps: runtime.completed_steps,
+                total_steps: plan.total_steps,
+                message: "Diagnostics terminated by candidate runtime failure".to_string(),
+                is_finished: true,
+                latest_probe_target: None,
+                latest_probe_outcome: Some(latest_probe_outcome.to_string()),
+                strategy_probe_progress: None,
+            },
+        );
+        return;
+    }
     match outcome {
         RunnerOutcome::Cancelled => {
             publish_cancelled_run(&plan, &shared, runtime, Some(cleanup_receipt));

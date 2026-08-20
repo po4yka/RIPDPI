@@ -34,19 +34,22 @@ fn pre_sent_success_reply_is_propagated_to_immediate_relay() {
         &state,
         None,
         SuccessReply::Socks5,
+        None,
         |_client, _reply, _upstream| Ok(()),
         |_client, _state| unreachable!("WS should be disabled"),
         |_client, _seed, _state| unreachable!("WS should be disabled"),
         |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: true }),
         {
             let immediate_calls = immediate_calls.clone();
-            move |_client, _target, _state, _host, _reply, success_reply_sent| {
+            move |_client, _target, _state, _host, _reply, success_reply_sent, _attempt_token| {
                 assert!(success_reply_sent, "immediate relay must not emit a second success reply");
                 immediate_calls.fetch_add(1, StdOrdering::Relaxed);
                 Ok(())
             }
         },
-        |_client, _target, _state, _host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _host, _route, _payload, _attempt_token| {
+            unreachable!("delayed relay should not run")
+        },
         |_client, _target, _state, _host, _seed| unreachable!("WS fallback should not run"),
     );
 
@@ -124,18 +127,21 @@ fn fallback_validated_mtproto_with_fake_sni(fake_sni: Option<&str>, allow_insecu
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         |_client, _reply, _upstream| Ok(()),
         |_client, _state| unreachable!("fresh WS sniff should not be used"),
         |_client, _replay_seed, _state| WsTunnelResult::ValidatedMtproto { dc: RuntimeTelegramDc::production(2) },
         |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
-        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::other("desync exhausted"),
                 true,
                 Some(preserved_seed.clone()),
             ))
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("delayed relay should not run")
+        },
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     );
     assert!(result.is_ok());
@@ -179,6 +185,7 @@ fn always_mode_replays_non_mtproto_seed_through_plain_connect() {
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         {
             let write_count = write_count.clone();
             move |_client, _reply, _upstream| {
@@ -189,10 +196,12 @@ fn always_mode_replays_non_mtproto_seed_through_plain_connect() {
         move |_client, _state| WsTunnelResult::NotMtproto { seed_request: sniff_seed.clone() },
         |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
-        |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             unreachable!("plain immediate relay should not run")
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("plain delayed relay should not run")
+        },
         move |_client, replay_target, _state, dc_host, replay_seed| {
             assert_eq!(replay_target, target);
             assert_eq!(dc_host.as_deref(), Some("telegram-dc2"));
@@ -222,6 +231,7 @@ fn always_mode_fails_closed_for_validated_mtproto_after_bootstrap_failure() {
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         {
             let write_count = write_count.clone();
             move |_client, _reply, _upstream| {
@@ -236,10 +246,12 @@ fn always_mode_fails_closed_for_validated_mtproto_after_bootstrap_failure() {
         },
         |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
-        |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             unreachable!("plain immediate relay should not run")
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("plain delayed relay should not run")
+        },
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     )
     .expect_err("validated MTProto in Always mode must not fall back after bootstrap failure");
@@ -267,6 +279,7 @@ fn always_mode_fails_closed_for_validated_mtproto_after_ws_relay_failure() {
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         {
             let write_count = write_count.clone();
             move |_client, _reply, _upstream| {
@@ -281,10 +294,12 @@ fn always_mode_fails_closed_for_validated_mtproto_after_ws_relay_failure() {
         },
         |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
-        |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             unreachable!("plain immediate relay should not run")
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("plain delayed relay should not run")
+        },
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     )
     .expect_err("validated MTProto in Always mode must not fall back after relay failure");
@@ -314,6 +329,7 @@ fn fallback_mode_reuses_preserved_seed_for_validated_mtproto() {
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         {
             let write_count = write_count.clone();
             move |_client, _reply, _upstream| {
@@ -327,14 +343,16 @@ fn fallback_mode_reuses_preserved_seed_for_validated_mtproto() {
             WsTunnelResult::ValidatedMtproto { dc: RuntimeTelegramDc::production(2) }
         },
         |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
-        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::other("desync exhausted"),
                 true,
                 Some(preserved_seed.clone()),
             ))
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("delayed relay should not run")
+        },
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     );
 
@@ -362,6 +380,7 @@ fn fallback_mode_returns_original_error_for_non_mtproto_preserved_seed() {
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         {
             let write_count = write_count.clone();
             move |_client, _reply, _upstream| {
@@ -375,14 +394,16 @@ fn fallback_mode_returns_original_error_for_non_mtproto_preserved_seed() {
             WsTunnelResult::NotMtproto { seed_request: replay_seed }
         },
         |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
-        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
                 true,
                 Some(preserved_seed.clone()),
             ))
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("delayed relay should not run")
+        },
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     )
     .expect_err("non-MTProto fallback should keep original error");
@@ -410,6 +431,7 @@ fn fallback_mode_returns_original_error_for_bootstrap_failure() {
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
+        None,
         |_client, _reply, _upstream| Ok(()),
         |_client, _state| unreachable!("fresh WS sniff should not be used"),
         move |_client, replay_seed, _state| {
@@ -421,14 +443,16 @@ fn fallback_mode_returns_original_error_for_bootstrap_failure() {
             }
         },
         |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
-        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
                 true,
                 Some(preserved_seed.clone()),
             ))
         },
-        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("delayed relay should not run")
+        },
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     )
     .expect_err("bootstrap failure should keep original error");

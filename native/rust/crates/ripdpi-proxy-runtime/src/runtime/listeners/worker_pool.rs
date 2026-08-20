@@ -35,6 +35,12 @@ pub(crate) struct ClientWorkerPool {
     workers: StdMutex<Vec<JoinHandle<()>>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WorkerDrainOutcome {
+    pub(crate) forced_abort: bool,
+    pub(crate) worker_panicked: bool,
+}
+
 impl ClientWorkerPool {
     pub(crate) fn new(max_workers: usize) -> io::Result<Self> {
         let min_workers = baseline_worker_count(max_workers, detected_parallelism());
@@ -108,7 +114,7 @@ impl ClientWorkerPool {
         }
     }
 
-    pub(crate) fn drain_gracefully(&self, state: &RuntimeState) -> bool {
+    pub(crate) fn drain_gracefully(&self, state: &RuntimeState) -> WorkerDrainOutcome {
         self.close();
         self.wait_for_workers(Instant::now() + GRACEFUL_DRAIN_TIMEOUT);
         let forced_abort = self.has_live_workers();
@@ -117,8 +123,8 @@ impl ClientWorkerPool {
             state.shutdown_active_tcp_sockets();
             self.wait_for_workers(Instant::now() + FORCED_DRAIN_TIMEOUT);
         }
-        self.join_worker_handles();
-        forced_abort
+        let worker_panicked = self.join_worker_handles();
+        WorkerDrainOutcome { forced_abort, worker_panicked }
     }
 
     fn wait_for_workers(&self, deadline: Instant) {
@@ -137,14 +143,16 @@ impl ClientWorkerPool {
         }
     }
 
-    fn join_worker_handles(&self) {
+    fn join_worker_handles(&self) -> bool {
         let handles = {
             let mut workers = self.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             std::mem::take(&mut *workers)
         };
+        let mut worker_panicked = false;
         for handle in handles {
-            let _ = handle.join();
+            worker_panicked |= handle.join().is_err();
         }
+        worker_panicked
     }
 
     fn spawn_worker(&self) -> io::Result<()> {
@@ -175,7 +183,7 @@ impl ClientWorkerPool {
 impl Drop for ClientWorkerPool {
     fn drop(&mut self) {
         self.close();
-        self.join_worker_handles();
+        let _ = self.join_worker_handles();
     }
 }
 
@@ -251,6 +259,7 @@ fn baseline_worker_count(max_workers: usize, parallelism: usize) -> usize {
 mod tests {
     use std::io::Read;
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
@@ -290,8 +299,40 @@ mod tests {
         let pool = ClientWorkerPool::new(1).expect("worker pool");
         let state = RuntimeState::new(RuntimeConfig::default(), None);
 
-        let _ = pool.drain_gracefully(&state);
+        let outcome = pool.drain_gracefully(&state);
 
         assert!(!pool.has_live_workers(), "terminal drain must own and join every worker");
+        assert!(!outcome.worker_panicked);
+    }
+
+    #[test]
+    fn joining_worker_handles_reports_a_worker_panic() {
+        let pool = ClientWorkerPool::new(0).expect("worker pool");
+        pool.workers
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(thread::spawn(|| panic!("worker failed")));
+
+        assert!(pool.join_worker_handles());
+    }
+
+    #[test]
+    fn joining_worker_handles_waits_for_later_workers_after_a_panic() {
+        let pool = ClientWorkerPool::new(0).expect("worker pool");
+        let later_worker_completed = StdArc::new(AtomicBool::new(false));
+        let later_worker_flag = later_worker_completed.clone();
+        let mut workers = pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        workers.push(thread::spawn(|| panic!("first worker failed")));
+        workers.push(thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            later_worker_flag.store(true, Ordering::Release);
+        }));
+        drop(workers);
+
+        assert!(pool.join_worker_handles());
+        assert!(
+            later_worker_completed.load(Ordering::Acquire),
+            "terminal join barrier must wait for every owned worker after an earlier panic",
+        );
     }
 }

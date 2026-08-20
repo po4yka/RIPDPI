@@ -1,59 +1,133 @@
 use std::sync::Mutex;
 
-use super::{CandidateProbeRuntime, CandidateRuntimeTerminalReceipt, CandidateRuntimeTerminalStatus};
+use super::{
+    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeExecutionEvidence, CandidateRuntimeShutdownMode,
+    CandidateRuntimeTerminalReceipt, CandidateRuntimeWorkerOutcome,
+};
 
-#[derive(Default)]
+const CANDIDATE_EXECUTION_EVIDENCE_LIMIT: usize = 32;
+
 pub(crate) struct CandidateRuntimeSupervisor {
-    receipt: Mutex<CandidateRuntimeTerminalReceipt>,
-    active: Mutex<usize>,
+    state: Mutex<CandidateRuntimeSupervisorState>,
+}
+
+impl Default for CandidateRuntimeSupervisor {
+    fn default() -> Self {
+        Self { state: Mutex::new(CandidateRuntimeSupervisorState::empty()) }
+    }
 }
 
 impl CandidateRuntimeSupervisor {
     pub(crate) fn supervise<'a>(&'a self, runtime: Box<dyn CandidateProbeRuntime>) -> CandidateRuntimeLease<'a> {
-        *self.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner) += 1;
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).active += 1;
         CandidateRuntimeLease { supervisor: self, runtime: Some(runtime) }
     }
 
     pub(crate) fn record(&self, receipt: CandidateRuntimeTerminalReceipt) {
-        let mut total = self.receipt.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        total.cleanup.started += receipt.cleanup.started;
-        total.cleanup.stopped += receipt.cleanup.stopped;
-        total.cleanup.joined += receipt.cleanup.joined;
-        total.cleanup.forced_abort += receipt.cleanup.forced_abort;
-        total.terminal_status = merge_terminal_status(total.terminal_status, receipt.terminal_status);
-        total.execution_evidence.extend(receipt.execution_evidence);
-    }
-
-    pub(crate) fn receipt(&self) -> CandidateRuntimeTerminalReceipt {
-        self.receipt.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).record(receipt);
     }
 
     /// Returns the aggregate only after every registered candidate has been
     /// shut down and joined.  A terminal event must not be published before
     /// this barrier succeeds.
     pub(crate) fn terminal_receipt(&self) -> Option<CandidateRuntimeTerminalReceipt> {
-        if *self.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner) != 0 {
-            return None;
-        }
-        let receipt = self.receipt();
-        (receipt.cleanup.started == receipt.cleanup.stopped && receipt.cleanup.stopped == receipt.cleanup.joined)
-            .then_some(receipt)
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).terminal_receipt()
     }
 }
 
-fn merge_terminal_status(
-    current: CandidateRuntimeTerminalStatus,
-    next: CandidateRuntimeTerminalStatus,
-) -> CandidateRuntimeTerminalStatus {
-    use CandidateRuntimeTerminalStatus::{AlreadyJoined, CleanShutdown, ForcedAbort, RuntimeFailed, RuntimePanicked};
+struct CandidateRuntimeSupervisorState {
+    cleanup: CandidateCleanupReceipt,
+    shutdown_mode: CandidateRuntimeShutdownMode,
+    worker_outcome: CandidateRuntimeWorkerOutcome,
+    execution_evidence: Vec<CandidateRuntimeExecutionEvidence>,
+    execution_evidence_overflowed: bool,
+    active: usize,
+}
 
+impl CandidateRuntimeSupervisorState {
+    fn empty() -> Self {
+        Self {
+            cleanup: CandidateCleanupReceipt::default(),
+            shutdown_mode: CandidateRuntimeShutdownMode::CleanShutdown,
+            worker_outcome: CandidateRuntimeWorkerOutcome::Clean,
+            execution_evidence: Vec::new(),
+            execution_evidence_overflowed: false,
+            active: 0,
+        }
+    }
+
+    fn record(&mut self, receipt: CandidateRuntimeTerminalReceipt) {
+        let cleanup = receipt.cleanup();
+        self.cleanup.started += cleanup.started;
+        self.cleanup.stopped += cleanup.stopped;
+        self.cleanup.joined += cleanup.joined;
+        self.cleanup.forced_abort += cleanup.forced_abort;
+        self.shutdown_mode = merge_shutdown_mode(self.shutdown_mode, receipt.shutdown_mode());
+        self.worker_outcome = merge_worker_outcome(self.worker_outcome, receipt.worker_outcome());
+        self.execution_evidence_overflowed |= receipt.execution_evidence_overflowed();
+        for evidence in receipt.execution_evidence() {
+            if self.execution_evidence.len() >= CANDIDATE_EXECUTION_EVIDENCE_LIMIT {
+                self.execution_evidence_overflowed = true;
+                break;
+            }
+            self.execution_evidence.push(evidence.clone());
+        }
+    }
+
+    fn receipt(&self) -> CandidateRuntimeTerminalReceipt {
+        CandidateRuntimeTerminalReceipt::aggregate(
+            self.cleanup,
+            self.shutdown_mode,
+            self.worker_outcome,
+            self.execution_evidence.clone(),
+            self.execution_evidence_overflowed,
+        )
+    }
+
+    fn terminal_receipt(&self) -> Option<CandidateRuntimeTerminalReceipt> {
+        if self.active != 0 {
+            return None;
+        }
+        if matches!(self.shutdown_mode, CandidateRuntimeShutdownMode::AlreadyJoined)
+            || matches!(self.worker_outcome, CandidateRuntimeWorkerOutcome::AlreadyJoined)
+        {
+            return None;
+        }
+        (self.cleanup.started == self.cleanup.stopped && self.cleanup.stopped == self.cleanup.joined)
+            .then(|| self.receipt())
+    }
+}
+
+fn merge_shutdown_mode(
+    current: CandidateRuntimeShutdownMode,
+    next: CandidateRuntimeShutdownMode,
+) -> CandidateRuntimeShutdownMode {
     match (current, next) {
-        (RuntimePanicked, _) | (_, RuntimePanicked) => RuntimePanicked,
-        (RuntimeFailed, _) | (_, RuntimeFailed) => RuntimeFailed,
-        (ForcedAbort, _) | (_, ForcedAbort) => ForcedAbort,
-        (CleanShutdown, status) => status,
-        (status, CleanShutdown) => status,
-        (AlreadyJoined, AlreadyJoined) => AlreadyJoined,
+        (CandidateRuntimeShutdownMode::ForcedAbort, _) | (_, CandidateRuntimeShutdownMode::ForcedAbort) => {
+            CandidateRuntimeShutdownMode::ForcedAbort
+        }
+        (CandidateRuntimeShutdownMode::AlreadyJoined, _) | (_, CandidateRuntimeShutdownMode::AlreadyJoined) => {
+            CandidateRuntimeShutdownMode::AlreadyJoined
+        }
+        _ => CandidateRuntimeShutdownMode::CleanShutdown,
+    }
+}
+
+fn merge_worker_outcome(
+    current: CandidateRuntimeWorkerOutcome,
+    next: CandidateRuntimeWorkerOutcome,
+) -> CandidateRuntimeWorkerOutcome {
+    match (current, next) {
+        (CandidateRuntimeWorkerOutcome::RuntimePanicked, _) | (_, CandidateRuntimeWorkerOutcome::RuntimePanicked) => {
+            CandidateRuntimeWorkerOutcome::RuntimePanicked
+        }
+        (CandidateRuntimeWorkerOutcome::RuntimeFailed, _) | (_, CandidateRuntimeWorkerOutcome::RuntimeFailed) => {
+            CandidateRuntimeWorkerOutcome::RuntimeFailed
+        }
+        (CandidateRuntimeWorkerOutcome::AlreadyJoined, _) | (_, CandidateRuntimeWorkerOutcome::AlreadyJoined) => {
+            CandidateRuntimeWorkerOutcome::AlreadyJoined
+        }
+        _ => CandidateRuntimeWorkerOutcome::Clean,
     }
 }
 
@@ -82,9 +156,9 @@ impl CandidateRuntimeLease<'_> {
 
     fn finish(&mut self, receipt: CandidateRuntimeTerminalReceipt) {
         self.supervisor.record(receipt);
-        let mut active = self.supervisor.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self.supervisor.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         // Infallible: each supervised lease increments once and finishes once.
-        *active = active.checked_sub(1).expect("candidate runtime lease active count underflow");
+        state.active = state.active.checked_sub(1).expect("candidate runtime lease active count underflow");
     }
 }
 
@@ -104,8 +178,8 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
-    use crate::CandidateCleanupReceipt;
     use crate::transport::TransportConfig;
+    use crate::{CandidateCleanupReceipt, CandidateRuntimeTerminalStatus};
 
     struct TrackingRuntime {
         shutdowns: Arc<AtomicUsize>,
@@ -117,26 +191,30 @@ mod tests {
             TransportConfig::Direct { route_experiment: None }
         }
 
+        fn generation(&self) -> u64 {
+            1
+        }
+
         fn request_shutdown(&mut self) {}
 
         fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
             self.forced_aborts.fetch_add(1, Ordering::SeqCst);
-            CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
-                started: 1,
-                stopped: 1,
-                joined: 1,
-                forced_abort: 1,
-            })
+            CandidateRuntimeTerminalReceipt::forced_abort(
+                1,
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+                Vec::new(),
+            )
+            .expect("valid forced receipt")
         }
 
         fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
             self.shutdowns.fetch_add(1, Ordering::SeqCst);
-            CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt {
-                started: 1,
-                stopped: 1,
-                joined: 1,
-                forced_abort: 0,
-            })
+            CandidateRuntimeTerminalReceipt::clean_shutdown(
+                1,
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+                Vec::new(),
+            )
+            .expect("valid clean receipt")
         }
     }
 
@@ -158,7 +236,7 @@ mod tests {
         second.shutdown();
 
         assert_eq!(
-            supervisor.terminal_receipt().map(|receipt| receipt.cleanup),
+            supervisor.terminal_receipt().map(|receipt| receipt.cleanup()),
             Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 })
         );
         assert_eq!(shutdowns.load(Ordering::SeqCst), 2);
@@ -174,12 +252,12 @@ mod tests {
             supervisor.terminal_receipt().expect("cancellation cleanup barrier")
         };
 
-        let deadline = make_cleanup().cleanup;
+        let deadline = make_cleanup().cleanup();
         let external_cancel = make_cleanup();
 
-        assert_eq!(deadline, external_cancel.cleanup);
+        assert_eq!(deadline, external_cancel.cleanup());
         assert_eq!(deadline, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
-        assert_eq!(external_cancel.terminal_status, CandidateRuntimeTerminalStatus::ForcedAbort);
+        assert_eq!(external_cancel.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 
     #[test]
@@ -193,7 +271,7 @@ mod tests {
         lease.shutdown();
 
         assert_eq!(shutdowns.load(Ordering::SeqCst), 1);
-        assert_eq!(supervisor.terminal_receipt().expect("joined barrier").cleanup.joined, 1);
+        assert_eq!(supervisor.terminal_receipt().expect("joined barrier").cleanup().joined, 1);
     }
 
     #[test]
@@ -207,8 +285,8 @@ mod tests {
 
         let receipt = supervisor.terminal_receipt().expect("forced cleanup joined");
         assert_eq!(forced_aborts.load(Ordering::SeqCst), 1);
-        assert_eq!(receipt.cleanup, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
-        assert_eq!(receipt.terminal_status, CandidateRuntimeTerminalStatus::ForcedAbort);
+        assert_eq!(receipt.cleanup(), CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 
     #[test]
@@ -222,19 +300,32 @@ mod tests {
 
         assert_eq!(
             next.terminal_receipt(),
-            Some(CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt::default()))
+            Some(CandidateRuntimeTerminalReceipt::aggregate(
+                CandidateCleanupReceipt::default(),
+                CandidateRuntimeShutdownMode::CleanShutdown,
+                CandidateRuntimeWorkerOutcome::Clean,
+                Vec::new(),
+                false,
+            ))
         );
     }
 
     #[test]
-    fn terminal_barrier_rejects_incomplete_cleanup_receipt() {
+    fn terminal_receipt_constructor_rejects_incomplete_cleanup() {
+        assert_eq!(
+            CandidateRuntimeTerminalReceipt::forced_abort(
+                1,
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1 },
+                Vec::new(),
+            ),
+            None,
+        );
+    }
+
+    #[test]
+    fn terminal_barrier_rejects_already_joined_receipt() {
         let supervisor = CandidateRuntimeSupervisor::default();
-        supervisor.record(CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
-            started: 1,
-            stopped: 1,
-            joined: 0,
-            forced_abort: 1,
-        }));
+        supervisor.record(CandidateRuntimeTerminalReceipt::already_joined());
 
         assert_eq!(supervisor.terminal_receipt(), None);
     }

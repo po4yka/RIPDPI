@@ -237,6 +237,13 @@ enum class DiagnosticsHomeCompositeStageStatus {
     UNAVAILABLE,
 }
 
+enum class DiagnosticsHomeCompositeStageUnavailableReason {
+    SERVICE_NOT_RUNNING,
+    ACTIVE_VPN_PATH_NOT_OBSERVED,
+    PROXY_ENDPOINT_MISMATCH,
+    RUNTIME_CHANGED_OR_UNAVAILABLE,
+}
+
 data class DiagnosticsHomeCompositeStageSummary(
     val stageKey: String,
     val stageLabel: String,
@@ -246,6 +253,7 @@ data class DiagnosticsHomeCompositeStageSummary(
     val status: DiagnosticsHomeCompositeStageStatus,
     val headline: String,
     val summary: String,
+    val unavailableReason: DiagnosticsHomeCompositeStageUnavailableReason? = null,
     val recommendationContributor: Boolean = false,
     /** Wall-clock duration of the underlying scan session in milliseconds, or null if not yet completed. */
     val wallClockMs: Long? = null,

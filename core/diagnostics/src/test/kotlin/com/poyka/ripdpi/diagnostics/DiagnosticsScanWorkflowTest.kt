@@ -43,7 +43,7 @@ class DiagnosticsScanWorkflowTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         val strategySignature = requireNotNull(recommendation.strategySignature)
         val activeDns = settings.activeDnsSettings()
         assertEquals("tcp-1", recommendation.tcpCandidateId)
@@ -73,7 +73,7 @@ class DiagnosticsScanWorkflowTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         val strategySignature = requireNotNull(recommendation.strategySignature)
 
         assertEquals("tlsrec_seqovl", recommendation.tcpCandidateFamily)
@@ -102,7 +102,7 @@ class DiagnosticsScanWorkflowTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertTrue(recommendation.tlsPathSuppressed)
         assertEquals("proxy_mode_browser_native_ech_suppressed", recommendation.tlsPathSuppressionReason)
         assertEquals(
@@ -128,7 +128,7 @@ class DiagnosticsScanWorkflowTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertFalse(recommendation.tlsPathSuppressed)
         assertNull(recommendation.tlsPathSuppressionReason)
         assertNull(recommendation.tlsPathSuppressionSummary)
@@ -220,7 +220,7 @@ class DiagnosticsScanWorkflowTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertEquals("tcp-1", recommendation.tcpCandidateId)
         assertEquals("TCP candidate", recommendation.tcpCandidateLabel)
         assertEquals("quic-1", recommendation.quicCandidateId)
@@ -250,7 +250,7 @@ class DiagnosticsScanWorkflowTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertEquals("tcp-1", recommendation.tcpCandidateId)
         assertEquals("quic-1", recommendation.quicCandidateId)
         assertEquals("best path", recommendation.rationale)

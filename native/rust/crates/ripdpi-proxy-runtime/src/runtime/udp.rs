@@ -19,6 +19,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 use self::client_receive::receive_and_forward_udp_client_packet;
 use self::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, UdpFlowKey, expire_udp_flows};
@@ -62,6 +63,7 @@ pub(super) fn udp_associate_loop(
     protect_path: Option<String>,
     state: RuntimeState,
     running: Arc<AtomicBool>,
+    attempt_token: Option<AttemptCorrelationId>,
 ) -> io::Result<()> {
     let mut udp_client_addr = None;
     let mut client_buffer = [0u8; 65_535];
@@ -88,6 +90,7 @@ pub(super) fn udp_associate_loop(
             flow_limit,
             &state,
             protect_path.as_deref(),
+            attempt_token.as_ref(),
         )?;
 
         if expiry_schedule.next_deadline().is_none() && !flow_state.is_empty() {

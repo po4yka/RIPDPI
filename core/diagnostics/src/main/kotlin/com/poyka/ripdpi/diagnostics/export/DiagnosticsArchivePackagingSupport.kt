@@ -31,6 +31,7 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(
             },
         headline = redactDiagnosticsArchiveText(stageSummary.headline),
         summary = redactDiagnosticsArchiveText(stageSummary.summary),
+        unavailableReason = stageSummary.unavailableReason?.name?.lowercase(),
         recommendationContributor = stageSummary.recommendationContributor,
         sourceSnapshotCount = sourceSnapshotCount,
         includedSnapshotCount = snapshots.size,
@@ -78,7 +79,10 @@ internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =
         measurementSnapshot =
             buildMeasurementSnapshot(
                 selection = selection,
-                strategyProbe = selection.primaryReport?.strategyProbeReport,
+                strategyProbe =
+                    selection.primaryReport
+                        ?.projectStrategyEvidenceForArchive()
+                        ?.strategyProbeReport,
                 latestTelemetry = selection.payload.telemetry.firstOrNull(),
             ),
     )

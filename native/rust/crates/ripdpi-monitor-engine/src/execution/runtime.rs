@@ -13,9 +13,10 @@ use std::time::Duration;
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
 pub use contracts::{
-    CandidateCleanupReceipt, CandidateDesyncExecutionDisposition, CandidateDesyncExecutionReceipt,
-    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeExecutionEvidence, CandidateRuntimeLauncher,
-    CandidateRuntimeTerminalReceipt, CandidateRuntimeTerminalStatus, PreparedCandidateRuntime,
+    CandidateAttemptCorrelationId, CandidateCleanupReceipt, CandidateDesyncExecutionDisposition,
+    CandidateDesyncExecutionReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeExecutionEvidence,
+    CandidateRuntimeLauncher, CandidateRuntimeShutdownMode, CandidateRuntimeTerminalReceipt,
+    CandidateRuntimeTerminalStatus, CandidateRuntimeWorkerOutcome, PreparedCandidateRuntime,
 };
 pub use launch::probe_runtime_transport;
 pub(crate) use supervisor::CandidateRuntimeSupervisor;
@@ -96,24 +97,28 @@ mod tests {
             self.transport.clone()
         }
 
+        fn generation(&self) -> u64 {
+            1
+        }
+
         fn request_shutdown(&mut self) {}
 
         fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
-            CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
-                started: 1,
-                stopped: 1,
-                joined: 1,
-                forced_abort: 1,
-            })
+            CandidateRuntimeTerminalReceipt::forced_abort(
+                1,
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+                Vec::new(),
+            )
+            .expect("valid forced receipt")
         }
 
         fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
-            CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt {
-                started: 1,
-                stopped: 1,
-                joined: 1,
-                forced_abort: 0,
-            })
+            CandidateRuntimeTerminalReceipt::clean_shutdown(
+                1,
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+                Vec::new(),
+            )
+            .expect("valid clean receipt")
         }
     }
 
@@ -127,7 +132,7 @@ mod tests {
             assert_eq!(prepared.config.network.listen.listen_ip.to_string(), "127.0.0.1");
             assert_eq!(prepared.config.network.listen.listen_port, 0);
             Ok(Box::new(FakeProbeRuntime {
-                transport: TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: 10_800 },
+                transport: TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: 10_800, credentials: None },
             }))
         }
     }
@@ -137,7 +142,7 @@ mod tests {
         let spec = crate::candidates::candidate_spec("test", "Test", "test", test_ui_config());
         let runtime = probe_runtime_transport(&FakeRuntimeLauncher, &spec, None).expect("fake launcher should start");
 
-        let TransportConfig::Socks5 { host, port } = runtime.transport() else {
+        let TransportConfig::Socks5 { host, port, .. } = runtime.transport() else {
             panic!("fake launcher should expose SOCKS5 transport");
         };
         assert_eq!(host, "127.0.0.1");
@@ -260,8 +265,8 @@ mod tests {
         runtime.request_shutdown();
         let receipt = runtime.force_abort_and_join();
 
-        assert_eq!(receipt.cleanup.forced_abort, 1);
-        assert_eq!(receipt.cleanup.joined, 1);
-        assert_eq!(receipt.terminal_status, CandidateRuntimeTerminalStatus::ForcedAbort);
+        assert_eq!(receipt.cleanup().forced_abort, 1);
+        assert_eq!(receipt.cleanup().joined, 1);
+        assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 }

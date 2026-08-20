@@ -79,6 +79,7 @@ pub(super) fn run_http_strategy_probe(
         weight: 1,
         domain: Some(target.host.clone()),
         is_control: target.is_control,
+        attempt_token: None,
         quality: if outcome == "http_ok" {
             3
         } else if outcome == "http_redirect" {

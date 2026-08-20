@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -64,7 +66,7 @@ class DiagnosticsScanStartupRetirementTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     scope = backgroundScope,
                     controllerScope = backgroundScope,
                     bridgeMutex = bridgeMutex,
@@ -123,7 +125,7 @@ class DiagnosticsScanStartupRetirementTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     scope = applicationIoScope,
                     controllerScope = backgroundScope,
                     retirementQueue = retirementQueue,

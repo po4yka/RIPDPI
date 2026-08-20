@@ -20,8 +20,8 @@ pub fn connect_transport_observed(
         TransportConfig::Direct { route_experiment } => {
             connect_direct_observed(targets, port, route_experiment.as_ref())
         }
-        TransportConfig::Socks5 { host, port: proxy_port } => {
-            connect_via_socks5_observed(targets, port, host, *proxy_port)
+        TransportConfig::Socks5 { host, port: proxy_port, credentials } => {
+            connect_via_socks5_observed(targets, port, host, *proxy_port, credentials.as_ref())
         }
     }
 }

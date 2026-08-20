@@ -7,6 +7,7 @@ pub(in crate::runtime) struct UdpFlowGroupPolicy {
     pub(in crate::runtime) socket: RuntimeUdpSocketSettings,
     pub(in crate::runtime) packet: RuntimeUdpPacketSettings,
     pub(in crate::runtime) source_rebind: RuntimeUdpSourceRebindPolicy,
+    pub(in crate::runtime) execution_family: Option<&'static str>,
     /// Single upstream SOCKS5 server this flow must reach via UDP ASSOCIATE,
     /// projected from `group.policy.ext_socks` exactly as the TCP CONNECT path
     /// projects it (`tcp_connect.rs`). `None` ⇒ direct egress to the target.

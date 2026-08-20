@@ -271,7 +271,7 @@ private fun decodeScanProjection(
 ): DiagnosticsSessionProjection? =
     payload
         ?.takeIf { it.isNotBlank() }
-        ?.let { json.decodeEngineScanReportWire(it).toSessionProjection() }
+        ?.let { json.decodeStoredEngineScanReportWire(it).toSessionProjection() }
 
 private fun decodeProfileProjection(
     json: Json,

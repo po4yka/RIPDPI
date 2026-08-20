@@ -41,6 +41,15 @@ packet_smoke_required_capability_supported() {
     esac
 }
 
+packet_smoke_require_executed_scenarios() {
+    local executed_count="${1:-0}"
+    local scenario_filter="${2:-}"
+    if [[ "$executed_count" -eq 0 ]]; then
+        echo "No Android packet smoke scenario executed for filter: ${scenario_filter:-<all>}" >&2
+        return 1
+    fi
+}
+
 packet_smoke_instrumentation_output_failed() {
     local output_file="$1"
     grep -Eq '(^FAILURES!!!$|^INSTRUMENTATION_STATUS_CODE: -2$|^INSTRUMENTATION_RESULT: shortMsg=|^INSTRUMENTATION_CODE: 0$|Process crashed)' "$output_file"

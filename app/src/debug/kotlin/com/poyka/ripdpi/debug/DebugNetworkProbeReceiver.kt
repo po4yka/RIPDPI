@@ -121,7 +121,6 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
                 val output = socket.getOutputStream()
                 output.write(payloadBytes)
                 output.flush()
-                socket.shutdownOutput()
 
                 socket.getInputStream().use { input ->
                     responseText = readDebugTcpProbeResponse(input, payloadBytes.size)

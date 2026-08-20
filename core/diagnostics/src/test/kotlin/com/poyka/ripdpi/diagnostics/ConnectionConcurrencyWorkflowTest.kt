@@ -33,7 +33,7 @@ class ConnectionConcurrencyWorkflowTest {
             )
         val preferences =
             decodeRipDpiProxyUiPreferences(
-                requireNotNull(enriched.strategyProbeReport).recommendation.recommendedProxyConfigJson,
+                requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation).recommendedProxyConfigJson,
             )
 
         assertEquals("firefox_stable", preferences?.fakePackets?.tlsFingerprintProfile)

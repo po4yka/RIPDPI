@@ -8,6 +8,7 @@ use super::flow_selection::ensure_udp_flow_selected;
 use super::parse_socks5_udp_packet_with_host;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::state::RuntimeState;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 pub(super) struct UdpClientPacket<'a> {
     pub(super) sender: SocketAddr,
@@ -37,6 +38,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
     flow_limit: usize,
     state: &RuntimeState,
     protect_path: Option<&str>,
+    attempt_token: Option<&AttemptCorrelationId>,
 ) -> io::Result<bool> {
     match client_relay.recv_from(client_buffer) {
         Ok((n, sender)) => {
@@ -44,7 +46,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
             let Some(packet) = decode_udp_client_packet(&client_buffer[..n], sender, udp_client_addr, state) else {
                 return Ok(true);
             };
-            if !ensure_udp_flow_selected(state, protect_path, flow_state, flow_limit, &packet, now)? {
+            if !ensure_udp_flow_selected(state, protect_path, flow_state, flow_limit, &packet, now, attempt_token)? {
                 return Ok(true);
             }
             let entry = flow_state

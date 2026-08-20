@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveAnalysisPayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifact
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveInstalledArtifactCollectionStatus
@@ -62,6 +64,20 @@ class DiagnosticsArchiveRendererTest {
             ),
             json,
         )
+
+    @Test
+    fun `schema 10 analysis decodes new strategy evidence as unverified defaults`() {
+        val fixture =
+            requireNotNull(javaClass.classLoader?.getResource("golden/archive/analysis_v10.json"))
+                .readText()
+
+        val decoded = json.decodeFromString(DiagnosticsArchiveAnalysisPayload.serializer(), fixture)
+
+        assertNull(decoded.strategyExecutionDetail.currentStrategyAssessment)
+        assertTrue(decoded.strategyExecutionDetail.tcpCandidates.all { it.executionAttempts.isEmpty() })
+        assertTrue(decoded.strategyExecutionDetail.tcpCandidates.none { it.executionEvidenceComplete })
+        assertTrue(decoded.strategyExecutionDetail.tcpCandidates.all { it.routeFeatures.isEmpty() })
+    }
 
     @Test
     fun `renderer emits redacted archive entries with manifest summaries`() {
@@ -742,7 +758,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(10, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(11, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -1346,6 +1362,19 @@ class DiagnosticsArchiveRendererTest {
             assertTrue(snapshots.contains("\"observerRole\": \"vpn_owner_service\""))
             assertTrue(snapshots.contains("\"callingDefaultObserverRole\": \"unavailable\""))
             assertTrue(snapshots.contains("\"forwardingOutcome\": \"cross_layer_return_observed\""))
+            val analysis = zip.getInputStream(zip.getEntry("analysis.json")).bufferedReader().readText()
+            assertTrue(analysis.contains("\"candidateVerdict\": \"INEFFECTIVE_ON_TESTED_CANDIDATE_PATH\""))
+            assertTrue(analysis.contains("\"activePathOutcome\": \"UNVERIFIED\""))
+            assertTrue(analysis.contains("\"observationRole\": \"EPHEMERAL_CANDIDATE_RAW_PATH\""))
+            assertTrue(analysis.contains("\"desyncExecutionRequired\": true"))
+            assertTrue(analysis.contains("\"runtimeTerminalStatus\": \"CLEAN_SHUTDOWN\""))
+            assertTrue(analysis.contains("\"disposition\": \"APPLIED\""))
+            assertTrue(analysis.contains("\"connectionOrdinal\": 1"))
+            assertTrue(analysis.contains("\"responseStage\": \"RESPONSE_NOT_OBSERVED\""))
+            assertTrue(analysis.contains("\"routeFeatures\": ["))
+            assertTrue(analysis.contains("\"UPSTREAM_RELAY\""))
+            assertTrue(analysis.contains("\"markerBase\": \"HOST\""))
+            assertTrue(analysis.contains("\"markerDelta\": 1"))
         }
         assertZipExcludes(target, hostileArchiveValues())
     }
@@ -1497,6 +1526,13 @@ class DiagnosticsArchiveRendererTest {
             "private-truncated-key-material",
             "native-secret-token",
             "approach-private-value",
+            "receipt-rationale.private.example",
+            "receipt-note.private.example",
+            "hostile-candidate-id-private",
+            "hostile-candidate-label-private",
+            "hostile-candidate-family-private",
+            "hostile-quic-layout-private",
+            "hostile-candidate-outcome-private",
             "route-owner-private.example/uid-4242/192.0.2.222",
             "Private Approach Name",
             "private-validation-result",
@@ -1532,7 +1568,16 @@ class DiagnosticsArchiveRendererTest {
             "qzxwvut",
             "UVdFUlRZVVlJT1BB",
             "jkvlmno",
-        ) + hostilePathArchiveValues()
+        ) + hostileStrategyArchiveValues() + hostilePathArchiveValues()
+
+    private fun hostileStrategyArchiveValues(): List<String> =
+        listOf(
+            "hostile-pilot-bucket-private.example",
+            "hostile-cohort-id-private.example",
+            "hostile-cohort-label-private.example",
+            "hostile-domain-target-private.example",
+            "hostile-quic-target-private.example",
+        )
 
     private fun hostilePathArchiveValues(): List<String> =
         listOf(
@@ -1577,6 +1622,7 @@ class DiagnosticsArchiveRendererTest {
     private fun buildSensitiveRendererSelection(): DiagnosticsArchiveSelection {
         val sensitiveSnapshot = sensitiveNetworkSnapshot()
         val base = buildFullRendererSelection()
+        val strategyContext = buildSensitiveStrategyContext(base)
         val hostileResult =
             rendererProbeResult(sessionId = "session-1").copy(
                 target = "probe.private.example",
@@ -1585,17 +1631,22 @@ class DiagnosticsArchiveRendererTest {
             )
         val hostileEvent = hostileNativeEvent()
         val hostileReplay = hostileReplayResult()
-        val hostileApproach = hostileApproachSummary()
+        val hostileApproach = hostileApproachSummary(strategyContext.strategyId)
         return base.copy(
             payload =
                 base.payload.copy(
+                    session = strategyContext.primarySession,
+                    primaryReport = strategyContext.primaryReport,
                     results = listOf(hostileResult),
                     sessionEvents = listOf(hostileEvent),
                     approachSummaries = listOf(hostileApproach),
                 ),
             primaryResults = listOf(hostileResult),
+            primarySession = strategyContext.primarySession,
+            primaryReport = strategyContext.primaryReport,
             primaryEvents = listOf(hostileEvent),
             selectedApproachSummary = hostileApproach,
+            effectiveStrategySignature = strategyContext.strategySignature,
             replayResults = listOf(hostileReplay),
             includedFiles = base.includedFiles + "replay-results.json",
             primarySnapshots =
@@ -1609,22 +1660,114 @@ class DiagnosticsArchiveRendererTest {
                     ),
                 ),
             latestSnapshotModel = sensitiveSnapshot,
-            logcatSnapshot =
-                LogcatSnapshot(
-                    content =
-                        "I/RIPDPI( 123): qzxwvut\n" +
-                            "I/RIPDPI( 123): UVdFUlRZVVlJT1BB\n" +
-                            "I/RIPDPI( 123): jkvlmno\n" +
-                            "I/RIPDPI( 123): -----END PRIVATE KEY-----\n" +
-                            "I/RIPDPI( 123): YQ==\n" +
-                            "I/RIPDPI( 123): -----END CERTIFICATE-----\n" +
-                            "I/RIPDPI( 123): file=/storage/emulated/0/John, Doe/private.pem suffix\n" +
-                            "03-12 10:00:00.012 I/RIPDPI: resolver。xn--p1ai\n",
-                    captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
-                    byteCount = 192,
+            logcatSnapshot = sensitiveLogcatSnapshot(),
+        )
+    }
+
+    private fun buildSensitiveStrategyContext(base: DiagnosticsArchiveSelection): SensitiveStrategyContext {
+        val strategySignature =
+            BypassStrategySignature(
+                mode = "VPN",
+                configSource = "ui",
+                hostAutolearn = "disabled",
+                desyncMethod = "split",
+                chainSummary = "tcp: split(host+1)",
+                tcpStrategyFamily = "split",
+                protocolToggles = listOf("HTTPS"),
+                tlsRecordSplitEnabled = false,
+                splitMarker = "host+1",
+            )
+        val strategyId = strategySignature.stableId()
+        val primaryReport =
+            requireNotNull(base.primaryReport)
+                .toScanReport()
+                .copy(
+                    pathMode = ScanPathMode.RAW_PATH,
+                    strategyProbeReport = hostileStrategyProbeReport(base),
+                ).toEngineScanReportWire()
+        val primarySession =
+            requireNotNull(base.primarySession).copy(
+                strategyId = strategyId,
+                strategyLabel = strategyId,
+                strategyJson = json.encodeToString(BypassStrategySignature.serializer(), strategySignature),
+                pathMode = ScanPathMode.RAW_PATH.name,
+                reportJson = json.encodeToString(primaryReport),
+            )
+        return SensitiveStrategyContext(strategySignature, strategyId, primaryReport, primarySession)
+    }
+
+    private fun hostileStrategyProbeReport(base: DiagnosticsArchiveSelection): StrategyProbeReport {
+        val strategyProbe = requireNotNull(base.primaryReport?.strategyProbeReport)
+        val candidates =
+            strategyProbe.tcpCandidates.mapIndexed { index, candidate ->
+                if (index == 0) {
+                    candidate.copy(
+                        id = "baseline_current",
+                        label = "hostile-candidate-label-private",
+                        family = "hostile-candidate-family-private",
+                        quicLayoutFamily = "hostile-quic-layout-private",
+                        outcome = "hostile-candidate-outcome-private",
+                        rationale = "receipt-rationale.private.example",
+                        notes = listOf("receipt-note.private.example"),
+                        activeSnapshotFaithful = true,
+                        desyncExecutionRequired = true,
+                        runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
+                        executionAttempts =
+                            candidate.executionAttempts.map { attempt ->
+                                attempt.copy(
+                                    responseStage = StrategyProbeResponseStage.RESPONSE_NOT_OBSERVED,
+                                    receipts =
+                                        attempt.receipts.mapIndexed { receiptIndex, receipt ->
+                                            receipt.copy(connectionOrdinal = receiptIndex + 1)
+                                        },
+                                )
+                            },
+                    )
+                } else {
+                    candidate
+                }
+            } +
+                strategyProbe.tcpCandidates.first().copy(
+                    id = "hostile-candidate-id-private",
+                    label = "hostile-candidate-label-private",
+                    family = "hostile-candidate-family-private",
+                    quicLayoutFamily = "hostile-quic-layout-private",
+                    outcome = "hostile-candidate-outcome-private",
+                )
+        return strategyProbe.copy(
+            tcpCandidates = candidates,
+            pilotBucketLabels = listOf("hostile-pilot-bucket-private.example"),
+            targetSelection =
+                StrategyProbeTargetSelection(
+                    cohortId = "hostile-cohort-id-private.example",
+                    cohortLabel = "hostile-cohort-label-private.example",
+                    domainHosts = listOf("hostile-domain-target-private.example"),
+                    quicHosts = listOf("hostile-quic-target-private.example"),
                 ),
         )
     }
+
+    private fun sensitiveLogcatSnapshot() =
+        LogcatSnapshot(
+            content =
+                "I/RIPDPI( 123): qzxwvut\n" +
+                    "I/RIPDPI( 123): UVdFUlRZVVlJT1BB\n" +
+                    "I/RIPDPI( 123): jkvlmno\n" +
+                    "I/RIPDPI( 123): -----END PRIVATE KEY-----\n" +
+                    "I/RIPDPI( 123): YQ==\n" +
+                    "I/RIPDPI( 123): -----END CERTIFICATE-----\n" +
+                    "I/RIPDPI( 123): file=/storage/emulated/0/John, Doe/private.pem suffix\n" +
+                    "03-12 10:00:00.012 I/RIPDPI: resolver。xn--p1ai\n",
+            captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+            byteCount = 192,
+        )
+
+    private data class SensitiveStrategyContext(
+        val strategySignature: BypassStrategySignature,
+        val strategyId: String,
+        val primaryReport: EngineScanReportWire,
+        val primarySession: ScanSessionEntity,
+    )
 
     private fun sensitiveNetworkSnapshot() =
         NetworkSnapshotModel(
@@ -1748,8 +1891,8 @@ class DiagnosticsArchiveRendererTest {
         )
     }
 
-    private fun hostileApproachSummary() =
-        rendererApproachSummary(strategyId = "approach-private-value").copy(
+    private fun hostileApproachSummary(strategyId: String) =
+        rendererApproachSummary(strategyId = strategyId).copy(
             displayName = "Private Approach Name",
             secondaryLabel = "private.secondary.example",
             lastValidatedResult = "private-validation-result",
@@ -1759,6 +1902,12 @@ class DiagnosticsArchiveRendererTest {
                     lastEndedReason = "private-runtime-end-reason",
                 ),
             topFailureOutcomes = listOf("private-failure-outcome"),
+            currentStrategyAssessment =
+                CurrentStrategyAssessment(
+                    candidateVerdict = CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH,
+                    observationRole = StrategyProbeObservationRole.EPHEMERAL_CANDIDATE_RAW_PATH,
+                    reason = CurrentStrategyEvidenceReason.APPLIED_ATTEMPT_SUCCEEDED,
+                ),
         )
 
     @Test
@@ -2100,7 +2249,7 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(reportText.contains("\"classifierVersion\": \"ru_ooni_v1\""))
         assertTrue(analysisText.contains("\"networkIdentityBucket\": \"wifi:steady:redacted\""))
         assertTrue(
-            analysisText.contains("\"targetBucket\": \"foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no\""),
+            analysisText.contains("\"targetBucket\": \"pilot-bucket-1|pilot-bucket-2\""),
         )
         assertTrue(analysisText.contains("\"inferredUnavailableCapabilities\": ["))
         assertTrue(analysisText.contains("\"root_helper_available\""))
@@ -2109,7 +2258,7 @@ class DiagnosticsArchiveRendererTest {
         assertFalse(reportText.contains("127.0.0.1:1080"))
         assertTrue(telemetryCsv.contains("redacted"))
         assertTrue(telemetryCsv.contains("networkIdentityBucket"))
-        assertTrue(telemetryCsv.contains("foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no"))
+        assertTrue(telemetryCsv.contains("pilot-bucket-1|pilot-bucket-2"))
         assertTrue(telemetryCsv.contains("root_helper_available"))
         assertEquals("execution_plan_v1", executionPlan.executionPlan?.planVersion)
         assertEquals(
@@ -2188,7 +2337,7 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v10.json",
+            "archive/manifest_v11.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -2200,15 +2349,15 @@ class DiagnosticsArchiveRendererTest {
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v10.json",
+            "archive/analysis_v11.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v10.json",
+            "archive/completeness_v11.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v10.json",
+            "archive/integrity_v11.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -2393,6 +2542,33 @@ class DiagnosticsArchiveRendererTest {
                                 totalWeight = 12,
                                 qualityScore = 9,
                                 averageLatencyMs = 120L,
+                                observationRole = StrategyProbeObservationRole.EPHEMERAL_CANDIDATE_RAW_PATH,
+                                executionEvidenceComplete = true,
+                                executionAttempts =
+                                    listOf(
+                                        StrategyProbeAttemptExecutionEvidence(
+                                            probeSucceeded = false,
+                                            complete = true,
+                                            receipts =
+                                                listOf(
+                                                    StrategyDesyncExecutionReceipt(
+                                                        disposition = StrategyExecutionDisposition.APPLIED,
+                                                        configuredFamily = StrategyExecutionFamily.SPLIT,
+                                                        effectiveFamily = StrategyExecutionFamily.SPLIT,
+                                                        markerBase = StrategyOffsetMarkerBase.HOST,
+                                                        markerDelta = 1,
+                                                        resolvedOffset = 18,
+                                                        plannedSteps = 1,
+                                                        attemptedActions = 3,
+                                                        completedActions = 3,
+                                                        realWritesCommitted = 2,
+                                                        completedAwaits = 1,
+                                                        payloadBytesCommitted = 96,
+                                                    ),
+                                                ),
+                                        ),
+                                    ),
+                                routeFeatures = listOf(StrategyProbeRouteFeature.UPSTREAM_RELAY),
                             ),
                             StrategyProbeCandidateSummary(
                                 id = "tcp-rooted",

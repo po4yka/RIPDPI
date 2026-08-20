@@ -2,7 +2,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use ripdpi_config::{IpIdMode, RuntimeConfig};
+use ripdpi_config::{IpIdMode, RuntimeConfig, UdpChainStepKind};
 
 use super::shared::connect_timeout;
 
@@ -76,6 +76,7 @@ pub struct UdpGroupSettings {
     pub socket: UdpGroupSocketSettings,
     pub packet: UdpGroupPacketSettings,
     pub source_rebind: UdpSourceRebindPolicy,
+    pub execution_family: Option<&'static str>,
     pub upstream_socks_addr: Option<SocketAddr>,
     /// Control-TCP connect timeout for the upstream SOCKS5 UDP ASSOCIATE
     /// handshake, sourced from the same `connect_timeout` projection the TCP
@@ -98,6 +99,7 @@ pub fn udp_group_settings_table(config: &RuntimeConfig) -> UdpGroupSettingsTable
                 socket: udp_group_socket_settings(config, group_index),
                 packet: udp_group_packet_settings(config, group_index),
                 source_rebind: udp_source_rebind_policy(config, group_index),
+                execution_family: udp_primary_strategy_family(config, group_index),
                 upstream_socks_addr: udp_upstream_socks_addr(config, group_index),
                 connect_timeout: connect_timeout(config),
             })
@@ -115,6 +117,23 @@ pub fn udp_bind_low_port(config: &RuntimeConfig, group_index: usize) -> bool {
 
 pub fn udp_ip_id_mode(config: &RuntimeConfig, group_index: usize) -> Option<IpIdMode> {
     config.groups.get(group_index).and_then(|group| group.actions.ip_id_mode)
+}
+
+pub fn udp_primary_strategy_family(config: &RuntimeConfig, group_index: usize) -> Option<&'static str> {
+    let group = config.groups.get(group_index)?;
+    group.effective_udp_chain().into_iter().next().and_then(|step| match step.kind {
+        UdpChainStepKind::FakeBurst => Some("quic_burst"),
+        UdpChainStepKind::DummyPrepend => Some("quic_dummy_prepend"),
+        UdpChainStepKind::QuicSniSplit => Some("quic_sni_split"),
+        UdpChainStepKind::QuicFakeVersion => Some("quic_fake_version"),
+        UdpChainStepKind::QuicCryptoSplit => Some("quic_crypto_split"),
+        UdpChainStepKind::QuicPaddingLadder => Some("quic_padding_ladder"),
+        UdpChainStepKind::QuicVersionNegotiationDecoy => Some("quic_version_negotiation_decoy"),
+        UdpChainStepKind::QuicMultiInitialRealistic => Some("quic_multi_initial_realistic"),
+        UdpChainStepKind::IpFrag2Udp => Some("quic_ipfrag2"),
+        UdpChainStepKind::QuicCidChurn | UdpChainStepKind::QuicPacketNumberGap => Some("quic_burst"),
+        _ => None,
+    })
 }
 
 pub fn udp_default_ttl(config: &RuntimeConfig) -> u8 {

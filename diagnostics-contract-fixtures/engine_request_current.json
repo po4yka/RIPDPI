@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "profileId": "automatic-probing",
   "displayName": "Automatic probing",
   "pathMode": "RAW_PATH",

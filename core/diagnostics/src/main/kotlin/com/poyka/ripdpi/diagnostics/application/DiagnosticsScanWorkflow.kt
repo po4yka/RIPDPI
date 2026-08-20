@@ -15,7 +15,6 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
-import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxEchStable
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -26,6 +25,7 @@ import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson as RememberedPolicy
 
 @Suppress("detekt.TooManyFunctions")
 internal object DiagnosticsScanWorkflow {
@@ -107,7 +107,9 @@ internal object DiagnosticsScanWorkflow {
     ): ScanReport {
         val strategyProbe =
             report.strategyProbeReport?.let { strategyProbe ->
-                val recommendation = resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
+                val recommendation =
+                    resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
+                        ?: return@let strategyProbe
                 strategyProbe.copy(
                     recommendation =
                         recommendation.recommendation.withConnectionConcurrencyAssessment(
@@ -283,14 +285,33 @@ internal object DiagnosticsScanWorkflow {
         fingerprint: NetworkFingerprint,
         hostAutolearnStorePath: String?,
         json: Json,
-    ): RememberedNetworkPolicyJson? {
-        val recommendation = resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
-        val isEligible =
-            strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1 &&
-                recommendation.isValid &&
-                evaluateBackgroundAutoPersistEligibility(strategyProbe) == BackgroundAutoPersistEligibility.Eligible &&
-                hasWinningTargetSuccess(strategyProbe)
-        if (!isEligible) return null
+    ): RememberedPolicy? =
+        resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
+            ?.takeIf { recommendation ->
+                strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1 &&
+                    recommendation.isValid &&
+                    evaluateBackgroundAutoPersistEligibility(strategyProbe) ==
+                    BackgroundAutoPersistEligibility.Eligible &&
+                    hasWinningTargetSuccess(strategyProbe)
+            }?.let { recommendation ->
+                buildRememberedNetworkPolicy(
+                    strategyProbe = strategyProbe,
+                    recommendation = recommendation,
+                    settings = settings,
+                    fingerprint = fingerprint,
+                    hostAutolearnStorePath = hostAutolearnStorePath,
+                    json = json,
+                )
+            }
+
+    private fun buildRememberedNetworkPolicy(
+        strategyProbe: StrategyProbeReport,
+        recommendation: ValidatedStrategyProbeRecommendation,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        fingerprint: NetworkFingerprint,
+        hostAutolearnStorePath: String?,
+        json: Json,
+    ): RememberedPolicy {
         val activeDns = settings.activeDnsSettings()
         val networkScopeKey = fingerprint.scopeKey()
         val concurrencyAssessment = strategyProbe.connectionConcurrencyAssessment
@@ -337,7 +358,7 @@ internal object DiagnosticsScanWorkflow {
             } else {
                 null
             }
-        return RememberedNetworkPolicyJson(
+        return RememberedPolicy(
             fingerprintHash = networkScopeKey,
             mode = mode.preferenceValue,
             summary = fingerprint.summary(),
@@ -358,9 +379,9 @@ internal object DiagnosticsScanWorkflow {
     private fun resolveValidatedStrategyProbeRecommendation(
         strategyProbe: StrategyProbeReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
-    ): ValidatedStrategyProbeRecommendation {
+    ): ValidatedStrategyProbeRecommendation? {
         val activeDns = settings.activeDnsSettings()
-        val baseRecommendation = strategyProbe.recommendation.clearDerivedMetadata()
+        val baseRecommendation = strategyProbe.recommendation?.clearDerivedMetadata() ?: return null
         val winningTcpCandidate =
             strategyProbe.tcpCandidates.firstOrNull { it.id == baseRecommendation.tcpCandidateId }
         val winningQuicCandidate =
@@ -466,10 +487,11 @@ internal object DiagnosticsScanWorkflow {
     }
 
     private fun hasWinningTargetSuccess(strategyProbe: StrategyProbeReport): Boolean {
+        val recommendation = strategyProbe.recommendation ?: return false
         val recommendedCandidateIds =
             setOf(
-                strategyProbe.recommendation.tcpCandidateId,
-                strategyProbe.recommendation.quicCandidateId,
+                recommendation.tcpCandidateId,
+                recommendation.quicCandidateId,
             )
         return (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
             candidate.id in recommendedCandidateIds && candidate.succeededTargets > 0
@@ -477,10 +499,11 @@ internal object DiagnosticsScanWorkflow {
     }
 
     private fun hasSuccessfulControlEvidence(strategyProbe: StrategyProbeReport): Boolean {
+        val recommendation = strategyProbe.recommendation ?: return false
         val recommendedCandidateIds =
             setOf(
-                strategyProbe.recommendation.tcpCandidateId,
-                strategyProbe.recommendation.quicCandidateId,
+                recommendation.tcpCandidateId,
+                recommendation.quicCandidateId,
             )
         return (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
             candidate.id in recommendedCandidateIds &&

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -919,6 +920,7 @@ internal class FakeNetworkDiagnosticsBridge(
         startedRequestJson = requestJson
         afterStartScan()
         if (autoCompleteOnStart) {
+            val request = json.decodeFromString(EngineScanRequestWire.serializer(), requestJson)
             progressJson =
                 json.encodeToString(
                     com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
@@ -938,13 +940,8 @@ internal class FakeNetworkDiagnosticsBridge(
                         .serializer(),
                     ScanReport(
                         sessionId = sessionId,
-                        profileId = "default",
-                        pathMode =
-                            json
-                                .decodeFromString(
-                                    EngineScanRequestWire.serializer(),
-                                    requestJson,
-                                ).pathMode,
+                        profileId = request.profileId,
+                        pathMode = request.pathMode,
                         startedAt = 10L,
                         finishedAt = 20L,
                         summary = "Finished",
@@ -1064,9 +1061,12 @@ internal class FakeNetworkDiagnosticsBridge(
     }
 }
 
-internal class FakeDiagnosticsRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
+internal class FakeDiagnosticsRuntimeCoordinator(
+    private var inPathRouteLease: DiagnosticsInPathRouteLease? = null,
+) : DiagnosticsRuntimeCoordinator {
     val rawScanCount = AtomicInteger(0)
     val automaticRawScanCount = AtomicInteger(0)
+    private val scriptedLeaseValidationResults = ArrayDeque<Boolean>()
 
     override suspend fun runRawPathScan(block: suspend () -> Unit) {
         rawScanCount.incrementAndGet()
@@ -1076,6 +1076,19 @@ internal class FakeDiagnosticsRuntimeCoordinator : DiagnosticsRuntimeCoordinator
     override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
         automaticRawScanCount.incrementAndGet()
         block()
+    }
+
+    override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? = inPathRouteLease
+
+    override fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean =
+        scriptedLeaseValidationResults.removeFirstOrNull() ?: (inPathRouteLease == lease)
+
+    fun enqueueLeaseValidationResults(vararg results: Boolean) {
+        scriptedLeaseValidationResults.addAll(results.toList())
+    }
+
+    fun updateInPathRouteLease(lease: DiagnosticsInPathRouteLease?) {
+        inPathRouteLease = lease
     }
 }
 

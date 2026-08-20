@@ -1,7 +1,7 @@
 use crate::candidates::prelude::*;
 
 pub fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, profile: &str) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base_tcp);
+    let mut config = plain_direct_probe_config(base_tcp);
     config.protocols.desync_udp = enabled;
     config.chains.udp_steps = if enabled {
         vec![ProxyUiUdpChainStep {
@@ -19,7 +19,7 @@ pub fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, profile: &s
     config
 }
 pub fn build_quic_ipfrag_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base_tcp);
+    let mut config = plain_direct_probe_config(base_tcp);
     config.protocols.desync_udp = true;
     config.chains.udp_steps = vec![ProxyUiUdpChainStep {
         kind: "ipfrag2_udp".to_string(),
@@ -41,7 +41,7 @@ pub fn build_quic_ipfrag_candidate_with_ipv6_ext(base_tcp: &ProxyUiConfig, profi
     config
 }
 pub fn build_quic_sni_split_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base_tcp);
+    let mut config = plain_direct_probe_config(base_tcp);
     config.protocols.desync_udp = true;
     config.chains.udp_steps = vec![ProxyUiUdpChainStep {
         kind: "quic_sni_split".to_string(),
@@ -56,7 +56,7 @@ pub fn build_quic_sni_split_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig
 }
 
 pub fn build_quic_fake_version_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base_tcp);
+    let mut config = plain_direct_probe_config(base_tcp);
     config.protocols.desync_udp = true;
     config.chains.udp_steps = vec![ProxyUiUdpChainStep {
         kind: "quic_fake_version".to_string(),
@@ -71,7 +71,7 @@ pub fn build_quic_fake_version_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiCon
 }
 
 pub fn build_quic_dummy_prepend_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base_tcp);
+    let mut config = plain_direct_probe_config(base_tcp);
     config.protocols.desync_udp = true;
     config.chains.udp_steps = vec![ProxyUiUdpChainStep {
         kind: "dummy_prepend".to_string(),
@@ -108,7 +108,7 @@ pub fn build_quic_step_candidate(
     split_bytes: i32,
     fake_profile: &str,
 ) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base_tcp);
+    let mut config = plain_direct_probe_config(base_tcp);
     config.protocols.desync_udp = true;
     config.chains.udp_steps = vec![ProxyUiUdpChainStep {
         kind: kind.to_string(),

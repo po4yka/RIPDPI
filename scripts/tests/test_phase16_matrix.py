@@ -459,6 +459,149 @@ class Phase16MatrixTest(unittest.TestCase):
 
 
 class Phase16PcapSummaryTest(unittest.TestCase):
+    def test_split_host_plus_one_requires_exact_on_wire_sni_boundary(self) -> None:
+        registry = phase16_pcap_summary.load_registry()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            scenario_dir = root / "android_proxy_split_host_plus_one"
+            scenario_dir.mkdir(parents=True)
+            fixture_domain = "fixture.example.test"
+            prefix = b"tls-client-hello-prefix"
+            first_payload = prefix + fixture_domain[:1].encode("ascii")
+            second_payload = fixture_domain[1:].encode("ascii") + b"-tail"
+            (scenario_dir / "fixture-manifest.json").write_text(
+                json.dumps({"fixtureDomain": fixture_domain, "tlsEchoPort": 4433}),
+                encoding="utf-8",
+            )
+            (scenario_dir / "device-capture.tshark.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "_source": {
+                                "layers": {
+                                    "tcp.stream": "7",
+                                    "tcp.seq_raw": "1000",
+                                    "tcp.dstport": "4433",
+                                    "tcp.payload": first_payload.hex(":"),
+                                }
+                            }
+                        },
+                        {
+                            "_source": {
+                                "layers": {
+                                    "tcp.stream": "7",
+                                    "tcp.seq_raw": str(1000 + len(first_payload)),
+                                    "tcp.dstport": "4433",
+                                    "tcp.payload": second_payload.hex(":"),
+                                }
+                            }
+                        },
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            summary = phase16_pcap_summary.summarize_artifact_root(root, registry)
+
+            assertion = summary["scenarios"][0]["packetAssertion"]
+            self.assertEqual("passed", assertion["status"])
+            self.assertEqual(len(prefix), assertion["hostOffset"])
+            self.assertEqual(len(prefix) + 1, assertion["expectedBoundaryOffset"])
+            self.assertEqual([len(first_payload), len(first_payload) + len(second_payload)], assertion["segmentEndOffsets"])
+
+    def test_split_host_plus_one_rejects_coalesced_client_hello(self) -> None:
+        packets = [
+            {
+                "_source": {
+                    "layers": {
+                        "tcp.stream": "3",
+                        "tcp.seq": "1",
+                        "tcp.dstport": "4433",
+                        "tcp.payload": (b"prefix-fixture.example.test-tail").hex(),
+                    }
+                }
+            }
+        ]
+
+        assertion = phase16_pcap_summary.summarize_tcp_split_at_sni_host_delta(
+            packets,
+            "fixture.example.test",
+            4433,
+            1,
+        )
+
+        self.assertEqual("failed", assertion["status"])
+
+    def test_split_host_plus_one_reassembles_out_of_order_and_identical_retransmissions(self) -> None:
+        fixture_domain = "fixture.example.test"
+        prefix = b"tls-prefix"
+        first_payload = prefix + fixture_domain[:1].encode("ascii")
+        second_payload = fixture_domain[1:].encode("ascii") + b"-tail"
+
+        def packet(sequence: int, payload: bytes) -> dict:
+            return {
+                "_source": {
+                    "layers": {
+                        "tcp.stream": "9",
+                        "tcp.seq_raw": str(sequence),
+                        "tcp.dstport": "4433",
+                        "tcp.payload": payload.hex(),
+                    }
+                }
+            }
+
+        packets = [
+            packet(1000 + len(first_payload), second_payload),
+            packet(1000, first_payload),
+            packet(1000, first_payload),
+        ]
+
+        assertion = phase16_pcap_summary.summarize_tcp_split_at_sni_host_delta(
+            packets,
+            fixture_domain,
+            4433,
+            1,
+        )
+
+        self.assertEqual("passed", assertion["status"])
+        self.assertEqual([len(first_payload), len(first_payload) + len(second_payload)], assertion["segmentEndOffsets"])
+
+    def test_split_host_plus_one_marks_gapped_capture_unavailable(self) -> None:
+        fixture_domain = "fixture.example.test"
+        first_payload = b"tls-prefix" + fixture_domain[:1].encode("ascii")
+        second_payload = fixture_domain[1:].encode("ascii") + b"-tail"
+        packets = [
+            {
+                "_source": {
+                    "layers": {
+                        "tcp.stream": "11",
+                        "tcp.seq_raw": "1000",
+                        "tcp.dstport": "4433",
+                        "tcp.payload": first_payload.hex(),
+                    }
+                }
+            },
+            {
+                "_source": {
+                    "layers": {
+                        "tcp.stream": "11",
+                        "tcp.seq_raw": str(1000 + len(first_payload) + 3),
+                        "tcp.dstport": "4433",
+                        "tcp.payload": second_payload.hex(),
+                    }
+                }
+            },
+        ]
+
+        assertion = phase16_pcap_summary.summarize_tcp_split_at_sni_host_delta(
+            packets,
+            fixture_domain,
+            4433,
+            1,
+        )
+
+        self.assertEqual("unavailable", assertion["status"])
+
     def test_summary_collects_expected_artifacts_and_packet_signals(self) -> None:
         registry = phase16_pcap_summary.load_registry()
         with tempfile.TemporaryDirectory() as temp_dir:

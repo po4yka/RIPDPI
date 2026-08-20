@@ -259,6 +259,7 @@ internal fun createDiagnosticsServices(
                 ),
             scanRequestFactory = requestFactory,
             serviceStateStore = serviceStateStore,
+            runtimeCoordinator = runtimeCoordinator,
         )
     val scheduler =
         AutomaticProbeScheduler(

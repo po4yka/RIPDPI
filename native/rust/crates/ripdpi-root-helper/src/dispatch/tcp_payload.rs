@@ -89,7 +89,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_RST, HelperRequest};
+    use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_RST, HelperRequest, PROTOCOL_VERSION};
 
     use super::dispatch_send_fake_rst;
     use crate::dispatch::test_support::{fd_is_closed, leak_owned_socket_fd};
@@ -99,6 +99,7 @@ mod tests {
         // but the wrong JSON shape for `FakeRstParams`, so `decode_params`
         // fails and the handler is never reached. This is the leak site.
         HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
             command: CMD_SEND_FAKE_RST.to_string(),
             params: serde_json::json!("not-a-params-object"),
             session_nonce: None,

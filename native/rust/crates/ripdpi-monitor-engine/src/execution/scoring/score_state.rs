@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::CandidateAttemptCorrelationId;
 use crate::types::ProbeResult;
 
 #[derive(Default)]
@@ -19,10 +20,14 @@ pub struct CandidateScore {
     pub domain_totals: BTreeMap<String, usize>,
     /// Per-domain control classification copied from the exact scan target.
     pub domain_controls: BTreeMap<String, bool>,
+    pub attempts: Vec<(CandidateAttemptCorrelationId, bool)>,
 }
 
 impl CandidateScore {
     pub fn add(&mut self, sample: ProbeSample) {
+        if let Some(token) = sample.attempt_token.clone() {
+            self.attempts.push((token, sample.success));
+        }
         if let Some(ref domain) = sample.domain {
             *self.domain_totals.entry(domain.clone()).or_default() += 1;
             self.domain_controls
@@ -66,4 +71,5 @@ pub struct ProbeSample {
     pub domain: Option<String>,
     /// Whether the exact planned domain target is a neutral control.
     pub is_control: bool,
+    pub attempt_token: Option<CandidateAttemptCorrelationId>,
 }

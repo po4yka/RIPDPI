@@ -10,7 +10,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
-import com.poyka.ripdpi.diagnostics.decodeEngineScanReportWire
+import com.poyka.ripdpi.diagnostics.decodeStoredEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.toSessionProjection
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
@@ -43,7 +43,7 @@ internal object DiagnosticsShareSummaryBuilder {
             selectedSession
                 ?.reportJson
                 ?.let { reportJson ->
-                    runCatching { json.decodeEngineScanReportWire(reportJson).toSessionProjection() }.getOrNull()
+                    runCatching { json.decodeStoredEngineScanReportWire(reportJson).toSessionProjection() }.getOrNull()
                 }
         val summaryProjection =
             projector.project(

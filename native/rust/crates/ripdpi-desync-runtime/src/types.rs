@@ -32,6 +32,7 @@ pub enum TcpExecutionDisposition {
 #[non_exhaustive]
 pub enum TcpStrategyFamily {
     Split,
+    TlsRecordSplit,
     SeqOverlap,
     TlsRecordSeqOverlap,
     MultiDisorder,
@@ -53,6 +54,7 @@ impl TcpStrategyFamily {
     pub fn from_token(token: &'static str) -> Self {
         match token {
             "split" | "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "two_phase_send" => Self::Split,
+            "tlsrec_split" => Self::TlsRecordSplit,
             "seqovl" => Self::SeqOverlap,
             "tlsrec_seqovl" => Self::TlsRecordSeqOverlap,
             "multidisorder" => Self::MultiDisorder,
@@ -66,7 +68,7 @@ impl TcpStrategyFamily {
             "hostfake" => Self::HostFake,
             "ipfrag2" => Self::IpFragment2,
             "fakerst" => Self::FakeRst,
-            "tlsrec" | "tlsrec_split" | "rec_pre_sni" | "rec_mid_sni" => Self::TlsRecord,
+            "tlsrec" | "rec_pre_sni" | "rec_mid_sni" => Self::TlsRecord,
             _ => Self::Unknown,
         }
     }
@@ -152,47 +154,105 @@ pub struct TcpExecutionReceipt {
     pub real_writes_committed: usize,
     pub completed_awaits: usize,
     pub payload_bytes_committed: usize,
+    pub tls_record_prelude_applied: bool,
+    pub tls_prelude_configured_count: usize,
+    pub tls_prelude_applied_count: usize,
+    pub tls_prelude_kind: Option<ripdpi_config::TcpChainStepKind>,
+    pub tls_prelude_marker_base: Option<TcpOffsetMarkerBase>,
+    pub tls_prelude_marker_delta: Option<i16>,
+    pub tls_prelude_resolved_offset: Option<usize>,
     pub fallback_reason: Option<TcpFallbackReason>,
     pub terminal_reason: Option<TcpTerminalReason>,
 }
 
 impl TcpExecutionReceipt {
-    pub fn applied(
+    pub fn tls_prelude_kind_token(&self) -> Option<&'static str> {
+        self.tls_prelude_kind.and_then(|kind| match kind {
+            ripdpi_config::TcpChainStepKind::TlsRec => Some("tlsrec"),
+            ripdpi_config::TcpChainStepKind::TlsRandRec => Some("tlsrandrec"),
+            _ => None,
+        })
+    }
+
+    pub(crate) fn applied(
         group: &ripdpi_config::DesyncGroup,
         plan: &DesyncPlan,
-        strategy_family: Option<&'static str>,
+        configured_family: Option<&'static str>,
+        effective_family: Option<&'static str>,
+        fallback_reason: Option<TcpFallbackReason>,
+        tls_record_prelude_applied: bool,
     ) -> Self {
-        let first_send_step = group.effective_tcp_chain().into_iter().find(|step| !step.kind().is_tls_prelude());
-        let (marker_base, marker_delta) = first_send_step.map_or((None, None), |step| {
-            (Some(TcpOffsetMarkerBase::from_offset_base(step.offset().base)), Some(bounded_delta(step.offset().delta)))
-        });
         let summary = TcpActionReceiptSummary::from_actions(&plan.actions);
+        Self::applied_with_counters(
+            group,
+            plan,
+            configured_family,
+            effective_family,
+            fallback_reason,
+            summary.actions,
+            summary.real_writes,
+            summary.awaits,
+            summary.payload_bytes,
+            tls_record_prelude_applied,
+        )
+    }
 
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn applied_with_counters(
+        group: &ripdpi_config::DesyncGroup,
+        plan: &DesyncPlan,
+        configured_family: Option<&'static str>,
+        effective_family: Option<&'static str>,
+        fallback_reason: Option<TcpFallbackReason>,
+        completed_actions: usize,
+        real_writes_committed: usize,
+        completed_awaits: usize,
+        payload_bytes_committed: usize,
+        tls_record_prelude_applied: bool,
+    ) -> Self {
+        let (marker_base, marker_delta) = configured_marker(group);
         Self {
             disposition: TcpExecutionDisposition::Applied,
-            configured_family: strategy_family.map(TcpStrategyFamily::from_token),
-            effective_family: strategy_family.map(TcpStrategyFamily::from_token),
+            configured_family: configured_family.map(TcpStrategyFamily::from_token),
+            effective_family: effective_family.map(TcpStrategyFamily::from_token),
             marker_base,
             marker_delta,
-            resolved_offset: plan.steps.first().and_then(|step| usize::try_from(step.end).ok()),
+            resolved_offset: bounded_offset(plan.steps.first().and_then(|step| usize::try_from(step.end).ok())),
             planned_steps: bounded_count(plan.steps.len()),
-            attempted_actions: bounded_count(summary.actions),
-            completed_actions: bounded_count(summary.actions),
-            real_writes_committed: bounded_count(summary.real_writes),
-            completed_awaits: bounded_count(summary.awaits),
-            payload_bytes_committed: bounded_count(summary.payload_bytes),
-            fallback_reason: None,
+            attempted_actions: bounded_count(completed_actions),
+            completed_actions: bounded_count(completed_actions),
+            real_writes_committed: bounded_count(real_writes_committed),
+            completed_awaits: bounded_count(completed_awaits),
+            payload_bytes_committed: bounded_count(payload_bytes_committed),
+            tls_record_prelude_applied,
+            tls_prelude_configured_count: bounded_count(plan.tls_prelude.configured_count),
+            tls_prelude_applied_count: bounded_count(plan.tls_prelude.applied_count),
+            tls_prelude_kind: plan.tls_prelude.kind,
+            tls_prelude_marker_base: plan.tls_prelude.marker_base.map(TcpOffsetMarkerBase::from_offset_base),
+            tls_prelude_marker_delta: plan.tls_prelude.marker_delta,
+            tls_prelude_resolved_offset: bounded_offset(plan.tls_prelude.resolved_offset),
+            fallback_reason,
             terminal_reason: None,
         }
     }
 
-    pub fn plain(disposition: TcpExecutionDisposition, bytes_committed: usize) -> Self {
+    pub(crate) fn plain(
+        disposition: TcpExecutionDisposition,
+        group: &ripdpi_config::DesyncGroup,
+        configured_family: Option<&'static str>,
+        bytes_committed: usize,
+    ) -> Self {
+        debug_assert!(matches!(
+            disposition,
+            TcpExecutionDisposition::ActivationSkipped | TcpExecutionDisposition::PlanFailedPlainFallback
+        ));
+        let (marker_base, marker_delta) = configured_marker(group);
         Self {
             disposition,
-            configured_family: None,
+            configured_family: configured_family.map(TcpStrategyFamily::from_token),
             effective_family: None,
-            marker_base: None,
-            marker_delta: None,
+            marker_base,
+            marker_delta,
             resolved_offset: None,
             planned_steps: 0,
             attempted_actions: 1,
@@ -200,6 +260,13 @@ impl TcpExecutionReceipt {
             real_writes_committed: 1,
             completed_awaits: 0,
             payload_bytes_committed: bounded_count(bytes_committed),
+            tls_record_prelude_applied: false,
+            tls_prelude_configured_count: 0,
+            tls_prelude_applied_count: 0,
+            tls_prelude_kind: None,
+            tls_prelude_marker_base: None,
+            tls_prelude_marker_delta: None,
+            tls_prelude_resolved_offset: None,
             fallback_reason: None,
             terminal_reason: None,
         }
@@ -227,10 +294,62 @@ impl TcpExecutionReceipt {
             real_writes_committed: bounded_count(real_writes_committed),
             completed_awaits: bounded_count(completed_awaits),
             payload_bytes_committed: bounded_count(payload_bytes_committed),
+            tls_record_prelude_applied: false,
+            tls_prelude_configured_count: 0,
+            tls_prelude_applied_count: 0,
+            tls_prelude_kind: None,
+            tls_prelude_marker_base: None,
+            tls_prelude_marker_delta: None,
+            tls_prelude_resolved_offset: None,
             fallback_reason: None,
             terminal_reason: Some(terminal_reason),
         }
     }
+
+    pub(crate) fn failed_with_plan(
+        group: &ripdpi_config::DesyncGroup,
+        plan: &DesyncPlan,
+        configured_family: Option<&'static str>,
+        effective_family: Option<&'static str>,
+        fallback_reason: Option<TcpFallbackReason>,
+        source: Option<&Self>,
+        terminal_reason: TcpTerminalReason,
+    ) -> Self {
+        let (marker_base, marker_delta) = configured_marker(group);
+        let source = source
+            .cloned()
+            .unwrap_or_else(|| Self::failed_strategy_execution(configured_family, 0, 0, 0, 0, 0, terminal_reason));
+        let observed_write = usize::from(source.payload_bytes_committed > 0);
+        Self {
+            disposition: TcpExecutionDisposition::ExecutionFailed,
+            configured_family: configured_family.map(TcpStrategyFamily::from_token),
+            effective_family: effective_family.map(TcpStrategyFamily::from_token),
+            marker_base,
+            marker_delta,
+            resolved_offset: bounded_offset(plan.steps.first().and_then(|step| usize::try_from(step.end).ok())),
+            planned_steps: bounded_count(plan.steps.len()),
+            attempted_actions: bounded_count(source.attempted_actions.max(observed_write)),
+            completed_actions: bounded_count(source.completed_actions.max(observed_write)),
+            real_writes_committed: bounded_count(source.real_writes_committed.max(observed_write)),
+            completed_awaits: bounded_count(source.completed_awaits),
+            payload_bytes_committed: bounded_count(source.payload_bytes_committed),
+            tls_record_prelude_applied: source.tls_record_prelude_applied,
+            tls_prelude_configured_count: bounded_count(plan.tls_prelude.configured_count),
+            tls_prelude_applied_count: bounded_count(plan.tls_prelude.applied_count),
+            tls_prelude_kind: plan.tls_prelude.kind,
+            tls_prelude_marker_base: plan.tls_prelude.marker_base.map(TcpOffsetMarkerBase::from_offset_base),
+            tls_prelude_marker_delta: plan.tls_prelude.marker_delta,
+            tls_prelude_resolved_offset: bounded_offset(plan.tls_prelude.resolved_offset),
+            fallback_reason,
+            terminal_reason: Some(terminal_reason),
+        }
+    }
+}
+
+fn configured_marker(group: &ripdpi_config::DesyncGroup) -> (Option<TcpOffsetMarkerBase>, Option<i16>) {
+    group.actions.tcp_chain.iter().find(|step| !step.kind().is_tls_prelude()).map_or((None, None), |step| {
+        (Some(TcpOffsetMarkerBase::from_offset_base(step.offset().base)), Some(bounded_delta(step.offset().delta)))
+    })
 }
 
 struct TcpActionReceiptSummary {
@@ -244,6 +363,10 @@ fn bounded_count(value: usize) -> usize {
     value.min(RECEIPT_COUNTER_MAX)
 }
 
+fn bounded_offset(value: Option<usize>) -> Option<usize> {
+    value.map(bounded_count)
+}
+
 fn bounded_delta(value: i64) -> i16 {
     value.clamp(RECEIPT_DELTA_MIN, RECEIPT_DELTA_MAX) as i16
 }
@@ -252,26 +375,27 @@ impl TcpActionReceiptSummary {
     fn from_actions(actions: &[DesyncAction]) -> Self {
         let mut summary = Self { actions: 0, real_writes: 0, awaits: 0, payload_bytes: 0 };
         for action in actions {
-            summary.actions += 1;
+            summary.actions = summary.actions.saturating_add(1);
             match action {
                 DesyncAction::Write(bytes) => {
-                    summary.real_writes += 1;
-                    summary.payload_bytes += bytes.len();
+                    summary.real_writes = summary.real_writes.saturating_add(1);
+                    summary.payload_bytes = summary.payload_bytes.saturating_add(bytes.len());
                 }
                 DesyncAction::WriteUrgent { prefix, .. } => {
-                    summary.real_writes += 1;
-                    summary.payload_bytes += prefix.len().saturating_add(1);
+                    summary.real_writes = summary.real_writes.saturating_add(1);
+                    summary.payload_bytes = summary.payload_bytes.saturating_add(prefix.len().saturating_add(1));
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, remainder, .. } => {
-                    summary.real_writes += 2;
-                    summary.payload_bytes += real_chunk.len().saturating_add(remainder.len());
+                    summary.real_writes = summary.real_writes.saturating_add(2);
+                    summary.payload_bytes =
+                        summary.payload_bytes.saturating_add(real_chunk.len().saturating_add(remainder.len()));
                 }
                 DesyncAction::WriteIpFragmentedTcp { bytes, .. } => {
-                    summary.real_writes += 1;
-                    summary.payload_bytes += bytes.len();
+                    summary.real_writes = summary.real_writes.saturating_add(1);
+                    summary.payload_bytes = summary.payload_bytes.saturating_add(bytes.len());
                 }
                 DesyncAction::AwaitWritable => {
-                    summary.awaits += 1;
+                    summary.awaits = summary.awaits.saturating_add(1);
                 }
                 DesyncAction::SetTtl(_)
                 | DesyncAction::RestoreDefaultTtl
@@ -361,6 +485,15 @@ impl OutboundSendError {
         match self {
             Self::Transport { execution_receipt, .. } => execution_receipt.as_deref(),
             Self::StrategyExecution { execution_receipt, .. } => Some(execution_receipt.as_ref()),
+        }
+    }
+
+    pub fn bytes_committed(&self) -> usize {
+        match self {
+            Self::Transport { execution_receipt, .. } => {
+                execution_receipt.as_deref().map_or(0, |receipt| receipt.payload_bytes_committed)
+            }
+            Self::StrategyExecution { bytes_committed, .. } => *bytes_committed,
         }
     }
 }

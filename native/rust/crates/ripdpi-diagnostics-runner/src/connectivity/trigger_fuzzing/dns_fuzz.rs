@@ -58,8 +58,8 @@ fn execute_variant(
     let server_addr = resolve_first_socket_addr(server)?;
     let response = match transport {
         TransportConfig::Direct { .. } => relay_udp_direct(server_addr, packet).map(|(bytes, _)| bytes),
-        TransportConfig::Socks5 { host, port } => {
-            relay_udp_via_socks5(host, *port, server_addr, packet).map(|(bytes, _)| bytes)
+        TransportConfig::Socks5 { host, port, credentials } => {
+            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref()).map(|(bytes, _)| bytes)
         }
     }?;
 

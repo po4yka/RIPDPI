@@ -120,7 +120,8 @@ fn blocked_destination_creates_no_udp_flow_or_egress_socket() {
     let mut flows = HashMap::new();
 
     assert!(
-        !ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now()).expect("blocked selection")
+        !ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now(), None)
+            .expect("blocked selection")
     );
     assert!(flows.is_empty());
 }
@@ -151,7 +152,9 @@ fn direct_destination_bypasses_group_udp_socks_associate() {
     let flow_key = packet.flow_key();
     let mut flows = HashMap::new();
 
-    assert!(ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now()).expect("direct selection"));
+    assert!(
+        ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now(), None).expect("direct selection")
+    );
     let flow = flows.get(&flow_key).expect("direct flow");
     assert_eq!(flow.destination_egress, DestinationEgress::Direct);
     assert_eq!(flow.upstream.peer_addr().expect("direct peer"), target);
@@ -324,6 +327,8 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+            execution_family: None,
+            attempt_token: None,
             host: Some("example.org".to_string()),
             payload: b"quic-initial".to_vec(),
             awaiting_response: true,
@@ -434,6 +439,8 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+            execution_family: None,
+            attempt_token: None,
             host: None,
             payload: Vec::new(),
             awaiting_response: false,

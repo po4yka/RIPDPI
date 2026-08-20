@@ -26,9 +26,10 @@ use super::config::{
 use super::destination_routing::{DestinationEgress, DestinationRoutingEvaluator};
 use super::desync::{
     DesyncSendRequest, OutboundSendError, OutboundSendOutcome, RuntimeDesyncProjection, TcpDesyncExecutionContext,
-    TcpDesyncExecutor, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
-    UdpDesyncPlanner, execute_udp_actions, plan_udp_actions_for_runtime, runtime_desync_projection,
-    send_tcp_desync_payload,
+    TcpDesyncExecutor, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason, TcpOffsetMarkerBase,
+    TcpStrategyFamily, TcpTerminalReason, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
+    UdpDesyncPlanRequest, UdpDesyncPlanner, UdpExecutionError, UdpExecutionOutcome, execute_udp_actions,
+    plan_udp_actions_for_runtime, runtime_desync_projection, send_tcp_desync_payload,
 };
 use super::failure::{
     RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeDnsTamperingEvidence, RuntimeFailureAction,

@@ -1,9 +1,127 @@
 pub mod ripdpi_runtime_api
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncExecutionDisposition
+pub ripdpi_runtime_api::DesyncExecutionDisposition::ActivationSkipped
+pub ripdpi_runtime_api::DesyncExecutionDisposition::Applied
+pub ripdpi_runtime_api::DesyncExecutionDisposition::ExecutionFailed
+pub ripdpi_runtime_api::DesyncExecutionDisposition::PlanFailedPlainFallback
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncExecutionTransport
+pub ripdpi_runtime_api::DesyncExecutionTransport::Tcp
+pub ripdpi_runtime_api::DesyncExecutionTransport::Udp
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncFallbackReason
+pub ripdpi_runtime_api::DesyncFallbackReason::AndroidTtlUnavailable
+pub ripdpi_runtime_api::DesyncFallbackReason::StrategyFamilyFallback
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncOffsetMarkerBase
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::Absolute
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::Adaptive
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::EchExt
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::EndHost
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::EndSld
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::ExtLen
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::Host
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::HostMid
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::HostRand
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::Method
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::MidSld
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::PayloadEnd
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::PayloadMid
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::PayloadRand
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::Sld
+pub ripdpi_runtime_api::DesyncOffsetMarkerBase::SniExt
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncStrategyFamily
+pub ripdpi_runtime_api::DesyncStrategyFamily::Disorder
+pub ripdpi_runtime_api::DesyncStrategyFamily::DisorderedOutOfBand
+pub ripdpi_runtime_api::DesyncStrategyFamily::Fake
+pub ripdpi_runtime_api::DesyncStrategyFamily::FakeDisorder
+pub ripdpi_runtime_api::DesyncStrategyFamily::FakeRst
+pub ripdpi_runtime_api::DesyncStrategyFamily::FakeSplit
+pub ripdpi_runtime_api::DesyncStrategyFamily::HostFake
+pub ripdpi_runtime_api::DesyncStrategyFamily::IpFragment2
+pub ripdpi_runtime_api::DesyncStrategyFamily::MultiDisorder
+pub ripdpi_runtime_api::DesyncStrategyFamily::OutOfBand
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicBurst
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicCryptoSplit
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicDummyPrepend
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicFakeVersion
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicIpFragment2
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicMultiInitialRealistic
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicPaddingLadder
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicSniSplit
+pub ripdpi_runtime_api::DesyncStrategyFamily::QuicVersionNegotiationDecoy
+pub ripdpi_runtime_api::DesyncStrategyFamily::SeqOverlap
+pub ripdpi_runtime_api::DesyncStrategyFamily::Split
+pub ripdpi_runtime_api::DesyncStrategyFamily::TlsRecord
+pub ripdpi_runtime_api::DesyncStrategyFamily::TlsRecordMultiDisorder
+pub ripdpi_runtime_api::DesyncStrategyFamily::TlsRecordSeqOverlap
+pub ripdpi_runtime_api::DesyncStrategyFamily::TlsRecordSplit
+pub ripdpi_runtime_api::DesyncStrategyFamily::Unknown
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncTerminalReason
+pub ripdpi_runtime_api::DesyncTerminalReason::Planning
+pub ripdpi_runtime_api::DesyncTerminalReason::StrategyExecution
+pub ripdpi_runtime_api::DesyncTerminalReason::Transport
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncTlsPreludeKind
+pub ripdpi_runtime_api::DesyncTlsPreludeKind::TlsRandRec
+pub ripdpi_runtime_api::DesyncTlsPreludeKind::TlsRec
+#[non_exhaustive] pub enum ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile
+pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::DestinationOptions
+pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::HopByHop
+pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::HopByHop2
+pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::HopByHopDestinationOptions
+pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::Unknown
+pub struct ripdpi_runtime_api::AttemptCorrelationId
+impl ripdpi_runtime_api::AttemptCorrelationId
+pub fn ripdpi_runtime_api::AttemptCorrelationId::as_opaque_str(&self) -> &str
+pub fn ripdpi_runtime_api::AttemptCorrelationId::new(impl core::convert::Into<alloc::string::String>) -> core::option::Option<Self>
+impl core::fmt::Debug for ripdpi_runtime_api::AttemptCorrelationId
+pub fn ripdpi_runtime_api::AttemptCorrelationId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct ripdpi_runtime_api::DesyncExecutionEvidence
+impl ripdpi_runtime_api::DesyncExecutionEvidence
+pub fn ripdpi_runtime_api::DesyncExecutionEvidence::attempt_token(&self) -> &ripdpi_runtime_api::AttemptCorrelationId
+pub fn ripdpi_runtime_api::DesyncExecutionEvidence::connection_ordinal(&self) -> u64
+pub fn ripdpi_runtime_api::DesyncExecutionEvidence::generation(&self) -> u64
+pub fn ripdpi_runtime_api::DesyncExecutionEvidence::new(u64, ripdpi_runtime_api::AttemptCorrelationId, u64, ripdpi_runtime_api::DesyncExecutionReceipt) -> core::option::Option<Self>
+pub fn ripdpi_runtime_api::DesyncExecutionEvidence::receipt(&self) -> &ripdpi_runtime_api::DesyncExecutionReceipt
+pub struct ripdpi_runtime_api::DesyncExecutionReceipt
+impl ripdpi_runtime_api::DesyncExecutionReceipt
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::attempted_actions(&self) -> u16
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::completed_actions(&self) -> u16
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::completed_awaits(&self) -> usize
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::configured_family(&self) -> core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::disposition(&self) -> ripdpi_runtime_api::DesyncExecutionDisposition
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::effective_family(&self) -> core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::fallback_reason(&self) -> core::option::Option<ripdpi_runtime_api::DesyncFallbackReason>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::marker_base(&self) -> core::option::Option<ripdpi_runtime_api::DesyncOffsetMarkerBase>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::marker_delta(&self) -> core::option::Option<i16>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::payload_bytes_committed(&self) -> usize
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::planned_steps(&self) -> u16
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::real_writes_committed(&self) -> usize
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::resolved_offset(&self) -> core::option::Option<u16>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::terminal_reason(&self) -> core::option::Option<ripdpi_runtime_api::DesyncTerminalReason>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::tls_prelude(&self) -> core::option::Option<&ripdpi_runtime_api::DesyncTlsPreludeEvidence>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::tls_record_prelude_applied(&self) -> bool
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::transport(&self) -> ripdpi_runtime_api::DesyncExecutionTransport
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::try_new(ripdpi_runtime_api::DesyncExecutionTransport, ripdpi_runtime_api::DesyncExecutionDisposition, core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>, core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>, core::option::Option<ripdpi_runtime_api::DesyncOffsetMarkerBase>, core::option::Option<i16>, core::option::Option<u16>, u16, u16, u16, usize, usize, usize, bool, core::option::Option<ripdpi_runtime_api::DesyncTlsPreludeEvidence>, core::option::Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile>, core::option::Option<ripdpi_runtime_api::DesyncFallbackReason>, core::option::Option<ripdpi_runtime_api::DesyncTerminalReason>) -> core::option::Option<Self>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::udp_ipv6_extension_profile(&self) -> core::option::Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile>
+pub struct ripdpi_runtime_api::DesyncTlsPreludeEvidence
+impl ripdpi_runtime_api::DesyncTlsPreludeEvidence
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::applied_count(&self) -> u16
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::configured_count(&self) -> u16
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::is_exact_single_application(&self) -> bool
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::kind(&self) -> core::option::Option<ripdpi_runtime_api::DesyncTlsPreludeKind>
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::marker_base(&self) -> core::option::Option<ripdpi_runtime_api::DesyncOffsetMarkerBase>
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::marker_delta(&self) -> core::option::Option<i16>
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::resolved_offset(&self) -> core::option::Option<u16>
+pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::try_new(u16, u16, core::option::Option<ripdpi_runtime_api::DesyncTlsPreludeKind>, core::option::Option<ripdpi_runtime_api::DesyncOffsetMarkerBase>, core::option::Option<i16>, core::option::Option<u16>) -> core::option::Option<Self>
 pub struct ripdpi_runtime_api::EmbeddedProxyControl
 impl ripdpi_runtime_api::EmbeddedProxyControl
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::current_network_snapshot(&self) -> core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
+pub fn ripdpi_runtime_api::EmbeddedProxyControl::desync_execution_evidence(&self) -> alloc::vec::Vec<ripdpi_runtime_api::DesyncExecutionEvidence>
+pub fn ripdpi_runtime_api::EmbeddedProxyControl::desync_execution_evidence_overflowed(&self) -> bool
+pub fn ripdpi_runtime_api::EmbeddedProxyControl::desync_execution_generation(&self) -> u64
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::new(core::option::Option<alloc::sync::Arc<dyn ripdpi_runtime_api::RuntimeTelemetrySink>>) -> Self
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::new_with_context(core::option::Option<alloc::sync::Arc<dyn ripdpi_runtime_api::RuntimeTelemetrySink>>, core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyRuntimeContext>) -> Self
+pub fn ripdpi_runtime_api::EmbeddedProxyControl::new_with_desync_execution_evidence(core::option::Option<alloc::sync::Arc<dyn ripdpi_runtime_api::RuntimeTelemetrySink>>, core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyRuntimeContext>, u64) -> Self
+pub fn ripdpi_runtime_api::EmbeddedProxyControl::next_desync_connection_ordinal(&self, &ripdpi_runtime_api::AttemptCorrelationId) -> core::option::Option<u64>
+pub fn ripdpi_runtime_api::EmbeddedProxyControl::record_desync_execution_evidence(&self, ripdpi_runtime_api::DesyncExecutionEvidence) -> bool
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::request_shutdown(&self)
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::reset_shutdown(&self)
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::runtime_context(&self) -> core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyRuntimeContext>

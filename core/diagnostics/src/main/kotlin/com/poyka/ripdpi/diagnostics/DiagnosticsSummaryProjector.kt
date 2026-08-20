@@ -89,13 +89,14 @@ class DiagnosticsSummaryProjector
                         it.terminationReason?.let { reason -> add("terminationReason=${reason.name}") }
                     }
                 report?.strategyProbeReport?.let { strategyProbe ->
+                    val recommendation = strategyProbe.recommendation
                     val recommendedTcp =
                         strategyProbe.tcpCandidates.firstOrNull { candidate ->
-                            candidate.id == strategyProbe.recommendation.tcpCandidateId
+                            candidate.id == recommendation?.tcpCandidateId
                         }
                     val recommendedQuic =
                         strategyProbe.quicCandidates.firstOrNull { candidate ->
-                            candidate.id == strategyProbe.recommendation.quicCandidateId
+                            candidate.id == recommendation?.quicCandidateId
                         }
                     add("strategySuite=${strategyProbe.suiteId}")
                     add("strategyMethodology=${strategyProbe.methodologyVersion}")
@@ -288,14 +289,14 @@ class DiagnosticsSummaryProjector
         private fun buildHighlights(report: DiagnosticsSessionProjection?): List<DiagnosticsHighlight> =
             buildList {
                 report?.strategyProbeReport?.let { strategyProbe ->
-                    add(
-                        DiagnosticsHighlight(
-                            title = "strategy",
-                            summary =
-                                "${strategyProbe.recommendation.tcpCandidateLabel} + " +
-                                    strategyProbe.recommendation.quicCandidateLabel,
-                        ),
-                    )
+                    strategyProbe.recommendation?.let { recommendation ->
+                        add(
+                            DiagnosticsHighlight(
+                                title = "strategy",
+                                summary = "${recommendation.tcpCandidateLabel} + ${recommendation.quicCandidateLabel}",
+                            ),
+                        )
+                    }
                 }
                 report?.diagnoses?.take(DiagnosisHighlightLimit)?.forEach { diagnosis ->
                     add(DiagnosticsHighlight(title = diagnosis.code, summary = diagnosis.summary))

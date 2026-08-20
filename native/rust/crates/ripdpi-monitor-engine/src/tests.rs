@@ -16,16 +16,16 @@ use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::test_fixtures::*;
 use crate::tls::{NoCertificateVerification, TlsClientProfile, TlsObservation, classify_tls_signal, try_tls_handshake};
 use crate::transport::{TargetAddress, TransportConfig, direct_transport};
+use crate::types::{ScanCompletionKind, ScanTerminationReason};
 use crate::util::{DEFAULT_DNS_SERVER, probe_session_seed};
 use crate::{
-    CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher,
-    CandidateRuntimeTerminalReceipt, MonitorSession, PreparedCandidateRuntime,
+    CandidateAttemptCorrelationId, CandidateCleanupReceipt, CandidateProbeRuntime, CandidateRuntimeError,
+    CandidateRuntimeLauncher, CandidateRuntimeTerminalReceipt, MonitorSession, PreparedCandidateRuntime,
 };
 
 use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
 use ripdpi_monitor_adapter::proxy_config::{
     ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig, ProxyUiDestinationRoutingConfig,
-    parse_proxy_config_json,
 };
 
 use std::net::{IpAddr, Ipv4Addr};
@@ -48,31 +48,84 @@ fn minimal_ui_config() -> ProxyUiConfig {
     config
 }
 
-struct DirectCandidateRuntime;
+struct DirectCandidateRuntime {
+    attempts: Mutex<Vec<CandidateAttemptCorrelationId>>,
+}
+
+impl DirectCandidateRuntime {
+    fn terminal_evidence(&self) -> Vec<crate::CandidateRuntimeExecutionEvidence> {
+        self.attempts
+            .lock()
+            .expect("direct runtime attempt lock")
+            .iter()
+            .filter(|token| token.is_evaluable())
+            .cloned()
+            .map(|attempt_token| {
+                crate::CandidateRuntimeExecutionEvidence::Desync(crate::CandidateDesyncExecutionReceipt {
+                    disposition: crate::CandidateDesyncExecutionDisposition::Applied,
+                    generation: 99,
+                    attempt_token,
+                    connection_ordinal: 1,
+                    transport: ripdpi_runtime_api::DesyncExecutionTransport::Tcp,
+                    configured_family: Some(ripdpi_runtime_api::DesyncStrategyFamily::Split),
+                    effective_family: Some(ripdpi_runtime_api::DesyncStrategyFamily::Split),
+                    marker_base: Some(ripdpi_runtime_api::DesyncOffsetMarkerBase::Host),
+                    marker_delta: Some(1),
+                    resolved_offset: Some(16),
+                    planned_steps: 1,
+                    attempted_actions: 3,
+                    completed_actions: 3,
+                    real_writes_committed: 2,
+                    completed_awaits: 1,
+                    payload_bytes_committed: 32,
+                    tls_record_prelude_applied: false,
+                    tls_prelude_configured_count: 0,
+                    tls_prelude_applied_count: 0,
+                    tls_prelude_kind: None,
+                    tls_prelude_marker_base: None,
+                    tls_prelude_marker_delta: None,
+                    tls_prelude_resolved_offset: None,
+                    udp_ipv6_extension_profile: None,
+                    fallback_reason: None,
+                    terminal_reason: None,
+                })
+            })
+            .collect()
+    }
+}
 
 impl CandidateProbeRuntime for DirectCandidateRuntime {
     fn transport(&self) -> TransportConfig {
         TransportConfig::Direct { route_experiment: None }
     }
 
+    fn generation(&self) -> u64 {
+        99
+    }
+
+    fn transport_for_attempt(&self, attempt_token: &CandidateAttemptCorrelationId) -> TransportConfig {
+        self.attempts.lock().expect("direct runtime attempt lock").push(attempt_token.clone());
+        self.transport()
+    }
+
     fn request_shutdown(&mut self) {}
 
     fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
-        CandidateRuntimeTerminalReceipt::forced_abort(CandidateCleanupReceipt {
-            started: 1,
-            stopped: 1,
-            joined: 1,
-            forced_abort: 1,
-        })
+        CandidateRuntimeTerminalReceipt::forced_abort(
+            99,
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+            self.terminal_evidence(),
+        )
+        .expect("valid forced receipt")
     }
 
     fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
-        CandidateRuntimeTerminalReceipt::clean_shutdown(CandidateCleanupReceipt {
-            started: 1,
-            stopped: 1,
-            joined: 1,
-            forced_abort: 0,
-        })
+        CandidateRuntimeTerminalReceipt::clean_shutdown(
+            99,
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+            self.terminal_evidence(),
+        )
+        .expect("valid clean receipt")
     }
 }
 
@@ -83,12 +136,61 @@ impl CandidateRuntimeLauncher for DirectCandidateRuntimeLauncher {
         &self,
         _prepared: PreparedCandidateRuntime,
     ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
-        Ok(Box::new(DirectCandidateRuntime))
+        Ok(Box::new(DirectCandidateRuntime { attempts: Mutex::new(Vec::new()) }))
     }
 }
 
 fn monitor_session_with_direct_candidate_runtime() -> MonitorSession {
     MonitorSession::with_candidate_runtime_launcher(Arc::new(DirectCandidateRuntimeLauncher))
+}
+
+struct RuntimeFailedTerminalCandidateRuntime;
+
+impl CandidateProbeRuntime for RuntimeFailedTerminalCandidateRuntime {
+    fn transport(&self) -> TransportConfig {
+        TransportConfig::Direct { route_experiment: None }
+    }
+
+    fn generation(&self) -> u64 {
+        99
+    }
+
+    fn request_shutdown(&mut self) {}
+
+    fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
+        CandidateRuntimeTerminalReceipt::runtime_failed(
+            99,
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+            crate::CandidateRuntimeShutdownMode::ForcedAbort,
+            Vec::new(),
+        )
+        .expect("valid forced runtime failure")
+    }
+
+    fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
+        CandidateRuntimeTerminalReceipt::runtime_failed(
+            99,
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+            crate::CandidateRuntimeShutdownMode::CleanShutdown,
+            Vec::new(),
+        )
+        .expect("valid runtime failure")
+    }
+}
+
+struct RuntimeFailedTerminalCandidateRuntimeLauncher;
+
+impl CandidateRuntimeLauncher for RuntimeFailedTerminalCandidateRuntimeLauncher {
+    fn start_candidate_runtime(
+        &self,
+        _prepared: PreparedCandidateRuntime,
+    ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
+        Ok(Box::new(RuntimeFailedTerminalCandidateRuntime))
+    }
+}
+
+fn monitor_session_with_runtime_failed_candidate_runtime() -> MonitorSession {
+    MonitorSession::with_candidate_runtime_launcher(Arc::new(RuntimeFailedTerminalCandidateRuntimeLauncher))
 }
 
 fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
@@ -117,6 +219,7 @@ fn strategy_probe_request_with_runtime_context(
         pack_refs: vec![],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![DomainTarget {
             host: "127.0.0.1".to_string(),
@@ -168,80 +271,6 @@ fn strategy_probe_request_with_suite(
     display_name: &str,
 ) -> ScanRequest {
     strategy_probe_request_with_runtime_context(base_ui, suite_id, profile_id, display_name, None)
-}
-
-fn decode_ui_config(config_json: &str) -> ProxyUiConfig {
-    match parse_proxy_config_json(config_json).expect("parse ui config") {
-        ProxyConfigPayload::Ui { config, .. } => config,
-        ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
-    }
-}
-
-fn assert_strategy_probe_recommendation_matches_winners(strategy_probe: &crate::types::StrategyProbeReport) {
-    let winning_tcp = strategy_probe
-        .tcp_candidates
-        .iter()
-        .find(|candidate| candidate.id == strategy_probe.recommendation.tcp_candidate_id)
-        .expect("winning TCP candidate must exist");
-    let winning_quic = strategy_probe
-        .quic_candidates
-        .iter()
-        .find(|candidate| candidate.id == strategy_probe.recommendation.quic_candidate_id)
-        .expect("winning QUIC candidate must exist");
-
-    assert!(!winning_tcp.skipped, "recommended TCP candidate must be a non-skipped candidate in the list");
-    assert!(!winning_quic.skipped, "recommended QUIC candidate must be a non-skipped candidate in the list");
-
-    let recommended_config = decode_ui_config(&strategy_probe.recommendation.recommended_proxy_config_json);
-    let winning_tcp_config =
-        decode_ui_config(winning_tcp.proxy_config_json.as_deref().expect("winning TCP candidate config"));
-    let winning_quic_config =
-        decode_ui_config(winning_quic.proxy_config_json.as_deref().expect("winning QUIC candidate config"));
-
-    assert_eq!(
-        recommended_config.chains.tcp_steps, winning_tcp_config.chains.tcp_steps,
-        "recommended config must carry the winning TCP steps"
-    );
-    assert_eq!(
-        recommended_config.chains.group_activation_filter, winning_tcp_config.chains.group_activation_filter,
-        "recommended config must carry the winning TCP activation filter"
-    );
-    assert_eq!(
-        recommended_config.fake_packets, winning_tcp_config.fake_packets,
-        "recommended config must carry the winning TCP fake-packet settings"
-    );
-    assert_eq!(
-        recommended_config.parser_evasions, winning_tcp_config.parser_evasions,
-        "recommended config must carry the winning TCP parser evasions"
-    );
-    assert_eq!(
-        recommended_config.protocols.desync_http, winning_tcp_config.protocols.desync_http,
-        "recommended config must carry the winning TCP HTTP toggle"
-    );
-    assert_eq!(
-        recommended_config.protocols.desync_https, winning_tcp_config.protocols.desync_https,
-        "recommended config must carry the winning TCP HTTPS toggle"
-    );
-    assert_eq!(
-        recommended_config.protocols.desync_udp, winning_quic_config.protocols.desync_udp,
-        "recommended config must carry the winning QUIC UDP toggle"
-    );
-    assert_eq!(
-        recommended_config.chains.udp_steps, winning_quic_config.chains.udp_steps,
-        "recommended config must carry the winning QUIC UDP steps"
-    );
-    assert_eq!(
-        recommended_config.quic, winning_quic_config.quic,
-        "recommended config must carry the winning QUIC settings"
-    );
-    assert_eq!(
-        winning_quic_config.chains.tcp_steps, winning_tcp_config.chains.tcp_steps,
-        "winning QUIC candidate config must already include the winning TCP steps"
-    );
-    assert_eq!(
-        winning_quic_config.chains.group_activation_filter, winning_tcp_config.chains.group_activation_filter,
-        "winning QUIC candidate config must already include the winning TCP activation filter"
-    );
 }
 
 #[test]
@@ -345,7 +374,7 @@ fn dns_probe_reports_match_over_socks5_udp_and_doh() {
 
     let result = run_dns_probe(
         &target,
-        &TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: proxy.port() },
+        &TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: proxy.port(), credentials: None },
         &ScanPathMode::InPath,
     );
 
@@ -910,7 +939,7 @@ fn parser_only_candidate_keeps_aggressive_http_evasions_disabled() {
 }
 
 #[test]
-fn monitor_session_strategy_probe_returns_structured_recommendation() {
+fn monitor_session_strategy_probe_without_quic_success_has_no_recommendation() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request = strategy_probe_request(minimal_ui_config());
@@ -938,8 +967,27 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
         strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()),
         Some("baseline_plain_direct")
     );
-    assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
+    assert!(strategy_probe.recommendation.is_none(), "a non-applicable QUIC candidate is not promotable");
     assert!(strategy_probe.audit_assessment.is_none());
+}
+
+#[test]
+fn monitor_session_strategy_probe_terminates_on_candidate_runtime_failure_terminal() {
+    let _serial = lock_network_probes();
+    let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
+    let mut request = strategy_probe_request(minimal_ui_config());
+    request.domain_targets[0].http_port = Some(server.port());
+    let session = monitor_session_with_runtime_failed_candidate_runtime();
+
+    session.start_scan("session-strategy-runtime-failed".to_string(), request.into()).expect("start strategy probe");
+    let report = wait_for_report(&session);
+
+    assert_eq!(report.completion_kind, ScanCompletionKind::Terminated);
+    assert_eq!(report.termination_reason, Some(ScanTerminationReason::EngineError));
+    assert_eq!(
+        report.candidate_runtime_cleanup,
+        Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 })
+    );
 }
 
 #[test]
@@ -991,57 +1039,27 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
 }
 
 #[test]
-fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
+fn monitor_session_full_matrix_without_verified_winner_has_no_audit_assessment() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request =
         strategy_probe_request_with_suite(minimal_ui_config(), "full_matrix_v1", "automatic-audit", "Automatic audit");
-    request.domain_targets = vec![
-        DomainTarget {
-            host: "www.youtube.com".to_string(),
-            connect_ip: Some("127.0.0.1".to_string()),
-            connect_ips: vec![],
-            https_port: Some(9),
-            http_port: Some(server.port()),
-            http_path: "/".to_string(),
-            is_control: false,
-            concurrency_probe: None,
-        },
-        DomainTarget {
-            host: "discord.com".to_string(),
-            connect_ip: Some("127.0.0.1".to_string()),
-            connect_ips: vec![],
-            https_port: Some(9),
-            http_port: Some(server.port()),
-            http_path: "/".to_string(),
-            is_control: false,
-            concurrency_probe: None,
-        },
-        DomainTarget {
-            host: "proton.me".to_string(),
-            connect_ip: Some("127.0.0.1".to_string()),
-            connect_ips: vec![],
-            https_port: Some(9),
-            http_port: Some(server.port()),
-            http_path: "/".to_string(),
-            is_control: false,
-            concurrency_probe: None,
-        },
-    ];
-    request.quic_targets = vec![
-        QuicTarget {
-            host: "www.youtube.com".to_string(),
-            connect_ip: Some("127.0.0.1".to_string()),
-            connect_ips: vec![],
-            port: 9,
-        },
-        QuicTarget {
-            host: "discord.com".to_string(),
-            connect_ip: Some("127.0.0.1".to_string()),
-            connect_ips: vec![],
-            port: 9,
-        },
-    ];
+    request.domain_targets = vec![DomainTarget {
+        host: "127.0.0.1".to_string(),
+        connect_ip: Some("127.0.0.1".to_string()),
+        connect_ips: vec![],
+        https_port: Some(9),
+        http_port: Some(server.port()),
+        http_path: "/".to_string(),
+        is_control: false,
+        concurrency_probe: None,
+    }];
+    request.quic_targets = vec![QuicTarget {
+        host: "127.0.0.1".to_string(),
+        connect_ip: Some("127.0.0.1".to_string()),
+        connect_ips: vec![],
+        port: 9,
+    }];
     request.strategy_probe.as_mut().expect("strategy probe").target_selection = Some(StrategyProbeTargetSelection {
         cohort_id: "global-core".to_string(),
         cohort_label: "Global core mix".to_string(),
@@ -1055,30 +1073,15 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     session.start_scan("session-audit".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
-    let audit_assessment = strategy_probe.audit_assessment.as_ref().expect("audit assessment");
+    assert!(strategy_probe.audit_assessment.is_none());
+    assert!(strategy_probe.recommendation.is_none());
 
     assert_eq!(report.profile_id, "automatic-audit");
     assert_eq!(strategy_probe.suite_id, "full_matrix_v1");
-    assert!(
-        strategy_probe
-            .tcp_candidates
-            .iter()
-            .any(|candidate| candidate.id == strategy_probe.recommendation.tcp_candidate_id),
-        "recommended TCP candidate must exist in the candidate list",
-    );
-    assert!(
-        strategy_probe
-            .quic_candidates
-            .iter()
-            .any(|candidate| candidate.id == strategy_probe.recommendation.quic_candidate_id),
-        "recommended QUIC candidate must exist in the candidate list",
-    );
     let target_selection = strategy_probe.target_selection.as_ref().expect("target selection");
     assert_eq!(target_selection.cohort_id, "global-core");
     assert_eq!(target_selection.domain_hosts, expected_domain_hosts);
     assert_eq!(target_selection.quic_hosts, expected_quic_hosts);
-    assert!(audit_assessment.coverage.tcp_candidates_planned >= strategy_probe.tcp_candidates.len());
-    assert!(audit_assessment.coverage.quic_candidates_planned >= strategy_probe.quic_candidates.len());
 }
 
 #[test]
@@ -1131,13 +1134,10 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
     session.start_scan("session-audit-dns-short".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
-    let audit_assessment = strategy_probe.audit_assessment.as_ref().expect("audit assessment");
 
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
-    assert!(!audit_assessment.dns_short_circuited);
-    assert!(
-        audit_assessment.confidence.warnings.iter().any(|warning| warning.contains("fallback strategy candidates"))
-    );
+    assert!(strategy_probe.recommendation.is_none(), "skipped candidates cannot produce a verified recommendation");
+    assert!(strategy_probe.audit_assessment.is_none(), "winner confidence is undefined without a verified winner");
 }
 
 #[test]
@@ -1218,7 +1218,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         methodology_version: crate::types::STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),
         tcp_candidates: vec![],
         quic_candidates: vec![],
-        recommendation: crate::types::StrategyProbeRecommendation {
+        recommendation: Some(crate::types::StrategyProbeRecommendation {
             tcp_candidate_id: "tcp-1".to_string(),
             tcp_candidate_label: "TCP baseline".to_string(),
             quic_candidate_id: "quic-1".to_string(),
@@ -1227,12 +1227,13 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
             rationale: "Best path".to_string(),
             recommended_proxy_config_json: "{}".to_string(),
             transport_pivot: None,
-        },
+        }),
         completion_kind: StrategyProbeCompletionKind::Normal,
         audit_assessment: None,
         connection_concurrency_assessment: None,
         target_selection: None,
         pilot_bucket_labels: vec!["foreign:direct:ech=no".to_string()],
+        active_path_observation: None,
         domain_strategy_seeds: vec![],
     };
 
@@ -1256,6 +1257,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
         pack_refs: vec![],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![DomainTarget {
             host: "127.0.0.1".to_string(),
@@ -1310,6 +1312,7 @@ fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
         pack_refs: vec![],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![],
         dns_targets: vec![],
@@ -1375,6 +1378,7 @@ fn monitor_session_report_exports_execution_plan_snapshot() {
         pack_refs: vec!["builtin:default@1".to_string()],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![],
         dns_targets: vec![],
@@ -1442,6 +1446,7 @@ fn monitor_json_contracts_match_goldens() {
         pack_refs: vec![],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![DomainTarget {
             host: "127.0.0.1".to_string(),

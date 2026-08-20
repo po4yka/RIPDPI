@@ -48,6 +48,7 @@ pub fn execute_tcp_candidate(
         Ok(runtime) => {
             let runtime = context.supervisor.supervise(runtime);
             let transport = runtime.runtime().transport();
+            let generation = runtime.runtime().generation();
             let key_log = context.keylog_path.map(tls_key_log_callback_for_path);
             run_candidate_warmup(spec, &transport, targets, context.tls_verifier, key_log.as_ref());
             if context.cancel.load(Ordering::Acquire) {
@@ -72,7 +73,26 @@ pub fn execute_tcp_candidate(
                     // Inter-chunk pause: use the first target in the chunk as the key.
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &chunk[0].host)));
                 }
-                let chunk_results = probe_domain_chunk(chunk, &transport, spec, context.tls_verifier, key_log.as_ref());
+                let ordinal_base = chunk_index as u64 * PARALLEL_DOMAIN_BATCH_SIZE as u64 * 2;
+                let Ok(chunk_results) = probe_domain_chunk(
+                    chunk,
+                    runtime.runtime(),
+                    generation,
+                    ordinal_base,
+                    spec,
+                    context.tls_verifier,
+                    key_log.as_ref(),
+                ) else {
+                    let terminal_receipt = runtime.shutdown();
+                    let mut execution = failed_candidate_execution(
+                        spec,
+                        targets.len() * 2,
+                        3,
+                        "candidate probe worker panicked".to_string(),
+                    );
+                    execution.attach_terminal_evidence(generation, &terminal_receipt);
+                    return execution;
+                };
                 for samples in chunk_results {
                     for sample in samples {
                         score.add(sample);
@@ -83,7 +103,7 @@ pub fn execute_tcp_candidate(
                     return cancelled_candidate_execution(spec, score, 3);
                 }
             }
-            runtime.shutdown();
+            let terminal_receipt = runtime.shutdown();
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",
@@ -91,7 +111,9 @@ pub fn execute_tcp_candidate(
                 "family" => "tcp",
             )
             .record(probe_started.elapsed().as_secs_f64());
-            build_candidate_execution(spec, score, 3)
+            let mut execution = build_candidate_execution(spec, score, 3);
+            execution.attach_terminal_evidence(generation, &terminal_receipt);
+            execution
         }
         Err(err) => failed_candidate_execution(spec, targets.len() * 2, 3, err.to_string()),
     }

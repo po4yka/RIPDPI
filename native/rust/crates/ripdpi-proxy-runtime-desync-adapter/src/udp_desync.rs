@@ -10,6 +10,44 @@ use crate::platform;
 pub use ripdpi_desync::ActivationTransport;
 pub type UdpDesyncAction = DesyncAction;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UdpExecutionOutcome {
+    pub attempted_actions: usize,
+    pub completed_actions: usize,
+    pub real_writes_committed: usize,
+    pub payload_bytes_committed: usize,
+    pub technique_actions_completed: usize,
+    pub ipv6_extension_profile: Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile>,
+    pub fallback_reason: Option<UdpExecutionFallbackReason>,
+}
+
+#[derive(Debug)]
+pub struct UdpExecutionError {
+    source: io::Error,
+    pub outcome: UdpExecutionOutcome,
+}
+
+impl UdpExecutionError {
+    pub fn into_io_error(self) -> io::Error {
+        self.source
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UdpExecutionFallbackReason {
+    RelayPathSkippedPacketMutation,
+    IpFragmentationFallback,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct UdpActionOutcome {
+    real_writes_committed: usize,
+    payload_bytes_committed: usize,
+    technique_action_completed: bool,
+    ipv6_extension_profile: Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile>,
+    fallback_reason: Option<UdpExecutionFallbackReason>,
+}
+
 #[derive(Clone)]
 pub struct UdpDesyncPlanner {
     config: ripdpi_config::RuntimeConfig,
@@ -152,18 +190,56 @@ fn resolve_udp_hints_for_runtime(
     Ok(merged)
 }
 
-pub fn execute_udp_actions(ctx: UdpActionExecContext<'_>, actions: &[UdpDesyncAction]) -> io::Result<()> {
+pub fn execute_udp_actions(
+    ctx: UdpActionExecContext<'_>,
+    actions: &[UdpDesyncAction],
+    logical_payload: &[u8],
+) -> Result<UdpExecutionOutcome, UdpExecutionError> {
+    let mut outcome = UdpExecutionOutcome {
+        attempted_actions: actions.len(),
+        completed_actions: 0,
+        real_writes_committed: 0,
+        payload_bytes_committed: 0,
+        technique_actions_completed: 0,
+        ipv6_extension_profile: None,
+        fallback_reason: None,
+    };
     for action in actions {
-        execute_udp_action(ctx, action)?;
+        let action_outcome =
+            execute_udp_action(ctx, action, logical_payload).map_err(|source| UdpExecutionError { source, outcome })?;
+        outcome.completed_actions = outcome.completed_actions.saturating_add(1);
+        outcome.real_writes_committed =
+            outcome.real_writes_committed.saturating_add(action_outcome.real_writes_committed);
+        outcome.payload_bytes_committed =
+            outcome.payload_bytes_committed.saturating_add(action_outcome.payload_bytes_committed);
+        outcome.technique_actions_completed =
+            outcome.technique_actions_completed.saturating_add(usize::from(action_outcome.technique_action_completed));
+        if action_outcome.ipv6_extension_profile.is_some() {
+            outcome.ipv6_extension_profile = action_outcome.ipv6_extension_profile;
+        }
+        if outcome.fallback_reason.is_none() {
+            outcome.fallback_reason = action_outcome.fallback_reason;
+        }
     }
-    Ok(())
+    Ok(outcome)
 }
 
-fn execute_udp_action(ctx: UdpActionExecContext<'_>, action: &UdpDesyncAction) -> io::Result<()> {
+fn execute_udp_action(
+    ctx: UdpActionExecContext<'_>,
+    action: &UdpDesyncAction,
+    logical_payload: &[u8],
+) -> io::Result<UdpActionOutcome> {
     match action {
-        DesyncAction::Write(bytes) => execute_udp_write_action(ctx, bytes),
+        DesyncAction::Write(bytes) => execute_udp_write_action(ctx, bytes, bytes == logical_payload),
         DesyncAction::WriteIpFragmentedUdp { bytes, split_offset, disorder, ipv6_ext } => {
-            execute_udp_fragmented_write_action(ctx, bytes, *split_offset, *disorder, *ipv6_ext)
+            execute_udp_fragmented_write_action(
+                ctx,
+                bytes,
+                *split_offset,
+                *disorder,
+                *ipv6_ext,
+                bytes == logical_payload,
+            )
         }
         DesyncAction::SetTtl(ttl) => execute_udp_ttl_action(ctx, *ttl),
         DesyncAction::Delay(ms) => execute_udp_delay_action(*ms),
@@ -179,17 +255,33 @@ fn execute_udp_action(ctx: UdpActionExecContext<'_>, action: &UdpDesyncAction) -
         | DesyncAction::SetWsize { .. }
         | DesyncAction::RestoreWsize
         | DesyncAction::SendFakeRst
-        | DesyncAction::WriteSeqOverlap { .. } => Ok(()),
+        | DesyncAction::WriteSeqOverlap { .. } => Ok(UdpActionOutcome {
+            real_writes_committed: 0,
+            payload_bytes_committed: 0,
+            technique_action_completed: false,
+            ipv6_extension_profile: None,
+            fallback_reason: None,
+        }),
     }
 }
 
-fn execute_udp_write_action(ctx: UdpActionExecContext<'_>, bytes: &[u8]) -> io::Result<()> {
+fn execute_udp_write_action(
+    ctx: UdpActionExecContext<'_>,
+    bytes: &[u8],
+    logical_payload: bool,
+) -> io::Result<UdpActionOutcome> {
     if ctx.socks_udp_frame {
         ctx.upstream.send(&frame_socks5_udp_datagram(ctx.target, bytes))?;
     } else {
         ctx.upstream.send(bytes)?;
     }
-    Ok(())
+    Ok(UdpActionOutcome {
+        real_writes_committed: usize::from(logical_payload),
+        payload_bytes_committed: if logical_payload { bytes.len() } else { 0 },
+        technique_action_completed: !logical_payload,
+        ipv6_extension_profile: None,
+        fallback_reason: None,
+    })
 }
 
 fn execute_udp_fragmented_write_action(
@@ -198,14 +290,17 @@ fn execute_udp_fragmented_write_action(
     split_offset: usize,
     disorder: bool,
     ipv6_ext: crate::ip_fragmentation::Ipv6ExtHeaders,
-) -> io::Result<()> {
+    logical_payload: bool,
+) -> io::Result<UdpActionOutcome> {
     // Raw IP fragmentation targets the final destination directly; through a
     // SOCKS5 UDP relay that path is meaningless, so fall back to a single
     // RFC 1928-framed datagram that the relay forwards to the target.
     if ctx.socks_udp_frame {
-        return execute_udp_write_action(ctx, bytes);
+        let mut outcome = execute_udp_write_action(ctx, bytes, logical_payload)?;
+        outcome.fallback_reason = Some(UdpExecutionFallbackReason::RelayPathSkippedPacketMutation);
+        return Ok(outcome);
     }
-    match platform::raw_packet::send_ip_fragmented_udp(
+    let fallback_reason = match platform::raw_packet::send_ip_fragmented_udp(
         ctx.upstream,
         ctx.target,
         bytes,
@@ -216,38 +311,92 @@ fn execute_udp_fragmented_write_action(
         ipv6_ext,
         ctx.ip_id_mode,
     ) {
-        Ok(()) => Ok(()),
+        Ok(()) => None,
         Err(err) if should_fallback_ipfrag_udp_error_kind(err.kind()) => {
             ctx.upstream.send(bytes)?;
-            Ok(())
+            Some(UdpExecutionFallbackReason::IpFragmentationFallback)
         }
-        Err(err) => Err(err),
-    }
+        Err(err) => return Err(err),
+    };
+    Ok(UdpActionOutcome {
+        real_writes_committed: usize::from(logical_payload),
+        payload_bytes_committed: if logical_payload { bytes.len() } else { 0 },
+        technique_action_completed: true,
+        ipv6_extension_profile: applied_ipv6_extension_profile(ctx.target, ipv6_ext, fallback_reason),
+        fallback_reason,
+    })
 }
 
-fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
-    matches!(kind, io::ErrorKind::InvalidInput)
-}
-
-fn execute_udp_ttl_action(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<()> {
+fn execute_udp_ttl_action(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<UdpActionOutcome> {
     // A low/fake TTL is a desync trick aimed at the path to the *final target*.
     // Through a SOCKS5 UDP relay the socket is connected to the trusted relay
     // endpoint, so a low TTL would expire the datagram at/before the relay
     // (dropping it) while achieving no DPI desync. Skip it on the relay path --
     // mirrors execute_udp_fragmented_write_action's relay fallback.
     if ctx.socks_udp_frame {
-        return Ok(());
+        return Ok(UdpActionOutcome {
+            real_writes_committed: 0,
+            payload_bytes_committed: 0,
+            technique_action_completed: false,
+            ipv6_extension_profile: None,
+            fallback_reason: Some(UdpExecutionFallbackReason::RelayPathSkippedPacketMutation),
+        });
     }
     let socket = socket2::SockRef::from(ctx.upstream);
     match ctx.target {
         SocketAddr::V4(_) => socket.set_ttl_v4(ttl as u32),
         SocketAddr::V6(_) => socket.set_unicast_hops_v6(ttl as u32),
+    }?;
+    Ok(UdpActionOutcome {
+        real_writes_committed: 0,
+        payload_bytes_committed: 0,
+        technique_action_completed: false,
+        ipv6_extension_profile: None,
+        fallback_reason: None,
+    })
+}
+
+fn execute_udp_delay_action(ms: u16) -> io::Result<UdpActionOutcome> {
+    thread::sleep(Duration::from_millis(u64::from(ms)));
+    Ok(UdpActionOutcome {
+        real_writes_committed: 0,
+        payload_bytes_committed: 0,
+        technique_action_completed: false,
+        ipv6_extension_profile: None,
+        fallback_reason: None,
+    })
+}
+
+fn ipv6_extension_profile(
+    headers: crate::ip_fragmentation::Ipv6ExtHeaders,
+) -> Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile> {
+    use ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile as Profile;
+    if headers.routing || headers.second_frag_next_override.is_some() {
+        return Some(Profile::Unknown);
+    }
+    match (headers.hop_by_hop, headers.dest_opt, headers.dest_opt_fragmentable) {
+        (false, false, false) => None,
+        (true, false, false) => Some(Profile::HopByHop),
+        (true, false, true) => Some(Profile::HopByHop2),
+        (false, true, false) => Some(Profile::DestinationOptions),
+        (true, true, false) => Some(Profile::HopByHopDestinationOptions),
+        _ => Some(Profile::Unknown),
     }
 }
 
-fn execute_udp_delay_action(ms: u16) -> io::Result<()> {
-    thread::sleep(Duration::from_millis(u64::from(ms)));
-    Ok(())
+fn applied_ipv6_extension_profile(
+    target: SocketAddr,
+    headers: crate::ip_fragmentation::Ipv6ExtHeaders,
+    fallback_reason: Option<UdpExecutionFallbackReason>,
+) -> Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile> {
+    if target.is_ipv4() || fallback_reason.is_some() {
+        return None;
+    }
+    ipv6_extension_profile(headers)
+}
+
+fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
+    matches!(kind, io::ErrorKind::InvalidInput)
 }
 
 #[cfg(test)]
@@ -257,6 +406,45 @@ mod tests {
     use socket2::SockRef;
 
     use super::*;
+
+    #[test]
+    fn ipv6_extension_headers_project_to_exact_bounded_profile() {
+        use ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile as Profile;
+
+        assert_eq!(ipv6_extension_profile(crate::ip_fragmentation::Ipv6ExtHeaders::default()), None);
+        assert_eq!(
+            ipv6_extension_profile(crate::ip_fragmentation::Ipv6ExtHeaders {
+                hop_by_hop: true,
+                dest_opt: true,
+                ..Default::default()
+            }),
+            Some(Profile::HopByHopDestinationOptions),
+        );
+        assert_eq!(
+            ipv6_extension_profile(crate::ip_fragmentation::Ipv6ExtHeaders { routing: true, ..Default::default() }),
+            Some(Profile::Unknown),
+        );
+    }
+
+    #[test]
+    fn ipv6_extension_profile_is_only_evidence_for_successful_ipv6_fragmentation() {
+        use ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile as Profile;
+
+        let headers = crate::ip_fragmentation::Ipv6ExtHeaders { hop_by_hop: true, ..Default::default() };
+        assert_eq!(
+            applied_ipv6_extension_profile("[2001:db8::1]:443".parse().unwrap(), headers, None),
+            Some(Profile::HopByHop),
+        );
+        assert_eq!(applied_ipv6_extension_profile("192.0.2.1:443".parse().unwrap(), headers, None), None);
+        assert_eq!(
+            applied_ipv6_extension_profile(
+                "[2001:db8::1]:443".parse().unwrap(),
+                headers,
+                Some(UdpExecutionFallbackReason::IpFragmentationFallback),
+            ),
+            None,
+        );
+    }
 
     #[test]
     fn udp_ttl_action_sets_ipv4_ttl() {
@@ -306,7 +494,7 @@ mod tests {
             socks_udp_frame: true,
         };
 
-        execute_udp_write_action(ctx, b"ping").expect("framed write");
+        execute_udp_write_action(ctx, b"ping", true).expect("framed write");
 
         let mut buf = [0u8; 64];
         let n = relay.recv(&mut buf).expect("recv framed datagram");

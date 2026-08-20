@@ -3,16 +3,12 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
-import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
-import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.util.concurrent.ConcurrentHashMap
@@ -224,6 +219,8 @@ class ActiveScanRegistry
         private val cancelledSessionIds = ConcurrentHashMap.newKeySet<String>()
         private val cancelledSessionSummaries = ConcurrentHashMap<String, String>()
         private val cancelledSessionReports = ConcurrentHashMap<String, String>()
+        private val terminalClaims =
+            java.util.IdentityHashMap<NetworkDiagnosticsBridge, Pair<String, ScanTerminalClaim>>()
         internal val sessionOwnership = ScanSessionOwnership()
         internal val ownerExecutions = OwnerExecutionRegistry()
         private val scanSessionFingerprints = ConcurrentHashMap<String, NetworkFingerprint>()
@@ -244,7 +241,7 @@ class ActiveScanRegistry
             ownerId?.let { sessionOwnership.remember(prepared.sessionId, it) }
         }
 
-        fun removePreparedScan(sessionId: String) {
+        suspend fun removePreparedScan(sessionId: String) {
             scanSessionFingerprints.remove(sessionId)
             scanSessionPreferredDnsPaths.remove(sessionId)
             cancelledSessionIds.remove(sessionId)
@@ -279,22 +276,29 @@ class ActiveScanRegistry
         internal suspend fun cancelScan(sessionId: String): ActiveScanCancellation? {
             val execution =
                 bridgeMutex.withLock {
-                    visibleScanExecutions[sessionId]?.let { visible ->
-                        CancellableScanExecution(
-                            bridge = visible.bridge,
-                            executionJob = visible.executionJob,
-                            registerActiveBridge = true,
-                        )
-                    } ?: hiddenScanExecutions[sessionId]?.let { hidden ->
-                        CancellableScanExecution(
-                            bridge = hidden.bridge,
-                            executionJob = hidden.executionJob,
-                            registerActiveBridge = false,
-                        )
+                    val candidate =
+                        visibleScanExecutions[sessionId]?.let { visible ->
+                            CancellableScanExecution(
+                                bridge = visible.bridge,
+                                executionJob = visible.executionJob,
+                                registerActiveBridge = true,
+                            )
+                        } ?: hiddenScanExecutions[sessionId]?.let { hidden ->
+                            CancellableScanExecution(
+                                bridge = hidden.bridge,
+                                executionJob = hidden.executionJob,
+                                registerActiveBridge = false,
+                            )
+                        }
+                    if (candidate != null && terminalClaims[candidate.bridge] == null) {
+                        terminalClaims[candidate.bridge] = sessionId to ScanTerminalClaim.CANCELLATION
+                        rememberCancellation(sessionId, "Diagnostics scan canceled")
+                        candidate
+                    } else {
+                        null
                     }
                 } ?: return null
             val bridge = execution.bridge
-            rememberCancellation(sessionId, "Diagnostics scan canceled")
             var partialReportJson: String? = null
             var failure: Throwable? =
                 runCatching {
@@ -395,10 +399,14 @@ class ActiveScanRegistry
                                 currentExecution?.bridge === hiddenExecution.bridge &&
                                     currentExecution.executionJob === hiddenExecution.executionJob &&
                                     currentExecution.executionJob?.isCompleted != true
-                            if (isCurrentAndActive) {
+                            if (isCurrentAndActive && terminalClaims[hiddenExecution.bridge] == null) {
+                                terminalClaims[hiddenExecution.bridge] =
+                                    hiddenExecution.sessionId to ScanTerminalClaim.CANCELLATION
                                 rememberCancellation(hiddenExecution.sessionId, cancellationSummary)
+                                true
+                            } else {
+                                false
                             }
-                            isCurrentAndActive
                         }
                     if (cancellationRegistered) {
                         try {
@@ -477,6 +485,45 @@ class ActiveScanRegistry
                 null
             }
 
+        internal suspend fun claimCompletion(
+            sessionId: String,
+            bridge: NetworkDiagnosticsBridge,
+            consumedReportJson: String,
+        ): Boolean =
+            withContext(NonCancellable) {
+                bridgeMutex.withLock {
+                    val bridgeIsRegistered =
+                        visibleScanExecutions[sessionId]?.bridge === bridge ||
+                            hiddenScanExecutions[sessionId]?.bridge === bridge
+                    when {
+                        !bridgeIsRegistered -> {
+                            if (cancelledSessionIds.contains(sessionId)) {
+                                cancelledSessionReports[sessionId] = consumedReportJson
+                            }
+                            false
+                        }
+
+                        terminalClaims[bridge]?.second == ScanTerminalClaim.CANCELLATION -> {
+                            // `takeReportJson()` is a destructive native read. If cancellation
+                            // won immediately before this completion poll, transfer the consumed
+                            // report to the cancellation owner instead of losing the only partial
+                            // report copy.
+                            cancelledSessionReports[sessionId] = consumedReportJson
+                            false
+                        }
+
+                        terminalClaims[bridge] == null -> {
+                            terminalClaims[bridge] = sessionId to ScanTerminalClaim.COMPLETION
+                            true
+                        }
+
+                        else -> {
+                            false
+                        }
+                    }
+                }
+            }
+
         internal suspend fun detachBridge(
             bridge: NetworkDiagnosticsBridge,
             sessionId: String,
@@ -487,6 +534,7 @@ class ActiveScanRegistry
                     if (visibleScanExecutions[sessionId]?.bridge === bridge) {
                         visibleScanExecutions.remove(sessionId)
                         visibleScanProgress.remove(sessionId)
+                        terminalClaims.remove(bridge)
                     }
                     hasRegisteredActiveBridge = visibleScanExecutions.isNotEmpty()
                     val nextProgress = visibleProgressForActiveExecution(visibleScanExecutions, visibleScanProgress)
@@ -499,6 +547,7 @@ class ActiveScanRegistry
                 bridgeMutex.withLock {
                     if (hiddenScanExecutions[sessionId]?.bridge === bridge) {
                         hiddenScanExecutions.remove(sessionId)
+                        terminalClaims.remove(bridge)
                     }
                     hiddenAutomaticProbeActiveState.value = hiddenScanExecutions.isNotEmpty()
                     BridgeDetachment(
@@ -558,197 +607,3 @@ private fun Throwable?.withSuppressed(additional: Throwable): Throwable =
     this?.apply {
         if (this !== additional) addSuppressed(additional)
     } ?: additional
-
-@Singleton
-class BridgeExecutionService
-    @Inject
-    constructor(
-        private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
-        private val activeScanRegistry: ActiveScanRegistry,
-        private val retirementQueue: BridgeRetirementQueue,
-    ) {
-        internal suspend fun createHandle(
-            sessionId: String,
-            registerActiveBridge: Boolean,
-        ): BridgeSessionHandle {
-            val bridge = networkDiagnosticsBridgeFactory.create()
-            val handle =
-                BridgeSessionHandle(
-                    bridge = bridge,
-                    sessionId = sessionId,
-                    registerActiveBridge = registerActiveBridge,
-                )
-            val registrationFailure =
-                runCatching {
-                    activeScanRegistry.registerBridge(bridge, sessionId, registerActiveBridge)
-                }.exceptionOrNull()
-            if (registrationFailure != null) {
-                withContext(NonCancellable) {
-                    runCatching { retireAfterStartupFailure(handle) }
-                        .exceptionOrNull()
-                        ?.takeIf { it !== registrationFailure }
-                        ?.let(registrationFailure::addSuppressed)
-                }
-                throw registrationFailure
-            }
-            return handle
-        }
-
-        internal suspend fun start(
-            handle: BridgeSessionHandle,
-            requestJson: String,
-        ) {
-            val startFailure =
-                runCatching {
-                    handle.bridge.startScan(
-                        requestJson = requestJson,
-                        sessionId = handle.sessionId,
-                    )
-                }.exceptionOrNull()
-            when (startFailure) {
-                null -> Unit
-
-                is CancellationException,
-                is Error,
-                -> throw startFailure
-
-                else -> throw DiagnosticsBridgeStartException(startFailure)
-            }
-        }
-
-        internal suspend fun retireAfterStartupFailure(handle: BridgeSessionHandle) {
-            val reservation =
-                checkNotNull(retirementQueue.tryReserve(handle.bridge)) {
-                    "Diagnostics bridge retirement queue is closed"
-                }
-            val detachmentResult =
-                runCatching {
-                    withContext(NonCancellable) {
-                        activeScanRegistry.detachBridge(
-                            bridge = handle.bridge,
-                            sessionId = handle.sessionId,
-                            registerActiveBridge = handle.registerActiveBridge,
-                        )
-                    }
-                }
-            detachmentResult.exceptionOrNull()?.let { failure ->
-                retirementQueue.abort(reservation)
-                throw failure
-            }
-            val detachment = detachmentResult.getOrThrow()
-            if (!detachment.confirmed) {
-                retirementQueue.abort(reservation)
-                error("Diagnostics bridge detachment was not confirmed")
-            }
-            retirementQueue.commit(reservation)
-            detachment.publish()
-        }
-
-        internal suspend fun destroy(handle: BridgeSessionHandle) {
-            try {
-                handle.bridge.destroy()
-            } finally {
-                activeScanRegistry.clearBridge(
-                    bridge = handle.bridge,
-                    sessionId = handle.sessionId,
-                    registerActiveBridge = handle.registerActiveBridge,
-                )
-            }
-        }
-    }
-
-@Singleton
-class PassiveEventPersistenceService
-    @Inject
-    constructor(
-        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
-        @param:Named("diagnosticsJson")
-        private val json: Json,
-    ) {
-        internal suspend fun persist(
-            sessionId: String,
-            bridge: NetworkDiagnosticsBridge,
-        ) {
-            DiagnosticsReportPersister.persistNativeEvents(
-                sessionId = sessionId,
-                payload = bridge.pollPassiveEventsJson(),
-                artifactWriteStore = artifactWriteStore,
-                json = json,
-            )
-        }
-    }
-
-@Singleton
-class BridgePollingService
-    @Inject
-    constructor(
-        private val passiveEventPersistenceService: PassiveEventPersistenceService,
-        @param:Named("diagnosticsJson")
-        private val json: Json,
-    ) {
-        private companion object {
-            private const val FinishedReportPollAttempts = 30
-            private const val FinishedReportPollDelayMs = 250L
-            private const val PollTimeoutNativeDeadlineGraceMs = 60_000L
-            const val PollScanResultTimeoutMs = 360_000L + PollTimeoutNativeDeadlineGraceMs
-            const val PollScanIntervalMs = 400L
-        }
-
-        internal suspend fun persistPassiveEvents(handle: BridgeSessionHandle) {
-            passiveEventPersistenceService.persist(handle.sessionId, handle.bridge)
-        }
-
-        internal suspend fun pollProgress(handle: BridgeSessionHandle): ScanProgress? =
-            handle.bridge
-                .pollProgressJson()
-                ?.let(json::decodeEngineProgressWire)
-                ?.toScanProgress()
-
-        internal suspend fun awaitFinishedReportJson(handle: BridgeSessionHandle): String? {
-            repeat(FinishedReportPollAttempts) { attempt ->
-                handle.bridge.takeReportJson()?.let { return it }
-                if (attempt < FinishedReportPollAttempts - 1) {
-                    delay(FinishedReportPollDelayMs)
-                }
-            }
-            return null
-        }
-
-        internal suspend fun awaitCompletion(
-            prepared: PreparedDiagnosticsScan,
-            handle: BridgeSessionHandle,
-            activeScanRegistry: ActiveScanRegistry,
-            onFinishedReportJson: suspend (String) -> Unit,
-        ) {
-            try {
-                withTimeout(PollScanResultTimeoutMs) {
-                    while (true) {
-                        persistPassiveEvents(handle)
-                        handle.bridge.takeReportJson()?.let { reportJson ->
-                            onFinishedReportJson(reportJson)
-                            return@withTimeout
-                        }
-                        val progress = pollProgress(handle)
-                        if (prepared.exposeProgress) {
-                            activeScanRegistry.updateProgress(prepared.sessionId, progress)
-                        }
-                        if (progress?.isFinished == true) {
-                            val reportJson =
-                                checkNotNull(awaitFinishedReportJson(handle)) {
-                                    "Diagnostics scan completed without a report"
-                                }
-                            onFinishedReportJson(reportJson)
-                            break
-                        }
-                        delay(PollScanIntervalMs)
-                    }
-                }
-            } catch (error: TimeoutCancellationException) {
-                awaitFinishedReportJson(handle)?.let { reportJson ->
-                    onFinishedReportJson(reportJson)
-                    return
-                }
-                throw IllegalStateException("Diagnostics scan timed out waiting for native completion", error)
-            }
-        }
-    }

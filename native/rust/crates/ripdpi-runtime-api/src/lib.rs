@@ -51,6 +51,7 @@
 
 // Contract ports (stable) -- traits implemented outside this crate.
 mod background_probes;
+mod desync_evidence;
 mod telemetry_sink;
 
 // Control surface (stable) -- the shared runtime handle.
@@ -65,6 +66,11 @@ mod sync;
 
 // --- Contract ports ---
 pub use background_probes::BackgroundProbes;
+pub use desync_evidence::{
+    AttemptCorrelationId, DesyncExecutionDisposition, DesyncExecutionEvidence, DesyncExecutionReceipt,
+    DesyncExecutionTransport, DesyncFallbackReason, DesyncOffsetMarkerBase, DesyncStrategyFamily, DesyncTerminalReason,
+    DesyncTlsPreludeEvidence, DesyncTlsPreludeKind, DesyncUdpIpv6ExtensionProfile,
+};
 pub use telemetry_sink::RuntimeTelemetrySink;
 
 // --- Control surface ---

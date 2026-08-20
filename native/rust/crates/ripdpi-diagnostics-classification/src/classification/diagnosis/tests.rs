@@ -89,6 +89,7 @@ fn connectivity_request() -> ScanRequest {
         pack_refs: vec!["ru-independent-media@1".to_string()],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![],
         dns_targets: vec![],

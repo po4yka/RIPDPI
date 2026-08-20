@@ -8,7 +8,7 @@ use std::os::fd::RawFd;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
-    CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
+    CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
     CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
     CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
     CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, DescriptorValidationError, HelperRequest, validate_request,
@@ -25,6 +25,7 @@ use ripdpi_root_helper_protocol::{
 /// without updating the descriptor table fails the drift test.
 #[cfg(test)]
 pub(crate) const DISPATCH_COMMANDS: &[&str] = &[
+    CMD_PROTOCOL_PREFLIGHT,
     CMD_PROBE_CAPABILITIES,
     CMD_SEND_FAKE_TCP,
     CMD_SEND_FAKE_RST,
@@ -61,7 +62,10 @@ impl DispatchOutcome {
 ///
 /// Order of operations:
 ///
-/// 1. `validate_request` checks the request against the static
+/// 1. The request protocol version is validated before descriptor lookup or
+///    handler dispatch. A stale/unversioned client cannot trigger a privileged
+///    side effect.
+/// 2. `validate_request` checks the request against the static
 ///    `CommandDescriptor` table — unknown command, missing inbound fd, extra
 ///    inbound fd, missing params. On failure the response is the typed
 ///    error's `Display` form and no per-handler arm runs.
@@ -73,6 +77,10 @@ impl DispatchOutcome {
 ///    per-handler `require_fd` / `decode_params` checks remain in place as
 ///    defence-in-depth.
 pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawFd>) -> DispatchOutcome {
+    if let Err(error) = request.validate_protocol_version() {
+        close_received_fd(received_fd);
+        return DispatchOutcome::command(protocol::HelperResponse::error(error.to_string()), None);
+    }
     match validate_request(&request.command, received_fd.is_some(), !request.params.is_null()) {
         Ok(_) => {}
         Err(error) => {
@@ -82,6 +90,9 @@ pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawF
     }
 
     match request.command.as_str() {
+        CMD_PROTOCOL_PREFLIGHT => {
+            DispatchOutcome::command(protocol::HelperResponse::success(serde_json::Value::Null), None)
+        }
         CMD_PROBE_CAPABILITIES => capabilities::dispatch_probe_capabilities(),
         CMD_SEND_FAKE_TCP => tcp_payload::dispatch_send_fake_tcp(request, received_fd),
         CMD_SEND_FAKE_RST => tcp_payload::dispatch_send_fake_rst(request, received_fd),
@@ -178,12 +189,29 @@ pub(crate) mod test_support {
 mod tests {
     use std::os::fd::AsRawFd;
 
-    use ripdpi_root_helper_protocol::{COMMAND_DESCRIPTORS, HelperRequest};
+    use ripdpi_root_helper_protocol::{CMD_PROTOCOL_PREFLIGHT, COMMAND_DESCRIPTORS, HelperRequest, PROTOCOL_VERSION};
 
     use super::{DISPATCH_COMMANDS, dispatch_command};
 
     fn request_for(command: &str) -> HelperRequest {
-        HelperRequest { command: command.to_string(), params: serde_json::json!({}), session_nonce: None }
+        HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: command.to_string(),
+            params: serde_json::json!({}),
+            session_nonce: None,
+        }
+    }
+
+    #[test]
+    fn stale_protocol_request_is_rejected_before_shutdown_dispatch() {
+        let mut request = request_for(ripdpi_root_helper_protocol::CMD_SHUTDOWN);
+        request.protocol_version = Some(PROTOCOL_VERSION - 1);
+
+        let outcome = dispatch_command(&request, None);
+
+        assert!(!outcome.response.ok);
+        assert!(outcome.response.error.as_deref().is_some_and(|error| error.contains("protocol version mismatch")));
+        assert!(!outcome.shutdown_requested);
     }
 
     /// Every command in the protocol descriptor inventory must resolve to a
@@ -211,6 +239,16 @@ mod tests {
         let outcome = dispatch_command(&request_for("totally_unknown_command_v999"), None);
         let error = outcome.response.error.unwrap_or_default();
         assert!(error.starts_with("unknown command"), "unexpected response for an unknown command: {error:?}");
+    }
+
+    #[test]
+    fn protocol_preflight_is_a_pure_empty_success() {
+        let outcome = dispatch_command(&request_for(CMD_PROTOCOL_PREFLIGHT), None);
+
+        assert!(outcome.response.ok);
+        assert!(outcome.response.data.is_null());
+        assert!(outcome.reply_fd.is_none());
+        assert!(!outcome.shutdown_requested);
     }
 
     /// A descriptor that requires an inbound fd must make dispatch reject a
@@ -279,19 +317,20 @@ mod tests {
         );
     }
 
-    /// A legacy request JSON — three fields, no version metadata — still
-    /// deserializes and dispatches. Pins the wire back-compat contract.
+    /// A legacy request JSON still decodes so the helper can reject it with a
+    /// precise protocol error before any privileged handler runs.
     #[test]
-    fn legacy_request_json_without_version_metadata_still_dispatches() {
+    fn legacy_request_json_without_version_metadata_is_rejected_before_dispatch() {
         let legacy_shutdown = r#"{"command":"shutdown"}"#;
         let request: HelperRequest = serde_json::from_str(legacy_shutdown).expect("legacy shutdown JSON decodes");
         let outcome = dispatch_command(&request, None);
-        assert!(outcome.response.ok, "legacy shutdown request must succeed");
-        assert!(outcome.shutdown_requested, "shutdown command must request shutdown");
+        assert!(!outcome.response.ok, "legacy shutdown request must fail closed");
+        assert!(!outcome.shutdown_requested, "legacy shutdown must not request shutdown");
+        assert!(outcome.response.error.as_deref().is_some_and(|error| error.contains("missing protocol_version")));
 
         let legacy_probe = r#"{"command":"probe_capabilities","params":null}"#;
         let request: HelperRequest = serde_json::from_str(legacy_probe).expect("legacy probe JSON decodes");
         let outcome = dispatch_command(&request, None);
-        assert!(outcome.response.ok, "legacy probe_capabilities request must succeed");
+        assert!(!outcome.response.ok, "legacy probe_capabilities request must fail closed");
     }
 }

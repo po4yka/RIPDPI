@@ -36,7 +36,7 @@ pub fn execute_quic_candidate(
     match probe_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
             let runtime = supervisor.supervise(runtime);
-            let transport = runtime.runtime().transport();
+            let generation = runtime.runtime().generation();
             let mut score = CandidateScore::default();
             let mut ordered_targets = targets.to_vec();
             ordered_targets
@@ -49,9 +49,16 @@ pub fn execute_quic_candidate(
                 if index > 0 {
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
                 }
-                score.add(run_quic_strategy_probe(&transport, target, spec));
+                let attempt_token = crate::CandidateAttemptCorrelationId::evaluated(generation, index as u64 + 1);
+                let transport = attempt_token.as_ref().map_or_else(
+                    || runtime.runtime().transport(),
+                    |token| runtime.runtime().transport_for_attempt(token),
+                );
+                let mut sample = run_quic_strategy_probe(&transport, target, spec);
+                sample.attempt_token = attempt_token;
+                score.add(sample);
             }
-            runtime.shutdown();
+            let terminal_receipt = runtime.shutdown();
             let candidate_id = spec.id.to_string();
             metrics::histogram!(
                 "ripdpi_strategy_probe_duration_seconds",
@@ -59,7 +66,9 @@ pub fn execute_quic_candidate(
                 "family" => "quic",
             )
             .record(probe_started.elapsed().as_secs_f64());
-            build_candidate_execution(spec, score, 2)
+            let mut execution = build_candidate_execution(spec, score, 2);
+            execution.attach_terminal_evidence(generation, &terminal_receipt);
+            execution
         }
         Err(err) => failed_candidate_execution(spec, targets.len(), 2, err.to_string()),
     }
@@ -97,6 +106,7 @@ pub(super) fn run_quic_strategy_probe(
         weight: 2,
         domain: Some(target.host.clone()),
         is_control: false,
+        attempt_token: None,
         quality: match outcome.kind.as_str() {
             "quic_initial_response" => 4,
             "quic_response" => 3,

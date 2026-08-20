@@ -6,6 +6,8 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
@@ -38,6 +40,164 @@ import java.util.UUID
 
 class DiagnosticsStrategyProbeRecommendationPersistenceTest {
     private val json = diagnosticsTestJson()
+
+    @Test
+    fun `finalization rejects report identity mismatches before persistence`() =
+        runTest {
+            val prepared =
+                preparedStrategyProbeScan(
+                    sessionId = "prepared-session",
+                    settings = defaultDiagnosticsAppSettings(),
+                    fingerprint = networkFingerprint(ssid = "identity-network"),
+                )
+            val matching =
+                strategyProbeReport(
+                    sessionId = prepared.sessionId,
+                    proxyConfigJson = validPersistenceProxyConfigJson(),
+                    tcpFamily = "split",
+                    quicFamily = "quic_burst",
+                )
+            val mismatches =
+                listOf(
+                    matching.copy(sessionId = "foreign-session"),
+                    matching.copy(profileId = "foreign-profile"),
+                    matching.copy(pathMode = ScanPathMode.IN_PATH),
+                )
+
+            mismatches.forEach { mismatched ->
+                val stores = FakeDiagnosticsHistoryStores()
+                val failure =
+                    runCatching {
+                        scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                            prepared,
+                            json.encodeToString(mismatched.toEngineScanReportWire()),
+                        )
+                    }.exceptionOrNull()
+
+                assertTrue(failure is IllegalArgumentException)
+                assertNull(stores.getScanSession(prepared.sessionId))
+                assertNull(stores.getScanSession(mismatched.sessionId))
+            }
+        }
+
+    @Test
+    fun `in-path finalization persists owned active service authority`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val (prepared, report) = ownedActiveObservationFixture("session-owned-in-path")
+
+            scanFinalizationService(
+                stores,
+                TestDiagnosticsHistoryClock(),
+            ).finalize(
+                prepared,
+                json.encodeToString(report.toEngineScanReportWire()),
+            )
+
+            val persisted =
+                json.decodeEngineScanReportWire(
+                    requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
+                )
+            val strategy = requireNotNull(persisted.strategyProbeReport)
+            val observation = requireNotNull(strategy.activePathObservation)
+            assertEquals(StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH, observation.role)
+            assertEquals(StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN, observation.activePathAuthority)
+        }
+
+    @Test
+    fun `in-path finalization rejects incoherent active observation authority`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val (prepared, report) = ownedActiveObservationFixture("session-malformed-in-path")
+            val strategyProbe = requireNotNull(report.strategyProbeReport)
+            val observation = requireNotNull(strategyProbe.activePathObservation)
+            val malformed =
+                report.copy(
+                    strategyProbeReport =
+                        strategyProbe.copy(
+                            activePathObservation = observation.copy(successfulTargets = 2),
+                        ),
+                )
+
+            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                prepared,
+                json.encodeToString(malformed.toEngineScanReportWire()),
+            )
+
+            val persisted =
+                json.decodeEngineScanReportWire(
+                    requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
+                )
+            assertEquals(
+                StrategyActivePathAuthority.UNVERIFIED,
+                persisted.strategyProbeReport?.activePathObservation?.activePathAuthority,
+            )
+        }
+
+    @Test
+    fun `lease replacement after measured response preserves historical scan authority`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val (prepared, report) = ownedActiveObservationFixture("session-route-replaced-at-commit")
+            val service =
+                scanFinalizationService(
+                    stores,
+                    TestDiagnosticsHistoryClock(),
+                )
+
+            service.finalize(prepared, json.encodeToString(report.toEngineScanReportWire()))
+
+            val persisted =
+                json.decodeEngineScanReportWire(
+                    requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
+                )
+            assertEquals(
+                StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN,
+                persisted.strategyProbeReport?.activePathObservation?.activePathAuthority,
+            )
+        }
+
+    @Test
+    fun `in-path lease cannot synthesize an active observation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val settings = defaultDiagnosticsAppSettings()
+            val prepared =
+                preparedStrategyProbeScan(
+                    sessionId = "session-no-active-observation",
+                    settings = settings,
+                    fingerprint = networkFingerprint(ssid = "no-active-observation-network"),
+                ).copy(
+                    pathMode = ScanPathMode.IN_PATH,
+                    inPathRouteLease =
+                        DiagnosticsInPathRouteLease(
+                            runtimeId = "vpn-runtime",
+                            routeGeneration = 8,
+                            host = "127.0.0.1",
+                            port = 19_080,
+                            credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+                        ),
+                )
+            val report =
+                strategyProbeReport(
+                    sessionId = prepared.sessionId,
+                    proxyConfigJson = validPersistenceProxyConfigJson(),
+                    tcpFamily = "hostfake",
+                    quicFamily = "quic_realistic_burst",
+                    auditAssessment = auditAssessment(),
+                ).copy(pathMode = ScanPathMode.IN_PATH)
+
+            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                prepared,
+                json.encodeToString(report.toEngineScanReportWire()),
+            )
+
+            val persisted =
+                json.decodeEngineScanReportWire(
+                    requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
+                )
+            assertNull(requireNotNull(persisted.strategyProbeReport).activePathObservation)
+        }
 
     @Test
     fun `confirmed quick matrix persists profile caps without raw target names`() =
@@ -170,7 +330,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     .decodeEngineScanReportWire(
                         requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
                     ).toScanReport()
-            val recommendation = requireNotNull(persistedReport.strategyProbeReport).recommendation
+            val recommendation = requireNotNull(requireNotNull(persistedReport.strategyProbeReport).recommendation)
             assertEquals("tcp-1", recommendation.tcpCandidateId)
             assertEquals("quic-1", recommendation.quicCandidateId)
             assertEquals("best path", recommendation.rationale)
@@ -210,7 +370,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     strategyProbeReport =
                         strategyProbe.copy(
                             recommendation =
-                                strategyProbe.recommendation.copy(
+                                requireNotNull(strategyProbe.recommendation).copy(
                                     transportPivot =
                                         TransportPivotRecommendation(
                                             reasonCode = "confirm_good_dpi_suspected",
@@ -306,6 +466,50 @@ private fun scanFinalizationService(
         serverCapabilityStore = FakeServerCapabilityStore(),
         json = diagnosticsTestJson(),
     )
+
+private fun ownedActiveObservationFixture(sessionId: String): Pair<PreparedDiagnosticsScan, ScanReport> {
+    val settings = defaultDiagnosticsAppSettings()
+    val prepared =
+        preparedStrategyProbeScan(
+            sessionId = sessionId,
+            settings = settings,
+            fingerprint = networkFingerprint(ssid = "owned-in-path-network"),
+        ).copy(
+            pathMode = ScanPathMode.IN_PATH,
+            inPathRouteLease =
+                DiagnosticsInPathRouteLease(
+                    runtimeId = "vpn-runtime",
+                    routeGeneration = 7,
+                    host = "127.0.0.1",
+                    port = 19_080,
+                    credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+                ),
+        )
+    val baseReport =
+        strategyProbeReport(
+            sessionId = prepared.sessionId,
+            proxyConfigJson = validPersistenceProxyConfigJson(),
+            tcpFamily = "hostfake",
+            quicFamily = "quic_realistic_burst",
+            auditAssessment = auditAssessment(),
+        )
+    val report =
+        baseReport.copy(
+            pathMode = ScanPathMode.IN_PATH,
+            strategyProbeReport =
+                requireNotNull(baseReport.strategyProbeReport).copy(
+                    activePathObservation =
+                        StrategyActivePathObservation(
+                            role = StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH,
+                            responseStage = StrategyProbeResponseStage.RESPONSE_OBSERVED,
+                            attemptedTargets = 1,
+                            routeReachedTargets = 1,
+                            responseObservedTargets = 1,
+                        ),
+                ),
+        )
+    return prepared to report
+}
 
 private fun preparedStrategyProbeScan(
     sessionId: String,

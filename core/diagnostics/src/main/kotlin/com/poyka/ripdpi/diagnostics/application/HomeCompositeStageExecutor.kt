@@ -4,9 +4,11 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,28 +30,60 @@ internal class HomeCompositeStageExecutor
         private val diagnosticsScanController: DiagnosticsScanController,
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val serviceStateStore: ServiceStateStore,
+        private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
     ) {
+        internal constructor(
+            diagnosticsScanController: DiagnosticsScanController,
+            diagnosticsTimelineSource: DiagnosticsTimelineSource,
+            serviceStateStore: ServiceStateStore,
+        ) : this(
+            diagnosticsScanController,
+            diagnosticsTimelineSource,
+            serviceStateStore,
+            UnavailableInPathRuntimeCoordinator,
+        )
+
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
         }
 
-        fun requireInPathRuntime(
+        suspend fun requireInPathRuntime(
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
             runId: String,
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
         ): Boolean {
             val (status, mode) = serviceStateStore.status.value
-            if (status == AppStatus.Running && mode == Mode.Proxy) return true
-            updateStage(progressState, runId, stageIndex) { current ->
-                current.copy(
-                    status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                    headline = "${spec.label} unavailable",
-                    summary = "The owner-controlled runtime was not ready for the in-path comparison.",
-                )
+            val available =
+                status == AppStatus.Running &&
+                    (mode != Mode.VPN || currentVpnInPathRouteIsAvailable())
+            if (!available) {
+                updateStage(progressState, runId, stageIndex) { current ->
+                    current.copy(
+                        status = DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                        headline = "${spec.label} unavailable",
+                        summary =
+                            if (status == AppStatus.Running) {
+                                "The active VPN route was not observable for the in-path comparison."
+                            } else {
+                                "The owner-controlled runtime was not ready for the in-path comparison."
+                            },
+                        unavailableReason =
+                            if (status == AppStatus.Running) {
+                                DiagnosticsHomeCompositeStageUnavailableReason.ACTIVE_VPN_PATH_NOT_OBSERVED
+                            } else {
+                                DiagnosticsHomeCompositeStageUnavailableReason.SERVICE_NOT_RUNNING
+                            },
+                    )
+                }
             }
-            return false
+            return available
+        }
+
+        private suspend fun currentVpnInPathRouteIsAvailable(): Boolean {
+            val lease = runtimeCoordinator.acquireInPathRouteLease() ?: return false
+            return runtimeCoordinator.isInPathRouteLeaseCurrent(lease)
         }
 
         suspend fun cancelRunStages(
@@ -223,12 +258,16 @@ internal class HomeCompositeStageExecutor
                     }
                 },
                 onFailure = { failure ->
+                    if (failure is CancellationException) {
+                        throw failure
+                    }
                     if (failure is InPathRuntimeUnavailableException) {
                         updateStage(progressState, runId, stageIndex) { current ->
                             current.copy(
-                                status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                status = DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
                                 headline = "${spec.label} unavailable",
                                 summary = failure.message ?: "The in-path runtime became unavailable.",
+                                unavailableReason = failure.reason,
                             )
                         }
                     } else {
@@ -279,6 +318,7 @@ internal class HomeCompositeStageExecutor
 
                 StageSessionSignal.VpnHalted -> {
                     log.w { "VPN halted during stage ${spec.key}" }
+                    retireInterruptedStage(stageSessionId)
                     markStageFailure(
                         progressState = progressState,
                         runId = runId,
@@ -288,6 +328,16 @@ internal class HomeCompositeStageExecutor
                     )
                     null
                 }
+            }
+        }
+
+        private suspend fun retireInterruptedStage(stageSessionId: String) {
+            withContext(NonCancellable) {
+                runCatching { diagnosticsScanController.cancelScan(stageSessionId) }
+                    .onFailure { failure ->
+                        log.w(failure) { "failed to cancel interrupted session: $stageSessionId" }
+                    }
+                awaitTimedOutStageRecovery(stageSessionId)
             }
         }
 
@@ -395,6 +445,12 @@ internal class HomeCompositeStageExecutor
             }
         }
     }
+
+private object UnavailableInPathRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
+    override suspend fun runRawPathScan(block: suspend () -> Unit) = block()
+
+    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) = block()
+}
 
 private fun Throwable?.withSuppressed(additional: Throwable?): Throwable? =
     additional?.let { next ->

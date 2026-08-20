@@ -79,7 +79,8 @@ class RootHelperInstrumentedTest {
 
     private companion object {
         private const val RootHelperSmokeArg = "ripdpi.rootHelperSmoke"
-        private const val ProbeCapabilitiesCommand = "probe_capabilities"
+        private const val RootHelperProtocolVersion = 3
+        private const val ProbeCapabilitiesCommand = "v3/probe_capabilities"
         private const val RawIpv4Capability = "raw_ipv4"
         private const val RawIpv6Capability = "raw_ipv6"
         private const val TcpRepairCapability = "tcp_repair"
@@ -204,6 +205,7 @@ class RootHelperInstrumentedTest {
             socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
             val request =
                 JSONObject()
+                    .put("protocol_version", RootHelperProtocolVersion)
                     .put("command", ProbeCapabilitiesCommand)
                     .put("session_nonce", sessionNonce)
                     .toString()

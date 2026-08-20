@@ -9,6 +9,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
+import com.poyka.ripdpi.ui.diagnostics.uiVerificationLabel
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
@@ -46,9 +48,11 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                             context.getString(
                                 R.string.diagnostics_share_approach_format,
                                 summary.displayName,
-                                summary.verificationState,
+                                summary.uiVerificationLabel(context),
                             ),
                         )
+                        append('\n')
+                        append(summary.uiEvidenceNote(context))
                     }
             },
         metrics =

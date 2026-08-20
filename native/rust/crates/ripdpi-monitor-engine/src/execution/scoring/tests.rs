@@ -1,7 +1,10 @@
-use ripdpi_monitor_adapter::proxy_config::ProxyUiConfig;
+use ripdpi_monitor_adapter::proxy_config::{ProxyUiActivationFilter, ProxyUiConfig, ProxyUiTcpRotationConfig};
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::types::{ProbeResult, StrategyEmitterTier, StrategyProbeCandidateSummary};
+use crate::types::{
+    ProbeResult, StrategyEmitterTier, StrategyProbeCandidateSummary, StrategyProbeObservationRole,
+    StrategyProbeRouteFeature,
+};
 
 use super::*;
 
@@ -70,6 +73,7 @@ fn candidate_score_add_accumulates_weighted_success() {
         latency_ms: 50,
         domain: None,
         is_control: false,
+        attempt_token: None,
     });
     score.add(ProbeSample {
         result: ProbeResult {
@@ -84,6 +88,7 @@ fn candidate_score_add_accumulates_weighted_success() {
         latency_ms: 100,
         domain: None,
         is_control: false,
+        attempt_token: None,
     });
 
     assert_eq!(score.succeeded_targets, 1);
@@ -111,6 +116,7 @@ fn candidate_score_full_success_when_all_targets_succeed() {
         latency_ms: 100,
         domain: None,
         is_control: false,
+        attempt_token: None,
     });
 
     assert!(score.is_full_success());
@@ -132,6 +138,7 @@ fn candidate_score_preserves_control_classification_in_domain_outcome() {
         latency_ms: 25,
         domain: Some("control.example".to_string()),
         is_control: true,
+        attempt_token: None,
     });
 
     let outcomes = score.domain_outcomes();
@@ -139,6 +146,293 @@ fn candidate_score_preserves_control_classification_in_domain_outcome() {
     assert_eq!(outcomes[0].domain, "control.example");
     assert!(outcomes[0].succeeded);
     assert!(outcomes[0].is_control);
+}
+
+#[test]
+fn terminal_receipts_join_attempts_by_token_when_completion_order_is_reversed() {
+    let first = crate::CandidateAttemptCorrelationId::evaluated(7, 1).expect("first id");
+    let second = crate::CandidateAttemptCorrelationId::evaluated(7, 2).expect("second id");
+    let mut score = CandidateScore::default();
+    for (token, success) in [(first.clone(), true), (second.clone(), false)] {
+        score.add(ProbeSample {
+            result: ProbeResult {
+                probe_type: "test".to_string(),
+                target: "redacted".to_string(),
+                outcome: if success { "ok" } else { "failed" }.to_string(),
+                details: vec![],
+            },
+            success,
+            weight: 1,
+            quality: usize::from(success),
+            latency_ms: 1,
+            domain: None,
+            is_control: false,
+            attempt_token: Some(token),
+        });
+    }
+    let mut execution = build_candidate_execution(&test_spec(), score, 1);
+    let evidence = |token: crate::CandidateAttemptCorrelationId| test_desync_evidence(7, token);
+    let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+        7,
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        vec![evidence(second.clone()), evidence(first.clone())],
+    )
+    .expect("terminal receipt");
+
+    execution.attach_terminal_evidence(7, &terminal);
+
+    assert!(execution.execution_evidence_complete);
+    assert_eq!(execution.attempts[0].token, first);
+    assert_eq!(execution.attempts[0].receipts[0].attempt_token, execution.attempts[0].token);
+    assert!(execution.attempts[0].success);
+    assert_eq!(execution.attempts[1].token, second);
+    assert!(!execution.attempts[1].success);
+}
+
+#[test]
+fn terminal_constructor_rejects_mixed_generation_evidence() {
+    let token = crate::CandidateAttemptCorrelationId::evaluated(8, 1).expect("id");
+    let mut score = CandidateScore::default();
+    score.add(ProbeSample {
+        result: ProbeResult {
+            probe_type: "test".to_string(),
+            target: "redacted".to_string(),
+            outcome: "ok".to_string(),
+            details: vec![],
+        },
+        success: true,
+        weight: 1,
+        quality: 1,
+        latency_ms: 1,
+        domain: None,
+        is_control: false,
+        attempt_token: Some(token.clone()),
+    });
+    let execution = build_candidate_execution(&test_spec(), score, 1);
+    let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+        8,
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        vec![test_desync_evidence(8, token.clone()), test_desync_evidence(7, token)],
+    );
+
+    assert!(terminal.is_none());
+    assert!(!execution.execution_evidence_complete);
+    assert!(execution.attempts[0].receipts.is_empty());
+}
+
+#[test]
+fn terminal_receipt_from_another_generation_is_rejected_before_joining() {
+    let token = crate::CandidateAttemptCorrelationId::evaluated(8, 1).expect("id");
+    let mut score = CandidateScore::default();
+    score.add(ProbeSample {
+        result: ProbeResult {
+            probe_type: "test".to_string(),
+            target: "redacted".to_string(),
+            outcome: "ok".to_string(),
+            details: vec![],
+        },
+        success: true,
+        weight: 1,
+        quality: 1,
+        latency_ms: 1,
+        domain: None,
+        is_control: false,
+        attempt_token: Some(token),
+    });
+    let mut execution = build_candidate_execution(&test_spec(), score, 1);
+    let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+        7,
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        Vec::new(),
+    )
+    .expect("terminal receipt");
+
+    execution.attach_terminal_evidence(8, &terminal);
+
+    assert!(!execution.execution_evidence_complete);
+    assert!(execution.attempts[0].receipts.is_empty());
+}
+
+#[test]
+fn unknown_same_generation_attempt_receipt_makes_candidate_unverified() {
+    let known = crate::CandidateAttemptCorrelationId::evaluated(7, 1).expect("known id");
+    let unknown = crate::CandidateAttemptCorrelationId::evaluated(7, 2).expect("unknown id");
+    let mut score = CandidateScore::default();
+    score.add(ProbeSample {
+        result: ProbeResult {
+            probe_type: "test".to_string(),
+            target: "redacted".to_string(),
+            outcome: "ok".to_string(),
+            details: vec![],
+        },
+        success: true,
+        weight: 1,
+        quality: 1,
+        latency_ms: 1,
+        domain: None,
+        is_control: false,
+        attempt_token: Some(known.clone()),
+    });
+    let mut execution = build_candidate_execution(&test_spec(), score, 1);
+    let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+        7,
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        vec![test_desync_evidence(7, known), test_desync_evidence(7, unknown)],
+    )
+    .expect("terminal receipt");
+
+    execution.attach_terminal_evidence(7, &terminal);
+
+    assert!(!execution.execution_evidence_complete);
+    assert!(!execution.has_applied_success_evidence());
+}
+
+#[test]
+fn duplicate_or_gapped_connection_ordinals_make_candidate_unverified() {
+    for second_ordinal in [1, 3] {
+        let token = crate::CandidateAttemptCorrelationId::evaluated(7, 1).expect("attempt id");
+        let mut score = CandidateScore::default();
+        score.add(ProbeSample {
+            result: ProbeResult {
+                probe_type: "test".to_string(),
+                target: "redacted".to_string(),
+                outcome: "ok".to_string(),
+                details: vec![],
+            },
+            success: true,
+            weight: 1,
+            quality: 1,
+            latency_ms: 1,
+            domain: None,
+            is_control: false,
+            attempt_token: Some(token.clone()),
+        });
+        let mut first = test_desync_evidence(7, token.clone());
+        let mut second = test_desync_evidence(7, token);
+        let crate::CandidateRuntimeExecutionEvidence::Desync(first_receipt) = &mut first;
+        first_receipt.connection_ordinal = 1;
+        let crate::CandidateRuntimeExecutionEvidence::Desync(second_receipt) = &mut second;
+        second_receipt.connection_ordinal = second_ordinal;
+        let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+            7,
+            crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+            vec![first, second],
+        )
+        .expect("same-generation terminal receipt");
+        let mut execution = build_candidate_execution(&test_spec(), score, 1);
+
+        execution.attach_terminal_evidence(7, &terminal);
+
+        assert!(!execution.execution_evidence_complete);
+    }
+}
+
+#[test]
+fn forged_zero_write_applied_receipt_leaves_attempt_evidence_unverified() {
+    let token = crate::CandidateAttemptCorrelationId::evaluated(7, 1).expect("id");
+    let mut score = CandidateScore::default();
+    score.add(ProbeSample {
+        result: ProbeResult {
+            probe_type: "test".to_string(),
+            target: "redacted".to_string(),
+            outcome: "ok".to_string(),
+            details: vec![],
+        },
+        success: true,
+        weight: 1,
+        quality: 1,
+        latency_ms: 1,
+        domain: None,
+        is_control: false,
+        attempt_token: Some(token.clone()),
+    });
+    let mut execution = build_candidate_execution(&test_spec(), score, 1);
+    let crate::CandidateRuntimeExecutionEvidence::Desync(mut forged) = test_desync_evidence(7, token);
+    forged.attempted_actions = 0;
+    forged.completed_actions = 0;
+    forged.real_writes_committed = 0;
+    forged.payload_bytes_committed = 0;
+    let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+        7,
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        vec![crate::CandidateRuntimeExecutionEvidence::Desync(forged)],
+    )
+    .expect("terminal receipt");
+
+    execution.attach_terminal_evidence(7, &terminal);
+
+    assert!(!execution.execution_evidence_complete);
+    assert!(!execution.has_applied_success_evidence());
+}
+
+#[test]
+fn unknown_execution_family_makes_candidate_evidence_incomplete() {
+    let token = crate::CandidateAttemptCorrelationId::evaluated(7, 1).expect("attempt id");
+    let mut score = CandidateScore::default();
+    score.add(ProbeSample {
+        result: ProbeResult {
+            probe_type: "test".to_string(),
+            target: "redacted".to_string(),
+            outcome: "ok".to_string(),
+            details: vec![],
+        },
+        success: true,
+        weight: 1,
+        quality: 1,
+        latency_ms: 1,
+        domain: None,
+        is_control: false,
+        attempt_token: Some(token.clone()),
+    });
+    let mut execution = build_candidate_execution(&test_spec(), score, 1);
+    let crate::CandidateRuntimeExecutionEvidence::Desync(mut unknown) = test_desync_evidence(7, token);
+    unknown.configured_family = Some(ripdpi_runtime_api::DesyncStrategyFamily::Unknown);
+    unknown.effective_family = Some(ripdpi_runtime_api::DesyncStrategyFamily::Unknown);
+    let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
+        7,
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        vec![crate::CandidateRuntimeExecutionEvidence::Desync(unknown)],
+    )
+    .expect("terminal receipt");
+
+    execution.attach_terminal_evidence(7, &terminal);
+
+    assert!(!execution.execution_evidence_complete);
+    assert!(execution.summary.execution_attempts[0].receipts.is_empty());
+}
+
+fn test_desync_evidence(
+    generation: u64,
+    attempt_token: crate::CandidateAttemptCorrelationId,
+) -> crate::CandidateRuntimeExecutionEvidence {
+    crate::CandidateRuntimeExecutionEvidence::Desync(crate::CandidateDesyncExecutionReceipt {
+        disposition: crate::CandidateDesyncExecutionDisposition::Applied,
+        generation,
+        attempt_token,
+        connection_ordinal: 1,
+        transport: ripdpi_runtime_api::DesyncExecutionTransport::Tcp,
+        configured_family: Some(ripdpi_runtime_api::DesyncStrategyFamily::Split),
+        effective_family: Some(ripdpi_runtime_api::DesyncStrategyFamily::Split),
+        marker_base: Some(ripdpi_runtime_api::DesyncOffsetMarkerBase::Host),
+        marker_delta: Some(1),
+        resolved_offset: Some(16),
+        planned_steps: 1,
+        attempted_actions: 3,
+        completed_actions: 3,
+        real_writes_committed: 2,
+        completed_awaits: 1,
+        payload_bytes_committed: 32,
+        tls_record_prelude_applied: false,
+        tls_prelude_configured_count: 0,
+        tls_prelude_applied_count: 0,
+        tls_prelude_kind: None,
+        tls_prelude_marker_base: None,
+        tls_prelude_marker_delta: None,
+        tls_prelude_resolved_offset: None,
+        udp_ipv6_extension_profile: None,
+        fallback_reason: None,
+        terminal_reason: None,
+    })
 }
 
 #[test]
@@ -259,6 +553,33 @@ fn build_execution_computes_outcome_failed() {
     assert_eq!(exec.summary.outcome, "failed");
 }
 
+#[test]
+fn build_execution_records_privacy_safe_compound_route_features() {
+    let mut config = test_ui_config();
+    config.upstream_relay.enabled = true;
+    config.warp.enabled = true;
+    config.ws_tunnel.enabled = true;
+    config.destination_routing.canonical_digest = "typed-route-policy".to_string();
+    config.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig::default());
+    config.chains.group_activation_filter = Some(ProxyUiActivationFilter::default());
+    let spec = crate::candidates::candidate_spec("compound", "Compound", "baseline", config);
+
+    let execution = build_candidate_execution(&spec, CandidateScore::default(), 0);
+
+    assert_eq!(
+        execution.summary.route_features,
+        vec![
+            StrategyProbeRouteFeature::UpstreamRelay,
+            StrategyProbeRouteFeature::Warp,
+            StrategyProbeRouteFeature::WebSocketTunnel,
+            StrategyProbeRouteFeature::DestinationRouting,
+            StrategyProbeRouteFeature::TcpRotation,
+            StrategyProbeRouteFeature::AdaptiveFallback,
+            StrategyProbeRouteFeature::GroupActivationFilter,
+        ],
+    );
+}
+
 fn summary_with(
     id: &str,
     weighted_success_score: usize,
@@ -287,6 +608,13 @@ fn summary_with(
         average_latency_ms,
         skipped,
         domain_outcomes: vec![],
+        observation_role: StrategyProbeObservationRole::EphemeralCandidateRawPath,
+        active_snapshot_faithful: true,
+        desync_execution_required: true,
+        runtime_terminal_status: crate::types::StrategyProbeRuntimeTerminalStatus::Unavailable,
+        execution_evidence_complete: false,
+        execution_attempts: vec![],
+        route_features: vec![],
     }
 }
 

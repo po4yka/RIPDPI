@@ -20,6 +20,7 @@ use crate::runtime::types::RuntimeTransportProtocol;
 use delay::{DelayConnect, maybe_delay_connect};
 use relay::{connect_after_ws_attempt, delayed_connect_relay, immediate_connect_relay};
 use reply::write_success_reply;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 use ws_fallback::run_ws_fallback_after_desync;
 use ws_first::{AlwaysWsOutcome, run_ws_always_first};
 
@@ -40,6 +41,7 @@ pub(super) fn connect_and_relay(
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
+    attempt_token: Option<AttemptCorrelationId>,
     reply: SuccessReply,
 ) -> Result<(), ConnectRelayError> {
     connect_and_relay_with(
@@ -48,6 +50,7 @@ pub(super) fn connect_and_relay(
         state,
         host_hint,
         reply,
+        attempt_token,
         write_success_reply,
         run_ws_tunnel,
         run_ws_tunnel_with_seed,
@@ -73,6 +76,7 @@ fn connect_and_relay_with<
     state: &RuntimeState,
     host_hint: Option<String>,
     reply: SuccessReply,
+    attempt_token: Option<AttemptCorrelationId>,
     mut write_success_reply_fn: WriteSuccessReply,
     mut run_ws_tunnel_fn: RunWsTunnel,
     mut run_ws_tunnel_with_seed_fn: RunWsTunnelWithSeed,
@@ -99,6 +103,7 @@ where
         Option<String>,
         &SuccessReply,
         bool,
+        Option<AttemptCorrelationId>,
     ) -> Result<(), ConnectRelayError>,
     DelayedConnectRelay: FnMut(
         &mut TcpStream,
@@ -107,6 +112,7 @@ where
         Option<String>,
         RuntimeConnectionRoute,
         Vec<u8>,
+        Option<AttemptCorrelationId>,
     ) -> Result<(), ConnectRelayError>,
     ConnectAfterWsAttempt:
         FnMut(&mut TcpStream, SocketAddr, &RuntimeState, Option<String>, Vec<u8>) -> Result<(), ConnectRelayError>,
@@ -137,10 +143,10 @@ where
     let desync_result =
         match maybe_delay_connect_fn(client, state, target, host_hint.as_deref(), reply.handshake_kind())? {
             DelayConnect::Immediate { success_reply_sent } => {
-                immediate_connect_relay_fn(client, target, state, host_hint, &reply, success_reply_sent)
+                immediate_connect_relay_fn(client, target, state, host_hint, &reply, success_reply_sent, attempt_token)
             }
             DelayConnect::Delayed { route, payload } => {
-                delayed_connect_relay_fn(client, target, state, host_hint, route, payload)
+                delayed_connect_relay_fn(client, target, state, host_hint, route, payload, attempt_token)
             }
             DelayConnect::Closed => Ok(()),
         };

@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "family": "root_helper_command",
   "name": "cmd_send_fake_tcp",
-  "wireId": "send_fake_tcp",
-  "summary": "send_fake_tcp — raw-socket fake TCP segment ahead of the caller's payload (the canonical SCM_RIGHTS fd-carrying command).",
+  "wireId": "v3/send_fake_tcp",
+  "summary": "v3/send_fake_tcp — raw-socket fake TCP segment ahead of the caller's payload (the canonical SCM_RIGHTS fd-carrying command).",
   "layers": [
     {
       "id": "command_constant",
       "path": "native/rust/crates/ripdpi-root-helper-protocol/src/commands.rs",
-      "marker": "pub const CMD_SEND_FAKE_TCP: &str = \"send_fake_tcp\"",
+      "marker": "pub const CMD_SEND_FAKE_TCP: &str = \"v3/send_fake_tcp\"",
       "fixHint": "Add `pub const CMD_<NAME>: &str = \"<wire>\";` in commands.rs. The string is a frozen cross-process contract — never rename."
     },
     {

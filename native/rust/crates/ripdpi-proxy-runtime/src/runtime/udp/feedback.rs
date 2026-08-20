@@ -123,6 +123,8 @@ mod tests {
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+            execution_family: None,
+            attempt_token: None,
             host: Some("example.com".to_string()),
             payload: b"quic-initial".to_vec(),
             awaiting_response,

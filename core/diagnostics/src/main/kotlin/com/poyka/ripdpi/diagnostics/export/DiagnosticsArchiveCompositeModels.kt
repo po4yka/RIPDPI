@@ -37,6 +37,7 @@ internal data class DiagnosticsArchiveStageIndexEntry(
     val status: String,
     val headline: String,
     val summary: String,
+    val unavailableReason: String? = null,
     val recommendationContributor: Boolean = false,
     val sourceSnapshotCount: Int = 0,
     val includedSnapshotCount: Int = 0,

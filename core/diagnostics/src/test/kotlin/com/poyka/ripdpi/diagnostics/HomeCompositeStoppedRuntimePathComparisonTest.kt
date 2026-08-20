@@ -15,7 +15,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeCompositeStoppedRuntimePathComparisonTest {
     @Test
-    fun `newer user stop after raw stages skips physical path comparison`() =
+    fun `newer user stop after raw stages marks physical path comparison unavailable`() =
         runTest {
             val json = diagnosticsTestJson()
             val stores = FakeDiagnosticsHistoryStores()
@@ -112,7 +112,7 @@ class HomeCompositeStoppedRuntimePathComparisonTest {
             val outcome = service.finalizeHomeRun(run.runId)
 
             assertEquals(
-                0 to DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                0 to DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
                 inPathStarts to outcome.stageSummaries.single { it.stageKey == "path_comparison" }.status,
             )
         }

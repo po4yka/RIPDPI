@@ -281,7 +281,9 @@ mod tests {
     use std::sync::Mutex;
     use std::thread;
 
-    use ripdpi_root_helper_protocol::{CMD_SHUTDOWN, HelperRequest, HelperResponse, recv_message, send_message};
+    use ripdpi_root_helper_protocol::{
+        CMD_SHUTDOWN, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+    };
 
     use super::{
         RUNNING, handle_connection, prepare_socket_for_app, read_session_nonce_file, send_response,
@@ -306,6 +308,7 @@ mod tests {
         let (client, server) = UnixStream::pair().expect("socket pair");
         let server = thread::spawn(move || handle_connection(&server, TEST_NONCE).expect("handle connection"));
         let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
             command: CMD_SHUTDOWN.to_string(),
             params: serde_json::Value::Null,
             session_nonce: Some("abcdefghijklmnopqrstuvwxyzABCDEG".to_string()),
@@ -328,6 +331,7 @@ mod tests {
         let (client, server) = UnixStream::pair().expect("socket pair");
         let server = thread::spawn(move || handle_connection(&server, TEST_NONCE).expect("handle connection"));
         let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
             command: CMD_SHUTDOWN.to_string(),
             params: serde_json::Value::Null,
             session_nonce: Some(TEST_NONCE.to_string()),

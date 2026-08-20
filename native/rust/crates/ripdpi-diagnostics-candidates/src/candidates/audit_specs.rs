@@ -62,6 +62,7 @@ pub fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCandidateSp
             "Uses a coherent Chrome-family fake ClientHello instead of randomized or original-byte mutation",
         ],
         preserve_adaptive_fake_ttl: true,
+        active_snapshot_faithful: true,
         warmup: CandidateWarmup::AdaptiveFakeTtl,
         requires_fake_ttl,
         requires_tcp_fast_open: false,

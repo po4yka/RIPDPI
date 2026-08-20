@@ -367,22 +367,28 @@ internal class DefaultDiagnosticsScanController
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
             ownerId: String? = null,
         ): String {
+            val routedPrepared =
+                prepared.bindCurrentInPathRoute(
+                    serviceStateStore = serviceStateStore,
+                    runtimeCoordinator = runtimeCoordinator,
+                    scanRequestFactory = scanRequestFactory,
+                )
             val startup = StartupTransactionResources()
             val startupFailure =
                 runCatching {
-                    persistPreparedScan(prepared, ownerId)
+                    persistPreparedScan(routedPrepared, ownerId)
                     ensureStartupActive(scope)
-                    val bridgeSession = createStartedBridge(prepared, startup)
+                    val bridgeSession = createStartedBridge(routedPrepared, startup)
                     ensureStartupActive(scope)
-                    launchPreparedScan(prepared, bridgeSession, rawPathRunner, startup)
+                    launchPreparedScan(routedPrepared, bridgeSession, rawPathRunner, startup)
                 }.exceptionOrNull()
             if (startupFailure != null) {
                 val summary =
                     if (startupFailure is CancellationException) StartupCanceledSummary else StartupFailedSummary
-                cleanupStartupFailure(prepared, startup, summary, startupFailure)
+                cleanupStartupFailure(routedPrepared, startup, summary, startupFailure)
                 throw startupFailure
             }
-            return prepared.sessionId
+            return routedPrepared.sessionId
         }
 
         private suspend fun persistPreparedScan(
@@ -391,8 +397,8 @@ internal class DefaultDiagnosticsScanController
         ) {
             if (ownerId != null) {
                 prepared
-                    .inPathPreflightFailureSummary(serviceStateStore.status.value)
-                    ?.let { summary -> throw InPathRuntimeUnavailableException(summary) }
+                    .inPathPreflightFailure(serviceStateStore.status.value)
+                    ?.let { failure -> throw InPathRuntimeUnavailableException(failure.summary, failure.reason) }
             }
             activeScanRegistry.rememberPreparedScan(prepared, ownerId)
             ensureStartupActive(scope)
@@ -403,21 +409,29 @@ internal class DefaultDiagnosticsScanController
             artifactWriteStore.upsertContextSnapshot(prepared.preScanContext)
             ensureStartupActive(scope)
 
-            val failureSummary = prepared.inPathPreflightFailureSummary() ?: return
+            val failure = prepared.inPathPreflightFailure() ?: return
             activeScanRegistry.removePreparedScan(prepared.sessionId)
             clearPreparedProgress(prepared)
             DiagnosticsReportPersister.persistScanFailure(
                 prepared.sessionId,
-                failureSummary,
+                failure.summary,
                 scanRecordStore,
             )
-            throw IllegalStateException(failureSummary)
+            throw IllegalStateException(failure.summary)
         }
 
         private suspend fun createStartedBridge(
             prepared: PreparedDiagnosticsScan,
             startup: StartupTransactionResources,
         ): PreparedBridgeSession {
+            prepared.inPathRouteLease?.let { lease ->
+                if (!runtimeCoordinator.isInPathRouteLeaseCurrent(lease)) {
+                    throw InPathRuntimeUnavailableException(
+                        "In-path diagnostics unavailable: the active VPN route changed before scan start",
+                        DiagnosticsHomeCompositeStageUnavailableReason.RUNTIME_CHANGED_OR_UNAVAILABLE,
+                    )
+                }
+            }
             val handle =
                 bridgeExecutionService.createHandle(
                     sessionId = prepared.sessionId,
@@ -599,18 +613,46 @@ internal suspend fun persistPartialScanSession(
 }
 
 private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
-private const val InPathVpnUnavailableAction = "run raw-path diagnostics so the VPN can pause and resume safely"
 
 internal class InPathRuntimeUnavailableException(
     message: String,
+    val reason: DiagnosticsHomeCompositeStageUnavailableReason =
+        DiagnosticsHomeCompositeStageUnavailableReason.RUNTIME_CHANGED_OR_UNAVAILABLE,
 ) : IllegalStateException(message)
 
-private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(
+private data class InPathPreflightFailure(
+    val summary: String,
+    val reason: DiagnosticsHomeCompositeStageUnavailableReason,
+)
+
+internal suspend fun PreparedDiagnosticsScan.bindCurrentInPathRoute(
+    serviceStateStore: ServiceStateStore,
+    runtimeCoordinator: DiagnosticsRuntimeCoordinator,
+    scanRequestFactory: DiagnosticsScanRequestFactory,
+): PreparedDiagnosticsScan {
+    val liveRuntime = serviceStateStore.status.value
+    val needsOwnedVpnRoute =
+        pathMode == ScanPathMode.IN_PATH &&
+            liveRuntime.first == AppStatus.Running &&
+            liveRuntime.second == Mode.VPN
+    return if (needsOwnedVpnRoute) {
+        val lease =
+            runtimeCoordinator.acquireInPathRouteLease()
+                ?: throw InPathRuntimeUnavailableException(
+                    "In-path diagnostics unavailable: the active VPN route is not currently observable",
+                    DiagnosticsHomeCompositeStageUnavailableReason.ACTIVE_VPN_PATH_NOT_OBSERVED,
+                )
+        scanRequestFactory.bindInPathRoute(this, lease)
+    } else {
+        this
+    }
+}
+
+private fun PreparedDiagnosticsScan.inPathPreflightFailure(
     liveRuntime: Pair<AppStatus, Mode>? = null,
-): String? {
+): InPathPreflightFailure? {
     val service = context.contextSnapshot.service
     val liveStatus = liveRuntime?.first
-    val liveMode = liveRuntime?.second
     val expectedEndpoint = expectedProxyEndpoint()
     val listenerAddress = service.proxy?.listenerAddress?.takeIf { it.isNotBlank() }
     return when {
@@ -619,25 +661,31 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(
         }
 
         liveStatus != null && liveStatus != AppStatus.Running -> {
-            "In-path diagnostics unavailable: local proxy service is ${liveStatus.name}; " +
-                InPathServiceUnavailableAction
-        }
-
-        liveMode == Mode.VPN -> {
-            "In-path diagnostics unavailable while VPN service is active; $InPathVpnUnavailableAction"
+            InPathPreflightFailure(
+                summary =
+                    "In-path diagnostics unavailable: local proxy service is ${liveStatus.name}; " +
+                        InPathServiceUnavailableAction,
+                reason = DiagnosticsHomeCompositeStageUnavailableReason.SERVICE_NOT_RUNNING,
+            )
         }
 
         liveStatus == null && !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
             val status = service.serviceStatus
-            "In-path diagnostics unavailable: local proxy service is $status; $InPathServiceUnavailableAction"
+            InPathPreflightFailure(
+                summary =
+                    "In-path diagnostics unavailable: local proxy service is $status; " +
+                        InPathServiceUnavailableAction,
+                reason = DiagnosticsHomeCompositeStageUnavailableReason.SERVICE_NOT_RUNNING,
+            )
         }
 
-        liveMode == null && service.activeMode.equals(Mode.VPN.name, ignoreCase = true) -> {
-            "In-path diagnostics unavailable while VPN service is active; $InPathVpnUnavailableAction"
-        }
-
-        listenerAddress != null && listenerAddress != expectedEndpoint -> {
-            "In-path diagnostics unavailable: proxy listener is $listenerAddress, expected $expectedEndpoint"
+        preparedRouteAbsent() && listenerAddress != null && listenerAddress != expectedEndpoint -> {
+            InPathPreflightFailure(
+                summary =
+                    "In-path diagnostics unavailable: proxy listener is $listenerAddress, " +
+                        "expected $expectedEndpoint",
+                reason = DiagnosticsHomeCompositeStageUnavailableReason.PROXY_ENDPOINT_MISMATCH,
+            )
         }
 
         else -> {
@@ -645,6 +693,8 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(
         }
     }
 }
+
+private fun PreparedDiagnosticsScan.preparedRouteAbsent(): Boolean = inPathRouteLease == null
 
 private fun PreparedDiagnosticsScan.expectedProxyEndpoint(): String =
     plan.proxyHost?.let { host ->

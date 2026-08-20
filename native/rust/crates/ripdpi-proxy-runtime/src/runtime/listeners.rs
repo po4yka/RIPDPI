@@ -6,6 +6,7 @@ use std::io;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc as StdArc;
 
+use ripdpi_proxy_runtime_adapter::model::runtime_api::DesyncExecutionEvidence;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -17,9 +18,39 @@ use self::accept_loop::run_accept_loop;
 use super::config::RuntimeConfig;
 use super::state::RuntimeState;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProxyRuntimeCleanupReceipt {
-    pub forced_abort: bool,
+    forced_abort: bool,
+    worker_panicked: bool,
+    desync_execution_evidence: Vec<DesyncExecutionEvidence>,
+    desync_execution_evidence_overflowed: bool,
+}
+
+impl ProxyRuntimeCleanupReceipt {
+    pub fn clean(
+        forced_abort: bool,
+        worker_panicked: bool,
+        desync_execution_evidence: Vec<DesyncExecutionEvidence>,
+        desync_execution_evidence_overflowed: bool,
+    ) -> Self {
+        Self { forced_abort, worker_panicked, desync_execution_evidence, desync_execution_evidence_overflowed }
+    }
+
+    pub fn forced_abort(&self) -> bool {
+        self.forced_abort
+    }
+
+    pub fn worker_panicked(&self) -> bool {
+        self.worker_panicked
+    }
+
+    pub fn desync_execution_evidence(&self) -> &[DesyncExecutionEvidence] {
+        &self.desync_execution_evidence
+    }
+
+    pub fn desync_execution_evidence_overflowed(&self) -> bool {
+        self.desync_execution_evidence_overflowed
+    }
 }
 
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
@@ -56,8 +87,19 @@ pub(super) fn run_proxy_with_listener_internal(
         super::reprobe::maybe_spawn_reprobe(&state);
     }
 
-    let result = run_accept_loop(listener, state.clone(), RuntimeShutdown::new(control), client_capacity)
-        .map(|forced_abort| ProxyRuntimeCleanupReceipt { forced_abort });
+    let result = run_accept_loop(listener, state.clone(), RuntimeShutdown::new(control.clone()), client_capacity).map(
+        |drain_outcome| {
+            let evidence = control.as_ref().map_or_else(Vec::new, |control| control.desync_execution_evidence());
+            let evidence_overflowed =
+                control.as_ref().is_some_and(|control| control.desync_execution_evidence_overflowed());
+            ProxyRuntimeCleanupReceipt::clean(
+                drain_outcome.forced_abort,
+                drain_outcome.worker_panicked,
+                evidence,
+                evidence_overflowed,
+            )
+        },
+    );
     state.flush_host_store();
     result
 }

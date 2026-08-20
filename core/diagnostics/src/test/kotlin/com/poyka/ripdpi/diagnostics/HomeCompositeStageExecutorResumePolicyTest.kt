@@ -1,13 +1,65 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeCompositeStageExecutorResumePolicyTest {
+    @Test
+    fun `active vpn allows controller to acquire the owned in-path route`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val json = diagnosticsTestJson()
+            val spec = HomeCompositeStageSpec("in-path", "In path", "in-path-profile", ScanPathMode.IN_PATH)
+            val progress = MutableStateFlow(mapOf("run" to pendingProgress(spec)))
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = RuntimeUnavailableController(),
+                    diagnosticsTimelineSource =
+                        DefaultDiagnosticsTimelineSource(
+                            profileCatalog = stores,
+                            scanRecordStore = stores,
+                            artifactReadStore = stores,
+                            bypassUsageHistoryStore = stores,
+                            mapper = DiagnosticsBoundaryMapper(json),
+                            scope = backgroundScope,
+                            json = json,
+                        ),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    runtimeCoordinator =
+                        FakeDiagnosticsRuntimeCoordinator(
+                            DiagnosticsInPathRouteLease(
+                                runtimeId = "vpn-runtime",
+                                routeGeneration = 1,
+                                host = "127.0.0.1",
+                                port = 19080,
+                                credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+                            ),
+                        ),
+                )
+
+            assertEquals(true, executor.requireInPathRuntime(progress, "run", 0, spec))
+            assertEquals(
+                null,
+                progress.value
+                    .getValue("run")
+                    .stages
+                    .single()
+                    .unavailableReason,
+            )
+        }
+
     @Test
     fun `raw stage requests runtime resume while in path stage does not`() =
         runTest {
@@ -112,7 +164,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
         }
 
     @Test
-    fun `runtime loss at authoritative in-path start is skipped instead of failed`() =
+    fun `runtime loss at authoritative in-path start is unavailable instead of skipped`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val json = diagnosticsTestJson()
@@ -144,7 +196,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                 )
 
             assertEquals(
-                null to DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                null to DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
                 sessionId to
                     progress.value
                         .getValue("run")
@@ -153,7 +205,100 @@ class HomeCompositeStageExecutorResumePolicyTest {
                         .status,
             )
         }
+
+    @Test
+    fun `cancellation while starting a stage is propagated`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val json = diagnosticsTestJson()
+            val spec = HomeCompositeStageSpec("raw", "Raw", "raw-profile", ScanPathMode.RAW_PATH)
+            val progress = MutableStateFlow(mapOf("run" to pendingProgress(spec)))
+            val controller =
+                object : RuntimeUnavailableController() {
+                    override suspend fun startScanOwnedBy(
+                        ownerId: String,
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                        resumeRuntimeAfterRawPath: Boolean,
+                    ): DiagnosticsManualScanStartResult = throw CancellationException("parent cancelled")
+                }
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = controller,
+                    diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                )
+
+            val failure =
+                runCatching {
+                    executor.launchStageSession("run", 0, spec, false, progress)
+                }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+        }
+
+    @Test
+    fun `vpn halt retires the owned in-path stage session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val json = diagnosticsTestJson()
+            val spec = HomeCompositeStageSpec("in-path", "In path", "in-path-profile", ScanPathMode.IN_PATH)
+            val progress = MutableStateFlow(mapOf("run" to pendingProgress(spec)))
+            val stateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            var cancelledSessionId: String? = null
+            val controller =
+                object : RuntimeUnavailableController() {
+                    override suspend fun cancelScan(sessionId: String) {
+                        cancelledSessionId = sessionId
+                    }
+                }
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = controller,
+                    diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
+                    serviceStateStore = stateStore,
+                )
+            val awaiting =
+                async {
+                    executor.awaitStageSignal("run", 0, spec, "session-in-path", progress)
+                }
+            runCurrent()
+
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            awaiting.await()
+
+            assertEquals("session-in-path", cancelledSessionId)
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.FAILED,
+                progress.value
+                    .getValue("run")
+                    .stages
+                    .single()
+                    .status,
+            )
+        }
 }
+
+private fun timelineSource(
+    stores: FakeDiagnosticsHistoryStores,
+    json: kotlinx.serialization.json.Json,
+    scope: kotlinx.coroutines.CoroutineScope,
+): DiagnosticsTimelineSource =
+    DefaultDiagnosticsTimelineSource(
+        profileCatalog = stores,
+        scanRecordStore = stores,
+        artifactReadStore = stores,
+        bypassUsageHistoryStore = stores,
+        mapper = DiagnosticsBoundaryMapper(json),
+        scope = scope,
+        json = json,
+    )
 
 private fun pendingProgress(spec: HomeCompositeStageSpec) =
     DiagnosticsHomeCompositeProgress(
@@ -172,7 +317,7 @@ private fun pendingProgress(spec: HomeCompositeStageSpec) =
             ),
     )
 
-private class RuntimeUnavailableController : DiagnosticsScanController {
+private open class RuntimeUnavailableController : DiagnosticsScanController {
     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
 
     override suspend fun startScan(

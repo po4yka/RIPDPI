@@ -10,6 +10,8 @@ mod stream_copy_uring;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
+
 use self::execution::{RelayResultContext, record_relay_result, relay_with_uring_if_available};
 use self::failure_retry::{PreparedRelay, prepare_relay};
 use super::state::RuntimeState;
@@ -23,6 +25,7 @@ pub(super) fn relay(
     target: SocketAddr,
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
+    attempt_token: Option<AttemptCorrelationId>,
 ) -> io::Result<()> {
     let PreparedRelay {
         upstream,
@@ -33,7 +36,7 @@ pub(super) fn relay(
         success_payload,
         success_strategy_family,
         client_closed,
-    } = prepare_relay(&mut client, upstream, state, target, route, seed_request)?;
+    } = prepare_relay(&mut client, upstream, state, target, route, seed_request, attempt_token)?;
 
     if client_closed {
         let _ = (upstream.shutdown(std::net::Shutdown::Both), client.shutdown(std::net::Shutdown::Both));

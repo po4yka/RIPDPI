@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.setRawStrategyChainDsl
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
@@ -28,6 +29,14 @@ import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.StrategyActivePathAuthority
+import com.poyka.ripdpi.diagnostics.StrategyExecutionDisposition
+import com.poyka.ripdpi.diagnostics.StrategyExecutionFamily
+import com.poyka.ripdpi.diagnostics.StrategyExecutionTransport
+import com.poyka.ripdpi.diagnostics.StrategyOffsetMarkerBase
+import com.poyka.ripdpi.diagnostics.StrategyProbeObservationRole
+import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
+import com.poyka.ripdpi.diagnostics.StrategyProbeResponseStage
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
@@ -200,7 +209,7 @@ class DiagnosticsNetworkE2ETest {
     }
 
     @Test
-    fun inPathScanReportsUnavailableWhileVpnServiceIsRunning() {
+    fun inPathScanUsesAuthenticatedOwnedRouteWhileVpnServiceIsRunning() {
         ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
@@ -214,12 +223,70 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
-        val failure = runCatching { runBlocking { startScanSessionId(ScanPathMode.IN_PATH) } }.exceptionOrNull()
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
+        val detail = awaitCompletedSession(sessionId)
+
+        assertEquals("completed", detail.session.status)
         assertTrue(
-            failure is IllegalStateException &&
-                failure.message ==
-                "In-path diagnostics unavailable while VPN service is active; " +
-                "run raw-path diagnostics so the VPN can pause and resume safely",
+            diagnosticOutcomes(detail),
+            detail.results.any { result -> result.probeType == "dns_integrity" },
+        )
+        assertTrue(detail.results.any { it.outcome == "http_ok" })
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+    }
+
+    @Test
+    fun inPathStrategyScanDeliversExactSplitReceiptAndOwnedRouteAuthority() {
+        ensureVpnConsentGranted(appContext)
+        runBlocking {
+            seedStrategyEvidenceProfile()
+            appSettingsRepository.update {
+                diagnosticsActiveProfileId = "local-strategy-evidence"
+                proxyIp = "127.0.0.1"
+                proxyPort = reserveLoopbackPort()
+                desyncHttp = true
+                desyncHttps = true
+                setRawStrategyChainDsl("[tcp]\nsplit host+1")
+            }
+        }
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
+        awaitCompletedSession(sessionId)
+        val persisted =
+            json.decodeFromString(
+                EngineScanReportWire.serializer(),
+                runBlocking { scanRecordStore.getScanSession(sessionId)?.reportJson }.orEmpty(),
+            )
+        val strategy = requireNotNull(persisted.strategyProbeReport)
+        val baseline = strategy.tcpCandidates.single { it.id == "baseline_current" }
+        val receipts = baseline.executionAttempts.flatMap { it.receipts }
+
+        assertEquals(9, persisted.schemaVersion)
+        val activePath = requireNotNull(strategy.activePathObservation)
+        assertEquals(StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH, activePath.role)
+        assertEquals(StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN, activePath.activePathAuthority)
+        assertTrue(activePath.attemptedTargets > 0)
+        assertTrue(activePath.responseStage != StrategyProbeResponseStage.UNAVAILABLE)
+        assertTrue(baseline.executionEvidenceComplete)
+        assertTrue(baseline.executionAttempts.isNotEmpty())
+        assertTrue(
+            baseline.executionAttempts.any { it.responseStage == StrategyProbeResponseStage.RESPONSE_OBSERVED },
+        )
+        assertTrue(receipts.isNotEmpty())
+        assertTrue(
+            receipts.all { receipt ->
+                receipt.transport == StrategyExecutionTransport.TCP &&
+                    receipt.disposition == StrategyExecutionDisposition.APPLIED &&
+                    receipt.configuredFamily == StrategyExecutionFamily.SPLIT &&
+                    receipt.effectiveFamily == StrategyExecutionFamily.SPLIT &&
+                    receipt.markerBase == StrategyOffsetMarkerBase.HOST &&
+                    receipt.markerDelta == 1 &&
+                    receipt.realWritesCommitted >= 2 &&
+                    receipt.completedAwaits >= 1
+            },
         )
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
     }
@@ -491,6 +558,42 @@ class DiagnosticsNetworkE2ETest {
             DiagnosticProfileEntity(
                 id = "resolver-recommendation",
                 name = "Resolver recommendation profile",
+                source = "androidTest",
+                version = 1,
+                requestJson = json.encodeToString(ProfileSpecWire.serializer(), request),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    private suspend fun seedStrategyEvidenceProfile() {
+        val request =
+            ProfileSpecWire(
+                profileId = "local-strategy-evidence",
+                displayName = "Local strategy evidence",
+                kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.GENERAL,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        requiresRawPath = false,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
+                    ),
+                domainTargets =
+                    listOf(
+                        DomainTarget(
+                            host = fixture.androidHost,
+                            connectIp = fixture.androidHost,
+                            httpsPort = 9,
+                            httpPort = fixture.dnsHttpPort,
+                            httpPath = "/",
+                        ),
+                    ),
+                strategyProbe = StrategyProbeRequest(suiteId = "quick_v1", maxCandidates = 1),
+            )
+        profileCatalog.upsertProfile(
+            DiagnosticProfileEntity(
+                id = "local-strategy-evidence",
+                name = "Local strategy evidence",
                 source = "androidTest",
                 version = 1,
                 requestJson = json.encodeToString(ProfileSpecWire.serializer(), request),

@@ -13,7 +13,7 @@
 //! See `docs/architecture/ROOT_HELPER_CONTRACT.md`.
 
 use crate::commands::{
-    CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
+    CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
     CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
     CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
     CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
@@ -56,6 +56,13 @@ impl CommandDescriptor {
 /// Drift tests pin this table to the `CMD_*` set and to the helper's dispatch
 /// handlers; see the tests in this module and in `ripdpi-root-helper`.
 pub static COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
+    CommandDescriptor {
+        command: CMD_PROTOCOL_PREFLIGHT,
+        params_type: None,
+        requires_inbound_fd: false,
+        may_return_outbound_fd: false,
+        note: "Pure protocol-version handshake; performs no capability probe or privileged operation.",
+    },
     CommandDescriptor {
         command: CMD_PROBE_CAPABILITIES,
         params_type: None,
@@ -251,15 +258,16 @@ pub fn validate_request(
 mod tests {
     use super::{COMMAND_DESCRIPTORS, DescriptorValidationError, command_descriptor, validate_request};
     use crate::commands::{
-        CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
-        CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
+        CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST,
+        CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
         CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
         CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
     };
 
     /// Every `CMD_*` wire-string constant — the independent oracle for the
     /// descriptor-coverage tests. A new command must be added here too.
-    const ALL_COMMANDS: [&str; 14] = [
+    const ALL_COMMANDS: [&str; 15] = [
+        CMD_PROTOCOL_PREFLIGHT,
         CMD_PROBE_CAPABILITIES,
         CMD_SEND_FAKE_TCP,
         CMD_SEND_FAKE_RST,

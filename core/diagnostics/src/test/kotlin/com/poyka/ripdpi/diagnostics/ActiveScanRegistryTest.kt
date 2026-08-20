@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -91,6 +92,65 @@ class ActiveScanRegistryTest {
 
             lateExecution.cancel()
             registry.removePreparedScan("starting-session")
+        }
+
+    @Test
+    fun `cancellation claim prevents a late completed report from finalizing`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            registry.registerBridge(bridge, "cancel-wins", registerActiveBridge = true)
+
+            val cancellation = registry.cancelScan("cancel-wins")
+
+            assertEquals("cancel-wins", cancellation?.sessionId)
+            assertFalse(registry.claimCompletion("cancel-wins", bridge, "{}"))
+        }
+
+    @Test
+    fun `cancellation claim preserves a report destructively consumed by completion polling`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            registry.registerBridge(bridge, "cancel-report", registerActiveBridge = true)
+
+            val cancellation = registry.cancelScan("cancel-report")
+
+            assertEquals("cancel-report", cancellation?.sessionId)
+            assertFalse(registry.claimCompletion("cancel-report", bridge, "{\"completion\":\"partial\"}"))
+            assertEquals("{\"completion\":\"partial\"}", registry.consumeCancelledSessionReport("cancel-report"))
+        }
+
+    @Test
+    fun `completion claim prevents a late cancellation from changing terminal outcome`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            registry.registerBridge(bridge, "completion-wins", registerActiveBridge = true)
+
+            assertTrue(registry.claimCompletion("completion-wins", bridge, "{}"))
+            assertNull(registry.cancelScan("completion-wins"))
+            assertEquals(0, bridge.cancelCount)
+
+            registry.clearBridge(bridge, "completion-wins", registerActiveBridge = true)
+        }
+
+    @Test
+    fun `prepared scan cleanup cannot reopen terminal claim before bridge detachment`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            registry.registerBridge(bridge, "completion-cleanup", registerActiveBridge = true)
+
+            assertTrue(registry.claimCompletion("completion-cleanup", bridge, "{}"))
+            registry.removePreparedScan("completion-cleanup")
+
+            assertNull(registry.cancelScan("completion-cleanup"))
+            registry.clearBridge(bridge, "completion-cleanup", registerActiveBridge = true)
         }
 
     @Test

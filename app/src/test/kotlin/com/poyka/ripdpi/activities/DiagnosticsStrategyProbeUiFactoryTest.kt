@@ -117,7 +117,7 @@ class DiagnosticsStrategyProbeUiFactoryTest {
         val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
 
         assertEquals(StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED, uiModel.completionKind)
-        assertEquals("Resolver override recommended", uiModel.recommendation.headline)
+        assertEquals("Resolver override recommended", requireNotNull(uiModel.recommendation).headline)
         assertNull(uiModel.winningPath)
         assertEquals(
             "Fallback",
@@ -200,11 +200,13 @@ class DiagnosticsStrategyProbeUiFactoryTest {
                 quicWinnerId = "quic-1",
             ).copy(
                 recommendation =
-                    strategyProbeReport(
-                        suiteId = StrategyProbeSuiteQuickV1,
-                        tcpWinnerId = "tcp-1",
-                        quicWinnerId = "quic-1",
-                    ).recommendation.copy(
+                    requireNotNull(
+                        strategyProbeReport(
+                            suiteId = StrategyProbeSuiteQuickV1,
+                            tcpWinnerId = "tcp-1",
+                            quicWinnerId = "quic-1",
+                        ).recommendation,
+                    ).copy(
                         tlsPathSuppressed = true,
                         tlsPathSuppressionReason = "proxy_mode_browser_native_ech_suppressed",
                         tlsPathSuppressionSummary =
@@ -218,10 +220,27 @@ class DiagnosticsStrategyProbeUiFactoryTest {
         assertEquals(
             "Proxy mode leaves browser-originated TLS and ECH under the browser/OS stack; " +
                 "the selected ECH-aware template applies only to traffic the app originates itself.",
-            uiModel.recommendation.fields
+            requireNotNull(uiModel.recommendation)
+                .fields
                 .first { it.label == "Suppression" }
                 .value,
         )
+    }
+
+    @Test
+    fun `report without promotable candidate exposes no recommendation or winning path`() {
+        val report =
+            strategyProbeReport(
+                suiteId = StrategyProbeSuiteFullMatrixV1,
+                tcpWinnerId = "tcp-1",
+                quicWinnerId = "quic-1",
+            ).copy(recommendation = null)
+
+        val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
+
+        assertNull(uiModel.recommendation)
+        assertNull(uiModel.winningPath)
+        assertEquals(false, uiModel.families.flatMap { it.candidates }.any { it.recommended })
     }
 }
 

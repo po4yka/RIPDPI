@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
@@ -27,6 +28,7 @@ internal class DiagnosticsScanExecutionCoordinator
         private val scanFinalizationService: ScanFinalizationService,
         private val scanRequestFactory: DiagnosticsScanRequestFactory,
         private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
+        private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
     ) {
         private companion object {
             const val ServiceResumeWaitAttempts = 50
@@ -205,17 +207,24 @@ internal class DiagnosticsScanExecutionCoordinator
             finalizationResult: ScanFinalizationResult,
             ownerId: String?,
         ) {
-            val reprobe =
+            val preparedReprobe =
                 scanRequestFactory.prepareReprobe(
                     original = original,
                     preferredDnsPathOverride = finalizationResult.correctedDnsPath,
                 )
+            var reprobe = preparedReprobe
             var reprobeHandle: BridgeSessionHandle? = null
             val reprobeFailure =
                 runCatching {
-                    activeScanRegistry.rememberPreparedScan(reprobe, ownerId)
-                    scanRecordStore.upsertScanSession(reprobe.initialSession)
+                    activeScanRegistry.rememberPreparedScan(preparedReprobe, ownerId)
+                    scanRecordStore.upsertScanSession(preparedReprobe.initialSession)
                     waitForVpnServiceResume()
+                    reprobe =
+                        preparedReprobe.bindCurrentInPathRoute(
+                            serviceStateStore = serviceStateStore,
+                            runtimeCoordinator = runtimeCoordinator,
+                            scanRequestFactory = scanRequestFactory,
+                        )
                     reprobeHandle =
                         bridgeExecutionService.createHandle(
                             sessionId = reprobe.sessionId,

@@ -6,6 +6,7 @@ registry="$repo_root/scripts/ci/packet-smoke-scenarios.json"
 start_fixture_script="$repo_root/scripts/ci/start-local-network-fixture.sh"
 stop_fixture_script="$repo_root/scripts/ci/stop-local-network-fixture.sh"
 runner_lib="$repo_root/scripts/ci/android-packet-smoke-lib.sh"
+pcap_summary_script="$repo_root/scripts/ci/phase16_pcap_summary.py"
 
 source "$runner_lib"
 
@@ -390,6 +391,21 @@ validate_raw_fake_strategy_packet_pattern() {
         return 1
     fi
 
+    if [[ "$scenario_id" == "android_proxy_split_host_plus_one" ]]; then
+        if python3 "$pcap_summary_script" \
+            --artifact-root "$artifact_root" \
+            --registry "$registry" \
+            --require-packet-assertions \
+            --output "$artifact_root/phase16-pcap-summary.json"
+        then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw split(host+1) packet pattern validated: first TLS segment ended exactly one byte into the SNI host"
+            return 0
+        fi
+        return 1
+    fi
+
     local fixture_domain
     local tls_port
     local fixture_hex
@@ -592,7 +608,7 @@ validate_raw_fake_strategy_packet_pattern() {
 
 raw_privileged_strategy_scenario() {
     case "$1" in
-        android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_ipfrag2_ipv6_ext_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
+        android_proxy_split_host_plus_one|android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_ipfrag2_ipv6_ext_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
             return 0
             ;;
         *)
@@ -827,6 +843,7 @@ if [[ "${#scenarios[@]}" -eq 0 ]]; then
     exit 1
 fi
 
+executed_scenarios=0
 for row in "${scenarios[@]}"; do
     IFS=$'\t' read -r scenario_id scenario_lane required_capability test_selector traffic_kind <<<"$row"
     if ! packet_smoke_required_capability_supported "$required_capability" "$device_profile"; then
@@ -837,6 +854,7 @@ for row in "${scenarios[@]}"; do
         echo "==> Skipping Android packet smoke: $scenario_id (requires direct UDP reachability to the host fixture)"
         continue
     fi
+    executed_scenarios=$((executed_scenarios + 1))
     scenario_dir="$artifact_root/$scenario_id"
     rm -rf "$scenario_dir"
     mkdir -p "$scenario_dir"
@@ -905,3 +923,5 @@ for row in "${scenarios[@]}"; do
         exit "$status"
     fi
 done
+
+packet_smoke_require_executed_scenarios "$executed_scenarios" "$scenario_filter"

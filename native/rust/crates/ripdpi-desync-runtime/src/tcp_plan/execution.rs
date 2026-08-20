@@ -17,12 +17,28 @@ use ripdpi_desync::DesyncPlan;
 use super::decision::{TcpPlanLoopControl, handle_tcp_plan_step_control, tcp_step_strategy_family};
 use super::fake_packets::{BuiltFakePackets, build_tcp_fake_packets};
 use super::multi_disorder::execute_multi_disorder_tcp_plan;
-use crate::strategy_family::{strategy_fallback_family, write_action_name};
+use crate::strategy_family::{effective_tcp_strategy_family, strategy_fallback_family, write_action_name};
 use crate::sync::AtomicBool;
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_lowering::TcpLoweringCapabilities;
 use crate::transport_io::write_strategy_payload_named;
 use crate::types::OutboundSendError;
+
+#[derive(Debug)]
+pub(crate) struct TcpPlanExecutionOutcome {
+    pub(crate) bytes_committed: usize,
+    pub(crate) effective_family: Option<&'static str>,
+    pub(crate) used_family_fallback: bool,
+    pub(crate) completed_actions: usize,
+    pub(crate) real_writes_committed: usize,
+    pub(crate) completed_awaits: usize,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct TcpPlanStrategyContext {
+    pub(crate) configured_family: Option<&'static str>,
+    pub(crate) tls_prelude_applied: bool,
+}
 
 #[cfg(test)]
 pub(crate) use fake_rst::execute_tcp_fakerst_step;
@@ -76,9 +92,12 @@ pub(crate) fn execute_tcp_plan(
     plan: &DesyncPlan,
     seed: u32,
     resolved_fake_ttl: Option<u8>,
-    strategy_family: Option<&'static str>,
+    strategy: TcpPlanStrategyContext,
     session_ttl_unavailable: &AtomicBool,
-) -> Result<usize, OutboundSendError> {
+) -> Result<TcpPlanExecutionOutcome, OutboundSendError> {
+    let strategy_family = strategy.configured_family;
+    let (initial_effective_family, _) =
+        effective_tcp_strategy_family(strategy_family, plan, strategy.tls_prelude_applied);
     let has_multi_disorder = plan.steps.iter().any(|step| step.kind == TcpChainStepKind::MultiDisorder);
     let fake_packets = if plan.steps.iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
@@ -92,7 +111,7 @@ pub(crate) fn execute_tcp_plan(
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).collect::<Vec<_>>();
     if has_multi_disorder {
-        return execute_multi_disorder_tcp_plan(
+        let bytes_committed = execute_multi_disorder_tcp_plan(
             writer,
             config,
             &send_steps,
@@ -100,7 +119,15 @@ pub(crate) fn execute_tcp_plan(
             strategy_family,
             md5sig,
             group.actions.ip_id_mode,
-        );
+        )?;
+        return Ok(TcpPlanExecutionOutcome {
+            bytes_committed,
+            effective_family: initial_effective_family,
+            used_family_fallback: false,
+            completed_actions: plan.steps.len(),
+            real_writes_committed: plan.steps.len(),
+            completed_awaits: 0,
+        });
     }
     if send_steps.len() < plan.steps.len() {
         return Err(OutboundSendError::transport(io::Error::new(
@@ -111,6 +138,11 @@ pub(crate) fn execute_tcp_plan(
 
     let mut cursor = 0usize;
     let mut bytes_committed = 0usize;
+    let mut effective_family = initial_effective_family;
+    let mut used_family_fallback = false;
+    let mut completed_actions = 0usize;
+    let mut real_writes_committed = 0usize;
+    let mut completed_awaits = 0usize;
     for (index, step) in plan.steps.iter().enumerate() {
         let start = usize::try_from(step.start).map_err(|_| {
             OutboundSendError::transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
@@ -150,7 +182,18 @@ pub(crate) fn execute_tcp_plan(
             step_fallback,
             bytes_committed,
         )?;
+        if next_bytes_committed > bytes_committed {
+            let writes = real_write_count(step.kind, control, end, plan.tampered.len());
+            let awaits = completed_await_count(step.kind, control, end, plan.tampered.len());
+            real_writes_committed = real_writes_committed.saturating_add(writes);
+            completed_awaits = completed_awaits.saturating_add(awaits);
+            completed_actions = completed_actions.saturating_add(writes.saturating_add(awaits));
+        }
         bytes_committed = next_bytes_committed;
+        if let TcpStepControl::BreakPlanWithFallback(fallback) = control {
+            effective_family = Some(fallback);
+            used_family_fallback = true;
+        }
         match handle_tcp_plan_step_control(
             step.kind,
             control,
@@ -181,11 +224,44 @@ pub(crate) fn execute_tcp_plan(
             strategy_family.and_then(strategy_fallback_family),
             bytes_committed,
         )?;
+        real_writes_committed = real_writes_committed.saturating_add(1);
+        completed_actions = completed_actions.saturating_add(1);
     }
 
     // Propagate per-connection discovery to the session-level flag so
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
 
-    Ok(bytes_committed)
+    Ok(TcpPlanExecutionOutcome {
+        bytes_committed,
+        effective_family,
+        used_family_fallback,
+        completed_actions,
+        real_writes_committed,
+        completed_awaits,
+    })
+}
+
+fn real_write_count(kind: TcpChainStepKind, control: TcpStepControl, end: usize, payload_len: usize) -> usize {
+    match kind {
+        TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder if end < payload_len && breaks_plan(control) => 2,
+        _ => 1,
+    }
+}
+
+fn completed_await_count(kind: TcpChainStepKind, control: TcpStepControl, end: usize, payload_len: usize) -> usize {
+    match kind {
+        TcpChainStepKind::Split
+        | TcpChainStepKind::SynData
+        | TcpChainStepKind::SeqOverlap
+        | TcpChainStepKind::Oob
+        | TcpChainStepKind::Disorder
+        | TcpChainStepKind::Disoob => 1,
+        TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder if end < payload_len && breaks_plan(control) => 2,
+        _ => 0,
+    }
+}
+
+fn breaks_plan(control: TcpStepControl) -> bool {
+    matches!(control, TcpStepControl::BreakPlan | TcpStepControl::BreakPlanWithFallback(_))
 }

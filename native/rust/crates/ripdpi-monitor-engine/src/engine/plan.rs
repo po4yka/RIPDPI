@@ -1,5 +1,5 @@
 use crate::transport::TransportConfig;
-use crate::types::{ScanKind, ScanRequest};
+use crate::types::{ScanKind, ScanPathMode, ScanRequest};
 
 use super::runners::{PROBE_STAGE_REGISTRATIONS, registration_for_family};
 use super::runtime::{ExecutionPlan, ExecutionStageId};
@@ -36,7 +36,14 @@ pub(super) fn build_execution_plan(
 }
 
 pub(super) fn strategy_stage_order(request: &ScanRequest) -> Vec<ExecutionStageId> {
-    let mut stages = vec![ExecutionStageId::Environment, ExecutionStageId::StrategyDnsBaseline];
+    let mut stages = vec![ExecutionStageId::Environment];
+    if matches!(request.path_mode, ScanPathMode::InPath)
+        && request.in_path_route.is_some()
+        && !request.domain_targets.is_empty()
+    {
+        stages.push(ExecutionStageId::Web);
+    }
+    stages.push(ExecutionStageId::StrategyDnsBaseline);
     if request.confirm_good_dpi_evidence.is_some() {
         stages.push(ExecutionStageId::StrategyQuicCandidates);
         stages.push(ExecutionStageId::StrategyTcpCandidates);

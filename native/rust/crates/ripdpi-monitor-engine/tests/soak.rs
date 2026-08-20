@@ -222,6 +222,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         pack_refs: vec![],
         proxy_host: None,
         proxy_port: None,
+        in_path_route: None,
         probe_tasks: vec![],
         domain_targets: vec![DomainTarget {
             host: manifest.fixture_domain.clone(),

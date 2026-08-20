@@ -54,7 +54,7 @@ cannot.
   (owner read/write only), and runs `restorecon` so the SELinux label allows
   the app uid to connect (`ripdpi-root-helper/src/main.rs`,
   `prepare_socket_for_app`).
-- **Framing (protocol v2):** each JSON object is prefixed by a 4-byte big-endian
+- **Framing (protocol v3):** each JSON object is prefixed by a 4-byte big-endian
   payload length with an **8192-byte cap** (`MAX_MESSAGE_BYTES`,
   `ripdpi-root-helper-protocol/src/scm_rights.rs`). Exact-size `recvmsg` loops
   preserve frame boundaries and SCM_RIGHTS data across `SOCK_STREAM` short
@@ -102,27 +102,30 @@ handshake.
 
 The `CMD_*` string constants in
 `native/rust/crates/ripdpi-root-helper-protocol/src/commands.rs` are a **frozen
-wire contract**. Renaming or repurposing a command is a breaking protocol
-change — add, never rename; the helper binary and the client update in
-lock-step. **Adding a new command is out of scope for routine work** (it is a
-deliberate, security-reviewed change).
+wire contract**. Every command is namespaced by the protocol version so a
+stale helper rejects a newer request before privileged dispatch, including if
+the helper is replaced between the preflight and the operation. Renaming or
+repurposing a command is a breaking protocol change; the helper binary and the
+client update in lock-step. **Adding a new command is out of scope for routine
+work** (it is a deliberate, security-reviewed change).
 
 | `CMD_*` | Wire string | Privileged operation | Client→helper fd | Helper→client reply fd |
 |---------|-------------|----------------------|------------------|------------------------|
-| `CMD_PROBE_CAPABILITIES` | `probe_capabilities` | Probe raw-socket / `TCP_REPAIR` support | — | — |
-| `CMD_SEND_FAKE_TCP` | `send_fake_tcp` | Emit a TTL-limited / decoy TCP segment | TCP socket fd | optional replacement fd |
-| `CMD_SEND_FAKE_RST` | `send_fake_rst` | Emit a fake TCP RST | TCP socket fd | — |
-| `CMD_SEND_FLAGGED_TCP_PAYLOAD` | `send_flagged_tcp_payload` | Send a TCP payload with overridden flags | TCP socket fd | optional replacement fd |
-| `CMD_SEND_SEQOVL_TCP` | `send_seqovl_tcp` | Send a sequence-overlapped TCP segment | TCP socket fd | optional replacement fd |
-| `CMD_SEND_MULTI_DISORDER_TCP` | `send_multi_disorder_tcp` | Send TCP segments out of order | TCP socket fd | optional replacement fd |
-| `CMD_SEND_ORDERED_TCP_SEGMENTS` | `send_ordered_tcp_segments` | Send explicitly ordered TCP segments | TCP socket fd | optional replacement fd |
-| `CMD_SEND_IP_FRAGMENTED_TCP` | `send_ip_fragmented_tcp` | Send an IP-fragmented TCP packet | TCP socket fd | optional replacement fd |
-| `CMD_SEND_IP_FRAGMENTED_UDP` | `send_ip_fragmented_udp` | Send an IP-fragmented UDP datagram | UDP socket fd | — |
-| `CMD_SEND_SYN_HIDE_TCP` | `send_syn_hide_tcp` | Experimental: SYN-hide TCP probe | — | — |
-| `CMD_SEND_ICMP_WRAPPED_UDP` | `send_icmp_wrapped_udp` | Experimental: UDP wrapped in ICMP | — | — |
-| `CMD_RECV_ICMP_WRAPPED_UDP` | `recv_icmp_wrapped_udp` | Experimental: receive ICMP-wrapped UDP | — | — |
-| `CMD_SEND_RAW_IP_PACKET` | `send_raw_ip_packet` | Experimental: send a caller-supplied raw IP packet | — | — |
-| `CMD_SHUTDOWN` | `shutdown` | Finish the in-flight request and exit | — | — |
+| `CMD_PROTOCOL_PREFLIGHT` | `v3/protocol_preflight` | Pure protocol-version handshake; no capability probe or privileged operation | — | — |
+| `CMD_PROBE_CAPABILITIES` | `v3/probe_capabilities` | Probe raw-socket / `TCP_REPAIR` support | — | — |
+| `CMD_SEND_FAKE_TCP` | `v3/send_fake_tcp` | Emit a TTL-limited / decoy TCP segment | TCP socket fd | optional replacement fd |
+| `CMD_SEND_FAKE_RST` | `v3/send_fake_rst` | Emit a fake TCP RST | TCP socket fd | — |
+| `CMD_SEND_FLAGGED_TCP_PAYLOAD` | `v3/send_flagged_tcp_payload` | Send a TCP payload with overridden flags | TCP socket fd | optional replacement fd |
+| `CMD_SEND_SEQOVL_TCP` | `v3/send_seqovl_tcp` | Send a sequence-overlapped TCP segment | TCP socket fd | optional replacement fd |
+| `CMD_SEND_MULTI_DISORDER_TCP` | `v3/send_multi_disorder_tcp` | Send TCP segments out of order | TCP socket fd | optional replacement fd |
+| `CMD_SEND_ORDERED_TCP_SEGMENTS` | `v3/send_ordered_tcp_segments` | Send explicitly ordered TCP segments | TCP socket fd | optional replacement fd |
+| `CMD_SEND_IP_FRAGMENTED_TCP` | `v3/send_ip_fragmented_tcp` | Send an IP-fragmented TCP packet | TCP socket fd | optional replacement fd |
+| `CMD_SEND_IP_FRAGMENTED_UDP` | `v3/send_ip_fragmented_udp` | Send an IP-fragmented UDP datagram | UDP socket fd | — |
+| `CMD_SEND_SYN_HIDE_TCP` | `v3/send_syn_hide_tcp` | Experimental: SYN-hide TCP probe | — | — |
+| `CMD_SEND_ICMP_WRAPPED_UDP` | `v3/send_icmp_wrapped_udp` | Experimental: UDP wrapped in ICMP | — | — |
+| `CMD_RECV_ICMP_WRAPPED_UDP` | `v3/recv_icmp_wrapped_udp` | Experimental: receive ICMP-wrapped UDP | — | — |
+| `CMD_SEND_RAW_IP_PACKET` | `v3/send_raw_ip_packet` | Experimental: send a caller-supplied raw IP packet | — | — |
+| `CMD_SHUTDOWN` | `v3/shutdown` | Finish the in-flight request and exit | — | — |
 
 Per-command parameter structs live in
 `ripdpi-root-helper-protocol/src/params.rs` and are serialized into the

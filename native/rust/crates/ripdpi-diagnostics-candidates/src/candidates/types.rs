@@ -17,6 +17,9 @@ pub struct StrategyCandidateSpec {
     pub config: ProxyUiConfig,
     pub notes: Vec<&'static str>,
     pub preserve_adaptive_fake_ttl: bool,
+    /// Whether candidate preparation preserves the active strategy semantics
+    /// closely enough to attribute its result to that immutable snapshot.
+    pub active_snapshot_faithful: bool,
     pub warmup: CandidateWarmup,
     /// When `true`, this candidate requires the ability to set a custom IP TTL
     /// on outgoing sockets (via `setsockopt(IP_TTL)`). On Android VPN/tun mode

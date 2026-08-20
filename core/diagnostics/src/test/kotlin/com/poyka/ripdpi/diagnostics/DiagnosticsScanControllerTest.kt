@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.CancellationException
@@ -39,7 +41,7 @@ class DiagnosticsScanControllerTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
@@ -218,7 +220,7 @@ class DiagnosticsScanControllerTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
@@ -257,7 +259,7 @@ class DiagnosticsScanControllerTest {
                         diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                         networkDiagnosticsBridgeFactory = bridgeFactory,
                         runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                        serviceStateStore = FakeServiceStateStore(),
+                        serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                         scope = backgroundScope,
                         controllerScope = backgroundScope,
                         json = json,
@@ -314,7 +316,7 @@ class DiagnosticsScanControllerTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     scope = backgroundScope,
                     controllerScope = backgroundScope,
                     json = json,
@@ -380,7 +382,7 @@ class DiagnosticsScanControllerTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                     scope = backgroundScope,
                     controllerScope = backgroundScope,
                     json = json,

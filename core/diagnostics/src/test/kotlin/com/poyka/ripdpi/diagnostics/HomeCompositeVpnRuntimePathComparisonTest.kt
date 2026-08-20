@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
@@ -18,7 +20,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeCompositeVpnRuntimePathComparisonTest {
     @Test
-    fun `running vpn runtime skips physical in path comparison`() =
+    fun `running vpn runtime executes owned in path comparison`() =
         runTest {
             val json = diagnosticsTestJson()
             val stores = FakeDiagnosticsHistoryStores()
@@ -54,6 +56,7 @@ class HomeCompositeVpnRuntimePathComparisonTest {
                 )
             var nextSessionId = 0
             var inPathStarts = 0
+            val runtimeCoordinator = vpnInPathRuntimeCoordinator()
             val scanController =
                 object : DiagnosticsScanController {
                     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
@@ -135,7 +138,13 @@ class HomeCompositeVpnRuntimePathComparisonTest {
                         },
                     serviceStateStore = serviceStateStore,
                     probeResultCache = VpnRuntimeProbeResultCache,
-                    stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            scanController,
+                            timelineSource,
+                            serviceStateStore,
+                            runtimeCoordinator,
+                        ),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -145,11 +154,22 @@ class HomeCompositeVpnRuntimePathComparisonTest {
             val outcome = service.finalizeHomeRun(run.runId)
 
             assertEquals(
-                0 to DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                1 to DiagnosticsHomeCompositeStageStatus.COMPLETED,
                 inPathStarts to outcome.stageSummaries.single { it.stageKey == "path_comparison" }.status,
             )
         }
 }
+
+private fun vpnInPathRuntimeCoordinator() =
+    FakeDiagnosticsRuntimeCoordinator(
+        DiagnosticsInPathRouteLease(
+            runtimeId = "vpn-runtime",
+            routeGeneration = 1,
+            host = "127.0.0.1",
+            port = 19080,
+            credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+        ),
+    )
 
 private object VpnRuntimeProbeResultCache : ProbeResultCache {
     override suspend fun lookup(fingerprintHash: String): CachedProbeOutcome? = null
@@ -168,7 +188,7 @@ private fun vpnPathComparisonEvidenceReport(
 ) = ScanReport(
     sessionId = sessionId,
     profileId = "ru-dpi-full",
-    pathMode = ScanPathMode.RAW_PATH,
+    pathMode = ScanPathMode.IN_PATH,
     startedAt = 10L,
     finishedAt = 20L,
     summary = "Control succeeds while target fails",

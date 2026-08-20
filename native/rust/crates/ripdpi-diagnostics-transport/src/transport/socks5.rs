@@ -3,23 +3,24 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
-use ripdpi_socks5_core::{Socks5Command, SocksError, validate_udp_rsv_frag};
+use ripdpi_socks5_core::{AuthenticationMethod, Socks5Command, SocksError, validate_udp_rsv_frag};
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::tcp::connect_direct;
-use super::types::{TargetAddress, TransportConnectResult};
+use super::types::{Socks5Credentials, TargetAddress, TransportConnectResult};
 
 pub(super) fn connect_via_socks5_observed(
     targets: &[TargetAddress],
     port: u16,
     proxy_host: &str,
     proxy_port: u16,
+    credentials: Option<&Socks5Credentials>,
 ) -> Result<TransportConnectResult, String> {
     let mut last_error = None;
     for target in targets {
         let proxy = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
-        match negotiate_socks5(proxy, target, port) {
+        match negotiate_socks5_with_credentials(proxy, target, port, credentials) {
             Ok(stream) => {
                 let connected_addr = match target {
                     TargetAddress::Ip(ip) => Some(SocketAddr::new(*ip, port)),
@@ -35,6 +36,15 @@ pub(super) fn connect_via_socks5_observed(
 }
 
 pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
+    negotiate_socks5_with_credentials(proxy, target, port, None)
+}
+
+fn negotiate_socks5_with_credentials(
+    proxy: TcpStream,
+    target: &TargetAddress,
+    port: u16,
+    credentials: Option<&Socks5Credentials>,
+) -> Result<TcpStream, String> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     proxy.set_nonblocking(true).map_err(|err| err.to_string())?;
     let target = socks5_target(target, port);
@@ -47,13 +57,20 @@ pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> 
         .enable_time()
         .build()
         .map_err(|err| err.to_string())?;
+    let auth = credentials.map(|credentials| AuthenticationMethod::Password {
+        username: credentials.username().to_string(),
+        password: credentials.password().to_string(),
+    });
     let proxy = runtime.block_on(async move {
         let proxy = tokio::net::TcpStream::from_std(proxy).map_err(|err| err.to_string())?;
         let operation = async move {
-            let mut socks = Socks5Stream::use_stream(proxy, None, Socks5Config::default()).await?;
+            let mut socks = Socks5Stream::use_stream(proxy, auth, Socks5Config::default()).await?;
             socks.request(Socks5Command::TCPConnect, target).await?;
             Ok::<_, SocksError>(socks.get_socket())
         };
+        // Cancel safety: `operation` exclusively owns the just-created socket.
+        // A timeout drops that socket after any partial RFC 1929/request bytes;
+        // no caller can observe or reuse the half-negotiated connection.
         match tokio::time::timeout(timeout, operation).await {
             Ok(Ok(proxy)) => Ok(proxy),
             Ok(Err(error)) => Err(error.to_string()),
@@ -75,11 +92,30 @@ fn socks5_target(target: &TargetAddress, port: u16) -> Socks5TargetAddr {
 }
 
 pub fn socks5_noauth_handshake(stream: &mut TcpStream) -> Result<(), String> {
-    stream.write_all(&[0x05, 0x01, 0x00]).map_err(|err| err.to_string())?;
+    socks5_handshake(stream, None)
+}
+
+fn socks5_handshake(stream: &mut TcpStream, credentials: Option<&Socks5Credentials>) -> Result<(), String> {
+    let method = if credentials.is_some() { 0x02 } else { 0x00 };
+    stream.write_all(&[0x05, 0x01, method]).map_err(|err| err.to_string())?;
     let mut reply = [0u8; 2];
     stream.read_exact(&mut reply).map_err(|err| err.to_string())?;
-    if reply != [0x05, 0x00] {
+    if reply != [0x05, method] {
         return Err(format!("SOCKS5 auth failed: {reply:?}"));
+    }
+    if let Some(credentials) = credentials {
+        let username = credentials.username().as_bytes();
+        let password = credentials.password().as_bytes();
+        let mut request = Vec::with_capacity(username.len() + password.len() + 3);
+        request.extend_from_slice(&[0x01, username.len() as u8]);
+        request.extend_from_slice(username);
+        request.push(password.len() as u8);
+        request.extend_from_slice(password);
+        stream.write_all(&request).map_err(|err| err.to_string())?;
+        stream.read_exact(&mut reply).map_err(|err| err.to_string())?;
+        if reply != [0x01, 0x00] {
+            return Err(format!("SOCKS5 USERPASS authentication failed: {}", reply[1]));
+        }
     }
     Ok(())
 }
@@ -171,12 +207,13 @@ pub fn relay_udp_via_socks5(
     proxy_port: u16,
     destination: SocketAddr,
     payload: &[u8],
+    credentials: Option<&Socks5Credentials>,
 ) -> Result<(Vec<u8>, SocketAddr), String> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let mut control = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
     control.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     control.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
-    socks5_noauth_handshake(&mut control)?;
+    socks5_handshake(&mut control, credentials)?;
     let relay_addr = normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?;
 
     let bind_addr: SocketAddr = if relay_addr.is_ipv4() {
@@ -200,7 +237,8 @@ pub fn relay_udp_via_socks5(
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv6Addr, SocketAddr};
+    use std::net::{Ipv6Addr, SocketAddr, TcpListener};
+    use std::thread;
 
     use super::*;
 
@@ -254,5 +292,39 @@ mod tests {
 
         let err = decode_socks5_udp_frame(&frame).unwrap_err();
         assert!(err.contains("fragmentation"));
+    }
+
+    #[test]
+    fn authenticated_handshake_precedes_udp_associate() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind SOCKS fixture");
+        let address = listener.local_addr().expect("SOCKS fixture address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept SOCKS control stream");
+            let mut greeting = [0u8; 3];
+            stream.read_exact(&mut greeting).expect("read USERPASS greeting");
+            assert_eq!(greeting, [0x05, 0x01, 0x02]);
+            stream.write_all(&[0x05, 0x02]).expect("select USERPASS");
+
+            let mut auth = [0u8; 14];
+            stream.read_exact(&mut auth).expect("read USERPASS credentials");
+            assert_eq!(&auth, b"\x01\x07attempt\x04test");
+            stream.write_all(&[0x01, 0x00]).expect("accept USERPASS credentials");
+
+            let mut associate = [0u8; 10];
+            stream.read_exact(&mut associate).expect("read UDP ASSOCIATE");
+            assert_eq!(associate, [0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
+            stream
+                .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x12, 0x34])
+                .expect("write UDP ASSOCIATE response");
+        });
+
+        let credentials = Socks5Credentials::new("attempt", "test").expect("valid credentials");
+        let mut control = TcpStream::connect(address).expect("connect SOCKS fixture");
+        socks5_handshake(&mut control, Some(&credentials)).expect("authenticate SOCKS control stream");
+        assert_eq!(
+            socks5_udp_associate(&mut control).expect("associate UDP relay"),
+            "127.0.0.1:4660".parse().expect("relay address"),
+        );
+        server.join().expect("SOCKS fixture thread");
     }
 }

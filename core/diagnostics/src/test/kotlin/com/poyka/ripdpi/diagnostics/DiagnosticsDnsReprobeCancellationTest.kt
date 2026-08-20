@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.Mode
@@ -40,6 +42,7 @@ class DiagnosticsDnsReprobeCancellationTest {
                     json = json,
                     bridgeFactory = bridgeFactory,
                 )
+            fixtures.runtimeCoordinator.updateInPathRouteLease(testInPathRouteLease())
             val settings =
                 defaultDiagnosticsAppSettings()
                     .toBuilder()
@@ -183,6 +186,15 @@ class DiagnosticsDnsReprobeCancellationTest {
                     .isEmpty(),
             )
         }
+
+    private fun testInPathRouteLease() =
+        DiagnosticsInPathRouteLease(
+            runtimeId = "vpn-runtime",
+            routeGeneration = 1,
+            host = "127.0.0.1",
+            port = 19_080,
+            credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+        )
 
     private fun dnsFallbackBridge(
         sessionId: String,

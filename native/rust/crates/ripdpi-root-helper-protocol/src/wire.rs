@@ -9,7 +9,7 @@ pub const MAX_SESSION_NONCE_BYTES: usize = 128;
 /// to gate features they need a known-recent helper for. Deserialization keeps
 /// accepting missing values so clients can report a precise compatibility
 /// error, but privileged operations must not trust an unversioned response.
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 /// Capability-set version stamped by the helper on every response.
 ///
@@ -21,6 +21,10 @@ pub const CAPABILITY_VERSION: u32 = 1;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HelperRequest {
+    /// Client wire version. The helper validates this before dispatching any
+    /// command so a stale client cannot trigger a privileged side effect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol_version: Option<u32>,
     pub command: String,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub params: serde_json::Value,
@@ -55,11 +59,19 @@ pub enum ProtocolVersionError {
 impl std::fmt::Display for ProtocolVersionError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Missing => formatter.write_str("root-helper response is missing protocol_version"),
+            Self::Missing => formatter.write_str("root-helper message is missing protocol_version"),
             Self::Mismatch { expected, actual } => {
                 write!(formatter, "root-helper protocol version mismatch: expected {expected}, received {actual}")
             }
         }
+    }
+}
+
+impl HelperRequest {
+    /// Require the request to use the exact helper wire protocol before any
+    /// privileged command is dispatched.
+    pub fn validate_protocol_version(&self) -> Result<(), ProtocolVersionError> {
+        validate_protocol_version(self.protocol_version)
     }
 }
 
@@ -93,11 +105,15 @@ impl HelperResponse {
 
     /// Require an exact wire-protocol match before trusting response data or fds.
     pub fn validate_protocol_version(&self) -> Result<(), ProtocolVersionError> {
-        match self.protocol_version {
-            Some(PROTOCOL_VERSION) => Ok(()),
-            Some(actual) => Err(ProtocolVersionError::Mismatch { expected: PROTOCOL_VERSION, actual }),
-            None => Err(ProtocolVersionError::Missing),
-        }
+        validate_protocol_version(self.protocol_version)
+    }
+}
+
+fn validate_protocol_version(protocol_version: Option<u32>) -> Result<(), ProtocolVersionError> {
+    match protocol_version {
+        Some(PROTOCOL_VERSION) => Ok(()),
+        Some(actual) => Err(ProtocolVersionError::Mismatch { expected: PROTOCOL_VERSION, actual }),
+        None => Err(ProtocolVersionError::Missing),
     }
 }
 
@@ -136,7 +152,8 @@ mod tests {
     #[test]
     fn helper_request_serializes_command_params_and_nonce_in_order() {
         let request = HelperRequest {
-            command: "send_fake_rst".to_string(),
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: "v3/send_fake_rst".to_string(),
             params: json!({ "default_ttl": 64 }),
             session_nonce: Some("abcdefghijklmnopqrstuvwxyzABCDEF".to_string()),
         };
@@ -144,7 +161,7 @@ mod tests {
         assert_eq!(
             encoded,
             concat!(
-                r#"{"command":"send_fake_rst","params":{"default_ttl":64},"#,
+                r#"{"protocol_version":3,"command":"v3/send_fake_rst","params":{"default_ttl":64},"#,
                 r#""session_nonce":"abcdefghijklmnopqrstuvwxyzABCDEF"}"#,
             ),
         );
@@ -152,9 +169,14 @@ mod tests {
 
     #[test]
     fn helper_request_omits_null_params_and_absent_nonce() {
-        let request = HelperRequest { command: "shutdown".to_string(), params: Value::Null, session_nonce: None };
+        let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: "v3/shutdown".to_string(),
+            params: Value::Null,
+            session_nonce: None,
+        };
         let encoded = serde_json::to_string(&request).expect("serialize request");
-        assert_eq!(encoded, r#"{"command":"shutdown"}"#);
+        assert_eq!(encoded, r#"{"protocol_version":3,"command":"v3/shutdown"}"#);
     }
 
     #[test]
@@ -165,6 +187,7 @@ mod tests {
         let request: HelperRequest =
             serde_json::from_str(r#"{"command":"totally_unknown_command_v999"}"#).expect("deserialize request");
         assert_eq!(request.command, "totally_unknown_command_v999");
+        assert!(request.protocol_version.is_none());
         assert!(request.params.is_null());
         assert!(request.session_nonce.is_none());
     }
@@ -172,9 +195,10 @@ mod tests {
     #[test]
     fn helper_request_json_carries_no_file_descriptor_field() {
         // File descriptors travel as SCM_RIGHTS ancillary data, never inside
-        // the JSON payload — the request object has exactly three keys.
+        // the JSON payload — the request object has exactly four keys.
         let request = HelperRequest {
-            command: "send_fake_tcp".to_string(),
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: "v3/send_fake_tcp".to_string(),
             params: json!({ "ttl": 1 }),
             session_nonce: Some("abcdefghijklmnopqrstuvwxyzABCDEF".to_string()),
         };
@@ -183,7 +207,24 @@ mod tests {
         let object = value.as_object().expect("request is a JSON object");
         let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
         keys.sort_unstable();
-        assert_eq!(keys, ["command", "params", "session_nonce"]);
+        assert_eq!(keys, ["command", "params", "protocol_version", "session_nonce"]);
+    }
+
+    #[test]
+    fn helper_request_requires_the_current_protocol_version() {
+        let current = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: "v3/shutdown".to_string(),
+            params: Value::Null,
+            session_nonce: None,
+        };
+        assert!(current.validate_protocol_version().is_ok());
+
+        let stale = HelperRequest { protocol_version: Some(PROTOCOL_VERSION - 1), ..current };
+        assert!(matches!(stale.validate_protocol_version(), Err(super::ProtocolVersionError::Mismatch { .. })));
+
+        let legacy = HelperRequest { protocol_version: None, ..stale };
+        assert!(matches!(legacy.validate_protocol_version(), Err(super::ProtocolVersionError::Missing)));
     }
 
     #[test]

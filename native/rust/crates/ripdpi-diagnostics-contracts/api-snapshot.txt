@@ -91,10 +91,68 @@ pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::EngineError
 pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::NetworkUnavailable
 pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::UserCancelled
 pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::WorkerPanicked
+pub enum ripdpi_diagnostics_contracts::types::StrategyActivePathAuthority
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathAuthority::OwnedRouteLeaseAtScan
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathAuthority::Unverified
 pub enum ripdpi_diagnostics_contracts::types::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::LabDiagnosticsOnly
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::NonRootProduction
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::RootedProduction
+pub enum ripdpi_diagnostics_contracts::types::StrategyExecutionDisposition
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionDisposition::ActivationSkipped
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionDisposition::Applied
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionDisposition::ExecutionFailed
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionDisposition::PlanFailedPlainFallback
+pub enum ripdpi_diagnostics_contracts::types::StrategyExecutionFamily
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::Disorder
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::DisorderedOutOfBand
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::Fake
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::FakeDisorder
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::FakeRst
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::FakeSplit
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::HostFake
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::IpFragment2
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::MultiDisorder
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::OutOfBand
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicBurst
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicCryptoSplit
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicDummyPrepend
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicFakeVersion
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicIpFragment2
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicMultiInitialRealistic
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicPaddingLadder
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicSniSplit
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::QuicVersionNegotiationDecoy
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::SeqOverlap
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::Split
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::TlsRecord
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::TlsRecordMultiDisorder
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::TlsRecordSeqOverlap
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::TlsRecordSplit
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionFamily::Unknown
+pub enum ripdpi_diagnostics_contracts::types::StrategyExecutionTransport
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionTransport::Tcp
+pub ripdpi_diagnostics_contracts::types::StrategyExecutionTransport::Udp
+pub enum ripdpi_diagnostics_contracts::types::StrategyFallbackReason
+pub ripdpi_diagnostics_contracts::types::StrategyFallbackReason::AndroidTtlUnavailable
+pub ripdpi_diagnostics_contracts::types::StrategyFallbackReason::StrategyFamilyFallback
+pub enum ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::Absolute
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::Adaptive
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::EchExt
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::EndHost
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::EndSld
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::ExtLen
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::Host
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::HostMid
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::HostRand
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::Method
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::MidSld
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::PayloadEnd
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::PayloadMid
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::PayloadRand
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::Sld
+pub ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase::SniExt
 pub enum ripdpi_diagnostics_contracts::types::StrategyProbeAuditConfidenceLevel
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditConfidenceLevel::High
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditConfidenceLevel::Low
@@ -104,6 +162,10 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeCompletionKind::DnsShortCi
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCompletionKind::DnsTamperingWithFallback
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCompletionKind::Normal
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCompletionKind::PartialResults
+pub enum ripdpi_diagnostics_contracts::types::StrategyProbeObservationRole
+pub ripdpi_diagnostics_contracts::types::StrategyProbeObservationRole::ActiveServiceInPath
+pub ripdpi_diagnostics_contracts::types::StrategyProbeObservationRole::EphemeralCandidateRawPath
+pub ripdpi_diagnostics_contracts::types::StrategyProbeObservationRole::Unavailable
 pub enum ripdpi_diagnostics_contracts::types::StrategyProbeProgressLane
 pub ripdpi_diagnostics_contracts::types::StrategyProbeProgressLane::Quic
 pub ripdpi_diagnostics_contracts::types::StrategyProbeProgressLane::Tcp
@@ -113,12 +175,42 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeProtocol::Candidate
 pub ripdpi_diagnostics_contracts::types::StrategyProbeProtocol::Http
 pub ripdpi_diagnostics_contracts::types::StrategyProbeProtocol::Https
 pub ripdpi_diagnostics_contracts::types::StrategyProbeProtocol::Quic
+pub enum ripdpi_diagnostics_contracts::types::StrategyProbeResponseStage
+pub ripdpi_diagnostics_contracts::types::StrategyProbeResponseStage::ResponseNotObserved
+pub ripdpi_diagnostics_contracts::types::StrategyProbeResponseStage::ResponseObserved
+pub ripdpi_diagnostics_contracts::types::StrategyProbeResponseStage::Unavailable
+pub enum ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::AdaptiveFallback
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::DestinationRouting
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::GroupActivationFilter
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::TcpRotation
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::UpstreamRelay
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::Warp
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRouteFeature::WebSocketTunnel
+pub enum ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus::CleanShutdown
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus::ForcedAbort
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus::RuntimeFailed
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus::RuntimePanicked
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRuntimeTerminalStatus::Unavailable
 pub enum ripdpi_diagnostics_contracts::types::StrategyProbeStatus
 pub ripdpi_diagnostics_contracts::types::StrategyProbeStatus::Failed
 pub ripdpi_diagnostics_contracts::types::StrategyProbeStatus::NotApplicable
 pub ripdpi_diagnostics_contracts::types::StrategyProbeStatus::Partial
 pub ripdpi_diagnostics_contracts::types::StrategyProbeStatus::Skipped
 pub ripdpi_diagnostics_contracts::types::StrategyProbeStatus::Success
+pub enum ripdpi_diagnostics_contracts::types::StrategyTerminalReason
+pub ripdpi_diagnostics_contracts::types::StrategyTerminalReason::Planning
+pub ripdpi_diagnostics_contracts::types::StrategyTerminalReason::StrategyExecution
+pub ripdpi_diagnostics_contracts::types::StrategyTerminalReason::Transport
+pub enum ripdpi_diagnostics_contracts::types::StrategyTlsPreludeKind
+pub ripdpi_diagnostics_contracts::types::StrategyTlsPreludeKind::TlsRandRec
+pub ripdpi_diagnostics_contracts::types::StrategyTlsPreludeKind::TlsRec
+pub enum ripdpi_diagnostics_contracts::types::StrategyUdpIpv6ExtensionProfile
+pub ripdpi_diagnostics_contracts::types::StrategyUdpIpv6ExtensionProfile::DestinationOptions
+pub ripdpi_diagnostics_contracts::types::StrategyUdpIpv6ExtensionProfile::HopByHop
+pub ripdpi_diagnostics_contracts::types::StrategyUdpIpv6ExtensionProfile::HopByHop2
+pub ripdpi_diagnostics_contracts::types::StrategyUdpIpv6ExtensionProfile::HopByHopDestinationOptions
 pub enum ripdpi_diagnostics_contracts::types::TcpProbeStatus
 pub ripdpi_diagnostics_contracts::types::TcpProbeStatus::Blocked16Kb
 pub ripdpi_diagnostics_contracts::types::TcpProbeStatus::ConnectFailed
@@ -316,6 +408,19 @@ pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::planned_steps: 
 pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::stage_id: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::InPathProxyCredentials
+pub ripdpi_diagnostics_contracts::types::InPathProxyCredentials::password: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::InPathProxyCredentials::username: alloc::string::String
+impl ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub fn ripdpi_diagnostics_contracts::InPathProxyCredentials::is_valid(&self) -> bool
+impl core::fmt::Debug for ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub fn ripdpi_diagnostics_contracts::InPathProxyCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub fn ripdpi_diagnostics_contracts::InPathProxyCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct ripdpi_diagnostics_contracts::types::InPathRoute
+pub ripdpi_diagnostics_contracts::types::InPathRoute::credentials: ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub ripdpi_diagnostics_contracts::types::InPathRoute::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::InPathRoute::port: u16
 pub struct ripdpi_diagnostics_contracts::types::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -409,6 +514,7 @@ pub ripdpi_diagnostics_contracts::types::ScanRequest::display_name: alloc::strin
 pub ripdpi_diagnostics_contracts::types::ScanRequest::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DomainTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::types::ScanRequest::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::InPathRoute>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::kind: ripdpi_diagnostics_contracts::ScanKind
 pub ripdpi_diagnostics_contracts::types::ScanRequest::manual_only: bool
 pub ripdpi_diagnostics_contracts::types::ScanRequest::network_snapshot: core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
@@ -457,6 +563,14 @@ pub ripdpi_diagnostics_contracts::types::SharedState::log_context: core::option:
 pub ripdpi_diagnostics_contracts::types::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::types::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::types::SharedState::terminal_session_id: core::option::Option<alloc::string::String>
+pub struct ripdpi_diagnostics_contracts::types::StrategyActivePathObservation
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::active_path_authority: ripdpi_diagnostics_contracts::StrategyActivePathAuthority
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::attempted_targets: usize
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::response_observed_targets: usize
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::response_stage: ripdpi_diagnostics_contracts::StrategyProbeResponseStage
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::role: ripdpi_diagnostics_contracts::StrategyProbeObservationRole
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::route_reached_targets: usize
+pub ripdpi_diagnostics_contracts::types::StrategyActivePathObservation::successful_targets: usize
 pub struct ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::approximate_fallback_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::eligibility: alloc::string::String
@@ -471,6 +585,31 @@ pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::required
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::requires_fake_ttl: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::requires_tcp_fast_open: bool
 pub ripdpi_diagnostics_contracts::types::StrategyCandidatePlanSnapshot::warmup: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::attempted_actions: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::completed_actions: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::completed_awaits: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::configured_family: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionFamily>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::connection_ordinal: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::disposition: ripdpi_diagnostics_contracts::StrategyExecutionDisposition
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::effective_family: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionFamily>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::fallback_reason: core::option::Option<ripdpi_diagnostics_contracts::StrategyFallbackReason>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::marker_base: core::option::Option<ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::marker_delta: core::option::Option<i16>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::payload_bytes_committed: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::planned_steps: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::real_writes_committed: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::resolved_offset: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::terminal_reason: core::option::Option<ripdpi_diagnostics_contracts::StrategyTerminalReason>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_prelude_applied_count: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_prelude_configured_count: u16
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_prelude_kind: core::option::Option<ripdpi_diagnostics_contracts::StrategyTlsPreludeKind>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_prelude_marker_base: core::option::Option<ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_prelude_marker_delta: core::option::Option<i16>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_prelude_resolved_offset: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::tls_record_prelude_applied: bool
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::transport: ripdpi_diagnostics_contracts::StrategyExecutionTransport
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::udp_ipv6_extension_profile: core::option::Option<ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile>
 pub struct ripdpi_diagnostics_contracts::types::StrategyDomainSeed
 pub ripdpi_diagnostics_contracts::types::StrategyDomainSeed::candidate_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyDomainSeed::candidate_label: alloc::string::String
@@ -499,6 +638,11 @@ pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::tls_ech_status
 pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::tls_ech_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::tls_error: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyObservationFact::transport_failure: ripdpi_diagnostics_contracts::TransportFailureKind
+pub struct ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence
+pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence::complete: bool
+pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence::probe_succeeded: bool
+pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence::receipts: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeAttemptExecutionEvidence::response_stage: ripdpi_diagnostics_contracts::StrategyProbeResponseStage
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeAuditAssessment
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditAssessment::confidence: ripdpi_diagnostics_contracts::StrategyProbeAuditConfidence
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditAssessment::coverage: ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage
@@ -526,20 +670,27 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditCoverage::tcp_winner_
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditCoverage::tcp_winner_total_targets: usize
 pub ripdpi_diagnostics_contracts::types::StrategyProbeAuditCoverage::winner_coverage_percent: usize
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::active_snapshot_faithful: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::average_latency_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::desync_execution_required: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::domain_outcomes: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeDomainOutcome>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::emitter_downgraded: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::emitter_tier: ripdpi_diagnostics_contracts::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::exact_emitter_requires_root: bool
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::execution_attempts: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::execution_evidence_complete: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::family: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::notes: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::observation_role: ripdpi_diagnostics_contracts::StrategyProbeObservationRole
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::outcome: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::proxy_config_json: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::quality_score: usize
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::quic_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::rationale: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::route_features: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeRouteFeature>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::runtime_terminal_status: ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::skipped: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::succeeded_targets: usize
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::total_targets: usize
@@ -567,6 +718,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candid
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeReport
+pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::active_path_observation: core::option::Option<ripdpi_diagnostics_contracts::StrategyActivePathObservation>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::connection_concurrency_assessment: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment>
@@ -574,7 +726,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::domain_strategy_se
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::methodology_version: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::pilot_bucket_labels: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::quic_candidates: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary>
-pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::recommendation: ripdpi_diagnostics_contracts::StrategyProbeRecommendation
+pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::recommendation: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeRecommendation>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::suite_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::target_selection: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeTargetSelection>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::tcp_candidates: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary>
@@ -784,6 +936,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::display_name: all
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DomainTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::InPathRoute>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::kind: ripdpi_diagnostics_contracts::ScanKind
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::native_log_level: core::option::Option<alloc::string::String>
@@ -919,10 +1072,68 @@ pub ripdpi_diagnostics_contracts::ScanTerminationReason::EngineError
 pub ripdpi_diagnostics_contracts::ScanTerminationReason::NetworkUnavailable
 pub ripdpi_diagnostics_contracts::ScanTerminationReason::UserCancelled
 pub ripdpi_diagnostics_contracts::ScanTerminationReason::WorkerPanicked
+pub enum ripdpi_diagnostics_contracts::StrategyActivePathAuthority
+pub ripdpi_diagnostics_contracts::StrategyActivePathAuthority::OwnedRouteLeaseAtScan
+pub ripdpi_diagnostics_contracts::StrategyActivePathAuthority::Unverified
 pub enum ripdpi_diagnostics_contracts::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::LabDiagnosticsOnly
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::NonRootProduction
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::RootedProduction
+pub enum ripdpi_diagnostics_contracts::StrategyExecutionDisposition
+pub ripdpi_diagnostics_contracts::StrategyExecutionDisposition::ActivationSkipped
+pub ripdpi_diagnostics_contracts::StrategyExecutionDisposition::Applied
+pub ripdpi_diagnostics_contracts::StrategyExecutionDisposition::ExecutionFailed
+pub ripdpi_diagnostics_contracts::StrategyExecutionDisposition::PlanFailedPlainFallback
+pub enum ripdpi_diagnostics_contracts::StrategyExecutionFamily
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::Disorder
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::DisorderedOutOfBand
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::Fake
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::FakeDisorder
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::FakeRst
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::FakeSplit
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::HostFake
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::IpFragment2
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::MultiDisorder
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::OutOfBand
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicBurst
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicCryptoSplit
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicDummyPrepend
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicFakeVersion
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicIpFragment2
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicMultiInitialRealistic
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicPaddingLadder
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicSniSplit
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::QuicVersionNegotiationDecoy
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::SeqOverlap
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::Split
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::TlsRecord
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::TlsRecordMultiDisorder
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::TlsRecordSeqOverlap
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::TlsRecordSplit
+pub ripdpi_diagnostics_contracts::StrategyExecutionFamily::Unknown
+pub enum ripdpi_diagnostics_contracts::StrategyExecutionTransport
+pub ripdpi_diagnostics_contracts::StrategyExecutionTransport::Tcp
+pub ripdpi_diagnostics_contracts::StrategyExecutionTransport::Udp
+pub enum ripdpi_diagnostics_contracts::StrategyFallbackReason
+pub ripdpi_diagnostics_contracts::StrategyFallbackReason::AndroidTtlUnavailable
+pub ripdpi_diagnostics_contracts::StrategyFallbackReason::StrategyFamilyFallback
+pub enum ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::Absolute
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::Adaptive
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::EchExt
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::EndHost
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::EndSld
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::ExtLen
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::Host
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::HostMid
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::HostRand
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::Method
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::MidSld
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::PayloadEnd
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::PayloadMid
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::PayloadRand
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::Sld
+pub ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase::SniExt
 pub enum ripdpi_diagnostics_contracts::StrategyProbeAuditConfidenceLevel
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditConfidenceLevel::High
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditConfidenceLevel::Low
@@ -932,6 +1143,10 @@ pub ripdpi_diagnostics_contracts::StrategyProbeCompletionKind::DnsShortCircuited
 pub ripdpi_diagnostics_contracts::StrategyProbeCompletionKind::DnsTamperingWithFallback
 pub ripdpi_diagnostics_contracts::StrategyProbeCompletionKind::Normal
 pub ripdpi_diagnostics_contracts::StrategyProbeCompletionKind::PartialResults
+pub enum ripdpi_diagnostics_contracts::StrategyProbeObservationRole
+pub ripdpi_diagnostics_contracts::StrategyProbeObservationRole::ActiveServiceInPath
+pub ripdpi_diagnostics_contracts::StrategyProbeObservationRole::EphemeralCandidateRawPath
+pub ripdpi_diagnostics_contracts::StrategyProbeObservationRole::Unavailable
 pub enum ripdpi_diagnostics_contracts::StrategyProbeProgressLane
 pub ripdpi_diagnostics_contracts::StrategyProbeProgressLane::Quic
 pub ripdpi_diagnostics_contracts::StrategyProbeProgressLane::Tcp
@@ -941,12 +1156,42 @@ pub ripdpi_diagnostics_contracts::StrategyProbeProtocol::Candidate
 pub ripdpi_diagnostics_contracts::StrategyProbeProtocol::Http
 pub ripdpi_diagnostics_contracts::StrategyProbeProtocol::Https
 pub ripdpi_diagnostics_contracts::StrategyProbeProtocol::Quic
+pub enum ripdpi_diagnostics_contracts::StrategyProbeResponseStage
+pub ripdpi_diagnostics_contracts::StrategyProbeResponseStage::ResponseNotObserved
+pub ripdpi_diagnostics_contracts::StrategyProbeResponseStage::ResponseObserved
+pub ripdpi_diagnostics_contracts::StrategyProbeResponseStage::Unavailable
+pub enum ripdpi_diagnostics_contracts::StrategyProbeRouteFeature
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::AdaptiveFallback
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::DestinationRouting
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::GroupActivationFilter
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::TcpRotation
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::UpstreamRelay
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::Warp
+pub ripdpi_diagnostics_contracts::StrategyProbeRouteFeature::WebSocketTunnel
+pub enum ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus
+pub ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus::CleanShutdown
+pub ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus::ForcedAbort
+pub ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus::RuntimeFailed
+pub ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus::RuntimePanicked
+pub ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus::Unavailable
 pub enum ripdpi_diagnostics_contracts::StrategyProbeStatus
 pub ripdpi_diagnostics_contracts::StrategyProbeStatus::Failed
 pub ripdpi_diagnostics_contracts::StrategyProbeStatus::NotApplicable
 pub ripdpi_diagnostics_contracts::StrategyProbeStatus::Partial
 pub ripdpi_diagnostics_contracts::StrategyProbeStatus::Skipped
 pub ripdpi_diagnostics_contracts::StrategyProbeStatus::Success
+pub enum ripdpi_diagnostics_contracts::StrategyTerminalReason
+pub ripdpi_diagnostics_contracts::StrategyTerminalReason::Planning
+pub ripdpi_diagnostics_contracts::StrategyTerminalReason::StrategyExecution
+pub ripdpi_diagnostics_contracts::StrategyTerminalReason::Transport
+pub enum ripdpi_diagnostics_contracts::StrategyTlsPreludeKind
+pub ripdpi_diagnostics_contracts::StrategyTlsPreludeKind::TlsRandRec
+pub ripdpi_diagnostics_contracts::StrategyTlsPreludeKind::TlsRec
+pub enum ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile
+pub ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile::DestinationOptions
+pub ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile::HopByHop
+pub ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile::HopByHop2
+pub ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile::HopByHopDestinationOptions
 pub enum ripdpi_diagnostics_contracts::TcpProbeStatus
 pub ripdpi_diagnostics_contracts::TcpProbeStatus::Blocked16Kb
 pub ripdpi_diagnostics_contracts::TcpProbeStatus::ConnectFailed
@@ -1164,6 +1409,7 @@ pub ripdpi_diagnostics_contracts::EngineScanRequestWire::display_name: alloc::st
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DomainTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::InPathRoute>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::kind: ripdpi_diagnostics_contracts::ScanKind
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::native_log_level: core::option::Option<alloc::string::String>
@@ -1221,6 +1467,19 @@ pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::planned_steps: usize
 pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
 pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
 pub ripdpi_diagnostics_contracts::ExecutionStageSnapshot::stage_id: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub ripdpi_diagnostics_contracts::InPathProxyCredentials::password: alloc::string::String
+pub ripdpi_diagnostics_contracts::InPathProxyCredentials::username: alloc::string::String
+impl ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub fn ripdpi_diagnostics_contracts::InPathProxyCredentials::is_valid(&self) -> bool
+impl core::fmt::Debug for ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub fn ripdpi_diagnostics_contracts::InPathProxyCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub fn ripdpi_diagnostics_contracts::InPathProxyCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct ripdpi_diagnostics_contracts::InPathRoute
+pub ripdpi_diagnostics_contracts::InPathRoute::credentials: ripdpi_diagnostics_contracts::InPathProxyCredentials
+pub ripdpi_diagnostics_contracts::InPathRoute::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::InPathRoute::port: u16
 pub struct ripdpi_diagnostics_contracts::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -1329,6 +1588,7 @@ pub ripdpi_diagnostics_contracts::ScanRequest::display_name: alloc::string::Stri
 pub ripdpi_diagnostics_contracts::ScanRequest::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DomainTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::family: ripdpi_diagnostics_contracts::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::ScanRequest::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::InPathRoute>
 pub ripdpi_diagnostics_contracts::ScanRequest::kind: ripdpi_diagnostics_contracts::ScanKind
 pub ripdpi_diagnostics_contracts::ScanRequest::manual_only: bool
 pub ripdpi_diagnostics_contracts::ScanRequest::network_snapshot: core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
@@ -1377,6 +1637,14 @@ pub ripdpi_diagnostics_contracts::SharedState::log_context: core::option::Option
 pub ripdpi_diagnostics_contracts::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::SharedState::terminal_session_id: core::option::Option<alloc::string::String>
+pub struct ripdpi_diagnostics_contracts::StrategyActivePathObservation
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::active_path_authority: ripdpi_diagnostics_contracts::StrategyActivePathAuthority
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::attempted_targets: usize
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::response_observed_targets: usize
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::response_stage: ripdpi_diagnostics_contracts::StrategyProbeResponseStage
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::role: ripdpi_diagnostics_contracts::StrategyProbeObservationRole
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::route_reached_targets: usize
+pub ripdpi_diagnostics_contracts::StrategyActivePathObservation::successful_targets: usize
 pub struct ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::approximate_fallback_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::eligibility: alloc::string::String
@@ -1391,6 +1659,31 @@ pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::required_capabi
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::requires_fake_ttl: bool
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::requires_tcp_fast_open: bool
 pub ripdpi_diagnostics_contracts::StrategyCandidatePlanSnapshot::warmup: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::attempted_actions: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::completed_actions: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::completed_awaits: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::configured_family: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionFamily>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::connection_ordinal: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::disposition: ripdpi_diagnostics_contracts::StrategyExecutionDisposition
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::effective_family: core::option::Option<ripdpi_diagnostics_contracts::StrategyExecutionFamily>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::fallback_reason: core::option::Option<ripdpi_diagnostics_contracts::StrategyFallbackReason>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::marker_base: core::option::Option<ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::marker_delta: core::option::Option<i16>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::payload_bytes_committed: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::planned_steps: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::real_writes_committed: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::resolved_offset: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::terminal_reason: core::option::Option<ripdpi_diagnostics_contracts::StrategyTerminalReason>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_prelude_applied_count: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_prelude_configured_count: u16
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_prelude_kind: core::option::Option<ripdpi_diagnostics_contracts::StrategyTlsPreludeKind>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_prelude_marker_base: core::option::Option<ripdpi_diagnostics_contracts::StrategyOffsetMarkerBase>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_prelude_marker_delta: core::option::Option<i16>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_prelude_resolved_offset: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::tls_record_prelude_applied: bool
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::transport: ripdpi_diagnostics_contracts::StrategyExecutionTransport
+pub ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt::udp_ipv6_extension_profile: core::option::Option<ripdpi_diagnostics_contracts::StrategyUdpIpv6ExtensionProfile>
 pub struct ripdpi_diagnostics_contracts::StrategyDomainSeed
 pub ripdpi_diagnostics_contracts::StrategyDomainSeed::candidate_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyDomainSeed::candidate_label: alloc::string::String
@@ -1419,6 +1712,11 @@ pub ripdpi_diagnostics_contracts::StrategyObservationFact::tls_ech_status: ripdp
 pub ripdpi_diagnostics_contracts::StrategyObservationFact::tls_ech_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyObservationFact::tls_error: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyObservationFact::transport_failure: ripdpi_diagnostics_contracts::TransportFailureKind
+pub struct ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence
+pub ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence::complete: bool
+pub ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence::probe_succeeded: bool
+pub ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence::receipts: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyDesyncExecutionReceipt>
+pub ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence::response_stage: ripdpi_diagnostics_contracts::StrategyProbeResponseStage
 pub struct ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment::confidence: ripdpi_diagnostics_contracts::StrategyProbeAuditConfidence
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment::coverage: ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage
@@ -1446,20 +1744,27 @@ pub ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage::tcp_winner_succeed
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage::tcp_winner_total_targets: usize
 pub ripdpi_diagnostics_contracts::StrategyProbeAuditCoverage::winner_coverage_percent: usize
 pub struct ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::active_snapshot_faithful: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::average_latency_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::desync_execution_required: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::domain_outcomes: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeDomainOutcome>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::emitter_downgraded: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::emitter_tier: ripdpi_diagnostics_contracts::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::exact_emitter_requires_root: bool
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::execution_attempts: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeAttemptExecutionEvidence>
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::execution_evidence_complete: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::family: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::notes: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::observation_role: ripdpi_diagnostics_contracts::StrategyProbeObservationRole
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::outcome: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::proxy_config_json: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::quality_score: usize
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::quic_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::rationale: alloc::string::String
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::route_features: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeRouteFeature>
+pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::runtime_terminal_status: ripdpi_diagnostics_contracts::StrategyProbeRuntimeTerminalStatus
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::skipped: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::succeeded_targets: usize
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::total_targets: usize
@@ -1487,6 +1792,7 @@ pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_id:
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::StrategyProbeReport
+pub ripdpi_diagnostics_contracts::StrategyProbeReport::active_path_observation: core::option::Option<ripdpi_diagnostics_contracts::StrategyActivePathObservation>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::connection_concurrency_assessment: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment>
@@ -1494,7 +1800,7 @@ pub ripdpi_diagnostics_contracts::StrategyProbeReport::domain_strategy_seeds: al
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::methodology_version: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::pilot_bucket_labels: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::quic_candidates: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary>
-pub ripdpi_diagnostics_contracts::StrategyProbeReport::recommendation: ripdpi_diagnostics_contracts::StrategyProbeRecommendation
+pub ripdpi_diagnostics_contracts::StrategyProbeReport::recommendation: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeRecommendation>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::suite_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::target_selection: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeTargetSelection>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::tcp_candidates: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary>

@@ -3,7 +3,7 @@ use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, r
 use crate::proto::init_proto_info;
 use crate::types::{
     ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
-    DesyncError, ProtoInfo, TamperResult, TcpSegmentHint, activation_filter_matches,
+    DesyncError, ProtoInfo, TamperResult, TcpSegmentHint, TlsPreludeApplication, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload};
 use ripdpi_packets::{IS_HTTP, OracleRng, mod_http_inplace};
@@ -70,16 +70,16 @@ fn apply_tlsrec_prelude_step(
     state: &mut TlsPreludeState,
     rng: &mut OracleRng,
     context: ActivationContext,
-) -> Result<bool, DesyncError> {
+) -> Result<Option<usize>, DesyncError> {
     let Some(record) = state.synthetic_record() else {
-        return Ok(false);
+        return Ok(None);
     };
     let offset = step.offset();
     let mut info = ProtoInfo::default();
     let mut lp = 0i64;
     let total = offset.repeats.max(1);
     let mut remaining = total;
-    let mut changed = false;
+    let mut resolved_offset = None;
     while remaining > 0 {
         let resolved = if offset.base.is_adaptive() {
             resolve_adaptive_offset(
@@ -108,12 +108,16 @@ fn apply_tlsrec_prelude_step(
         if pos < 0 || pos > state.payload.len() as i64 {
             break;
         }
-        insert_boundary(&mut state.boundaries, pos as usize);
-        changed = true;
-        lp = pos;
+        let pos = pos as usize;
+        let previous_count = state.boundaries.len();
+        insert_boundary(&mut state.boundaries, pos);
+        if state.boundaries.len() > previous_count {
+            resolved_offset.get_or_insert(pos);
+        }
+        lp = pos as i64;
         remaining -= 1;
     }
-    Ok(changed)
+    Ok(resolved_offset)
 }
 
 fn apply_tlsrandrec_prelude_step(
@@ -121,9 +125,9 @@ fn apply_tlsrandrec_prelude_step(
     state: &mut TlsPreludeState,
     rng: &mut OracleRng,
     context: ActivationContext,
-) -> Result<bool, DesyncError> {
+) -> Result<Option<usize>, DesyncError> {
     let Some(record) = state.synthetic_record() else {
-        return Ok(false);
+        return Ok(None);
     };
     let offset = step.offset();
     let mut info = ProtoInfo::default();
@@ -142,13 +146,13 @@ fn apply_tlsrandrec_prelude_step(
         gen_offset(offset, &record, record.len(), 0, &mut info, rng)
     };
     let Some(mut marker) = resolved else {
-        return Ok(false);
+        return Ok(None);
     };
     if offset.needs_tls_record_adjustment() {
         marker -= 5;
     }
     if marker < 0 || marker > state.payload.len() as i64 {
-        return Ok(false);
+        return Ok(None);
     }
 
     let marker = marker as usize;
@@ -159,7 +163,7 @@ fn apply_tlsrandrec_prelude_step(
     let Some(lengths) =
         random_tail_fragment_lengths(tail_len, fragment_count, min_fragment_size, max_fragment_size, rng)
     else {
-        return Ok(false);
+        return Ok(None);
     };
 
     let mut boundaries = Vec::with_capacity(lengths.len() + usize::from(marker > 0));
@@ -172,11 +176,11 @@ fn apply_tlsrandrec_prelude_step(
         boundaries.push(cursor);
     }
     if boundaries.last().copied() != Some(state.payload.len()) {
-        return Ok(false);
+        return Ok(None);
     }
     let changed = boundaries != state.boundaries;
     state.boundaries = boundaries;
-    Ok(changed)
+    Ok(changed.then_some(marker))
 }
 
 fn resolve_tlsrandrec_fragment_sizes(
@@ -234,25 +238,24 @@ pub(crate) fn apply_tls_prelude_steps(
         info = ProtoInfo::default();
         init_proto_info(&output, &mut info);
     }
+    let mut applied_steps = Vec::new();
     if !prelude_steps.is_empty() {
         let mut rng = OracleRng::seeded(seed);
         if let Some(mut state) = TlsPreludeState::from_record(&output) {
-            let mut changed = false;
             for step in prelude_steps {
                 if !activation_filter_matches(step.activation_filter(), context) {
                     continue;
                 }
-                match step.kind() {
-                    TcpChainStepKind::TlsRec => {
-                        changed |= apply_tlsrec_prelude_step(step, &mut state, &mut rng, context)?;
-                    }
-                    TcpChainStepKind::TlsRandRec => {
-                        changed |= apply_tlsrandrec_prelude_step(step, &mut state, &mut rng, context)?;
-                    }
+                let resolved_offset = match step.kind() {
+                    TcpChainStepKind::TlsRec => apply_tlsrec_prelude_step(step, &mut state, &mut rng, context)?,
+                    TcpChainStepKind::TlsRandRec => apply_tlsrandrec_prelude_step(step, &mut state, &mut rng, context)?,
                     _ => return Err(DesyncError),
+                };
+                if let Some(resolved_offset) = resolved_offset {
+                    applied_steps.push((step, resolved_offset));
                 }
             }
-            if changed {
+            if !applied_steps.is_empty() {
                 output = state.serialize()?;
                 info = ProtoInfo::default();
                 init_proto_info(&output, &mut info);
@@ -260,7 +263,19 @@ pub(crate) fn apply_tls_prelude_steps(
         }
     }
 
-    Ok(TamperResult { bytes: output, proto: info })
+    let exact = (applied_steps.len() == 1).then(|| applied_steps[0]);
+    Ok(TamperResult {
+        bytes: output,
+        proto: info,
+        tls_prelude: TlsPreludeApplication {
+            configured_count: prelude_steps.len(),
+            applied_count: applied_steps.len(),
+            kind: exact.map(|(step, _)| step.kind()),
+            marker_base: exact.map(|(step, _)| step.offset().base),
+            marker_delta: exact.map(|(step, _)| step.offset().delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16),
+            resolved_offset: exact.map(|(_, resolved_offset)| resolved_offset),
+        },
+    })
 }
 
 pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<TamperResult, DesyncError> {
@@ -294,7 +309,7 @@ pub fn apply_tls_template_record_choreography(profile: &str, input: &[u8]) -> Re
     let output = apply_record_choreography(profile, input).ok_or(DesyncError)?;
     let mut info = ProtoInfo::default();
     init_proto_info(&output, &mut info);
-    Ok(TamperResult { bytes: output, proto: info })
+    Ok(TamperResult { bytes: output, proto: info, tls_prelude: TlsPreludeApplication::default() })
 }
 
 pub fn plan_tls_template_first_flight(profile: &str, input: &[u8]) -> Result<TlsTemplateFirstFlightPlan, DesyncError> {

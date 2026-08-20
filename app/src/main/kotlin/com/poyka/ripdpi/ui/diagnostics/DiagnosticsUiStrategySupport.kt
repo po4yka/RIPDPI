@@ -11,7 +11,6 @@ import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeFamilyUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportPresentationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
@@ -134,9 +133,13 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
         kind = mode,
         title = summary.displayName,
         subtitle = summary.secondaryLabel,
-        verificationState = summary.verificationState.uiLabel(),
+        verificationState = summary.uiVerificationLabel(context),
         lastValidatedResult =
-            summary.lastValidatedResult ?: context.getString(R.string.diagnostics_approach_unverified),
+            if (summary.currentStrategyAssessment != null) {
+                summary.uiEvidenceNote(context)
+            } else {
+                summary.lastValidatedResult ?: context.getString(R.string.diagnostics_approach_unverified)
+            },
         dominantFailurePattern =
             summary.topFailureOutcomes.firstOrNull()
                 ?: context.getString(R.string.diagnostics_approach_no_dominant_failure),
@@ -190,10 +193,12 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
         completionKind = report.completionKind,
         auditAssessment = report.auditAssessment,
         recommendation =
-            toStrategyProbeRecommendationUiModel(
-                recommendation = report.recommendation,
-                completionKind = report.completionKind,
-            ),
+            report.recommendation?.let { recommendation ->
+                toStrategyProbeRecommendationUiModel(
+                    recommendation = recommendation,
+                    completionKind = report.completionKind,
+                )
+            },
         winningPath = winningPath,
         families = strategyReportSummaryMapper.families(report),
         candidateDetails = candidateDetails.toImmutableMap(),
@@ -221,16 +226,18 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeCandidateDetails(
                 serviceMode = serviceMode,
                 candidateResults = reportResultsByCandidateId[candidate.id].orEmpty(),
                 recommended =
-                    candidate.id == report.recommendation.tcpCandidateId ||
-                        candidate.id == report.recommendation.quicCandidateId,
+                    candidate.id == report.recommendation?.tcpCandidateId ||
+                        candidate.id == report.recommendation?.quicCandidateId,
             )
     }
 }
 
 private fun StrategyProbeReport.buildStrategyProbeWinningPath(
     candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel>,
-): DiagnosticsStrategyProbeWinningPathUiModel? =
-    if (suiteId == StrategyProbeSuiteFullMatrixV1 &&
+): DiagnosticsStrategyProbeWinningPathUiModel? {
+    val recommendation = recommendation
+    return if (recommendation != null &&
+        suiteId == StrategyProbeSuiteFullMatrixV1 &&
         completionKind != StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
     ) {
         val tcpWinner = candidateDetails[recommendation.tcpCandidateId]
@@ -253,38 +260,7 @@ private fun StrategyProbeReport.buildStrategyProbeWinningPath(
     } else {
         null
     }
-
-internal fun StrategyProbeReport.toStrategyProbeFamilies() =
-    persistentListOf(
-        toStrategyProbeFamily(
-            title = if (suiteId == StrategyProbeSuiteFullMatrixV1) "TCP / HTTP / HTTPS matrix" else "TCP candidates",
-            candidates = tcpCandidates,
-            recommendedId = recommendation.tcpCandidateId,
-        ),
-        toStrategyProbeFamily(
-            title = if (suiteId == StrategyProbeSuiteFullMatrixV1) "QUIC matrix" else "QUIC candidates",
-            candidates = quicCandidates,
-            recommendedId = recommendation.quicCandidateId,
-        ),
-    )
-
-private fun toStrategyProbeFamily(
-    title: String,
-    candidates: List<StrategyProbeCandidateSummary>,
-    recommendedId: String,
-): DiagnosticsStrategyProbeFamilyUiModel =
-    DiagnosticsStrategyProbeFamilyUiModel(
-        title = title,
-        candidates =
-            candidates
-                .map { candidate ->
-                    candidate.toCandidateUiModel(recommended = candidate.id == recommendedId)
-                }.sortedWith(
-                    compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
-                        .thenBy { it.skipped }
-                        .thenBy { it.label },
-                ).toImmutableList(),
-    )
+}
 
 internal fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
     report: StrategyProbeReport,
@@ -626,7 +602,7 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
             DiagnosticsProbeGroupUiModel(title = title, items = items.toImmutableList())
         }.sortedBy { it.title }
 
-private fun StrategyProbeCandidateSummary.toCandidateUiModel(
+internal fun StrategyProbeCandidateSummary.toCandidateUiModel(
     recommended: Boolean,
 ): DiagnosticsStrategyProbeCandidateUiModel =
     DiagnosticsStrategyProbeCandidateUiModel(

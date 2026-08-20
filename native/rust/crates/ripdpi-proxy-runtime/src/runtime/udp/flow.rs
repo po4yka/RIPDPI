@@ -11,6 +11,7 @@ use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSource
 use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 use crate::runtime::types::RuntimeConnectionRoute;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) struct UdpFlowKey {
@@ -28,6 +29,8 @@ pub(super) struct UdpFlowActivationState {
     pub(super) socket_settings: RuntimeUdpSocketSettings,
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
+    pub(super) execution_family: Option<&'static str>,
+    pub(super) attempt_token: Option<AttemptCorrelationId>,
     pub(super) host: Option<String>,
     pub(super) payload: Vec<u8>,
     pub(super) awaiting_response: bool,

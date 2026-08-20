@@ -35,7 +35,7 @@ pub(super) fn execute(
     ctx: &mut TcpPlanStepExecContext<'_>,
     input: &TcpPlanStepInput<'_>,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
-    let bytes_committed = match send_ip_fragmented_tcp_action_named(
+    let (bytes_committed, control) = match send_ip_fragmented_tcp_action_named(
         ctx.writer,
         &ctx.plan.tampered,
         input.end,
@@ -50,10 +50,10 @@ pub(super) fn execute(
         input.step_fallback,
         input.bytes_committed,
     ) {
-        Ok(committed) => committed,
+        Ok(committed) => (committed, TcpStepControl::BreakPlan),
         Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
             log_ipfrag2_flow_fallback(&err);
-            write_strategy_payload_with_optional_flags_named(
+            let committed = write_strategy_payload_with_optional_flags_named(
                 ctx.writer,
                 &ctx.plan.tampered,
                 ctx.config.network.default_ttl,
@@ -65,9 +65,10 @@ pub(super) fn execute(
                 input.step_family,
                 input.step_fallback,
                 input.bytes_committed,
-            )?
+            )?;
+            (committed, TcpStepControl::BreakPlanWithFallback("split"))
         }
         Err(err) => return Err(err),
     };
-    Ok((bytes_committed, TcpStepControl::BreakPlan))
+    Ok((bytes_committed, control))
 }

@@ -1,4 +1,5 @@
 use super::*;
+use ripdpi_desync::TlsPreludeApplication;
 
 #[test]
 fn execute_multidisorder_tcp_plan_rejects_non_contiguous_segment_bounds() {
@@ -16,6 +17,7 @@ fn execute_multidisorder_tcp_plan_rejects_non_contiguous_segment_bounds() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         Some("multidisorder"),
         false,
@@ -43,6 +45,7 @@ fn execute_multidisorder_tcp_plan_rejects_partial_payload_coverage() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         Some("multidisorder"),
         false,
@@ -71,6 +74,7 @@ fn prepare_multidisorder_tcp_plan_accepts_contiguous_full_payload() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         Some("tlsrec_multidisorder"),
     )
@@ -110,10 +114,11 @@ fn plan_rejects_step_count_mismatch() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("split"),
+        TcpPlanStrategyContext { configured_family: Some("split"), tls_prelude_applied: false },
         &unavailable,
     )
     .unwrap_err();
@@ -136,10 +141,11 @@ fn plan_rejects_negative_start() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: -1, end: 3 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("split"),
+        TcpPlanStrategyContext { configured_family: Some("split"), tls_prelude_applied: false },
         &unavailable,
     )
     .unwrap_err();
@@ -162,10 +168,11 @@ fn plan_rejects_negative_end() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: -1 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("split"),
+        TcpPlanStrategyContext { configured_family: Some("split"), tls_prelude_applied: false },
         &unavailable,
     )
     .unwrap_err();
@@ -188,10 +195,11 @@ fn plan_rejects_out_of_order_bounds() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 4, end: 2 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("split"),
+        TcpPlanStrategyContext { configured_family: Some("split"), tls_prelude_applied: false },
         &unavailable,
     )
     .unwrap_err();
@@ -214,10 +222,11 @@ fn plan_rejects_end_beyond_payload() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 10 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("split"),
+        TcpPlanStrategyContext { configured_family: Some("split"), tls_prelude_applied: false },
         &unavailable,
     )
     .unwrap_err();
@@ -240,10 +249,11 @@ fn plan_split_step_writes_chunk() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("split"),
+        TcpPlanStrategyContext { configured_family: Some("split"), tls_prelude_applied: false },
         &unavailable,
     );
     // On macOS, await_writable returns Unsupported after the write succeeds.
@@ -277,13 +287,14 @@ fn plan_ipfrag2_fallback_writes_full_payload() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 2 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("ipfrag2"),
+        TcpPlanStrategyContext { configured_family: Some("ipfrag2"), tls_prelude_applied: false },
         &unavailable,
     );
-    assert_eq!(result.unwrap(), 5);
+    assert_eq!(result.unwrap().bytes_committed, 5);
     server.set_read_timeout(Some(Duration::from_millis(100))).ok();
     let mut buf = vec![0u8; 5];
     use std::io::Read;
@@ -312,10 +323,11 @@ fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 2 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("ipfrag2"),
+        TcpPlanStrategyContext { configured_family: Some("ipfrag2"), tls_prelude_applied: false },
         &unavailable,
     )
     .expect_err("ipfrag2 fallback with original flags should fail closed");
@@ -344,13 +356,14 @@ fn plan_fakerst_writes_payload_after_fake_reset_attempt() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::FakeRst, start: 0, end: 4 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("fakerst"),
+        TcpPlanStrategyContext { configured_family: Some("fakerst"), tls_prelude_applied: false },
         &unavailable,
     );
-    assert_eq!(result.unwrap(), 4);
+    assert_eq!(result.unwrap().bytes_committed, 4);
     server.set_read_timeout(Some(Duration::from_millis(100))).ok();
     let mut buf = vec![0u8; 4];
     use std::io::Read;
@@ -376,10 +389,11 @@ fn plan_hostfake_without_resolved_span_writes_chunk() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: markers.host_start as i64 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         23,
         Some(9),
-        Some("hostfake"),
+        TcpPlanStrategyContext { configured_family: Some("hostfake"), tls_prelude_applied: false },
         &unavailable,
     );
     if let Err(err) = &result {
@@ -416,10 +430,11 @@ fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: markers.host_start as i64 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         23,
         Some(9),
-        Some("hostfake"),
+        TcpPlanStrategyContext { configured_family: Some("hostfake"), tls_prelude_applied: false },
         &unavailable,
     )
     .expect_err("hostfake unresolved-span fallback with original flags should fail closed");
@@ -452,10 +467,11 @@ fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 5 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         Some(9),
-        Some("fakesplit"),
+        TcpPlanStrategyContext { configured_family: Some("fakesplit"), tls_prelude_applied: false },
         &unavailable,
     )
     .expect_err("terminal fakesplit with original flags should fail closed");
@@ -488,10 +504,11 @@ fn plan_fakeddisorder_terminal_step_with_original_flags_fails_closed() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 5 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         Some(9),
-        Some("fakeddisorder"),
+        TcpPlanStrategyContext { configured_family: Some("fakeddisorder"), tls_prelude_applied: false },
         &unavailable,
     )
     .expect_err("terminal fakeddisorder with original flags should fail closed");
@@ -519,10 +536,11 @@ fn plan_tlsrec_step_errors() {
             steps: vec![PlannedStep { kind: TcpChainStepKind::TlsRec, start: 0, end: 6 }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         0,
         None,
-        Some("tlsrec"),
+        TcpPlanStrategyContext { configured_family: Some("tlsrec"), tls_prelude_applied: false },
         &unavailable,
     )
     .unwrap_err();
@@ -549,6 +567,7 @@ fn multidisorder_rejects_mixed_kinds_in_chain() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         Some("multidisorder"),
         false,
@@ -575,6 +594,7 @@ fn multidisorder_rejects_single_step() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         Some("multidisorder"),
         false,
@@ -599,6 +619,7 @@ fn multidisorder_rejects_too_few_planned() {
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
+            tls_prelude: TlsPreludeApplication::default(),
         },
         Some("multidisorder"),
         false,

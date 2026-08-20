@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 8,
+  "sessionId": "session-1",
+  "profileId": "ru-web-connectivity",
+  "pathMode": "RAW_PATH",
+  "startedAt": 1,
+  "finishedAt": 2,
+  "summary": "1 issue",
+  "results": [
+    {
+      "probeType": "dns_integrity",
+      "target": "proton.me",
+      "outcome": "dns_sinkhole_substitution",
+      "details": []
+    }
+  ],
+  "observations": [
+    {
+      "kind": "DNS",
+      "target": "proton.me",
+      "dns": {
+        "domain": "proton.me",
+        "status": "SINKHOLE_SUBSTITUTION",
+        "udpAddresses": [
+          "203.0.113.10"
+        ],
+        "encryptedAddresses": [
+          "203.0.113.20"
+        ]
+      },
+      "evidence": [
+        "udp=203.0.113.10"
+      ]
+    }
+  ],
+  "engineAnalysisVersion": "engine_v2",
+  "diagnoses": [],
+  "packVersions": {
+    "ru-global-platforms": 1
+  },
+  "executionPlan": {
+    "planVersion": "execution_plan_v1",
+    "scanKind": "STRATEGY_PROBE",
+    "profileFamily": "AUTOMATIC_AUDIT",
+    "pathMode": "RAW_PATH",
+    "transportKind": "direct",
+    "stageOrder": [
+      "environment",
+      "strategy_dns_baseline",
+      "strategy_tcp_candidates",
+      "strategy_quic_candidates",
+      "strategy_connection_concurrency",
+      "strategy_recommendation"
+    ],
+    "totalSteps": 55,
+    "scanDeadlineMs": 270000,
+    "packRefs": [
+      "ru-global-platforms@1"
+    ],
+    "probeTaskFamilies": [
+      "TCP",
+      "QUIC"
+    ],
+    "targetCounts": {
+      "domainTargetCount": 6,
+      "dnsTargetCount": 2,
+      "tcpTargetCount": 3,
+      "quicTargetCount": 2,
+      "serviceTargetCount": 0,
+      "circumventionTargetCount": 0,
+      "throughputTargetCount": 0,
+      "whitelistSniCount": 2,
+      "telegramTargetCount": 0,
+      "strategySelectedDomainCount": 2,
+      "strategySelectedQuicCount": 1
+    },
+    "strategy": {
+      "suiteId": "full_matrix_v1",
+      "inventorySemantics": "ordered_pre_runtime_filter_pool",
+      "probeSeed": "18446744073709551615",
+      "maxCandidates": 44,
+      "tcpCandidates": [
+        {
+          "id": "baseline_current",
+          "label": "Current strategy",
+          "family": "baseline_current",
+          "emitterTier": "NON_ROOT_PRODUCTION",
+          "exactEmitterRequiresRoot": false,
+          "eligibility": "always",
+          "warmup": "none",
+          "preserveAdaptiveFakeTtl": false,
+          "requiresFakeTtl": false,
+          "requiresTcpFastOpen": false,
+          "requiredCapabilities": []
+        }
+      ],
+      "quicCandidates": [
+        {
+          "id": "quic_disabled",
+          "label": "Disable QUIC",
+          "family": "quic_disabled",
+          "emitterTier": "NON_ROOT_PRODUCTION",
+          "exactEmitterRequiresRoot": false,
+          "eligibility": "always",
+          "warmup": "none",
+          "preserveAdaptiveFakeTtl": false,
+          "requiresFakeTtl": false,
+          "requiresTcpFastOpen": false,
+          "requiredCapabilities": []
+        }
+      ],
+      "shortCircuitHostfake": true,
+      "shortCircuitQuicBurst": true,
+      "familyFailureThreshold": 3
+    },
+    "stageExecutions": [
+      {
+        "stageId": "strategy_tcp_candidates",
+        "plannedSteps": 2,
+        "executedSteps": 1,
+        "skippedByStageBudgetSteps": 0,
+        "skippedByGlobalDeadlineSteps": 1
+      }
+    ]
+  },
+  "candidateRuntimeCleanup": {
+    "started": 1,
+    "stopped": 1,
+    "joined": 1,
+    "forcedAbort": 0
+  }
+}

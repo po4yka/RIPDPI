@@ -321,8 +321,10 @@ internal class VpnServiceRuntimeCoordinator(
                     resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
                     restartAfterHandover = ::restartAfterHandover,
                     classifyFailure = ::classifyHandoverFailure,
-                    retainFailClosedAfterExhaustion =
-                        runtimeCompositionCoordinator::retainFailClosedAfterHandoverFailure,
+                    retainFailClosedAfterExhaustion = {
+                        runtimeSession?.revokeInPathLease()
+                        runtimeCompositionCoordinator.retainFailClosedAfterHandoverFailure()
+                    },
                 ),
             statusHooks =
                 ServiceRuntimeStatusHooks(
@@ -395,6 +397,7 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
+        runtimeSession?.revokeInPathLease()
         runtimeCompositionCoordinator.stop(skipRuntimeShutdown)
     }
 
@@ -589,6 +592,9 @@ internal class VpnServiceRuntimeCoordinator(
         failureReason: FailureReason?,
     ) {
         Logger.d { "VPN status: $status -> $newStatus" }
+        if (newStatus == ServiceStatus.Failed) {
+            runtimeSession?.revokeInPathLease()
+        }
         status = newStatus
         statusReporter.reportStatus(
             newStatus = newStatus,

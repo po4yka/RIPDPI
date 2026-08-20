@@ -165,7 +165,9 @@ class DiagnosticsArchiveRedactor
             report?.let { value ->
                 val projected =
                     projectStructuredArchiveJson(json.encodeToJsonElement(EngineScanReportWire.serializer(), value))
-                json.decodeFromJsonElement(EngineScanReportWire.serializer(), projected)
+                json
+                    .decodeFromJsonElement(EngineScanReportWire.serializer(), projected)
+                    .projectStrategyEvidenceForArchive()
             }
 
         fun redact(assessment: ConnectivityAssessment?): ConnectivityAssessment? =
@@ -313,8 +315,8 @@ private fun String?.isArchiveSensitiveField(): Boolean =
 
 private fun String?.isArchiveSensitiveScalarField(): Boolean {
     val normalized = this?.lowercase() ?: return false
-    return this in ArchiveSensitiveScalarFields ||
-        ArchiveSensitiveScalarSuffixes.any(normalized::endsWith)
+    return this !in ArchiveNonSensitiveScalarFields &&
+        (this in ArchiveSensitiveScalarFields || ArchiveSensitiveScalarSuffixes.any(normalized::endsWith))
 }
 
 private fun String?.isArchiveSensitiveListField(): Boolean {
@@ -327,6 +329,7 @@ private val ArchiveSensitiveScalarFields =
     setOf(
         "address",
         "addr",
+        "authToken",
         "authority",
         "bssid",
         "dhcpServer",
@@ -338,19 +341,27 @@ private val ArchiveSensitiveScalarFields =
         "ipAddress",
         "listenerAddress",
         "operatorOrSsid",
+        "password",
         "proxyConfigJson",
         "proxyEndpoint",
         "recommendedProxyConfigJson",
         "resolverEndpoint",
         "server",
+        "secret",
         "sni",
         "ssid",
         "subnetMask",
         "target",
+        "token",
         "upstreamAddress",
         "url",
         "uri",
         "selectedDnscryptPublicKey",
+    )
+
+private val ArchiveNonSensitiveScalarFields =
+    setOf(
+        "activePathAuthority",
     )
 
 private val ArchiveSensitiveListFields =

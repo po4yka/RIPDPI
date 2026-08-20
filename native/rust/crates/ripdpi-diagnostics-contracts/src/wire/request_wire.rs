@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    CircumventionTarget, ConfirmGoodDpiEvidence, DiagnosticProfileFamily, DnsTarget, DomainTarget, QuicTarget,
-    RouteProbeConfig, ScanKind, ScanPathMode, ServiceTarget, StrategyProbeRequest, TcpTarget, TelegramTarget,
-    ThroughputTarget,
+    CircumventionTarget, ConfirmGoodDpiEvidence, DiagnosticProfileFamily, DnsTarget, DomainTarget, InPathRoute,
+    QuicTarget, RouteProbeConfig, ScanKind, ScanPathMode, ServiceTarget, StrategyProbeRequest, TcpTarget,
+    TelegramTarget, ThroughputTarget,
 };
 
 use super::{EngineProbeTaskWire, default_diagnostic_profile_family, default_scan_kind};
@@ -25,6 +25,8 @@ pub struct EngineScanRequestWire {
     pub pack_refs: Vec<String>,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_path_route: Option<InPathRoute>,
     #[serde(default)]
     pub probe_tasks: Vec<EngineProbeTaskWire>,
     pub domain_targets: Vec<DomainTarget>,

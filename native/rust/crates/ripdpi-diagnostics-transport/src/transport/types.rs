@@ -6,7 +6,39 @@ use rustls::{ClientConnection, StreamOwned};
 #[derive(Clone, Debug)]
 pub enum TransportConfig {
     Direct { route_experiment: Option<RouteExperimentConfig> },
-    Socks5 { host: String, port: u16 },
+    Socks5 { host: String, port: u16, credentials: Option<Socks5Credentials> },
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct Socks5Credentials {
+    username: String,
+    password: String,
+}
+
+impl Socks5Credentials {
+    pub fn new(username: impl Into<String>, password: impl Into<String>) -> Option<Self> {
+        let username = username.into();
+        let password = password.into();
+        let valid = !username.is_empty()
+            && username.len() <= u8::MAX as usize
+            && !password.is_empty()
+            && password.len() <= u8::MAX as usize;
+        valid.then_some(Self { username, password })
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password
+    }
+}
+
+impl std::fmt::Debug for Socks5Credentials {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("Socks5Credentials(<redacted>)")
+    }
 }
 
 #[derive(Clone, Debug)]

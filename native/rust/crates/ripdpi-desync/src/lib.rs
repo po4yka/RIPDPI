@@ -16,7 +16,7 @@ mod types;
 #[rustfmt::skip] pub use first_flight_ir::{normalize_quic_initial, normalize_tls_client_hello, DesiredBoundaryPlan, GreaseProfile, QuicCryptoFrameBoundary, QuicInitialIr, TlsClientHelloIr, TlsExtensionBoundary, TlsRecordBoundary};
 #[rustfmt::skip] pub use proto::init_proto_info;
 #[rustfmt::skip] pub use tls_prelude::{apply_tls_template_record_choreography, plan_tls_template_first_flight};
-#[rustfmt::skip] pub use types::{activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptiveOobBytePlacement, AdaptivePlannerHints, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan, HostFakeSpan, PlannedStep, ProtoInfo, TamperResult, TcpSegmentHint};
+#[rustfmt::skip] pub use types::{activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptiveOobBytePlacement, AdaptivePlannerHints, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan, HostFakeSpan, PlannedStep, ProtoInfo, TamperResult, TcpSegmentHint, TlsPreludeApplication};
 
 #[cfg(test)]
 mod tests;

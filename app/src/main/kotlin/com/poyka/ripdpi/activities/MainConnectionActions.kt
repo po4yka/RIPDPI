@@ -19,6 +19,8 @@ import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
+import com.poyka.ripdpi.ui.diagnostics.verificationLabelRes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -135,16 +137,18 @@ internal class MainConnectionActions(
         val summary = strategySummary ?: profileSummary ?: return null
         return HomeApproachSummaryUiState(
             title = summary.displayName,
-            verification =
-                summary.verificationState.name
-                    .replace('_', ' ')
-                    .lowercase()
-                    .replaceFirstChar { it.uppercase() },
+            verification = stringResolver.getString(summary.verificationLabelRes()),
             successRate =
                 summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",
             supportingText =
                 buildString {
-                    append(summary.lastValidatedResult ?: "No validated diagnostics run yet")
+                    append(
+                        if (summary.currentStrategyAssessment != null) {
+                            summary.uiEvidenceNote(stringResolver)
+                        } else {
+                            summary.lastValidatedResult ?: "No validated diagnostics run yet"
+                        },
+                    )
                     append(" · ")
                     append("${summary.usageCount} runtime session(s)")
                 },

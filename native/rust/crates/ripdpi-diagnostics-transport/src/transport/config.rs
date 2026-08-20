@@ -1,15 +1,22 @@
 use crate::types::{ScanPathMode, ScanRequest};
 use crate::util::probe_session_seed;
 
-use super::types::{RouteExperimentConfig, TransportConfig};
+use super::types::{RouteExperimentConfig, Socks5Credentials, TransportConfig};
 
 pub fn direct_transport() -> TransportConfig {
     TransportConfig::Direct { route_experiment: None }
 }
 
 pub fn transport_for_request_with_session(request: &ScanRequest, session_id: &str) -> TransportConfig {
+    if let (ScanPathMode::InPath, Some(route)) = (&request.path_mode, request.in_path_route.as_ref()) {
+        let credentials =
+            Socks5Credentials::new(route.credentials.username.clone(), route.credentials.password.clone());
+        return TransportConfig::Socks5 { host: route.host.clone(), port: route.port, credentials };
+    }
     match (&request.path_mode, request.proxy_host.as_ref(), request.proxy_port) {
-        (ScanPathMode::InPath, Some(host), Some(port)) => TransportConfig::Socks5 { host: host.clone(), port },
+        (ScanPathMode::InPath, Some(host), Some(port)) => {
+            TransportConfig::Socks5 { host: host.clone(), port, credentials: None }
+        }
         _ => TransportConfig::Direct {
             route_experiment: request.route_probe.as_ref().map(|config| RouteExperimentConfig {
                 stable_flow_attempts: config.stable_flow_attempts.max(1),
@@ -27,7 +34,7 @@ pub fn describe_transport(transport: &TransportConfig) -> String {
             format!("DIRECT(routeProbe stable={} buckets={})", config.stable_flow_attempts, config.diversity_buckets,)
         }
         TransportConfig::Direct { route_experiment: None } => "DIRECT".to_string(),
-        TransportConfig::Socks5 { host, port } => format!("SOCKS5({host}:{port})"),
+        TransportConfig::Socks5 { host, port, .. } => format!("SOCKS5({host}:{port})"),
     }
 }
 
@@ -49,6 +56,7 @@ mod tests {
             pack_refs: vec![],
             proxy_host: Some("proxy".to_string()),
             proxy_port: Some(1080),
+            in_path_route: None,
             probe_tasks: vec![],
             domain_targets: vec![],
             dns_targets: vec![],
@@ -79,7 +87,7 @@ mod tests {
     #[test]
     fn transport_for_request_socks5_on_in_path() {
         match transport_for_request_with_session(&request(ScanPathMode::InPath), "default") {
-            TransportConfig::Socks5 { host, port } => {
+            TransportConfig::Socks5 { host, port, .. } => {
                 assert_eq!(host, "proxy");
                 assert_eq!(port, 1080);
             }
@@ -94,7 +102,7 @@ mod tests {
 
     #[test]
     fn describe_transport_socks5() {
-        let t = TransportConfig::Socks5 { host: "1.2.3.4".to_string(), port: 1080 };
+        let t = TransportConfig::Socks5 { host: "1.2.3.4".to_string(), port: 1080, credentials: None };
         assert_eq!(describe_transport(&t), "SOCKS5(1.2.3.4:1080)");
     }
 }

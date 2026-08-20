@@ -42,6 +42,7 @@ pub fn candidate_spec_with_notes_and_eligibility(
         config,
         notes,
         preserve_adaptive_fake_ttl: false,
+        active_snapshot_faithful: true,
         warmup: CandidateWarmup::None,
         requires_fake_ttl,
         requires_tcp_fast_open,

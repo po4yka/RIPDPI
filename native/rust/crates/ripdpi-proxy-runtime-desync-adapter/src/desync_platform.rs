@@ -17,8 +17,8 @@ use ripdpi_session::OutboundProgress;
 use crate::sync::AtomicBool;
 
 pub use ripdpi_desync_runtime::{
-    OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionReceipt, TcpTerminalReason,
-    primary_tcp_strategy_family,
+    OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
+    TcpOffsetMarkerBase, TcpStrategyFamily, TcpTerminalReason, primary_tcp_strategy_family,
 };
 
 #[derive(Clone)]

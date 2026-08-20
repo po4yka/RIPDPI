@@ -398,9 +398,9 @@ class DiagnosticsHomeCompositeRunServiceTest {
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
-            // Detection stage is FAILED and path comparison is skipped without paired evidence.
+            // Detection and active path comparison are unavailable without paired evidence.
             assertEquals(6, outcome.completedStageCount)
-            assertEquals(1, outcome.failedStageCount)
+            assertEquals(2, outcome.failedStageCount)
         }
 
     @Test
@@ -478,9 +478,9 @@ class DiagnosticsHomeCompositeRunServiceTest {
 
             assertEquals(6, scanController.startedRequests.size)
             assertFalse(outcome.actionable)
-            // Path comparison is skipped because there is no paired raw-path evidence to compare.
+            // Path comparison is unavailable because there is no paired raw-path evidence to compare.
             assertEquals(5, outcome.completedStageCount)
-            assertEquals(2, outcome.failedStageCount)
+            assertEquals(3, outcome.failedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.FAILED,
                 outcome.stageSummaries.first { it.profileId == "default" }.status,
@@ -911,9 +911,9 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // Path comparison is skipped without paired raw-path evidence; default still retries once.
+            // Path comparison is unavailable without paired raw-path evidence; default still retries once.
             assertEquals(6, outcome.completedStageCount)
-            assertEquals(1, outcome.failedStageCount)
+            assertEquals(2, outcome.failedStageCount)
             // "default" was attempted twice
             assertEquals(2, attemptCounts["default"])
         }

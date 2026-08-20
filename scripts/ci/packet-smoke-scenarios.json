@@ -173,6 +173,28 @@
     ]
   },
   {
+    "id": "android_proxy_split_host_plus_one",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_raw_pcap",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxySplitHostPlusOneRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "packetAssertion": {
+      "kind": "tcp_split_at_sni_host_delta",
+      "markerDelta": 1
+    },
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
     "id": "android_proxy_hostfake_family",
     "lane": "android_proxy",
     "requiredCapability": "adb_observable",

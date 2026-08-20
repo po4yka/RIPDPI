@@ -1,12 +1,23 @@
 use std::io;
 
 use ripdpi_config::{DesyncGroup, TcpChainStepKind};
+use ripdpi_desync::DesyncPlan;
 
 pub fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
     let chain = group.effective_tcp_chain();
     let has_tls_prelude = chain.iter().any(|step| step.kind().is_tls_prelude());
-    chain.into_iter().find(|step| !step.kind().is_tls_prelude()).map(|step| match step.kind() {
-        TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
+    let primary = chain.into_iter().find(|step| !step.kind().is_tls_prelude());
+    if primary.is_none() && has_tls_prelude {
+        return Some("tlsrec");
+    }
+    primary.map(|step| match step.kind() {
+        TcpChainStepKind::Split | TcpChainStepKind::SynData => {
+            if has_tls_prelude {
+                "tlsrec_split"
+            } else {
+                "split"
+            }
+        }
         TcpChainStepKind::SeqOverlap => {
             if has_tls_prelude {
                 "tlsrec_seqovl"
@@ -47,6 +58,31 @@ pub(crate) fn strategy_fallback_family(strategy_family: &'static str) -> Option<
         "fakeddisorder" => Some("fakedsplit"),
         _ => None,
     }
+}
+
+pub(crate) fn effective_tcp_strategy_family(
+    configured_family: Option<&'static str>,
+    plan: &DesyncPlan,
+    tls_prelude_applied: bool,
+) -> (Option<&'static str>, bool) {
+    let planned_kind = plan.steps.iter().find(|step| !step.kind.is_tls_prelude()).map(|step| step.kind);
+    let (configured_family, prelude_fallback) = if tls_prelude_applied {
+        (configured_family, false)
+    } else {
+        match configured_family {
+            Some("tlsrec_split") => (Some("split"), true),
+            Some("tlsrec_seqovl") => (Some("seqovl"), true),
+            Some("tlsrec_multidisorder") => (Some("multidisorder"), true),
+            family => (family, false),
+        }
+    };
+    let (effective_family, plan_fallback) = match (configured_family, planned_kind) {
+        (Some("seqovl"), Some(TcpChainStepKind::Split)) => (Some("split"), true),
+        (Some("tlsrec_seqovl"), Some(TcpChainStepKind::Split)) => (Some("tlsrec_split"), true),
+        (Some("hostfake"), Some(TcpChainStepKind::Split)) => (Some("split"), true),
+        _ => (configured_family, false),
+    };
+    (effective_family, prelude_fallback || plan_fallback)
 }
 
 pub(crate) fn tcp_fallback_kind_for_strategy(strategy_family: &'static str) -> Option<TcpChainStepKind> {

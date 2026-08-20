@@ -15,6 +15,7 @@ import com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlA
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsRuntimeCoordinatorTest {
     @Test
     fun `concurrent raw path scans resume only after the last scan finishes`() =
@@ -159,6 +161,36 @@ class DiagnosticsRuntimeCoordinatorTest {
             assertTrue(error is IllegalStateException)
             assertTrue(error?.message?.contains("Timed out waiting for service status Halted") == true)
             assertEquals(1, controller.stopCount)
+        }
+
+    @Test
+    fun `cancellation while entering raw path window resumes an accepted runtime pause`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore).apply { transitionOnStop = false }
+            val settings = FakeCoordinatorSettingsRepository()
+            val coordinator =
+                DefaultDiagnosticsRuntimeCoordinator(
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
+                    runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+                    serviceStateStore = stateStore,
+                    appSettingsRepository = settings,
+                    runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
+                    serviceController = controller,
+                    serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    waitAttempts = 50,
+                    waitDelayMs = 1_000,
+                )
+
+            val scan = async { coordinator.runAutomaticRawPathScan {} }
+            runCurrent()
+            assertEquals(1, controller.stopCount)
+
+            scan.cancelAndJoin()
+
+            assertEquals(1, controller.startCount)
+            assertEquals(AppStatus.Running to Mode.Proxy, stateStore.status.value)
         }
 
     @Test
@@ -409,6 +441,7 @@ class DiagnosticsRuntimeCoordinatorTest {
                     appSettingsRepository = settings,
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
+                    serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
                     waitAttempts = 50,
                     waitDelayMs = 1,
                 )
@@ -445,6 +478,7 @@ private fun buildCoordinator(
         appSettingsRepository = settings,
         runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
         serviceController = controller,
+        serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
         waitAttempts = 2,
         waitDelayMs = 0,
     )

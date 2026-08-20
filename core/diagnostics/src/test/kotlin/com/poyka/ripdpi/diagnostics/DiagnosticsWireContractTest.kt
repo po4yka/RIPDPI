@@ -15,6 +15,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,6 +57,64 @@ class DiagnosticsWireContractTest {
         val decoded = contractJson.decodeFromJsonElement<EngineScanReportWire>(contractJson.encodeToJsonElement(report))
 
         assertEquals(report.candidateRuntimeCleanup, decoded.candidateRuntimeCleanup)
+    }
+
+    @Test
+    fun `stored schema eight report decodes as unverified while live decoder rejects it`() {
+        val legacyPayload = repoFixture("diagnostics-contract-fixtures/engine_report_schema_v8.json").readText()
+
+        val stored = contractJson.decodeStoredEngineScanReportWire(legacyPayload).toScanReport()
+        val liveDecode = runCatching { contractJson.decodeEngineScanReportWire(legacyPayload) }
+
+        assertEquals(8, contractJson.decodeStoredEngineScanReportWire(legacyPayload).schemaVersion)
+        assertNull(stored.strategyProbeReport)
+        assertFalse(liveDecode.isSuccess)
+    }
+
+    @Test
+    fun `stored schema eight strategy candidate without receipts remains unverified`() {
+        val current = contractJson.encodeToJsonElement(buildSampleReportForFieldExtraction()) as JsonObject
+        val strategy = current.getValue("strategyProbeReport") as JsonObject
+        val legacyCandidateFields =
+            setOf(
+                "activeSnapshotFaithful",
+                "desyncExecutionRequired",
+                "runtimeTerminalStatus",
+                "executionEvidenceComplete",
+                "executionAttempts",
+                "routeFeatures",
+                "observationRole",
+            )
+
+        fun legacyCandidates(key: String): JsonArray =
+            JsonArray(
+                (strategy.getValue(key) as JsonArray).map { candidate ->
+                    JsonObject((candidate as JsonObject).filterKeys { it !in legacyCandidateFields })
+                },
+            )
+        val legacyStrategy =
+            JsonObject(
+                strategy
+                    .filterKeys { it != "activePathObservation" }
+                    .plus("tcpCandidates" to legacyCandidates("tcpCandidates"))
+                    .plus("quicCandidates" to legacyCandidates("quicCandidates")),
+            )
+        val legacyPayload =
+            JsonObject(
+                current
+                    .plus("schemaVersion" to JsonPrimitive(8))
+                    .plus("strategyProbeReport" to legacyStrategy),
+            ).toString()
+
+        val stored = contractJson.decodeStoredEngineScanReportWire(legacyPayload).toScanReport()
+        val strategyProbe = requireNotNull(stored.strategyProbeReport)
+        val baseline = strategyProbe.tcpCandidates.single { it.id == "baseline_current" }
+
+        assertFalse(baseline.activeSnapshotFaithful)
+        assertEquals(StrategyProbeRuntimeTerminalStatus.UNAVAILABLE, baseline.runtimeTerminalStatus)
+        assertFalse(baseline.executionEvidenceComplete)
+        assertTrue(baseline.executionAttempts.isEmpty())
+        assertNull(strategyProbe.activePathObservation)
     }
 
     private fun readFieldManifest(filename: String): Set<String> {
@@ -262,14 +322,14 @@ class DiagnosticsWireContractTest {
     private fun buildSampleStrategyProbeReport(dnsShortCircuitRationale: String): StrategyProbeReport =
         StrategyProbeReport(
             suiteId = "full_matrix_v1",
-            tcpCandidates = listOf(skippedCandidate("baseline_current", "Current strategy", "baseline_current", 6, 18)),
-            quicCandidates = listOf(skippedCandidate("quic_disabled", "Current QUIC strategy", "quic_disabled", 2, 4)),
+            tcpCandidates = listOf(sampleTcpCandidateWithEvidence()),
+            quicCandidates = listOf(sampleQuicCandidateWithEvidence()),
             recommendation =
                 StrategyProbeRecommendation(
                     tcpCandidateId = "baseline_current",
                     tcpCandidateLabel = "Current strategy",
-                    quicCandidateId = "quic_disabled",
-                    quicCandidateLabel = "Current QUIC strategy",
+                    quicCandidateId = "quic_ipfrag2_profiled",
+                    quicCandidateLabel = "QUIC profiled fragmentation",
                     rationale = "Resolver override recommended",
                     recommendedProxyConfigJson = "{}",
                     transportPivot =
@@ -326,6 +386,101 @@ class DiagnosticsWireContractTest {
                     cohortLabel = "Global core",
                     domainHosts = listOf("www.youtube.com", "discord.com"),
                     quicHosts = listOf("www.youtube.com"),
+                ),
+            activePathObservation =
+                StrategyActivePathObservation(
+                    role = StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH,
+                    responseStage = StrategyProbeResponseStage.RESPONSE_OBSERVED,
+                    activePathAuthority = StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN,
+                    attemptedTargets = 2,
+                    routeReachedTargets = 1,
+                    responseObservedTargets = 1,
+                    successfulTargets = 1,
+                ),
+        )
+
+    private fun sampleTcpCandidateWithEvidence() =
+        skippedCandidate("baseline_current", "Current strategy", "baseline_current", 6, 18).copy(
+            activeSnapshotFaithful = true,
+            runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
+            executionEvidenceComplete = true,
+            executionAttempts =
+                listOf(
+                    StrategyProbeAttemptExecutionEvidence(
+                        probeSucceeded = true,
+                        complete = true,
+                        responseStage = StrategyProbeResponseStage.RESPONSE_OBSERVED,
+                        receipts =
+                            listOf(
+                                StrategyDesyncExecutionReceipt(
+                                    connectionOrdinal = 1,
+                                    transport = StrategyExecutionTransport.TCP,
+                                    disposition = StrategyExecutionDisposition.APPLIED,
+                                    configuredFamily = StrategyExecutionFamily.TLS_RECORD_SPLIT,
+                                    effectiveFamily = StrategyExecutionFamily.TLS_RECORD_SPLIT,
+                                    markerBase = StrategyOffsetMarkerBase.HOST,
+                                    markerDelta = 1,
+                                    resolvedOffset = 42,
+                                    plannedSteps = 1,
+                                    attemptedActions = 3,
+                                    completedActions = 3,
+                                    realWritesCommitted = 2,
+                                    completedAwaits = 1,
+                                    payloadBytesCommitted = 128,
+                                    tlsRecordPreludeApplied = true,
+                                    tlsPreludeConfiguredCount = 1,
+                                    tlsPreludeAppliedCount = 1,
+                                    tlsPreludeKind = StrategyTlsPreludeKind.TLS_REC,
+                                    tlsPreludeMarkerBase = StrategyOffsetMarkerBase.EXT_LEN,
+                                    tlsPreludeMarkerDelta = 0,
+                                    tlsPreludeResolvedOffset = 37,
+                                ),
+                            ),
+                    ),
+                ),
+            routeFeatures = listOf(StrategyProbeRouteFeature.UPSTREAM_RELAY),
+        )
+
+    private fun sampleQuicCandidateWithEvidence() =
+        skippedCandidate(
+            "quic_ipfrag2_profiled",
+            "QUIC profiled fragmentation",
+            "quic_ipfrag2_ipv6_ext",
+            2,
+            4,
+        ).copy(
+            outcome = "success",
+            succeededTargets = 1,
+            skipped = false,
+            activeSnapshotFaithful = true,
+            desyncExecutionRequired = true,
+            runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
+            executionEvidenceComplete = true,
+            executionAttempts =
+                listOf(
+                    StrategyProbeAttemptExecutionEvidence(
+                        probeSucceeded = true,
+                        complete = true,
+                        responseStage = StrategyProbeResponseStage.RESPONSE_OBSERVED,
+                        receipts =
+                            listOf(
+                                StrategyDesyncExecutionReceipt(
+                                    connectionOrdinal = 1,
+                                    transport = StrategyExecutionTransport.UDP,
+                                    disposition = StrategyExecutionDisposition.APPLIED,
+                                    configuredFamily = StrategyExecutionFamily.QUIC_IP_FRAGMENT2,
+                                    effectiveFamily = StrategyExecutionFamily.QUIC_IP_FRAGMENT2,
+                                    plannedSteps = 1,
+                                    attemptedActions = 2,
+                                    completedActions = 2,
+                                    realWritesCommitted = 1,
+                                    completedAwaits = 0,
+                                    payloadBytesCommitted = 128,
+                                    udpIpv6ExtensionProfile =
+                                        StrategyUdpIpv6ExtensionProfile.HOP_BY_HOP_DESTINATION_OPTIONS,
+                                ),
+                            ),
+                    ),
                 ),
         )
 

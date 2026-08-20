@@ -1,4 +1,5 @@
 use super::*;
+use ripdpi_desync::TlsPreludeApplication;
 
 #[test]
 fn tcp_desync_helpers_require_actionable_groups_and_matching_rounds() {
@@ -69,12 +70,14 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
         steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 3 }],
         proto: ProtoInfo::default(),
         actions: Vec::new(),
+        tls_prelude: TlsPreludeApplication::default(),
     };
     let terminal_fake_step_plan = DesyncPlan {
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 7 }],
         proto: ProtoInfo::default(),
         actions: Vec::new(),
+        tls_prelude: TlsPreludeApplication::default(),
     };
 
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()));
@@ -89,12 +92,14 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
         steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 3 }],
         proto: ProtoInfo::default(),
         actions: Vec::new(),
+        tls_prelude: TlsPreludeApplication::default(),
     };
     let terminal_fake_disorder_plan = DesyncPlan {
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 7 }],
         proto: ProtoInfo::default(),
         actions: Vec::new(),
+        tls_prelude: TlsPreludeApplication::default(),
     };
     assert!(!requires_special_tcp_execution(&group, &non_terminal_fake_disorder_plan, false));
     assert!(requires_special_tcp_execution(&group, &non_terminal_fake_disorder_plan, true));

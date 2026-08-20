@@ -6,12 +6,14 @@ use ripdpi_desync::{ActivationContext, TcpDesyncStrategy, activation_filter_matc
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
-use crate::strategy_family::primary_tcp_strategy_family;
+use crate::strategy_family::{effective_tcp_strategy_family, primary_tcp_strategy_family};
 use crate::sync::AtomicBool;
 use crate::tcp_actions::execute_tcp_actions;
-use crate::tcp_plan::{execute_tcp_plan, requires_special_tcp_execution};
+use crate::tcp_plan::{TcpPlanStrategyContext, execute_tcp_plan, requires_special_tcp_execution};
 use crate::transport_io::write_transport_payload;
-use crate::types::{OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt};
+use crate::types::{
+    OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
+};
 use crate::{DESYNC_SEED_BASE, platform};
 
 #[allow(clippy::too_many_arguments)]
@@ -43,23 +45,62 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
             // while the genuine server-bound writes still use `effective_payload`.
             match strategy.plan_with_fake_reference(&effective_payload, payload) {
                 Ok(plan) if requires_special_tcp_execution(group, &plan, platform_ops.supports_fake_retransmit()) => {
-                    let bytes_committed = execute_tcp_plan(
+                    let tls_prelude_applied = plan.tls_prelude.applied_count > 0;
+                    let (planned_effective_family, planned_family_fallback) =
+                        effective_tcp_strategy_family(strategy_family, &plan, tls_prelude_applied);
+                    let execution = execute_tcp_plan(
                         writer,
                         config,
                         group,
                         &plan,
                         seed,
                         resolved_fake_ttl,
-                        strategy_family,
+                        TcpPlanStrategyContext { configured_family: strategy_family, tls_prelude_applied },
                         session_ttl_unavailable,
-                    )?;
+                    )
+                    .map_err(|error| {
+                        let terminal_reason = match &error {
+                            OutboundSendError::Transport { .. } if error.kind() == std::io::ErrorKind::InvalidData => {
+                                crate::types::TcpTerminalReason::Planning
+                            }
+                            OutboundSendError::Transport { .. } => crate::types::TcpTerminalReason::Transport,
+                            OutboundSendError::StrategyExecution { .. } => {
+                                crate::types::TcpTerminalReason::StrategyExecution
+                            }
+                        };
+                        let receipt = TcpExecutionReceipt::failed_with_plan(
+                            group,
+                            &plan,
+                            strategy_family,
+                            planned_effective_family,
+                            planned_family_fallback.then_some(TcpFallbackReason::StrategyFamilyFallback),
+                            error.execution_receipt(),
+                            terminal_reason,
+                        );
+                        error.with_execution_receipt(receipt)
+                    })?;
                     Ok(OutboundSendOutcome {
-                        bytes_committed,
-                        strategy_family,
-                        execution_receipt: TcpExecutionReceipt::applied(group, &plan, strategy_family),
+                        bytes_committed: execution.bytes_committed,
+                        strategy_family: execution.effective_family,
+                        execution_receipt: TcpExecutionReceipt::applied_with_counters(
+                            group,
+                            &plan,
+                            strategy_family,
+                            execution.effective_family,
+                            (planned_family_fallback || execution.used_family_fallback)
+                                .then_some(TcpFallbackReason::StrategyFamilyFallback),
+                            execution.completed_actions,
+                            execution.real_writes_committed,
+                            execution.completed_awaits,
+                            execution.bytes_committed,
+                            tls_prelude_applied,
+                        ),
                     })
                 }
                 Ok(plan) => {
+                    let tls_prelude_applied = plan.tls_prelude.applied_count > 0;
+                    let (effective_family, used_family_fallback) =
+                        effective_tcp_strategy_family(strategy_family, &plan, tls_prelude_applied);
                     let bytes_committed = execute_tcp_actions(
                         writer,
                         &plan.actions,
@@ -74,8 +115,15 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                     )?;
                     Ok(OutboundSendOutcome {
                         bytes_committed,
-                        strategy_family,
-                        execution_receipt: TcpExecutionReceipt::applied(group, &plan, strategy_family),
+                        strategy_family: effective_family,
+                        execution_receipt: TcpExecutionReceipt::applied(
+                            group,
+                            &plan,
+                            strategy_family,
+                            effective_family,
+                            used_family_fallback.then_some(TcpFallbackReason::StrategyFamilyFallback),
+                            tls_prelude_applied,
+                        ),
                     })
                 }
                 Err(_) => {
@@ -85,6 +133,8 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         strategy_family: None,
                         execution_receipt: TcpExecutionReceipt::plain(
                             TcpExecutionDisposition::PlanFailedPlainFallback,
+                            group,
+                            strategy_family,
                             bytes_committed,
                         ),
                     })
@@ -97,6 +147,8 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                 strategy_family: None,
                 execution_receipt: TcpExecutionReceipt::plain(
                     TcpExecutionDisposition::ActivationSkipped,
+                    group,
+                    strategy_family,
                     bytes_committed,
                 ),
             })

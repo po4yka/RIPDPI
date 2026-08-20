@@ -39,7 +39,6 @@ import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
-import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import java.security.MessageDigest
@@ -69,6 +68,74 @@ enum class BypassApproachVerificationState {
 }
 
 @Serializable
+enum class CurrentStrategyCandidateVerdict {
+    WORKING_ON_TESTED_CANDIDATE_PATH,
+    INEFFECTIVE_ON_TESTED_CANDIDATE_PATH,
+    INCOMPLETE,
+    UNVERIFIED_EXECUTION,
+}
+
+@Serializable
+enum class ActiveStrategyPathOutcome {
+    WORKING,
+    INEFFECTIVE,
+    UNVERIFIED,
+}
+
+@Serializable
+enum class ActiveStrategyPathUnavailableReason {
+    ACTIVE_VPN_PATH_NOT_OBSERVED,
+    ACTIVE_SERVICE_PATH_NOT_OBSERVED,
+    OBSERVATION_ROLE_UNAVAILABLE,
+}
+
+@Serializable
+enum class CurrentStrategyEvidenceReason {
+    APPLIED_ATTEMPT_SUCCEEDED,
+    APPLIED_ATTEMPTS_FAILED,
+    OUTER_SCAN_INCOMPLETE,
+    INNER_STRATEGY_SCAN_INCOMPLETE,
+    STRATEGY_SNAPSHOT_MISMATCH,
+    BASELINE_MISSING_OR_AMBIGUOUS,
+    ATTEMPT_EVIDENCE_MISSING,
+    RUNTIME_TERMINAL_FAILURE,
+    RESPONSE_STAGE_MISMATCH,
+    STRATEGY_EXECUTION_NOT_APPLIED,
+    STRATEGY_PLAN_MISMATCH,
+    OBSERVATION_PATH_MISMATCH,
+}
+
+@Serializable
+enum class CurrentStrategyLastProvenStage {
+    NONE,
+    CANDIDATE_RUNTIME,
+    DESYNC_WRITES_COMMITTED,
+    ENDPOINT_RESPONSE,
+}
+
+@Serializable
+data class CurrentStrategyAssessment(
+    val candidateVerdict: CurrentStrategyCandidateVerdict,
+    val activePathOutcome: ActiveStrategyPathOutcome = ActiveStrategyPathOutcome.UNVERIFIED,
+    val observationRole: StrategyProbeObservationRole,
+    val reason: CurrentStrategyEvidenceReason,
+    val lastProvenStage: CurrentStrategyLastProvenStage = CurrentStrategyLastProvenStage.NONE,
+    val activePathUnavailableReason: ActiveStrategyPathUnavailableReason? = null,
+)
+
+internal fun CurrentStrategyAssessment.isEvaluatedStrategyApproachEvidence(): Boolean {
+    val candidateWasEvaluated =
+        candidateVerdict == CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH ||
+            candidateVerdict == CurrentStrategyCandidateVerdict.INEFFECTIVE_ON_TESTED_CANDIDATE_PATH
+    return candidateWasEvaluated && activePathOutcome != ActiveStrategyPathOutcome.UNVERIFIED
+}
+
+internal fun CurrentStrategyAssessment.isConfirmedWorkingStrategyApproach(): Boolean {
+    val candidateWorked = candidateVerdict == CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH
+    return candidateWorked && activePathOutcome == ActiveStrategyPathOutcome.WORKING
+}
+
+@Serializable
 data class BypassStrategySignature(
     val mode: String,
     val configSource: String,
@@ -82,6 +149,7 @@ data class BypassStrategySignature(
     val protocolToggles: List<String>,
     val httpParserEvasions: List<String> = emptyList(),
     val tlsRecordSplitEnabled: Boolean,
+    val tlsPreludeKind: StrategyTlsPreludeKind? = null,
     val tlsRecordMarker: String? = null,
     val splitMarker: String? = null,
     val activationRound: String? = null,
@@ -142,6 +210,7 @@ data class BypassApproachSummary(
     val lastUsedAt: Long?,
     val topFailureOutcomes: List<String> = emptyList(),
     val outcomeBreakdown: List<BypassOutcomeBreakdown> = emptyList(),
+    val currentStrategyAssessment: CurrentStrategyAssessment? = null,
 )
 
 @Serializable
@@ -155,16 +224,6 @@ data class BypassApproachDetail(
 )
 
 private val strategyJson = RipDpiEncodeDefaultsJson
-
-private fun hasCommandLineRawFakePayload(args: String): Boolean {
-    val tokens = shellSplit(args)
-    for ((index, token) in tokens.withIndex()) {
-        if ((token == "-l" || token == "--fake-data") && index + 1 < tokens.size) {
-            return true
-        }
-    }
-    return false
-}
 
 fun deriveBypassStrategySignature(
     settings: AppSettings,
@@ -199,6 +258,7 @@ fun deriveBypassStrategySignature(
         protocolToggles = resolveSettingsProtocols(settings),
         httpParserEvasions = settings.activeHttpParserEvasions().takeIf { !settings.enableCmdSettings }.orEmpty(),
         tlsRecordSplitEnabled = tlsRecStep != null,
+        tlsPreludeKind = tlsRecStep?.kind?.toStrategyTlsPreludeKind(),
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
         activationRound = formatNumericRange(activationFilter.round).takeIf { activationFiltersActive },
@@ -368,6 +428,7 @@ fun deriveBypassStrategySignature(
         protocolToggles = resolvePreferencesProtocols(preferences),
         httpParserEvasions = resolvePreferencesHttpParserEvasions(preferences),
         tlsRecordSplitEnabled = tlsRecStep != null,
+        tlsPreludeKind = tlsRecStep?.kind?.toStrategyTlsPreludeKind(),
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
         activationRound = formatNumericRange(preferences.chains.groupActivationFilter.round),
@@ -393,6 +454,13 @@ fun deriveBypassStrategySignature(
         fallbackGroupFamilies = DefaultFallbackGroupFamilies,
     )
 }
+
+private fun TcpChainStepKind.toStrategyTlsPreludeKind(): StrategyTlsPreludeKind? =
+    when (this) {
+        TcpChainStepKind.TlsRec -> StrategyTlsPreludeKind.TLS_REC
+        TcpChainStepKind.TlsRandRec -> StrategyTlsPreludeKind.TLS_RAND_REC
+        else -> null
+    }
 
 private fun resolvePreferencesHasCustomFakeTlsProfile(preferences: RipDpiProxyUIPreferences): Boolean =
     preferences.fakePackets.fakeTlsUseOriginal ||

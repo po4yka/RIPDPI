@@ -82,7 +82,8 @@ pub struct StrategyProbeReport {
     pub methodology_version: String,
     pub tcp_candidates: Vec<StrategyProbeCandidateSummary>,
     pub quic_candidates: Vec<StrategyProbeCandidateSummary>,
-    pub recommendation: StrategyProbeRecommendation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recommendation: Option<StrategyProbeRecommendation>,
     #[serde(default)]
     pub completion_kind: StrategyProbeCompletionKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -93,12 +94,36 @@ pub struct StrategyProbeReport {
     pub target_selection: Option<StrategyProbeTargetSelection>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pilot_bucket_labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_path_observation: Option<StrategyActivePathObservation>,
     /// Per-domain strategy seeds derived from probe results.
     /// Each entry records the best candidate for a domain that did NOT succeed
     /// with the baseline candidate. Consumers can pass these to the autolearn
     /// seeding API so each domain starts with its optimal strategy override.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub domain_strategy_seeds: Vec<StrategyDomainSeed>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyActivePathObservation {
+    pub role: StrategyProbeObservationRole,
+    pub response_stage: StrategyProbeResponseStage,
+    pub active_path_authority: StrategyActivePathAuthority,
+    pub attempted_targets: usize,
+    #[serde(default)]
+    pub route_reached_targets: usize,
+    pub response_observed_targets: usize,
+    #[serde(default)]
+    pub successful_targets: usize,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyActivePathAuthority {
+    #[default]
+    Unverified,
+    OwnedRouteLeaseAtScan,
 }
 
 /// Records the best strategy probe candidate for a single domain.
@@ -154,6 +179,217 @@ pub struct StrategyProbeCandidateSummary {
     /// execution so the recommendation phase can derive per-domain seeds.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub domain_outcomes: Vec<StrategyProbeDomainOutcome>,
+    #[serde(default)]
+    pub observation_role: StrategyProbeObservationRole,
+    /// False when candidate preparation intentionally changed active behavior
+    /// (for example by disabling host autolearn to keep the probe read-only).
+    #[serde(default)]
+    pub active_snapshot_faithful: bool,
+    #[serde(default = "default_true")]
+    pub desync_execution_required: bool,
+    #[serde(default)]
+    pub runtime_terminal_status: StrategyProbeRuntimeTerminalStatus,
+    #[serde(default)]
+    pub execution_evidence_complete: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub execution_attempts: Vec<StrategyProbeAttemptExecutionEvidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub route_features: Vec<StrategyProbeRouteFeature>,
+}
+
+const fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeRouteFeature {
+    UpstreamRelay,
+    Warp,
+    WebSocketTunnel,
+    DestinationRouting,
+    TcpRotation,
+    AdaptiveFallback,
+    GroupActivationFilter,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeObservationRole {
+    #[default]
+    EphemeralCandidateRawPath,
+    ActiveServiceInPath,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeRuntimeTerminalStatus {
+    #[default]
+    Unavailable,
+    CleanShutdown,
+    ForcedAbort,
+    RuntimeFailed,
+    RuntimePanicked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeAttemptExecutionEvidence {
+    pub probe_succeeded: bool,
+    pub complete: bool,
+    #[serde(default)]
+    pub response_stage: StrategyProbeResponseStage,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub receipts: Vec<StrategyDesyncExecutionReceipt>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeResponseStage {
+    #[default]
+    Unavailable,
+    ResponseObserved,
+    ResponseNotObserved,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyDesyncExecutionReceipt {
+    #[serde(default)]
+    pub connection_ordinal: u16,
+    #[serde(default)]
+    pub transport: StrategyExecutionTransport,
+    pub disposition: StrategyExecutionDisposition,
+    pub configured_family: Option<StrategyExecutionFamily>,
+    pub effective_family: Option<StrategyExecutionFamily>,
+    pub marker_base: Option<StrategyOffsetMarkerBase>,
+    pub marker_delta: Option<i16>,
+    pub resolved_offset: Option<u16>,
+    pub planned_steps: u16,
+    pub attempted_actions: u16,
+    pub completed_actions: u16,
+    pub real_writes_committed: u16,
+    pub completed_awaits: u16,
+    pub payload_bytes_committed: u16,
+    #[serde(default)]
+    pub tls_record_prelude_applied: bool,
+    #[serde(default)]
+    pub tls_prelude_configured_count: u16,
+    #[serde(default)]
+    pub tls_prelude_applied_count: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_prelude_kind: Option<StrategyTlsPreludeKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_prelude_marker_base: Option<StrategyOffsetMarkerBase>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_prelude_marker_delta: Option<i16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_prelude_resolved_offset: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udp_ipv6_extension_profile: Option<StrategyUdpIpv6ExtensionProfile>,
+    pub fallback_reason: Option<StrategyFallbackReason>,
+    pub terminal_reason: Option<StrategyTerminalReason>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyTlsPreludeKind {
+    TlsRec,
+    TlsRandRec,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyUdpIpv6ExtensionProfile {
+    HopByHop,
+    HopByHop2,
+    DestinationOptions,
+    HopByHopDestinationOptions,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyExecutionTransport {
+    #[default]
+    Tcp,
+    Udp,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyExecutionDisposition {
+    Applied,
+    ActivationSkipped,
+    PlanFailedPlainFallback,
+    ExecutionFailed,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyExecutionFamily {
+    Split,
+    TlsRecordSplit,
+    SeqOverlap,
+    TlsRecordSeqOverlap,
+    MultiDisorder,
+    TlsRecordMultiDisorder,
+    Disorder,
+    OutOfBand,
+    DisorderedOutOfBand,
+    Fake,
+    FakeSplit,
+    FakeDisorder,
+    HostFake,
+    IpFragment2,
+    FakeRst,
+    TlsRecord,
+    QuicBurst,
+    QuicSniSplit,
+    QuicFakeVersion,
+    QuicCryptoSplit,
+    QuicPaddingLadder,
+    QuicVersionNegotiationDecoy,
+    QuicMultiInitialRealistic,
+    QuicDummyPrepend,
+    QuicIpFragment2,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyOffsetMarkerBase {
+    Absolute,
+    PayloadEnd,
+    PayloadMid,
+    PayloadRand,
+    Host,
+    EndHost,
+    HostMid,
+    HostRand,
+    Sld,
+    MidSld,
+    EndSld,
+    Method,
+    ExtLen,
+    EchExt,
+    SniExt,
+    Adaptive,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyFallbackReason {
+    AndroidTtlUnavailable,
+    StrategyFamilyFallback,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyTerminalReason {
+    Transport,
+    StrategyExecution,
+    Planning,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

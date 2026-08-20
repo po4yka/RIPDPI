@@ -259,6 +259,43 @@ mod tests {
     }
 
     #[test]
+    fn in_path_strategy_probe_observes_active_service_before_candidate_matrix() {
+        let mut request = scan_request(ScanKind::StrategyProbe, Vec::new(), None);
+        request.path_mode = crate::types::ScanPathMode::InPath;
+        request.in_path_route = Some(crate::types::InPathRoute {
+            host: "127.0.0.1".to_string(),
+            port: 19_080,
+            credentials: crate::types::InPathProxyCredentials {
+                username: "diagnostics".to_string(),
+                password: "bounded-secret".to_string(),
+            },
+        });
+        request.domain_targets.push(crate::types::DomainTarget {
+            host: "127.0.0.1".to_string(),
+            connect_ip: None,
+            connect_ips: Vec::new(),
+            https_port: Some(443),
+            http_port: Some(80),
+            http_path: "/".to_string(),
+            is_control: true,
+            concurrency_probe: None,
+        });
+
+        assert_eq!(
+            strategy_stage_order(&request),
+            vec![
+                ExecutionStageId::Environment,
+                ExecutionStageId::Web,
+                ExecutionStageId::StrategyDnsBaseline,
+                ExecutionStageId::StrategyTcpCandidates,
+                ExecutionStageId::StrategyQuicCandidates,
+                ExecutionStageId::StrategyConnectionConcurrency,
+                ExecutionStageId::StrategyRecommendation,
+            ],
+        );
+    }
+
+    #[test]
     fn run_engine_scan_records_planning_errors_in_report_and_progress() {
         let shared = Arc::new(Mutex::new(SharedState::default()));
         let cancel = Arc::new(AtomicBool::new(false));
@@ -344,6 +381,7 @@ mod tests {
             pack_refs: Vec::new(),
             proxy_host: None,
             proxy_port: None,
+            in_path_route: None,
             probe_tasks,
             domain_targets: Vec::new(),
             dns_targets: Vec::new(),

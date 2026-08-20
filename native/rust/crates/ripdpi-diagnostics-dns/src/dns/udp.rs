@@ -238,9 +238,9 @@ fn execute_udp_query(
             let server_addr = resolve_first_socket_addr(server)?;
             relay_udp_direct(server_addr, packet)
         }
-        TransportConfig::Socks5 { host, port } => {
+        TransportConfig::Socks5 { host, port, credentials } => {
             let server_addr = resolve_first_socket_addr(server)?;
-            relay_udp_via_socks5(host, *port, server_addr, packet)
+            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref())
         }
     }?;
     let (response, _local_addr) = raw;
@@ -311,7 +311,7 @@ fn cache_udp_dns_resolution(cache_key: UdpDnsCacheKey, resolution: &UdpDnsResolu
 fn transport_cache_key(transport: &TransportConfig) -> String {
     match transport {
         TransportConfig::Direct { .. } => "direct".to_string(),
-        TransportConfig::Socks5 { host, port } => format!("socks5:{host}:{port}"),
+        TransportConfig::Socks5 { host, port, .. } => format!("socks5:{host}:{port}"),
     }
 }
 

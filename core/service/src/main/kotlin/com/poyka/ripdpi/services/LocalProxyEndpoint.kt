@@ -11,7 +11,10 @@ internal data class LocalProxyEndpoint(
     val port: Int,
     val username: String? = null,
     val password: String? = null,
-)
+) {
+    override fun toString(): String =
+        "LocalProxyEndpoint(host=$host, port=$port, username=[REDACTED], password=[REDACTED])"
+}
 
 internal fun resolveLocalProxyEndpoint(
     telemetry: NativeRuntimeSnapshot,

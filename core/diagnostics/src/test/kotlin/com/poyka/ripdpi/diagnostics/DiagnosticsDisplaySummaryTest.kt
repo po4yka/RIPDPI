@@ -326,7 +326,7 @@ class DiagnosticsDisplaySummaryTest {
         }
 
     @Test
-    fun `approach summary uses partial result wording instead of raw cancelled summary`() {
+    fun `strategy approach summary does not reuse whole report wording as candidate evidence`() {
         val report =
             ScanReport(
                 sessionId = "session-history",
@@ -367,7 +367,7 @@ class DiagnosticsDisplaySummaryTest {
             )
         val approach = summaries.first { it.approachId.value == "strategy-1" }
 
-        assertEquals(ScanCompletedWithPartialResultsSummary, approach.lastValidatedResult)
+        assertEquals(null, approach.lastValidatedResult)
     }
 
     @Test

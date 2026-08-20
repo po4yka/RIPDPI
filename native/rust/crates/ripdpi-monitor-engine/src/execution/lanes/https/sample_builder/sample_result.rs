@@ -24,6 +24,7 @@ pub(super) fn build_https_sample(
         weight: 2,
         domain: Some(target.host.clone()),
         is_control: target.is_control,
+        attempt_token: None,
         quality: match outcome.as_str() {
             "tls_ok" => 4,
             "tls_version_split" => 3,

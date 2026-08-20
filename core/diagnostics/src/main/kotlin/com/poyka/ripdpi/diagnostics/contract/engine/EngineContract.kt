@@ -32,9 +32,9 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v8: adds execution-stage provenance and candidate-runtime cleanup receipts. Must stay in sync
+// v9: adds attempt-bound desync execution evidence and optional verified recommendations. Must stay in sync
 // with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 8
+const val DiagnosticsEngineSchemaVersion = 9
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -57,6 +57,23 @@ data class EngineProbeTaskWire(
 )
 
 @Serializable
+data class EngineProxyCredentialsWire(
+    val username: String,
+    val password: String,
+) {
+    override fun toString(): String = "EngineProxyCredentialsWire([REDACTED])"
+}
+
+@Serializable
+data class EngineInPathRouteWire(
+    val host: String,
+    val port: Int,
+    val credentials: EngineProxyCredentialsWire,
+) {
+    override fun toString(): String = "EngineInPathRouteWire(host=$host, port=$port, credentials=[REDACTED])"
+}
+
+@Serializable
 data class EngineScanRequestWire(
     @Required
     val schemaVersion: Int = DiagnosticsEngineSchemaVersion,
@@ -69,6 +86,7 @@ data class EngineScanRequestWire(
     val packRefs: List<String> = emptyList(),
     val proxyHost: String? = null,
     val proxyPort: Int? = null,
+    val inPathRoute: EngineInPathRouteWire? = null,
     val probeTasks: List<EngineProbeTaskWire> = emptyList(),
     val domainTargets: List<DomainTarget> = emptyList(),
     val dnsTargets: List<DnsTarget> = emptyList(),

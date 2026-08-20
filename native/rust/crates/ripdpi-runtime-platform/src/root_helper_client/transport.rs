@@ -4,7 +4,8 @@ use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 use ripdpi_root_helper_protocol::{
-    HelperRequest, HelperResponse, recv_message, send_message, valid_session_nonce, validate_request,
+    CMD_PROTOCOL_PREFLIGHT, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+    valid_session_nonce, validate_request,
 };
 
 pub(super) struct ClientTransport {
@@ -36,15 +37,35 @@ impl ClientTransport {
         // and load the session nonce. Mirrors the helper's pre-dispatch
         // check; both sides see the same typed error from
         // `validate_request`.
-        let descriptor = validate_request(command, fd.is_some(), !params.is_null())
+        validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
 
         let session_nonce = load_session_nonce(&self.session_nonce_path())?;
+        if command != CMD_PROTOCOL_PREFLIGHT {
+            self.send_command_once(CMD_PROTOCOL_PREFLIGHT, serde_json::Value::Null, None, &session_nonce)?;
+        }
+        self.send_command_once(command, params, fd, &session_nonce)
+    }
+
+    fn send_command_once(
+        &self,
+        command: &str,
+        params: serde_json::Value,
+        fd: Option<BorrowedFd<'_>>,
+        session_nonce: &str,
+    ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
+        let descriptor = validate_request(command, fd.is_some(), !params.is_null())
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
         let stream = UnixStream::connect(&self.socket_path)?;
         stream.set_read_timeout(Some(Duration::from_secs(30)))?;
         stream.set_write_timeout(Some(Duration::from_secs(10)))?;
 
-        let request = HelperRequest { command: command.to_owned(), params, session_nonce: Some(session_nonce) };
+        let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
+            command: command.to_owned(),
+            params,
+            session_nonce: Some(session_nonce.to_owned()),
+        };
         let json = serde_json::to_vec(&request).map_err(|e| io::Error::other(format!("serialize request: {e}")))?;
 
         send_message(&stream, &json, fd)?;
@@ -96,7 +117,7 @@ mod tests {
     use std::thread;
 
     use ripdpi_root_helper_protocol::{
-        CAPABILITY_VERSION, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+        CAPABILITY_VERSION, CMD_PROTOCOL_PREFLIGHT, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
     };
 
     fn current_response(response: HelperResponse) -> HelperResponse {
@@ -179,7 +200,7 @@ mod tests {
 
     #[test]
     fn send_command_rejects_unexpected_success_reply_fd_and_closes_it() {
-        let fixture = TransportFixture::start(|stream| {
+        let fixture = TransportFixture::start_after_protocol_preflight(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
             drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
@@ -213,7 +234,7 @@ mod tests {
 
     #[test]
     fn send_command_closes_reply_fd_attached_to_helper_error() {
-        let fixture = TransportFixture::start(|stream| {
+        let fixture = TransportFixture::start_after_protocol_preflight(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
             drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
@@ -246,7 +267,7 @@ mod tests {
 
     #[test]
     fn send_command_returns_allowed_replacement_fd_to_the_caller() {
-        let fixture = TransportFixture::start(|stream| {
+        let fixture = TransportFixture::start_after_protocol_preflight(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
             drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
@@ -304,7 +325,7 @@ mod tests {
 
     #[test]
     fn send_command_rejects_protocol_version_mismatch_and_closes_reply_fd() {
-        let fixture = TransportFixture::start(|stream| {
+        let fixture = TransportFixture::start_after_protocol_preflight(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
             drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
@@ -331,6 +352,43 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("protocol version mismatch"));
         assert_eq!(write_error.kind(), io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn mutating_command_is_not_sent_after_a_mismatched_protocol_preflight() {
+        let fixture = TransportFixture::start_listener(|listener| {
+            let (preflight, _) = listener.accept().expect("accept protocol preflight");
+            let (request, inbound_fd) = recv_message(&preflight, "client closed preflight").expect("preflight");
+            assert!(inbound_fd.is_none());
+            let request: ripdpi_root_helper_protocol::HelperRequest =
+                serde_json::from_slice(&request).expect("preflight request JSON");
+            assert_eq!(request.command, CMD_PROTOCOL_PREFLIGHT);
+            let mismatched = HelperResponse::success(serde_json::Value::Null)
+                .with_versions(PROTOCOL_VERSION - 1, CAPABILITY_VERSION);
+            send_message(&preflight, &serde_json::to_vec(&mismatched).expect("response JSON"), None)
+                .expect("send mismatched preflight response");
+
+            listener.set_nonblocking(true).expect("set listener nonblocking");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            assert_eq!(
+                listener.accept().expect_err("mutating command must not be sent").kind(),
+                io::ErrorKind::WouldBlock
+            );
+        });
+        let request_fd = std::fs::File::open("/dev/null").expect("open request fd");
+
+        let error = fixture
+            .transport
+            .send_command(
+                ripdpi_root_helper_protocol::CMD_SEND_FAKE_TCP,
+                serde_json::json!({ "original_prefix": [], "fake_prefix": [], "ttl": 1, "default_ttl": 64 }),
+                Some(request_fd.as_fd()),
+            )
+            .expect_err("mismatched preflight must fail before the mutating command");
+        fixture.join();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("protocol version mismatch"));
     }
 
     fn unique_suffix() -> u128 {
@@ -361,6 +419,52 @@ mod tests {
                 let (stream, _addr) = listener.accept().expect("accept helper client");
                 handler(stream)
             });
+            Self { transport: ClientTransport::new(socket_path.clone()), socket_path, join_handle }
+        }
+
+        fn start_after_protocol_preflight(
+            handler: impl FnOnce(std::os::unix::net::UnixStream) -> T + Send + 'static,
+        ) -> Self
+        where
+            T: Send + 'static,
+        {
+            Self::start_listener(move |listener| {
+                let (preflight, _) = listener.accept().expect("accept protocol preflight");
+                let (request, inbound_fd) = recv_message(&preflight, "client closed preflight").expect("preflight");
+                assert!(inbound_fd.is_none());
+                let request: ripdpi_root_helper_protocol::HelperRequest =
+                    serde_json::from_slice(&request).expect("preflight request JSON");
+                assert_eq!(request.command, CMD_PROTOCOL_PREFLIGHT);
+                send_message(
+                    &preflight,
+                    &serde_json::to_vec(&current_response(HelperResponse::success(serde_json::json!({
+                        "raw_ipv4": true,
+                        "raw_ipv6": true,
+                        "tcp_repair": true,
+                    }))))
+                    .expect("preflight response JSON"),
+                    None,
+                )
+                .expect("send preflight response");
+                let (stream, _) = listener.accept().expect("accept command");
+                handler(stream)
+            })
+        }
+
+        fn start_listener(handler: impl FnOnce(UnixListener) -> T + Send + 'static) -> Self
+        where
+            T: Send + 'static,
+        {
+            let socket_path = std::env::temp_dir().join(format!(
+                "ripdpi-root-helper-transport-{}-{}.sock",
+                std::process::id(),
+                unique_suffix()
+            ));
+            let socket_path = socket_path.to_string_lossy().to_string();
+            let nonce_path = session_nonce_path(&socket_path);
+            std::fs::write(&nonce_path, "abcdefghijklmnopqrstuvwxyzABCDEF").expect("write nonce");
+            let listener = UnixListener::bind(&socket_path).expect("bind transport test socket");
+            let join_handle = thread::spawn(move || handler(listener));
             Self { transport: ClientTransport::new(socket_path.clone()), socket_path, join_handle }
         }
 

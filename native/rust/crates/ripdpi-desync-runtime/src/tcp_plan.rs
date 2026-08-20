@@ -7,7 +7,7 @@ mod multi_disorder;
 mod stream_steps;
 
 pub(crate) use decision::requires_special_tcp_execution;
-pub(crate) use execution::execute_tcp_plan;
+pub(crate) use execution::{TcpPlanStrategyContext, execute_tcp_plan};
 pub(crate) use fake_packets::BuiltFakePackets;
 pub(crate) use flags::{step_fake_tcp_flags, step_original_tcp_flags};
 

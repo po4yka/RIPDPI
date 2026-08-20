@@ -1437,8 +1437,11 @@ class VpnServiceRuntimeCoordinatorTest {
                 ),
             )
             // Exhaust exponential backoff retries: 2s + 4s + 8s + 16s = 30s
-            advanceTimeBy(31_000L)
-            repeat(5) { runCurrent() }
+            listOf(2_000L, 4_000L, 8_000L, 16_000L).forEach { delay ->
+                advanceTimeBy(delay)
+                runCurrent()
+            }
+            runCurrent()
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
@@ -1450,6 +1453,44 @@ class VpnServiceRuntimeCoordinatorTest {
 
             assertTrue(env.tunnelProvider.session.closed)
             assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun exhaustedHandoverResolutionFailureRevokesDiagnosticsRouteLease() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, policySignature = "initial")),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease)
+            repeat(5) {
+                env.resolver.enqueueFailure(IllegalStateException("handover policy unavailable"))
+            }
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            listOf(2_000L, 4_000L, 8_000L, 16_000L).forEach { delay ->
+                advanceTimeBy(delay)
+                runCurrent()
+            }
+            runCurrent()
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(env.tunnelProvider.session.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease)
         }
 
     @Test

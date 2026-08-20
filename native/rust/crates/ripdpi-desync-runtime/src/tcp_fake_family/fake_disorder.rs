@@ -56,7 +56,7 @@ pub(crate) fn execute(
             bytes_committed,
         )?
     } else {
-        let bytes_committed = send_first_disorder_segment(
+        let (bytes_committed, lowered_to_fake_split) = send_first_disorder_segment(
             ctx,
             chunk,
             &first_fake,
@@ -66,7 +66,7 @@ pub(crate) fn execute(
             bytes_committed,
             opts,
         )?;
-        send_fake_tcp_action_named(
+        let bytes_committed = send_fake_tcp_action_named(
             ctx.writer,
             second,
             &second_fake,
@@ -80,7 +80,11 @@ pub(crate) fn execute(
             "fakedsplit",
             None,
             bytes_committed,
-        )?
+        )?;
+        if lowered_to_fake_split {
+            return Ok((bytes_committed, TcpStepControl::BreakPlanWithFallback("fakedsplit")));
+        }
+        bytes_committed
     };
     Ok((bytes_committed, TcpStepControl::BreakPlan))
 }
@@ -149,7 +153,7 @@ fn send_first_disorder_segment(
     step_fallback: Option<&'static str>,
     bytes_committed: usize,
     opts: FakeStepOptions,
-) -> Result<usize, OutboundSendError> {
+) -> Result<(usize, bool), OutboundSendError> {
     match send_fake_tcp_action_named(
         ctx.writer,
         chunk,
@@ -165,7 +169,7 @@ fn send_first_disorder_segment(
         step_fallback,
         bytes_committed,
     ) {
-        Ok(bytes_committed) => Ok(bytes_committed),
+        Ok(bytes_committed) => Ok((bytes_committed, false)),
         Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
             log_android_desync_fallback("send_fake_fakeddisorder", "fakedsplit", &err);
             send_fake_tcp_action_named(
@@ -183,6 +187,7 @@ fn send_first_disorder_segment(
                 step_fallback,
                 bytes_committed,
             )
+            .map(|bytes_committed| (bytes_committed, true))
         }
         Err(err) => Err(err),
     }

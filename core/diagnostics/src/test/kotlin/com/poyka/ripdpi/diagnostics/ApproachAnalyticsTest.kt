@@ -128,6 +128,70 @@ class ApproachAnalyticsTest {
     }
 
     @Test
+    fun `raw candidate success does not confirm the active strategy`() {
+        val signature =
+            BypassStrategySignature(
+                mode = "VPN",
+                configSource = "ui",
+                hostAutolearn = "disabled",
+                desyncMethod = "split",
+                chainSummary = "tcp: split(host+1)",
+                tcpStrategyFamily = "split",
+                protocolToggles = listOf("HTTPS"),
+                tlsRecordSplitEnabled = false,
+                splitMarker = "host+1",
+            )
+        val strategyId = signature.stableId()
+        val report =
+            ScanReport(
+                sessionId = "raw-candidate",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "candidate path responded",
+                strategyProbeReport =
+                    StrategyProbeReport(
+                        suiteId = "quick_v1",
+                        tcpCandidates = listOf(appliedRawBaseline()),
+                    ),
+            )
+        val session =
+            diagnosticsSession(
+                id = report.sessionId,
+                profileId = report.profileId,
+                pathMode = report.pathMode.name,
+                summary = report.summary,
+                reportJson =
+                    diagnosticsTestJson().encodeToString(
+                        EngineScanReportWire.serializer(),
+                        report.toEngineScanReportWire(),
+                    ),
+            ).copy(
+                strategyId = strategyId,
+                strategyLabel = "split(host+1)",
+                strategyJson = diagnosticsTestJson().encodeToString(BypassStrategySignature.serializer(), signature),
+            )
+
+        val summary =
+            DiagnosticsSessionQueries
+                .buildApproachSummaries(
+                    scanSessions = listOf(session),
+                    usageSessions = emptyList(),
+                    json = diagnosticsTestJson(),
+                ).single { it.approachId.kind == BypassApproachKind.Strategy }
+
+        assertEquals(
+            CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH,
+            summary.currentStrategyAssessment?.candidateVerdict,
+        )
+        assertEquals(ActiveStrategyPathOutcome.UNVERIFIED, summary.currentStrategyAssessment?.activePathOutcome)
+        assertEquals(BypassApproachVerificationState.INCOMPLETE_EVIDENCE, summary.verificationState)
+        assertEquals(0, summary.validatedScanCount)
+        assertEquals(0, summary.validatedSuccessCount)
+    }
+
+    @Test
     fun `deriveBypassStrategySignature includes fake tls profile when active`() {
         val settings =
             AppSettings
@@ -430,6 +494,7 @@ class ApproachAnalyticsTest {
         val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "6")
 
         assertTrue(signature.tlsRecordSplitEnabled)
+        assertEquals(StrategyTlsPreludeKind.TLS_RAND_REC, signature.tlsPreludeKind)
         assertEquals("sniext+4", signature.tlsRecordMarker)
         assertEquals("host+1", signature.splitMarker)
         assertEquals(
@@ -603,6 +668,50 @@ class ApproachAnalyticsTest {
         assertEquals("tcp: split(adaptive HTTP method)", signature.chainSummary)
     }
 }
+
+private fun appliedRawBaseline() =
+    StrategyProbeCandidateSummary(
+        id = "baseline_current",
+        label = "Current strategy",
+        family = "baseline",
+        outcome = "success",
+        rationale = "typed evidence",
+        succeededTargets = 1,
+        totalTargets = 1,
+        weightedSuccessScore = 1,
+        totalWeight = 1,
+        qualityScore = 1,
+        observationRole = StrategyProbeObservationRole.EPHEMERAL_CANDIDATE_RAW_PATH,
+        activeSnapshotFaithful = true,
+        runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
+        executionEvidenceComplete = true,
+        executionAttempts =
+            listOf(
+                StrategyProbeAttemptExecutionEvidence(
+                    probeSucceeded = true,
+                    complete = true,
+                    responseStage = StrategyProbeResponseStage.RESPONSE_OBSERVED,
+                    receipts =
+                        listOf(
+                            StrategyDesyncExecutionReceipt(
+                                connectionOrdinal = 1,
+                                disposition = StrategyExecutionDisposition.APPLIED,
+                                configuredFamily = StrategyExecutionFamily.SPLIT,
+                                effectiveFamily = StrategyExecutionFamily.SPLIT,
+                                markerBase = StrategyOffsetMarkerBase.HOST,
+                                markerDelta = 1,
+                                resolvedOffset = 16,
+                                plannedSteps = 1,
+                                attemptedActions = 3,
+                                completedActions = 3,
+                                realWritesCommitted = 2,
+                                completedAwaits = 1,
+                                payloadBytesCommitted = 32,
+                            ),
+                        ),
+                ),
+            ),
+    )
 
 private data class VerificationStateCase(
     val reports: Int,

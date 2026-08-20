@@ -74,7 +74,16 @@ pub(super) fn record_executed_candidate(
     execution: CandidateExecution,
     capabilities: TcpCapabilities,
 ) -> CandidateRecord {
+    let requires_applied_execution = !spec.config.chains.tcp_steps.is_empty();
+    let execution_verified = execution.execution_evidence_complete
+        && (!requires_applied_execution
+            || execution.summary.succeeded_targets == 0
+            || execution.has_applied_success_evidence());
     let mut summary = execution.summary;
+    if !execution_verified {
+        summary.outcome = "unverified_execution".to_string();
+        summary.notes.push("executionEvidence=unverified".to_string());
+    }
     annotate_emitter_execution(&mut summary, spec, capabilities.fake_ttl_available, capabilities.ipfrag_caps);
     let hostfake_family_succeeded = summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets;
     let failed = summary.outcome == "failed";

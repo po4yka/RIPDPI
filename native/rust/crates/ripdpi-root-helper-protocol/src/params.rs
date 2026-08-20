@@ -150,6 +150,11 @@ pub struct IpFragUdpParams {
     pub disorder: bool,
     #[serde(default)]
     pub ipv4_identification: Option<u16>,
+    pub ipv6_hop_by_hop: bool,
+    pub ipv6_dest_opt: bool,
+    pub ipv6_dest_opt_fragmentable: bool,
+    pub ipv6_routing: bool,
+    pub ipv6_second_frag_next_override: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,7 +226,9 @@ mod tests {
         ));
         assert_params_json_stable::<IpFragUdpParams>(concat!(
             r#"{"target_addr":"203.0.113.5:443","payload":[1,2],"split_offset":1,"#,
-            r#""default_ttl":64,"disorder":false,"ipv4_identification":7}"#,
+            r#""default_ttl":64,"disorder":false,"ipv4_identification":7,"#,
+            r#""ipv6_hop_by_hop":false,"ipv6_dest_opt":false,"ipv6_dest_opt_fragmentable":false,"#,
+            r#""ipv6_routing":false,"ipv6_second_frag_next_override":null}"#,
         ));
         assert_params_json_stable::<RawIpPacketParams>(r#"{"target_addr":"203.0.113.5:443","packet":[1,2,255]}"#);
     }

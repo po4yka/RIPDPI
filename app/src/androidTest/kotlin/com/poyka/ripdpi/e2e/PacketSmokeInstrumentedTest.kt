@@ -176,6 +176,18 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    fun proxySplitHostPlusOneRoutesTlsTraffic() {
+        runProxyTlsChainSmoke(
+            chainDsl =
+                """
+                [tcp]
+                split host+1
+                """.trimIndent(),
+            expectedScenario = "split-host-plus-one",
+        )
+    }
+
+    @Test
     @RawPacketValidationOnly
     fun proxyHostfakeSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(

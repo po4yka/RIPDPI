@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
+import com.poyka.ripdpi.diagnostics.CurrentStrategyVerdictEvaluator
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
@@ -9,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.TransportFailureKind
+import com.poyka.ripdpi.diagnostics.toScanReport
 
 private const val TlsErrorSampleLimit = 5
 private const val AcceptanceMatrixCoverageMin = 75
@@ -44,9 +46,25 @@ internal fun buildAnalysis(
     val observations = projectedReport?.observations.orEmpty()
     val measurementSnapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
     val runtimeSnapshotProjection = buildRuntimeSnapshotProjection(selection, redactor)
+    val currentStrategyAssessment =
+        selection.primarySession?.strategyId?.let { strategyId ->
+            selection.primaryReport?.let { report ->
+                CurrentStrategyVerdictEvaluator.evaluate(
+                    report = report.toScanReport(),
+                    sessionStrategyId = strategyId,
+                    expectedStrategyId = strategyId,
+                    expectedStrategySignature = selection.effectiveStrategySignature,
+                )
+            }
+        }
     return DiagnosticsArchiveAnalysisPayload(
         failureEnvelope = buildFailureEnvelope(operationalFailures, latestTelemetry, runtimeSnapshotProjection),
-        strategyExecutionDetail = buildStrategyExecutionDetail(strategyProbe, observations),
+        strategyExecutionDetail =
+            buildStrategyExecutionDetail(
+                strategyProbe = strategyProbe,
+                observations = observations,
+                currentStrategyAssessment = currentStrategyAssessment,
+            ),
         recommendationTrace = buildRecommendationTrace(selection, projectedReport),
         measurementSnapshot = measurementSnapshot,
         connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
@@ -187,10 +205,12 @@ private fun OperationalFailure.correlateWith(
 private fun buildStrategyExecutionDetail(
     strategyProbe: StrategyProbeReport?,
     observations: List<ObservationFact>,
+    currentStrategyAssessment: com.poyka.ripdpi.diagnostics.CurrentStrategyAssessment?,
 ): DiagnosticsArchiveStrategyExecutionDetail =
     DiagnosticsArchiveStrategyExecutionDetail(
         suiteId = strategyProbe?.suiteId,
         completionKind = strategyProbe?.completionKind?.name,
+        currentStrategyAssessment = currentStrategyAssessment,
         tcpCandidates =
             strategyProbe
                 ?.tcpCandidates
@@ -209,14 +229,15 @@ internal fun buildMeasurementSnapshot(
     latestTelemetry: TelemetrySampleEntity?,
 ): DiagnosticsArchiveMeasurementSnapshot {
     val allCandidates = strategyProbe.allCandidates()
+    val recommendation = strategyProbe?.recommendation
     val recommendedTcp =
         strategyProbe
             ?.tcpCandidates
-            ?.firstOrNull { it.id == strategyProbe.recommendation.tcpCandidateId }
+            ?.firstOrNull { it.id == recommendation?.tcpCandidateId }
     val recommendedQuic =
         strategyProbe
             ?.quicCandidates
-            ?.firstOrNull { it.id == strategyProbe.recommendation.quicCandidateId }
+            ?.firstOrNull { it.id == recommendation?.quicCandidateId }
     val acceptanceMetrics = buildAcceptanceMetrics(strategyProbe)
     val detectabilityMetrics =
         buildDetectabilityMetrics(
@@ -479,7 +500,7 @@ private fun containsUnavailableCapabilityId(text: String): Boolean = extractCapa
 
 private fun extractCapabilityIds(text: String): List<String> =
     KnownRuntimeCapabilityIds.filter { capability ->
-        text.contains("($capability)") || text.contains("$capability unavailable")
+        text == capability || text.contains("($capability)") || text.contains("$capability unavailable")
     }
 
 private fun buildRecommendationEvidence(
@@ -588,7 +609,7 @@ private fun StrategyProbeCandidateSummary.toExecutionDetail(
         family = family,
         quicLayoutFamily = quicLayoutFamily,
         outcome = outcome,
-        rationale = rationale,
+        rationale = archiveCandidateOutcome(outcome),
         succeededTargets = succeededTargets,
         totalTargets = totalTargets,
         weightedSuccessScore = weightedSuccessScore,
@@ -596,17 +617,14 @@ private fun StrategyProbeCandidateSummary.toExecutionDetail(
         qualityScore = qualityScore,
         averageLatencyMs = averageLatencyMs,
         skipped = skipped,
-        skipReasons =
-            buildList {
-                if (skipped) add(rationale)
-                addAll(
-                    notes.filter {
-                        it.contains("skip", ignoreCase = true) ||
-                            it.contains("not applicable", ignoreCase = true)
-                    },
-                )
-            }.distinct(),
-        notes = notes,
+        observationRole = observationRole,
+        desyncExecutionRequired = desyncExecutionRequired,
+        runtimeTerminalStatus = runtimeTerminalStatus,
+        executionEvidenceComplete = executionEvidenceComplete,
+        executionAttempts = executionAttempts,
+        routeFeatures = routeFeatures,
+        skipReasons = if (skipped) listOf("skipped") else emptyList(),
+        notes = emptyList(),
         factBreakdown =
             DiagnosticsArchiveCandidateFactBreakdown(
                 observationCount = strategyFacts.size,
@@ -616,6 +634,20 @@ private fun StrategyProbeCandidateSummary.toExecutionDetail(
             ),
     )
 }
+
+private fun archiveCandidateOutcome(value: String): String =
+    value.lowercase().takeIf {
+        it in
+            setOf(
+                "success",
+                "partial",
+                "failed",
+                "skipped",
+                "not_applicable",
+                "eliminated",
+                "unverified_execution",
+            )
+    } ?: "unavailable"
 
 private fun List<String>.distinctConsecutive(): List<String> {
     val result = mutableListOf<String>()

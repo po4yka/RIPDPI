@@ -1,8 +1,8 @@
 use std::io;
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::{Arc, Barrier, Mutex, mpsc};
+use std::sync::atomic::{AtomicU16, AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 use rustls::client::danger::ServerCertVerifier;
@@ -27,6 +27,12 @@ const AUDIT_LEVELS: &[u16] = &[1, 2, 4, 8];
 const MAX_LAUNCH_SPREAD_MS: u32 = 400;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const CELL_RESULT_DEADLINE: Duration = Duration::from_secs(6);
+const RESOLUTION_POLL_INTERVAL: Duration = Duration::from_millis(50);
+const MAX_PENDING_SYSTEM_RESOLUTIONS: usize = 4;
+const LOCAL_WORKER_FAILURE_SIGNAL: &str = "local_worker_failure";
+
+static SYSTEM_RESOLUTION_LIMITER: LazyLock<Arc<ResolutionLimiter>> =
+    LazyLock::new(|| Arc::new(ResolutionLimiter::new(MAX_PENDING_SYSTEM_RESOLUTIONS)));
 
 pub(in crate::engine::runners) struct StrategyConnectionConcurrencyRunner;
 
@@ -53,10 +59,13 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
     ) -> RunnerOutcome {
         let levels = levels_for(plan);
         let current_profile = current_profile(plan);
+        let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
         let mut cells = Vec::new();
         for (target_index, target) in eligible_targets(plan).enumerate() {
             let metadata = target.concurrency_probe.as_ref().expect("eligibility checked");
-            let address = match resolve_target(target) {
+            let address = match resolve_target(target, deadline, || {
+                runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline()
+            }) {
                 Ok(address) => address,
                 Err(error) => {
                     let skipped = skipped_target_cells(
@@ -69,6 +78,14 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                         record_cell(plan, runtime, cell);
                     }
                     cells.extend(skipped);
+                    if error.kind() == io::ErrorKind::Interrupted
+                        || runtime.is_cancelled()
+                        || runtime.is_past_deadline()
+                        || runtime.is_past_stage_deadline()
+                    {
+                        finalize_assessment(runtime, &cells, &current_profile);
+                        return RunnerOutcome::Cancelled;
+                    }
                     continue;
                 }
             };
@@ -78,17 +95,9 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                 metadata,
                 levels,
                 &profiles,
-                || runtime.is_cancelled() || runtime.is_past_deadline(),
+                || runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline(),
                 |profile, level| {
-                    execute_cell(
-                        target,
-                        &metadata.cohort_id,
-                        address,
-                        profile,
-                        level,
-                        runtime.scan_deadline(),
-                        &plan.session_id,
-                    )
+                    execute_cell(target, &metadata.cohort_id, address, profile, level, deadline, &plan.session_id)
                 },
             );
             for cell in &target_matrix.cells {
@@ -195,10 +204,113 @@ fn eligible_targets(plan: &ExecutionPlan) -> impl Iterator<Item = &crate::types:
     plan.request.domain_targets.iter().filter(|target| target.concurrency_probe.is_some())
 }
 
-fn resolve_target(target: &crate::types::DomainTarget) -> io::Result<SocketAddr> {
+fn resolve_target(
+    target: &crate::types::DomainTarget,
+    deadline: Option<Instant>,
+    should_stop: impl FnMut() -> bool,
+) -> io::Result<SocketAddr> {
     let port = target.https_port.unwrap_or(443);
     let host = target.connect_ip.as_deref().unwrap_or(target.host.as_str());
-    (host, port).to_socket_addrs()?.next().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no target address"))
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(SocketAddr::new(ip, port));
+    }
+    resolve_host_with(host.to_string(), port, deadline, should_stop, |host, port| {
+        (host.as_str(), port)
+            .to_socket_addrs()?
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no target address"))
+    })
+}
+
+fn resolve_host_with<F, S>(
+    host: String,
+    port: u16,
+    deadline: Option<Instant>,
+    should_stop: S,
+    resolver: F,
+) -> io::Result<SocketAddr>
+where
+    F: FnOnce(String, u16) -> io::Result<SocketAddr> + Send + 'static,
+    S: FnMut() -> bool,
+{
+    resolve_host_with_limiter(host, port, deadline, should_stop, resolver, Arc::clone(&SYSTEM_RESOLUTION_LIMITER))
+}
+
+fn resolve_host_with_limiter<F, S>(
+    host: String,
+    port: u16,
+    deadline: Option<Instant>,
+    mut should_stop: S,
+    resolver: F,
+    limiter: Arc<ResolutionLimiter>,
+) -> io::Result<SocketAddr>
+where
+    F: FnOnce(String, u16) -> io::Result<SocketAddr> + Send + 'static,
+    S: FnMut() -> bool,
+{
+    let started = Instant::now();
+    let resolution_deadline = deadline.unwrap_or(started + CONNECT_TIMEOUT).min(started + CONNECT_TIMEOUT);
+    if should_stop() {
+        return Err(io::Error::new(io::ErrorKind::Interrupted, "target resolution cancelled"));
+    }
+    if resolution_deadline <= started {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "target resolution timed out"));
+    }
+    let permit = limiter
+        .try_acquire()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "target resolution capacity exhausted"))?;
+    let (result_tx, result_rx) = mpsc::sync_channel(1);
+    std::thread::Builder::new()
+        .name("diagnostics-dns-resolution".to_string())
+        .spawn(move || {
+            let _permit = permit;
+            let _ = result_tx.send(resolver(host, port));
+        })
+        .map_err(|error| io::Error::other(format!("failed to start bounded target resolution: {error}")))?;
+
+    loop {
+        if should_stop() {
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "target resolution cancelled"));
+        }
+        let Some(remaining) = resolution_deadline.checked_duration_since(Instant::now()) else {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "target resolution timed out"));
+        };
+        match result_rx.recv_timeout(remaining.min(RESOLUTION_POLL_INTERVAL)) {
+            Ok(result) => return result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(io::Error::other("target resolution worker stopped without a result"));
+            }
+        }
+    }
+}
+
+struct ResolutionLimiter {
+    active: AtomicUsize,
+    max: usize,
+}
+
+impl ResolutionLimiter {
+    const fn new(max: usize) -> Self {
+        Self { active: AtomicUsize::new(0), max }
+    }
+
+    fn try_acquire(self: &Arc<Self>) -> Option<ResolutionPermit> {
+        self.active
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < self.max).then_some(active + 1))
+            .ok()
+            .map(|_| ResolutionPermit { limiter: Arc::clone(self) })
+    }
+}
+
+struct ResolutionPermit {
+    limiter: Arc<ResolutionLimiter>,
+}
+
+impl Drop for ResolutionPermit {
+    fn drop(&mut self) {
+        self.limiter.active.fetch_sub(1, Ordering::Release);
+    }
 }
 
 fn rotated_profiles(seed: &[u8], target_index: usize) -> Vec<&'static str> {
@@ -253,47 +365,92 @@ fn execute_cell_with<F, T>(
 where
     F: Fn(&str, SocketAddr, &str) -> Result<T, String> + Sync,
 {
-    let start_barrier = Arc::new(Barrier::new(usize::from(parallelism)));
+    execute_cell_with_worker_limit(target, cohort_id, address, profile, parallelism, deadline, None, connect)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_cell_with_worker_limit<F, T>(
+    target: &crate::types::DomainTarget,
+    cohort_id: &str,
+    address: SocketAddr,
+    profile: &str,
+    parallelism: u16,
+    deadline: Option<Instant>,
+    worker_limit: Option<usize>,
+    connect: F,
+) -> ClassifierCell
+where
+    F: Fn(&str, SocketAddr, &str) -> Result<T, String> + Sync,
+{
     let launch_times = Arc::new(Mutex::new(Vec::with_capacity(usize::from(parallelism))));
     let active = Arc::new(AtomicU16::new(0));
     let peak = Arc::new(AtomicU16::new(0));
     let started = Instant::now();
-    let outcomes: Vec<Result<(), String>> = std::thread::scope(|scope| {
+    let (outcomes, spawn_failed): (Vec<Result<(), String>>, bool) = std::thread::scope(|scope| {
         let (outcome_tx, outcome_rx) = mpsc::channel();
         let mut handles = Vec::with_capacity(usize::from(parallelism));
+        let mut start_txs = Vec::with_capacity(usize::from(parallelism));
         let mut release_txs = Vec::with_capacity(usize::from(parallelism));
+        let mut spawn_failed = false;
         for index in 0..parallelism {
-            let start_barrier = Arc::clone(&start_barrier);
+            if worker_limit.is_some_and(|limit| handles.len() >= limit) {
+                spawn_failed = true;
+                break;
+            }
             let launch_times = Arc::clone(&launch_times);
             let active = Arc::clone(&active);
             let peak = Arc::clone(&peak);
             let outcome_tx = outcome_tx.clone();
+            let (start_tx, start_rx) = mpsc::sync_channel(1);
             let (release_tx, release_rx) = mpsc::sync_channel(1);
-            release_txs.push(release_tx);
             let connect = &connect;
-            handles.push(scope.spawn(move || {
-                ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
-                    start_barrier.wait();
-                    launch_times.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Instant::now());
-                    match catch_unwind(AssertUnwindSafe(|| connect(target.host.as_str(), address, profile))) {
-                        Ok(Ok(stream)) => {
-                            let now_active = active.fetch_add(1, Ordering::AcqRel) + 1;
-                            peak.fetch_max(now_active, Ordering::AcqRel);
-                            let _ = outcome_tx.send((usize::from(index), Ok(())));
-                            let _ = release_rx.recv_timeout(CELL_RESULT_DEADLINE);
-                            drop(stream);
-                            active.fetch_sub(1, Ordering::AcqRel);
+            let worker = std::thread::Builder::new().name(format!("diagnostics-concurrency-{index}")).spawn_scoped(
+                scope,
+                move || {
+                    ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                        if start_rx.recv().is_err() {
+                            return;
                         }
-                        Ok(Err(error)) => {
-                            let signal = classify_error(&error).to_string();
-                            let _ = outcome_tx.send((usize::from(index), Err(signal)));
+                        launch_times.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Instant::now());
+                        match catch_unwind(AssertUnwindSafe(|| connect(target.host.as_str(), address, profile))) {
+                            Ok(Ok(stream)) => {
+                                let now_active = active.fetch_add(1, Ordering::AcqRel) + 1;
+                                peak.fetch_max(now_active, Ordering::AcqRel);
+                                let _ = outcome_tx.send((usize::from(index), Ok(())));
+                                let _ = release_rx.recv_timeout(CELL_RESULT_DEADLINE);
+                                drop(stream);
+                                active.fetch_sub(1, Ordering::AcqRel);
+                            }
+                            Ok(Err(error)) => {
+                                let signal = classify_error(&error).to_string();
+                                let _ = outcome_tx.send((usize::from(index), Err(signal)));
+                            }
+                            Err(_) => {
+                                let _ =
+                                    outcome_tx.send((usize::from(index), Err(LOCAL_WORKER_FAILURE_SIGNAL.to_string())));
+                            }
                         }
-                        Err(_) => {
-                            let _ = outcome_tx.send((usize::from(index), Err("connection_freeze".to_string())));
-                        }
-                    }
-                });
-            }));
+                    });
+                },
+            );
+            match worker {
+                Ok(handle) => {
+                    handles.push((usize::from(index), handle));
+                    start_txs.push(start_tx);
+                    release_txs.push(release_tx);
+                }
+                Err(_) => {
+                    spawn_failed = true;
+                    break;
+                }
+            }
+        }
+        if spawn_failed || handles.len() != usize::from(parallelism) {
+            drop(start_txs);
+        } else {
+            for start in start_txs {
+                let _ = start.send(());
+            }
         }
         drop(outcome_tx);
 
@@ -316,16 +473,23 @@ where
         for release in release_txs {
             let _ = release.send(());
         }
-        for (index, handle) in handles.into_iter().enumerate() {
+        for (index, handle) in handles {
             if handle.join().is_err() {
-                outcomes[index] = Some(Err("connection_freeze".to_string()));
+                outcomes[index] = Some(Err(LOCAL_WORKER_FAILURE_SIGNAL.to_string()));
             }
         }
-        outcomes
+        let outcomes = outcomes
             .into_iter()
             .map(|outcome| outcome.unwrap_or_else(|| Err("connection_freeze".to_string())))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        (outcomes, spawn_failed)
     });
+    if spawn_failed {
+        return skipped_cell(target, cohort_id, profile, parallelism, "local concurrency worker unavailable");
+    }
+    if outcomes.iter().any(|outcome| matches!(outcome, Err(error) if error == LOCAL_WORKER_FAILURE_SIGNAL)) {
+        return skipped_cell(target, cohort_id, profile, parallelism, "local concurrency worker failed");
+    }
     let times = launch_times.lock().expect("launch times lock");
     let launch_spread_ms =
         times.iter().min().zip(times.iter().max()).map_or(0, |(first, last)| duration_ms(last.duration_since(*first)));
@@ -584,7 +748,7 @@ mod tests {
     }
 
     #[test]
-    fn panicking_connector_is_reported_without_stranding_peer_threads() {
+    fn panicking_connector_skips_the_cell_without_a_network_block_signal() {
         let calls = AtomicU16::new(0);
         let started = Instant::now();
         let cell = execute_cell_with(
@@ -603,9 +767,108 @@ mod tests {
         );
 
         assert!(started.elapsed() < Duration::from_secs(1));
-        assert_eq!(cell.success_count, 3);
-        assert_eq!(cell.failure_count, 1);
-        assert!(cell.block_signals.contains(&"connection_freeze".to_string()));
+        assert_eq!(cell.status, ClassifierStatus::Skipped);
+        assert!(cell.block_signals.is_empty());
+        assert_eq!(cell.skip_reason.as_deref(), Some("local concurrency worker failed"));
+    }
+
+    #[test]
+    fn partial_worker_spawn_failure_releases_already_started_workers() {
+        let started = Instant::now();
+        let cell = execute_cell_with_worker_limit(
+            &target(),
+            "fixture",
+            "127.0.0.1:443".parse().expect("address"),
+            "chrome_stable",
+            4,
+            None,
+            Some(2),
+            |_, _, _| Ok(()),
+        );
+
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(cell.success_count, 0);
+        assert_eq!(cell.failure_count, 0);
+        assert!(cell.block_signals.is_empty());
+        assert_eq!(cell.status, ClassifierStatus::Skipped);
+        assert_eq!(cell.skip_reason.as_deref(), Some("local concurrency worker unavailable"));
+    }
+
+    #[test]
+    fn blocking_system_resolution_is_bounded_by_scan_deadline() {
+        let (release_tx, release_rx) = mpsc::channel();
+        let started = Instant::now();
+        let result = resolve_host_with(
+            "blocked.example.test".to_string(),
+            443,
+            Some(Instant::now() + Duration::from_millis(50)),
+            || false,
+            move |_, _| {
+                let _ = release_rx.recv();
+                Ok("127.0.0.1:443".parse().expect("address"))
+            },
+        );
+
+        assert_eq!(result.expect_err("resolution must time out").kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < Duration::from_secs(1));
+        let _ = release_tx.send(());
+    }
+
+    #[test]
+    fn blocked_system_resolvers_are_capacity_limited() {
+        let limiter = Arc::new(ResolutionLimiter::new(1));
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let first_limiter = Arc::clone(&limiter);
+        let first = std::thread::spawn(move || {
+            resolve_host_with_limiter(
+                "first.example.test".to_string(),
+                443,
+                Some(Instant::now() + Duration::from_secs(1)),
+                || false,
+                move |_, _| {
+                    started_tx.send(()).expect("signal resolver start");
+                    release_rx.recv().expect("release resolver");
+                    Ok("127.0.0.1:443".parse().expect("address"))
+                },
+                first_limiter,
+            )
+        });
+        started_rx.recv_timeout(Duration::from_secs(1)).expect("first resolver started");
+
+        let second = resolve_host_with_limiter(
+            "second.example.test".to_string(),
+            443,
+            Some(Instant::now() + Duration::from_secs(1)),
+            || false,
+            |_, _| panic!("capacity-rejected resolver must not run"),
+            Arc::clone(&limiter),
+        );
+
+        assert_eq!(second.expect_err("second resolver must be rejected").kind(), io::ErrorKind::WouldBlock);
+        release_tx.send(()).expect("release first resolver");
+        assert!(first.join().expect("join first resolver").is_ok());
+    }
+
+    #[test]
+    fn cancelled_resolution_does_not_spawn_a_worker() {
+        let resolver_called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let resolver_called_by_worker = Arc::clone(&resolver_called);
+
+        let result = resolve_host_with_limiter(
+            "cancelled.example.test".to_string(),
+            443,
+            None,
+            || true,
+            move |_, _| {
+                resolver_called_by_worker.store(true, Ordering::Release);
+                Ok("127.0.0.1:443".parse().expect("address"))
+            },
+            Arc::new(ResolutionLimiter::new(1)),
+        );
+
+        assert_eq!(result.expect_err("cancelled resolution must stop").kind(), io::ErrorKind::Interrupted);
+        assert!(!resolver_called.load(Ordering::Acquire));
     }
 
     #[test]

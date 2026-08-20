@@ -10,6 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
@@ -89,7 +90,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
 
     let dc_host = state.telegram_dc_host_hint(target);
 
-    match connect_and_relay(&mut client, target, state, dc_host, SuccessReply::None) {
+    match connect_and_relay(&mut client, target, state, dc_host, None, SuccessReply::None) {
         Ok(()) => Ok(()),
         Err(err) => {
             if matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::TimedOut) {
@@ -108,7 +109,7 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
         Ok(RuntimeClientRequest::Socks4Connect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
-            match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks4) {
+            match connect_and_relay(&mut client, target.addr, state, host_hint, None, SuccessReply::Socks4) {
                 Ok(()) => Ok(()),
                 Err(err) => handle_socks4_connect_error(&mut client, err),
             }
@@ -128,7 +129,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     if !RuntimeState::is_socks5_version(version) {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
-    negotiate_socks5(&mut client, state.proxy_auth_token())?;
+    let attempt_token = negotiate_socks5(&mut client, state.proxy_auth_token())?;
     let request = read_socks5_request(&mut client)?;
     if request.get(3).copied().is_some_and(RuntimeState::is_socks5_resolved_domain_address_type)
         && (!client.peer_addr()?.ip().is_loopback() || !state.resolved_domain_targets_allowed())
@@ -144,7 +145,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
         Ok(RuntimeClientRequest::Socks5Connect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
-            match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks5) {
+            match connect_and_relay(&mut client, target.addr, state, host_hint, attempt_token, SuccessReply::Socks5) {
                 Ok(()) => Ok(()),
                 Err(err) => handle_socks5_connect_error(&mut client, err),
             }
@@ -157,7 +158,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 )?;
                 return Ok(());
             }
-            handle_socks5_udp_associate(client, state)
+            handle_socks5_udp_associate(client, state, attempt_token)
         }
         Ok(_) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
@@ -188,7 +189,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
         Ok(RuntimeClientRequest::HttpConnect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
-            match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::HttpConnect) {
+            match connect_and_relay(&mut client, target.addr, state, host_hint, None, SuccessReply::HttpConnect) {
                 Ok(()) => Ok(()),
                 Err(err) => handle_http_connect_error(&mut client, err),
             }
@@ -213,10 +214,15 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
         target.addr,
         route,
         if first_request.is_empty() { None } else { Some(first_request) },
+        None,
     )
 }
 
-fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
+fn handle_socks5_udp_associate(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    attempt_token: Option<AttemptCorrelationId>,
+) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
     let protect_path = state.handshake_protect_path();
     let relay = super::udp::build_udp_relay_sockets(local_ip)?;
@@ -229,7 +235,15 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let worker_protect_path = protect_path;
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
-        .spawn(move || super::udp::udp_associate_loop(relay.client, worker_protect_path, worker_state, worker_running))
+        .spawn(move || {
+            super::udp::udp_associate_loop(
+                relay.client,
+                worker_protect_path,
+                worker_state,
+                worker_running,
+                attempt_token,
+            )
+        })
         .map_err(|err| io::Error::other(format!("failed to spawn UDP relay thread: {err}")))?;
 
     let _ = client.set_read_timeout(Some(Duration::from_millis(250)));

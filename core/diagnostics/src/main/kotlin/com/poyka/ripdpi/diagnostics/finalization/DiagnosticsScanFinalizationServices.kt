@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
@@ -21,6 +22,8 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
@@ -56,69 +59,90 @@ class ScanFinalizationService
         internal suspend fun finalize(
             prepared: PreparedDiagnosticsScan,
             reportJson: String,
-        ): ScanFinalizationResult {
-            val rawReport = json.decodeEngineScanReportWire(reportJson)
-            val finalizedWire = DiagnosticsDiagnosisAuthority.finalizeReport(rawReport)
-            val enrichedReport =
-                DiagnosticsScanWorkflow.enrichScanReport(
-                    report = finalizedWire.toScanReport(),
-                    settings = prepared.settings,
-                    preferredDnsPath = prepared.preferredDnsPath,
+        ): ScanFinalizationResult =
+            withContext(NonCancellable) {
+                val rawReport = json.decodeEngineScanReportWire(reportJson)
+                requireReportMatchesPreparedScan(prepared, rawReport)
+                val finalizedWire =
+                    DiagnosticsDiagnosisAuthority
+                        .finalizeReport(rawReport)
+                        .withOwnedInPathRouteAuthority(prepared)
+                val enrichedReport =
+                    DiagnosticsScanWorkflow.enrichScanReport(
+                        report = finalizedWire.toScanReport(),
+                        settings = prepared.settings,
+                        preferredDnsPath = prepared.preferredDnsPath,
+                    )
+                val (finalReport, resolverOverride) =
+                    planTemporaryResolverOverride(
+                        report = enrichedReport,
+                        settings = prepared.settings,
+                        pathMode = prepared.pathMode,
+                    )
+                val winningCombination =
+                    resolveWinningCombination(
+                        prepared = prepared,
+                        report = finalReport,
+                    )
+                val derived =
+                    com.poyka.ripdpi.diagnostics.domain
+                        .DerivedScanReport(finalReport.toEngineScanReportWire())
+                DiagnosticsReportPersister.persistScanReport(
+                    report = derived.report,
+                    scanRecordStore = scanRecordStore,
+                    artifactWriteStore = artifactWriteStore,
+                    serviceStateStore = serviceStateStore,
+                    json = json,
                 )
-            val (finalReport, overrideApplied) =
-                maybeApplyTemporaryResolverOverride(
-                    report = enrichedReport,
-                    settings = prepared.settings,
-                    pathMode = prepared.pathMode,
-                )
-            val winningCombination =
-                resolveWinningCombination(
-                    prepared = prepared,
-                    report = finalReport,
-                )
-            prepared.networkFingerprint?.let { fingerprint ->
-                rememberEdgeProbeResults(
-                    fingerprint = fingerprint,
-                    report = finalReport,
-                )
-                rememberCapabilityEvidence(
-                    fingerprint = fingerprint,
-                    report = finalReport,
-                )
-            }
-            val derived =
-                com.poyka.ripdpi.diagnostics.domain
-                    .DerivedScanReport(finalReport.toEngineScanReportWire())
-            DiagnosticsReportPersister.persistScanReport(
-                report = derived.report,
-                scanRecordStore = scanRecordStore,
-                artifactWriteStore = artifactWriteStore,
-                serviceStateStore = serviceStateStore,
-                json = json,
-            )
-            if (winningCombination?.id != "remembered") {
-                rememberNetworkDnsPathPreference(prepared.networkFingerprint, finalReport.resolverRecommendation)
-                rememberStrategyProbeRecommendation(
-                    prepared = prepared,
-                    report = finalReport,
-                )
-            }
-            persistPostScanArtifacts(prepared.sessionId)
-            val correctedDnsPath =
-                with(ResolverRecommendationEngine) {
-                    finalReport.resolverRecommendation?.toEncryptedDnsPathCandidate()
+                resolverOverride?.let { resolverOverrideStore.setTemporaryOverride(it) }
+                prepared.networkFingerprint?.let { fingerprint ->
+                    rememberEdgeProbeResults(
+                        fingerprint = fingerprint,
+                        report = finalReport,
+                    )
+                    rememberCapabilityEvidence(
+                        fingerprint = fingerprint,
+                        report = finalReport,
+                    )
                 }
-            val shouldReprobe =
-                DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
-                    report = finalReport,
-                    pathMode = prepared.pathMode,
-                    resolverOverrideApplied = overrideApplied,
+                if (winningCombination?.id != "remembered") {
+                    rememberNetworkDnsPathPreference(prepared.networkFingerprint, finalReport.resolverRecommendation)
+                    rememberStrategyProbeRecommendation(
+                        prepared = prepared,
+                        report = finalReport,
+                    )
+                }
+                persistPostScanArtifacts(prepared.sessionId)
+                val correctedDnsPath =
+                    with(ResolverRecommendationEngine) {
+                        finalReport.resolverRecommendation?.toEncryptedDnsPathCandidate()
+                    }
+                val shouldReprobe =
+                    DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                        report = finalReport,
+                        pathMode = prepared.pathMode,
+                        resolverOverrideApplied = resolverOverride != null,
+                    )
+                ScanFinalizationResult(
+                    derived = derived,
+                    shouldReprobeWithCorrectedDns = shouldReprobe,
+                    correctedDnsPath = correctedDnsPath,
                 )
-            return ScanFinalizationResult(
-                derived = derived,
-                shouldReprobeWithCorrectedDns = shouldReprobe,
-                correctedDnsPath = correctedDnsPath,
-            )
+            }
+
+        private fun requireReportMatchesPreparedScan(
+            prepared: PreparedDiagnosticsScan,
+            report: com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire,
+        ) {
+            require(report.sessionId == prepared.sessionId) {
+                "Diagnostics report session does not match the prepared scan"
+            }
+            require(report.profileId == prepared.initialSession.profileId) {
+                "Diagnostics report profile does not match the prepared scan"
+            }
+            require(report.pathMode == prepared.pathMode) {
+                "Diagnostics report path does not match the prepared scan"
+            }
         }
 
         private suspend fun resolveWinningCombination(
@@ -231,12 +255,12 @@ class ScanFinalizationService
             )
         }
 
-        private suspend fun maybeApplyTemporaryResolverOverride(
+        private fun planTemporaryResolverOverride(
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
-        ): Pair<ScanReport, Boolean> {
-            val recommendation = report.resolverRecommendation ?: return report to false
+        ): Pair<ScanReport, TemporaryResolverOverride?> {
+            val recommendation = report.resolverRecommendation ?: return report to null
             val (status, mode) = serviceStateStore.status.value
             val shouldApply =
                 DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
@@ -247,14 +271,12 @@ class ScanFinalizationService
                     pathMode = pathMode,
                 )
             return if (shouldApply) {
-                resolverOverrideStore.setTemporaryOverride(
-                    DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
-                )
+                val override = DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation)
                 report.copy(
                     resolverRecommendation = recommendation.copy(appliedTemporarily = true),
-                ) to true
+                ) to override
             } else {
-                report to false
+                report to null
             }
         }
 
@@ -333,3 +355,33 @@ class ScanFinalizationService
             }
         }
     }
+
+private fun com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire.withOwnedInPathRouteAuthority(
+    prepared: PreparedDiagnosticsScan,
+): com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire =
+    if (prepared.pathMode == ScanPathMode.IN_PATH && prepared.inPathRouteLease != null) {
+        copy(
+            strategyProbeReport =
+                strategyProbeReport?.let { strategyProbe ->
+                    val observation = strategyProbe.activePathObservation
+                    strategyProbe.copy(
+                        activePathObservation =
+                            observation?.copy(
+                                activePathAuthority =
+                                    if (
+                                        observation.role == StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH &&
+                                        observation.hasOwnedRouteExecutionEvidence()
+                                    ) {
+                                        StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN
+                                    } else {
+                                        StrategyActivePathAuthority.UNVERIFIED
+                                    },
+                            ),
+                    )
+                },
+        )
+    } else {
+        this
+    }
+
+private fun StrategyActivePathObservation.hasOwnedRouteExecutionEvidence(): Boolean = hasCoherentResponseCounts()

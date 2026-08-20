@@ -5,6 +5,7 @@ use super::ConnectRelayError;
 use super::reply::{SuccessReply, write_success_reply};
 use super::routes::{UpstreamRoute, connect_delayed_route, connect_immediate_route, connect_ws_seed_route};
 use crate::runtime::types::RuntimeConnectionRoute;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 pub(super) fn immediate_connect_relay(
     client: &mut TcpStream,
@@ -13,6 +14,7 @@ pub(super) fn immediate_connect_relay(
     host_hint: Option<String>,
     reply: &SuccessReply,
     success_reply_sent: bool,
+    attempt_token: Option<AttemptCorrelationId>,
 ) -> Result<(), ConnectRelayError> {
     let upstream_route = connect_immediate_route(target, state, host_hint)
         .map_err(|err| preserve_success_reply_state(err, success_reply_sent))?;
@@ -20,7 +22,7 @@ pub(super) fn immediate_connect_relay(
         write_success_reply(client, reply, Some(&upstream_route.upstream))
             .map_err(|err| ConnectRelayError::new(err, false))?;
     }
-    relay_upstream(client, state, target, upstream_route, reply.requires_client_ack())
+    relay_upstream(client, state, target, upstream_route, reply.requires_client_ack(), attempt_token)
 }
 
 fn preserve_success_reply_state(mut err: ConnectRelayError, success_reply_sent: bool) -> ConnectRelayError {
@@ -37,10 +39,11 @@ pub(super) fn delayed_connect_relay(
     host_hint: Option<String>,
     route: RuntimeConnectionRoute,
     payload: Vec<u8>,
+    attempt_token: Option<AttemptCorrelationId>,
 ) -> Result<(), ConnectRelayError> {
     let upstream_route = connect_delayed_route(target, state, host_hint, route, payload)?;
     let seed_request = upstream_route.seed_request.clone();
-    relay_upstream(client, state, target, upstream_route, true)
+    relay_upstream(client, state, target, upstream_route, true, attempt_token)
         .map_err(|err| ConnectRelayError::with_seed_request(err.into_io_error(), true, seed_request))
 }
 
@@ -52,7 +55,7 @@ pub(super) fn connect_after_ws_attempt(
     seed_request: Vec<u8>,
 ) -> Result<(), ConnectRelayError> {
     let upstream_route = connect_ws_seed_route(target, state, host_hint, seed_request)?;
-    relay_upstream(client, state, target, upstream_route, true)
+    relay_upstream(client, state, target, upstream_route, true, None)
 }
 
 fn relay_upstream(
@@ -61,6 +64,7 @@ fn relay_upstream(
     target: SocketAddr,
     upstream_route: UpstreamRoute,
     success_reply_sent: bool,
+    attempt_token: Option<AttemptCorrelationId>,
 ) -> Result<(), ConnectRelayError> {
     // Hold the per-exit-IP session slot for the entire relay so the cap counts
     // this connection as in-flight; it is freed when `_cap_guard` drops at the
@@ -74,6 +78,7 @@ fn relay_upstream(
         target,
         upstream_route.route,
         upstream_route.seed_request,
+        attempt_token,
     )
     .map_err(|err| ConnectRelayError::new(err, success_reply_sent))
 }

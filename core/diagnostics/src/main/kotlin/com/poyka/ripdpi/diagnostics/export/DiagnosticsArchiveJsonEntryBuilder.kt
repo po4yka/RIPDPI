@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
@@ -202,14 +203,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         val runtimeId = allEvents.latestCorrelation { it.runtimeId }
         val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
         val policySignature = allEvents.latestCorrelation { it.policySignature }
-        val fingerprintHash =
-            archiveFingerprintProjection(
-                selection.payload.telemetry
-                    .firstOrNull()
-                    ?.telemetryNetworkFingerprintHash
-                    ?: allEvents.latestCorrelation { it.fingerprintHash },
-            )
-        val recentWarnings = allEvents.recentWarningPreview()
+        val fingerprintHash = selection.summaryFingerprintHash(allEvents)
         val latestOperationalFailure = buildAnalysis(selection, redactor).failureEnvelope.latestFailureClass
         return DiagnosticsSummaryTextRenderer.render(
             document = summaryDocument,
@@ -256,6 +250,13 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     selection.selectedApproachProjection()?.let {
                         add("approach=${it.displayName}")
                         add("approachVerification=${it.verificationState}")
+                        it.currentStrategyAssessment?.let { assessment ->
+                            add("currentStrategyCandidateVerdict=${assessment.candidateVerdict}")
+                            add("currentStrategyActivePathOutcome=${assessment.activePathOutcome}")
+                            add("currentStrategyObservationRole=${assessment.observationRole}")
+                            add("currentStrategyReason=${assessment.reason}")
+                            add("currentStrategyLastProvenStage=${assessment.lastProvenStage}")
+                        }
                         add("approachSuccessRate=${it.successRateLabel()}")
                         add("approachUsageCount=${it.usageCount}")
                         add("approachRuntimeMs=${it.totalRuntimeDurationMs}")
@@ -271,6 +272,16 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 },
         )
     }
+
+    private fun DiagnosticsArchiveSelection.summaryFingerprintHash(
+        allEvents: List<NativeSessionEventEntity>,
+    ): String? =
+        archiveFingerprintProjection(
+            payload.telemetry
+                .firstOrNull()
+                ?.telemetryNetworkFingerprintHash
+                ?: allEvents.latestCorrelation { it.fingerprintHash },
+        )
 
     private fun DiagnosticsArchiveSelection.selectedSessionLabel(): String =
         primarySession?.id

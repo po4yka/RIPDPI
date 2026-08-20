@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import dagger.Binds
@@ -20,6 +22,8 @@ interface ServiceRuntimeHandle {
     val runtimeId: String
     val mode: Mode
     val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?>
+    val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
+        get() = null
 }
 
 abstract class ServiceRuntimeSession
@@ -67,6 +71,32 @@ class VpnRuntimeSession(
     var currentDestinationRoutingDigest: String? = null
     var currentNetworkScopeKey: String? = null
     internal val encryptedDnsFailoverState = VpnEncryptedDnsFailoverState()
+
+    @Volatile
+    private var inPathRouteLease: DiagnosticsInPathRouteLease? = null
+
+    private var nextInPathRouteGeneration: Long = 0
+
+    override val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
+        get() = inPathRouteLease
+
+    internal fun publishInPathLease(endpoint: LocalProxyEndpoint) {
+        val username = checkNotNull(endpoint.username) { "VPN diagnostics route requires proxy authentication" }
+        val password = checkNotNull(endpoint.password) { "VPN diagnostics route requires proxy authentication" }
+        nextInPathRouteGeneration += 1
+        inPathRouteLease =
+            DiagnosticsInPathRouteLease(
+                runtimeId = runtimeId,
+                routeGeneration = nextInPathRouteGeneration,
+                host = endpoint.host,
+                port = endpoint.port,
+                credentials = DiagnosticsProxyCredentials(username, password),
+            )
+    }
+
+    internal fun revokeInPathLease() {
+        inPathRouteLease = null
+    }
 }
 
 internal fun VpnRuntimeSession.recordDestinationPolicy(resolution: ConnectionPolicyResolution) {

@@ -37,9 +37,10 @@ const SAMPLE_NONCE: &str = "abcdefghijklmnopqrstuvwxyzABCDEF";
 
 /// A representative fd-bearing request. `send_fake_rst` is a socket-bound
 /// command: the client passes the live TCP socket fd via `SCM_RIGHTS`, so its
-/// JSON only ever has the three [`HelperRequest`] fields.
+/// JSON has only the four [`HelperRequest`] fields; the fd remains out of band.
 fn sample_request() -> HelperRequest {
     HelperRequest {
+        protocol_version: Some(ripdpi_root_helper_protocol::PROTOCOL_VERSION),
         command: CMD_SEND_FAKE_RST.to_string(),
         params: json!({ "default_ttl": 64, "tcp_flags_set": 4 }),
         session_nonce: Some(SAMPLE_NONCE.to_string()),
@@ -117,7 +118,7 @@ fn passed_fd_round_trips_as_a_working_descriptor() {
     assert_eq!(back, pong, "received fd must be writable");
 }
 
-/// Task 4: the on-wire command JSON carries exactly the three `HelperRequest`
+/// Task 4: the on-wire command JSON carries exactly the four `HelperRequest`
 /// fields and no file-descriptor field at any depth -- the fd travels only as
 /// `SCM_RIGHTS` ancillary data.
 #[test]
@@ -135,7 +136,11 @@ fn command_json_carries_no_file_descriptor_field() {
     let object = value.as_object().expect("request is a JSON object");
     let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
     keys.sort_unstable();
-    assert_eq!(keys, ["command", "params", "session_nonce"], "request JSON has only its three fields");
+    assert_eq!(
+        keys,
+        ["command", "params", "protocol_version", "session_nonce"],
+        "request JSON has only its four fields",
+    );
     assert!(!json_has_fd_shaped_key(&value), "no fd-shaped key may appear anywhere in the command JSON");
 }
 
@@ -154,7 +159,12 @@ fn fd_channel_is_independent_of_the_json_params() {
     assert_eq!(full_decoded.command, CMD_SEND_FAKE_RST);
 
     // A request with no params at all rides the very same fd channel.
-    let bare = HelperRequest { command: CMD_SEND_FAKE_RST.to_string(), params: Value::Null, session_nonce: None };
+    let bare = HelperRequest {
+        protocol_version: Some(ripdpi_root_helper_protocol::PROTOCOL_VERSION),
+        command: CMD_SEND_FAKE_RST.to_string(),
+        params: Value::Null,
+        session_nonce: None,
+    };
     let (_bare_app, bare_passed) = UnixStream::pair().expect("payload socket pair");
     let bare_json = serde_json::to_vec(&bare).expect("serialize bare request");
     let (bare_received, bare_fd) = ipc_round_trip(&bare_json, Some(bare_passed.as_fd()));
@@ -163,8 +173,8 @@ fn fd_channel_is_independent_of_the_json_params() {
     let bare_value: Value = serde_json::from_slice(&bare_received).expect("parse bare json");
     assert_eq!(
         bare_value.as_object().expect("bare request is a JSON object").len(),
-        1,
-        "a params-less request serializes to the command field alone",
+        2,
+        "a params-less request serializes to protocol_version and command only",
     );
 
     // Conversely, the same JSON with no fd attached delivers no ancillary fd.

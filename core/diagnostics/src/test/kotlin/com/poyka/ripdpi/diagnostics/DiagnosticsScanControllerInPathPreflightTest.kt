@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -55,11 +59,41 @@ class DiagnosticsScanControllerInPathPreflightTest {
         }
 
     @Test
-    fun `in-path scan launch fails before bridge when VPN service owns runtime proxy`() =
+    fun `in-path scan through a running VPN uses the current authenticated loopback route lease`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
-            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val routeLease =
+                DiagnosticsInPathRouteLease(
+                    runtimeId = "vpn-runtime-7",
+                    routeGeneration = 42L,
+                    host = "127.0.0.1",
+                    port = 19_080,
+                    credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+                )
+            val runtimeCoordinator =
+                object : DiagnosticsRuntimeCoordinator {
+                    var rawScanCount = 0
+                    var leaseValidationCount = 0
+
+                    override suspend fun runRawPathScan(block: suspend () -> Unit) {
+                        rawScanCount += 1
+                        block()
+                    }
+
+                    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+                        rawScanCount += 1
+                        block()
+                    }
+
+                    override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease = routeLease
+
+                    override fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean {
+                        leaseValidationCount += 1
+                        return lease == routeLease
+                    }
+                }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val services =
                 createDiagnosticsServices(
                     context = TestContext(),
@@ -69,30 +103,39 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(activeMode = "VPN"),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
                 )
 
-            val failure =
-                assertSuspendFailsWith<IllegalStateException> {
-                    services.scanController.startScan(ScanPathMode.IN_PATH)
-                }
+            services.scanController.startScan(ScanPathMode.IN_PATH)
             advanceUntilIdle()
 
-            val expectedSummary =
-                "In-path diagnostics unavailable while VPN service is active; " +
-                    "run raw-path diagnostics so the VPN can pause and resume safely"
+            val request =
+                json.decodeFromString(
+                    EngineScanRequestWire.serializer(),
+                    requireNotNull(bridgeFactory.bridge.startedRequestJson),
+                )
             assertEquals(
-                expectedSummary,
-                failure.message,
+                listOf(
+                    ScanPathMode.IN_PATH,
+                    "127.0.0.1",
+                    19_080,
+                    "diagnostics",
+                    "bounded-secret",
+                ),
+                listOf(
+                    request.pathMode,
+                    request.inPathRoute?.host,
+                    request.inPathRoute?.port,
+                    request.inPathRoute?.credentials?.username,
+                    request.inPathRoute?.credentials?.password,
+                ),
             )
-            assertNull(bridgeFactory.bridge.startedRequestJson)
-            val session = stores.sessionsState.value.single()
-            assertEquals("failed", session.status)
-            assertEquals(failure.message, session.summary)
-            assertEquals(0, runtimeCoordinator.rawScanCount.get())
+            assertEquals(1, runtimeCoordinator.leaseValidationCount)
+            assertEquals(0, runtimeCoordinator.rawScanCount)
+            assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
         }
 
     @Test

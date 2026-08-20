@@ -46,6 +46,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private val appSettingsRepository: AppSettingsRepository,
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceController: ServiceController,
+        private val serviceRuntimeRegistry: ServiceRuntimeRegistry,
     ) : DiagnosticsRuntimeCoordinator {
         private var waitAttempts: Int = 50
         private var waitDelayMs: Long = 200L
@@ -59,6 +60,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             appSettingsRepository: AppSettingsRepository,
             runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
             serviceController: ServiceController,
+            serviceRuntimeRegistry: ServiceRuntimeRegistry,
             waitAttempts: Int,
             waitDelayMs: Long,
         ) : this(
@@ -68,6 +70,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             appSettingsRepository,
             runtimeResumeIntentTracker,
             serviceController,
+            serviceRuntimeRegistry,
         ) {
             this.waitAttempts = waitAttempts
             this.waitDelayMs = waitDelayMs
@@ -89,6 +92,16 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 block = block,
             )
         }
+
+        override suspend fun acquireInPathRouteLease() =
+            serviceRuntimeRegistry
+                .current(Mode.VPN)
+                ?.diagnosticsInPathRouteLease
+                ?.takeIf { serviceStateStore.status.value == (AppStatus.Running to Mode.VPN) }
+
+        override fun isInPathRouteLeaseCurrent(lease: com.poyka.ripdpi.data.DiagnosticsInPathRouteLease): Boolean =
+            serviceStateStore.status.value == (AppStatus.Running to Mode.VPN) &&
+                serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease == lease
 
         private suspend fun runInRawPathWindow(
             label: String,
@@ -131,6 +144,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     )
                 runtimeModeProjectionStore.markDiagnosticsScanActive(true)
                 var windowPrepared = false
+                var pauseCommandAccepted = false
                 try {
                     val projection = runtimeModeProjectionStore.projection.first()
                     Logger.d { "$label starting; runtime mode = $projection" }
@@ -138,13 +152,22 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                         runtimeControlPlane.execute(
                             RuntimeControlCommand.StopRuntime(RuntimeControlReason.DiagnosticsRawPathScan),
                         )
+                        pauseCommandAccepted = true
                         waitForStatus(AppStatus.Halted)
                     }
                     windowPrepared = true
                 } finally {
                     if (!windowPrepared) {
-                        rawPathWindow = null
-                        runCatching { runtimeModeProjectionStore.markDiagnosticsScanActive(false) }
+                        withContext(NonCancellable) {
+                            try {
+                                if (pauseCommandAccepted && rawPathWindow?.shouldResume == true) {
+                                    resumeRuntimeIfOwned(mode, resumeLease)
+                                }
+                            } finally {
+                                rawPathWindow = null
+                                runCatching { runtimeModeProjectionStore.markDiagnosticsScanActive(false) }
+                            }
+                        }
                     }
                 }
             }

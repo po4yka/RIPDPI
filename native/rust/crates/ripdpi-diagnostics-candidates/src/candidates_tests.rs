@@ -1,7 +1,9 @@
 use crate::candidates::*;
 use crate::util::{TLS_FAKE_PROFILE_GOOGLE_CHROME, TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR};
 use ripdpi_diagnostics_contracts::StrategyEmitterTier;
-use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyUiConfig};
+use ripdpi_proxy_config::{
+    ProxyEncryptedDnsContext, ProxyUiActivationFilter, ProxyUiConfig, ProxyUiDestinationRoutingAction,
+};
 use ripdpi_runtime_platform::capability::RuntimeCapability;
 
 fn minimal_ui_config() -> ProxyUiConfig {
@@ -81,6 +83,59 @@ fn plain_direct_baseline_strips_path_mutations_while_current_baseline_preserves_
     assert!(current.config.upstream_relay.enabled);
     assert!(current.config.warp.enabled);
     assert!(current.config.ws_tunnel.enabled);
+}
+
+#[test]
+fn canonical_candidates_do_not_inherit_current_route_stack_state() {
+    let mut base = minimal_ui_config();
+    base.hosts.mode = "include".to_string();
+    base.hosts.entries = Some("private.example".to_string());
+    base.upstream_relay.enabled = true;
+    base.upstream_relay.kind = "vless_reality".to_string();
+    base.warp.enabled = true;
+    base.ws_tunnel.enabled = true;
+    base.destination_routing.default_action = ProxyUiDestinationRoutingAction::Direct;
+    base.destination_routing.canonical_digest = "sentinel-routing".to_string();
+    base.adaptive_fallback.enabled = true;
+    base.adaptive_fallback.strategy_evolution = true;
+    base.chains.group_activation_filter =
+        Some(ProxyUiActivationFilter { tcp_has_ech: Some(true), ..ProxyUiActivationFilter::default() });
+
+    let defaults = ProxyUiConfig::default();
+    let candidates = build_tcp_candidates(&base)
+        .into_iter()
+        .filter(|candidate| !matches!(candidate.id, "baseline_plain_direct" | "baseline_current"))
+        .chain(build_quic_candidates(&base));
+
+    for candidate in candidates {
+        assert_eq!(candidate.config.hosts, defaults.hosts, "{} inherited hosts", candidate.id);
+        assert_eq!(candidate.config.upstream_relay, defaults.upstream_relay, "{} inherited relay", candidate.id);
+        assert_eq!(candidate.config.warp, defaults.warp, "{} inherited WARP", candidate.id);
+        assert_eq!(candidate.config.ws_tunnel, defaults.ws_tunnel, "{} inherited WS tunnel", candidate.id);
+        assert_eq!(
+            candidate.config.destination_routing, defaults.destination_routing,
+            "{} inherited destination routing",
+            candidate.id,
+        );
+        assert!(!candidate.config.adaptive_fallback.enabled, "{} inherited adaptive fallback", candidate.id);
+        assert!(
+            candidate.config.chains.group_activation_filter.is_none(),
+            "{} inherited group activation",
+            candidate.id
+        );
+    }
+}
+
+#[test]
+fn current_baseline_preserves_host_plus_one_while_catalog_split_uses_host_plus_two() {
+    let mut base = minimal_ui_config();
+    base.chains.tcp_steps = vec![tcp_step("split", "host+1")];
+    let candidates = build_tcp_candidates(&base);
+    let current = candidates.iter().find(|candidate| candidate.id == "baseline_current").expect("current baseline");
+    let split = candidates.iter().find(|candidate| candidate.id == "split_host").expect("catalog split");
+
+    assert_eq!(current.config.chains.tcp_steps[0].marker, "host+1");
+    assert_eq!(split.config.chains.tcp_steps[0].marker, "host+2");
 }
 
 #[test]
@@ -393,11 +448,25 @@ fn candidate_pause_ms_failed_is_larger() {
 #[test]
 fn sanitize_current_probe_config_disables_autolearn() {
     let mut base = minimal_ui_config();
+    base.fake_packets.adaptive_fake_ttl_enabled = true;
     base.host_autolearn.enabled = true;
     base.host_autolearn.store_path = Some("/tmp/test".to_string());
     let sanitized = sanitize_current_probe_config(&base);
     assert!(!sanitized.host_autolearn.enabled);
     assert!(sanitized.host_autolearn.store_path.is_none());
+
+    let candidates = build_tcp_candidates(&base);
+    let current = candidates.iter().find(|candidate| candidate.id == "baseline_current").expect("current baseline");
+    assert!(!current.active_snapshot_faithful);
+    assert!(current.preserve_adaptive_fake_ttl);
+    assert!(current.config.fake_packets.adaptive_fake_ttl_enabled);
+
+    base.host_autolearn.enabled = false;
+    let candidates = build_tcp_candidates(&base);
+    let current = candidates.iter().find(|candidate| candidate.id == "baseline_current").expect("current baseline");
+    assert!(current.active_snapshot_faithful);
+    assert!(current.preserve_adaptive_fake_ttl);
+    assert!(current.config.fake_packets.adaptive_fake_ttl_enabled);
 }
 
 #[test]

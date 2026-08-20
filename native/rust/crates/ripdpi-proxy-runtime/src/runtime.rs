@@ -424,7 +424,7 @@ mod tests {
         let receipt = proxy.join().expect("join proxy").expect("proxy shutdown");
 
         assert!(started.elapsed() < Duration::from_secs(5), "forced cleanup must remain bounded");
-        assert!(receipt.forced_abort, "hung relay must be reported as forced abort");
+        assert!(receipt.forced_abort(), "hung relay must be reported as forced abort");
         upstream_worker.join().expect("upstream worker joined");
     }
 }

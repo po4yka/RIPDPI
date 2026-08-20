@@ -16,6 +16,7 @@ use crate::types::OutboundSendError;
 pub(crate) enum TcpStepControl {
     ContinueAt(usize),
     BreakPlan,
+    BreakPlanWithFallback(&'static str),
 }
 
 pub(crate) struct TcpFakeFamilyExecContext<'a> {

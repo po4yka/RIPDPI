@@ -59,7 +59,8 @@ open class RootHelperManager
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
             private const val SOCKET_NAME = "root_helper.sock"
             private const val NONCE_FILE_NAME = "$SOCKET_NAME.nonce"
-            private const val SHUTDOWN_COMMAND = "shutdown"
+            private const val ROOT_HELPER_PROTOCOL_VERSION = 3
+            private const val SHUTDOWN_COMMAND = "v3/shutdown"
             private const val SHUTDOWN_READ_TIMEOUT_MS = 500
             private const val ROOT_TERMINATION_TIMEOUT_MS = 1000L
             private const val SESSION_NONCE_BYTES = 32
@@ -325,7 +326,8 @@ open class RootHelperManager
                 return
             }
             val payload =
-                """{"command":"$SHUTDOWN_COMMAND","session_nonce":"$nonce"}""" +
+                """{"protocol_version":$ROOT_HELPER_PROTOCOL_VERSION,"command":"$SHUTDOWN_COMMAND",""" +
+                    """"session_nonce":"$nonce"}""" +
                     "\n"
             LocalSocket().use { socket ->
                 socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))

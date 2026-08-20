@@ -38,7 +38,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         val strategySignature = requireNotNull(recommendation.strategySignature)
         val activeDns = settings.activeDnsSettings()
         assertEquals("tcp-1", recommendation.tcpCandidateId)
@@ -77,7 +77,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertEquals("tcp-1", recommendation.tcpCandidateId)
         assertEquals("TCP candidate", recommendation.tcpCandidateLabel)
         assertEquals("quic-1", recommendation.quicCandidateId)
@@ -107,7 +107,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertEquals("tcp-1", recommendation.tcpCandidateId)
         assertEquals("quic-1", recommendation.quicCandidateId)
         assertEquals("best path", recommendation.rationale)
@@ -170,7 +170,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertNull(recommendation.tcpCandidateFamily)
         assertNull(recommendation.quicCandidateFamily)
         assertNull(recommendation.strategySignature)
@@ -205,7 +205,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertNull(recommendation.tcpCandidateFamily)
         assertNull(recommendation.quicCandidateFamily)
         assertNull(recommendation.strategySignature)
@@ -240,7 +240,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertNull(recommendation.tcpCandidateFamily)
         assertNull(recommendation.quicCandidateFamily)
         assertNull(recommendation.strategySignature)
@@ -275,7 +275,7 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
                 preferredDnsPath = null,
             )
 
-        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val recommendation = requireNotNull(requireNotNull(enriched.strategyProbeReport).recommendation)
         assertNull(recommendation.tcpCandidateFamily)
         assertNull(recommendation.quicCandidateFamily)
         assertNull(recommendation.strategySignature)

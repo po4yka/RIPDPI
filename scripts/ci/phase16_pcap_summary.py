@@ -226,6 +226,125 @@ def summarize_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def decode_tcp_payload(value: str | None) -> bytes | None:
+    if not value:
+        return None
+    compact = value.replace(":", "").replace(" ", "")
+    try:
+        return bytes.fromhex(compact)
+    except ValueError:
+        return None
+
+
+def summarize_tcp_split_at_sni_host_delta(
+    packets: list[dict[str, Any]],
+    fixture_domain: str,
+    tls_port: int,
+    marker_delta: int,
+) -> dict[str, Any]:
+    streams: dict[str, list[tuple[int, bytes]]] = {}
+    seen_segments: set[tuple[str, int, bytes]] = set()
+    for packet in packets:
+        layers = packet.get("_source", {}).get("layers", {})
+        if first_field(layers, "tcp.dstport") != str(tls_port):
+            continue
+        stream = first_field(layers, "tcp.stream")
+        sequence = first_field(layers, "tcp.seq_raw", "tcp.seq")
+        payload = decode_tcp_payload(first_field(layers, "tcp.payload"))
+        if not stream or sequence is None or not payload:
+            continue
+        try:
+            sequence_number = int(sequence, 0)
+        except ValueError:
+            continue
+        segment_key = (stream, sequence_number, payload)
+        if segment_key in seen_segments:
+            continue
+        seen_segments.add(segment_key)
+        streams.setdefault(stream, []).append((sequence_number, payload))
+
+    expected_host = fixture_domain.encode("ascii", errors="strict")
+    expected_boundary_delta = marker_delta
+    saw_ambiguous_stream = False
+    failed_match: dict[str, Any] | None = None
+    for stream, segments in streams.items():
+        ordered_segments = sorted(segments, key=lambda segment: (segment[0], len(segment[1])))
+        base_sequence = ordered_segments[0][0]
+        end_sequence = max(sequence + len(payload) for sequence, payload in ordered_segments)
+        reconstructed: list[int | None] = [None] * (end_sequence - base_sequence)
+        conflicting_overlap = False
+        for sequence, payload in ordered_segments:
+            offset = sequence - base_sequence
+            for index, byte in enumerate(payload):
+                position = offset + index
+                existing = reconstructed[position]
+                if existing is not None and existing != byte:
+                    conflicting_overlap = True
+                    break
+                reconstructed[position] = byte
+            if conflicting_overlap:
+                break
+        if conflicting_overlap or any(byte is None for byte in reconstructed):
+            saw_ambiguous_stream = True
+            continue
+        reassembled = bytes(byte for byte in reconstructed if byte is not None)
+        segment_end_sequences = sorted({sequence + len(payload) for sequence, payload in ordered_segments})
+        segment_end_offsets = [sequence - base_sequence for sequence in segment_end_sequences]
+        host_offset = reassembled.find(expected_host)
+        if host_offset < 0:
+            continue
+        expected_boundary = host_offset + expected_boundary_delta
+        expected_boundary_sequence = base_sequence + expected_boundary
+        passed = expected_boundary_sequence in segment_end_sequences and expected_boundary_sequence < end_sequence
+        match = {
+            "kind": "tcp_split_at_sni_host_delta",
+            "status": "passed" if passed else "failed",
+            "markerDelta": marker_delta,
+            "matchedStream": stream,
+            "hostOffset": host_offset,
+            "expectedBoundaryOffset": expected_boundary,
+            "segmentEndOffsets": segment_end_offsets,
+        }
+        if passed:
+            return match
+        failed_match = match
+    if failed_match is not None:
+        return failed_match
+    return {
+        "kind": "tcp_split_at_sni_host_delta",
+        "status": "unavailable" if saw_ambiguous_stream or not streams else "failed",
+        "markerDelta": marker_delta,
+        "matchedStream": "",
+        "hostOffset": None,
+        "expectedBoundaryOffset": None,
+        "segmentEndOffsets": [],
+    }
+
+
+def summarize_packet_assertion(
+    scenario: dict[str, Any],
+    scenario_dir: Path,
+    packets: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    assertion = scenario.get("packetAssertion")
+    if not isinstance(assertion, dict):
+        return None
+    kind = assertion.get("kind")
+    if kind != "tcp_split_at_sni_host_delta":
+        return {"kind": str(kind or "unknown"), "status": "unsupported"}
+    manifest_path = scenario_dir / "fixture-manifest.json"
+    if not manifest_path.exists():
+        return {"kind": kind, "status": "unavailable"}
+    manifest = read_json(manifest_path)
+    try:
+        fixture_domain = str(manifest["fixtureDomain"])
+        tls_port = int(manifest["tlsEchoPort"])
+        marker_delta = int(assertion["markerDelta"])
+    except (KeyError, TypeError, ValueError):
+        return {"kind": kind, "status": "unavailable"}
+    return summarize_tcp_split_at_sni_host_delta(packets, fixture_domain, tls_port, marker_delta)
+
+
 def summarize_scenario(scenario_dir: Path, registry: dict[str, dict], run_metadata: dict[str, Any]) -> dict[str, Any]:
     scenario_id = scenario_dir.name
     scenario = registry.get(scenario_id, {})
@@ -235,6 +354,7 @@ def summarize_scenario(scenario_dir: Path, registry: dict[str, dict], run_metada
     present_artifacts = sorted(path.name for path in scenario_dir.iterdir() if path.is_file())
     packets = load_capture_packets(scenario_dir)
     summary = summarize_packets(packets)
+    packet_assertion = summarize_packet_assertion(scenario, scenario_dir, packets)
     return {
         "id": scenario_id,
         "lane": scenario.get("lane"),
@@ -245,6 +365,7 @@ def summarize_scenario(scenario_dir: Path, registry: dict[str, dict], run_metada
         "presentArtifacts": present_artifacts,
         "missingArtifacts": sorted(set(required_artifacts) - set(present_artifacts)),
         "captureSummary": summary,
+        "packetAssertion": packet_assertion,
     }
 
 
@@ -284,6 +405,7 @@ def main() -> int:
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--registry", type=Path, default=registry_path())
+    parser.add_argument("--require-packet-assertions", action="store_true")
     args = parser.parse_args()
 
     registry = load_registry(args.registry)
@@ -294,6 +416,10 @@ def main() -> int:
         args.output.write_text(payload + "\n", encoding="utf-8")
     else:
         print(payload)
+    if args.require_packet_assertions:
+        assertions = [scenario["packetAssertion"] for scenario in summary["scenarios"] if scenario["packetAssertion"]]
+        if any(assertion.get("status") != "passed" for assertion in assertions):
+            return 1
     return 0
 
 

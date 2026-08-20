@@ -283,7 +283,7 @@ private fun DiagnosticsSimpleFunnelCard(
             text =
                 when {
                     isActiveScan -> stringResource(R.string.diagnostics_simple_funnel_verdict_running)
-                    report != null -> report.recommendation.headline
+                    report?.recommendation != null -> report.recommendation.headline
                     else -> overview.headline
                 },
             style = RipDpiThemeTokens.type.bodyEmphasis,

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
+import com.poyka.ripdpi.diagnostics.CurrentStrategyAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.ExecutionPlanSnapshot
@@ -55,8 +56,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 10 adds service-correlated, privacy-safe owned-VPN route evidence.
-    const val schemaVersion = 10
+    // Version 11 adds typed, attempt-correlated strategy execution evidence.
+    const val schemaVersion = 11
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -466,6 +467,14 @@ internal data class DiagnosticsArchiveCandidateExecutionDetail(
     val qualityScore: Int,
     val averageLatencyMs: Long? = null,
     val skipped: Boolean = false,
+    val observationRole: com.poyka.ripdpi.diagnostics.StrategyProbeObservationRole =
+        com.poyka.ripdpi.diagnostics.StrategyProbeObservationRole.UNAVAILABLE,
+    val desyncExecutionRequired: Boolean = true,
+    val runtimeTerminalStatus: com.poyka.ripdpi.diagnostics.StrategyProbeRuntimeTerminalStatus =
+        com.poyka.ripdpi.diagnostics.StrategyProbeRuntimeTerminalStatus.UNAVAILABLE,
+    val executionEvidenceComplete: Boolean = false,
+    val executionAttempts: List<com.poyka.ripdpi.diagnostics.StrategyProbeAttemptExecutionEvidence> = emptyList(),
+    val routeFeatures: List<com.poyka.ripdpi.diagnostics.StrategyProbeRouteFeature> = emptyList(),
     val skipReasons: List<String> = emptyList(),
     val notes: List<String> = emptyList(),
     val factBreakdown: DiagnosticsArchiveCandidateFactBreakdown = DiagnosticsArchiveCandidateFactBreakdown(),
@@ -555,6 +564,7 @@ internal data class DiagnosticsArchiveMeasurementSnapshot(
 internal data class DiagnosticsArchiveStrategyExecutionDetail(
     val suiteId: String? = null,
     val completionKind: String? = null,
+    val currentStrategyAssessment: CurrentStrategyAssessment? = null,
     val tcpCandidates: List<DiagnosticsArchiveCandidateExecutionDetail> = emptyList(),
     val quicCandidates: List<DiagnosticsArchiveCandidateExecutionDetail> = emptyList(),
 )

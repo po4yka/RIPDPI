@@ -38,7 +38,7 @@ pub fn relay_udp_payload_observed(
             }
             Err(last_error.unwrap_or_else(|| "no_socket_addrs".to_string()))
         }
-        TransportConfig::Socks5 { host, port: proxy_port } => {
+        TransportConfig::Socks5 { host, port: proxy_port, credentials } => {
             let mut last_error = None;
             for target in targets {
                 let destination = match target {
@@ -52,7 +52,7 @@ pub fn relay_udp_payload_observed(
                         address
                     }
                 };
-                match relay_udp_via_socks5(host, *proxy_port, destination, payload) {
+                match relay_udp_via_socks5(host, *proxy_port, destination, payload, credentials.as_ref()) {
                     Ok((bytes, local_addr)) => {
                         return Ok(UdpRelayResult {
                             payload: bytes,
@@ -93,11 +93,15 @@ fn format_udp_recv_error(err: std::io::Error) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener, UdpSocket};
+    use std::thread;
     use std::time::{Duration, Instant};
 
     use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
 
-    use super::relay_udp_direct;
+    use super::{relay_udp_direct, relay_udp_payload_observed};
+    use crate::transport::{Socks5Credentials, TargetAddress, TransportConfig};
 
     #[test]
     fn direct_udp_rejects_io_after_scan_deadline() {
@@ -107,5 +111,49 @@ mod tests {
         });
 
         assert_eq!(result, Err("scan_deadline_exceeded".to_string()));
+    }
+
+    #[test]
+    fn authenticated_socks_transport_relays_udp_payload() {
+        let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind UDP relay");
+        let relay_addr = relay.local_addr().expect("UDP relay address");
+        let control = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind SOCKS control");
+        let control_addr = control.local_addr().expect("SOCKS control address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = control.accept().expect("accept SOCKS control");
+            let mut greeting = [0u8; 3];
+            stream.read_exact(&mut greeting).expect("read greeting");
+            assert_eq!(greeting, [0x05, 0x01, 0x02]);
+            stream.write_all(&[0x05, 0x02]).expect("select USERPASS");
+            let mut auth = [0u8; 14];
+            stream.read_exact(&mut auth).expect("read credentials");
+            assert_eq!(&auth, b"\x01\x07attempt\x04test");
+            stream.write_all(&[0x01, 0x00]).expect("accept credentials");
+            let mut associate = [0u8; 10];
+            stream.read_exact(&mut associate).expect("read UDP ASSOCIATE");
+            let port = relay_addr.port().to_be_bytes();
+            stream
+                .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, port[0], port[1]])
+                .expect("write UDP relay address");
+            let mut frame = [0u8; 256];
+            let (size, peer) = relay.recv_from(&mut frame).expect("receive UDP frame");
+            relay.send_to(&frame[..size], peer).expect("echo UDP frame");
+        });
+
+        let credentials = Socks5Credentials::new("attempt", "test").expect("valid credentials");
+        let result = relay_udp_payload_observed(
+            &[TargetAddress::Ip(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)))],
+            443,
+            &TransportConfig::Socks5 {
+                host: Ipv4Addr::LOCALHOST.to_string(),
+                port: control_addr.port(),
+                credentials: Some(credentials),
+            },
+            b"quic probe",
+        )
+        .expect("authenticated UDP relay succeeds");
+
+        assert_eq!(result.payload, b"quic probe");
+        server.join().expect("SOCKS fixture thread");
     }
 }

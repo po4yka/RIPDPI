@@ -19,6 +19,42 @@ pub struct RouteProbeConfig {
     pub diversity_on_failure_only: bool,
 }
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InPathProxyCredentials {
+    pub username: String,
+    pub password: String,
+}
+
+impl InPathProxyCredentials {
+    pub fn is_valid(&self) -> bool {
+        !self.username.is_empty()
+            && self.username.len() <= u8::MAX as usize
+            && !self.password.is_empty()
+            && self.password.len() <= u8::MAX as usize
+    }
+}
+
+impl std::fmt::Display for InPathProxyCredentials {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("[REDACTED]")
+    }
+}
+
+impl std::fmt::Debug for InPathProxyCredentials {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("InPathProxyCredentials([REDACTED])")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InPathRoute {
+    pub host: String,
+    pub port: u16,
+    pub credentials: InPathProxyCredentials,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanRequest {
@@ -37,6 +73,8 @@ pub struct ScanRequest {
     pub pack_refs: Vec<String>,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_path_route: Option<InPathRoute>,
     #[serde(default)]
     pub probe_tasks: Vec<ProbeTask>,
     pub domain_targets: Vec<DomainTarget>,

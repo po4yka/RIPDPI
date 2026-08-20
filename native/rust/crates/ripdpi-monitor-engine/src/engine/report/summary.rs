@@ -26,7 +26,8 @@ pub(crate) fn build_report(
     let ReportBuildContext { session_id, request, started_at, execution_plan } = context;
     let confirm_good_dpi_verdict = strategy_probe_report
         .as_ref()
-        .and_then(|report| report.recommendation.transport_pivot.as_ref())
+        .and_then(|report| report.recommendation.as_ref())
+        .and_then(|recommendation| recommendation.transport_pivot.as_ref())
         .and_then(|_| request.confirm_good_dpi_evidence.clone())
         .map(|mut evidence| {
             evidence.quic_control_succeeded = true;

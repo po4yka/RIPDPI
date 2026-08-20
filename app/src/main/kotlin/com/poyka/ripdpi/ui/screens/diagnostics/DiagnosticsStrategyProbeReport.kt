@@ -60,8 +60,8 @@ internal fun StrategyProbeReportCard(
     var showFullMatrix by rememberSaveable(
         report.suiteId,
         report.completionKind,
-        report.recommendation.headline,
-        report.recommendation.rationale,
+        report.recommendation?.headline,
+        report.recommendation?.rationale,
         report.winningPath?.tcpWinner?.id,
         report.winningPath?.quicWinner?.id,
     ) { mutableStateOf(presentation.showFullMatrixInitially) }
@@ -107,16 +107,18 @@ private fun StrategyReportHeader(
         style = RipDpiThemeTokens.type.sectionTitle,
         color = colors.foreground,
     )
-    Text(
-        text = report.recommendation.headline,
-        style = RipDpiThemeTokens.type.bodyEmphasis,
-        color = colors.foreground,
-    )
-    Text(
-        text = report.recommendation.rationale,
-        style = RipDpiThemeTokens.type.secondaryBody,
-        color = colors.mutedForeground,
-    )
+    report.recommendation?.let { recommendation ->
+        Text(
+            text = recommendation.headline,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = recommendation.rationale,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
 }
 
 @Composable
@@ -267,6 +269,7 @@ private fun StrategyReportSummary(
 
 @Composable
 private fun StrategyReportRecommendation(report: DiagnosticsStrategyProbeReportUiModel) {
+    val recommendation = report.recommendation ?: return
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         Text(
@@ -280,7 +283,7 @@ private fun StrategyReportRecommendation(report: DiagnosticsStrategyProbeReportU
             color = colors.mutedForeground,
         )
     }
-    report.recommendation.fields.forEach { field ->
+    recommendation.fields.forEach { field ->
         SettingsRow(title = field.label, value = field.value)
     }
     StrategyReportSignature(report = report)
@@ -288,14 +291,15 @@ private fun StrategyReportRecommendation(report: DiagnosticsStrategyProbeReportU
 
 @Composable
 private fun StrategyReportSignature(report: DiagnosticsStrategyProbeReportUiModel) {
-    if (report.recommendation.signature.isEmpty()) return
+    val recommendation = report.recommendation ?: return
+    if (recommendation.signature.isEmpty()) return
     HorizontalDivider()
     Text(
         text = stringResource(R.string.diagnostics_probe_signature_title),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = RipDpiThemeTokens.colors.foreground,
     )
-    report.recommendation.signature.forEach { field ->
+    recommendation.signature.forEach { field ->
         SettingsRow(title = field.label, value = field.value)
     }
 }

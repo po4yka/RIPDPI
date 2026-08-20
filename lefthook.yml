@@ -23,6 +23,8 @@ pre-commit:
         git diff --cached --diff-filter=ACM -z --name-only |
         grep -z -v '^native/rust/vendor/boring-sys/deps/' |
         xargs -0 git diff --cached -- |
+        grep -E '^\+' |
+        grep -Ev '^\+\+\+' |
         grep -Ei '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|(password|secret|token|api_key)\s*=\s*"[^"]{8,}")' |
         grep -Ev 'AKIAIOSFODNN7EXAMPLE|[Ff]ixture' &&
         { echo "error: potential secrets detected in staged changes"; exit 1; } ||

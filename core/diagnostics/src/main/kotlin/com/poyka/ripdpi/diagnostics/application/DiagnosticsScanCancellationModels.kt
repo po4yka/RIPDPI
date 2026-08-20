@@ -8,6 +8,11 @@ internal data class ActiveScanCancellation(
     val failure: Throwable? = null,
 )
 
+internal enum class ScanTerminalClaim {
+    CANCELLATION,
+    COMPLETION,
+}
+
 internal class DiagnosticsBridgeStartException(
     cause: Throwable,
 ) : IllegalStateException("Diagnostics scan failed to start", cause)

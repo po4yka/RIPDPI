@@ -6,6 +6,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
+import com.poyka.ripdpi.diagnostics.CurrentStrategyCandidateVerdict
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -390,17 +391,40 @@ internal fun String?.shortFingerprintHash(): String? {
 }
 
 internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
-    when {
-        verificationState == BypassApproachVerificationState.NOT_EVALUATED ||
-            verificationState == BypassApproachVerificationState.INCOMPLETE_EVIDENCE -> DiagnosticsTone.Neutral
+    currentStrategyAssessment.let { assessment ->
+        when {
+            assessment?.candidateVerdict == CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH -> {
+                DiagnosticsTone.Info
+            }
 
-        verificationState == BypassApproachVerificationState.CONFIRMED_WORKING &&
-            recentRuntimeHealth.totalErrors == 0L && recentRuntimeHealth.restartCount == 0 -> DiagnosticsTone.Positive
+            assessment?.candidateVerdict ==
+                CurrentStrategyCandidateVerdict.INEFFECTIVE_ON_TESTED_CANDIDATE_PATH -> {
+                DiagnosticsTone.Warning
+            }
 
-        verificationState == BypassApproachVerificationState.EVALUATED_PARTIAL_SUCCESS ||
-            verificationState == BypassApproachVerificationState.CONFIRMED_WORKING -> DiagnosticsTone.Warning
+            assessment != null -> {
+                DiagnosticsTone.Neutral
+            }
 
-        else -> DiagnosticsTone.Negative
+            verificationState == BypassApproachVerificationState.NOT_EVALUATED ||
+                verificationState == BypassApproachVerificationState.INCOMPLETE_EVIDENCE -> {
+                DiagnosticsTone.Neutral
+            }
+
+            verificationState == BypassApproachVerificationState.CONFIRMED_WORKING &&
+                recentRuntimeHealth.totalErrors == 0L && recentRuntimeHealth.restartCount == 0 -> {
+                DiagnosticsTone.Positive
+            }
+
+            verificationState == BypassApproachVerificationState.EVALUATED_PARTIAL_SUCCESS ||
+                verificationState == BypassApproachVerificationState.CONFIRMED_WORKING -> {
+                DiagnosticsTone.Warning
+            }
+
+            else -> {
+                DiagnosticsTone.Negative
+            }
+        }
     }
 
 /**
@@ -411,6 +435,23 @@ internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
  * successful reports is negative evidence.
  */
 internal fun BypassApproachSummary.successMetricTone(): DiagnosticsTone {
+    currentStrategyAssessment?.let { assessment ->
+        return when (assessment.candidateVerdict) {
+            CurrentStrategyCandidateVerdict.WORKING_ON_TESTED_CANDIDATE_PATH -> {
+                DiagnosticsTone.Info
+            }
+
+            CurrentStrategyCandidateVerdict.INEFFECTIVE_ON_TESTED_CANDIDATE_PATH -> {
+                DiagnosticsTone.Warning
+            }
+
+            CurrentStrategyCandidateVerdict.INCOMPLETE,
+            CurrentStrategyCandidateVerdict.UNVERIFIED_EXECUTION,
+            -> {
+                DiagnosticsTone.Neutral
+            }
+        }
+    }
     val rate = validatedSuccessRate
     return if (
         verificationState == BypassApproachVerificationState.NOT_EVALUATED ||

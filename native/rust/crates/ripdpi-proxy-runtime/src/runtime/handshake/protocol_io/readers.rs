@@ -2,11 +2,12 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
 use crate::runtime::state::RuntimeState;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 pub(in crate::runtime::handshake) fn negotiate_socks5(
     client: &mut TcpStream,
     auth_token: Option<&str>,
-) -> io::Result<()> {
+) -> io::Result<Option<AttemptCorrelationId>> {
     let mut count = [0u8; 1];
     client.read_exact(&mut count)?;
     let mut methods = vec![0u8; count[0] as usize];
@@ -19,12 +20,13 @@ pub(in crate::runtime::handshake) fn negotiate_socks5(
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks5 auth method"));
         }
 
-        read_socks5_userpass_auth(client, token)
+        let allow_attempt_token = client.peer_addr().is_ok_and(|addr| addr.ip().is_loopback());
+        read_socks5_userpass_auth(client, token, allow_attempt_token)
     } else {
         if !accepted {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
         }
-        Ok(())
+        Ok(None)
     }
 }
 
@@ -111,7 +113,11 @@ pub(in crate::runtime::handshake) fn validate_http_proxy_auth(request: &[u8], to
     crate::runtime::state::RuntimeState::validate_http_proxy_auth(request, token)
 }
 
-fn read_socks5_userpass_auth(client: &mut TcpStream, token: &str) -> io::Result<()> {
+fn read_socks5_userpass_auth(
+    client: &mut TcpStream,
+    token: &str,
+    allow_attempt_token: bool,
+) -> io::Result<Option<AttemptCorrelationId>> {
     let mut sub_ver = [0u8; 1];
     client.read_exact(&mut sub_ver)?;
     if sub_ver[0] != 0x01 {
@@ -128,12 +134,21 @@ fn read_socks5_userpass_auth(client: &mut TcpStream, token: &str) -> io::Result<
     let mut password = vec![0u8; plen[0] as usize];
     client.read_exact(&mut password)?;
 
-    if password != token.as_bytes() {
+    if !constant_time_bytes_eq(&password, token.as_bytes()) {
         client.write_all(&[0x01, 0x01])?;
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid socks5 credentials"));
     }
 
-    client.write_all(&[0x01, 0x00])
+    client.write_all(&[0x01, 0x00])?;
+    if !allow_attempt_token {
+        return Ok(None);
+    }
+    let username = String::from_utf8(username).ok();
+    Ok(username.and_then(AttemptCorrelationId::new))
+}
+
+fn constant_time_bytes_eq(candidate: &[u8], expected: &[u8]) -> bool {
+    constant_time_eq::constant_time_eq(candidate, expected)
 }
 
 fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>) -> io::Result<()> {

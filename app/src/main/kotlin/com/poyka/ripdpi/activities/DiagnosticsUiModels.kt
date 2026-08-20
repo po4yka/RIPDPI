@@ -697,7 +697,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val summaryMetrics: ImmutableList<DiagnosticsMetricUiModel>,
     val completionKind: StrategyProbeCompletionKind,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
-    val recommendation: DiagnosticsStrategyProbeRecommendationUiModel,
+    val recommendation: DiagnosticsStrategyProbeRecommendationUiModel? = null,
     val winningPath: DiagnosticsStrategyProbeWinningPathUiModel? = null,
     val families: ImmutableList<DiagnosticsStrategyProbeFamilyUiModel>,
     val candidateDetails: ImmutableMap<String, DiagnosticsStrategyProbeCandidateDetailUiModel> = persistentMapOf(),

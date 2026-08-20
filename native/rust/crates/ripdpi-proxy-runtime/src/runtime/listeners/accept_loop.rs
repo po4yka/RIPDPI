@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::runtime::state::RuntimeState;
 
 use super::client_job::ClientJob;
-use super::worker_pool::ClientWorkerPool;
+use super::worker_pool::{ClientWorkerPool, WorkerDrainOutcome};
 use super::{RuntimeShutdown, close_rejected_client};
 
 const ACCEPT_IDLE_SLEEP: Duration = Duration::from_millis(25);
@@ -23,12 +23,12 @@ pub(crate) fn run_accept_loop(
     state: RuntimeState,
     shutdown: RuntimeShutdown,
     client_capacity: usize,
-) -> io::Result<bool> {
+) -> io::Result<WorkerDrainOutcome> {
     let worker_pool = ClientWorkerPool::new(client_capacity)?;
     let result = poll_accept_loop(listener, state.clone(), shutdown, &worker_pool, client_capacity);
     state.note_listener_stopped();
-    let forced_abort = worker_pool.drain_gracefully(&state);
-    result.map(|()| forced_abort)
+    let drain_outcome = worker_pool.drain_gracefully(&state);
+    result.map(|()| drain_outcome)
 }
 
 fn poll_accept_loop(

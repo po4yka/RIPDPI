@@ -70,6 +70,10 @@ assert_status 0 "emulator raw supports raw pcap" \
     packet_smoke_required_capability_supported adb_raw_pcap emulator_raw
 assert_status 1 "unknown capability is unsupported" \
     packet_smoke_required_capability_supported adb_magic physical_indirect
+assert_status 0 "one executed scenario satisfies the runner" \
+    packet_smoke_require_executed_scenarios 1 android_proxy_split_host_plus_one
+assert_status 1 "filtered unsupported scenario fails instead of silently passing" \
+    packet_smoke_require_executed_scenarios 0 android_proxy_split_host_plus_one
 
 instrumentation_success="$(make_temp_file)"
 cat >"$instrumentation_success" <<'EOF'

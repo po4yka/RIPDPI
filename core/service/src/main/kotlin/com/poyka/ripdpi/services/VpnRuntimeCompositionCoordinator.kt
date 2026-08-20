@@ -115,6 +115,7 @@ internal class VpnRuntimeCompositionCoordinator(
         session.currentDnsSignature = null
         session.currentNetworkScopeKey = null
         session.encryptedDnsFailoverState.resetAll()
+        session.revokeInPathLease()
 
         // Keep the installed TUN as a blocking barrier while the proxy stack changes. The old
         // TUN continues sending packets into the stopped local proxy, so no direct network window opens.
@@ -132,6 +133,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
+        session.publishInPathLease(localProxyEndpoint)
         updateRuntimeDnsState(session, resolution)
         return proxyStartResult
     }
@@ -157,6 +159,7 @@ internal class VpnRuntimeCompositionCoordinator(
         currentLocalProxyEndpoint = null
         providerDelegate?.reset()
         session?.encryptedDnsFailoverState?.resetAll()
+        session?.revokeInPathLease()
         session?.clearDestinationPolicy()
     }
 
@@ -182,6 +185,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
+        session.publishInPathLease(localProxyEndpoint)
         updateRuntimeDnsState(session, resolution)
         return proxyStartResult
     }

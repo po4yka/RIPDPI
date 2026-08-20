@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 base64 = { workspace = true }
+constant_time_eq = { workspace = true }
 daemonize = { workspace = true, optional = true }
 libc = { workspace = true }
 metrics = { workspace = true }

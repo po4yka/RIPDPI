@@ -48,13 +48,14 @@ use super::{
     baseline_has_tls_ech_only, baseline_has_tls_version_split, baseline_supports_ech_candidates,
     ordered_follow_up_tcp_candidates, pilot_bucket_label, resolve_recommended_proxy_config_json,
     resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
-    select_safe_or_baseline_candidate_index, stratified_pilot_targets,
+    select_safe_or_baseline_candidate_index, stratified_pilot_targets, support::candidate_execution_matches_spec,
 };
 use crate::candidates::{CandidateEligibility, build_tcp_candidates};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};
 use crate::types::{
-    DomainTarget, ProbeDetail, ProbeResult, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel,
-    StrategyProbeCandidateSummary, StrategyProbeRecommendation,
+    DomainTarget, ProbeDetail, ProbeResult, StrategyDesyncExecutionReceipt, StrategyExecutionDisposition,
+    StrategyExecutionFamily, StrategyProbeAttemptExecutionEvidence, StrategyProbeAuditAssessment,
+    StrategyProbeAuditConfidenceLevel, StrategyProbeCandidateSummary, StrategyProbeRecommendation,
 };
 use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
 
@@ -83,6 +84,13 @@ fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCan
         average_latency_ms: Some(220),
         skipped: false,
         domain_outcomes: vec![],
+        observation_role: crate::types::StrategyProbeObservationRole::EphemeralCandidateRawPath,
+        active_snapshot_faithful: true,
+        desync_execution_required: true,
+        runtime_terminal_status: crate::types::StrategyProbeRuntimeTerminalStatus::Unavailable,
+        execution_evidence_complete: false,
+        execution_attempts: vec![],
+        route_features: vec![],
     }
 }
 
@@ -96,6 +104,82 @@ fn strategy_candidate_summary(
     skipped: bool,
     outcome: &str,
 ) -> StrategyProbeCandidateSummary {
+    let execution_attempts = test_execution_family(family).map_or_else(Vec::new, |execution_family| {
+        vec![StrategyProbeAttemptExecutionEvidence {
+            probe_succeeded: succeeded_targets > 0,
+            complete: true,
+            response_stage: if succeeded_targets > 0 {
+                crate::types::StrategyProbeResponseStage::ResponseObserved
+            } else {
+                crate::types::StrategyProbeResponseStage::ResponseNotObserved
+            },
+            receipts: vec![StrategyDesyncExecutionReceipt {
+                connection_ordinal: 1,
+                transport: crate::types::StrategyExecutionTransport::Tcp,
+                disposition: StrategyExecutionDisposition::Applied,
+                configured_family: Some(execution_family),
+                effective_family: Some(execution_family),
+                marker_base: matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                )
+                .then_some(crate::types::StrategyOffsetMarkerBase::Host),
+                marker_delta: matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                )
+                .then_some(2),
+                resolved_offset: matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                )
+                .then_some(16),
+                planned_steps: 1,
+                attempted_actions: if matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                ) {
+                    3
+                } else {
+                    1
+                },
+                completed_actions: if matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                ) {
+                    3
+                } else {
+                    1
+                },
+                real_writes_committed: if matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                ) {
+                    2
+                } else {
+                    1
+                },
+                completed_awaits: u16::from(matches!(
+                    execution_family,
+                    StrategyExecutionFamily::Split | StrategyExecutionFamily::TlsRecordSplit
+                )),
+                payload_bytes_committed: 1,
+                tls_record_prelude_applied: execution_family == StrategyExecutionFamily::TlsRecordSplit,
+                tls_prelude_configured_count: u16::from(execution_family == StrategyExecutionFamily::TlsRecordSplit),
+                tls_prelude_applied_count: u16::from(execution_family == StrategyExecutionFamily::TlsRecordSplit),
+                tls_prelude_kind: (execution_family == StrategyExecutionFamily::TlsRecordSplit)
+                    .then_some(crate::types::StrategyTlsPreludeKind::TlsRec),
+                tls_prelude_marker_base: (execution_family == StrategyExecutionFamily::TlsRecordSplit)
+                    .then_some(crate::types::StrategyOffsetMarkerBase::ExtLen),
+                tls_prelude_marker_delta: (execution_family == StrategyExecutionFamily::TlsRecordSplit).then_some(0),
+                tls_prelude_resolved_offset: (execution_family == StrategyExecutionFamily::TlsRecordSplit)
+                    .then_some(42),
+                udp_ipv6_extension_profile: None,
+                fallback_reason: None,
+                terminal_reason: None,
+            }],
+        }]
+    });
     StrategyProbeCandidateSummary {
         id: s(id),
         label: id.replace('_', " "),
@@ -116,6 +200,24 @@ fn strategy_candidate_summary(
         average_latency_ms: Some(200),
         skipped,
         domain_outcomes: vec![],
+        observation_role: crate::types::StrategyProbeObservationRole::EphemeralCandidateRawPath,
+        active_snapshot_faithful: true,
+        desync_execution_required: true,
+        runtime_terminal_status: crate::types::StrategyProbeRuntimeTerminalStatus::Unavailable,
+        execution_evidence_complete: true,
+        execution_attempts,
+        route_features: vec![],
+    }
+}
+
+fn test_execution_family(family: &str) -> Option<StrategyExecutionFamily> {
+    match family {
+        "split" => Some(StrategyExecutionFamily::Split),
+        "tlsrec_split" => Some(StrategyExecutionFamily::TlsRecordSplit),
+        "tlsrec_seqovl" => Some(StrategyExecutionFamily::TlsRecordSeqOverlap),
+        "disorder" => Some(StrategyExecutionFamily::Disorder),
+        "hostfake" => Some(StrategyExecutionFamily::HostFake),
+        _ => None,
     }
 }
 
@@ -292,10 +394,48 @@ fn safe_or_baseline_selection_does_not_fall_back_to_unsafe_generic_winner() {
     ];
     let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
 
-    let selected = select_safe_or_baseline_candidate_index(&summaries, &specs, false, false, ipfrag_caps)
-        .expect("baseline is the only safe fallback when scored winners require missing capabilities");
+    let selected = select_safe_or_baseline_candidate_index(&summaries, &specs, false, false, ipfrag_caps);
 
-    assert_eq!(summaries[selected].id, "baseline_current");
+    assert_eq!(selected, None, "a failed baseline is not execution evidence and must not be promoted");
+}
+
+#[test]
+fn promotable_selection_rejects_success_without_execution_evidence() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let mut summaries = vec![strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial")];
+    summaries[0].execution_evidence_complete = false;
+
+    let selected = select_promotable_candidate_index(
+        &summaries,
+        &specs,
+        true,
+        true,
+        ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default(),
+    );
+
+    assert_eq!(selected, None);
+}
+
+#[test]
+fn promotable_selection_rejects_split_receipt_with_wrong_marker_or_partial_actions() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let mut wrong_marker = strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial");
+    wrong_marker.execution_attempts[0].receipts[0].marker_delta = Some(1);
+    let mut partial_actions = strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial");
+    partial_actions.execution_attempts[0].receipts[0].completed_actions = 1;
+    partial_actions.execution_attempts[0].receipts[0].real_writes_committed = 1;
+    partial_actions.execution_attempts[0].receipts[0].completed_awaits = 0;
+
+    for summaries in [vec![wrong_marker], vec![partial_actions]] {
+        let selected = select_promotable_candidate_index(
+            &summaries,
+            &specs,
+            true,
+            true,
+            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default(),
+        );
+        assert_eq!(selected, None);
+    }
 }
 
 #[test]
@@ -315,10 +455,144 @@ fn safe_or_baseline_selection_uses_quic_disabled_as_conservative_quic_fallback()
     ];
     let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
 
-    let selected = select_safe_or_baseline_candidate_index(&summaries, &specs, false, false, ipfrag_caps)
-        .expect("QUIC disabled is the conservative fallback when QUIC winners require missing raw UDP support");
+    let selected = select_safe_or_baseline_candidate_index(&summaries, &specs, false, false, ipfrag_caps);
 
-    assert_eq!(summaries[selected].id, "quic_disabled");
+    assert_eq!(selected, None, "a failed QUIC-disabled candidate is not a verified fallback");
+}
+
+#[test]
+fn promotable_selection_accepts_successful_quic_disabled_without_desync_receipts() {
+    let specs = crate::candidates::build_quic_candidates_for_suite("quick_v1", &ProxyUiConfig::default())
+        .expect("quick quic suite");
+    let mut summary = strategy_candidate_summary("quic_disabled", "quic_disabled", 4, 4, 2, 2, false, "success");
+    summary.desync_execution_required = false;
+    summary.execution_evidence_complete = false;
+
+    let selected = select_promotable_candidate_index(
+        std::slice::from_ref(&summary),
+        &specs,
+        false,
+        false,
+        ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default(),
+    );
+
+    assert_eq!(selected, Some(0));
+}
+
+#[test]
+fn promotable_selection_accepts_matching_tcp_and_quic_sni_split_execution_receipts() {
+    let tcp_specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let quic_specs = crate::candidates::build_quic_candidates_for_suite("quick_v1", &ProxyUiConfig::default())
+        .expect("quick quic suite");
+    let tcp = strategy_candidate_summary("split_host", "split", 12, 12, 2, 2, false, "success");
+    let mut quic = strategy_candidate_summary("quic_sni_split", "quic_sni_split", 12, 12, 2, 2, false, "success");
+    quic.execution_attempts = tcp.execution_attempts.clone();
+    let quic_receipt = &mut quic.execution_attempts[0].receipts[0];
+    quic_receipt.configured_family = Some(StrategyExecutionFamily::QuicSniSplit);
+    quic_receipt.effective_family = Some(StrategyExecutionFamily::QuicSniSplit);
+    quic_receipt.transport = crate::types::StrategyExecutionTransport::Udp;
+    quic_receipt.marker_base = None;
+    quic_receipt.marker_delta = None;
+    quic_receipt.resolved_offset = None;
+    quic_receipt.attempted_actions = 2;
+    quic_receipt.completed_actions = 2;
+    quic_receipt.real_writes_committed = 1;
+    quic_receipt.completed_awaits = 0;
+
+    let capabilities = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
+    let tcp_winner = select_promotable_candidate_index(&[tcp], &tcp_specs, true, true, capabilities);
+    let quic_winner = select_promotable_candidate_index(&[quic], &quic_specs, true, true, capabilities);
+
+    assert_eq!(tcp_winner, Some(0));
+    assert_eq!(quic_winner, Some(0));
+}
+
+#[test]
+fn promotable_selection_accepts_exact_quic_ipv6_extension_profile_receipt() {
+    let mut config = ProxyUiConfig::default();
+    config.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 1,
+        split_bytes: 8,
+        activation_filter: None,
+        ipv6_extension_profile: "hopByHopDestOpt".to_string(),
+    }];
+    let spec = crate::candidates::candidate_spec(
+        "quic_ipfrag2_profiled",
+        "QUIC IP fragmentation + HBH + Dest Opt",
+        "quic_ipfrag2_ipv6_ext",
+        config,
+    );
+    let mut summary = strategy_candidate_summary("quic_ipfrag2_profiled", "split", 12, 12, 2, 2, false, "success");
+    let receipt = &mut summary.execution_attempts[0].receipts[0];
+    receipt.configured_family = Some(StrategyExecutionFamily::QuicIpFragment2);
+    receipt.effective_family = Some(StrategyExecutionFamily::QuicIpFragment2);
+    receipt.transport = crate::types::StrategyExecutionTransport::Udp;
+    receipt.marker_base = None;
+    receipt.marker_delta = None;
+    receipt.resolved_offset = None;
+    receipt.attempted_actions = 1;
+    receipt.completed_actions = 1;
+    receipt.real_writes_committed = 1;
+    receipt.completed_awaits = 0;
+    receipt.udp_ipv6_extension_profile =
+        Some(crate::types::StrategyUdpIpv6ExtensionProfile::HopByHopDestinationOptions);
+    assert!(candidate_execution_matches_spec(&summary, &spec));
+
+    let selected = select_promotable_candidate_index(
+        std::slice::from_ref(&summary),
+        std::slice::from_ref(&spec),
+        true,
+        true,
+        ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+            raw_ipv4: true,
+            raw_ipv6: true,
+            tcp_repair: true,
+        },
+    );
+
+    assert_eq!(selected, Some(0));
+
+    let mut mismatched = summary;
+    mismatched.execution_attempts[0].receipts[0].udp_ipv6_extension_profile =
+        Some(crate::types::StrategyUdpIpv6ExtensionProfile::HopByHop);
+    assert!(!candidate_execution_matches_spec(&mismatched, &spec));
+}
+
+#[test]
+fn promotable_selection_accepts_exact_tls_record_split_receipt() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let summary = strategy_candidate_summary("tlsrec_split_host", "tlsrec_split", 12, 12, 2, 2, false, "success");
+
+    let selected = select_promotable_candidate_index(
+        &[summary],
+        &specs,
+        true,
+        true,
+        ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default(),
+    );
+
+    assert_eq!(selected, Some(0));
+}
+
+#[test]
+fn promotable_selection_accepts_exact_tls_rand_record_split_receipt() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let mut summary = strategy_candidate_summary("tlsrandrec_split", "tlsrec_split", 12, 12, 2, 2, false, "success");
+    let receipt = &mut summary.execution_attempts[0].receipts[0];
+    receipt.tls_prelude_kind = Some(crate::types::StrategyTlsPreludeKind::TlsRandRec);
+    receipt.tls_prelude_marker_base = Some(crate::types::StrategyOffsetMarkerBase::SniExt);
+    receipt.tls_prelude_marker_delta = Some(4);
+
+    let selected = select_promotable_candidate_index(
+        &[summary],
+        &specs,
+        true,
+        true,
+        ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default(),
+    );
+
+    assert_eq!(selected, Some(0));
 }
 
 #[test]

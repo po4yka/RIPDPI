@@ -40,7 +40,7 @@ pub fn plain_direct_probe_config(base: &ProxyUiConfig) -> ProxyUiConfig {
 }
 
 pub fn strategy_probe_base(base: &ProxyUiConfig) -> ProxyUiConfig {
-    let mut config = sanitize_current_probe_config(base);
+    let mut config = plain_direct_probe_config(base);
     config.protocols.desync_http = true;
     config.protocols.desync_https = true;
     config.protocols.desync_udp = false;

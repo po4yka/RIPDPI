@@ -3,7 +3,7 @@ mod progress;
 mod report;
 mod result;
 
-pub use config::{RouteProbeConfig, ScanRequest};
+pub use config::{InPathProxyCredentials, InPathRoute, RouteProbeConfig, ScanRequest};
 pub use progress::{ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane};
 pub use report::{CandidateRuntimeCleanupReceipt, ScanReport};
 pub use result::{ProbeDetail, ProbeResult};
@@ -40,6 +40,7 @@ mod tests {
         assert!(request.telegram_target.is_none());
         assert!(request.strategy_probe.is_none());
         assert!(request.route_probe.is_none());
+        assert!(request.in_path_route.is_none());
         assert!(request.diagnostic_tls_keylog_path.is_none());
     }
 

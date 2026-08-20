@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.export.buildCompleteness
 import com.poyka.ripdpi.diagnostics.export.buildNativeEventsCsv
 import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.diagnostics.export.buildStageIndexEntries
+import com.poyka.ripdpi.diagnostics.export.selectedApproachProjection
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
@@ -20,6 +21,7 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -580,6 +582,70 @@ class DiagnosticsArchiveComponentsTest {
                 DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE,
                 selection.sessionSelectionStatus,
             )
+        }
+
+    @Test
+    fun `explicit older strategy session keeps its session scoped assessment outside recent summaries`() =
+        runTest {
+            val signature =
+                BypassStrategySignature(
+                    mode = "VPN",
+                    configSource = "ui",
+                    hostAutolearn = "disabled",
+                    desyncMethod = "split",
+                    chainSummary = "tcp: split(host+1)",
+                    tcpStrategyFamily = "split",
+                    protocolToggles = listOf("HTTPS"),
+                    tlsRecordSplitEnabled = false,
+                    splitMarker = "host+1",
+                )
+            val strategyId = signature.stableId()
+            val primary =
+                scanSession(id = "older-explicit-session", strategyId = strategyId).copy(
+                    strategyLabel = "split(host+1)",
+                    strategyJson = json.encodeToString(BypassStrategySignature.serializer(), signature),
+                )
+            val sourceData =
+                DiagnosticsArchiveSourceData(
+                    sessions = emptyList(),
+                    usageSessions = emptyList(),
+                    snapshots = emptyList(),
+                    telemetry = emptyList(),
+                    events = emptyList(),
+                    contexts = emptyList(),
+                    approachSummaries = listOf(approachSummary(strategyId)),
+                    appSettings = appSettings(),
+                    buildProvenance = buildProvenance(),
+                    collectionWarnings = emptyList(),
+                    logcatSnapshot = null,
+                    fileLogSnapshot = null,
+                )
+
+            val selection =
+                selector.buildSelection(
+                    request = archiveRequest(sessionId = primary.id),
+                    primarySession = primary,
+                    primaryResults = emptyList(),
+                    sourceData = sourceData,
+                    loadProbeResults = { emptyList() },
+                    loadNativeEvents = { emptyList() },
+                )
+
+            assertEquals(strategyId, selection.selectedApproachSummary?.approachId?.value)
+            assertNotNull(selection.selectedApproachSummary?.currentStrategyAssessment)
+            assertEquals(
+                CurrentStrategyCandidateVerdict.INCOMPLETE,
+                selection.selectedApproachSummary?.currentStrategyAssessment?.candidateVerdict,
+            )
+            assertEquals(
+                BypassApproachVerificationState.INCOMPLETE_EVIDENCE,
+                selection.selectedApproachSummary?.verificationState,
+            )
+            assertEquals(0, selection.selectedApproachSummary?.validatedScanCount)
+            assertEquals(0, selection.selectedApproachSummary?.validatedSuccessCount)
+            assertNull(selection.selectedApproachSummary?.validatedSuccessRate)
+            assertEquals(0, selection.selectedApproachSummary?.usageCount)
+            assertEquals("strategy-1", selection.selectedApproachProjection()?.approachId?.value)
         }
 
     @Test

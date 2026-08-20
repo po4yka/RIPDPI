@@ -14,6 +14,7 @@ use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 pub(super) struct UdpFlowSelection {
     pub(super) target: SocketAddr,
@@ -22,6 +23,7 @@ pub(super) struct UdpFlowSelection {
     pub(super) socket_settings: RuntimeUdpSocketSettings,
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
+    pub(super) execution_family: Option<&'static str>,
     pub(super) upstream: UdpSocket,
     pub(super) upstream_socks: Option<UpstreamUdpSocks>,
 }
@@ -33,6 +35,7 @@ pub(super) struct UdpFlowSelectionWithCandidates {
     pub(super) socket_settings: RuntimeUdpSocketSettings,
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
+    pub(super) execution_family: Option<&'static str>,
     pub(super) upstream: UdpSocket,
     pub(super) upstream_socks: Option<UpstreamUdpSocks>,
     pub(super) target_candidates: Vec<SocketAddr>,
@@ -67,6 +70,7 @@ pub(super) fn ensure_udp_flow_selected(
     flow_limit: usize,
     packet: &UdpClientPacket<'_>,
     now: Instant,
+    attempt_token: Option<&AttemptCorrelationId>,
 ) -> io::Result<bool> {
     let flow_key = packet.flow_key();
     if udp_flow_at_capacity(flow_state, &flow_key, flow_limit) {
@@ -84,7 +88,8 @@ pub(super) fn ensure_udp_flow_selected(
     let entry = match flow_state.entry(flow_key) {
         std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
         std::collections::hash_map::Entry::Vacant(entry) => {
-            let Some(initial_entry) = build_initial_udp_flow_entry(state, protect_path, packet, now)? else {
+            let Some(initial_entry) = build_initial_udp_flow_entry(state, protect_path, packet, now, attempt_token)?
+            else {
                 return Ok(false);
             };
             entry.insert(initial_entry)
@@ -119,6 +124,7 @@ pub(super) fn select_udp_flow_target(
         let socket_settings = group_policy.socket;
         let packet_settings = group_policy.packet;
         let source_rebind_policy = group_policy.source_rebind;
+        let execution_family = group_policy.execution_family;
         let Ok((upstream, upstream_socks)) = build_udp_flow_upstream(target, protect_path, &group_policy) else {
             continue;
         };
@@ -129,6 +135,7 @@ pub(super) fn select_udp_flow_target(
             socket_settings,
             packet_settings,
             source_rebind_policy,
+            execution_family,
             upstream,
             upstream_socks,
         }));
@@ -158,6 +165,7 @@ pub(super) fn reselect_udp_flow_target(
         socket_settings: selection.socket_settings,
         packet_settings: selection.packet_settings,
         source_rebind_policy: selection.source_rebind_policy,
+        execution_family: selection.execution_family,
         upstream: selection.upstream,
         upstream_socks: selection.upstream_socks,
         target_candidates,
@@ -198,6 +206,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.socket_settings = selection.socket_settings;
         entry.packet_settings = selection.packet_settings;
         entry.source_rebind_policy = selection.source_rebind_policy;
+        entry.execution_family = selection.execution_family;
         entry.upstream = selection.upstream;
         entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;
@@ -217,6 +226,7 @@ fn build_initial_udp_flow_entry(
     protect_path: Option<&str>,
     packet: &UdpClientPacket<'_>,
     now: Instant,
+    attempt_token: Option<&AttemptCorrelationId>,
 ) -> io::Result<Option<UdpFlowActivationState>> {
     let destination_egress =
         state.destination_egress(packet.original_target, packet.host.as_deref(), RuntimeTransportProtocol::Udp);
@@ -250,6 +260,8 @@ fn build_initial_udp_flow_entry(
         socket_settings: selection.socket_settings,
         packet_settings: selection.packet_settings,
         source_rebind_policy: selection.source_rebind_policy,
+        execution_family: selection.execution_family,
+        attempt_token: attempt_token.cloned(),
         host: packet.host.clone(),
         payload: Vec::new(),
         awaiting_response: true,
@@ -298,6 +310,7 @@ fn update_udp_flow_selection(
         entry.socket_settings = selection.socket_settings;
         entry.packet_settings = selection.packet_settings;
         entry.source_rebind_policy = selection.source_rebind_policy;
+        entry.execution_family = selection.execution_family;
         entry.upstream = selection.upstream;
         entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;

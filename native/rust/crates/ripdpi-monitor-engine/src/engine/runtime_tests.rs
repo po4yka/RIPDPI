@@ -45,6 +45,7 @@ fn test_plan() -> ExecutionPlan {
             pack_refs: Vec::new(),
             proxy_host: None,
             proxy_port: None,
+            in_path_route: None,
             probe_tasks: Vec::new(),
             domain_targets: Vec::new(),
             dns_targets: Vec::new(),
@@ -86,6 +87,7 @@ fn strategy_test_plan() -> ExecutionPlan {
             pack_refs: Vec::new(),
             proxy_host: None,
             proxy_port: None,
+            in_path_route: None,
             probe_tasks: Vec::new(),
             domain_targets: Vec::new(),
             dns_targets: Vec::new(),
@@ -148,6 +150,13 @@ fn candidate_summary(
         average_latency_ms: Some(100),
         skipped: false,
         domain_outcomes: Vec::new(),
+        observation_role: crate::types::StrategyProbeObservationRole::EphemeralCandidateRawPath,
+        active_snapshot_faithful: true,
+        desync_execution_required: true,
+        runtime_terminal_status: crate::types::StrategyProbeRuntimeTerminalStatus::Unavailable,
+        execution_evidence_complete: false,
+        execution_attempts: Vec::new(),
+        route_features: Vec::new(),
     }
 }
 
@@ -493,8 +502,7 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     let strategy_probe = report.strategy_probe_report.expect("partial strategy report");
     assert_eq!(report.summary, "Scan completed with partial results");
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);
-    assert_eq!(strategy_probe.recommendation.tcp_candidate_id, "baseline_current");
-    assert_eq!(strategy_probe.recommendation.quic_candidate_id, "quic_disabled");
+    assert!(strategy_probe.recommendation.is_none(), "partial unverified evidence is not promotable");
 }
 
 #[test]

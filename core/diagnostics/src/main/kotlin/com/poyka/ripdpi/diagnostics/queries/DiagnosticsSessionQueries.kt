@@ -205,7 +205,7 @@ internal object DiagnosticsSessionQueries {
         payload: String?,
     ): ScanReport? =
         payload?.takeIf { it.isNotBlank() }?.let {
-            runCatching { json.decodeEngineScanReportWire(it).toScanReport() }.getOrNull()
+            runCatching { json.decodeStoredEngineScanReportWire(it).toScanReport() }.getOrNull()
         }
 
     private fun decodeStrategySignature(
@@ -227,9 +227,28 @@ internal object DiagnosticsSessionQueries {
     ): BypassApproachSummary {
         val decodedReports =
             matchingSessions.mapNotNull { session -> decodeScanReport(json, session.reportJson)?.let { session to it } }
-        val validatedReports = decodedReports.filter { (_, report) -> report.isValidatedApproachEvidence() }
-        val allResults = classifyAllResults(validatedReports)
-        val successfulReports = countSuccessfulReports(validatedReports)
+        val strategyAssessments =
+            buildStrategyAssessments(kind, id, decodedReports) { session ->
+                decodeStrategySignature(json, session.strategyJson)
+            }
+        val validatedReports =
+            if (kind == BypassApproachKind.Strategy) {
+                strategyAssessments
+                    .filter { (_, _, assessment) ->
+                        assessment.isEvaluatedStrategyApproachEvidence()
+                    }.map { (session, report, _) -> session to report }
+            } else {
+                decodedReports.filter { (_, report) -> report.isValidatedApproachEvidence() }
+            }
+        val allResults = if (kind == BypassApproachKind.Profile) classifyAllResults(validatedReports) else emptyList()
+        val successfulReports =
+            if (kind == BypassApproachKind.Strategy) {
+                strategyAssessments.count { (_, _, assessment) ->
+                    assessment.isConfirmedWorkingStrategyApproach()
+                }
+            } else {
+                countSuccessfulReports(validatedReports)
+            }
         val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(RecentUsageLimit)
         val latestValidated = validatedReports.maxByOrNull { it.first.startedAt }
         return BypassApproachSummary(
@@ -248,7 +267,12 @@ internal object DiagnosticsSessionQueries {
                 validatedReports.size
                     .takeIf { it > 0 }
                     ?.let { successfulReports.toFloat() / it.toFloat() },
-            lastValidatedResult = latestValidated?.let { (session, report) -> session.displaySummary(report) },
+            lastValidatedResult =
+                if (kind == BypassApproachKind.Strategy) {
+                    null
+                } else {
+                    latestValidated?.let { (session, report) -> session.displaySummary(report) }
+                },
             usageCount = matchingUsage.size,
             totalRuntimeDurationMs =
                 matchingUsage.sumOf {
@@ -264,6 +288,8 @@ internal object DiagnosticsSessionQueries {
             lastUsedAt = matchingUsage.maxOfOrNull { it.finishedAt ?: it.startedAt },
             topFailureOutcomes = buildTopFailureOutcomes(allResults),
             outcomeBreakdown = buildOutcomeBreakdown(allResults),
+            currentStrategyAssessment =
+                strategyAssessments.maxByOrNull { (session, _, _) -> session.startedAt }?.third,
         )
     }
 
@@ -330,6 +356,29 @@ internal object DiagnosticsSessionQueries {
                 )
             }.sortedBy { it.probeType }
 }
+
+private fun buildStrategyAssessments(
+    kind: BypassApproachKind,
+    expectedStrategyId: String,
+    decodedReports: List<Pair<ScanSessionEntity, ScanReport>>,
+    signatureFor: (ScanSessionEntity) -> BypassStrategySignature?,
+): List<Triple<ScanSessionEntity, ScanReport, CurrentStrategyAssessment>> =
+    if (kind == BypassApproachKind.Strategy) {
+        decodedReports.map { (session, report) ->
+            Triple(
+                session,
+                report,
+                CurrentStrategyVerdictEvaluator.evaluate(
+                    report = report,
+                    sessionStrategyId = session.strategyId,
+                    expectedStrategyId = expectedStrategyId,
+                    expectedStrategySignature = signatureFor(session),
+                ),
+            )
+        }
+    } else {
+        emptyList()
+    }
 
 private data class ClassifiedReportResult(
     val result: ProbeResult,

@@ -8,8 +8,10 @@ pub fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
             if let Some(encoded) = value.strip_prefix("Basic ") {
                 let encoded = encoded.trim();
                 if let Ok(decoded) = STANDARD.decode(encoded) {
-                    let expected = format!("ripdpi:{token}");
-                    return decoded == expected.as_bytes();
+                    let mut expected = Vec::with_capacity("ripdpi:".len() + token.len());
+                    expected.extend_from_slice(b"ripdpi:");
+                    expected.extend_from_slice(token.as_bytes());
+                    return constant_time_eq::constant_time_eq(&decoded, &expected);
                 }
             }
             return false;
@@ -38,5 +40,13 @@ mod tests {
             "s3cr3t",
         ));
         assert!(!validate_http_proxy_auth(&[0xff, 0xfe], "s3cr3t"));
+    }
+
+    #[test]
+    fn rejects_same_length_wrong_prefix_and_suffix_tokens() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nProxy-Authorization: Basic cmlwZHBpOnMzY3IzdA==\r\n\r\n";
+
+        assert!(!validate_http_proxy_auth(request, "x3cr3t"));
+        assert!(!validate_http_proxy_auth(request, "s3cr3x"));
     }
 }

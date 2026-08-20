@@ -33,6 +33,28 @@ class DiagnosticsArchiveRedactorTest {
     private val redactor = DiagnosticsArchiveRedactor(json)
 
     @Test
+    fun `redactor removes exact credential keys from structured probe detail`() {
+        val entity =
+            ProbeResultEntity(
+                id = "probe-id",
+                sessionId = "session-id",
+                probeType = "connectivity",
+                target = "fixture",
+                outcome = "reachable",
+                detailJson =
+                    """{"password":"password-canary","token":"token-canary","authToken":"auth-canary","secret":"secret-canary"}""",
+                createdAt = 2L,
+            )
+
+        val encoded = redactor.redact(entity).detailJson
+
+        assertFalse(encoded.contains("password-canary"))
+        assertFalse(encoded.contains("token-canary"))
+        assertFalse(encoded.contains("auth-canary"))
+        assertFalse(encoded.contains("secret-canary"))
+    }
+
+    @Test
     fun `redactor replaces undecodable payloads without retaining their content`() {
         val snapshot =
             NetworkSnapshotEntity(

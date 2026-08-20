@@ -81,7 +81,7 @@ pub(crate) fn handle_tcp_plan_step_control(
             TcpPlanLoopControl::Continue
         }
         TcpStepControl::ContinueAt(_) => TcpPlanLoopControl::AdvanceToStepEnd,
-        TcpStepControl::BreakPlan => {
+        TcpStepControl::BreakPlan | TcpStepControl::BreakPlanWithFallback(_) => {
             *cursor = break_cursor;
             TcpPlanLoopControl::Break
         }

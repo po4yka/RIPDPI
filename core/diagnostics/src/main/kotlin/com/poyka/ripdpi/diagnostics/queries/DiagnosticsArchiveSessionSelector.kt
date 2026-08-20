@@ -2,7 +2,6 @@
 
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -223,7 +222,7 @@ class DiagnosticsArchiveSessionSelector
                 primarySession
                     ?.reportJson
                     ?.takeIf(String::isNotBlank)
-                    ?.let(json::decodeEngineScanReportWire)
+                    ?.let(json::decodeStoredEngineScanReportWire)
             val snapshots =
                 primarySession
                     ?.id
@@ -246,7 +245,7 @@ class DiagnosticsArchiveSessionSelector
                 sourceData.events
                     .filter { it.sessionId == null }
                     .take(DiagnosticsArchiveFormat.globalEventLimit)
-            val selectedApproachSummary =
+            val aggregateSelectedApproachSummary =
                 primarySession?.strategyId?.let { strategyId ->
                     sourceData.approachSummaries.firstOrNull {
                         it.approachId.kind == BypassApproachKind.Strategy &&
@@ -266,20 +265,15 @@ class DiagnosticsArchiveSessionSelector
             val latestContextModel = redactor.decodeDiagnosticContext(latestPassiveContext)
             val sessionContextModel =
                 contexts.maxByOrNull(DiagnosticContextEntity::capturedAt)?.let(redactor::decodeDiagnosticContext)
-            val routeGroup = sessionContextModel?.service?.routeGroup ?: latestContextModel?.service?.routeGroup
-            val modeOverride =
-                primarySession
-                    ?.serviceMode
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let(Mode::fromString)
             val effectiveStrategySignature =
-                runCatching {
-                    deriveBypassStrategySignature(
-                        settings = sourceData.appSettings,
-                        routeGroup = routeGroup,
-                        modeOverride = modeOverride,
-                    )
-                }.getOrNull()
+                decodeStrategySignature(primarySession?.strategyJson)
+            val selectedApproachSummary =
+                sessionScopedApproachSummary(
+                    primarySession = primarySession,
+                    report = report,
+                    effectiveStrategySignature = effectiveStrategySignature,
+                    aggregateSummary = aggregateSelectedApproachSummary,
+                )
             return PrimarySessionData(
                 report = report,
                 snapshots = snapshots,
@@ -294,6 +288,82 @@ class DiagnosticsArchiveSessionSelector
                 latestContextModel = latestContextModel,
                 sessionContextModel = sessionContextModel,
                 effectiveStrategySignature = effectiveStrategySignature,
+            )
+        }
+
+        private fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
+            payload
+                ?.takeIf(String::isNotBlank)
+                ?.let { encoded ->
+                    runCatching {
+                        json.decodeFromString(BypassStrategySignature.serializer(), encoded)
+                    }.getOrNull()
+                }
+
+        private fun sessionScopedApproachSummary(
+            primarySession: ScanSessionEntity?,
+            report: EngineScanReportWire?,
+            effectiveStrategySignature: BypassStrategySignature?,
+            aggregateSummary: BypassApproachSummary?,
+        ): BypassApproachSummary? {
+            val strategyId = primarySession?.strategyId
+            val assessment =
+                if (report != null && strategyId != null && effectiveStrategySignature != null) {
+                    CurrentStrategyVerdictEvaluator.evaluate(
+                        report = report.toScanReport(),
+                        sessionStrategyId = strategyId,
+                        expectedStrategyId = strategyId,
+                        expectedStrategySignature = effectiveStrategySignature,
+                    )
+                } else {
+                    null
+                }
+            if (strategyId == null) return null
+            val strategyEvaluated = assessment?.isEvaluatedStrategyApproachEvidence() == true
+            val strategyWorking = assessment?.isConfirmedWorkingStrategyApproach() == true
+            val sessionVerificationState =
+                when {
+                    strategyWorking -> BypassApproachVerificationState.CONFIRMED_WORKING
+                    strategyEvaluated -> BypassApproachVerificationState.EVALUATED_NO_SUCCESS
+                    else -> BypassApproachVerificationState.INCOMPLETE_EVIDENCE
+                }
+            val base =
+                aggregateSummary ?: BypassApproachSummary(
+                    approachId = BypassApproachId(BypassApproachKind.Strategy, strategyId),
+                    displayName = "Current strategy",
+                    secondaryLabel = "Strategy",
+                    verificationState = sessionVerificationState,
+                    validatedScanCount = 0,
+                    validatedSuccessCount = 0,
+                    validatedSuccessRate = null,
+                    lastValidatedResult = null,
+                    usageCount = 0,
+                    totalRuntimeDurationMs = 0L,
+                    recentRuntimeHealth = BypassRuntimeHealthSummary(),
+                    lastUsedAt = null,
+                )
+            return base.copy(
+                verificationState = sessionVerificationState,
+                validatedScanCount = if (strategyEvaluated) 1 else 0,
+                validatedSuccessCount = if (strategyWorking) 1 else 0,
+                validatedSuccessRate =
+                    if (strategyEvaluated) {
+                        if (strategyWorking) {
+                            1.0f
+                        } else {
+                            0.0f
+                        }
+                    } else {
+                        null
+                    },
+                lastValidatedResult = null,
+                usageCount = 0,
+                totalRuntimeDurationMs = 0L,
+                recentRuntimeHealth = BypassRuntimeHealthSummary(),
+                lastUsedAt = null,
+                topFailureOutcomes = emptyList(),
+                outcomeBreakdown = emptyList(),
+                currentStrategyAssessment = assessment,
             )
         }
 
@@ -324,7 +394,7 @@ class DiagnosticsArchiveSessionSelector
                     session
                         .reportJson
                         ?.takeIf(String::isNotBlank)
-                        ?.let(json::decodeEngineScanReportWire)
+                        ?.let(json::decodeStoredEngineScanReportWire)
                 val events = loadNativeEvents(session.id)
                 val snapshots = sourceData.snapshots.filter { it.sessionId == session.id }
                 val contexts = sourceData.contexts.filter { it.sessionId == session.id }

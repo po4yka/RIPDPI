@@ -47,15 +47,16 @@ internal object BypassCombinationScorer {
     ): BypassCombinationCandidate {
         val strategyProbe = report.strategyProbeReport
         val assessment = strategyProbe?.auditAssessment
+        val recommendation = strategyProbe?.recommendation
         val tcpWinner =
-            strategyProbe?.tcpCandidates?.firstOrNull { it.id == strategyProbe.recommendation.tcpCandidateId }
+            strategyProbe?.tcpCandidates?.firstOrNull { it.id == recommendation?.tcpCandidateId }
         val quicWinner =
-            strategyProbe?.quicCandidates?.firstOrNull { it.id == strategyProbe.recommendation.quicCandidateId }
+            strategyProbe?.quicCandidates?.firstOrNull { it.id == recommendation?.quicCandidateId }
         val continuityBonus =
             listOfNotNull(
                 currentDnsProtocol?.takeIf { resolverPath?.protocol == it }?.let { 1 },
-                currentTcpFamily?.takeIf { strategyProbe?.recommendation?.tcpCandidateFamily == it }?.let { 1 },
-                currentQuicFamily?.takeIf { strategyProbe?.recommendation?.quicCandidateFamily == it }?.let { 1 },
+                currentTcpFamily?.takeIf { recommendation?.tcpCandidateFamily == it }?.let { 1 },
+                currentQuicFamily?.takeIf { recommendation?.quicCandidateFamily == it }?.let { 1 },
             ).sum()
         return BypassCombinationCandidate(
             id = "fresh",

@@ -6,13 +6,17 @@
 //! all of them. The handle reuses `ProxyRuntimeContext` / `NetworkSnapshot`
 //! from `ripdpi-proxy-config` by design — see the crate-level docs.
 
+use std::collections::BTreeMap;
 use std::fmt;
 
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 
+use crate::desync_evidence::{AttemptCorrelationId, DesyncExecutionEvidence};
 use crate::network_snapshot::NetworkSnapshotState;
-use crate::sync::{Arc, AtomicBool, Ordering};
+use crate::sync::{Arc, AtomicBool, Mutex, Ordering};
 use crate::telemetry_sink::RuntimeTelemetrySink;
+
+const DESYNC_EXECUTION_EVIDENCE_LIMIT: usize = 32;
 
 /// Shared, cloneable control handle for an embedded proxy runtime.
 ///
@@ -26,6 +30,7 @@ pub struct EmbeddedProxyControl {
     /// loom tests and must stay compatible with downstream crates that always
     /// use `std::sync::Arc` (ripdpi-android, ripdpi-cli test harnesses).
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+    desync_execution_evidence: DesyncExecutionEvidenceCollector,
     runtime_context: Option<ProxyRuntimeContext>,
     /// Live OS network state snapshot, pushed from Kotlin on each NetworkCallback event.
     /// Uses `ArcSwap` for lock-free reads on the per-connection hot path.
@@ -47,9 +52,18 @@ impl EmbeddedProxyControl {
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
+        Self::new_with_desync_execution_evidence(telemetry, runtime_context, 0)
+    }
+
+    pub fn new_with_desync_execution_evidence(
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+        runtime_context: Option<ProxyRuntimeContext>,
+        desync_evidence_generation: u64,
+    ) -> Self {
         Self {
             shutdown: Arc::new(AtomicBool::new(false)),
             telemetry,
+            desync_execution_evidence: DesyncExecutionEvidenceCollector::new(desync_evidence_generation),
             runtime_context,
             network_snapshot: NetworkSnapshotState::default(),
         }
@@ -74,6 +88,26 @@ impl EmbeddedProxyControl {
     /// The telemetry sink supplied at construction, if any.
     pub fn telemetry_sink(&self) -> Option<std::sync::Arc<dyn RuntimeTelemetrySink>> {
         self.telemetry.clone()
+    }
+
+    pub fn desync_execution_generation(&self) -> u64 {
+        self.desync_execution_evidence.generation()
+    }
+
+    pub fn record_desync_execution_evidence(&self, evidence: DesyncExecutionEvidence) -> bool {
+        self.desync_execution_evidence.record(evidence)
+    }
+
+    pub fn next_desync_connection_ordinal(&self, attempt_token: &AttemptCorrelationId) -> Option<u64> {
+        self.desync_execution_evidence.next_connection_ordinal(attempt_token)
+    }
+
+    pub fn desync_execution_evidence(&self) -> Vec<DesyncExecutionEvidence> {
+        self.desync_execution_evidence.snapshot()
+    }
+
+    pub fn desync_execution_evidence_overflowed(&self) -> bool {
+        self.desync_execution_evidence.overflowed()
     }
 
     /// The immutable runtime context supplied at construction, if any.
@@ -104,7 +138,76 @@ impl fmt::Debug for EmbeddedProxyControl {
             .debug_struct("EmbeddedProxyControl")
             .field("shutdown_requested", &self.shutdown_requested())
             .field("has_telemetry_sink", &self.telemetry.is_some())
+            .field("desync_execution_evidence_overflowed", &self.desync_execution_evidence_overflowed())
             .field("has_runtime_context", &self.runtime_context.is_some())
             .finish()
+    }
+}
+
+#[derive(Clone)]
+struct DesyncExecutionEvidenceCollector {
+    generation: u64,
+    state: Arc<Mutex<DesyncExecutionEvidenceCollectorState>>,
+}
+
+impl DesyncExecutionEvidenceCollector {
+    fn new(generation: u64) -> Self {
+        Self { generation, state: Arc::new(Mutex::new(DesyncExecutionEvidenceCollectorState::empty())) }
+    }
+
+    fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    fn record(&self, evidence: DesyncExecutionEvidence) -> bool {
+        if evidence.generation() != self.generation || self.generation == 0 {
+            return false;
+        }
+        {
+            let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if state.evidence.len() >= DESYNC_EXECUTION_EVIDENCE_LIMIT {
+                state.overflowed = true;
+                return false;
+            }
+            state.evidence.push(evidence.clone());
+        }
+        true
+    }
+
+    fn next_connection_ordinal(&self, attempt_token: &AttemptCorrelationId) -> Option<u64> {
+        if self.generation == 0 {
+            return None;
+        }
+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let key = attempt_token.as_opaque_str();
+        if !state.connection_ordinals.contains_key(key)
+            && state.connection_ordinals.len() >= DESYNC_EXECUTION_EVIDENCE_LIMIT
+        {
+            state.overflowed = true;
+            return None;
+        }
+        let ordinal = state.connection_ordinals.entry(key.to_owned()).or_default();
+        *ordinal = ordinal.checked_add(1)?;
+        Some(*ordinal)
+    }
+
+    fn snapshot(&self) -> Vec<DesyncExecutionEvidence> {
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).evidence.clone()
+    }
+
+    fn overflowed(&self) -> bool {
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).overflowed
+    }
+}
+
+struct DesyncExecutionEvidenceCollectorState {
+    evidence: Vec<DesyncExecutionEvidence>,
+    connection_ordinals: BTreeMap<String, u64>,
+    overflowed: bool,
+}
+
+impl DesyncExecutionEvidenceCollectorState {
+    fn empty() -> Self {
+        Self { evidence: Vec::new(), connection_ordinals: BTreeMap::new(), overflowed: false }
     }
 }

@@ -88,7 +88,7 @@ data class DiagnosticScanSession(
         report =
             reportJson
                 ?.takeIf { it.isNotBlank() }
-                ?.let(compatibilityJson::decodeEngineScanReportWire)
+                ?.let(compatibilityJson::decodeStoredEngineScanReportWire)
                 ?.toSessionProjection(),
         startedAt = startedAt,
         finishedAt = finishedAt,

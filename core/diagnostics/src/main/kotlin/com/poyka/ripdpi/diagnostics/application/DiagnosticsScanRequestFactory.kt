@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
@@ -28,6 +29,8 @@ import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ScanContextCollector
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeTargetSelection
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineInPathRouteWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProxyCredentialsWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
@@ -69,6 +72,7 @@ internal data class PreparedDiagnosticsScan(
     val preScanSnapshot: NetworkSnapshotEntity,
     val preScanContext: DiagnosticContextEntity,
     val reprobeForSessionId: String? = null,
+    val inPathRouteLease: DiagnosticsInPathRouteLease? = null,
 )
 
 @Singleton
@@ -86,6 +90,32 @@ internal class DiagnosticsScanRequestFactory
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
+        fun bindInPathRoute(
+            prepared: PreparedDiagnosticsScan,
+            lease: DiagnosticsInPathRouteLease,
+        ): PreparedDiagnosticsScan {
+            val request = json.decodeFromString(EngineScanRequestWire.serializer(), prepared.requestJson)
+            val routedRequest =
+                request.copy(
+                    proxyHost = lease.host,
+                    proxyPort = lease.port,
+                    inPathRoute =
+                        EngineInPathRouteWire(
+                            host = lease.host,
+                            port = lease.port,
+                            credentials =
+                                EngineProxyCredentialsWire(
+                                    username = lease.credentials.username,
+                                    password = lease.credentials.password,
+                                ),
+                        ),
+                )
+            return prepared.copy(
+                requestJson = json.encodeToString(EngineScanRequestWire.serializer(), routedRequest),
+                inPathRouteLease = lease,
+            )
+        }
+
         suspend fun prepareReprobe(
             original: PreparedDiagnosticsScan,
             preferredDnsPathOverride: EncryptedDnsPathCandidate? = null,

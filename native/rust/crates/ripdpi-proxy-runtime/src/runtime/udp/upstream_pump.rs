@@ -172,12 +172,25 @@ pub(super) fn send_udp_flow_payload(
         entry.current_target,
         entry.packet_settings.default_ttl,
     )?;
-    RuntimeState::execute_udp_desync_actions(
+    let outcome = match RuntimeState::execute_udp_desync_actions(
         &entry.upstream,
         entry.current_target,
         entry.packet_settings,
         protect_path,
         entry.socks_framed(),
         &actions,
-    )
+        payload,
+    ) {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            state.record_udp_desync_failure_evidence(
+                entry.attempt_token.as_ref(),
+                entry.execution_family,
+                error.outcome,
+            );
+            return Err(error.into_io_error());
+        }
+    };
+    state.record_udp_desync_execution_evidence(entry.attempt_token.as_ref(), entry.execution_family, outcome);
+    Ok(())
 }

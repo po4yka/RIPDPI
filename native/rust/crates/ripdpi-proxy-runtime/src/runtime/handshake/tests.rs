@@ -526,6 +526,25 @@ fn negotiate_socks5_rejects_wrong_password() {
 }
 
 #[test]
+fn negotiate_socks5_rejects_wrong_password_prefix_and_suffix() {
+    for password in ["Alpha-123", "alpha-124"] {
+        let (mut client, mut server) = connected_pair();
+        let mut request = vec![0x01, ripdpi_proxy_runtime_adapter::model::session::S_AUTH_USERPASS];
+        request.extend([0x01, 0x06]);
+        request.extend_from_slice(b"ripdpi");
+        request.push(password.len() as u8);
+        request.extend_from_slice(password.as_bytes());
+        client.write_all(&request).expect("write socks5 auth exchange");
+
+        let err = negotiate_socks5(&mut server, Some("alpha-123")).expect_err("wrong password should fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+        let mut reply = [0u8; 4];
+        client.read_exact(&mut reply).expect("read method and auth replies");
+        assert_eq!(reply, [S_VER5, ripdpi_proxy_runtime_adapter::model::session::S_AUTH_USERPASS, 0x01, 0x01]);
+    }
+}
+
+#[test]
 fn handle_http_connect_rejects_missing_proxy_auth_when_token_required() {
     let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
     config.network.http_connect = true;

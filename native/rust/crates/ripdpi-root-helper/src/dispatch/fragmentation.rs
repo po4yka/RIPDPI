@@ -57,7 +57,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_root_helper_protocol::{CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, HelperRequest};
+    use ripdpi_root_helper_protocol::{
+        CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, HelperRequest, PROTOCOL_VERSION,
+    };
 
     use super::{dispatch_send_ip_fragmented_tcp, dispatch_send_ip_fragmented_udp};
     use crate::dispatch::test_support::{fd_is_closed, leak_owned_socket_fd};
@@ -73,6 +75,7 @@ mod tests {
         // Non-null but wrong-shape params: passes descriptor validation,
         // fails `IpFragTcpParams` deserialization, never reaches the handler.
         let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
             command: CMD_SEND_IP_FRAGMENTED_TCP.to_string(),
             params: serde_json::json!("not-a-params-object"),
             session_nonce: None,
@@ -96,6 +99,7 @@ mod tests {
         // Well-formed `IpFragUdpParams` (decode succeeds, handler runs) but a
         // `target_addr` that fails to parse as a SocketAddr — the leak site.
         let request = HelperRequest {
+            protocol_version: Some(PROTOCOL_VERSION),
             command: CMD_SEND_IP_FRAGMENTED_UDP.to_string(),
             params: serde_json::json!({
                 "target_addr": "definitely-not-a-socket-addr",

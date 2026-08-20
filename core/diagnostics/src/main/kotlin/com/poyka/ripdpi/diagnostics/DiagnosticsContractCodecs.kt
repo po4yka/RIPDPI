@@ -25,6 +25,13 @@ internal fun Json.decodeProfileSpecWire(payload: String): ProfileSpecWire =
 internal fun Json.decodeEngineScanReportWire(payload: String): EngineScanReportWire =
     decodeFromString(EngineScanReportWire.serializer(), payload).also(::validateDiagnosticsSchemaVersion)
 
+internal fun Json.decodeStoredEngineScanReportWire(payload: String): EngineScanReportWire =
+    decodeFromString(EngineScanReportWire.serializer(), payload).also { report ->
+        require(report.schemaVersion in StoredDiagnosticsReportSchemaVersions) {
+            "Unsupported stored diagnostics report schema version: ${report.schemaVersion}"
+        }
+    }
+
 internal fun Json.decodeEngineProgressWire(payload: String): EngineProgressWire =
     decodeFromString(EngineProgressWire.serializer(), payload).also(::validateDiagnosticsSchemaVersion)
 
@@ -39,6 +46,8 @@ private fun validateDiagnosticsSchemaVersion(progress: EngineProgressWire) {
         "Unsupported diagnostics progress schema version: ${progress.schemaVersion}"
     }
 }
+
+private val StoredDiagnosticsReportSchemaVersions = setOf(8, DiagnosticsEngineSchemaVersion)
 
 internal fun ProfileSpecWire.normalizedExecutionPolicy(): ProfileExecutionPolicyWire =
     requireNotNull(executionPolicy) {

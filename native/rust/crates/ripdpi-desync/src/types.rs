@@ -197,6 +197,17 @@ pub enum DesyncAction {
 pub struct TamperResult {
     pub bytes: Vec<u8>,
     pub proto: ProtoInfo,
+    pub tls_prelude: TlsPreludeApplication,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TlsPreludeApplication {
+    pub configured_count: usize,
+    pub applied_count: usize,
+    pub kind: Option<TcpChainStepKind>,
+    pub marker_base: Option<OffsetBase>,
+    pub marker_delta: Option<i16>,
+    pub resolved_offset: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,6 +223,7 @@ pub struct DesyncPlan {
     pub steps: Vec<PlannedStep>,
     pub proto: ProtoInfo,
     pub actions: Vec<DesyncAction>,
+    pub tls_prelude: TlsPreludeApplication,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

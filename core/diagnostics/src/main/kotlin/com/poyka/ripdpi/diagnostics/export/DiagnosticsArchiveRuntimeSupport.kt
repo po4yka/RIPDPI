@@ -530,7 +530,10 @@ internal fun BypassApproachSummary.projectForArchive(index: Int? = null): Bypass
 
 internal fun DiagnosticsArchiveSelection.selectedApproachProjection(): BypassApproachSummary? =
     selectedApproachSummary?.let { selected ->
-        val index = payload.approachSummaries.indexOf(selected).takeIf { it >= 0 }
+        val index =
+            payload.approachSummaries
+                .indexOfFirst { aggregate -> aggregate.approachId == selected.approachId }
+                .takeIf { it >= 0 }
         selected.projectForArchive(index)
     }
 

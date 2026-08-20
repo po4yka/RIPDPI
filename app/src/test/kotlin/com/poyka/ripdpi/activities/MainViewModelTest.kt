@@ -748,12 +748,15 @@ class MainViewModelTest {
             val readinessState = kotlinx.coroutines.flow.MutableStateFlow(AppStartupReadinessState.Pending)
             val viewModel =
                 createViewModel(
-                    appStartupReadiness =
-                        object : AppStartupReadiness {
-                            override val readiness = readinessState
+                    presentationDependencies =
+                        TestPresentationDependencies(
+                            appStartupReadiness =
+                                object : AppStartupReadiness {
+                                    override val readiness = readinessState
 
-                            override fun retryRecovery() = Unit
-                        },
+                                    override fun retryRecovery() = Unit
+                                },
+                        ),
                 )
             val collector = backgroundScope.launch { viewModel.startupState.collect {} }
             runCurrent()
@@ -781,7 +784,10 @@ class MainViewModelTest {
                 }
             val viewModel =
                 createViewModel(
-                    appStartupReadiness = readiness,
+                    presentationDependencies =
+                        TestPresentationDependencies(
+                            appStartupReadiness = readiness,
+                        ),
                     permissionStatusProvider = permissionStatusProvider,
                     serviceController = serviceController,
                     initialize = false,
@@ -1515,6 +1521,10 @@ class MainViewModelTest {
                 createViewModel(
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    presentationDependencies =
+                        TestPresentationDependencies(
+                            stringResolver = ResourceStringResolver(),
+                        ),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
@@ -1522,7 +1532,7 @@ class MainViewModelTest {
             val summary = viewModel.uiState.value.approachSummary
 
             assertEquals("VPN Split", summary?.title)
-            assertEquals("Evaluated partial success", summary?.verification)
+            assertEquals("Partially successful", summary?.verification)
             assertEquals("75%", summary?.successRate)
             collector.cancel()
         }
@@ -1917,7 +1927,7 @@ class MainViewModelTest {
         hostPackCatalogUiStateStore: HostPackCatalogUiStateStore = HostPackCatalogUiStateStore(),
         strategyPackStateStore: InMemoryStrategyPackStateStore = InMemoryStrategyPackStateStore(),
         homeDiagnosticsServices: HomeDiagnosticsServices = stubHomeDiagnosticsServices(),
-        appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
+        presentationDependencies: TestPresentationDependencies = TestPresentationDependencies(),
         initialize: Boolean = true,
     ): MainViewModel {
         val crashReportReader = CrashReportReader(File(System.getProperty("java.io.tmpdir"), CrashDirName))
@@ -1996,9 +2006,9 @@ class MainViewModelTest {
                         MainCrashReportCoordinator(
                             crashReportReader = crashReportReader,
                         ),
-                    appStartupReadiness = appStartupReadiness,
+                    appStartupReadiness = presentationDependencies.appStartupReadiness,
                 ),
-            stringResolver = FakeStringResolver(),
+            stringResolver = presentationDependencies.stringResolver,
             activeTransportProvider = java.util.Optional.empty(),
             pcapCaptureRuntimeController = null,
             savedStateHandle = SavedStateHandle(),
@@ -2008,6 +2018,11 @@ class MainViewModelTest {
             }
         }
     }
+
+    private data class TestPresentationDependencies(
+        val appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
+        val stringResolver: com.poyka.ripdpi.platform.StringResolver = FakeStringResolver(),
+    )
 
     private fun grantedPermissionStatusProvider(): FakePermissionStatusProvider =
         FakePermissionStatusProvider(

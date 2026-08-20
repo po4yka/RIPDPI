@@ -704,12 +704,13 @@ data class StrategyProbeReport(
     val methodologyVersion: String = "strategy_learning_v3",
     val tcpCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val quicCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
-    val recommendation: StrategyProbeRecommendation,
+    val recommendation: StrategyProbeRecommendation? = null,
     val completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
     val connectionConcurrencyAssessment: ConnectionConcurrencyAssessment? = null,
     val targetSelection: StrategyProbeTargetSelection? = null,
     val pilotBucketLabels: List<String> = emptyList(),
+    val activePathObservation: StrategyActivePathObservation? = null,
     val domainStrategySeeds: List<StrategyDomainSeed> = emptyList(),
 )
 
@@ -719,36 +720,6 @@ data class StrategyDomainSeed(
     val candidateId: String,
     val candidateLabel: String,
     val family: String,
-)
-
-@Serializable
-data class StrategyProbeDomainOutcome(
-    val domain: String,
-    val succeeded: Boolean,
-    val isControl: Boolean = false,
-)
-
-@Serializable
-data class StrategyProbeCandidateSummary(
-    val id: String,
-    val label: String,
-    val family: String,
-    val emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
-    val exactEmitterRequiresRoot: Boolean = false,
-    val emitterDowngraded: Boolean = false,
-    val quicLayoutFamily: String? = null,
-    val outcome: String,
-    val rationale: String,
-    val succeededTargets: Int,
-    val totalTargets: Int,
-    val weightedSuccessScore: Int,
-    val totalWeight: Int,
-    val qualityScore: Int,
-    val proxyConfigJson: String? = null,
-    val notes: List<String> = emptyList(),
-    val averageLatencyMs: Long? = null,
-    val skipped: Boolean = false,
-    val domainOutcomes: List<StrategyProbeDomainOutcome> = emptyList(),
 )
 
 @Serializable

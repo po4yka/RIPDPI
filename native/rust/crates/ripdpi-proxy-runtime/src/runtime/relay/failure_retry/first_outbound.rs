@@ -14,6 +14,7 @@ use crate::runtime::relay::first_exchange::needs_first_exchange;
 use crate::runtime::relay::session::{FirstOutboundSession, RelaySession};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 mod execution;
 mod payload;
@@ -36,6 +37,7 @@ pub(super) struct FirstOutboundCoordinator<'a> {
     target: SocketAddr,
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
+    attempt_token: Option<AttemptCorrelationId>,
 }
 
 impl<'a> FirstOutboundCoordinator<'a> {
@@ -44,8 +46,9 @@ impl<'a> FirstOutboundCoordinator<'a> {
         target: SocketAddr,
         route: RuntimeConnectionRoute,
         seed_request: Option<Vec<u8>>,
+        attempt_token: Option<AttemptCorrelationId>,
     ) -> Self {
-        Self { state, target, route, seed_request }
+        Self { state, target, route, seed_request, attempt_token }
     }
 
     fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
@@ -81,6 +84,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 &first_payload.original_request,
                 first_payload.host.as_deref(),
                 &mut session_state,
+                self.attempt_token.as_ref(),
             ) {
                 Ok(strategy_family) => success_strategy_family = strategy_family,
                 Err(err) => {
@@ -167,6 +171,7 @@ pub(crate) fn prepare_relay(
     target: SocketAddr,
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
+    attempt_token: Option<AttemptCorrelationId>,
 ) -> io::Result<PreparedRelay> {
-    FirstOutboundCoordinator::new(state, target, route, seed_request).run(client, upstream)
+    FirstOutboundCoordinator::new(state, target, route, seed_request, attempt_token).run(client, upstream)
 }
