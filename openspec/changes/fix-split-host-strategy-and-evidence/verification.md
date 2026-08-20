@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1786885244559735
 change: fix-split-host-strategy-and-evidence
-commit_sha: 04b2419a5
+commit_sha: 75bea6870
 local: required
-local_evidence: Combined Rust, Kotlin, contract, privacy, architecture, lint, harness, API-snapshot, and task gates pass on the rebased code commit.
+local_evidence: Combined Rust, Kotlin, contract, privacy, architecture, lint, harness, API-snapshot, translation-export, dependency-boundary, and task gates pass on the final code commit.
 remote_ci: required
-remote_ci_evidence: Pending push and hosted workflow completion for the final SHA.
+remote_ci_evidence: The prior pushed SHA exposed release-vector, translation-export, monitor dependency, and hotspot preflight failures; all four are repaired and locally green, while hosted workflows for the final SHA remain pending push.
 device: required
 device_evidence: Pixel 7 arm64 API 37 ran proxySplitHostPlusOneRoutesTlsTraffic successfully against the local TLS fixture; exact on-wire PCAP and cellular/handover coverage remain unavailable on this locked no-SIM device.
 artifact: required
@@ -66,6 +66,15 @@ layers and are not upgraded from missing evidence to PASS.
 - Canonical `ripdpi-desync` API snapshot update and the final unblessed
   `check_rust_api_snapshots.py` run: PASS; the approved snapshot contains only
   the typed TLS-prelude surface.
+- Monitor evidence-boundary follow-up: 205 monitor-engine tests, 55
+  diagnostics-contract tests, 17 runtime-api tests, and 8 monitor-proxy tests
+  passed. Unknown, malformed, partial-action, and rejected trailing receipts
+  now fail closed; the independent read-only review found no remaining
+  actionable issue.
+- Hosted-preflight reproductions: REALITY vector unit/guard tests,
+  translation export and nine-locale parity, monitor-engine Cargo-tree guards,
+  native hotspot budgets (`0` overages), native architecture contracts, and
+  runtime crate boundaries: PASS.
 - `assembleGithubFullDebug` with `arm64-v8a` native assets: PASS. The APK
   signature, package, native ABI/ELF metadata, and root-helper packaging were
   verified before installation.
