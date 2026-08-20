@@ -1,6 +1,6 @@
 {
   "boring": "=5.1.0",
-  "tokio-boring": "=5.0.0",
+  "tokio-boring": "=5.1.0",
   "fixedNowSecs": 1700000000,
   "shortIdHex": "abcd",
   "note": "REALITY live ClientHello hook vector metadata. If boring or tokio-boring changes, update this file and re-run ripdpi-vless tests so the hook is revalidated against the new BoringSSL layout."

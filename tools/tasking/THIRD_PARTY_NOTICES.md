@@ -10,7 +10,7 @@ The packages in this directory are development-only dependencies and are not par
 
 The license contains a noncompete restriction. RIPDPI pins mdtask only for internal repository task processing. Adding it, distributing it, or upgrading it requires explicit owner/legal approval before merge; CI success is not legal approval.
 
-## OpenSpec 1.8.0
+## OpenSpec 1.9.0
 
 - Project: <https://github.com/Fission-AI/OpenSpec>
 - License: MIT

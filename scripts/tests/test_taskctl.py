@@ -30,7 +30,7 @@ class TaskctlFixture(unittest.TestCase):
             json.dumps(
                 {
                     "mdtask": "0.1.17",
-                    "openspec": "1.8.0",
+                    "openspec": "1.9.0",
                     "files": {
                         "tools/tasking/generated.txt": hashlib.sha256(asset.read_bytes()).hexdigest()
                     },

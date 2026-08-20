@@ -788,7 +788,7 @@ def validate_generated_assets(root: Path) -> None:
     if not lock_path.is_file():
         fail("missing tools/tasking/generated-assets.lock.json")
     payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    if payload.get("mdtask") != "0.1.17" or payload.get("openspec") != "1.8.0":
+    if payload.get("mdtask") != "0.1.17" or payload.get("openspec") != "1.9.0":
         fail("generated asset lock does not match pinned tool versions")
     files = payload.get("files")
     if not isinstance(files, dict) or not files:

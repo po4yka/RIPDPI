@@ -107,4 +107,4 @@ The `task-contracts` CI job, Lefthook, and `just task-check` all call the same v
 
 ## Tool licenses
 
-OpenSpec 1.8.0 is MIT-licensed. mdtask 0.1.17 uses PolyForm Shield 1.0.0 and is pinned solely as an internal development tool; its noncompete and required notice are recorded in `tools/tasking/THIRD_PARTY_NOTICES.md`. A dependency upgrade or merge that introduces mdtask requires explicit owner/legal approval; do not infer approval from passing CI.
+OpenSpec 1.9.0 is MIT-licensed. mdtask 0.1.17 uses PolyForm Shield 1.0.0 and is pinned solely as an internal development tool; its noncompete and required notice are recorded in `tools/tasking/THIRD_PARTY_NOTICES.md`. A dependency upgrade or merge that introduces mdtask requires explicit owner/legal approval; do not infer approval from passing CI.

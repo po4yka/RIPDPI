@@ -934,7 +934,7 @@ linker must resolve every `extern "C"` reference at link time, so a missing or
 renamed symbol fails the workspace build (`cargo check --locked`) rather than
 mislinking and producing runtime UB. To keep that guarantee load-bearing,
 `boring` / `tokio-boring` are pinned to exact versions in the workspace
-`native/rust/Cargo.toml` (`boring = "=5.1.0"`, `tokio-boring = "=5.0.0"`), and
+`native/rust/Cargo.toml` (`boring = "=5.1.0"`, `tokio-boring = "=5.1.0"`), and
 `boring-sys` is a vendored path dependency (`vendor/boring-sys`) pinned by
 construction. A `boring-sys` bump must either carry the H1 patch forward or the
 link will fail loudly.

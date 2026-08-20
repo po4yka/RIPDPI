@@ -5,7 +5,7 @@ Define the observable contract for repository-native task management and OpenSpe
 ## Requirements
 ### Requirement: REQ-CIC-1786264762917931-001 — Tasking dependencies and agent assets are reproducible
 
-The repository MUST pin mdtask 0.1.17 and OpenSpec 1.8.0 locally, disable OpenSpec telemetry, and verify adapted generated assets by version and checksum.
+The repository MUST pin mdtask 0.1.17 and OpenSpec 1.9.0 locally, disable OpenSpec telemetry, and verify adapted generated assets by version and checksum.
 
 #### Scenario: Install in a clean copy
 
