@@ -56,7 +56,14 @@ fn scrub_runtime_timestamps(value: &mut Value) {
 fn with_tunnel_event_capture<R>(f: impl FnOnce(EventRingBuffers) -> R) -> R {
     let buffers = EventRingBuffers::new(RingConfig::default());
     let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
-    tracing::subscriber::with_default(subscriber, || f(buffers))
+    tracing::subscriber::with_default(subscriber, || {
+        // Register the production INFO callsite before rebuilding its global interest cache.
+        let priming_state = TunnelTelemetryState::new(None);
+        priming_state.push_event_kind("tunnel", "info", "test_capture_prime", "prime scoped event capture".to_string());
+        tracing::callsite::rebuild_interest_cache();
+        let _ = buffers.drain_tunnel();
+        f(buffers)
+    })
 }
 
 fn snapshot_with_captured_events(
