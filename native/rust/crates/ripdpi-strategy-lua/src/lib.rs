@@ -587,18 +587,18 @@ mod enabled {
 
         impl TempDir {
             fn new() -> Self {
-                let mut path = std::env::temp_dir();
-                let unique = format!(
-                    "ripdpi-lua-jail-{}-{}",
-                    std::process::id(),
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_nanos())
-                        .unwrap_or(0)
-                );
-                path.push(unique);
-                std::fs::create_dir_all(&path).expect("create temp dir");
-                Self { path }
+                static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+                loop {
+                    // Ordering: counter uniqueness only; no data publication.
+                    let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let path = std::env::temp_dir().join(format!("ripdpi-lua-jail-{}-{id}", std::process::id()));
+                    match std::fs::create_dir(&path) {
+                        Ok(()) => return Self { path },
+                        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                        Err(error) => panic!("create temp dir: {error}"),
+                    }
+                }
             }
 
             fn path(&self) -> &std::path::Path {
