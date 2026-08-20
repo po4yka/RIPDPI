@@ -1,28 +1,10 @@
-use std::net::SocketAddr;
-
 use crate::candidates::StrategyCandidateSpec;
 use crate::tls::{TlsClientProfile, TlsObservation, planned_tls_template_metadata, planned_tls_template_profile};
 use crate::types::ProbeDetail;
 
 use super::super::support::candidate_probe_details;
-use super::observation_collection::HttpsObservationCollection;
+use super::observation_collection::{HttpsObservationCollection, SelectedTlsFields};
 use super::outcome_classification::https_tls_error_detail;
-
-struct SelectedTlsFields {
-    tcp_connect_ms: Option<u64>,
-    tls_handshake_ms: Option<u64>,
-    cert_chain_length: Option<usize>,
-    cert_issuer: Option<String>,
-    local_socket_ttl: Option<u8>,
-    ja3_fingerprint: Option<String>,
-    tls_alert_code: Option<u8>,
-    tls_alert_description: Option<String>,
-    tls_server_hello_received: Option<bool>,
-    tls_dpi_signature: Option<String>,
-    tls_negotiated_version: Option<String>,
-    connected_addr: Option<SocketAddr>,
-    cdn_provider: Option<String>,
-}
 
 pub(super) fn build_https_probe_details(
     candidate: &StrategyCandidateSpec,

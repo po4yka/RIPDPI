@@ -34,17 +34,13 @@ pub(super) fn apply_https_retry_policy(
         details
             .push(ProbeDetail { key: "retryOnlySuccess".to_string(), value: (retry_outcome == "tls_ok").to_string() });
         details.push(ProbeDetail { key: "probeRetryCount".to_string(), value: "1".to_string() });
-        let final_outcome = finalize_https_retry_outcome(outcome, retry_outcome).to_string();
+        let final_outcome = outcome.to_string();
 
         HttpsRetryDecision { final_outcome }
     } else {
         details.push(ProbeDetail { key: "probeRetryCount".to_string(), value: "0".to_string() });
         HttpsRetryDecision { final_outcome: outcome.to_string() }
     }
-}
-
-fn finalize_https_retry_outcome<'a>(initial_outcome: &'a str, _retry_outcome: &str) -> &'a str {
-    initial_outcome
 }
 
 #[cfg(test)]

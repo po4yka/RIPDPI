@@ -1,5 +1,6 @@
 mod tls_attempts;
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
@@ -17,6 +18,22 @@ pub(super) struct HttpsObservationCollection {
     pub(super) tls_ech: TlsObservation,
     pub(super) latency_ms: u64,
     pub(super) https_port: u16,
+}
+
+pub(super) struct SelectedTlsFields {
+    pub(super) tcp_connect_ms: Option<u64>,
+    pub(super) tls_handshake_ms: Option<u64>,
+    pub(super) cert_chain_length: Option<usize>,
+    pub(super) cert_issuer: Option<String>,
+    pub(super) local_socket_ttl: Option<u8>,
+    pub(super) ja3_fingerprint: Option<String>,
+    pub(super) tls_alert_code: Option<u8>,
+    pub(super) tls_alert_description: Option<String>,
+    pub(super) tls_server_hello_received: Option<bool>,
+    pub(super) tls_dpi_signature: Option<String>,
+    pub(super) tls_negotiated_version: Option<String>,
+    pub(super) connected_addr: Option<SocketAddr>,
+    pub(super) cdn_provider: Option<String>,
 }
 
 pub(super) fn collect_https_observations(
