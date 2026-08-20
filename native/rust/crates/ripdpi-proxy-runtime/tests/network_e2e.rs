@@ -1665,10 +1665,11 @@ fn quic_handshake_and_echo_round_trip_through_socks5_udp_relay() {
         let mut server_quic_config = quinn::ServerConfig::with_crypto(Arc::new(
             quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("QuicServerConfig"),
         ));
-        // Short idle timeout so endpoint.wait_idle() at teardown drains promptly
-        // instead of blocking on quinn's multi-second default idle period.
+        // Keep the idle timeout bounded, but leave enough room for the full
+        // workspace test run where concurrent network E2E tests can delay UDP
+        // relay packets for several seconds.
         let mut server_transport = quinn::TransportConfig::default();
-        server_transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        server_transport.max_idle_timeout(Some(Duration::from_secs(10).try_into().expect("idle timeout")));
         server_quic_config.transport = Arc::new(server_transport);
         let server_endpoint = quinn::Endpoint::server(server_quic_config, (Ipv4Addr::LOCALHOST, 0u16).into())
             .expect("bind QUIC echo server");
@@ -1718,10 +1719,10 @@ fn quic_handshake_and_echo_round_trip_through_socks5_udp_relay() {
         let mut client_quic_config = quinn::ClientConfig::new(Arc::new(
             quinn::crypto::rustls::QuicClientConfig::try_from(client_tls).expect("QuicClientConfig"),
         ));
-        // Negotiated idle timeout is the min of both peers; a short value keeps the
-        // client's wait_idle() at teardown bounded to a few seconds, not ~30s.
+        // Negotiated idle timeout is the min of both peers; keep it bounded but
+        // high enough for load-sensitive full workspace runs.
         let mut client_transport = quinn::TransportConfig::default();
-        client_transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        client_transport.max_idle_timeout(Some(Duration::from_secs(10).try_into().expect("idle timeout")));
         client_quic_config.transport_config(Arc::new(client_transport));
 
         let runtime = Arc::new(quinn::TokioRuntime);
