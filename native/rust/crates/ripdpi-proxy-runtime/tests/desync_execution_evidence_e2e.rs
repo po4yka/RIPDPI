@@ -13,7 +13,9 @@ use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{UdpChainStep, UdpChainStepKind};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use ripdpi_proxy_runtime_adapter::model::runtime_api::{DesyncExecutionDisposition, DesyncOffsetMarkerBase};
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{
+    DesyncExecutionDisposition, DesyncExecutionEvidence, DesyncOffsetMarkerBase,
+};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     DesyncExecutionTransport, DesyncStrategyFamily, EmbeddedProxyControl,
 };
