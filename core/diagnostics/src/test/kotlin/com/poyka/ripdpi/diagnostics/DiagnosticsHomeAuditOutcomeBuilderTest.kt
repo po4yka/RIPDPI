@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsHomeAuditOutcomeBuilderTest {
@@ -44,9 +45,38 @@ class DiagnosticsHomeAuditOutcomeBuilderTest {
         assertFalse(outcome.actionable)
     }
 
+    @Test
+    fun `weak strategy evidence is distinguished from applied DNS settings`() {
+        val resolverSetting = DiagnosticsAppliedSetting(label = "Resolver", value = "adguard")
+        val outcome =
+            buildOutcome(
+                tcpCandidates = listOf(candidate(id = "tcp", succeededTargets = 1)),
+                quicCandidates = listOf(candidate(id = "quic", succeededTargets = 1)),
+                resolverApplied = listOf(resolverSetting),
+                strategyRecommendation =
+                    StrategyRecommendation(
+                        triggerOutcomes = listOf("tls_blocked"),
+                        recommendedFamily = "tlsrec_split",
+                        blockingPattern = "sni_tls_suspect",
+                        rationale = "Prefer TLS record split on this network",
+                    ),
+                auditAssessment = weakAuditAssessment(),
+                completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
+            )
+
+        assertTrue(outcome.actionable)
+        assertEquals(StrategyAdequacy.DNS_ONLY_STRATEGY_UNVERIFIED, outcome.strategyAdequacy)
+        assertEquals("DNS settings applied, but bypass strategy needs more evidence", outcome.headline)
+        assertEquals(listOf(resolverSetting), outcome.appliedSettings)
+    }
+
     private fun buildOutcome(
         tcpCandidates: List<StrategyProbeCandidateSummary>,
         quicCandidates: List<StrategyProbeCandidateSummary>,
+        resolverApplied: List<DiagnosticsAppliedSetting> = emptyList(),
+        strategyRecommendation: StrategyRecommendation? = null,
+        auditAssessment: StrategyProbeAuditAssessment? = null,
+        completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     ): DiagnosticsHomeAuditOutcome {
         val report =
             ScanReport(
@@ -68,11 +98,17 @@ class DiagnosticsHomeAuditOutcomeBuilderTest {
                     summary = report.summary,
                 ),
             report = report,
-            strategyProbe = strategyReport(tcpCandidates, quicCandidates),
+            strategyProbe =
+                strategyReport(
+                    tcpCandidates = tcpCandidates,
+                    quicCandidates = quicCandidates,
+                    auditAssessment = auditAssessment,
+                    completionKind = completionKind,
+                ),
             strategyApplied = null,
-            strategyRecommendation = null,
+            strategyRecommendation = strategyRecommendation,
             resolverRecommendation = null,
-            resolverApplied = emptyList(),
+            resolverApplied = resolverApplied,
             capabilityEvidence = emptyList(),
         )
     }
@@ -80,6 +116,8 @@ class DiagnosticsHomeAuditOutcomeBuilderTest {
     private fun strategyReport(
         tcpCandidates: List<StrategyProbeCandidateSummary>,
         quicCandidates: List<StrategyProbeCandidateSummary>,
+        auditAssessment: StrategyProbeAuditAssessment?,
+        completionKind: StrategyProbeCompletionKind,
     ) = StrategyProbeReport(
         suiteId = "quick_v1",
         tcpCandidates = tcpCandidates,
@@ -93,7 +131,38 @@ class DiagnosticsHomeAuditOutcomeBuilderTest {
                 rationale = "Test recommendation",
                 recommendedProxyConfigJson = "{}",
             ),
+        completionKind = completionKind,
+        auditAssessment = auditAssessment,
     )
+
+    private fun weakAuditAssessment() =
+        StrategyProbeAuditAssessment(
+            coverage =
+                StrategyProbeAuditCoverage(
+                    tcpCandidatesPlanned = 1,
+                    tcpCandidatesExecuted = 1,
+                    tcpCandidatesSkipped = 0,
+                    tcpCandidatesNotApplicable = 0,
+                    quicCandidatesPlanned = 1,
+                    quicCandidatesExecuted = 1,
+                    quicCandidatesSkipped = 0,
+                    quicCandidatesNotApplicable = 0,
+                    tcpWinnerSucceededTargets = 1,
+                    tcpWinnerTotalTargets = 2,
+                    quicWinnerSucceededTargets = 1,
+                    quicWinnerTotalTargets = 2,
+                    matrixCoveragePercent = 90,
+                    winnerCoveragePercent = 37,
+                    tcpWinnerCoveragePercent = 40,
+                    quicWinnerCoveragePercent = 33,
+                ),
+            confidence =
+                StrategyProbeAuditConfidence(
+                    level = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                    score = 75,
+                    rationale = "Partial winner evidence",
+                ),
+        )
 
     private fun candidate(
         id: String,
