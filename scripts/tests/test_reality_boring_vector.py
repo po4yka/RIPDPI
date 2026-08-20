@@ -24,7 +24,7 @@ guard = load_module()
 
 class RealityBoringVectorTest(unittest.TestCase):
     def test_repo_versions_match_vector(self) -> None:
-        self.assertEqual({"boring": "=5.1.0", "tokio-boring": "=5.0.0"}, guard.validate())
+        self.assertEqual({"boring": "=5.1.0", "tokio-boring": "=5.1.0"}, guard.validate())
 
     def test_caret_workspace_version_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
