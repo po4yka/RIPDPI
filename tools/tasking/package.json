@@ -11,7 +11,7 @@
     "openspec": "openspec"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "1.9.0",
+    "@fission-ai/openspec": "1.8.0",
     "mdtask": "0.1.17"
   }
 }
