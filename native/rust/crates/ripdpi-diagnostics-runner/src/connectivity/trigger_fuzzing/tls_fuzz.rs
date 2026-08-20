@@ -87,7 +87,7 @@ fn execute_variant(
             let _ = stream.shutdown(std::net::Shutdown::Both);
             outcome
         }
-        Err(err) => ("tcp_connect_failed".to_string(), err),
+        Err(err) => ("tcp_connect_failed".to_string(), err.to_string()),
     }
 }
 

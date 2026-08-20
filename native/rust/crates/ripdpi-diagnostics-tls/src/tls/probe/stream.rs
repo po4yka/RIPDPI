@@ -1,56 +1,54 @@
-use std::sync::Arc;
-use std::time::Instant;
-
-use rustls::client::danger::ServerCertVerifier;
-
-use super::super::key_log::TlsKeyLogCallback;
-use super::super::types::{ProbeStreamResult, TlsClientProfile};
+use super::super::types::{
+    ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile,
+};
 use super::capture::capture_tls_handshake;
 use crate::cdn_ech::opportunistic_ech_provider_for_ip;
 use crate::platform_ttl;
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
+use std::time::Instant;
 
-pub(crate) fn open_probe_stream_targets(
+pub(crate) fn open_probe_stream_targets_with_options(
     targets: &[TargetAddress],
     port: u16,
     transport: &TransportConfig,
     tls_name: Option<&str>,
-    verify_certificates: bool,
-    profile: TlsClientProfile,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> Result<ProbeStreamResult, String> {
-    open_probe_stream_targets_with_key_log(
-        targets,
-        port,
-        transport,
-        tls_name,
-        verify_certificates,
-        profile,
-        tls_verifier,
-        None,
-    )
-}
-
-pub(crate) fn open_probe_stream_targets_with_key_log(
-    targets: &[TargetAddress],
-    port: u16,
-    transport: &TransportConfig,
-    tls_name: Option<&str>,
-    verify_certificates: bool,
-    profile: TlsClientProfile,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> Result<ProbeStreamResult, String> {
-    let opened = open_transport_stream(targets, port, transport)?;
-    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
-    opened.stream.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
-    opened.stream.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    options: &ProbeStreamOptions<'_>,
+) -> Result<ProbeStreamResult, ProbeStreamError> {
+    let started = Instant::now();
+    let opened = open_transport_stream(targets, port, transport, started)?;
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT)
+        .map_err(|err| stream_error(ProbeStreamFailureStage::StreamSetup, err, started, Some(&opened)))?;
+    opened
+        .stream
+        .set_read_timeout(Some(timeout))
+        .map_err(|err| stream_error(ProbeStreamFailureStage::StreamSetup, err, started, Some(&opened)))?;
+    opened
+        .stream
+        .set_write_timeout(Some(timeout))
+        .map_err(|err| stream_error(ProbeStreamFailureStage::StreamSetup, err, started, Some(&opened)))?;
 
     match tls_name {
-        Some(name) if should_run_tls_handshake(verify_certificates, port, profile) => {
-            let captured =
-                capture_tls_handshake(opened.stream, targets, transport, name, profile, tls_verifier, key_log)?;
+        Some(name) if should_run_tls_handshake(options.verify_certificates, port, options.profile) => {
+            let tcp_connect_ms = opened.tcp_connect_ms;
+            let connected_addr = opened.connected_addr;
+            let captured = capture_tls_handshake(
+                opened.stream,
+                targets,
+                transport,
+                name,
+                options.profile,
+                options.tls_verifier,
+                options.key_log,
+                options.application_protocol,
+            )
+            .map_err(|err| ProbeStreamError {
+                stage: ProbeStreamFailureStage::TlsHandshake,
+                message: err,
+                duration_ms: started.elapsed().as_millis().max(1) as u64,
+                tcp_connect_ms: Some(tcp_connect_ms),
+                connected_addr,
+            })?;
             let local_socket_ttl = match &captured.stream {
                 ConnectionStream::Tls(stream) => platform_ttl::get_local_socket_ttl(&stream.sock),
                 ConnectionStream::Plain(_) => unreachable!(),
@@ -58,6 +56,7 @@ pub(crate) fn open_probe_stream_targets_with_key_log(
 
             Ok(ProbeStreamResult {
                 stream: captured.stream,
+                negotiated_alpn: captured.negotiated_alpn,
                 tls_template_first_flight_plan: captured.tls_template_first_flight_plan,
                 tcp_connect_ms: opened.tcp_connect_ms,
                 tls_handshake_ms: captured.tls_handshake_ms,
@@ -88,9 +87,16 @@ fn open_transport_stream(
     targets: &[TargetAddress],
     port: u16,
     transport: &TransportConfig,
-) -> Result<OpenedTransportStream, String> {
+    started: Instant,
+) -> Result<OpenedTransportStream, ProbeStreamError> {
     let tcp_start = Instant::now();
-    let transport_result = connect_transport_observed(targets, port, transport)?;
+    let transport_result = connect_transport_observed(targets, port, transport).map_err(|err| ProbeStreamError {
+        stage: err.stage.into(),
+        message: err.message,
+        duration_ms: started.elapsed().as_millis().max(1) as u64,
+        tcp_connect_ms: None,
+        connected_addr: None,
+    })?;
     let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
     let connected_addr = transport_result.connected_addr;
     let cdn_provider = connected_addr.and_then(|addr| opportunistic_ech_provider_for_ip(addr.ip()).map(str::to_string));
@@ -109,11 +115,12 @@ fn should_run_tls_handshake(verify_certificates: bool, port: u16, profile: TlsCl
     verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto)
 }
 
-fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult, String> {
+fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult, ProbeStreamError> {
     let local_socket_ttl = platform_ttl::get_local_socket_ttl(&opened.stream);
 
     Ok(ProbeStreamResult {
         stream: ConnectionStream::Plain(opened.stream),
+        negotiated_alpn: None,
         tls_template_first_flight_plan: None,
         tcp_connect_ms: opened.tcp_connect_ms,
         tls_handshake_ms: 0,
@@ -126,4 +133,19 @@ fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult
         cdn_provider: opened.cdn_provider,
         route_report: opened.route_report,
     })
+}
+
+fn stream_error(
+    stage: ProbeStreamFailureStage,
+    error: impl std::fmt::Display,
+    started: Instant,
+    opened: Option<&OpenedTransportStream>,
+) -> ProbeStreamError {
+    ProbeStreamError {
+        stage,
+        message: error.to_string(),
+        duration_ms: started.elapsed().as_millis().max(1) as u64,
+        tcp_connect_ms: opened.map(|value| value.tcp_connect_ms),
+        connected_addr: opened.and_then(|value| value.connected_addr),
+    }
 }

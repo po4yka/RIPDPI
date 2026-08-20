@@ -4,7 +4,9 @@ use ripdpi_packets::{MH_HMIX, MH_HOSTEXTRASPACE, MH_UNIXEOL, mod_http_like_c};
 
 use super::summary::{TriggerFuzzOutcome, append_trigger_fuzzing_summary};
 use crate::connectivity::adapters::http::{classify_http_response, read_http_response};
-use crate::connectivity::adapters::tls::{TlsClientProfile, open_probe_stream_targets};
+use crate::connectivity::adapters::tls::{
+    ApplicationProtocolPolicy, ProbeStreamOptions, TlsClientProfile, open_probe_stream_targets_with_options,
+};
 use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail};
 
@@ -49,7 +51,14 @@ fn execute_variant(
     transport: &TransportConfig,
     request: &[u8],
 ) -> (String, String) {
-    match open_probe_stream_targets(connect_targets, port, transport, None, false, TlsClientProfile::Auto, None) {
+    let options = ProbeStreamOptions {
+        verify_certificates: false,
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier: None,
+        key_log: None,
+    };
+    match open_probe_stream_targets_with_options(connect_targets, port, transport, None, &options) {
         Ok(mut stream) => {
             if let Err(err) = stream.stream.write_all(request).and_then(|_| stream.stream.flush()) {
                 stream.stream.shutdown();
@@ -63,6 +72,6 @@ fn execute_variant(
                 Err(err) => ("http_unreachable".to_string(), err),
             }
         }
-        Err(err) => ("http_unreachable".to_string(), err),
+        Err(err) => ("http_unreachable".to_string(), err.to_string()),
     }
 }

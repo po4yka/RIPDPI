@@ -6,7 +6,10 @@ use std::time::Duration;
 use super::address::resolve_addresses;
 use super::route_experiment::{connect_addresses_with_route_experiment, route_identity};
 use super::socks5::connect_via_socks5_observed;
-use super::types::{RouteExperimentConfig, TargetAddress, TransportConfig, TransportConnectResult};
+use super::types::{
+    RouteExperimentConfig, TargetAddress, TransportConfig, TransportConnectError, TransportConnectResult,
+    TransportFailureStage,
+};
 use crate::util::{CONNECT_TIMEOUT, bounded_scan_io_timeout};
 
 const HAPPY_EYEBALLS_DELAY: Duration = Duration::from_millis(250);
@@ -15,7 +18,7 @@ pub fn connect_transport_observed(
     targets: &[TargetAddress],
     port: u16,
     transport: &TransportConfig,
-) -> Result<TransportConnectResult, String> {
+) -> Result<TransportConnectResult, TransportConnectError> {
     match transport {
         TransportConfig::Direct { route_experiment } => {
             connect_direct_observed(targets, port, route_experiment.as_ref())
@@ -27,20 +30,25 @@ pub fn connect_transport_observed(
 }
 
 pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
-    Ok(connect_direct_observed(std::slice::from_ref(target), port, None)?.stream)
+    connect_direct_observed(std::slice::from_ref(target), port, None)
+        .map(|result| result.stream)
+        .map_err(|err| err.message)
 }
 
-fn connect_direct_observed(
+pub(super) fn connect_direct_observed(
     targets: &[TargetAddress],
     port: u16,
     route_experiment: Option<&RouteExperimentConfig>,
-) -> Result<TransportConnectResult, String> {
-    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
-    let addresses = resolve_candidate_addresses(targets, port)?;
+) -> Result<TransportConnectResult, TransportConnectError> {
+    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT)
+        .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
+    let addresses = resolve_candidate_addresses(targets, port)
+        .map_err(|err| TransportConnectError::new(TransportFailureStage::DnsResolution, err))?;
     if let Some(config) = route_experiment {
         let route_identity = route_identity(&addresses);
         let ((stream, connected_addr, local_addr), route_report) =
-            connect_addresses_with_route_experiment(&addresses, config, &route_identity)?;
+            connect_addresses_with_route_experiment(&addresses, config, &route_identity)
+                .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
         return Ok(TransportConnectResult {
             stream,
             connected_addr: Some(connected_addr),
@@ -48,7 +56,8 @@ fn connect_direct_observed(
             route_report: Some(route_report),
         });
     }
-    let (stream, connected_addr) = connect_addresses_with_race(&addresses, timeout)?;
+    let (stream, connected_addr) = connect_addresses_with_race(&addresses, timeout)
+        .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
     let local_addr = stream.local_addr().ok();
     Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr), local_addr, route_report: None })
 }
@@ -178,6 +187,19 @@ mod tests {
             )
         });
 
-        assert!(matches!(result, Err(error) if error == "scan_deadline_exceeded"));
+        assert!(matches!(
+            result,
+            Err(error)
+                if error.stage == TransportFailureStage::TcpConnect && error.message == "scan_deadline_exceeded"
+        ));
+    }
+
+    #[test]
+    fn empty_direct_target_list_reports_dns_resolution_stage() {
+        let error = connect_transport_observed(&[], 443, &TransportConfig::Direct { route_experiment: None })
+            .expect_err("empty target list must fail");
+
+        assert_eq!(error.stage, TransportFailureStage::DnsResolution);
+        assert_eq!(error.message, "no_socket_addrs");
     }
 }

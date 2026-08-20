@@ -3,8 +3,8 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::tls::{
-    NoCertificateVerification, ProbeStreamResult, TlsClientProfile, TlsKeyLogCallback, open_probe_stream,
-    open_probe_stream_with_key_log,
+    ApplicationProtocolPolicy, NoCertificateVerification, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile,
+    TlsKeyLogCallback, open_probe_stream_targets_with_options,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 
@@ -18,19 +18,13 @@ pub(super) fn open_fat_header_probe_stream(
     // Diagnostic probe: explicitly skip certificate verification to detect
     // censorship-induced TLS interception (MITM middleboxes).
     let no_verify: Arc<dyn ServerCertVerifier> = Arc::new(NoCertificateVerification);
-    match key_log {
-        Some(key_log) => open_probe_stream_with_key_log(
-            connect_target,
-            port,
-            transport,
-            tls_sni,
-            false,
-            TlsClientProfile::Auto,
-            Some(&no_verify),
-            Some(key_log),
-        ),
-        None => {
-            open_probe_stream(connect_target, port, transport, tls_sni, false, TlsClientProfile::Auto, Some(&no_verify))
-        }
-    }
+    let options = ProbeStreamOptions {
+        verify_certificates: false,
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier: Some(&no_verify),
+        key_log,
+    };
+    open_probe_stream_targets_with_options(std::slice::from_ref(connect_target), port, transport, tls_sni, &options)
+        .map_err(|err| err.to_string())
 }

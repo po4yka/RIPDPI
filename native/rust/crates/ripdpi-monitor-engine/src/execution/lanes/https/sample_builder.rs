@@ -8,7 +8,7 @@ use crate::candidates::StrategyCandidateSpec;
 use crate::execution::scoring::ProbeSample;
 use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
-use crate::types::{DomainTarget, ProbeDetail};
+use crate::types::DomainTarget;
 
 use super::detail_builder::build_https_probe_details;
 use super::observation_collection::collect_https_observations;
@@ -35,7 +35,6 @@ pub(super) fn build_https_probe_sample(
         &outcome,
         &mut details,
     );
-    details.push(ProbeDetail { key: "probeRetryCount".to_string(), value: retry.retry_count.to_string() });
 
     sample_result::build_https_sample(candidate, target, retry.final_outcome, details, observations.latency_ms)
 }

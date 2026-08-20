@@ -64,7 +64,7 @@ pub(super) fn run_endpoint_probe(
             }
             Err(err) => EndpointProbeObservation {
                 status: "tcp_connect_failed".to_string(),
-                error: err,
+                error: err.to_string(),
                 local_addr: None,
                 route_report: None,
             },

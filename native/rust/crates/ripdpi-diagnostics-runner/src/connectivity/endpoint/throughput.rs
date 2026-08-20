@@ -8,7 +8,8 @@ use crate::connectivity::adapters::http::{
     try_http_request_targets_with_key_log,
 };
 use crate::connectivity::adapters::tls::{
-    TlsClientProfile, TlsKeyLogCallback, open_probe_stream_targets, open_probe_stream_targets_with_key_log,
+    ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
+    open_probe_stream_targets_with_options,
 };
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::connectivity::adapters::util::{MAX_HTTP_BYTES, find_headers_end};
@@ -31,92 +32,127 @@ fn measure_throughput_window_with_verifier(
     key_log: Option<&TlsKeyLogCallback>,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ThroughputSample {
+    let started = std::time::Instant::now();
     let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
         Ok(parsed) => parsed,
         Err(err) => {
-            return ThroughputSample { status: "invalid_target".to_string(), bytes_read: 0, bps: 0, error: err };
+            return failed_sample(started, "target_parse", err);
         }
     };
-    let started = std::time::Instant::now();
     let tls_name = if parsed.secure { Some(parsed.host.as_str()) } else { None };
-    let stream_result = match key_log {
-        Some(key_log) => open_probe_stream_targets_with_key_log(
-            &parsed.connect_targets,
-            parsed.port,
-            transport,
-            tls_name,
-            parsed.secure,
-            TlsClientProfile::AutoHttp11,
-            tls_verifier,
-            Some(key_log),
-        ),
-        None => open_probe_stream_targets(
-            &parsed.connect_targets,
-            parsed.port,
-            transport,
-            tls_name,
-            parsed.secure,
-            TlsClientProfile::AutoHttp11,
-            tls_verifier,
-        ),
+    let options = ProbeStreamOptions {
+        verify_certificates: parsed.secure,
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier,
+        key_log,
     };
-    let mut stream = match stream_result {
-        Ok(result) => result.stream,
+    let stream_result =
+        open_probe_stream_targets_with_options(&parsed.connect_targets, parsed.port, transport, tls_name, &options);
+    let stream_result = match stream_result {
+        Ok(result) => result,
         Err(err) => {
-            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+            return failed_stream_sample(err, transport);
         }
     };
+    let negotiated_alpn = stream_result.negotiated_alpn.clone();
+    let address_family = stream_result
+        .connected_addr
+        .map(|address| if address.is_ipv4() { "ipv4" } else { "ipv6" }.to_string())
+        .or_else(|| match transport {
+            TransportConfig::Socks5 { .. } => Some("proxy_resolved_unknown".to_string()),
+            TransportConfig::Direct { .. } => None,
+        });
+    let tcp_connect_ms = Some(stream_result.tcp_connect_ms);
+    let tls_handshake_ms = parsed.secure.then_some(stream_result.tls_handshake_ms);
+    let mut stream = stream_result.stream;
     let request =
         format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n", parsed.path, parsed.host);
     if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
         stream.shutdown();
-        return ThroughputSample {
-            status: "http_unreachable".to_string(),
-            bytes_read: 0,
-            bps: 0,
-            error: err.to_string(),
-        };
+        return failed_sample_with_connection(
+            started,
+            "request_write",
+            err.to_string(),
+            negotiated_alpn,
+            address_family,
+            tcp_connect_ms,
+            tls_handshake_ms,
+        );
     }
     let headers = match read_http_headers(&mut stream, MAX_HTTP_BYTES) {
         Ok(headers) => headers,
         Err(err) => {
             stream.shutdown();
-            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+            return failed_sample_with_connection(
+                started,
+                "response_headers",
+                err,
+                negotiated_alpn,
+                address_family,
+                tcp_connect_ms,
+                tls_handshake_ms,
+            );
         }
     };
     let Some(header_end) = find_headers_end(&headers) else {
         stream.shutdown();
-        return ThroughputSample {
-            status: "http_unreachable".to_string(),
-            bytes_read: 0,
-            bps: 0,
-            error: "response_missing_headers".to_string(),
-        };
+        return failed_sample_with_connection(
+            started,
+            "response_parse",
+            "response_missing_headers".to_string(),
+            negotiated_alpn,
+            address_family,
+            tcp_connect_ms,
+            tls_handshake_ms,
+        );
     };
     let response = match parse_http_response(&headers[..header_end], headers[header_end + 4..].to_vec()) {
         Ok(response) => response,
         Err(err) => {
             stream.shutdown();
-            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+            return failed_sample_with_connection(
+                started,
+                "response_parse",
+                err,
+                negotiated_alpn,
+                address_family,
+                tcp_connect_ms,
+                tls_handshake_ms,
+            );
         }
     };
     let status = classify_http_response(&response);
+    let http_status_code = Some(response.status_code);
     let mut bytes_read = response.body.len().min(target.window_bytes);
     let mut last_error = "none".to_string();
+    let mut read_completion = if bytes_read >= target.window_bytes { "window_complete" } else { "not_started" };
+    let mut failure_stage = "none";
     while bytes_read < target.window_bytes {
         let remaining = target.window_bytes - bytes_read;
         let mut chunk = vec![0u8; remaining.min(16 * 1024)];
         match stream.read(&mut chunk) {
-            Ok(0) => break,
+            Ok(0) => {
+                read_completion = "clean_eof_before_window";
+                failure_stage = "body_read";
+                break;
+            }
             Ok(read) => {
                 bytes_read += read;
+                if bytes_read >= target.window_bytes {
+                    read_completion = "window_complete";
+                }
             }
             Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
                 last_error = err.to_string();
+                read_completion = "read_timeout";
+                failure_stage = "body_read";
                 break;
             }
             Err(err) => {
                 last_error = err.to_string();
+                read_completion = "read_error";
+                failure_stage = "body_read";
                 break;
             }
         }
@@ -124,7 +160,99 @@ fn measure_throughput_window_with_verifier(
     stream.shutdown();
     let duration_ms = started.elapsed().as_millis().max(1) as u64;
     let bps = (bytes_read as u64).saturating_mul(8).saturating_mul(1000) / duration_ms;
-    ThroughputSample { status, bytes_read, bps, error: last_error }
+    ThroughputSample {
+        status,
+        bytes_read,
+        bps,
+        error: last_error,
+        failure_stage: failure_stage.to_string(),
+        failure_class: classify_failure(failure_stage, read_completion).to_string(),
+        duration_ms,
+        http_status_code,
+        negotiated_alpn,
+        address_family,
+        tcp_connect_ms,
+        tls_handshake_ms,
+        read_completion: read_completion.to_string(),
+        retry_attempt: 0,
+    }
+}
+
+fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) -> ThroughputSample {
+    let address_family = error
+        .connected_addr
+        .map(|address| if address.is_ipv4() { "ipv4" } else { "ipv6" }.to_string())
+        .or_else(|| match transport {
+            TransportConfig::Socks5 { .. } => Some("proxy_resolved_unknown".to_string()),
+            TransportConfig::Direct { .. } => None,
+        });
+    ThroughputSample {
+        status: "http_unreachable".to_string(),
+        bytes_read: 0,
+        bps: 0,
+        error: error.message,
+        failure_stage: error.stage.as_str().to_string(),
+        failure_class: error.stage.as_str().to_string(),
+        duration_ms: error.duration_ms,
+        http_status_code: None,
+        negotiated_alpn: None,
+        address_family,
+        tcp_connect_ms: error.tcp_connect_ms,
+        tls_handshake_ms: None,
+        read_completion: "not_started".to_string(),
+        retry_attempt: 0,
+    }
+}
+
+fn failed_sample(started: std::time::Instant, failure_stage: &str, error: String) -> ThroughputSample {
+    let failure_class = classify_failure(failure_stage, "not_started").to_string();
+    ThroughputSample {
+        status: if failure_stage == "target_parse" { "invalid_target" } else { "http_unreachable" }.to_string(),
+        bytes_read: 0,
+        bps: 0,
+        error,
+        failure_stage: failure_stage.to_string(),
+        failure_class,
+        duration_ms: started.elapsed().as_millis().max(1) as u64,
+        http_status_code: None,
+        negotiated_alpn: None,
+        address_family: None,
+        tcp_connect_ms: None,
+        tls_handshake_ms: None,
+        read_completion: "not_started".to_string(),
+        retry_attempt: 0,
+    }
+}
+
+fn classify_failure(failure_stage: &str, read_completion: &str) -> &'static str {
+    match failure_stage {
+        "none" => "none",
+        "target_parse" => "target_parse",
+        "request_write" => "request_io",
+        "response_headers" | "response_parse" => "http_response",
+        "body_read" if read_completion == "read_timeout" => "read_timeout",
+        "body_read" if read_completion == "clean_eof_before_window" => "early_eof",
+        "body_read" => "body_read",
+        _ => "unknown",
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn failed_sample_with_connection(
+    started: std::time::Instant,
+    failure_stage: &str,
+    error: String,
+    negotiated_alpn: Option<String>,
+    address_family: Option<String>,
+    tcp_connect_ms: Option<u64>,
+    tls_handshake_ms: Option<u64>,
+) -> ThroughputSample {
+    let mut sample = failed_sample(started, failure_stage, error);
+    sample.negotiated_alpn = negotiated_alpn;
+    sample.address_family = address_family;
+    sample.tcp_connect_ms = tcp_connect_ms;
+    sample.tls_handshake_ms = tls_handshake_ms;
+    sample
 }
 
 pub(super) fn probe_http_url(
@@ -221,7 +349,71 @@ mod tests {
 
         assert_eq!(sample.status, "http_ok", "error={}", sample.error);
         assert_eq!(sample.bytes_read, 2);
+        assert_eq!(sample.negotiated_alpn.as_deref(), Some("http/1.1"));
         assert_eq!(server.join(), Some("http/1.1".to_string()));
+    }
+
+    #[test]
+    fn throughput_window_attributes_tls_handshake_failure() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
+        let addr = listener.local_addr().expect("fixture addr");
+        let handle = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept fixture connection");
+            let mut client_hello = [0u8; 1024];
+            let _ = socket.read(&mut client_hello).expect("read client hello");
+        });
+        let target = ThroughputTarget {
+            id: "tls-failure-fixture".to_string(),
+            label: "TLS failure fixture".to_string(),
+            url: format!("https://localhost:{}/payload", addr.port()),
+            connect_ip: Some(Ipv4Addr::LOCALHOST.to_string()),
+            connect_ips: Vec::new(),
+            port: None,
+            is_control: false,
+            window_bytes: 2,
+            runs: 1,
+        };
+
+        let sample = measure_throughput_window(&target, &TransportConfig::Direct { route_experiment: None }, None);
+
+        assert_eq!(sample.status, "http_unreachable");
+        assert_eq!(sample.failure_stage, "tls_handshake");
+        assert_eq!(sample.failure_class, "tls_handshake");
+        assert_eq!(sample.address_family.as_deref(), Some("ipv4"));
+        assert!(sample.tcp_connect_ms.is_some());
+        handle.join().expect("fixture thread");
+    }
+
+    #[test]
+    fn throughput_window_attributes_early_eof_before_window() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
+        let addr = listener.local_addr().expect("fixture addr");
+        let handle = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept fixture connection");
+            let mut request = [0u8; 1024];
+            let _ = socket.read(&mut request).expect("read HTTP request");
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+                .expect("write short HTTP response");
+        });
+        let target = ThroughputTarget {
+            id: "early-eof-fixture".to_string(),
+            label: "Early EOF fixture".to_string(),
+            url: format!("http://localhost:{}/payload", addr.port()),
+            connect_ip: Some(Ipv4Addr::LOCALHOST.to_string()),
+            connect_ips: Vec::new(),
+            port: None,
+            is_control: true,
+            window_bytes: 1024,
+            runs: 1,
+        };
+
+        let sample = measure_throughput_window(&target, &TransportConfig::Direct { route_experiment: None }, None);
+
+        assert_eq!(sample.failure_stage, "body_read");
+        assert_eq!(sample.failure_class, "early_eof");
+        assert_eq!(sample.read_completion, "clean_eof_before_window");
+        handle.join().expect("fixture thread");
     }
 
     struct H2PreferringHttp1Server {

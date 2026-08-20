@@ -7,7 +7,7 @@ use rustls::pki_types::{EchConfigListBytes, ServerName};
 use rustls::{ClientConfig, RootCertStore};
 
 use super::key_log::TlsKeyLogCallback;
-use super::types::TlsClientProfile;
+use super::types::{ApplicationProtocolPolicy, TlsClientProfile};
 use crate::cdn_ech::opportunistic_ech_config_for_ip;
 use crate::dns::{
     EchResolutionOutcome, encrypted_dns_endpoint_for_resolver_id,
@@ -17,25 +17,17 @@ use crate::transport::{TargetAddress, TransportConfig};
 
 pub(super) const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
 
-pub(super) fn build_standard_client_config(
-    profile: TlsClientProfile,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> Arc<ClientConfig> {
-    build_standard_client_config_with_key_log(profile, tls_verifier, None)
-}
-
 pub(super) fn build_standard_client_config_with_key_log(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
+    application_protocol: ApplicationProtocolPolicy,
 ) -> Arc<ClientConfig> {
     let template_profile = planned_tls_template_profile(profile);
     let builder = match profile {
-        TlsClientProfile::Auto | TlsClientProfile::AutoHttp11 => {
-            ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                .with_safe_default_protocol_versions()
-                .expect("ring provider supports default TLS versions")
-        }
+        TlsClientProfile::Auto => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions"),
         TlsClientProfile::Tls12Only => {
             ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_protocol_versions(&[&rustls::version::TLS12])
@@ -55,10 +47,7 @@ pub(super) fn build_standard_client_config_with_key_log(
     if let Some(key_log) = key_log {
         config.key_log = key_log.clone();
     }
-    apply_template_alpn(&mut config, template_profile);
-    if matches!(profile, TlsClientProfile::AutoHttp11) {
-        config.alpn_protocols = vec![b"http/1.1".to_vec()];
-    }
+    apply_application_protocol_policy(&mut config, template_profile, application_protocol);
     Arc::new(config)
 }
 
@@ -68,6 +57,7 @@ pub(super) fn build_ech_client_config(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
+    application_protocol: ApplicationProtocolPolicy,
 ) -> Result<Arc<ClientConfig>, String> {
     let template_metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
     let bootstrap_endpoint = template_metadata
@@ -114,7 +104,7 @@ pub(super) fn build_ech_client_config(
     if let Some(key_log) = key_log {
         config.key_log = key_log.clone();
     }
-    apply_template_alpn(&mut config, template_profile);
+    apply_application_protocol_policy(&mut config, template_profile, application_protocol);
     Ok(Arc::new(config))
 }
 
@@ -146,7 +136,7 @@ pub fn default_root_store() -> RootCertStore {
 }
 pub fn planned_tls_template_profile(profile: TlsClientProfile) -> &'static str {
     match profile {
-        TlsClientProfile::Auto | TlsClientProfile::AutoHttp11 | TlsClientProfile::Tls13Only => "chrome_stable",
+        TlsClientProfile::Auto | TlsClientProfile::Tls13Only => "chrome_stable",
         TlsClientProfile::Tls12Only => "chrome_desktop_stable",
         TlsClientProfile::Tls13WithEch => "firefox_ech_stable",
     }
@@ -157,4 +147,15 @@ pub fn planned_tls_template_metadata(profile: TlsClientProfile) -> ProfileMetada
 }
 fn apply_template_alpn(config: &mut ClientConfig, profile_id: &str) {
     config.alpn_protocols = selected_profile_config(profile_id).alpn.iter().map(|protocol| protocol.to_vec()).collect();
+}
+
+fn apply_application_protocol_policy(
+    config: &mut ClientConfig,
+    profile_id: &str,
+    application_protocol: ApplicationProtocolPolicy,
+) {
+    match application_protocol {
+        ApplicationProtocolPolicy::TemplateDefault => apply_template_alpn(config, profile_id),
+        ApplicationProtocolPolicy::Http11Only => config.alpn_protocols = vec![b"http/1.1".to_vec()],
+    }
 }

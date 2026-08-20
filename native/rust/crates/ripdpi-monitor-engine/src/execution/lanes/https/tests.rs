@@ -1,6 +1,34 @@
-use crate::tls::TlsObservation;
+use crate::tls::{ProbeStreamFailureStage, TlsObservation};
 
+use super::detail_builder::build_https_probe_details;
+use super::observation_collection::HttpsObservationCollection;
 use super::outcome_classification::https_tls_error_detail;
+
+#[test]
+fn https_probe_details_export_typed_failure_stage_and_duration() {
+    let mut tls13 = tls_observation("tls_handshake_failed", Some("connection refused"));
+    tls13.failure_stage = Some(ProbeStreamFailureStage::TcpConnect);
+    tls13.failure_duration_ms = Some(17);
+    let observations = HttpsObservationCollection {
+        tls13,
+        tls12: tls_observation("tls_handshake_failed", None),
+        tls_ech: tls_observation("tls_handshake_failed", None),
+        latency_ms: 17,
+        https_port: 443,
+    };
+    let candidate = crate::candidates::candidate_spec(
+        "test",
+        "Test",
+        "test",
+        ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
+    );
+
+    let details = build_https_probe_details(&candidate, &observations, "tls_handshake_failed");
+
+    assert_eq!(detail_value(&details, "tls13FailureStage"), "tcp_connect");
+    assert_eq!(detail_value(&details, "tls13FailureDurationMs"), "17");
+    assert_eq!(detail_value(&details, "tls12FailureStage"), "none");
+}
 
 #[test]
 fn https_tls_error_detail_excludes_ech_resolution_failures_for_successful_https_outcomes() {
@@ -29,6 +57,8 @@ fn tls_observation(status: &str, error: Option<&str>) -> TlsObservation {
         status: status.to_string(),
         version: None,
         error: error.map(str::to_string),
+        failure_stage: None,
+        failure_duration_ms: None,
         certificate_anomaly: false,
         ech_resolution_detail: None,
         ech_bootstrap_policy: None,
@@ -50,4 +80,8 @@ fn tls_observation(status: &str, error: Option<&str>) -> TlsObservation {
         cdn_provider: None,
         route_report: None,
     }
+}
+
+fn detail_value<'a>(details: &'a [crate::types::ProbeDetail], key: &str) -> &'a str {
+    details.iter().find(|detail| detail.key == key).map(|detail| detail.value.as_str()).expect("detail exists")
 }

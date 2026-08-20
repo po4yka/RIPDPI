@@ -45,6 +45,12 @@ pub(super) fn build_https_probe_details(
         ProbeDetail { key: "tls13Status".to_string(), value: tls13.status.clone() },
         ProbeDetail { key: "tls12Status".to_string(), value: tls12.status.clone() },
         ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status.clone() },
+        ProbeDetail { key: "tls13FailureStage".to_string(), value: failure_stage_label(tls13) },
+        ProbeDetail { key: "tls12FailureStage".to_string(), value: failure_stage_label(tls12) },
+        ProbeDetail { key: "tlsEchFailureStage".to_string(), value: failure_stage_label(tls_ech) },
+        ProbeDetail { key: "tls13FailureDurationMs".to_string(), value: failure_duration_label(tls13) },
+        ProbeDetail { key: "tls12FailureDurationMs".to_string(), value: failure_duration_label(tls12) },
+        ProbeDetail { key: "tlsEchFailureDurationMs".to_string(), value: failure_duration_label(tls_ech) },
         ProbeDetail {
             key: "tls13TemplateProfileId".to_string(),
             value: planned_tls_template_profile(TlsClientProfile::Tls13Only).to_string(),
@@ -102,6 +108,14 @@ pub(super) fn build_https_probe_details(
     push_ech_capability_details(&mut details, observations, outcome, tls_ech_template.template.ech_capable);
     push_selected_tls_details(&mut details, &selected);
     details
+}
+
+fn failure_stage_label(observation: &TlsObservation) -> String {
+    observation.failure_stage.map_or_else(|| "none".to_string(), |stage| stage.as_str().to_string())
+}
+
+fn failure_duration_label(observation: &TlsObservation) -> String {
+    observation.failure_duration_ms.map_or_else(|| "none".to_string(), |duration| duration.to_string())
 }
 
 fn select_tls_fields(tls13: &TlsObservation, tls12: &TlsObservation, tls_ech: &TlsObservation) -> SelectedTlsFields {

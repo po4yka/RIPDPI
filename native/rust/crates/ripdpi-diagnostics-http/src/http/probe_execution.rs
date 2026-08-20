@@ -1,8 +1,8 @@
 use std::io::Write;
 
 use crate::tls::{
-    TlsClientProfile, TlsKeyLogCallback, open_probe_stream, open_probe_stream_targets,
-    open_probe_stream_targets_with_key_log, open_probe_stream_with_key_log,
+    ApplicationProtocolPolicy, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
+    open_probe_stream_targets_with_options,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::util::MAX_HTTP_BYTES;
@@ -88,22 +88,17 @@ pub fn execute_http_request_with_key_log(
     key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<HttpResponse, String> {
     let tls_name = if secure { Some(host_header) } else { None };
-    let mut stream = match key_log {
-        Some(key_log) => {
-            open_probe_stream_with_key_log(
-                target,
-                port,
-                transport,
-                tls_name,
-                secure,
-                TlsClientProfile::Auto,
-                None,
-                Some(key_log),
-            )?
-            .stream
-        }
-        None => open_probe_stream(target, port, transport, tls_name, secure, TlsClientProfile::Auto, None)?.stream,
+    let options = ProbeStreamOptions {
+        verify_certificates: secure,
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier: None,
+        key_log,
     };
+    let mut stream =
+        open_probe_stream_targets_with_options(std::slice::from_ref(target), port, transport, tls_name, &options)
+            .map_err(|err| err.to_string())?
+            .stream;
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;
@@ -133,24 +128,16 @@ pub fn execute_http_request_targets_with_key_log(
     key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<HttpResponse, String> {
     let tls_name = if secure { Some(host_header) } else { None };
-    let mut stream = match key_log {
-        Some(key_log) => {
-            open_probe_stream_targets_with_key_log(
-                targets,
-                port,
-                transport,
-                tls_name,
-                secure,
-                TlsClientProfile::Auto,
-                None,
-                Some(key_log),
-            )?
-            .stream
-        }
-        None => {
-            open_probe_stream_targets(targets, port, transport, tls_name, secure, TlsClientProfile::Auto, None)?.stream
-        }
+    let options = ProbeStreamOptions {
+        verify_certificates: secure,
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier: None,
+        key_log,
     };
+    let mut stream = open_probe_stream_targets_with_options(targets, port, transport, tls_name, &options)
+        .map_err(|err| err.to_string())?
+        .stream;
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;

@@ -13,17 +13,19 @@ pub use classification::{
 pub use config::{default_root_store, make_server_name, planned_tls_template_metadata, planned_tls_template_profile};
 pub use key_log::{TlsKeyLogCallback, TlsKeyLogFile, tls_key_log_callback_for_path};
 pub use probe::{
-    open_probe_stream, open_probe_stream_targets, open_probe_stream_targets_with_key_log,
-    open_probe_stream_with_key_log, try_tls_handshake, try_tls_handshake_targets,
+    open_probe_stream_targets_with_options, try_tls_handshake, try_tls_handshake_targets,
     try_tls_handshake_targets_with_key_log, try_tls_handshake_with_key_log,
 };
-pub use types::{ProbeStreamResult, TlsClientProfile, TlsObservation};
+pub use types::{
+    ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult,
+    TlsClientProfile, TlsObservation,
+};
 pub use verifier::NoCertificateVerification;
 
 #[cfg(test)]
 mod tests {
     use super::classification::{classify_tls_dpi_signature, first_flight_plan_label, parse_alert_from_error};
-    use super::config::build_standard_client_config;
+    use super::config::build_standard_client_config_with_key_log;
     use super::*;
     use crate::transport::TargetAddress;
     use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
@@ -36,6 +38,8 @@ mod tests {
             status: status.to_string(),
             version: None,
             error: None,
+            failure_stage: None,
+            failure_duration_ms: None,
             certificate_anomaly: cert_anomaly,
             ech_resolution_detail: None,
             ech_bootstrap_policy: None,
@@ -205,7 +209,7 @@ mod tests {
         // The ECH profile is TLS 1.3-only, even before live ECH config discovery.
         let profile = TlsClientProfile::Tls13WithEch;
         let _builder = match profile {
-            TlsClientProfile::Auto | TlsClientProfile::AutoHttp11 => {
+            TlsClientProfile::Auto => {
                 ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                     .with_safe_default_protocol_versions()
                     .expect("ring provider supports default TLS versions")
@@ -265,13 +269,23 @@ mod tests {
 
     #[test]
     fn standard_client_config_uses_template_alpn() {
-        let config = build_standard_client_config(TlsClientProfile::Tls13Only, None);
+        let config = build_standard_client_config_with_key_log(
+            TlsClientProfile::Tls13Only,
+            None,
+            None,
+            ApplicationProtocolPolicy::TemplateDefault,
+        );
         assert_eq!(config.alpn_protocols, vec![b"h2".to_vec(), b"http/1.1".to_vec()]);
     }
 
     #[test]
-    fn http11_client_profile_restricts_alpn() {
-        let config = build_standard_client_config(TlsClientProfile::AutoHttp11, None);
+    fn http11_application_protocol_policy_restricts_alpn() {
+        let config = build_standard_client_config_with_key_log(
+            TlsClientProfile::Auto,
+            None,
+            None,
+            ApplicationProtocolPolicy::Http11Only,
+        );
         assert_eq!(config.alpn_protocols, vec![b"http/1.1".to_vec()]);
     }
 

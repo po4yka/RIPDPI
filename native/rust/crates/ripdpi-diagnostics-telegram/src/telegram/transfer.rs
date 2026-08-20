@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use crate::http::{extract_host_from_url, extract_path_from_url, read_http_headers};
 use crate::tls::{
-    NoCertificateVerification, TlsClientProfile, TlsKeyLogCallback, open_probe_stream, open_probe_stream_with_key_log,
+    ApplicationProtocolPolicy, NoCertificateVerification, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
+    open_probe_stream_targets_with_options,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::TelegramTarget;
@@ -106,30 +107,23 @@ pub(crate) fn telegram_download_probe(
     let target_address = TargetAddress::Host(host.clone());
     let verifier_mode = verifier_mode_for_target(&target_address, &host);
     let tls_verifier = verifier_mode.custom_verifier();
-    let stream_result = match key_log {
-        Some(key_log) => open_probe_stream_with_key_log(
-            &target_address,
-            443,
-            transport,
-            Some(&host),
-            verifier_mode.verify_certificates(),
-            TlsClientProfile::Auto,
-            tls_verifier.as_ref(),
-            Some(key_log),
-        ),
-        None => open_probe_stream(
-            &target_address,
-            443,
-            transport,
-            Some(&host),
-            verifier_mode.verify_certificates(),
-            TlsClientProfile::Auto,
-            tls_verifier.as_ref(),
-        ),
+    let options = ProbeStreamOptions {
+        verify_certificates: verifier_mode.verify_certificates(),
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier: tls_verifier.as_ref(),
+        key_log,
     };
+    let stream_result = open_probe_stream_targets_with_options(
+        std::slice::from_ref(&target_address),
+        443,
+        transport,
+        Some(&host),
+        &options,
+    );
     let mut stream = match stream_result {
         Ok(result) => result.stream,
-        Err(err) => return TelegramTransferResult::blocked(err),
+        Err(err) => return TelegramTransferResult::blocked(err.to_string()),
     };
 
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
@@ -227,30 +221,23 @@ pub(crate) fn telegram_upload_probe(
     let upload_host = upload_tls_host(&target_address);
     let verifier_mode = verifier_mode_for_target(&target_address, &upload_host);
     let tls_verifier = verifier_mode.custom_verifier();
-    let stream_result = match key_log {
-        Some(key_log) => open_probe_stream_with_key_log(
-            &target_address,
-            target.upload_port,
-            transport,
-            Some(&upload_host),
-            verifier_mode.verify_certificates(),
-            TlsClientProfile::Auto,
-            tls_verifier.as_ref(),
-            Some(key_log),
-        ),
-        None => open_probe_stream(
-            &target_address,
-            target.upload_port,
-            transport,
-            Some(&upload_host),
-            verifier_mode.verify_certificates(),
-            TlsClientProfile::Auto,
-            tls_verifier.as_ref(),
-        ),
+    let options = ProbeStreamOptions {
+        verify_certificates: verifier_mode.verify_certificates(),
+        profile: TlsClientProfile::Auto,
+        application_protocol: ApplicationProtocolPolicy::Http11Only,
+        tls_verifier: tls_verifier.as_ref(),
+        key_log,
     };
+    let stream_result = open_probe_stream_targets_with_options(
+        std::slice::from_ref(&target_address),
+        target.upload_port,
+        transport,
+        Some(&upload_host),
+        &options,
+    );
     let mut stream = match stream_result {
         Ok(result) => result.stream,
-        Err(err) => return TelegramTransferResult::blocked(err),
+        Err(err) => return TelegramTransferResult::blocked(err.to_string()),
     };
 
     let content_length = target.upload_size_bytes;

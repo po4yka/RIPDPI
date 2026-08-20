@@ -7,8 +7,10 @@ use ripdpi_socks5_core::{AuthenticationMethod, Socks5Command, SocksError, valida
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
-use super::tcp::connect_direct;
-use super::types::{Socks5Credentials, TargetAddress, TransportConnectResult};
+use super::tcp::{connect_direct, connect_direct_observed};
+use super::types::{
+    Socks5Credentials, TargetAddress, TransportConnectError, TransportConnectResult, TransportFailureStage,
+};
 
 pub(super) fn connect_via_socks5_observed(
     targets: &[TargetAddress],
@@ -16,10 +18,10 @@ pub(super) fn connect_via_socks5_observed(
     proxy_host: &str,
     proxy_port: u16,
     credentials: Option<&Socks5Credentials>,
-) -> Result<TransportConnectResult, String> {
+) -> Result<TransportConnectResult, TransportConnectError> {
     let mut last_error = None;
     for target in targets {
-        let proxy = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
+        let proxy = connect_direct_observed(&[TargetAddress::Host(proxy_host.to_string())], proxy_port, None)?.stream;
         match negotiate_socks5_with_credentials(proxy, target, port, credentials) {
             Ok(stream) => {
                 let connected_addr = match target {
@@ -29,10 +31,12 @@ pub(super) fn connect_via_socks5_observed(
                 let local_addr = stream.local_addr().ok();
                 return Ok(TransportConnectResult { stream, connected_addr, local_addr, route_report: None });
             }
-            Err(err) => last_error = Some(err),
+            Err(err) => last_error = Some(TransportConnectError::new(TransportFailureStage::Socks5Negotiation, err)),
         }
     }
-    Err(last_error.unwrap_or_else(|| "no_target_candidates".to_string()))
+    Err(last_error.unwrap_or_else(|| {
+        TransportConnectError::new(TransportFailureStage::Socks5Negotiation, "no_target_candidates")
+    }))
 }
 
 pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {

@@ -72,6 +72,43 @@ pub struct TransportConnectResult {
     pub route_report: Option<RouteExperimentReport>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TransportFailureStage {
+    DnsResolution,
+    TcpConnect,
+    Socks5Negotiation,
+}
+
+impl TransportFailureStage {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DnsResolution => "dns_resolution",
+            Self::TcpConnect => "tcp_connect",
+            Self::Socks5Negotiation => "socks5_negotiation",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransportConnectError {
+    pub stage: TransportFailureStage,
+    pub message: String,
+}
+
+impl TransportConnectError {
+    pub fn new(stage: TransportFailureStage, message: impl Into<String>) -> Self {
+        Self { stage, message: message.into() }
+    }
+}
+
+impl std::fmt::Display for TransportConnectError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for TransportConnectError {}
+
 #[derive(Debug)]
 pub struct UdpRelayResult {
     pub payload: Vec<u8>,

@@ -114,7 +114,7 @@ mod tests {
                     let _ = stream.shutdown(Shutdown::Both);
                     return;
                 }
-                Err(err) if err.contains("Address already in use") || err.contains("os error 48") => {
+                Err(err) if err.message.contains("Address already in use") || err.message.contains("os error 48") => {
                     continue;
                 }
                 Err(err) => panic!("route-stable connect: {err}"),

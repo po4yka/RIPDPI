@@ -11,16 +11,16 @@ use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 
 use super::super::certs::extract_cert_info;
 use super::super::config::{
-    build_ech_client_config, build_standard_client_config, build_standard_client_config_with_key_log, make_server_name,
-    planned_tls_template_profile,
+    build_ech_client_config, build_standard_client_config_with_key_log, make_server_name, planned_tls_template_profile,
 };
 use super::super::key_log::TlsKeyLogCallback;
-use super::super::types::TlsClientProfile;
+use super::super::types::{ApplicationProtocolPolicy, TlsClientProfile};
 
 pub(crate) struct CapturedTlsHandshake {
     pub(crate) stream: ConnectionStream,
     pub(crate) tls_template_first_flight_plan: Option<TlsTemplateFirstFlightPlan>,
     pub(crate) tls_handshake_ms: u64,
+    pub(crate) negotiated_alpn: Option<String>,
     pub(crate) cert_chain_length: Option<usize>,
     pub(crate) cert_issuer: Option<String>,
     pub(crate) ja3_fingerprint: Option<String>,
@@ -34,14 +34,19 @@ pub(crate) fn capture_tls_handshake(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
+    application_protocol: ApplicationProtocolPolicy,
 ) -> Result<CapturedTlsHandshake, String> {
     let target = targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
     let template_profile = planned_tls_template_profile(profile);
     let config = match profile {
-        TlsClientProfile::Tls13WithEch => build_ech_client_config(tls_name, target, transport, tls_verifier, key_log)?,
+        TlsClientProfile::Tls13WithEch => {
+            build_ech_client_config(tls_name, target, transport, tls_verifier, key_log, application_protocol)?
+        }
         _ => match key_log {
-            Some(key_log) => build_standard_client_config_with_key_log(profile, tls_verifier, Some(key_log)),
-            None => build_standard_client_config(profile, tls_verifier),
+            Some(key_log) => {
+                build_standard_client_config_with_key_log(profile, tls_verifier, Some(key_log), application_protocol)
+            }
+            None => build_standard_client_config_with_key_log(profile, tls_verifier, None, application_protocol),
         },
     };
     let server_name = make_server_name(tls_name, target)?;
@@ -58,12 +63,15 @@ pub(crate) fn capture_tls_handshake(
     let tls_template_first_flight_plan = plan_first_flight(template_profile, recording.recorded_writes());
     let (socket, _recorded) = recording.into_parts();
     let tls_stream = StreamOwned::new(connection, socket);
+    let negotiated_alpn =
+        tls_stream.conn.alpn_protocol().map(|protocol| String::from_utf8_lossy(protocol).into_owned());
     let (cert_chain_length, cert_issuer) = extract_cert_info(&tls_stream.conn);
 
     Ok(CapturedTlsHandshake {
         stream: ConnectionStream::Tls(Box::new(tls_stream)),
         tls_template_first_flight_plan,
         tls_handshake_ms,
+        negotiated_alpn,
         cert_chain_length,
         cert_issuer,
         ja3_fingerprint,
