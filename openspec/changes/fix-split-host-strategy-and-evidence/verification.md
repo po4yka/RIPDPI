@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1786885244559735
 change: fix-split-host-strategy-and-evidence
-commit_sha: 75bea6870
+commit_sha: 0a9843b1e
 local: required
 local_evidence: Combined Rust, Kotlin, contract, privacy, architecture, lint, harness, API-snapshot, translation-export, dependency-boundary, and task gates pass on the final code commit.
 remote_ci: required
-remote_ci_evidence: The prior pushed SHA exposed release-vector, translation-export, monitor dependency, and hotspot preflight failures; all four are repaired and locally green, while hosted workflows for the final SHA remain pending push.
+remote_ci_evidence: Code-bearing SHA 0a9843b1e passed CI run 32404907342 (59/59 jobs), CodeQL 32404907272, Secret Scan 32404907472, Monitor-engine dependency guard 32404907332, and fleet-fixtures 32404907050.
 device: required
 device_evidence: Pixel 7 arm64 API 37 ran proxySplitHostPlusOneRoutesTlsTraffic successfully against the local TLS fixture; exact on-wire PCAP and cellular/handover coverage remain unavailable on this locked no-SIM device.
 artifact: required
@@ -18,9 +18,10 @@ deployment_evidence: No deployment is owned by this change.
 
 The implementation, local source-level gates, governed API and archive
 snapshots, arm64 artifact, and physical-device application-path smoke are
-complete. Hosted CI, raw-PCAP proof of the exact TCP split boundary, and the
-full Wi-Fi/cellular/handover device matrix remain distinct pending acceptance
-layers and are not upgraded from missing evidence to PASS.
+complete. Hosted CI is green for the final code-bearing SHA. Raw-PCAP proof of
+the exact TCP split boundary and the full Wi-Fi/cellular/handover device matrix
+remain distinct pending acceptance layers and are not upgraded from missing
+evidence to PASS.
 
 ## Requirement evidence
 
@@ -75,6 +76,11 @@ layers and are not upgraded from missing evidence to PASS.
   translation export and nine-locale parity, monitor-engine Cargo-tree guards,
   native hotspot budgets (`0` overages), native architecture contracts, and
   runtime crate boundaries: PASS.
+- Hosted final code-bearing SHA `0a9843b1e`: CI run `32404907342` completed
+  59/59 jobs with no failures, including Linux workspace tests, Loom, enforced
+  Rust coverage, lint, Miri, Android instrumented tests, three release
+  variants, and `ci-required`; CodeQL, Secret Scan, monitor dependency guard,
+  and fleet fixtures also completed successfully.
 - `assembleGithubFullDebug` with `arm64-v8a` native assets: PASS. The APK
   signature, package, native ABI/ELF metadata, and root-helper packaging were
   verified before installation.
