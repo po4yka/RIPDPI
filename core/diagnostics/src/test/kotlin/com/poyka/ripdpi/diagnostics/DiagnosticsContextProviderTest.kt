@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -100,6 +102,8 @@ class DiagnosticsContextProviderTest {
                                     lastAutolearnGroup = 2,
                                     lastAutolearnAction = "host_blocked",
                                 ),
+                            proxyTelemetryStatus =
+                                RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot),
                         ),
                     )
                 }
@@ -123,6 +127,45 @@ class DiagnosticsContextProviderTest {
             assertEquals("blocked.example", context.service.lastAutolearnHost)
             assertEquals("2", context.service.lastAutolearnGroup)
             assertEquals("host_blocked", context.service.lastAutolearnAction)
+        }
+
+    @Test
+    fun `provider reports unavailable autolearn when running proxy telemetry has no snapshot`() =
+        runTest {
+            val json = diagnosticsTestJson()
+            listOf(
+                RuntimeTelemetryState.NoData to RuntimeTelemetryStatus.NoData,
+                RuntimeTelemetryState.EngineError to
+                    RuntimeTelemetryStatus(
+                        state = RuntimeTelemetryState.EngineError,
+                        message = "poll failed",
+                    ),
+            ).forEach { (expectedState, telemetryStatus) ->
+                val provider =
+                    AndroidDiagnosticsContextProvider(
+                        context = RuntimeEnvironment.getApplication(),
+                        appSettingsRepository = diagnosticsSettingsRepository(hostAutolearnEnabled = true),
+                        profileCatalog = diagnosticsProfileCatalog(json),
+                        serviceStateStore =
+                            DefaultServiceStateStore().apply {
+                                setStatus(AppStatus.Running, Mode.VPN)
+                                updateTelemetry(
+                                    ServiceTelemetrySnapshot(
+                                        mode = Mode.VPN,
+                                        status = AppStatus.Running,
+                                        proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy"),
+                                        proxyTelemetryStatus = telemetryStatus,
+                                        updatedAt = 81L,
+                                    ),
+                                )
+                            },
+                    )
+
+                val service = provider.captureContext().service
+                assertEquals("unavailable", service.hostAutolearnEnabled)
+                assertEquals("unavailable", service.lastAutolearnAction)
+                assertEquals(expectedState.wireValue, service.proxy?.state)
+            }
         }
 
     @Test
@@ -200,7 +243,7 @@ class DiagnosticsContextProviderTest {
                 )
         }
 
-    private fun diagnosticsSettingsRepository(): AppSettingsRepository =
+    private fun diagnosticsSettingsRepository(hostAutolearnEnabled: Boolean = false): AppSettingsRepository =
         object : AppSettingsRepository {
             private val settingsState =
                 MutableStateFlow(
@@ -210,6 +253,7 @@ class DiagnosticsContextProviderTest {
                         .setDiagnosticsActiveProfileId("default")
                         .setProxyIp("127.0.0.1")
                         .setProxyPort(1080)
+                        .setHostAutolearnEnabled(hostAutolearnEnabled)
                         .setStrategyChains(
                             tcpSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
                             udpSteps = emptyList(),

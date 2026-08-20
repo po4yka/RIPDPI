@@ -102,8 +102,9 @@ class AndroidDiagnosticsContextProvider
             telemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
             tcpSteps: List<com.poyka.ripdpi.data.TcpChainStepModel>,
             lastNativeError: String,
-        ): ServiceContextModel =
-            ServiceContextModel(
+        ): ServiceContextModel {
+            val hasProxySnapshot = telemetry.proxyTelemetryStatus.state == RuntimeTelemetryState.Snapshot
+            return ServiceContextModel(
                 serviceStatus = serviceStatus.name,
                 configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }).name,
                 activeMode = activeMode.name,
@@ -122,20 +123,37 @@ class AndroidDiagnosticsContextProvider
                         ?.let { System.currentTimeMillis() - it },
                 lastNativeErrorHeadline = lastNativeError,
                 restartCount = telemetry.restartCount,
-                hostAutolearnEnabled = booleanState(telemetry.proxyTelemetry.autolearnEnabled),
+                hostAutolearnEnabled =
+                    when (telemetry.proxyTelemetryStatus.state) {
+                        RuntimeTelemetryState.Snapshot -> booleanState(telemetry.proxyTelemetry.autolearnEnabled)
+                        RuntimeTelemetryState.NoData, RuntimeTelemetryState.EngineError -> "unavailable"
+                    },
                 learnedHostCount = telemetry.proxyTelemetry.learnedHostCount,
                 penalizedHostCount = telemetry.proxyTelemetry.penalizedHostCount,
                 blockedHostCount = telemetry.proxyTelemetry.blockedHostCount,
-                lastBlockSignal = telemetry.proxyTelemetry.lastBlockSignal ?: "none",
-                lastBlockProvider = telemetry.proxyTelemetry.lastBlockProvider ?: "none",
-                lastAutolearnHost = telemetry.proxyTelemetry.lastAutolearnHost ?: "none",
-                lastAutolearnGroup = telemetry.proxyTelemetry.lastAutolearnGroup?.toString() ?: "none",
-                lastAutolearnAction = telemetry.proxyTelemetry.lastAutolearnAction ?: "none",
-                proxy = telemetry.proxyTelemetry.toRuntimeComponentSummary(),
+                lastBlockSignal =
+                    telemetry.proxyTelemetry.lastBlockSignal?.takeIf { hasProxySnapshot }
+                        ?: unavailableValue(hasProxySnapshot),
+                lastBlockProvider =
+                    telemetry.proxyTelemetry.lastBlockProvider?.takeIf { hasProxySnapshot }
+                        ?: unavailableValue(hasProxySnapshot),
+                lastAutolearnHost =
+                    telemetry.proxyTelemetry.lastAutolearnHost?.takeIf { hasProxySnapshot }
+                        ?: unavailableValue(hasProxySnapshot),
+                lastAutolearnGroup =
+                    telemetry.proxyTelemetry.lastAutolearnGroup
+                        ?.takeIf { hasProxySnapshot }
+                        ?.toString()
+                        ?: unavailableValue(hasProxySnapshot),
+                lastAutolearnAction =
+                    telemetry.proxyTelemetry.lastAutolearnAction?.takeIf { hasProxySnapshot }
+                        ?: unavailableValue(hasProxySnapshot),
+                proxy = telemetry.proxyTelemetry.toRuntimeComponentSummary(telemetry.proxyTelemetryStatus),
                 tunnel = telemetry.tunnelTelemetry.toRuntimeComponentSummary(),
                 relay = telemetry.relayTelemetry.toRuntimeComponentSummary(),
                 warp = telemetry.warpTelemetry.toRuntimeComponentSummary(),
             )
+        }
 
         private fun buildDeviceContext(packageInfo: android.content.pm.PackageInfo): DeviceContextModel =
             DeviceContextModel(
@@ -230,6 +248,27 @@ internal fun NativeRuntimeSnapshot.toRuntimeComponentSummary(): RuntimeComponent
         capturedAt = capturedAt.takeIf { it > 0L },
     )
 
+internal fun NativeRuntimeSnapshot.toRuntimeComponentSummary(status: RuntimeTelemetryStatus): RuntimeComponentSummary =
+    when (status.state) {
+        RuntimeTelemetryState.Snapshot -> {
+            toRuntimeComponentSummary()
+        }
+
+        RuntimeTelemetryState.NoData -> {
+            RuntimeComponentSummary(state = RuntimeTelemetryState.NoData.wireValue)
+        }
+
+        RuntimeTelemetryState.EngineError -> {
+            RuntimeComponentSummary(
+                state = RuntimeTelemetryState.EngineError.wireValue,
+                lastError = status.message?.takeIf { it.isNotBlank() } ?: "runtime telemetry polling failed",
+                lastFailureClass = status.causeClass?.takeIf { it.isNotBlank() } ?: "unknown",
+            )
+        }
+    }
+
+private fun unavailableValue(snapshotAvailable: Boolean): String = if (snapshotAvailable) "none" else "unavailable"
+
 internal fun buildServiceRuntimeAssessment(
     serviceStatus: AppStatus,
     telemetry: ServiceTelemetrySnapshot,
@@ -269,7 +308,7 @@ internal fun buildServiceRuntimeAssessment(
         nativeFailureClass = failureClass,
         lastNativeErrorHeadline = lastError,
         actionable = actionable,
-        proxy = telemetry.proxyTelemetry.toRuntimeComponentSummary(),
+        proxy = telemetry.proxyTelemetry.toRuntimeComponentSummary(telemetry.proxyTelemetryStatus),
         tunnel = telemetry.tunnelTelemetry.toRuntimeComponentSummary(),
         relay = telemetry.relayTelemetry.toRuntimeComponentSummary(),
         warp = telemetry.warpTelemetry.toRuntimeComponentSummary(),

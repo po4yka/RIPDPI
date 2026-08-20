@@ -44,7 +44,15 @@ internal class DiagnosticsHomeRecommendationApplier
                         recommendation.recommendedProxyConfigJson,
                     )?.let { preferences ->
                         val settingsBefore = appSettingsRepository.snapshot()
-                        appSettingsRepository.replace(preferences.applyToSettings(settingsBefore))
+                        val strategySettings =
+                            preferences
+                                .applyToSettings(settingsBefore)
+                                .toBuilder()
+                                .setHostAutolearnEnabled(settingsBefore.hostAutolearnEnabled)
+                                .setHostAutolearnPenaltyTtlHours(settingsBefore.hostAutolearnPenaltyTtlHours)
+                                .setHostAutolearnMaxHosts(settingsBefore.hostAutolearnMaxHosts)
+                                .build()
+                        appSettingsRepository.replace(strategySettings)
                         StrategyApplyResult(
                             recommendation = recommendation,
                             appliedSettings =

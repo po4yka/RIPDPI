@@ -70,6 +70,7 @@ class RipDpiProxyUIPreferences(
         )
 
     fun withSessionOverrides(
+        hostAutolearn: RipDpiHostAutolearnConfig = this.hostAutolearn,
         hostAutolearnStorePath: String? = hostAutolearn.storePath,
         networkScopeKey: String? = hostAutolearn.networkScopeKey,
         runtimeContext: RipDpiRuntimeContext? = this.runtimeContext,

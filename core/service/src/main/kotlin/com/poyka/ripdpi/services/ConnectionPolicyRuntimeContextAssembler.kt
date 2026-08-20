@@ -197,8 +197,19 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     geositeDbPath = geoPaths.geositeDbPath,
                     awg = awg,
                 )
-            return checkNotNull(decodeRipDpiProxyUiPreferences(remembered.toNativeConfigJson())) {
-                "Remembered proxy policy cannot be overlaid with canonical destination routing"
-            }.withDestinationRoutingPolicy(destinationRouting, awgOverride = awg)
+            val rememberedPreferences =
+                checkNotNull(decodeRipDpiProxyUiPreferences(remembered.toNativeConfigJson())) {
+                    "Remembered proxy policy cannot be overlaid with canonical destination routing"
+                }
+            val currentHostAutolearn =
+                RipDpiProxyUIPreferences
+                    .fromSettings(
+                        settings = settings,
+                        hostAutolearnStorePath = hostAutolearnStorePath,
+                        networkScopeKey = networkScopeKey,
+                    ).hostAutolearn
+            return rememberedPreferences
+                .withSessionOverrides(hostAutolearn = currentHostAutolearn)
+                .withDestinationRoutingPolicy(destinationRouting, awgOverride = awg)
         }
     }
