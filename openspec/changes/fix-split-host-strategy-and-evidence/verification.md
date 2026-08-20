@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1786885244559735
 change: fix-split-host-strategy-and-evidence
-commit_sha: c75d5bc15
+commit_sha: 04b2419a5
 local: required
 local_evidence: Combined Rust, Kotlin, contract, privacy, architecture, lint, harness, API-snapshot, and task gates pass on the rebased code commit.
 remote_ci: required
