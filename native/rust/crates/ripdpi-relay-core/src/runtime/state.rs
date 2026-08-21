@@ -236,9 +236,8 @@ impl RuntimeState {
     pub(super) fn record_error(&self, error: String) {
         self.last_error.store(Some(Arc::new(error)));
         // Ordering: this is a standalone telemetry counter and does not publish other state.
-        let _ = self
-            .session_error_streak
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |streak| Some(streak.saturating_add(1)));
+        // A u64 streak cannot realistically wrap, so a plain fetch_add suffices.
+        self.session_error_streak.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(super) fn record_session_success(&self) {

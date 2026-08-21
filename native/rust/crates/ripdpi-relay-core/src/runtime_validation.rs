@@ -66,13 +66,34 @@ pub(crate) fn planned_backend_fallback_mode(config: &ResolvedRelayRuntimeConfig)
     }
 }
 
+/// Pool tiers by transport family. Kept out of the transport descriptor
+/// (README) because sub-modes share a kind yet need different budgets; the
+/// tiers below are the single source for those budgets.
+///
+/// QUIC-multiplexed families amortize one handshake across many leases, so
+/// they sustain the widest concurrency and the longest idle retention.
+const QUIC_MULTIPLEXED_MAX_ACTIVE_LEASES: usize = 64;
+const QUIC_MULTIPLEXED_IDLE_TIMEOUT: Duration = Duration::from_secs(45);
+/// Stream-multiplexing transports (xhttp, Cloudflare tunnel) also reuse a
+/// carrier across leases, with a tighter budget tuned to their carrier cost.
+const STREAM_MULTIPLEXED_MAX_ACTIVE_LEASES: usize = 48;
+const STREAM_MULTIPLEXED_IDLE_TIMEOUT: Duration = Duration::from_secs(20);
+/// Every other kind opens one carrier per lease; a small pool with a short
+/// idle window keeps fd pressure bounded on mobile devices.
+const SINGLE_CARRIER_MAX_ACTIVE_LEASES: usize = 16;
+const SINGLE_CARRIER_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> RelayPoolConfig {
     match RelayKind::from_config(config) {
-        RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque | RelayKind::AnyTls => {
-            RelayPoolConfig { max_active_leases: 64, idle_timeout: Duration::from_secs(45) }
-        }
+        RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque | RelayKind::AnyTls => RelayPoolConfig {
+            max_active_leases: QUIC_MULTIPLEXED_MAX_ACTIVE_LEASES,
+            idle_timeout: QUIC_MULTIPLEXED_IDLE_TIMEOUT,
+        },
         RelayKind::CloudflareTunnel | RelayKind::Vless { xhttp: true } | RelayKind::VlessReality { xhttp: true } => {
-            RelayPoolConfig { max_active_leases: 48, idle_timeout: Duration::from_secs(20) }
+            RelayPoolConfig {
+                max_active_leases: STREAM_MULTIPLEXED_MAX_ACTIVE_LEASES,
+                idle_timeout: STREAM_MULTIPLEXED_IDLE_TIMEOUT,
+            }
         }
         RelayKind::Vless { xhttp: false }
         | RelayKind::VlessReality { xhttp: false }
@@ -83,7 +104,10 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         | RelayKind::Trojan
         | RelayKind::Shadowsocks
         | RelayKind::Tor
-        | RelayKind::NaiveProxy => RelayPoolConfig { max_active_leases: 16, idle_timeout: Duration::from_secs(5) },
+        | RelayKind::NaiveProxy => RelayPoolConfig {
+            max_active_leases: SINGLE_CARRIER_MAX_ACTIVE_LEASES,
+            idle_timeout: SINGLE_CARRIER_IDLE_TIMEOUT,
+        },
         RelayKind::Unsupported(_) => RelayPoolConfig::default(),
     }
 }
