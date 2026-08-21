@@ -21,7 +21,7 @@ pub mod util {
     };
 }
 
-pub mod candidates {
+pub(crate) mod candidates {
     pub use ripdpi_diagnostics_candidates::candidates::*;
 }
 

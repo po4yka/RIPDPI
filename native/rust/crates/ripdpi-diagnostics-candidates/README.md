@@ -26,6 +26,13 @@ Keep the `AGENTS.md` § Strategy Probe Candidates families in sync.
 Probe *execution* (that is `ripdpi-diagnostics-probes`) or verdict
 classification (that is `ripdpi-diagnostics-classification`).
 
+The dependency set above is closed for this crate's role: it materializes
+strategy configurations, so `ripdpi-config` / `ripdpi-proxy-config` types are
+its working vocabulary, and DNS-context, platform-capability, and
+failure-classification inputs are inherent to candidate qualification. New
+dependency families (relay runtimes, telemetry sinks, UI state) do not belong
+here; bring the need to the runner instead.
+
 ---
 See [`DIAGNOSTICS_ARCHITECTURE.md`](../../../../docs/architecture/DIAGNOSTICS_ARCHITECTURE.md)
 for the scan pipeline and
