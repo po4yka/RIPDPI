@@ -75,6 +75,7 @@ class VpnServiceSessionHardKillSwitchLifecycleTest {
                     serviceIntentArbiter = ServiceIntentArbiter(),
                 ),
             transportFailoverApplyTracker = TransportFailoverApplyTracker(),
+            serviceStopProvenanceRecorder = ServiceStopProvenanceRecorder { _, _ -> },
             hardKillSwitchRefreshBroadcastLifecycle = refreshLifecycle,
         )
     }

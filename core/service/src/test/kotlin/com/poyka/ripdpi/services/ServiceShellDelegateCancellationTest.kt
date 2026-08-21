@@ -33,7 +33,7 @@ class ServiceShellDelegateCancellationTest {
                             startCancelled = true
                         }
                     },
-                    onStop = { operations += "stop" },
+                    onStop = { _, _ -> operations += "stop" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -62,7 +62,7 @@ class ServiceShellDelegateCancellationTest {
                         operations += "start-$startId"
                         if (startId == 1) neverCompletes.await()
                     },
-                    onStop = { operations += "stop" },
+                    onStop = { _, _ -> operations += "stop" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -87,7 +87,7 @@ class ServiceShellDelegateCancellationTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = { operations += "stop" },
+                    onStop = { _, _ -> operations += "stop" },
                     transportFailoverCommandHandler =
                         TransportFailoverCommandHandler(
                             restart = { _, _ ->

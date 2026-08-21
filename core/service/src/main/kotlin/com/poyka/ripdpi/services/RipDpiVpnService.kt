@@ -61,6 +61,9 @@ class RipDpiVpnService :
     lateinit var runtimeEvidenceReporter: AndroidRuntimeEvidenceReporter
 
     @Inject
+    internal lateinit var serviceStopProvenanceRecorder: RoomServiceStopProvenanceRecorder
+
+    @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
     @Inject
@@ -133,6 +136,7 @@ class RipDpiVpnService :
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
                 transportFailoverApplyTracker = transportFailoverApplyTracker,
+                serviceStopProvenanceRecorder = serviceStopProvenanceRecorder,
                 beforeUserStart = {
                     explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN)
                 },

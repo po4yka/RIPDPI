@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
@@ -22,6 +23,7 @@ internal class VpnServiceSessionLifecycle(
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
     private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
+    private val serviceStopProvenanceRecorder: ServiceStopProvenanceRecorder,
     private val beforeUserStart: suspend () -> Unit = {},
     private val awaitStartupReadiness: suspend () -> Boolean = { true },
     private val recoverProfileMutations: suspend () -> Unit = {},
@@ -79,7 +81,10 @@ internal class VpnServiceSessionLifecycle(
                         runtimeCoordinator.start(stopSelfStartId = startId)
                     }
                 },
-                onStop = runtimeCoordinator::stop,
+                onStop = { startId, provenance ->
+                    serviceStopProvenanceRecorder.record(Mode.VPN, provenance)
+                    runtimeCoordinator.stop(startId)
+                },
                 transportFailoverCommandHandler =
                     TransportFailoverCommandHandler(
                         restart = { requestId, expectedTarget ->

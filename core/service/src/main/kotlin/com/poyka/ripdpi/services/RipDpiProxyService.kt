@@ -71,6 +71,9 @@ class RipDpiProxyService :
     @Inject
     lateinit var runtimeEvidenceReporter: AndroidRuntimeEvidenceReporter
 
+    @Inject
+    internal lateinit var serviceStopProvenanceRecorder: RoomServiceStopProvenanceRecorder
+
     private var sessionComponent: ProxyServiceSessionComponent? = null
     private lateinit var coordinator: ProxyServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
@@ -98,7 +101,10 @@ class RipDpiProxyService :
                 serviceLabel = "proxy",
                 onStart = coordinator::start,
                 onStartWithId = { _, startId -> coordinator.start(stopSelfStartId = startId) },
-                onStop = coordinator::stop,
+                onStop = { startId, provenance ->
+                    serviceStopProvenanceRecorder.record(Mode.Proxy, provenance)
+                    coordinator.stop(startId)
+                },
                 onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
                 onAcceptedStop = acceptedUserStopRecorder::record,
                 isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,

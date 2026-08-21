@@ -4,6 +4,12 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
 import kotlinx.coroutines.CompletableDeferred
@@ -28,7 +34,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -48,7 +54,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     transportFailoverCommandHandler =
                         TransportFailoverCommandHandler(
                             restart = { _, _ -> operations += "fallback-restart" },
@@ -78,7 +84,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = {},
+                    onStop = { _, _ -> },
                     transportFailoverCommandHandler =
                         TransportFailoverCommandHandler(
                             restart = { _, _ -> },
@@ -106,7 +112,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { keepConsumerBusy.await() },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     transportFailoverCommandHandler =
                         TransportFailoverCommandHandler(
                             restart = { _, _ -> },
@@ -138,7 +144,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -159,7 +165,7 @@ class ServiceShellDelegateTest {
                     serviceLabel = "vpn",
                     onStart = {},
                     onStartWithId = { _, startId -> startIds += startId },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -198,7 +204,7 @@ class ServiceShellDelegateTest {
                             replacementRunning = true
                         }
                     },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -223,7 +229,7 @@ class ServiceShellDelegateTest {
                         operations += "start"
                         running = true
                     },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     beforeUserStart = { operations += "prepare" },
                     shouldPrepareUserStart = { !running },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -251,7 +257,7 @@ class ServiceShellDelegateTest {
                         operations += if (action == startupFallbackStartAction) "fallback" else "manual"
                         running = true
                     },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     beforeUserStart = { operations += "prepare-vless" },
                     shouldPrepareUserStart = { !running },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -274,7 +280,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -299,7 +305,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -323,7 +329,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     transportFailoverCommandHandler =
                         TransportFailoverCommandHandler(
                             restart = { _, _ -> restartCalls += 1 },
@@ -358,7 +364,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     isStopAllowed = { stopAllowed },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -381,7 +387,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -404,7 +410,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = {},
+                    onStop = { _, _ -> },
                     onAcceptedStop = recorder::record,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -429,7 +435,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = {},
+                    onStop = { _, _ -> },
                     isStopAllowed = { false },
                     onAcceptedStop = recorder::record,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -452,7 +458,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     onAcceptedStop = tracker::recordAcceptedStop,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -462,6 +468,49 @@ class ServiceShellDelegateTest {
 
             assertEquals(listOf(14), stopIds)
             assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
+
+    @Test
+    fun `diagnostics stop durably records its cause before runtime teardown`() =
+        runTest {
+            val operations = mutableListOf<String>()
+            val store = RecordingServiceStopArtifactWriteStore(operations)
+            val recorder = RoomServiceStopProvenanceRecorder(store, AndroidRuntimeEvidenceClock { 321L })
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = { _, provenance ->
+                        recorder.record(Mode.VPN, provenance)
+                        operations += "stop"
+                    },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(diagnosticsStopAction, 15)
+            runCurrent()
+
+            val event = requireNotNull(store.event)
+            assertEquals(
+                listOf(
+                    "persist",
+                    "stop",
+                    "android_service_control",
+                    "service_lifecycle",
+                    "event=service_stop_requested reason=diagnostics_raw_path_scan initiator=diagnostics_runtime",
+                    "vpn",
+                    "321",
+                ),
+                operations +
+                    listOf(
+                        event.source,
+                        event.subsystem,
+                        event.message,
+                        event.mode,
+                        event.createdAt.toString(),
+                    ),
+            )
         }
 
     @Test
@@ -475,7 +524,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
-                    onStop = {},
+                    onStop = { _, _ -> },
                     onAcceptedStart = tracker::recordAcceptedStart,
                     onAcceptedStop = tracker::recordAcceptedStop,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -501,7 +550,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     onAcceptedStart = tracker::recordAcceptedStart,
                     isCompensatingStopCurrent = tracker::isCurrentIntentStopped,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -525,7 +574,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -545,7 +594,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -569,7 +618,7 @@ class ServiceShellDelegateTest {
                         events += "recover"
                         events += "runtime-start"
                     },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -590,7 +639,7 @@ class ServiceShellDelegateTest {
                     serviceLabel = "vpn",
                     onStart = { error("recovery must not use the user-start path") },
                     onStartWithId = { _, _ -> recoveredActions += "recovered" },
-                    onStop = {},
+                    onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -615,7 +664,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = { stopIds += it },
+                    onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -635,7 +684,7 @@ class ServiceShellDelegateTest {
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
-                    onStop = {},
+                    onStop = { _, _ -> },
                     onRevoke = { revokeCalls += 1 },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -670,4 +719,23 @@ private class NotificationStopBootStore(
     override fun setWasRunningAtUpdate(value: Boolean) {
         running = value
     }
+}
+
+private class RecordingServiceStopArtifactWriteStore(
+    private val operations: MutableList<String>,
+) : DiagnosticsArtifactWriteStore {
+    var event: NativeSessionEventEntity? = null
+
+    override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
+
+    override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) = Unit
+
+    override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
+
+    override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
+        operations += "persist"
+        this.event = event
+    }
+
+    override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
 }

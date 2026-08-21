@@ -44,7 +44,7 @@ internal class ServiceShellDelegate(
     private val serviceLabel: String,
     private val onStart: suspend () -> Unit,
     private val onStartWithId: suspend (String?, Int) -> Unit = { _, _ -> onStart() },
-    private val onStop: suspend (Int?) -> Unit,
+    private val onStop: suspend (Int?, ServiceStopProvenance) -> Unit,
     private val transportFailoverCommandHandler: TransportFailoverCommandHandler =
         TransportFailoverCommandHandler(restart = { _, _ -> onStart() }),
     private val beforeUserStart: suspend () -> Unit = {},
@@ -150,7 +150,13 @@ internal class ServiceShellDelegate(
                 if (isStopAllowed(action)) {
                     onAcceptedStop()
                     cancelStartsAcceptedBeforeUserStop()
-                    enqueue { onStop(startId) }
+                    val provenance =
+                        if (action == notificationStopAction) {
+                            ServiceStopProvenance.NotificationAction
+                        } else {
+                            ServiceStopProvenance.UserRequest
+                        }
+                    enqueue { stopWithProvenance(startId, provenance) }
                     android.app.Service.START_NOT_STICKY
                 } else {
                     Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
@@ -161,7 +167,9 @@ internal class ServiceShellDelegate(
 
             diagnosticsStopAction -> {
                 if (isStopAllowed(action)) {
-                    enqueue { onStop(startId) }
+                    enqueue {
+                        stopWithProvenance(startId, ServiceStopProvenance.DiagnosticsRawPathScan)
+                    }
                     android.app.Service.START_NOT_STICKY
                 } else {
                     Logger.w { "Ignoring diagnostics stop for $serviceLabel service while disconnect is blocked" }
@@ -172,7 +180,9 @@ internal class ServiceShellDelegate(
 
             diagnosticsCompensatingStopAction -> {
                 if (isStopAllowed(action) && isCompensatingStopCurrent()) {
-                    enqueue { onStop(startId) }
+                    enqueue {
+                        stopWithProvenance(startId, ServiceStopProvenance.DiagnosticsCompensation)
+                    }
                     android.app.Service.START_NOT_STICKY
                 } else {
                     Logger.d { "Skipping stale diagnostics stop for $serviceLabel service" }
@@ -185,6 +195,13 @@ internal class ServiceShellDelegate(
                 android.app.Service.START_STICKY
             }
         }
+
+    private suspend fun stopWithProvenance(
+        startId: Int,
+        provenance: ServiceStopProvenance,
+    ) {
+        onStop(startId, provenance)
+    }
 
     private fun enqueueTransportFailoverRestart(
         requestId: Long?,
