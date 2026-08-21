@@ -24,7 +24,6 @@
 //! `docs/design/reality-boringssl-patch.md`.
 
 use std::io;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::hkdf;
@@ -63,14 +62,22 @@ pub(crate) fn build_session_id_plaintext(short_id: &[u8], now_secs: u32) -> [u8;
 /// `hkdf.New(sha256.New, ECDH(priv, server_pub), Random[:20], "REALITY")`.
 /// IKM = ECDH shared secret, salt = `client_random[..20]`, info =
 /// `b"REALITY"`, OKM length = 32. The key is returned zeroized on drop.
+///
+/// # Errors
+///
+/// Fails when the ECDH shared secret is not contributory (a low-order
+/// server public key would otherwise derive a predictable auth key).
 pub(crate) fn derive_auth_key(
     priv_key: &[u8; 32],
     server_pub: &[u8; 32],
     client_random: &[u8; 32],
-) -> Zeroizing<[u8; 32]> {
+) -> io::Result<Zeroizing<[u8; 32]>> {
     let secret = StaticSecret::from(*priv_key);
     let pub_key = PublicKey::from(*server_pub);
     let shared = secret.diffie_hellman(&pub_key);
+    if !shared.was_contributory() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Reality ECDH shared secret is not contributory"));
+    }
 
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &client_random[..20]);
     let prk = salt.extract(shared.as_bytes());
@@ -78,7 +85,7 @@ pub(crate) fn derive_auth_key(
     let okm = prk.expand(&info, AuthKeyLen).expect("HKDF expand auth_key (length is known-good)");
     let mut auth_key = Zeroizing::new([0u8; 32]);
     okm.fill(auth_key.as_mut()).expect("HKDF fill auth_key (length is known-good)");
-    auth_key
+    Ok(auth_key)
 }
 
 /// Seal the Reality session_id into the 32-byte slot of the ClientHello.
@@ -118,7 +125,7 @@ pub(crate) fn seal_session_id(
         )));
     }
 
-    let auth_key = derive_auth_key(priv_key, server_pub, client_random);
+    let auth_key = derive_auth_key(priv_key, server_pub, client_random)?;
     let plaintext = build_session_id_plaintext(short_id, now_secs);
 
     let mut aad_buf = raw_hello.to_vec();
@@ -143,19 +150,6 @@ pub(crate) fn seal_session_id(
     let mut out = [0u8; SESSION_ID_LEN];
     out.copy_from_slice(&in_out);
     Ok(out)
-}
-
-/// Convenience wrapper that supplies `SystemTime::now()` as the timestamp.
-#[allow(dead_code)]
-pub(crate) fn seal_session_id_now(
-    priv_key: &[u8; 32],
-    server_pub: &[u8; 32],
-    client_random: &[u8; 32],
-    short_id: &[u8],
-    raw_hello: &[u8],
-) -> io::Result<[u8; 32]> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as u32;
-    seal_session_id(priv_key, server_pub, client_random, short_id, raw_hello, now)
 }
 
 struct AuthKeyLen;
@@ -205,7 +199,7 @@ mod tests {
             seal_session_id(&priv_key, &server_pub, &client_random, &short_id, &raw, now).expect("seal succeeds");
         assert_eq!(sealed.len(), SESSION_ID_LEN);
 
-        let auth_key = derive_auth_key(&priv_key, &server_pub, &client_random);
+        let auth_key = derive_auth_key(&priv_key, &server_pub, &client_random).expect("derive auth key");
         let unbound = UnboundKey::new(&AES_256_GCM, auth_key.as_slice()).unwrap();
 
         struct Once([u8; 12], bool);
@@ -288,16 +282,16 @@ mod tests {
         cr_a[5] = 0x01;
         cr_b[5] = 0x02;
 
-        let k_a = derive_auth_key(&priv_key, &server_pub, &cr_a);
-        let k_b = derive_auth_key(&priv_key, &server_pub, &cr_b);
+        let k_a = derive_auth_key(&priv_key, &server_pub, &cr_a).expect("derive k_a");
+        let k_b = derive_auth_key(&priv_key, &server_pub, &cr_b).expect("derive k_b");
         assert_ne!(k_a, k_b, "mutation in client_random[..20] must alter AuthKey (C1 spec)");
 
         let mut cr_c = [0u8; 32];
         let mut cr_d = [0u8; 32];
         cr_c[25] = 0x01;
         cr_d[25] = 0x02;
-        let k_c = derive_auth_key(&priv_key, &server_pub, &cr_c);
-        let k_d = derive_auth_key(&priv_key, &server_pub, &cr_d);
+        let k_c = derive_auth_key(&priv_key, &server_pub, &cr_c).expect("derive k_c");
+        let k_d = derive_auth_key(&priv_key, &server_pub, &cr_d).expect("derive k_d");
         assert_eq!(k_c, k_d, "mutation in client_random[20..] must NOT alter AuthKey (C1 spec)");
     }
 
@@ -349,17 +343,6 @@ mod tests {
         let long = [0xAA; 16];
         let pt = build_session_id_plaintext(&long, 0);
         assert_eq!(pt[8..16], [0xAA; 8]);
-    }
-
-    /// `seal_session_id_now` is a thin wrapper around `seal_session_id`
-    /// with `SystemTime::now()` plumbed in; verify it returns 32 bytes
-    /// and does not panic on a minimum-length raw_hello.
-    #[test]
-    fn seal_session_id_now_returns_full_slot() {
-        let raw = make_raw_hello();
-        let sealed = seal_session_id_now(&[0x11; 32], &server_pub_from_seed(0x88), &[0x33; 32], &[0x01], &raw)
-            .expect("seal_session_id_now succeeds");
-        assert_eq!(sealed.len(), SESSION_ID_LEN);
     }
 
     /// **Frozen test vector.** Locks the output of `seal_session_id`

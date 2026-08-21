@@ -697,7 +697,7 @@ mod tests {
     }
 
     fn open_reality_session_id(trace: &RealityHookTrace, server_pubkey: [u8; 32]) -> [u8; 16] {
-        let auth_key = derive_auth_key(&trace.priv_key, &server_pubkey, &trace.client_random);
+        let auth_key = derive_auth_key(&trace.priv_key, &server_pubkey, &trace.client_random).expect("derive auth key");
         let unbound = UnboundKey::new(&AES_256_GCM, auth_key.as_slice()).expect("AES-256-GCM key");
         let key = LessSafeKey::new(unbound);
         let nonce_bytes: [u8; 12] = trace.client_random[20..32].try_into().expect("nonce slice");
