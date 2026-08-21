@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -121,6 +122,7 @@ internal fun createDiagnosticsServices(
                     scanRecordStore = stores,
                     artifactReadStore = stores,
                     artifactQueryStore = stores,
+                    archiveEventQueryStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = logcatSnapshotCollector,
                     fileLogWriter =
@@ -235,6 +237,7 @@ internal fun createDiagnosticsServices(
             retirementQueue = retirementQueue,
         )
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
+    val rawPathSettlementBarrier = RawPathSettlementBarrier(stores, stores.rawPathSettlementStore, json)
     val executionCoordinator =
         DiagnosticsScanExecutionCoordinator(
             scanRecordStore = stores,
@@ -255,6 +258,7 @@ internal fun createDiagnosticsServices(
                     networkEdgePreferenceStore = networkEdgePreferenceStore,
                     networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
                     serverCapabilityStore = serverCapabilityStore,
+                    rawPathSettlementBarrier = rawPathSettlementBarrier,
                     json = json,
                 ),
             scanRequestFactory = requestFactory,
@@ -323,6 +327,7 @@ internal fun createDiagnosticsServices(
                 runtimeHistoryStartup = runtimeHistoryStartup,
                 policyHandoverEventStore = policyHandoverEventStore,
                 automaticProbeScheduler = scheduler,
+                rawPathSettlementBarrier = rawPathSettlementBarrier,
                 importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
                 scope = scope,
             ),

@@ -92,10 +92,7 @@ object TimingAnalysisChecker {
                     ),
                 )
                 evidence.add(
-                    EvidenceItem(
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        scope = DetectionScope.NETWORK_OBSERVATION,
-                        detected = true,
+                    networkTimingEvidence(
                         confidence = EvidenceConfidence.MEDIUM,
                         description =
                             "Connection timing shows consistent tunnel overhead pattern " +
@@ -118,10 +115,7 @@ object TimingAnalysisChecker {
                     ),
                 )
                 evidence.add(
-                    EvidenceItem(
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        scope = DetectionScope.NETWORK_OBSERVATION,
-                        detected = true,
+                    networkTimingEvidence(
                         confidence = EvidenceConfidence.LOW,
                         description = "Multiple targets show unusually consistent latency",
                     ),
@@ -154,6 +148,18 @@ object TimingAnalysisChecker {
                 evidence = evidence,
             )
         }
+
+    internal fun networkTimingEvidence(
+        confidence: EvidenceConfidence,
+        description: String,
+    ): EvidenceItem =
+        EvidenceItem(
+            source = EvidenceSource.NETWORK_CAPABILITIES,
+            scope = DetectionScope.NETWORK_OBSERVATION,
+            detected = true,
+            confidence = confidence,
+            description = description,
+        )
 
     private suspend fun collectTimingSamples(dispatchers: AppCoroutineDispatchers): List<TimingSnapshot> =
         coroutineScope {

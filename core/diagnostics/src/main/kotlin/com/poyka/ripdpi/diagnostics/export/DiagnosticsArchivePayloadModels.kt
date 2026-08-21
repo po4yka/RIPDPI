@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomePacketCaptureDisposition
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomePacketCaptureOutcome
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -38,7 +40,9 @@ internal data class DiagnosticsArchiveCompletenessPayload(
     val appliedLimits: DiagnosticsArchiveAppliedLimits,
     val sourceCounts: DiagnosticsArchiveScopedCounts,
     val includedCounts: DiagnosticsArchiveScopedCounts,
+    val nativeEvents: DiagnosticsArchiveNativeEventCompleteness = DiagnosticsArchiveNativeEventCompleteness(),
     val relayAttemptTraces: DiagnosticsArchiveRelayTraceCompleteness = DiagnosticsArchiveRelayTraceCompleteness(),
+    val logcat: DiagnosticsArchiveLogcatCompleteness? = null,
     val collectionWarnings: List<String> = emptyList(),
     val reasons: List<DiagnosticsArchiveCompletenessReason> = emptyList(),
     val truncation: DiagnosticsArchiveTruncation = DiagnosticsArchiveTruncation(),
@@ -70,7 +74,26 @@ internal data class DiagnosticsArchiveHomeAnalysisPayload(
     val connectivityAssessment: ConnectivityAssessment? = null,
     val internetLossReproAction: HomeReproAction? = null,
     val detectionProvenance: DiagnosticsArchiveDetectionProvenance? = null,
+    val packetCaptureDisposition: DiagnosticsArchivePacketCaptureDisposition =
+        DiagnosticsArchivePacketCaptureDisposition(false, DiagnosticsHomePacketCaptureOutcome.NOT_REQUESTED),
 )
+
+/** Redacted projection: raw-capture identifying fields never enter the archive. */
+@Serializable
+internal data class DiagnosticsArchivePacketCaptureDisposition(
+    val requested: Boolean,
+    val outcome: DiagnosticsHomePacketCaptureOutcome,
+    val totalDrops: Long? = null,
+    val failureCode: String? = null,
+)
+
+internal fun DiagnosticsHomePacketCaptureDisposition.toArchiveProjection() =
+    DiagnosticsArchivePacketCaptureDisposition(
+        requested = requested,
+        outcome = outcome,
+        totalDrops = totalDrops,
+        failureCode = failureCode,
+    )
 
 @Serializable
 internal data class DiagnosticsArchiveDetectionProvenance(
@@ -82,4 +105,16 @@ internal data class DiagnosticsArchiveDetectionProvenance(
     val uniqueSignalCount: JsonElement = JsonNull,
     val localFindingCount: JsonElement = JsonNull,
     val networkFindingCount: JsonElement = JsonNull,
+    val findingDetails: List<DiagnosticsArchiveDetectionFindingDetail> = emptyList(),
+)
+
+@Serializable
+internal data class DiagnosticsArchiveDetectionFindingDetail(
+    val alias: String,
+    val kind: String,
+    val category: String,
+    val semantics: String,
+    val source: String,
+    val scope: String,
+    val confidence: String,
 )

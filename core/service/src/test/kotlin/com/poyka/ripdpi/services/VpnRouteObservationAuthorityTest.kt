@@ -88,6 +88,7 @@ class VpnRouteObservationAuthorityTest {
                 ipv6Enabled = false,
                 dns = "1.1.1.1",
                 appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+                ownPackage = "com.poyka.ripdpi",
                 networkParameters = VpnTunnelNetworkParameters(),
                 apiLevel = Build.VERSION_CODES.Q,
             )
@@ -133,6 +134,7 @@ private fun VpnRouteLifecycleReceiptStore.beginTestGeneration(): Long =
         ipv6Enabled = false,
         dns = "1.1.1.1",
         appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+        ownPackage = "com.poyka.ripdpi",
         networkParameters = VpnTunnelNetworkParameters(),
         apiLevel = Build.VERSION_CODES.Q,
     )

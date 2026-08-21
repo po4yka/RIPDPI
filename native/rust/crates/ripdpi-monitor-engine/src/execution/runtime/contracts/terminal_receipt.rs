@@ -23,7 +23,7 @@ impl CandidateRuntimeTerminalReceipt {
         execution_evidence: Vec<CandidateRuntimeExecutionEvidence>,
     ) -> Option<Self> {
         (generation != 0
-            && valid_completed_cleanup(cleanup, false)
+            && valid_completed_cleanup(&cleanup, false)
             && execution_evidence_matches_generation(generation, &execution_evidence))
         .then(|| {
             Self::new(
@@ -43,7 +43,7 @@ impl CandidateRuntimeTerminalReceipt {
         execution_evidence: Vec<CandidateRuntimeExecutionEvidence>,
     ) -> Option<Self> {
         (generation != 0
-            && valid_completed_cleanup(cleanup, true)
+            && valid_completed_cleanup(&cleanup, true)
             && execution_evidence_matches_generation(generation, &execution_evidence))
         .then(|| {
             Self::new(
@@ -95,7 +95,7 @@ impl CandidateRuntimeTerminalReceipt {
         execution_evidence: Vec<CandidateRuntimeExecutionEvidence>,
     ) -> Option<Self> {
         (generation != 0
-            && valid_failed_cleanup(cleanup, shutdown_mode)
+            && valid_failed_cleanup(&cleanup, shutdown_mode)
             && execution_evidence_matches_generation(generation, &execution_evidence))
         .then(|| Self::new(generation, cleanup, shutdown_mode, worker_outcome, execution_evidence, false))
     }
@@ -138,7 +138,7 @@ impl CandidateRuntimeTerminalReceipt {
     }
 
     pub fn cleanup(&self) -> CandidateCleanupReceipt {
-        self.cleanup
+        self.cleanup.clone()
     }
 
     pub fn generation(&self) -> u64 {
@@ -166,14 +166,20 @@ impl CandidateRuntimeTerminalReceipt {
     }
 }
 
-fn valid_completed_cleanup(cleanup: CandidateCleanupReceipt, forced: bool) -> bool {
+fn valid_completed_cleanup(cleanup: &CandidateCleanupReceipt, forced: bool) -> bool {
     cleanup.started > 0
         && cleanup.started == cleanup.stopped
-        && cleanup.stopped == cleanup.joined
-        && if forced { cleanup.forced_abort > 0 } else { cleanup.forced_abort == 0 }
+        && if forced {
+            // A bounded forced stop may detach a non-cooperating OS thread.
+            // `stopped` records the requested/observed stop, while `joined`
+            // remains the truthful completed-join count.
+            cleanup.joined <= cleanup.stopped && cleanup.forced_abort > 0
+        } else {
+            cleanup.stopped == cleanup.joined && cleanup.forced_abort == 0
+        }
 }
 
-fn valid_failed_cleanup(cleanup: CandidateCleanupReceipt, shutdown_mode: CandidateRuntimeShutdownMode) -> bool {
+fn valid_failed_cleanup(cleanup: &CandidateCleanupReceipt, shutdown_mode: CandidateRuntimeShutdownMode) -> bool {
     cleanup.started > 0
         && cleanup.joined == cleanup.started
         && match shutdown_mode {
@@ -181,4 +187,22 @@ fn valid_failed_cleanup(cleanup: CandidateCleanupReceipt, shutdown_mode: Candida
             CandidateRuntimeShutdownMode::ForcedAbort => cleanup.forced_abort > 0,
             CandidateRuntimeShutdownMode::AlreadyJoined => false,
         }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn forced_detach_is_terminal_without_claiming_a_join() {
+        let receipt = CandidateRuntimeTerminalReceipt::forced_abort(
+            1,
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1, ..Default::default() },
+            Vec::new(),
+        )
+        .expect("forced stop is terminal even when its OS thread was detached");
+
+        assert_eq!(receipt.cleanup().joined, 0);
+        assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
+    }
 }

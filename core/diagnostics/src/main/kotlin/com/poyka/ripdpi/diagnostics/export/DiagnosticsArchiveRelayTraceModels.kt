@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSelection
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -51,7 +52,8 @@ internal fun selectRelayAttemptTraceEvents(
     (primaryEvents + globalEvents)
         .distinctBy { it.id }
         .filter { event ->
-            !event.connectionSessionId.isNullOrBlank() &&
+            event.subsystem == "relay" &&
+                !event.connectionSessionId.isNullOrBlank() &&
                 !event.runtimeId.isNullOrBlank() &&
                 event.attemptId != null &&
                 event.attemptSequence != null &&
@@ -65,6 +67,13 @@ internal fun selectRelayAttemptTraceEvents(
                 { it.attemptSequence },
             ),
         )
+
+internal fun DiagnosticsArchiveSelection.relayTraceSourceEvents(): List<NativeSessionEventEntity> =
+    if (relayTraceHydrationApplied) {
+        relayTraceEvents
+    } else {
+        (primaryEvents + globalEvents).distinctBy { it.id }
+    }
 
 internal fun relayAttemptAliases(
     events: List<NativeSessionEventEntity>,

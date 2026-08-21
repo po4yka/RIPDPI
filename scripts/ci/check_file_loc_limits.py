@@ -470,6 +470,24 @@ def _measure_function_lines(text: str, match_start: int) -> int:
     return max(1, text.count("\n", match_start) + 1)
 
 
+def _measure_kotlin_abstract_function_lines(text: str, match_start: int) -> int:
+    """Count a bodyless Kotlin abstract declaration without consuming a later class body."""
+    start_line = text.count("\n", 0, match_start)
+    parenthesis_depth = 0
+    saw_parameters = False
+    for index in range(match_start, len(text)):
+        character = text[index]
+        if character == "(":
+            parenthesis_depth += 1
+            saw_parameters = True
+        elif character == ")":
+            parenthesis_depth = max(0, parenthesis_depth - 1)
+        elif character == "\n" and saw_parameters and parenthesis_depth == 0:
+            end_line = text.count("\n", 0, index)
+            return max(1, end_line - start_line + 1)
+    return max(1, text.count("\n", match_start) + 1)
+
+
 def top_functions(path: Path, language: str, top_n: int = 5) -> list[tuple[str, int]]:
     """Return the top_n longest functions as (name, line_count) pairs, descending."""
     try:
@@ -481,7 +499,10 @@ def top_functions(path: Path, language: str, top_n: int = 5) -> list[tuple[str, 
     results: list[tuple[str, int]] = []
     for match in pattern.finditer(text):
         name = match.group(2)
-        line_count = _measure_function_lines(text, match.start())
+        if language == "kotlin" and "abstract" in match.group(1).split():
+            line_count = _measure_kotlin_abstract_function_lines(text, match.start())
+        else:
+            line_count = _measure_function_lines(text, match.start())
         results.append((name, line_count))
 
     results.sort(key=lambda item: item[1], reverse=True)

@@ -7,10 +7,15 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.diagnostics.finalization.RawPathHomeSettlementDisposition
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementInconclusiveSummaryPrefix
+import com.poyka.ripdpi.diagnostics.finalization.evaluateForHomeContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
@@ -119,12 +124,15 @@ internal class HomeCompositeStageExecutor
             runId: String,
             progressState: StateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
             updateRunStatus: (String, DiagnosticsHomeCompositeRunStatus) -> Unit,
+            beforeTerminalStatus: suspend () -> Unit = {},
         ) {
             val failure =
                 runCatching {
                     cancelRunStages(runId, progressState)
+                    beforeTerminalStatus()
                     updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
                 }.exceptionOrNull() ?: return
+            runCatching { beforeTerminalStatus() }
             updateRunStatus(
                 runId,
                 if (
@@ -228,15 +236,16 @@ internal class HomeCompositeStageExecutor
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
         ): String? =
             runCatching {
+                val pathMode = requireNotNull(spec.pathMode) { "Stage ${spec.key} does not start a scan session" }
                 diagnosticsScanController.startScanOwnedBy(
                     ownerId = runId,
-                    pathMode = spec.pathMode,
+                    pathMode = pathMode,
                     selectedProfileId = spec.profileId,
                     skipActiveScanCheck = true,
                     scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
-                    resumeRuntimeAfterRawPath = spec.pathMode == ScanPathMode.RAW_PATH,
+                    resumeRuntimeAfterRawPath = pathMode == ScanPathMode.RAW_PATH,
                 )
             }.fold(
                 onSuccess = { result ->
@@ -290,12 +299,33 @@ internal class HomeCompositeStageExecutor
             stageSessionId: String,
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
         ): Pair<String, DiagnosticScanSession>? {
+            val pathMode = requireNotNull(spec.pathMode) { "Stage ${spec.key} does not own a scan session" }
             val sessionFinished =
                 diagnosticsTimelineSource.sessions
                     .map { sessions ->
                         sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
                     }.filterNotNull()
                     .map { StageSessionSignal.Finished(it) }
+
+            val rawSessionSettled =
+                combine(
+                    diagnosticsTimelineSource.sessions,
+                    diagnosticsTimelineSource.contexts,
+                ) { sessions, contexts ->
+                    val terminalSession =
+                        sessions.firstOrNull { session ->
+                            session.id == stageSessionId && session.status != "running"
+                        }
+                    terminalSession?.let { session ->
+                        contexts
+                            .firstOrNull { context ->
+                                context.sessionId == stageSessionId &&
+                                    context.contextKind == RawPathSettlementContextKind
+                            }?.let { context ->
+                                StageSessionSignal.RawPathSettled(session, context.rawPathExecutionResult)
+                            }
+                    }
+                }.filterNotNull()
 
             val vpnHalted =
                 serviceStateStore.status
@@ -304,8 +334,8 @@ internal class HomeCompositeStageExecutor
                     .map { StageSessionSignal.VpnHalted }
 
             val signal =
-                if (spec.pathMode == ScanPathMode.RAW_PATH) {
-                    sessionFinished.first()
+                if (pathMode == ScanPathMode.RAW_PATH) {
+                    rawSessionSettled.first()
                 } else {
                     merge(sessionFinished, vpnHalted).first()
                 }
@@ -314,6 +344,17 @@ internal class HomeCompositeStageExecutor
                 is StageSessionSignal.Finished -> {
                     log.i { "stage ${spec.key} completed status=${signal.session.status}" }
                     stageSessionId to signal.session
+                }
+
+                is StageSessionSignal.RawPathSettled -> {
+                    resolveRawPathSettlementSignal(
+                        signal = signal,
+                        runId = runId,
+                        stageIndex = stageIndex,
+                        spec = spec,
+                        stageSessionId = stageSessionId,
+                        progressState = progressState,
+                    )
                 }
 
                 StageSessionSignal.VpnHalted -> {
@@ -337,7 +378,7 @@ internal class HomeCompositeStageExecutor
                     .onFailure { failure ->
                         log.w(failure) { "failed to cancel interrupted session: $stageSessionId" }
                     }
-                awaitTimedOutStageRecovery(stageSessionId)
+                awaitTimedOutStageRecovery(stageSessionId, ScanPathMode.IN_PATH)
             }
         }
 
@@ -385,10 +426,29 @@ internal class HomeCompositeStageExecutor
             log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
             runCatching { diagnosticsScanController.cancelScan(stageSessionId) }
                 .onFailure { failure -> log.w(failure) { "failed to cancel timed-out session: $stageSessionId" } }
-            val recoveredSession = awaitTimedOutStageRecovery(stageSessionId)
-            if (recoveredSession != null) {
-                log.i { "stage ${spec.key} recovered after timeout status=${recoveredSession.status}" }
-                return stageSessionId to recoveredSession
+            val recoveredSignal = awaitTimedOutStageRecovery(stageSessionId, requireNotNull(spec.pathMode))
+            if (recoveredSignal != null) {
+                return when (recoveredSignal) {
+                    is StageSessionSignal.Finished -> {
+                        log.i { "stage ${spec.key} recovered after timeout status=${recoveredSignal.session.status}" }
+                        stageSessionId to recoveredSignal.session
+                    }
+
+                    is StageSessionSignal.RawPathSettled -> {
+                        resolveRawPathSettlementSignal(
+                            signal = recoveredSignal,
+                            runId = runId,
+                            stageIndex = stageIndex,
+                            spec = spec,
+                            stageSessionId = stageSessionId,
+                            progressState = progressState,
+                        )
+                    }
+
+                    StageSessionSignal.VpnHalted -> {
+                        null
+                    }
+                }
             }
             markStageFailure(
                 progressState = progressState,
@@ -400,14 +460,75 @@ internal class HomeCompositeStageExecutor
             return null
         }
 
-        private suspend fun awaitTimedOutStageRecovery(stageSessionId: String): DiagnosticScanSession? =
+        private suspend fun awaitTimedOutStageRecovery(
+            stageSessionId: String,
+            pathMode: ScanPathMode,
+        ): StageSessionSignal? =
             withTimeoutOrNull(TimedOutStageRecoveryTimeoutMs) {
-                diagnosticsTimelineSource.sessions
-                    .map { sessions ->
-                        sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
+                if (pathMode == ScanPathMode.RAW_PATH) {
+                    combine(
+                        diagnosticsTimelineSource.sessions,
+                        diagnosticsTimelineSource.contexts,
+                    ) { sessions, contexts ->
+                        val terminalSession =
+                            sessions.firstOrNull { session ->
+                                session.id == stageSessionId && session.status != "running"
+                            }
+                        terminalSession?.let { session ->
+                            contexts
+                                .firstOrNull { context ->
+                                    context.sessionId == stageSessionId &&
+                                        context.contextKind == RawPathSettlementContextKind
+                                }?.let { context ->
+                                    StageSessionSignal.RawPathSettled(session, context.rawPathExecutionResult)
+                                }
+                        }
                     }.filterNotNull()
-                    .first()
+                        .first()
+                } else {
+                    diagnosticsTimelineSource.sessions
+                        .map { sessions ->
+                            sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
+                        }.filterNotNull()
+                        .map { StageSessionSignal.Finished(it) }
+                        .first()
+                }
             }
+
+        private fun resolveRawPathSettlementSignal(
+            signal: StageSessionSignal.RawPathSettled,
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+            stageSessionId: String,
+            progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
+        ): Pair<String, DiagnosticScanSession>? {
+            val evaluation = signal.result?.evaluateForHomeContinuation()
+            return when (evaluation?.disposition) {
+                RawPathHomeSettlementDisposition.USABLE -> {
+                    log.i { "stage ${spec.key} settled status=${signal.session.status} receipt=${evaluation.reason}" }
+                    stageSessionId to signal.session
+                }
+
+                RawPathHomeSettlementDisposition.SUPERSEDED_BY_USER_STOP -> {
+                    throw HomeRawPathSupersededByUserStopException(stageSessionId)
+                }
+
+                RawPathHomeSettlementDisposition.INCONCLUSIVE,
+                null,
+                -> {
+                    val reason = evaluation?.reason ?: "missing_or_malformed_receipt"
+                    markStageFailure(
+                        progressState = progressState,
+                        runId = runId,
+                        stageIndex = stageIndex,
+                        headline = "${spec.label} inconclusive",
+                        summary = "$RawPathSettlementInconclusiveSummaryPrefix: $reason",
+                    )
+                    null
+                }
+            }
+        }
 
         fun markStageFailure(
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
@@ -447,9 +568,27 @@ internal class HomeCompositeStageExecutor
     }
 
 private object UnavailableInPathRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
-    override suspend fun runRawPathScan(block: suspend () -> Unit) = block()
+    override suspend fun runRawPathScan(block: suspend () -> Unit) = unavailableRawPathResult(block)
 
-    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) = block()
+    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) = unavailableRawPathResult(block)
+}
+
+private suspend fun unavailableRawPathResult(block: suspend () -> Unit): com.poyka.ripdpi.data.RawPathExecutionResult {
+    block()
+    return com.poyka.ripdpi.data.RawPathExecutionResult(
+        settlement =
+            com.poyka.ripdpi.data.RawPathExecutionSettlement(
+                rawWindowGeneration = 0L,
+                resumeIntentGeneration = 0L,
+                outcome = com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome.RestoreNotRequired,
+                runtimeWasRunning = false,
+                resumeRequired = false,
+                postRuntimeContext =
+                    com.poyka.ripdpi.data
+                        .RawPathRuntimeContext(),
+            ),
+        executionOutcome = com.poyka.ripdpi.data.RawPathExecutionOutcome.Completed,
+    )
 }
 
 private fun Throwable?.withSuppressed(additional: Throwable?): Throwable? =

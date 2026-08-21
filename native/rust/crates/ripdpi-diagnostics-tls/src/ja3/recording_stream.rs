@@ -15,6 +15,10 @@ impl<S> RecordingStream<S> {
         &self.recorded_writes
     }
 
+    pub fn inner_mut(&mut self) -> &mut S {
+        &mut self.inner
+    }
+
     pub fn into_parts(self) -> (S, Vec<u8>) {
         (self.inner, self.recorded_writes)
     }

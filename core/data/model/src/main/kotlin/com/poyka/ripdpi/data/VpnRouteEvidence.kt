@@ -116,5 +116,7 @@ interface VpnRouteEvidenceProvider {
 
     fun capture(): VpnRouteEvidence
 
+    fun currentRouteGeneration(): Long? = capture().lifecycle?.generation
+
     fun convergenceRefreshDelayMillis(): Long? = null
 }

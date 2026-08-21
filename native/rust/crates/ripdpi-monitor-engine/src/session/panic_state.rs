@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::engine::{ReportBuildContext, build_report, panic_payload_message};
 use crate::types::{
-    ProbeDetail, ProbeResult, ScanCompletionKind, ScanProgress, ScanRequest, ScanTerminationReason, SharedState,
+    ProbeDetail, ProbeResult, ScanCompletionKind, ScanProgress, ScanReportDisposition, ScanRequest,
+    ScanTerminationReason, SharedState,
 };
 
 pub(super) fn record_panic_terminal_state(
@@ -29,15 +30,19 @@ pub(super) fn record_panic_terminal_state(
     );
     panic_report.completion_kind = ScanCompletionKind::Terminated;
     panic_report.termination_reason = Some(ScanTerminationReason::WorkerPanicked);
-    let Ok(mut state) = shared.lock() else {
-        return;
-    };
+    let mut state = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if state.report.is_none()
+        && let Some(checkpoint_report) = state.checkpoint_report.take()
+    {
+        state.report = Some(checkpoint_report);
+    }
     if let Some(report) = state.report.as_mut() {
         if !report.results.iter().any(|result| result.outcome == "worker_panicked") {
             report.results.push(panic_result);
         }
         report.finished_at = crate::util::now_ms();
         report.summary = "Diagnostics failed: internal worker error".to_string();
+        report.report_disposition = ScanReportDisposition::Terminal;
         report.completion_kind = ScanCompletionKind::PartialResults;
         report.termination_reason = Some(ScanTerminationReason::WorkerPanicked);
     } else {

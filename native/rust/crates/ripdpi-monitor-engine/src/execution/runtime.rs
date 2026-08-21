@@ -106,7 +106,7 @@ mod tests {
         fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
             CandidateRuntimeTerminalReceipt::forced_abort(
                 1,
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() },
                 Vec::new(),
             )
             .expect("valid forced receipt")
@@ -115,7 +115,7 @@ mod tests {
         fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
             CandidateRuntimeTerminalReceipt::clean_shutdown(
                 1,
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
                 Vec::new(),
             )
             .expect("valid clean receipt")

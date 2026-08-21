@@ -2,6 +2,7 @@ use crate::connectivity::{push_event, set_progress};
 use crate::types::{ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane};
 
 use super::artifacts::RunnerArtifacts;
+use super::cancellation::publish_partial_run_checkpoint;
 use super::plan::ExecutionPlan;
 use super::state::ExecutionRuntime;
 
@@ -67,6 +68,7 @@ impl ExecutionRuntime {
             latest_probe_outcome,
             strategy_probe_progress,
         );
+        publish_partial_run_checkpoint(plan, self);
     }
 
     #[allow(clippy::too_many_arguments)]

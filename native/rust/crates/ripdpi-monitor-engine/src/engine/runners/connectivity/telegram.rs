@@ -34,10 +34,14 @@ impl ExecutionStageRunner for TelegramRunner {
         let Some(target) = plan.request.telegram_target.as_ref() else {
             return RunnerOutcome::Completed;
         };
-        if runtime.is_cancelled() {
+        if runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline() {
             return RunnerOutcome::Cancelled;
         }
         record_telegram_probe(plan, runtime, target, self.phase());
-        RunnerOutcome::Completed
+        if runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline() {
+            RunnerOutcome::Cancelled
+        } else {
+            RunnerOutcome::Completed
+        }
     }
 }

@@ -100,6 +100,109 @@ pub fn try_tls_handshake_targets_with_key_log(
     }
 }
 
+pub fn open_probe_stream(
+    target: &TargetAddress,
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Result<ProbeStreamResult, String> {
+    let options = ProbeStreamOptions { verify_certificates, profile, tls_verifier, ..ProbeStreamOptions::default() };
+    open_probe_stream_targets_with_options(std::slice::from_ref(target), port, transport, tls_name, &options)
+        .map_err(|err| err.to_string())
+}
+
+pub fn open_probe_stream_with_key_log(
+    target: &TargetAddress,
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> Result<ProbeStreamResult, String> {
+    open_probe_stream_with_key_log_and_abort(
+        target,
+        port,
+        transport,
+        tls_name,
+        verify_certificates,
+        profile,
+        tls_verifier,
+        key_log,
+        &|| None,
+    )
+}
+
+pub fn open_probe_stream_with_abort(
+    target: &TargetAddress,
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<ProbeStreamResult, String> {
+    open_probe_stream_targets_with_key_log_and_abort(
+        std::slice::from_ref(target),
+        port,
+        transport,
+        tls_name,
+        verify_certificates,
+        profile,
+        tls_verifier,
+        None,
+        should_abort,
+    )
+}
+
+#[expect(clippy::too_many_arguments, reason = "abort-aware variant mirrors the existing TLS stream opening API")]
+pub fn open_probe_stream_with_key_log_and_abort(
+    target: &TargetAddress,
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<ProbeStreamResult, String> {
+    open_probe_stream_targets_with_key_log_and_abort(
+        std::slice::from_ref(target),
+        port,
+        transport,
+        tls_name,
+        verify_certificates,
+        profile,
+        tls_verifier,
+        key_log,
+        should_abort,
+    )
+}
+
+#[expect(clippy::too_many_arguments, reason = "abort-aware variant mirrors the existing TLS stream opening API")]
+pub fn open_probe_stream_targets_with_key_log_and_abort(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<ProbeStreamResult, String> {
+    let options =
+        ProbeStreamOptions { verify_certificates, profile, tls_verifier, key_log, ..ProbeStreamOptions::default() };
+    open_probe_stream_targets_with_options_and_abort(targets, port, transport, tls_name, &options, should_abort)
+        .map_err(|err| err.to_string())
+}
+
 pub fn open_probe_stream_targets_with_options(
     targets: &[TargetAddress],
     port: u16,
@@ -108,4 +211,15 @@ pub fn open_probe_stream_targets_with_options(
     options: &ProbeStreamOptions<'_>,
 ) -> Result<ProbeStreamResult, ProbeStreamError> {
     stream::open_probe_stream_targets_with_options(targets, port, transport, tls_name, options)
+}
+
+pub fn open_probe_stream_targets_with_options_and_abort(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    options: &ProbeStreamOptions<'_>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<ProbeStreamResult, ProbeStreamError> {
+    stream::open_probe_stream_targets_with_options_and_abort(targets, port, transport, tls_name, options, should_abort)
 }

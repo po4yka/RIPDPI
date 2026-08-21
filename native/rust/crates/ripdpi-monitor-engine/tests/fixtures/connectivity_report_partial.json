@@ -138,6 +138,7 @@
   "packVersions": {},
   "pathMode": "RAW_PATH",
   "profileId": "connectivity-partial-contract",
+  "reportDisposition": "TERMINAL",
   "resolverRecommendation": null,
   "results": [
     {

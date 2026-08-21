@@ -346,6 +346,10 @@ internal fun DiagnosticsScanLaunchOrigin.displayLabel(ctx: StringResolver): Stri
             ctx.getString(R.string.diagnostics_scan_launch_dns_corrected_reprobe)
         }
 
+        DiagnosticsScanLaunchOrigin.HOME_DETECTION_LOCAL -> {
+            ctx.getString(R.string.diagnostics_scan_launch_unknown)
+        }
+
         DiagnosticsScanLaunchOrigin.UNKNOWN -> {
             ctx.getString(R.string.diagnostics_scan_launch_unknown)
         }

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.BundledDiagnosticsProfileImporter
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.RuntimeHistoryStartup
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -24,6 +25,7 @@ class DefaultDiagnosticsBootstrapper
         private val runtimeHistoryStartup: RuntimeHistoryStartup,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
         private val automaticProbeScheduler: AutomaticProbeScheduler,
+        private val rawPathSettlementBarrier: RawPathSettlementBarrier,
         @param:Named("importBundledProfilesOnInitialize")
         private val importBundledProfilesOnInitialize: Boolean,
         @param:ApplicationIoScope
@@ -32,6 +34,11 @@ class DefaultDiagnosticsBootstrapper
         private val initialized = AtomicBoolean(false)
 
         override suspend fun initialize() {
+            runCatching { rawPathSettlementBarrier.recoverPending() }
+                .onFailure { error ->
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    Logger.w(error) { "Pending raw-path settlement recovery skipped" }
+                }
             if (!initialized.compareAndSet(false, true)) {
                 return
             }

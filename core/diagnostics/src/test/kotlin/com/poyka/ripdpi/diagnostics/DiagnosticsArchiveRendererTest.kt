@@ -97,6 +97,35 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer does not retain recoverable socks hostname bytes`() {
+        val encodedHostname = "c2Vuc2l0aXZlLmV4YW1wbGU="
+        val numericHostname = "115,101,110,115,105,116,105,118,101,46,101,120,97,109,112,108,101"
+        val base = buildFullRendererSelection()
+        val hostileResult =
+            rendererProbeResult(sessionId = "session-1").copy(
+                detailJson =
+                    """{"socksRequestBytes":"$encodedHostname","rawBytes":[$numericHostname]}""",
+            )
+        val selection =
+            base.copy(
+                payload = base.payload.copy(results = listOf(hostileResult)),
+                primaryResults = listOf(hostileResult),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-raw-wire", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-raw-wire.zip",
+                createdAt = 42L,
+            )
+
+        val renderedArchive = renderer.render(target, selection).joinToString("\n") { it.bytes.decodeToString() }
+
+        assertFalse(renderedArchive.contains(encodedHostname))
+        assertFalse(renderedArchive.contains(numericHostname))
+        assertFalse(renderedArchive.contains("sensitive.example"))
+    }
+
+    @Test
     fun `measurement snapshot exports evidence for the detectability verdict`() {
         val selection = buildFullRendererSelection()
         val strategyProbe = rendererScanReport("session-1").strategyProbeReport
@@ -693,6 +722,38 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer redacts raw socks wire values from logcat snapshot`() {
+        val numericCarrier = "115, 101, 110, 115, 105, 116, 105, 118, 101, 46, 101, 120, 97, 109, 112, 108, 101"
+        val encodedCarrier = "c2Vuc2l0aXZlLmV4YW1wbGU="
+        val rawLog =
+            "Bytes long version: [5, 1, 0, 3, 17, $numericCarrier]\n" +
+                "rawPacketBase64=$encodedCarrier\n"
+        val selection =
+            buildFullRendererSelection().copy(
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = rawLog,
+                        captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                        byteCount = rawLog.toByteArray().size,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-render", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-logcat-raw-wire.zip",
+                createdAt = 45L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val logcatText = entries.getValue("logcat.txt").bytes.decodeToString()
+
+        assertTrue(logcatText.contains("Bytes long version: <raw-wire-redacted>"))
+        assertTrue(logcatText.contains("rawPacketBase64=<raw-wire-redacted>"))
+        assertFalse(logcatText.contains(numericCarrier))
+        assertFalse(logcatText.contains(encodedCarrier))
+    }
+
+    @Test
     fun `archive privacy removes device identity and aliases correlations consistently`() {
         val correlationId = "123e4567-e89b-12d3-a456-426614174000"
         val sensitiveDevice =
@@ -813,7 +874,7 @@ class DiagnosticsArchiveRendererTest {
                 scopedCounts.getValue("primarySession").jsonObject.keys,
             )
         }
-        assertEquals(11, DiagnosticsArchiveFormat.schemaVersion)
+        assertEquals(12, DiagnosticsArchiveFormat.schemaVersion)
     }
 
     @Test
@@ -920,6 +981,80 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(logcat.contains(newestMarker))
         assertTrue(logcat.contains(LogcatTruncationMarker.trim()))
         assertTrue(entries.getValue("logcat.txt").bytes.size <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+    }
+
+    @Test
+    fun `completeness accounts final line aligned logcat after every redaction pass`() {
+        val correlationId = "123e4567-e89b-12d3-a456-426614174000"
+        val middleLine =
+            "03-12 10:00:00.010 I/ripdpi-native: correlation=$correlationId " +
+                "host=private.example payload=${"x".repeat(48)}\n"
+        val newestLine =
+            "03-12 10:59:59.999 I/ripdpi-native: correlation=$correlationId newest-evidence\n"
+        val rawLog = middleLine.repeat(8_000) + newestLine
+        val rawBytes = rawLog.toByteArray(Charsets.UTF_8).size
+        val selection =
+            buildFullRendererSelection().copy(
+                includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true),
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = rawLog,
+                        captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                        byteCount = rawBytes,
+                        truncated = true,
+                        sourceByteCount = rawBytes.toLong() + 127L,
+                        retainedByteCount = rawBytes.toLong(),
+                        droppedByteCount = 127L,
+                        preCollectionRingLoss = LogcatPreCollectionRingLossStatus.UNKNOWN,
+                        earliestRetainedTimestamp = "03-12 10:00:00.010",
+                        latestRetainedTimestamp = "03-12 10:59:59.999",
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-final-logcat-accounting", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-final-logcat-accounting.zip",
+                createdAt = 48L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val finalLogcat = entries.getValue("logcat.txt").bytes
+        val finalText = finalLogcat.decodeToString()
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+        val logcat = requireNotNull(completeness.logcat)
+        val retainedLogLines =
+            finalText
+                .lineSequence()
+                .filter(String::isNotBlank)
+                .filterNot { line -> line.startsWith("[logcat truncated:") }
+                .toList()
+        val timestampRegex = Regex("^(\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3})")
+
+        assertTrue(finalLogcat.size <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+        assertTrue(finalText.contains(LogcatTailTruncationMarker.trim()))
+        assertTrue(finalText.contains("newest-evidence"))
+        assertFalse(finalText.contains(correlationId))
+        assertFalse(finalText.contains("private.example"))
+        assertTrue(retainedLogLines.all { line -> timestampRegex.containsMatchIn(line) })
+        assertEquals(rawBytes.toLong() + 127L, logcat.collection.sourceBytes)
+        assertEquals(rawBytes.toLong(), logcat.collection.retainedBytes)
+        assertEquals(127L, logcat.collection.droppedBytes)
+        assertEquals(
+            logcat.postRedaction.sourceBytes,
+            logcat.postRedaction.retainedBytes + logcat.postRedaction.droppedBytes,
+        )
+        assertEquals(finalLogcat.size, logcat.postRedaction.entryBytes)
+        assertTrue(logcat.postRedaction.droppedBytes > 0L)
+        assertEquals(
+            timestampRegex.find(retainedLogLines.first())?.groupValues?.get(1),
+            logcat.earliestRetainedTimestamp,
+        )
+        assertEquals("03-12 10:59:59.999", logcat.latestRetainedTimestamp)
+        assertEquals("UNKNOWN", logcat.preCollectionRingLoss)
     }
 
     @Test
@@ -2013,6 +2148,87 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer exports one safe post runtime restore receipt without raw errors`() {
+        val sensitiveDetail = "restore failed for alice@example.test private-detail-marker"
+        val restoreContext =
+            rendererDiagnosticContextEntity(id = "restore-receipt", sessionId = "session-1").copy(
+                contextKind = "post_runtime_restore",
+                payloadJson =
+                    """{
+                    |"settlement":{"raw_window_generation":7,"resume_intent_generation":8,
+                    |"outcome":"restore_failed","runtime_was_running":true,"resume_required":true,
+                    |"post_runtime_context":{"status":"halted","mode":"vpn"},
+                    |"restore_failure":"$sensitiveDetail"},
+                    |"execution_outcome":"entry_failed","execution_failure":"$sensitiveDetail"
+                    |}
+                    """.trimMargin(),
+            )
+        val base = buildFullRendererSelection()
+        val genericContext = rendererDiagnosticContextEntity(id = "generic-context", sessionId = "session-1")
+        val selection =
+            base.copy(
+                primaryContexts =
+                    listOf(genericContext, restoreContext, restoreContext.copy(id = "duplicate-receipt")),
+                payload = base.payload.copy(sessionContexts = listOf(genericContext, restoreContext)),
+            )
+        val entries =
+            renderer
+                .render(
+                    DiagnosticsArchiveTarget(
+                        file = Files.createTempFile("archive-runtime-restore", ".zip").toFile(),
+                        fileName = "ripdpi-diagnostics-runtime-restore.zip",
+                        createdAt = 48L,
+                    ),
+                    selection,
+                ).associateBy(DiagnosticsArchiveEntry::name)
+
+        val context =
+            json.parseToJsonElement(entries.getValue("diagnostic-context.json").bytes.decodeToString()).jsonObject
+        val receipt = context.getValue("postRuntimeRestore").jsonObject
+        assertEquals("restore_failed", receipt.getValue("settlementOutcome").jsonPrimitive.content)
+        assertEquals("entry_failed", receipt.getValue("executionOutcome").jsonPrimitive.content)
+        assertEquals("halted", receipt.getValue("postRuntimeStatus").jsonPrimitive.content)
+        assertEquals("vpn", receipt.getValue("postRuntimeMode").jsonPrimitive.content)
+        assertEquals("true", receipt.getValue("restoreErrorPresent").jsonPrimitive.content)
+        assertEquals("true", receipt.getValue("executionFailurePresent").jsonPrimitive.content)
+        assertEquals(1, context.getValue("sessionContexts").jsonArray.size)
+        assertFalse(entries.values.joinToString("") { it.bytes.decodeToString() }.contains(sensitiveDetail))
+    }
+
+    @Test
+    fun `renderer reports malformed post runtime restore receipt separately from generic contexts`() {
+        val malformed =
+            rendererDiagnosticContextEntity(id = "malformed-restore", sessionId = "session-1").copy(
+                contextKind = "post_runtime_restore",
+                payloadJson = "{\"restore_failure\":\"secret failure\"}",
+            )
+        val base = buildFullRendererSelection()
+        val entries =
+            renderer
+                .render(
+                    DiagnosticsArchiveTarget(
+                        file = Files.createTempFile("archive-malformed-runtime-restore", ".zip").toFile(),
+                        fileName = "ripdpi-diagnostics-malformed-runtime-restore.zip",
+                        createdAt = 49L,
+                    ),
+                    base.copy(primaryContexts = listOf(malformed)),
+                ).associateBy(DiagnosticsArchiveEntry::name)
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+
+        assertTrue(
+            completeness.reasons.any {
+                it.section == "post_runtime_restore" && it.code == "unavailable_malformed" && it.count == 1
+            },
+        )
+        assertFalse(completeness.collectionWarnings.any { it.contains("context_decode_failed_count") })
+        assertFalse(entries.values.joinToString("") { it.bytes.decodeToString() }.contains("secret failure"))
+    }
+
+    @Test
     fun `renderer redacts policy handover trigger fingerprints from report payloads`() {
         val previousFingerprint = "private-previous-fingerprint"
         val currentFingerprint = "private-current-fingerprint"
@@ -2392,7 +2608,7 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v11.json",
+            "archive/manifest_v12.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
@@ -2404,15 +2620,15 @@ class DiagnosticsArchiveRendererTest {
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v11.json",
+            "archive/analysis_v12.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v11.json",
+            "archive/completeness_v12.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v11.json",
+            "archive/integrity_v12.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(

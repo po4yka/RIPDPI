@@ -1,5 +1,6 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -18,6 +19,8 @@ pub fn run_engine_scan(
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
+    scan_deadline: Instant,
+    cancellation_reason: Arc<Mutex<Option<ScanTerminationReason>>>,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
 ) {
@@ -87,9 +90,7 @@ pub fn run_engine_scan(
     );
 
     let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    runtime.set_scan_deadline(
-        std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
-    );
+    runtime.set_scan_deadline(scan_deadline);
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         coordinator.run(&plan, &mut runtime, tls_verifier.as_ref())
     }))
@@ -214,7 +215,8 @@ pub fn run_engine_scan(
     }
     match outcome {
         RunnerOutcome::Cancelled => {
-            publish_cancelled_run(&plan, &shared, runtime, Some(cleanup_receipt));
+            let captured_reason = cancellation_reason.lock().ok().and_then(|reason| reason.clone());
+            publish_cancelled_run(&plan, &shared, runtime, captured_reason, Some(cleanup_receipt));
         }
         RunnerOutcome::Finished => {
             if let Some(mut report) = runtime.final_report {

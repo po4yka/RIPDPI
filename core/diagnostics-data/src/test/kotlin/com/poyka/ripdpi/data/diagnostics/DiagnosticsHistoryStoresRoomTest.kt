@@ -30,11 +30,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.concurrent.Executor
 
 abstract class DiagnosticsRoomStoreTestBase {
     protected lateinit var db: DiagnosticsDatabase
     protected lateinit var dao: DiagnosticsDao
     protected lateinit var clock: DiagnosticsHistoryClock
+
+    @Volatile
+    protected var queryObserver: ((String) -> Unit)? = null
 
     @Before
     fun setUp() {
@@ -43,13 +47,17 @@ abstract class DiagnosticsRoomStoreTestBase {
             Room
                 .inMemoryDatabaseBuilder(context, DiagnosticsDatabase::class.java)
                 .allowMainThreadQueries()
-                .build()
+                .setQueryCallback(
+                    { sqlQuery, _ -> queryObserver?.invoke(sqlQuery) },
+                    Executor { command -> command.run() },
+                ).build()
         dao = db.diagnosticsDao()
         clock = MutableDiagnosticsHistoryClock(now = 40L * DiagnosticsHistoryDayMillis)
     }
 
     @After
     fun tearDown() {
+        queryObserver = null
         db.close()
     }
 
@@ -1393,7 +1401,7 @@ private fun profile(
     updatedAt = updatedAt,
 )
 
-private fun scanSession(
+internal fun scanSession(
     id: String,
     startedAt: Long,
     finishedAt: Long?,
@@ -1437,7 +1445,7 @@ private fun snapshot(
     capturedAt = capturedAt,
 )
 
-private fun context(
+internal fun context(
     id: String,
     sessionId: String?,
     connectionSessionId: String? = null,
@@ -1476,7 +1484,7 @@ private fun telemetry(
     createdAt = createdAt,
 )
 
-private fun nativeEvent(
+internal fun nativeEvent(
     id: String,
     sessionId: String?,
     connectionSessionId: String? = null,

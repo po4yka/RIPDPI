@@ -7,6 +7,7 @@ mod tcp;
 mod types;
 mod udp;
 
+pub(crate) use address::resolve_addresses_with_timeout;
 pub use address::{
     DnsResolveError, domain_connect_target, domain_connect_targets, quic_connect_target, quic_connect_targets,
     resolve_addresses, resolve_first_socket_addr, throughput_connect_targets,

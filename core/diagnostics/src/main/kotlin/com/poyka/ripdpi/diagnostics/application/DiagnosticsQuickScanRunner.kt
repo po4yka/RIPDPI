@@ -26,6 +26,7 @@ internal class DiagnosticsQuickScanRunner(
             Int?,
         ) -> Pair<String, DiagnosticScanSession>?,
         runDetectionStage: suspend (String, Int, HomeCompositeStageSpec) -> Unit,
+        runPassiveVpnRouteEvidenceStage: (String, Int, HomeCompositeStageSpec) -> Unit,
         markStageFailure: (String, Int, String, String) -> Unit,
         updateStage: (
             String,
@@ -62,6 +63,14 @@ internal class DiagnosticsQuickScanRunner(
         val detectionSpec = QuickScanStageSpecs[1]
         if (detectionSpec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
             runDetectionStage(runId, 1, detectionSpec)
+        }
+
+        val passiveSpecIndex =
+            QuickScanStageSpecs.indexOfFirst {
+                it.kind == HomeCompositeStageKind.PASSIVE_VPN_ROUTE_EVIDENCE
+            }
+        if (passiveSpecIndex >= 0) {
+            runPassiveVpnRouteEvidenceStage(runId, passiveSpecIndex, QuickScanStageSpecs[passiveSpecIndex])
         }
 
         val sSpec = QuickScanStageSpecs.last()

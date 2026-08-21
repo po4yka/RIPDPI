@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
+import com.poyka.ripdpi.core.detection.DecisionSignal
+import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.DetectionScope
+import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.Binds
@@ -27,82 +30,97 @@ class DefaultHomeDetectionStageRunner
             onProgress: suspend (label: String, detail: String) -> Unit,
         ): HomeDetectionStageOutcome? {
             val settings = appSettingsRepository.settings.first()
-            val config =
-                DetectionRunnerConfig(
-                    ownProxyPort = settings.proxyPort.takeIf { it > 0 },
-                    ownPackageName = context.packageName,
-                    encryptedDnsEnabled = settings.dnsMode == "encrypted",
-                    webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
-                    tlsFingerprintProfile = settings.tlsFingerprintProfile.ifEmpty { "chrome_stable" },
-                )
             val result =
                 detectionCheckRunner.run(
                     context = context,
-                    config = config,
+                    config =
+                        DetectionRunnerConfig(
+                            ownProxyPort = settings.proxyPort.takeIf { it > 0 },
+                            ownPackageName = context.packageName,
+                            encryptedDnsEnabled = settings.dnsMode == "encrypted",
+                            webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
+                            tlsFingerprintProfile = settings.tlsFingerprintProfile.ifEmpty { "chrome_stable" },
+                        ),
                     onProgress = { progress ->
                         onProgress(progress.label, progress.detail)
                     },
                 )
-            val categories =
-                listOfNotNull(
-                    result.geoIp,
-                    result.directSigns,
-                    result.indirectSigns,
-                    result.locationSignals,
-                    result.dnsLeak,
-                    result.webRtcLeak,
-                    result.tlsFingerprint,
-                    result.timingAnalysis,
-                )
+            return result.toHomeDetectionStageOutcome()
+        }
+
+        private fun DetectionCheckResult.toHomeDetectionStageOutcome(): HomeDetectionStageOutcome =
+            HomeDetectionStageOutcome(
+                verdict = verdict.toHomeVerdict(),
+                detectedSignalCount = verdictExplanation?.uniqueSignalCount ?: 0,
+                findings = findingDescriptions(),
+                ruleApplied = verdictExplanation?.ruleApplied,
+                evidenceScopes = verdictExplanation?.appliedScopes.orEmpty(),
+                localFindings = localFindingDescriptions(),
+                networkFindings = networkFindingDescriptions(),
+                decisionSignals =
+                    verdictExplanation
+                        ?.decisionSignals
+                        .orEmpty()
+                        .map { signal -> signal.toHomeSignal() },
+            )
+
+        private fun DetectionCheckResult.findingDescriptions(): List<String> {
             val categoryFindings =
-                categories.flatMap { category ->
+                categories().flatMap { category ->
                     category.findings
                         .filter { it.detected || it.needsReview }
                         .map { finding -> "${category.name}: ${finding.description}" }
                 }
             val bypassFindings =
-                result.bypassResult.findings
+                bypassResult.findings
                     .filter { it.detected || it.needsReview }
                     .map { "Bypass: ${it.description}" }
-            val findings = (categoryFindings + bypassFindings).take(DetectionFindingLimit)
-            val evidence = categories.flatMap { it.evidence } + result.bypassResult.evidence
-            val localFindings =
-                evidence
-                    .filter { it.detected && it.scope != DetectionScope.NETWORK_OBSERVATION }
-                    .distinctBy { listOfNotNull(it.packageName, it.family).firstOrNull() ?: it.description }
-                    .map { it.description }
-                    .take(DetectionFindingLimit)
-            val networkFindings =
-                evidence
-                    .filter { it.detected && it.scope == DetectionScope.NETWORK_OBSERVATION }
-                    .distinctBy { "${it.source}:${it.family.orEmpty()}:${it.description}" }
-                    .map { it.description }
-                    .take(DetectionFindingLimit)
-            val detectedSignalCount = result.verdictExplanation?.uniqueSignalCount ?: 0
-            val verdict =
-                when (result.verdict) {
-                    com.poyka.ripdpi.core.detection.Verdict.DETECTED -> {
-                        DiagnosticsHomeDetectionVerdict.DETECTED
-                    }
-
-                    com.poyka.ripdpi.core.detection.Verdict.NEEDS_REVIEW -> {
-                        DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW
-                    }
-
-                    com.poyka.ripdpi.core.detection.Verdict.NOT_DETECTED -> {
-                        DiagnosticsHomeDetectionVerdict.NOT_DETECTED
-                    }
-                }
-            return HomeDetectionStageOutcome(
-                verdict = verdict,
-                detectedSignalCount = detectedSignalCount,
-                findings = findings,
-                ruleApplied = result.verdictExplanation?.ruleApplied,
-                evidenceScopes = result.verdictExplanation?.appliedScopes.orEmpty(),
-                localFindings = localFindings,
-                networkFindings = networkFindings,
-            )
+            return (categoryFindings + bypassFindings).take(DetectionFindingLimit)
         }
+
+        private fun DetectionCheckResult.localFindingDescriptions(): List<String> =
+            evidenceItems()
+                .filter { it.detected && it.scope != DetectionScope.NETWORK_OBSERVATION }
+                .distinctBy { listOfNotNull(it.packageName, it.family).firstOrNull() ?: it.description }
+                .map { it.description }
+                .take(DetectionFindingLimit)
+
+        private fun DetectionCheckResult.networkFindingDescriptions(): List<String> =
+            evidenceItems()
+                .filter { it.detected && it.scope == DetectionScope.NETWORK_OBSERVATION }
+                .distinctBy { "${it.source}:${it.family.orEmpty()}:${it.description}" }
+                .map { it.description }
+                .take(DetectionFindingLimit)
+
+        private fun DetectionCheckResult.evidenceItems() = categories().flatMap { it.evidence } + bypassResult.evidence
+
+        private fun DetectionCheckResult.categories() =
+            listOfNotNull(
+                geoIp,
+                directSigns,
+                indirectSigns,
+                locationSignals,
+                dnsLeak,
+                webRtcLeak,
+                tlsFingerprint,
+                timingAnalysis,
+            )
+
+        private fun Verdict.toHomeVerdict(): DiagnosticsHomeDetectionVerdict =
+            when (this) {
+                Verdict.DETECTED -> DiagnosticsHomeDetectionVerdict.DETECTED
+                Verdict.NEEDS_REVIEW -> DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW
+                Verdict.NOT_DETECTED -> DiagnosticsHomeDetectionVerdict.NOT_DETECTED
+            }
+
+        private fun DecisionSignal.toHomeSignal(): HomeDetectionDecisionSignal =
+            HomeDetectionDecisionSignal(
+                category = HomeDetectionSignalCategory.valueOf(category.name),
+                semantics = HomeDetectionSignalSemantics.valueOf(semantics.name),
+                source = source.name,
+                confidence = confidence.name,
+                scope = scope.name,
+            )
 
         private companion object {
             const val DetectionFindingLimit = 6

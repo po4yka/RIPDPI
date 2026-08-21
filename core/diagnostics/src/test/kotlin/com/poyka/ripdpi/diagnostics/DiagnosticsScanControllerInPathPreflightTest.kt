@@ -76,14 +76,20 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     var rawScanCount = 0
                     var leaseValidationCount = 0
 
-                    override suspend fun runRawPathScan(block: suspend () -> Unit) {
+                    override suspend fun runRawPathScan(
+                        block: suspend () -> Unit,
+                    ): com.poyka.ripdpi.data.RawPathExecutionResult {
                         rawScanCount += 1
                         block()
+                        return completedRawPathExecutionResult()
                     }
 
-                    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+                    override suspend fun runAutomaticRawPathScan(
+                        block: suspend () -> Unit,
+                    ): com.poyka.ripdpi.data.RawPathExecutionResult {
                         rawScanCount += 1
                         block()
+                        return completedRawPathExecutionResult()
                     }
 
                     override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease = routeLease

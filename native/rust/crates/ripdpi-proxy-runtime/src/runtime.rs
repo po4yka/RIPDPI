@@ -48,7 +48,7 @@ pub fn validate_proxy_config(config: &RuntimeConfig) -> io::Result<()> {
 }
 
 pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, None).map(|_| ())
+    run_proxy_with_listener_internal(config, listener, None).and_then(ordinary_proxy_result)
 }
 
 pub fn run_proxy_with_embedded_control(
@@ -56,7 +56,14 @@ pub fn run_proxy_with_embedded_control(
     listener: TcpListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
 ) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, Some(control)).map(|_| ())
+    run_proxy_with_listener_internal(config, listener, Some(control)).and_then(ordinary_proxy_result)
+}
+
+fn ordinary_proxy_result(receipt: ProxyRuntimeCleanupReceipt) -> io::Result<()> {
+    match receipt.poll_error_kind() {
+        Some(kind) => Err(io::Error::new(kind, "proxy accept loop failed")),
+        None => Ok(()),
+    }
 }
 
 /// Runs an embedded proxy and returns its terminal worker-cleanup receipt.
@@ -71,7 +78,9 @@ pub fn run_proxy_with_embedded_control_receipt(
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::state::ClientSlotGuard;
-    use super::{create_listener, run_proxy_with_embedded_control_receipt};
+    use super::{
+        ProxyRuntimeCleanupReceipt, create_listener, ordinary_proxy_result, run_proxy_with_embedded_control_receipt,
+    };
     use crate::runtime::desync::DesyncSendRequest;
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
@@ -84,7 +93,7 @@ mod tests {
         encode_socks4_reply, encode_socks5_reply,
     };
     use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
-    use std::io::{Read, Write};
+    use std::io::{self, Read, Write};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     #[cfg(unix)]
     use std::os::fd::AsRawFd;
@@ -94,6 +103,20 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+
+    #[test]
+    fn ordinary_api_preserves_poll_error_while_receipt_retains_cleanup_evidence() {
+        let receipt =
+            ProxyRuntimeCleanupReceipt::clean(false, false, Vec::new(), false, 2, 1, Some(io::ErrorKind::BrokenPipe));
+
+        assert_eq!(receipt.connection_refused_count(), 2);
+        assert_eq!(receipt.duplicate_refusal_count(), 1);
+        assert_eq!(receipt.poll_error_kind(), Some(io::ErrorKind::BrokenPipe));
+        assert_eq!(
+            ordinary_proxy_result(receipt).expect_err("ordinary API must keep the poll error").kind(),
+            io::ErrorKind::BrokenPipe
+        );
+    }
 
     #[cfg(unix)]
     #[test]

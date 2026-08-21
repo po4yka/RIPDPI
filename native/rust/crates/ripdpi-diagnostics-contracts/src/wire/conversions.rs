@@ -85,6 +85,7 @@ impl From<ScanReport> for EngineScanReportWire {
             started_at: value.started_at,
             finished_at: value.finished_at,
             summary: value.summary,
+            report_disposition: value.report_disposition,
             completion_kind: value.completion_kind,
             termination_reason: value.termination_reason,
             results: value.results.into_iter().map(EngineProbeResultWire::from).collect(),

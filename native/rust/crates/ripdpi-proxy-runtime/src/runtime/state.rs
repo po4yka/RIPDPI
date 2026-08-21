@@ -2,7 +2,8 @@ use crate::exit_ip_cap::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLim
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use crate::{SameSniProfileCaps, SameSniProfileGuard, SameSniProfileLimiter};
 use ripdpi_proxy_runtime_adapter::model::session::TargetAddr;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
@@ -145,6 +146,7 @@ pub(super) struct RuntimeState {
     active_clients: Arc<AtomicUsize>,
     active_tcp_sockets: ActiveSocketRegistry,
     active_upstream_tcp_sockets: ActiveSocketRegistry,
+    candidate_refusal_trials: std::sync::Arc<CandidateRefusalTrials>,
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
     control: Option<std::sync::Arc<EmbeddedProxyControl>>,
@@ -299,6 +301,7 @@ impl RuntimeState {
             active_clients: Arc::new(AtomicUsize::new(0)),
             active_tcp_sockets: ActiveSocketRegistry::default(),
             active_upstream_tcp_sockets: ActiveSocketRegistry::default(),
+            candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
             runtime_context,
             control,
@@ -335,6 +338,65 @@ impl RuntimeState {
     #[cfg(all(test, not(feature = "loom")))]
     pub(super) fn active_exit_sessions(&self, exit_ip: IpAddr) -> usize {
         self.exit_ip_session_limiter.active(exit_ip, EXIT_SESSION_TRANSPORT_TCP)
+    }
+}
+
+/// Ephemeral diagnostics-only accounting for failed upstream connection trials.
+///
+/// Lock order: `trials` is never held together with another RuntimeState lock.
+/// The set holds keyed aliases only; neither hostnames nor aliases leave this runtime.
+struct CandidateRefusalTrials {
+    /// Ordering: independent diagnostic totals; no state publication relies on these counters.
+    connection_refused_count: AtomicUsize,
+    /// Ordering: independent diagnostic totals; the mutex serializes the exact duplicate decision.
+    duplicate_refusal_count: AtomicUsize,
+    aliases: std::sync::Mutex<HashSet<u64>>,
+    hasher: std::hash::RandomState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::runtime) struct CandidateRefusalCounters {
+    pub(in crate::runtime) connection_refused_count: usize,
+    pub(in crate::runtime) duplicate_refusal_count: usize,
+}
+
+impl Default for CandidateRefusalTrials {
+    fn default() -> Self {
+        Self {
+            connection_refused_count: AtomicUsize::new(0),
+            duplicate_refusal_count: AtomicUsize::new(0),
+            aliases: std::sync::Mutex::new(HashSet::new()),
+            hasher: std::hash::RandomState::new(),
+        }
+    }
+}
+
+impl CandidateRefusalTrials {
+    fn note_connection_refused(&self, target: SocketAddr, logical_target: Option<&str>) {
+        // Ordering: this is a diagnostic total only; it publishes no associated data.
+        self.connection_refused_count.fetch_add(1, Ordering::Relaxed);
+        let mut alias = self.hasher.build_hasher();
+        match logical_target.map(str::trim).filter(|host| !host.is_empty()) {
+            Some(host) => {
+                host.to_ascii_lowercase().hash(&mut alias);
+                target.port().hash(&mut alias);
+            }
+            None => target.hash(&mut alias),
+        }
+        let alias = alias.finish();
+        let duplicate = !self.aliases.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(alias);
+        if duplicate {
+            // Ordering: this is a diagnostic total only; aliases are serialized by the mutex above.
+            self.duplicate_refusal_count.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    fn counters(&self) -> CandidateRefusalCounters {
+        // Ordering: independent diagnostic snapshots need atomicity, not a cross-field total order.
+        CandidateRefusalCounters {
+            connection_refused_count: self.connection_refused_count.load(Ordering::Relaxed),
+            duplicate_refusal_count: self.duplicate_refusal_count.load(Ordering::Relaxed),
+        }
     }
 }
 

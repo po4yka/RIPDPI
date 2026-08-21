@@ -55,6 +55,7 @@ fn connect_target_with_route_and_egress(
         note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp)?;
         match connect_target_candidates_via_group(
             &attempt_targets,
+            host.as_deref(),
             state,
             route.group_index,
             payload,
@@ -70,6 +71,7 @@ fn connect_target_with_route_and_egress(
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
                     match connect_target_candidates_via_group(
                         &attempt_targets,
+                        host.as_deref(),
                         state,
                         route.group_index,
                         payload,
@@ -148,6 +150,7 @@ fn reconnect_target_with_tfo_mode(
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
         match connect_target_candidates_via_group(
             &attempt_targets,
+            host.as_deref(),
             state,
             route.group_index,
             payload,
@@ -166,6 +169,7 @@ fn reconnect_target_with_tfo_mode(
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying reconnect without TCP Fast Open");
                     match connect_target_candidates_via_group(
                         &attempt_targets,
+                        host.as_deref(),
                         state,
                         route.group_index,
                         payload,
@@ -381,5 +385,39 @@ mod tests {
             matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::TimedOut),
             "unexpected connect failure kind: {err}"
         );
+    }
+
+    #[test]
+    fn refusal_telemetry_uses_logical_hostname_not_resolved_address_for_deduplication() {
+        let first = std::net::SocketAddr::from((Ipv4Addr::new(192, 0, 2, 1), 443));
+        let second = std::net::SocketAddr::from((Ipv4Addr::new(192, 0, 2, 2), 443));
+        let state = RuntimeState::test(RuntimeConfig {
+            groups: vec![DesyncGroup::new(0)],
+            max_route_retries: 0,
+            ..Default::default()
+        });
+
+        for target in [first, second] {
+            state.note_candidate_upstream_connect_failed(target, Some("Example.COM"), io::ErrorKind::ConnectionRefused);
+        }
+        let same_host = state.candidate_refusal_counters();
+        assert_eq!(same_host.connection_refused_count, 2);
+        assert_eq!(same_host.duplicate_refusal_count, 1);
+
+        let shared_address_state = RuntimeState::test(RuntimeConfig {
+            groups: vec![DesyncGroup::new(0)],
+            max_route_retries: 0,
+            ..Default::default()
+        });
+        for host in ["one.example", "two.example"] {
+            shared_address_state.note_candidate_upstream_connect_failed(
+                first,
+                Some(host),
+                io::ErrorKind::ConnectionRefused,
+            );
+        }
+        let distinct_hosts = shared_address_state.candidate_refusal_counters();
+        assert_eq!(distinct_hosts.connection_refused_count, 2);
+        assert_eq!(distinct_hosts.duplicate_refusal_count, 0);
     }
 }

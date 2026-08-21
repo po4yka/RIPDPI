@@ -5,6 +5,9 @@ package com.poyka.ripdpi.core.detection.checker
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingResult
+import com.poyka.ripdpi.core.detection.DecisionSignal
+import com.poyka.ripdpi.core.detection.DecisionSignalCategory
+import com.poyka.ripdpi.core.detection.DecisionSignalSemantics
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
@@ -218,11 +221,12 @@ object VerdictEngine {
                 bypassResult = bypassResult,
                 homeRoutedRoaming = homeRoutedRoaming,
             ) -> {
+                val evidenceSummary = EvidenceSummary.from(evidence)
                 explanation(
                     Verdict.NEEDS_REVIEW,
                     "R6",
-                    "Review-only diagnostic signal present",
-                    EvidenceSummary.from(evidence),
+                    reviewOnlySummary(evidenceSummary),
+                    evidenceSummary,
                 )
             }
 
@@ -284,22 +288,87 @@ private fun explanation(
         summary = summary,
         appliedScopes = evidenceSummary.appliedScopes,
         uniqueSignalCount = evidenceSummary.uniqueSignalCount,
+        decisionSignals = evidenceSummary.decisionSignals,
     )
 
 private data class EvidenceSummary(
     val appliedScopes: List<DetectionScope>,
     val uniqueSignalCount: Int,
+    val decisionSignals: List<DecisionSignal>,
 ) {
     companion object {
         fun from(evidence: List<EvidenceItem>): EvidenceSummary {
             val detectedEvidence = evidence.filter(EvidenceItem::detected)
+            val dedupedEvidence =
+                detectedEvidence
+                    .groupBy { it.logicalSignalKey() }
+                    .values
+                    .map { signals -> signals.toDecisionEvidence() }
             return EvidenceSummary(
-                appliedScopes = detectedEvidence.map(EvidenceItem::scope).distinct(),
-                uniqueSignalCount = detectedEvidence.map { it.logicalSignalKey() }.distinct().size,
+                appliedScopes = dedupedEvidence.map(EvidenceItem::scope).distinct(),
+                uniqueSignalCount = dedupedEvidence.size,
+                decisionSignals = dedupedEvidence.map(EvidenceItem::toDecisionSignal),
             )
         }
     }
 }
+
+private fun reviewOnlySummary(evidenceSummary: EvidenceSummary): String {
+    val localInventoryCount =
+        evidenceSummary.decisionSignals.count { it.scope == DetectionScope.LOCAL_INVENTORY }
+    return if (localInventoryCount > 0 && localInventoryCount == evidenceSummary.uniqueSignalCount) {
+        "$localInventoryCount local inventory match${if (localInventoryCount == 1) "" else "es"} " +
+            "${if (localInventoryCount == 1) "requires" else "require"} review"
+    } else {
+        "Review-only diagnostic signal present"
+    }
+}
+
+private fun List<EvidenceItem>.toDecisionEvidence(): EvidenceItem {
+    val first = first()
+    val highestConfidence = maxBy { it.confidence.rank() }.confidence
+    return first.copy(confidence = highestConfidence)
+}
+
+private fun EvidenceItem.toDecisionSignal(): DecisionSignal =
+    when (scope) {
+        DetectionScope.LOCAL_INVENTORY -> {
+            DecisionSignal(
+                category = DecisionSignalCategory.LOCAL_INVENTORY_REVIEW,
+                semantics = DecisionSignalSemantics.LOCAL_INVENTORY_MATCH_REQUIRES_REVIEW,
+                source = source,
+                confidence = confidence,
+                scope = scope,
+            )
+        }
+
+        DetectionScope.LOCAL_OBSERVER_EXPOSURE -> {
+            DecisionSignal(
+                category = DecisionSignalCategory.LOCAL_OBSERVER_EXPOSURE,
+                semantics = DecisionSignalSemantics.LOCAL_OBSERVER_EXPOSURE_PRESENT,
+                source = source,
+                confidence = confidence,
+                scope = scope,
+            )
+        }
+
+        DetectionScope.NETWORK_OBSERVATION -> {
+            DecisionSignal(
+                category = DecisionSignalCategory.NETWORK_OBSERVATION,
+                semantics = DecisionSignalSemantics.NETWORK_OBSERVATION_PRESENT,
+                source = source,
+                confidence = confidence,
+                scope = scope,
+            )
+        }
+    }
+
+private fun EvidenceConfidence.rank(): Int =
+    when (this) {
+        EvidenceConfidence.LOW -> LowConfidenceRank
+        EvidenceConfidence.MEDIUM -> MediumConfidenceRank
+        EvidenceConfidence.HIGH -> HighConfidenceRank
+    }
 
 private fun EvidenceItem.logicalSignalKey(): String =
     when (scope) {
@@ -343,4 +412,7 @@ private fun networkContextDecisionEvidence(): List<EvidenceItem> =
     )
 
 private const val RussiaMcc = "250"
+private const val LowConfidenceRank = 1
+private const val MediumConfidenceRank = 2
+private const val HighConfidenceRank = 3
 private val simMccRegex = Regex("""SIM MCC:\s*(\d+)""")

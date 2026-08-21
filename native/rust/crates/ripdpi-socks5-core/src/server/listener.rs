@@ -54,11 +54,10 @@ impl<'a, A: Authentication> Stream for Incoming<'a, A> {
 
             if let Some(f) = &mut self.1 {
                 // early returns if pending
-                let (socket, peer_addr) = ready!(f.as_mut().poll(cx))?;
+                let (socket, _) = ready!(f.as_mut().poll(cx))?;
                 self.1 = None;
 
-                let local_addr = socket.local_addr()?;
-                debug!("incoming connection from peer {} @ {}", &peer_addr, &local_addr);
+                debug!("SOCKS incoming connection accepted");
 
                 // Wrap the TcpStream into Socks5Socket
                 let socket = Socks5Socket::new(socket, self.0.config.clone());

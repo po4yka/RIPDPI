@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -23,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition as EngineScanReportDisposition
 
 internal data class BridgeSessionHandle(
     val bridge: NetworkDiagnosticsBridge,
@@ -207,7 +209,7 @@ class ActiveScanRegistry
 
         private companion object {
             /** How long to wait for the native engine to finalize after cancellation. */
-            const val CANCEL_GRACE_PERIOD_MS = 3_000L
+            const val CANCEL_GRACE_PERIOD_MS = 4_000L
 
             /** Poll interval while waiting for the partial report. */
             const val CANCEL_POLL_INTERVAL_MS = 200L
@@ -219,6 +221,7 @@ class ActiveScanRegistry
         private val cancelledSessionIds = ConcurrentHashMap.newKeySet<String>()
         private val cancelledSessionSummaries = ConcurrentHashMap<String, String>()
         private val cancelledSessionReports = ConcurrentHashMap<String, String>()
+        internal val cancelledSessionFailures = ConcurrentHashMap<String, Throwable>()
         private val terminalClaims =
             java.util.IdentityHashMap<NetworkDiagnosticsBridge, Pair<String, ScanTerminalClaim>>()
         internal val sessionOwnership = ScanSessionOwnership()
@@ -242,11 +245,15 @@ class ActiveScanRegistry
         }
 
         suspend fun removePreparedScan(sessionId: String) {
+            val cancellationOwnerStillActive = cancelledSessionIds.contains(sessionId)
             scanSessionFingerprints.remove(sessionId)
             scanSessionPreferredDnsPaths.remove(sessionId)
             cancelledSessionIds.remove(sessionId)
             cancelledSessionSummaries.remove(sessionId)
             cancelledSessionReports.remove(sessionId)
+            if (!cancellationOwnerStillActive) {
+                cancelledSessionFailures.remove(sessionId)
+            }
             sessionOwnership.remove(sessionId)
         }
 
@@ -303,18 +310,31 @@ class ActiveScanRegistry
             var failure: Throwable? =
                 runCatching {
                     bridge.cancelScan()
-
-                    // Give the native engine a brief grace period to finalize its partial
-                    // report after receiving the cancellation signal.  The Rust side sets
-                    // is_finished=true and builds a report with whatever candidates completed.
-                    partialReportJson = awaitPartialReport(bridge, graceMs = CANCEL_GRACE_PERIOD_MS)
-                    partialReportJson?.let { cancelledSessionReports[sessionId] = it }
                 }.exceptionOrNull()
 
             withContext(NonCancellable) {
+                val executionOwnsReport = execution.executionJob != null
                 execution.executionJob?.let { job ->
-                    runCatching { job.cancelAndJoin() }
-                        .exceptionOrNull()
+                    val settledAfterNativeCancellation =
+                        failure == null &&
+                            withTimeoutOrNull(CANCEL_GRACE_PERIOD_MS) {
+                                job.join()
+                                true
+                            } == true
+                    if (!settledAfterNativeCancellation) {
+                        runCatching { job.cancelAndJoin() }
+                            .exceptionOrNull()
+                            ?.let { cleanupFailure -> failure = failure.withSuppressed(cleanupFailure) }
+                    }
+                }
+                cancelledSessionFailures.remove(sessionId)?.let { executionFailure ->
+                    failure = failure.withSuppressed(executionFailure)
+                }
+                if (!executionOwnsReport) {
+                    runCatching {
+                        partialReportJson = awaitCancellationReport(bridge, graceMs = CANCEL_GRACE_PERIOD_MS)
+                        partialReportJson?.let { cancelledSessionReports[sessionId] = it }
+                    }.exceptionOrNull()
                         ?.let { cleanupFailure -> failure = failure.withSuppressed(cleanupFailure) }
                 }
                 val needsManualCleanup =
@@ -345,23 +365,34 @@ class ActiveScanRegistry
         fun consumeCancelledSessionReport(sessionId: String): String? = cancelledSessionReports.remove(sessionId)
 
         /**
-         * After signaling cancellation, poll the native bridge for up to [graceMs]
-         * to retrieve the partial report the engine builds on cancellation.
+         * After signaling cancellation, poll the native bridge for up to [graceMs].
+         * Native may first return a one-shot CHECKPOINT; keep it as a fallback,
+         * but continue polling for the TERMINAL report until the grace period ends.
          */
-        private suspend fun awaitPartialReport(
+        private suspend fun awaitCancellationReport(
             bridge: NetworkDiagnosticsBridge,
             graceMs: Long,
         ): String? {
-            var report: String? = null
+            var latestCheckpointReport: String? = null
+            var terminalReport: String? = null
             withTimeoutOrNull<Unit>(graceMs) {
-                while (report == null) {
-                    report = bridge.takeReportJson()
+                while (terminalReport == null) {
+                    val report = bridge.takeReportJson()
                     if (report == null) {
                         delay(CANCEL_POLL_INTERVAL_MS)
+                    } else {
+                        when (report.diagnosticsReportDispositionOrNull()) {
+                            EngineScanReportDisposition.TERMINAL -> terminalReport = report
+                            EngineScanReportDisposition.CHECKPOINT -> latestCheckpointReport = report
+                            null -> Unit
+                        }
+                        if (terminalReport == null) {
+                            delay(CANCEL_POLL_INTERVAL_MS)
+                        }
                     }
                 }
             }
-            return report
+            return terminalReport ?: latestCheckpointReport
         }
 
         internal suspend fun cancelHiddenAutomaticProbe(
@@ -602,6 +633,39 @@ private fun visibleProgressForActiveExecution(
         .toList()
         .asReversed()
         .firstNotNullOfOrNull(progress::get)
+
+private val diagnosticsReportDispositionJson = RipDpiJson
+
+internal fun String.diagnosticsReportDispositionOrNull(): EngineScanReportDisposition? =
+    runCatching {
+        diagnosticsReportDispositionJson.decodeEngineScanReportDisposition(this)
+    }.getOrNull()
+
+internal class BridgeReportPollingState {
+    var latestCheckpointJson: String? = null
+        private set
+    var terminalReportJson: String? = null
+        private set
+
+    fun observe(reportJson: String): EngineScanReportDisposition? =
+        reportJson.diagnosticsReportDispositionOrNull().also { disposition ->
+            when (disposition) {
+                EngineScanReportDisposition.CHECKPOINT -> latestCheckpointJson = reportJson
+                EngineScanReportDisposition.TERMINAL -> terminalReportJson = reportJson
+                null -> Unit
+            }
+        }
+}
+
+internal sealed interface TerminalReportAwaitOutcome {
+    data class Terminal(
+        val reportJson: String,
+    ) : TerminalReportAwaitOutcome
+
+    data class TerminalUnavailable(
+        val latestCheckpointJson: String?,
+    ) : TerminalReportAwaitOutcome
+}
 
 private fun Throwable?.withSuppressed(additional: Throwable): Throwable =
     this?.apply {

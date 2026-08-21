@@ -220,7 +220,14 @@ internal class DefaultDiagnosticsArchiveExporter
                         compositeOutcome = compositeOutcome,
                         compositeSessions = compositeSessions,
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
-                        loadNativeEvents = { sessionId -> sourceLoader.getNativeEvents(sessionId) },
+                        loadNativeEventSource = { sessionId -> sourceLoader.getNativeEventArchiveSource(sessionId) },
+                        loadRelayAttemptTraceEvents = { key ->
+                            sourceLoader.getRelayAttemptTraceEvents(
+                                connectionSessionId = key.connectionSessionId,
+                                runtimeId = key.runtimeId,
+                                attemptId = key.attemptId,
+                            )
+                        },
                         loadStageTelemetry = { session, connectionSessionIds ->
                             sourceLoader.getStageTelemetry(session, connectionSessionIds)
                         },

@@ -3,8 +3,9 @@ package com.poyka.ripdpi.diagnostics.export
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
 import com.poyka.ripdpi.diagnostics.FileLogWriter
+import com.poyka.ripdpi.diagnostics.LogcatPostRedactionAccounting
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
-import com.poyka.ripdpi.diagnostics.headAndTailUtf8Bytes
+import com.poyka.ripdpi.diagnostics.readLineAlignedLogcatOutput
 import com.poyka.ripdpi.diagnostics.tailUtf8Bytes
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -27,7 +28,8 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
             developerAnalytics: DeveloperAnalyticsPayload = DeveloperAnalyticsPayload(),
         ): List<DiagnosticsArchiveEntry> {
-            val archiveSelection = selection.withRedactedBoundedLogs()
+            val correlationRedactor = DiagnosticsArchiveCorrelationRedactor()
+            val archiveSelection = selection.withRedactedBoundedLogs(correlationRedactor::redactText)
             val snapshotPayload = jsonEntryBuilder.buildSnapshotPayload(archiveSelection)
             val contextPayload = jsonEntryBuilder.buildContextPayload(archiveSelection)
             val sectionStatuses = buildSectionStatuses(archiveSelection)
@@ -55,8 +57,10 @@ class DiagnosticsArchiveRenderer
                     compositeEntries = compositeEntries,
                     developerAnalytics = developerAnalytics,
                 )
-            val correlationRedactor = DiagnosticsArchiveCorrelationRedactor()
-            val privacyEntries = baseEntries.map(correlationRedactor::redact)
+            val privacyEntries =
+                baseEntries.map { entry ->
+                    if (entry.name == "logcat.txt") entry else correlationRedactor.redact(entry)
+                }
             return privacyEntries +
                 DiagnosticsArchiveEntry(
                     name = "integrity.json",
@@ -108,7 +112,9 @@ class DiagnosticsArchiveRenderer
         internal fun buildProbeResultsCsv(results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>): String =
             csvEntryBuilder.buildProbeResultsCsv(results)
 
-        private fun DiagnosticsArchiveSelection.withRedactedBoundedLogs(): DiagnosticsArchiveSelection =
+        private fun DiagnosticsArchiveSelection.withRedactedBoundedLogs(
+            redactCorrelations: (String) -> String,
+        ): DiagnosticsArchiveSelection =
             copy(
                 logcatSnapshot =
                     logcatSnapshot?.let { snapshot ->
@@ -118,18 +124,29 @@ class DiagnosticsArchiveRenderer
                             } else {
                                 snapshot.content
                             }
-                        val redacted = redactDiagnosticsLogcat(completeContent)
-                        val redactedBytes = redacted.toByteArray(Charsets.UTF_8)
+                        val redacted = redactCorrelations(redactDiagnosticsLogcat(completeContent))
                         val bounded =
-                            if (snapshot.captureScope == LogcatSnapshotCollector.TimeBoundSnapshotScope) {
-                                headAndTailUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
-                            } else {
-                                tailUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
-                            }
+                            readLineAlignedLogcatOutput(
+                                bytes = redacted.toByteArray(Charsets.UTF_8),
+                                retainHead =
+                                    snapshot.captureScope == LogcatSnapshotCollector.TimeBoundSnapshotScope,
+                                maxBytes = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                            )
                         snapshot.copy(
-                            content = bounded.toString(Charsets.UTF_8),
-                            byteCount = bounded.size,
-                            truncated = snapshot.truncated || redactedBytes.size > bounded.size,
+                            content = bounded.content,
+                            byteCount = bounded.byteCount,
+                            truncated = snapshot.truncated || bounded.truncated,
+                            earliestRetainedTimestamp = bounded.earliestRetainedTimestamp,
+                            latestRetainedTimestamp = bounded.latestRetainedTimestamp,
+                            postRedactionAccounting =
+                                LogcatPostRedactionAccounting(
+                                    sourceByteCount = bounded.sourceByteCount,
+                                    retainedByteCount = bounded.retainedByteCount,
+                                    droppedByteCount = bounded.droppedByteCount,
+                                    entryByteCount = bounded.byteCount,
+                                    earliestRetainedTimestamp = bounded.earliestRetainedTimestamp,
+                                    latestRetainedTimestamp = bounded.latestRetainedTimestamp,
+                                ),
                         )
                     },
                 fileLogSnapshot =
@@ -155,12 +172,14 @@ private class DiagnosticsArchiveCorrelationRedactor {
 
     fun redact(entry: DiagnosticsArchiveEntry): DiagnosticsArchiveEntry {
         val text = entry.bytes.decodeToString()
-        val redacted =
-            CorrelationUuidRegex.replace(text) { match ->
-                aliases.getOrPut(match.value.lowercase()) { "correlation-${aliases.size + 1}" }
-            }
+        val redacted = redactText(text)
         return entry.copy(bytes = redacted.toByteArray())
     }
+
+    fun redactText(text: String): String =
+        CorrelationUuidRegex.replace(text) { match ->
+            aliases.getOrPut(match.value.lowercase()) { "correlation-${aliases.size + 1}" }
+        }
 }
 
 private val CorrelationUuidRegex =

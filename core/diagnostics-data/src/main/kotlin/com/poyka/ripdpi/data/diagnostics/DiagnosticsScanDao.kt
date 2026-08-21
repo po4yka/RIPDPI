@@ -17,7 +17,9 @@ interface DiagnosticsScanDao {
                reportCompletionKind, reportTerminationReason,
                startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
                triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
-        FROM scan_sessions ORDER BY startedAt DESC LIMIT :limit
+        FROM scan_sessions
+        WHERE launchOrigin IS NULL OR launchOrigin != 'home_detection_local'
+        ORDER BY startedAt DESC LIMIT :limit
         """,
     )
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>

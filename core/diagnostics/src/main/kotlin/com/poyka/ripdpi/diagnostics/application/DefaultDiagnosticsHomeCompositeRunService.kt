@@ -7,13 +7,14 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.VpnRouteEvidence
+import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,15 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
+internal class HomeCompositePersistencePorts
+    @Inject
+    constructor(
+        val scanRecordStore: DiagnosticsScanRecordStore,
+        val comparisonScanCoordinator: ComparisonScanCoordinator,
+        val homeRunPersistence: HomeDiagnosticsRunPersistence,
+        val probeResultCache: ProbeResultCache,
+    )
+
 @Suppress("detekt.LargeClass", "detekt.TooManyFunctions")
 @Singleton
 internal class DefaultDiagnosticsHomeCompositeRunService
@@ -41,11 +51,10 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val diagnosticsProfileCatalog: DiagnosticsProfileCatalog,
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
-        private val scanRecordStore: DiagnosticsScanRecordStore,
-        private val comparisonScanCoordinator: ComparisonScanCoordinator,
+        private val persistencePorts: HomeCompositePersistencePorts,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val serviceStateStore: ServiceStateStore,
-        private val probeResultCache: ProbeResultCache,
+        private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
         private val stageExecutor: HomeCompositeStageExecutor,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -56,17 +65,38 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             private val log = Logger.withTag("HomeAnalysis")
         }
 
+        private val scanRecordStore: DiagnosticsScanRecordStore = persistencePorts.scanRecordStore
+        private val comparisonScanCoordinator: ComparisonScanCoordinator = persistencePorts.comparisonScanCoordinator
+        private val homeRunPersistence: HomeDiagnosticsRunPersistence = persistencePorts.homeRunPersistence
+        private val probeResultCache: ProbeResultCache = persistencePorts.probeResultCache
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
+        private val packetCaptureCoordinator = HomePacketCaptureTerminalCoordinator(scope)
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
         private val runJobs = HomeCompositeRunJobs(scope)
         private val activeProbeSafetyPolicy = ActiveProbeSafetyPolicy()
+        private val passiveVpnRouteEvidenceBuilder = PassiveVpnRouteEvidenceBuilder()
         private val detectionStageCoordinator =
             HomeDetectionStageCoordinator(
                 detectionStageRunner = detectionStageRunner,
                 stageExecutor = stageExecutor,
                 progressState = progressState,
                 runDetectionResults = runDetectionResults,
+            )
+        private val outcomeFinalizer =
+            HomeCompositeOutcomeFinalizer(
+                detectorCatalogSource = detectorCatalogSource,
+                analysisAugmentationSource = analysisAugmentationSource,
+                networkEdgePreferenceStore = networkEdgePreferenceStore,
+                persistencePorts = persistencePorts,
+                serviceStateStore = serviceStateStore,
+                json = json,
+                runtime =
+                    HomeCompositeFinalizationRuntime(
+                        progressState = progressState,
+                        completedRuns = completedRuns,
+                        scope = scope,
+                    ),
             )
 
         override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
@@ -85,6 +115,9 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                                             stageLabel = spec.label,
                                             profileId = spec.profileId,
                                             pathMode = spec.pathMode,
+                                            evidenceType = spec.evidenceType,
+                                            vantage = spec.vantage,
+                                            targetReachability = spec.targetReachability,
                                             status = DiagnosticsHomeCompositeStageStatus.PENDING,
                                             headline = "${spec.label} pending",
                                             summary = "Waiting to run.",
@@ -93,7 +126,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             )
                     )
             }
-            launchRun(runId) { executeRun(runId) }
+            admitAndLaunchRun(runId, options) { executeRun(runId) }
             return DiagnosticsHomeCompositeRunStarted(runId = runId)
         }
 
@@ -109,6 +142,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         runId = runId,
                         progressState = progressState,
                         updateRunStatus = ::updateRunStatus,
+                        beforeTerminalStatus = { packetCaptureCoordinator.settle(runId) },
                     )
                 }
             }
@@ -122,7 +156,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 .first()
         }
 
-        override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
+        override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? =
+            completedRuns[runId]
+                ?: homeRunPersistence.getCompletedRun(runId)?.also { restored ->
+                    completedRuns[runId] = restored
+                }
 
         override suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome? =
             probeResultCache.lookup(fingerprintHash)
@@ -147,6 +185,9 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                                             stageLabel = spec.label,
                                             profileId = spec.profileId,
                                             pathMode = spec.pathMode,
+                                            evidenceType = spec.evidenceType,
+                                            vantage = spec.vantage,
+                                            targetReachability = spec.targetReachability,
                                             status = DiagnosticsHomeCompositeStageStatus.PENDING,
                                             headline = "${spec.label} pending",
                                             summary = "Waiting to run.",
@@ -155,7 +196,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             )
                     )
             }
-            launchRun(runId) {
+            admitAndLaunchRun(runId, options) {
                 val quickScanRunner =
                     DiagnosticsQuickScanRunner(
                         scanRecordStore,
@@ -176,6 +217,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         )
                     },
                     runDetectionStage = detectionStageCoordinator::runStage,
+                    runPassiveVpnRouteEvidenceStage = ::runPassiveVpnRouteEvidenceStage,
                     markStageFailure = { rId, idx, headline, summary ->
                         stageExecutor.markStageFailure(progressState, rId, idx, headline, summary)
                     },
@@ -255,7 +297,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 return
             }
 
-            runParallelMiddleStages(runId)
+            runMiddleStages(runId)
 
             val auditOutcome = runDpiStrategyStage(runId, auditOutcomeAfterAudit)
             eventCollector.cancel()
@@ -279,11 +321,21 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 runJobs.launch(
                     runId = runId,
                     onFailure = { error ->
-                        log.e(error) { "run failed: runId=$runId" }
                         try {
                             stageExecutor.cancelRunStages(runId, progressState)
                         } finally {
-                            updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.FAILED)
+                            packetCaptureCoordinator.settle(runId)
+                            val status =
+                                if (error is HomeRawPathSupersededByUserStopException) {
+                                    log.i {
+                                        "run stopped after user superseded raw-path restoration: runId=$runId"
+                                    }
+                                    DiagnosticsHomeCompositeRunStatus.CANCELLED
+                                } else {
+                                    log.e(error) { "run failed: runId=$runId" }
+                                    DiagnosticsHomeCompositeRunStatus.FAILED
+                                }
+                            updateRunStatus(runId, status)
                         }
                     },
                     block = block,
@@ -295,11 +347,36 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
+        private suspend fun admitAndLaunchRun(
+            runId: String,
+            options: DiagnosticsHomeRunOptions,
+            block: suspend () -> Unit,
+        ) {
+            try {
+                packetCaptureCoordinator.admit(runId, options)
+                launchRun(runId, block)
+            } catch (error: CancellationException) {
+                clearRejectedRun(runId)
+                throw error
+            } catch (error: DiagnosticsScanStartRejectedException) {
+                clearRejectedRun(runId)
+                throw error
+            }
+        }
+
+        private suspend fun clearRejectedRun(runId: String) {
+            packetCaptureCoordinator.settle(runId)
+            runDetectionResults.remove(runId)
+            packetCaptureCoordinator.clear(runId)
+            progressState.update { current -> current - runId }
+        }
+
         private fun updateRunStatus(
             runId: String,
             status: DiagnosticsHomeCompositeRunStatus,
         ) {
             runDetectionResults.remove(runId)
+            packetCaptureCoordinator.clear(runId)
             progressState.update { current ->
                 current.updatedRun(runId) { progress ->
                     if (progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING) {
@@ -362,44 +439,80 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
-        /** Runs raw-path middle stages in parallel, then performs the targeted in-path comparison leg. */
-        private suspend fun runParallelMiddleStages(runId: String) {
-            coroutineScope {
-                HomeCompositeStageSpecs
-                    .drop(1)
-                    .dropLast(1)
-                    .filterNot { it.key == "path_comparison" }
-                    .forEach { spec ->
-                        val stageIndex = HomeCompositeStageSpecs.indexOf(spec)
-                        launch {
-                            if (spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
-                                detectionStageCoordinator.runStage(runId, stageIndex, spec)
-                                return@launch
-                            }
-                            val result =
-                                executeProfileStageWithRetry(
-                                    runId = runId,
-                                    stageIndex = stageIndex,
-                                    spec = spec,
-                                )
-                            if (result != null) {
-                                val (sessionId, completedSession) = result
-                                val completedSummary =
-                                    buildCompletedStageSummary(
-                                        spec,
-                                        sessionId,
-                                        completedSession,
-                                        scanRecordStore,
-                                        json,
-                                    )
-                                stageExecutor.updateStage(progressState, runId, stageIndex) { completedSummary }
-                            }
-                        }
+        /** Runs raw-path middle stages serially, then performs the targeted in-path comparison leg. */
+        private suspend fun runMiddleStages(runId: String) {
+            HomeCompositeStageSpecs
+                .drop(1)
+                .dropLast(1)
+                .filter(HomeCompositeStageSpec::startsScanSession)
+                .filterNot { it.key == "path_comparison" }
+                .forEach { spec ->
+                    val stageIndex = HomeCompositeStageSpecs.indexOf(spec)
+                    if (spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
+                        detectionStageCoordinator.runStage(runId, stageIndex, spec)
+                        return@forEach
                     }
-            }
+                    val result =
+                        executeProfileStageWithRetry(
+                            runId = runId,
+                            stageIndex = stageIndex,
+                            spec = spec,
+                        )
+                    if (result != null) {
+                        val (sessionId, completedSession) = result
+                        val completedSummary =
+                            buildCompletedStageSummary(
+                                spec,
+                                sessionId,
+                                completedSession,
+                                scanRecordStore,
+                                json,
+                            )
+                        stageExecutor.updateStage(progressState, runId, stageIndex) { completedSummary }
+                    }
+                }
             val pathComparisonIndex = HomeCompositeStageSpecs.indexOfFirst { it.key == "path_comparison" }
             if (pathComparisonIndex >= 0) {
                 runPathComparisonStage(runId, pathComparisonIndex, HomeCompositeStageSpecs[pathComparisonIndex])
+            }
+            val passiveVpnEvidenceIndex = HomeCompositeStageSpecs.indexOfFirst { it.key == "vpn_route_evidence" }
+            if (passiveVpnEvidenceIndex >= 0) {
+                runPassiveVpnRouteEvidenceStage(
+                    runId = runId,
+                    stageIndex = passiveVpnEvidenceIndex,
+                    spec = HomeCompositeStageSpecs[passiveVpnEvidenceIndex],
+                )
+            }
+        }
+
+        private fun runPassiveVpnRouteEvidenceStage(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+        ) {
+            val currentGeneration = runCatching(vpnRouteEvidenceProvider::currentRouteGeneration).getOrNull()
+            val routeEvidence = runCatching(vpnRouteEvidenceProvider::capture).getOrDefault(VpnRouteEvidence())
+            val evidence =
+                passiveVpnRouteEvidenceBuilder.build(
+                    runId = runId,
+                    serviceStatus = serviceStateStore.status.value,
+                    currentGeneration = currentGeneration,
+                    vpnRouteEvidence = routeEvidence,
+                )
+            val captured = evidence.disposition == PassiveVpnRouteEvidenceDisposition.CAPTURED
+            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
+                current.copy(
+                    sessionId = null,
+                    status =
+                        if (captured) {
+                            DiagnosticsHomeCompositeStageStatus.COMPLETED
+                        } else {
+                            DiagnosticsHomeCompositeStageStatus.SKIPPED
+                        },
+                    headline = "${spec.label} ${if (captured) "captured" else "skipped"}",
+                    summary = passiveVpnRouteEvidenceSummary(evidence),
+                    passiveVpnRouteEvidence = evidence.pathValidation,
+                )
             }
         }
 
@@ -562,7 +675,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
-        @Suppress("detekt.LongMethod")
         private suspend fun finalizeRun(
             runId: String,
             auditOutcome: DiagnosticsHomeAuditOutcome?,
@@ -570,114 +682,55 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             dnsIssuesDetected: Boolean,
             networkChanged: Boolean,
         ) {
+            packetCaptureCoordinator.settle(runId)
             val detectionResult = runDetectionResults.remove(runId)
             val previousOutcome = completedRuns.mostRecentCompletedRunBefore(runId)
-            val catalogSnapshot =
-                withContext(Dispatchers.Default) {
-                    runCatching { detectorCatalogSource.snapshot() }.getOrDefault(HomeDetectorCatalogSnapshot())
-                }
-            val networkCharacter =
-                runCatching { analysisAugmentationSource.networkCharacter() }.getOrNull()
-            val routingSanity =
-                runCatching { analysisAugmentationSource.routingSanity() }.getOrNull()
-            val bufferbloat =
-                runCatching { analysisAugmentationSource.bufferbloat() }.getOrNull()
-            val dnsCharacterization =
-                runCatching { analysisAugmentationSource.dnsCharacterization() }.getOrNull()
-            val baseOutcome =
-                withContext(Dispatchers.Default) {
-                    buildHomeCompositeOutcome(
-                        runId,
-                        auditOutcome,
-                        coverageNote,
-                        dnsIssuesDetected,
-                        networkChanged,
-                        progressState,
-                    )
-                }
-            val effectivenessLedger =
-                baseOutcome.fingerprintHash
-                    ?.let { fingerprint ->
-                        runCatching {
-                            loadStrategyEffectiveness(
-                                networkEdgePreferenceStore = networkEdgePreferenceStore,
-                                fingerprintHash = fingerprint,
-                            )
-                        }.getOrDefault(emptyList())
-                    }.orEmpty()
-            val outcomeWithoutSynthesis =
-                baseOutcome.copy(
-                    detectionVerdict = detectionResult?.verdict,
-                    detectionFindings = detectionResult?.findings.orEmpty(),
-                    detectionRuleApplied = detectionResult?.ruleApplied,
-                    detectionEvidenceScopes = detectionResult?.evidenceScopes.orEmpty(),
-                    detectionSignalCount = detectionResult?.detectedSignalCount,
-                    detectionLocalFindings = detectionResult?.localFindings.orEmpty(),
-                    detectionNetworkFindings = detectionResult?.networkFindings.orEmpty(),
-                    installedVpnDetectorCount = catalogSnapshot.installedVpnDetectorCount.takeIf { it >= 0 },
-                    installedVpnDetectorTopApps = catalogSnapshot.topDetectorPackages,
-                    networkCharacter = networkCharacter,
-                    strategyEffectiveness = effectivenessLedger,
-                    routingSanity = routingSanity,
-                    regressionDelta = computeRegressionDelta(baseOutcome, previousOutcome),
-                    bufferbloat = bufferbloat,
-                    dnsCharacterization = dnsCharacterization,
-                    connectivityAssessment =
-                        buildConnectivityAssessment(
-                            runId = runId,
-                            progressState = progressState,
-                            scanRecordStore = scanRecordStore,
-                            json = json,
-                            serviceStateStore = serviceStateStore,
-                            comparisonScanCoordinator = comparisonScanCoordinator,
-                        ),
-                )
-            val reproAction =
-                outcomeWithoutSynthesis.connectivityAssessment
-                    ?.takeIf { it.assessmentCode == ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE }
-                    ?.let {
-                        HomeReproAction(
-                            actionId = "internet_loss_repro",
-                            label = "Run internet-loss repro",
-                            summary = "Retry a paired raw-path and in-path comparison on complaint-specific targets.",
-                        )
-                    }
-            val (synthHeadline, synthSteps) = synthesizeActionableSummary(outcomeWithoutSynthesis)
-            val outcome =
-                outcomeWithoutSynthesis.copy(
-                    actionableHeadline = synthHeadline,
-                    actionableNextSteps = synthSteps,
-                    internetLossReproAction = reproAction,
-                )
-            completedRuns[runId] = outcome
-            if (outcome.fingerprintHash != null && outcome.completedStageCount > 0) {
-                scope.launch {
-                    runCatching {
-                        probeResultCache.store(
-                            CachedProbeOutcome(
-                                fingerprintHash = outcome.fingerprintHash,
-                                headline = outcome.headline,
-                                summary = outcome.summary,
-                                appliedSettings = outcome.appliedSettings,
-                                completedStageCount = outcome.completedStageCount,
-                                failedStageCount = outcome.failedStageCount,
-                                cachedAtMs = System.currentTimeMillis(),
-                            ),
-                        )
-                    }
-                }
-            }
-            progressState.update { current ->
-                current.updatedRun(runId) { progress ->
-                    progress.copy(
-                        fingerprintHash = outcome.fingerprintHash,
-                        status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
-                        activeStageIndex = null,
-                        activeSessionId = null,
-                        stages = outcome.stageSummaries,
-                        outcome = outcome,
-                    )
-                }
-            }
+            outcomeFinalizer.finalize(
+                HomeCompositeFinalizationRequest(
+                    runId = runId,
+                    auditOutcome = auditOutcome,
+                    coverageNote = coverageNote,
+                    dnsIssuesDetected = dnsIssuesDetected,
+                    networkChanged = networkChanged,
+                    detectionResult = detectionResult,
+                    previousOutcome = previousOutcome,
+                    packetCaptureDisposition = packetCaptureCoordinator.disposition(runId),
+                ),
+            )
+            packetCaptureCoordinator.clear(runId)
+        }
+    }
+
+internal object UnavailableVpnRouteEvidenceProvider : VpnRouteEvidenceProvider {
+    override val changes = MutableStateFlow(0L)
+
+    override fun capture(): VpnRouteEvidence = VpnRouteEvidence()
+}
+
+private fun passiveVpnRouteEvidenceSummary(evidence: PassiveVpnRouteEvidence): String =
+    when (evidence.disposition) {
+        PassiveVpnRouteEvidenceDisposition.CAPTURED -> {
+            "Captured sessionless VPN route evidence: route=${evidence.routeAxis} " +
+                "forwarding=${evidence.forwardingAxis} target_reachability=unverified."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.NOT_VPN_MODE -> {
+            "Skipped because the active runtime is not VPN mode."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.STALE_GENERATION -> {
+            "Skipped because VPN route evidence did not match the current generation."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.INCOMPLETE_EVIDENCE -> {
+            "Skipped because current VPN route evidence is incomplete or not owner-verified."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.INELIGIBLE_LIFECYCLE -> {
+            "Skipped because the VPN route lifecycle is not active."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.STALE_FORWARDING_GENERATION -> {
+            "Skipped because VPN forwarding evidence belongs to a different generation."
         }
     }

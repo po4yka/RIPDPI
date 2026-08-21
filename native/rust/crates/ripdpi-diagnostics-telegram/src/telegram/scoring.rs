@@ -7,14 +7,19 @@ pub(crate) fn classify_telegram_verdict(
     ul_status: &str,
     dc_reachable: usize,
     dc_total: usize,
+    ws_status: &str,
 ) -> &'static str {
-    if (dl_status == "blocked" || ul_status == "blocked") && dc_reachable == 0 {
+    if dl_status == "cancelled" || ul_status == "cancelled" || ws_status == "cancelled" {
+        "cancelled"
+    } else if dl_status == "deadline_exceeded" || ul_status == "deadline_exceeded" || ws_status == "deadline_exceeded" {
+        "deadline_exceeded"
+    } else if (dl_status == "blocked" || ul_status == "blocked") && dc_reachable == 0 {
         "blocked"
     } else if matches!(dl_status, "stalled" | "slow") || matches!(ul_status, "stalled" | "slow") {
         "slow"
     } else if dc_reachable < dc_total && dc_reachable > 0 {
         "partial"
-    } else if dl_status == "ok" && ul_status == "ok" {
+    } else if dl_status == "ok" && ul_status == "ok" && ws_status == "ok" {
         "ok"
     } else {
         "error"
@@ -44,6 +49,7 @@ pub(crate) fn compute_telegram_quality_score(
         match t.status.as_str() {
             "ok" => t.duration_ms,
             "slow" | "stalled" => t.duration_ms.saturating_add(PARTIAL_PENALTY_MS),
+            "cancelled" | "deadline_exceeded" => PARTIAL_PENALTY_MS,
             _ => FAILURE_PENALTY_MS,
         }
     };

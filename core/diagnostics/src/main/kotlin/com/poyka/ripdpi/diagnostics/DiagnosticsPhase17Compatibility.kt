@@ -87,6 +87,7 @@ internal object DiagnosticsReportPersister {
         artifactWriteStore = artifactWriteStore,
         serviceStateStore = serviceStateStore,
         json = json,
+        deferTerminal = false,
     )
 
     suspend fun persistScanFailure(

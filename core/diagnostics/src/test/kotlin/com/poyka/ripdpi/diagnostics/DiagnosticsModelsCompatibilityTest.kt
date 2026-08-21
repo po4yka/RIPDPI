@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind as WireScanCompletionKind
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition as WireScanReportDisposition
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanTerminationReason as WireScanTerminationReason
 
 class DiagnosticsModelsCompatibilityTest {
@@ -258,6 +259,7 @@ class DiagnosticsModelsCompatibilityTest {
             )
 
         assertEquals(WireScanCompletionKind.NORMAL, report.completionKind)
+        assertEquals(WireScanReportDisposition.TERMINAL, report.reportDisposition)
         assertEquals(null, report.terminationReason)
     }
 

@@ -17,6 +17,7 @@ interface DiagnosticsDao :
     DiagnosticsRememberedPolicyDao,
     DiagnosticsNetworkPreferenceDao,
     DiagnosticsDurableStateDao,
+    HomeDiagnosticsRunDao,
     DiagnosticsRetentionDao {
     @Transaction
     suspend fun persistFailureArtifacts(
@@ -51,8 +52,9 @@ interface DiagnosticsDao :
         NetworkDnsBlockedPathEntity::class,
         NetworkEdgePreferenceEntity::class,
         DiagnosticsDurableStateEntity::class,
+        HomeDiagnosticsRunEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {

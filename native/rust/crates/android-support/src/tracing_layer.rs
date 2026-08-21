@@ -77,9 +77,14 @@ where
             }
         }
         event.record(&mut visitor);
-        if visitor.attempt_id.is_some() && visitor.attempt_sequence.is_none() {
+        let is_relay_attempt_stage = visitor.kind.as_deref() == Some("relay_attempt_stage");
+        if is_relay_attempt_stage && visitor.attempt_id.is_some() && visitor.attempt_sequence.is_none() {
+            // Ordering: sequence values only need unique monotonic numbering for one attempt.
+            // The event record carries all published state separately.
             visitor.attempt_sequence =
                 attempt_sequence.map(|sequence| sequence.fetch_add(1, Ordering::Relaxed).saturating_add(1));
+        } else if !is_relay_attempt_stage {
+            visitor.attempt_sequence = None;
         }
         let metadata = event.metadata();
         let Some(ring) = visitor.ring().as_deref().and_then(EventRing::from_routing_field) else {

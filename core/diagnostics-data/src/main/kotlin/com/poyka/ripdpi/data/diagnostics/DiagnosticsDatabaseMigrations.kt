@@ -14,6 +14,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration9To10,
             migration10To11,
             migration11To12,
+            migration12To13,
         )
 }
 
@@ -112,5 +113,44 @@ private val migration11To12 =
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN relayHealthDecision TEXT")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN cooldownScope TEXT")
             db.execSQL("ALTER TABLE native_session_events ADD COLUMN cleanupReceipt TEXT")
+        }
+    }
+
+/** v12 -> v13: persist home diagnostics metadata outside ordinary scan sessions. */
+private val migration12To13 =
+    object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS home_diagnostics_runs (
+                    runId TEXT NOT NULL,
+                    origin TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    payloadVersion INTEGER NOT NULL,
+                    payloadJson TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL,
+                    PRIMARY KEY(runId)
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_home_diagnostics_runs_updatedAt
+                ON home_diagnostics_runs(updatedAt)
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_native_session_events_relay_attempt_sequence
+                ON native_session_events(
+                    connectionSessionId,
+                    runtimeId,
+                    attemptId,
+                    attemptSequence,
+                    createdAt
+                )
+                """.trimIndent(),
+            )
         }
     }

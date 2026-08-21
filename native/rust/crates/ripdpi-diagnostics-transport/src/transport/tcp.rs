@@ -3,14 +3,13 @@ use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
 
-use super::address::resolve_addresses;
 use super::route_experiment::{connect_addresses_with_route_experiment, route_identity};
 use super::socks5::connect_via_socks5_observed;
 use super::types::{
     RouteExperimentConfig, TargetAddress, TransportConfig, TransportConnectError, TransportConnectResult,
     TransportFailureStage,
 };
-use crate::util::{CONNECT_TIMEOUT, bounded_scan_io_timeout};
+use crate::util::{CONNECT_TIMEOUT, active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
 
 const HAPPY_EYEBALLS_DELAY: Duration = Duration::from_millis(250);
 
@@ -40,8 +39,6 @@ pub(super) fn connect_direct_observed(
     port: u16,
     route_experiment: Option<&RouteExperimentConfig>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
-    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT)
-        .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
     let addresses = resolve_candidate_addresses(targets, port)
         .map_err(|err| TransportConnectError::new(TransportFailureStage::DnsResolution, err))?;
     if let Some(config) = route_experiment {
@@ -56,7 +53,7 @@ pub(super) fn connect_direct_observed(
             route_report: Some(route_report),
         });
     }
-    let (stream, connected_addr) = connect_addresses_with_race(&addresses, timeout)
+    let (stream, connected_addr) = connect_addresses_with_race(&addresses)
         .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
     let local_addr = stream.local_addr().ok();
     Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr), local_addr, route_report: None })
@@ -65,7 +62,10 @@ pub(super) fn connect_direct_observed(
 pub(super) fn resolve_candidate_addresses(targets: &[TargetAddress], port: u16) -> Result<Vec<SocketAddr>, String> {
     let mut resolved = Vec::new();
     for target in targets {
-        for address in resolve_addresses(target, port).map_err(|error| error.to_string())? {
+        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
+        for address in
+            super::resolve_addresses_with_timeout(target, port, timeout).map_err(|error| error.to_string())?
+        {
             if !resolved.contains(&address) {
                 resolved.push(address);
             }
@@ -77,7 +77,7 @@ pub(super) fn resolve_candidate_addresses(targets: &[TargetAddress], port: u16) 
     Ok(resolved)
 }
 
-fn connect_addresses_with_race(addresses: &[SocketAddr], timeout: Duration) -> Result<(TcpStream, SocketAddr), String> {
+fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), String> {
     let initial_batch = addresses.iter().take(2).copied().collect::<Vec<_>>();
     let initial_batch_len = initial_batch.len();
     let mut last_error = None;
@@ -85,6 +85,7 @@ fn connect_addresses_with_race(addresses: &[SocketAddr], timeout: Duration) -> R
         let raced = race_initial_addresses(
             initial_batch,
             Arc::new(move |address| {
+                let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
                 super::protect::protected_tcp_connect(address, timeout).map_err(|error| error.to_string())
             }),
         );
@@ -94,6 +95,7 @@ fn connect_addresses_with_race(addresses: &[SocketAddr], timeout: Duration) -> R
         last_error = raced.err();
     }
     for address in addresses.iter().skip(initial_batch_len).copied() {
+        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
         match super::protect::protected_tcp_connect(address, timeout) {
             Ok(stream) => return Ok((stream, address)),
             Err(err) => last_error = Some(err.to_string()),
@@ -107,6 +109,7 @@ where
     T: Send + 'static,
     F: Fn(SocketAddr) -> Result<T, String> + Send + Sync + 'static,
 {
+    let scan_deadline = active_scan_io_deadline();
     let attempt_count = addresses.len();
     let (result_tx, result_rx) = mpsc::channel();
     for (index, address) in addresses.into_iter().enumerate() {
@@ -118,7 +121,8 @@ where
                 if index > 0 {
                     thread::sleep(HAPPY_EYEBALLS_DELAY);
                 }
-                let _ = result_tx.send((address, connect(address)));
+                let result = with_scan_io_deadline(scan_deadline, || connect(address));
+                let _ = result_tx.send((address, result));
             })
             .map_err(|error| format!("connect_race_spawn_failed: {error}"))?;
     }
@@ -179,19 +183,12 @@ mod tests {
 
     #[test]
     fn direct_tcp_rejects_connect_after_scan_deadline() {
+        let loopback = "127.0.0.1:9".parse().expect("loopback socket address");
         let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
-            connect_transport_observed(
-                &[TargetAddress::Ip("127.0.0.1".parse().expect("loopback"))],
-                9,
-                &TransportConfig::Direct { route_experiment: None },
-            )
+            connect_addresses_with_race(&[loopback])
         });
 
-        assert!(matches!(
-            result,
-            Err(error)
-                if error.stage == TransportFailureStage::TcpConnect && error.message == "scan_deadline_exceeded"
-        ));
+        assert!(matches!(result, Err(error) if error == "scan_deadline_exceeded"));
     }
 
     #[test]

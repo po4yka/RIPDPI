@@ -3,7 +3,10 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -14,7 +17,39 @@ data class LogcatSnapshot(
     val captureScope: String,
     val byteCount: Int,
     val truncated: Boolean = false,
+    /** Bytes emitted by Android's logcat command while this collector was reading it. */
+    val sourceByteCount: Long = byteCount.toLong(),
+    /** Source-log bytes retained in [content]; the inserted truncation marker is excluded. */
+    val retainedByteCount: Long = byteCount.toLong(),
+    /** Collector-observed source-log bytes omitted by bounded retention. */
+    val droppedByteCount: Long = 0L,
+    /**
+     * Android may evict records from its ring before collection starts. The collector cannot
+     * measure that loss, so it must not infer it from [droppedByteCount].
+     */
+    val preCollectionRingLoss: LogcatPreCollectionRingLossStatus =
+        LogcatPreCollectionRingLossStatus.UNKNOWN,
+    /** Android logcat timestamps from the first and last retained source records, if present. */
+    val earliestRetainedTimestamp: String? = null,
+    val latestRetainedTimestamp: String? = null,
+    /** Collector entry size before archive-level redaction and final retention. */
+    val collectionEntryByteCount: Int = byteCount,
+    /** Exact accounting for the post-redaction content emitted into the archive. */
+    val postRedactionAccounting: LogcatPostRedactionAccounting? = null,
 )
+
+data class LogcatPostRedactionAccounting(
+    val sourceByteCount: Long,
+    val retainedByteCount: Long,
+    val droppedByteCount: Long,
+    val entryByteCount: Int,
+    val earliestRetainedTimestamp: String? = null,
+    val latestRetainedTimestamp: String? = null,
+)
+
+enum class LogcatPreCollectionRingLossStatus {
+    UNKNOWN,
+}
 
 open class LogcatSnapshotCollector
     @Inject
@@ -23,7 +58,6 @@ open class LogcatSnapshotCollector
             const val AppVisibleSnapshotScope = "app_visible_snapshot"
             const val TimeBoundSnapshotScope = "time_bound_snapshot"
             const val MAX_LOGCAT_BYTES = 512 * 1024
-            private const val READ_BUFFER_CHARS = 8192
         }
 
         /**
@@ -57,6 +91,12 @@ open class LogcatSnapshotCollector
                         captureScope = scope,
                         byteCount = output.byteCount,
                         truncated = output.truncated,
+                        sourceByteCount = output.sourceByteCount,
+                        retainedByteCount = output.retainedByteCount,
+                        droppedByteCount = output.droppedByteCount,
+                        preCollectionRingLoss = output.preCollectionRingLoss,
+                        earliestRetainedTimestamp = output.earliestRetainedTimestamp,
+                        latestRetainedTimestamp = output.latestRetainedTimestamp,
                     )
                 }
             }
@@ -71,58 +111,177 @@ open class LogcatSnapshotCollector
             val process = Runtime.getRuntime().exec(command.toTypedArray())
             try {
                 process.errorStream.close()
-                return process.inputStream.bufferedReader().use { reader ->
-                    if (sinceTimestampMs == null) {
-                        readTailBounded(reader)
-                    } else {
-                        readHeadAndTailBounded(reader)
-                    }
+                return process.inputStream.use { input ->
+                    readLineAlignedLogcatOutput(
+                        input = input,
+                        retainHead = sinceTimestampMs != null,
+                        maxBytes = MAX_LOGCAT_BYTES,
+                    )
                 }
             } finally {
                 process.destroy()
                 process.waitFor()
             }
         }
-
-        private fun readTailBounded(reader: java.io.BufferedReader): LogcatReadOutput {
-            val buffer = RollingByteTail(MAX_LOGCAT_BYTES)
-            val charBuf = CharArray(READ_BUFFER_CHARS)
-            var charsRead = reader.read(charBuf)
-            while (charsRead != -1) {
-                val chunk = String(charBuf, 0, charsRead)
-                buffer.append(chunk.toByteArray(Charsets.UTF_8))
-                charsRead = reader.read(charBuf)
-            }
-            val bytes = buffer.toByteArray()
-            return LogcatReadOutput(
-                content = bytes.toString(Charsets.UTF_8),
-                byteCount = bytes.size,
-                truncated = buffer.truncated,
-            )
-        }
-
-        private fun readHeadAndTailBounded(reader: java.io.BufferedReader): LogcatReadOutput {
-            val buffer = RollingByteHeadAndTail(MAX_LOGCAT_BYTES)
-            val charBuf = CharArray(READ_BUFFER_CHARS)
-            var charsRead = reader.read(charBuf)
-            while (charsRead != -1) {
-                buffer.append(String(charBuf, 0, charsRead).toByteArray(Charsets.UTF_8))
-                charsRead = reader.read(charBuf)
-            }
-            val bytes = buffer.toByteArray()
-            return LogcatReadOutput(
-                content = bytes.toString(Charsets.UTF_8),
-                byteCount = bytes.size,
-                truncated = buffer.truncated,
-            )
-        }
     }
 
 data class LogcatReadOutput(
     val content: String,
-    val byteCount: Int,
-    val truncated: Boolean,
+    val byteCount: Int = content.toByteArray(Charsets.UTF_8).size,
+    val truncated: Boolean = false,
+    val sourceByteCount: Long = byteCount.toLong(),
+    val retainedByteCount: Long = byteCount.toLong(),
+    val droppedByteCount: Long = 0L,
+    val preCollectionRingLoss: LogcatPreCollectionRingLossStatus =
+        LogcatPreCollectionRingLossStatus.UNKNOWN,
+    val earliestRetainedTimestamp: String? = null,
+    val latestRetainedTimestamp: String? = null,
 )
+
+internal fun readLineAlignedLogcatOutput(
+    bytes: ByteArray,
+    retainHead: Boolean,
+    maxBytes: Int,
+): LogcatReadOutput =
+    ByteArrayInputStream(bytes).use { input ->
+        readLineAlignedLogcatOutput(
+            input = input,
+            retainHead = retainHead,
+            maxBytes = maxBytes,
+        )
+    }
+
+private fun readLineAlignedLogcatOutput(
+    input: InputStream,
+    retainHead: Boolean,
+    maxBytes: Int,
+): LogcatReadOutput {
+    val retention = LineAlignedLogcatRetention(retainHead = retainHead, maxBytes = maxBytes)
+    val readBuffer = ByteArray(LogcatReadBufferBytes)
+    var read = input.read(readBuffer)
+    while (read != -1) {
+        retention.append(readBuffer, read)
+        read = input.read(readBuffer)
+    }
+    return retention.finish()
+}
+
+private class LineAlignedLogcatRetention(
+    private val retainHead: Boolean,
+    private val maxBytes: Int,
+) {
+    private val markerBytes =
+        if (retainHead) {
+            LogcatTruncationMarker.toByteArray(Charsets.UTF_8)
+        } else {
+            LogcatTailTruncationMarker.toByteArray(Charsets.UTF_8)
+        }
+    private val sourceBudget = (maxBytes - markerBytes.size).coerceAtLeast(0)
+    private val headBudget = if (retainHead) sourceBudget / 2 else 0
+    private val tailBudget = sourceBudget - headBudget
+    private val completeLines = mutableListOf<ByteArray>()
+    private val headLines = mutableListOf<ByteArray>()
+    private val tailLines = ArrayDeque<ByteArray>()
+    private val pendingLine = ByteArrayOutputStream()
+    private var headBytes = 0
+    private var tailBytes = 0
+    private var sourceByteCount = 0L
+    private var truncated = false
+    private var discardingOversizedLine = false
+
+    fun append(
+        bytes: ByteArray,
+        count: Int,
+    ) {
+        bytes.take(count).forEach(::appendByte)
+    }
+
+    fun finish(): LogcatReadOutput {
+        if (!discardingOversizedLine && pendingLine.size() > 0) {
+            appendCompleteLine(pendingLine.toByteArray())
+        }
+        val retainedLines = if (truncated) headLines + tailLines else completeLines
+        val retainedByteCount = retainedLines.sumOf { it.size.toLong() }
+        val renderedBytes =
+            if (truncated) {
+                retainedLinesToBytes(headLines) + markerBytes + retainedLinesToBytes(tailLines)
+            } else {
+                retainedLinesToBytes(completeLines)
+            }
+        val retainedTimestamps = retainedLines.mapNotNull(::logcatTimestamp)
+        return LogcatReadOutput(
+            content = renderedBytes.toString(Charsets.UTF_8),
+            byteCount = renderedBytes.size,
+            truncated = truncated,
+            sourceByteCount = sourceByteCount,
+            retainedByteCount = retainedByteCount,
+            droppedByteCount = (sourceByteCount - retainedByteCount).coerceAtLeast(0L),
+            preCollectionRingLoss = LogcatPreCollectionRingLossStatus.UNKNOWN,
+            earliestRetainedTimestamp = retainedTimestamps.firstOrNull(),
+            latestRetainedTimestamp = retainedTimestamps.lastOrNull(),
+        )
+    }
+
+    private fun appendByte(byte: Byte) {
+        sourceByteCount += 1
+        if (!truncated && sourceByteCount > maxBytes) activateTruncation()
+        if (discardingOversizedLine) {
+            if (byte == NewLineByte) discardingOversizedLine = false
+            return
+        }
+        pendingLine.write(byte.toInt())
+        if (pendingLine.size() > maxBytes) {
+            pendingLine.reset()
+            discardingOversizedLine = true
+            tailLines.clear()
+            tailBytes = 0
+            return
+        }
+        if (byte == NewLineByte) {
+            appendCompleteLine(pendingLine.toByteArray())
+            pendingLine.reset()
+        }
+    }
+
+    private fun appendCompleteLine(line: ByteArray) {
+        if (!truncated) {
+            completeLines += line
+        } else {
+            appendTail(line)
+        }
+    }
+
+    private fun activateTruncation() {
+        truncated = true
+        completeLines.forEach { line ->
+            if (retainHead && headBytes + line.size <= headBudget) {
+                headLines += line
+                headBytes += line.size
+            } else {
+                appendTail(line)
+            }
+        }
+        completeLines.clear()
+    }
+
+    private fun appendTail(line: ByteArray) {
+        if (line.size > tailBudget) return
+        while (tailLines.isNotEmpty() && tailBytes + line.size > tailBudget) {
+            tailBytes -= tailLines.removeFirst().size
+        }
+        tailLines.addLast(line)
+        tailBytes += line.size
+    }
+}
+
+private fun retainedLinesToBytes(lines: Collection<ByteArray>): ByteArray {
+    val bytes = ByteArrayOutputStream()
+    lines.forEach(bytes::writeBytes)
+    return bytes.toByteArray()
+}
+
+private fun logcatTimestamp(line: ByteArray): String? =
+    LogcatTimestampRegex.find(line.toString(Charsets.UTF_8))?.groupValues?.get(1)
 
 internal fun buildLogcatCommand(
     pid: Int,
@@ -146,6 +305,7 @@ internal fun buildLogcatCommand(
 
 internal const val Utf8ContinuationMask = 0xC0
 internal const val Utf8ContinuationTag = 0x80
+private const val LogcatReadBufferBytes = 8192
 private const val Utf8ByteMask = 0xFF
 private const val Utf8TwoBytePrefixMask = 0xE0
 private const val Utf8TwoBytePrefix = 0xC0
@@ -195,6 +355,9 @@ private class RollingByteTail(
 }
 
 internal const val LogcatTruncationMarker = "\n[logcat truncated: head and tail retained]\n"
+internal const val LogcatTailTruncationMarker = "\n[logcat truncated: tail retained]\n"
+private val NewLineByte = '\n'.code.toByte()
+private val LogcatTimestampRegex = Regex("^(\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3})")
 
 internal fun headAndTailUtf8Bytes(
     value: String,

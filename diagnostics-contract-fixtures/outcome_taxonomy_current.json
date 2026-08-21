@@ -59,6 +59,8 @@
     {"probeType": "telegram_availability", "pathMode": "RAW_PATH", "outcome": "partial", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false},
     {"probeType": "telegram_availability", "pathMode": "RAW_PATH", "outcome": "blocked", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "warn", "healthyEnoughForSummary": false},
     {"probeType": "telegram_availability", "pathMode": "RAW_PATH", "outcome": "error", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
+    {"probeType": "telegram_availability", "pathMode": "RAW_PATH", "outcome": "cancelled", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false},
+    {"probeType": "telegram_availability", "pathMode": "RAW_PATH", "outcome": "deadline_exceeded", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false},
     {"probeType": "throughput_window", "pathMode": "RAW_PATH", "outcome": "throughput_measured", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true},
     {"probeType": "throughput_window", "pathMode": "RAW_PATH", "outcome": "throughput_failed", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
     {"probeType": "strategy_http", "pathMode": "RAW_PATH", "outcome": "http_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true},

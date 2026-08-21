@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.DiagnosticsEngineSchemaVersi
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -148,17 +149,12 @@ class DiagnosticsWireContractTest {
         return EngineScanReportWire(
             sessionId = "s",
             profileId = "p",
+            reportDisposition = ScanReportDisposition.CHECKPOINT,
             pathMode = ScanPathMode.RAW_PATH,
             startedAt = 1000,
             finishedAt = 2000,
             summary = "ok",
-            candidateRuntimeCleanup =
-                CandidateRuntimeCleanupReceipt(
-                    started = 1,
-                    stopped = 1,
-                    joined = 1,
-                    forcedAbort = 0,
-                ),
+            candidateRuntimeCleanup = sampleCandidateRuntimeCleanup(),
             results =
                 listOf(
                     EngineProbeResultWire(
@@ -211,6 +207,33 @@ class DiagnosticsWireContractTest {
             executionPlan = sampleExecutionPlan(),
         )
     }
+
+    private fun sampleCandidateRuntimeCleanup() =
+        CandidateRuntimeCleanupReceipt(
+            started = 1,
+            stopped = 1,
+            joined = 1,
+            forcedAbort = 0,
+            candidates =
+                listOf(
+                    CandidateRuntimeCleanupDetail(
+                        scanSessionId = "s",
+                        candidateId = "candidate",
+                        lane = StrategyProbeProgressLane.TCP,
+                        outcome = CandidateRuntimeCleanupOutcome.GRACEFUL,
+                        addressAttemptCount = 1,
+                        connectionRefusedCount = 0,
+                        duplicateRefusalCount = 0,
+                        drainLatencyMs = 1,
+                        forcedAbort = false,
+                    ),
+                ),
+            duplicateRefusalCount = 0,
+            addressAttemptCount = 1,
+            connectionRefusedCount = 0,
+            drainLatencyMs = 1,
+            cleanupOutcome = CandidateRuntimeCleanupOutcome.GRACEFUL,
+        )
 
     private fun sampleExecutionPlan() =
         ExecutionPlanSnapshot(
@@ -519,7 +542,7 @@ class DiagnosticsWireContractTest {
 
             is JsonArray -> {
                 val first = child.firstOrNull()
-                if (first is JsonObject) extractFieldPaths(first, "$path[]") else setOf("$path[]")
+                setOf("$path[]") + if (first is JsonObject) extractFieldPaths(first, "$path[]") else emptySet()
             }
 
             else -> {

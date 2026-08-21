@@ -67,6 +67,30 @@ interface DiagnosticsScanRecordStore {
     )
 }
 
+interface HomeDiagnosticsRunStore {
+    suspend fun getHomeRun(runId: String): HomeDiagnosticsRunEntity?
+
+    suspend fun upsertHomeRun(run: HomeDiagnosticsRunEntity)
+
+    suspend fun persistCompletedHomeRun(
+        run: HomeDiagnosticsRunEntity,
+        detectionSession: ScanSessionEntity?,
+        detectionResults: List<ProbeResultEntity>,
+    ) {
+        check(detectionSession != null || detectionResults.isEmpty()) {
+            "Local detection probe results require a detection scan session"
+        }
+        detectionSession?.let { session ->
+            val scanStore =
+                requireNotNull(this as? DiagnosticsScanRecordStore) {
+                    "Home diagnostics run store must also persist local detection scan evidence"
+                }
+            scanStore.persistCompletedScan(session, detectionResults)
+        }
+        upsertHomeRun(run)
+    }
+}
+
 interface DiagnosticsArtifactReadStore :
     DiagnosticsArtifactObservationStore,
     DiagnosticsNativeArtifactReadStore,
@@ -147,9 +171,29 @@ interface DiagnosticsArtifactQueryStore {
         limit: Int = 500,
     ): List<NativeSessionEventEntity>
 
+    suspend fun getRelayAttemptTraceEvents(
+        connectionSessionId: String,
+        runtimeId: String,
+        attemptId: Long,
+        limit: Int,
+    ): List<NativeSessionEventEntity>
+
     suspend fun getNativeEventById(id: String): NativeSessionEventEntity?
 
     suspend fun getGlobalNativeEvents(limit: Int = 250): List<NativeSessionEventEntity>
+}
+
+interface DiagnosticsArchiveNativeEventQueryStore {
+    suspend fun getNativeEventArchiveSourceForSession(
+        sessionId: String,
+        newestLimit: Int,
+        criticalClassLimit: Int,
+    ): DiagnosticsNativeEventArchiveSource
+
+    suspend fun getGlobalNativeEventArchiveSource(
+        newestLimit: Int,
+        criticalClassLimit: Int,
+    ): DiagnosticsNativeEventArchiveSource
 }
 
 interface DiagnosticsArtifactWriteStore {
@@ -163,6 +207,29 @@ interface DiagnosticsArtifactWriteStore {
 
     suspend fun insertExportRecord(record: ExportRecordEntity)
 }
+
+interface RawPathSettlementStore {
+    suspend fun stageRawPathSettlement(marker: DiagnosticsDurableStateEntity): DiagnosticsDurableStateEntity
+
+    suspend fun getPendingRawPathSettlements(limit: Int = 64): List<DiagnosticsDurableStateEntity>
+
+    suspend fun commitRawPathSettlement(
+        marker: DiagnosticsDurableStateEntity,
+        context: DiagnosticContextEntity,
+        terminalSession: ScanSessionEntity,
+    ): Boolean
+
+    suspend fun quarantineMalformedRawPathSettlement(
+        marker: DiagnosticsDurableStateEntity,
+        quarantineMarker: DiagnosticsDurableStateEntity,
+        sessionId: String,
+        terminalSummary: String,
+        finishedAt: Long,
+    ): Boolean
+}
+
+const val RawPathSettlementDurableStatePrefix = "raw_path_settlement:"
+const val RawPathSettlementQuarantineStatePrefix = "raw_path_settlement_quarantine:"
 
 interface DiagnosticsFailureArtifactWriteStore {
     suspend fun persistFailureArtifacts(
@@ -399,178 +466,35 @@ class RoomDiagnosticsScanRecordStore
     }
 
 @Singleton
-class RoomDiagnosticsArtifactStore
-    private constructor(
-        readStore: ArtifactReadStore,
-        writeStore: ArtifactWriteStore,
-    ) : DiagnosticsArtifactReadStore by readStore,
-        DiagnosticsArtifactQueryStore by readStore,
-        DiagnosticsArtifactWriteStore by writeStore,
-        DiagnosticsDurableStateStore by writeStore {
-        @Inject
-        constructor(
-            db: DiagnosticsDatabase,
-            dao: DiagnosticsDao,
-        ) : this(
-            readStore = ArtifactReadStore(dao),
-            writeStore = ArtifactWriteStore(db, dao),
-        )
+class RoomHomeDiagnosticsRunStore
+    @Inject
+    constructor(
+        private val db: DiagnosticsDatabase,
+        private val dao: DiagnosticsDao,
+    ) : HomeDiagnosticsRunStore {
+        override suspend fun getHomeRun(runId: String): HomeDiagnosticsRunEntity? = dao.getHomeDiagnosticsRun(runId)
 
-        private class ArtifactWriteStore(
-            private val db: DiagnosticsDatabase,
-            private val dao: DiagnosticsDao,
-        ) : DiagnosticsArtifactWriteStore,
-            DiagnosticsDurableStateStore {
-            override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
-                dao.upsertNetworkSnapshot(snapshot)
+        override suspend fun upsertHomeRun(run: HomeDiagnosticsRunEntity) {
+            dao.upsertHomeDiagnosticsRun(run)
+        }
+
+        override suspend fun persistCompletedHomeRun(
+            run: HomeDiagnosticsRunEntity,
+            detectionSession: ScanSessionEntity?,
+            detectionResults: List<ProbeResultEntity>,
+        ) {
+            check(detectionSession != null || detectionResults.isEmpty()) {
+                "Local detection probe results require a detection scan session"
             }
-
-            override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
-                dao.upsertContextSnapshot(snapshot)
-            }
-
-            override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
-                dao.insertTelemetrySample(sample)
-            }
-
-            override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
-                dao.insertNativeSessionEvent(event)
-            }
-
-            override suspend fun insertExportRecord(record: ExportRecordEntity) {
-                dao.insertExportRecord(record)
-            }
-
-            override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? =
-                dao.getDiagnosticsDurableState(key)
-
-            override fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>> =
-                dao.observeDiagnosticsDurableStateByPrefix(keyPrefix)
-
-            override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
-                dao.upsertDiagnosticsDurableState(state)
-            }
-
-            override suspend fun upsertBoundedDurableState(
-                state: DiagnosticsDurableStateEntity,
-                keyPrefix: String,
-                minimumUpdatedAt: Long,
-                retainCount: Int,
-            ) {
-                db.withTransaction {
-                    dao.upsertDiagnosticsDurableState(state)
-                    dao.clearDiagnosticsDurableStateByPrefixOlderThan(keyPrefix, minimumUpdatedAt)
-                    dao.trimDiagnosticsDurableStateByPrefixToCount(keyPrefix, retainCount)
-                }
-            }
-
-            override suspend fun clearDurableStateIfCurrent(
-                key: String,
-                expectedValue: String,
-            ): Boolean =
-                db.withTransaction {
-                    if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
-                    dao.clearDiagnosticsDurableState(key, expectedValue)
-                    true
-                }
-
-            override suspend fun replaceDurableStateIfCurrent(
-                state: DiagnosticsDurableStateEntity,
-                expectedValue: String,
-            ): Boolean =
-                dao.replaceDiagnosticsDurableStateIfCurrent(
-                    key = state.key,
-                    expectedValue = expectedValue,
-                    replacementValue = state.value,
-                    updatedAt = state.updatedAt,
-                ) == 1
-
-            override suspend fun clearDurableStateAndDependencyIfCurrent(
-                key: String,
-                expectedValue: String,
-                dependencyKey: String,
-                expectedDependencyValue: String,
-            ): Boolean =
-                db.withTransaction {
-                    if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
-                    if (dao.getDiagnosticsDurableState(dependencyKey)?.value != expectedDependencyValue) {
-                        return@withTransaction false
-                    }
-                    dao.clearDiagnosticsDurableState(key, expectedValue)
-                    dao.clearDiagnosticsDurableState(dependencyKey, expectedDependencyValue)
-                    true
-                }
-
-            override suspend fun insertNativeSessionEventAndUpsertDurableState(
-                event: NativeSessionEventEntity,
-                state: DiagnosticsDurableStateEntity,
-            ) {
-                db.withTransaction {
-                    dao.insertNativeSessionEvent(event)
-                    dao.upsertDiagnosticsDurableState(state)
-                }
-            }
-
-            override suspend fun insertNativeSessionEventAndUpsertDurableStateIfCurrent(
-                event: NativeSessionEventEntity,
-                state: DiagnosticsDurableStateEntity,
-                expectedValue: String,
-            ): Boolean =
-                db.withTransaction {
-                    if (dao.getDiagnosticsDurableState(state.key)?.value != expectedValue) {
-                        return@withTransaction false
-                    }
-                    dao.insertNativeSessionEvent(event)
-                    dao.replaceDiagnosticsDurableStateIfCurrent(
-                        key = state.key,
-                        expectedValue = expectedValue,
-                        replacementValue = state.value,
-                        updatedAt = state.updatedAt,
-                    ) == 1
-                }
-
-            override suspend fun insertNativeSessionEventAndClearDurableState(
-                event: NativeSessionEventEntity,
-                key: String,
-                expectedValue: String,
-            ) {
-                db.withTransaction {
-                    dao.insertNativeSessionEvent(event)
-                    dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
-                }
-            }
-
-            override suspend fun insertNativeSessionEventAndClearDurableStateIfCurrent(
-                event: NativeSessionEventEntity,
-                key: String,
-                expectedValue: String,
-            ): Boolean =
-                db.withTransaction {
-                    if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
-                        dao.insertNativeSessionEvent(event)
-                        dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
-                        true
-                    } else {
-                        false
+            db.withTransaction {
+                detectionSession?.let { session ->
+                    dao.upsertScanSession(session)
+                    dao.deleteProbeResultsForSession(session.id)
+                    if (detectionResults.isNotEmpty()) {
+                        dao.insertProbeResults(detectionResults)
                     }
                 }
-
-            override suspend fun reconcileDurableStateWithTerminalEvent(
-                key: String,
-                expectedValue: String,
-                replacementState: DiagnosticsDurableStateEntity,
-                terminalEventId: String,
-                missingTerminalEvent: NativeSessionEventEntity,
-            ) {
-                db.withTransaction {
-                    if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
-                        if (dao.getNativeEventById(terminalEventId) == null) {
-                            dao.insertNativeSessionEvent(missingTerminalEvent)
-                        }
-                        dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
-                    }
-                    dao.upsertDiagnosticsDurableState(replacementState)
-                }
+                dao.upsertHomeDiagnosticsRun(run)
             }
         }
     }
@@ -786,7 +710,10 @@ class RoomDiagnosticsHistoryRetentionStore
             // Legacy terminal markers live in native_session_events until the outbox store
             // migrates them. Their JSON payload is intentionally opaque to SQL, so retention
             // must fail closed rather than delete a marker or any potentially related evidence.
-            if (dao.countPendingTerminalOutboxes() > 0) {
+            if (
+                dao.countPendingTerminalOutboxes() > 0 ||
+                dao.getDiagnosticsDurableStateByPrefix(RawPathSettlementDurableStatePrefix, limit = 1).isNotEmpty()
+            ) {
                 return
             }
             val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), retentionDays)
@@ -802,6 +729,7 @@ class RoomDiagnosticsHistoryRetentionStore
             dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
             dao.deleteBlockedPathsOlderThan(threshold)
             dao.deleteNetworkEdgePreferencesOlderThan(threshold)
+            dao.deleteHomeDiagnosticsRunsOlderThan(threshold)
         }
     }
 
@@ -827,6 +755,7 @@ class RoomDiagnosticsHistoryResetStore
                 dao.clearBlockedPaths()
                 dao.clearNetworkEdgePreferences()
                 dao.clearAllDiagnosticsDurableState()
+                dao.deleteAllHomeDiagnosticsRuns()
             }
         }
     }

@@ -62,6 +62,11 @@ impl CandidateRuntimeSupervisorState {
         self.cleanup.stopped += cleanup.stopped;
         self.cleanup.joined += cleanup.joined;
         self.cleanup.forced_abort += cleanup.forced_abort;
+        self.cleanup.address_attempt_count += cleanup.address_attempt_count;
+        self.cleanup.connection_refused_count += cleanup.connection_refused_count;
+        self.cleanup.duplicate_refusal_count += cleanup.duplicate_refusal_count;
+        self.cleanup.drain_latency_ms += cleanup.drain_latency_ms;
+        self.cleanup.candidates.extend(cleanup.candidates);
         self.shutdown_mode = merge_shutdown_mode(self.shutdown_mode, receipt.shutdown_mode());
         self.worker_outcome = merge_worker_outcome(self.worker_outcome, receipt.worker_outcome());
         self.execution_evidence_overflowed |= receipt.execution_evidence_overflowed();
@@ -76,7 +81,7 @@ impl CandidateRuntimeSupervisorState {
 
     fn receipt(&self) -> CandidateRuntimeTerminalReceipt {
         CandidateRuntimeTerminalReceipt::aggregate(
-            self.cleanup,
+            self.cleanup.clone(),
             self.shutdown_mode,
             self.worker_outcome,
             self.execution_evidence.clone(),
@@ -93,8 +98,10 @@ impl CandidateRuntimeSupervisorState {
         {
             return None;
         }
-        (self.cleanup.started == self.cleanup.stopped && self.cleanup.stopped == self.cleanup.joined)
-            .then(|| self.receipt())
+        let settled = self.cleanup.started == self.cleanup.stopped;
+        let cleanly_joined = self.cleanup.stopped == self.cleanup.joined;
+        let forcibly_detached = self.cleanup.forced_abort > 0 && self.cleanup.joined <= self.cleanup.stopped;
+        (settled && (cleanly_joined || forcibly_detached)).then(|| self.receipt())
     }
 }
 
@@ -201,7 +208,7 @@ mod tests {
             self.forced_aborts.fetch_add(1, Ordering::SeqCst);
             CandidateRuntimeTerminalReceipt::forced_abort(
                 1,
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() },
                 Vec::new(),
             )
             .expect("valid forced receipt")
@@ -211,7 +218,7 @@ mod tests {
             self.shutdowns.fetch_add(1, Ordering::SeqCst);
             CandidateRuntimeTerminalReceipt::clean_shutdown(
                 1,
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
                 Vec::new(),
             )
             .expect("valid clean receipt")
@@ -237,7 +244,7 @@ mod tests {
 
         assert_eq!(
             supervisor.terminal_receipt().map(|receipt| receipt.cleanup()),
-            Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 })
+            Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0, ..Default::default() })
         );
         assert_eq!(shutdowns.load(Ordering::SeqCst), 2);
     }
@@ -256,7 +263,10 @@ mod tests {
         let external_cancel = make_cleanup();
 
         assert_eq!(deadline, external_cancel.cleanup());
-        assert_eq!(deadline, CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(
+            deadline,
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() }
+        );
         assert_eq!(external_cancel.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 
@@ -285,7 +295,10 @@ mod tests {
 
         let receipt = supervisor.terminal_receipt().expect("forced cleanup joined");
         assert_eq!(forced_aborts.load(Ordering::SeqCst), 1);
-        assert_eq!(receipt.cleanup(), CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(
+            receipt.cleanup(),
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() }
+        );
         assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::ForcedAbort);
     }
 
@@ -311,15 +324,28 @@ mod tests {
     }
 
     #[test]
-    fn terminal_receipt_constructor_rejects_incomplete_cleanup() {
-        assert_eq!(
+    fn terminal_receipt_constructor_accepts_truthful_forced_detach() {
+        assert!(
             CandidateRuntimeTerminalReceipt::forced_abort(
                 1,
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1 },
+                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1, ..Default::default() },
                 Vec::new(),
-            ),
-            None,
+            )
+            .is_some()
         );
+    }
+
+    #[test]
+    fn terminal_barrier_retains_truthful_forced_detach() {
+        let supervisor = CandidateRuntimeSupervisor::default();
+        let detached =
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1, ..Default::default() };
+        supervisor.record(
+            CandidateRuntimeTerminalReceipt::forced_abort(1, detached.clone(), Vec::new())
+                .expect("valid forced-detach receipt"),
+        );
+
+        assert_eq!(supervisor.terminal_receipt().map(|receipt| receipt.cleanup()), Some(detached));
     }
 
     #[test]

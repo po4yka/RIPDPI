@@ -117,6 +117,7 @@ internal object VpnServiceSessionModule {
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
             routeLifecycleReceiptStore = routeLifecycleReceiptStore,
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
+            ownPackageName = vpnService.packageName,
             recoveryServiceInstanceId =
                 (vpnService as? com.poyka.ripdpi.services.RipDpiVpnService)
                     ?.recoveryServiceInstanceId,
@@ -140,6 +141,7 @@ internal object VpnServiceSessionModule {
         appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
         routeLifecycleReceiptStore: VpnRouteLifecycleReceiptStore = VpnRouteLifecycleReceiptStore(),
         pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
+        ownPackageName: String? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -162,6 +164,7 @@ internal object VpnServiceSessionModule {
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,
             routeLifecycleReceiptStore = routeLifecycleReceiptStore,
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
+            ownPackageName = ownPackageName,
             callbacks =
                 VpnTunnelRuntimeCallbacks(
                     onTunnelReady = {

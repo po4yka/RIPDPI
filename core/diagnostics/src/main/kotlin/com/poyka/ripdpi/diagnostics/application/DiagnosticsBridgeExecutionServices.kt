@@ -16,6 +16,7 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition as EngineScanReportDisposition
 
 @Singleton
 class BridgeExecutionService
@@ -146,6 +147,7 @@ class BridgePollingService
     ) {
         private companion object {
             private const val FinishedReportPollAttempts = 30
+            private const val FinalReportPollAttempts = 12
             private const val FinishedReportPollDelayMs = 250L
             private const val PollTimeoutNativeDeadlineGraceMs = 60_000L
             const val PollScanResultTimeoutMs = 360_000L + PollTimeoutNativeDeadlineGraceMs
@@ -162,14 +164,47 @@ class BridgePollingService
                 ?.let(json::decodeEngineProgressWire)
                 ?.toScanProgress()
 
-        internal suspend fun awaitFinishedReportJson(handle: BridgeSessionHandle): String? {
+        internal suspend fun awaitFinishedReportJson(
+            handle: BridgeSessionHandle,
+            pollingState: BridgeReportPollingState,
+        ): String? {
             repeat(FinishedReportPollAttempts) { attempt ->
-                handle.bridge.takeReportJson()?.let { return it }
+                handle.bridge.takeReportJson()?.let { reportJson ->
+                    if (pollingState.observe(reportJson) == EngineScanReportDisposition.TERMINAL) {
+                        return reportJson
+                    }
+                }
                 if (attempt < FinishedReportPollAttempts - 1) {
                     delay(FinishedReportPollDelayMs)
                 }
             }
             return null
+        }
+
+        internal suspend fun awaitTerminalReportOutcome(
+            handle: BridgeSessionHandle,
+            pollingState: BridgeReportPollingState,
+        ): TerminalReportAwaitOutcome {
+            var terminalReportJson = pollingState.terminalReportJson
+            if (terminalReportJson == null) {
+                for (attempt in 0 until FinalReportPollAttempts) {
+                    val reportJson = handle.bridge.takeReportJson()
+                    if (
+                        reportJson != null &&
+                        pollingState.observe(reportJson) == EngineScanReportDisposition.TERMINAL
+                    ) {
+                        terminalReportJson = reportJson
+                        break
+                    }
+                    if (attempt < FinalReportPollAttempts - 1) {
+                        delay(FinishedReportPollDelayMs)
+                    }
+                }
+            }
+            return terminalReportJson?.let(TerminalReportAwaitOutcome::Terminal)
+                ?: TerminalReportAwaitOutcome.TerminalUnavailable(
+                    latestCheckpointJson = pollingState.latestCheckpointJson,
+                )
         }
 
         private suspend fun claimCompletionOrCancel(
@@ -187,6 +222,7 @@ class BridgePollingService
             prepared: PreparedDiagnosticsScan,
             handle: BridgeSessionHandle,
             activeScanRegistry: ActiveScanRegistry,
+            pollingState: BridgeReportPollingState = BridgeReportPollingState(),
             onFinishedReportJson: suspend (String) -> Unit,
         ) {
             try {
@@ -194,9 +230,11 @@ class BridgePollingService
                     while (true) {
                         persistPassiveEvents(handle)
                         handle.bridge.takeReportJson()?.let { reportJson ->
-                            claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
-                            onFinishedReportJson(reportJson)
-                            return@withTimeout
+                            if (pollingState.observe(reportJson) == EngineScanReportDisposition.TERMINAL) {
+                                claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
+                                onFinishedReportJson(reportJson)
+                                return@withTimeout
+                            }
                         }
                         val progress = pollProgress(handle)
                         if (prepared.exposeProgress) {
@@ -204,7 +242,7 @@ class BridgePollingService
                         }
                         if (progress?.isFinished == true) {
                             val reportJson =
-                                checkNotNull(awaitFinishedReportJson(handle)) {
+                                checkNotNull(awaitFinishedReportJson(handle, pollingState)) {
                                     "Diagnostics scan completed without a report"
                                 }
                             claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
@@ -215,7 +253,7 @@ class BridgePollingService
                     }
                 }
             } catch (error: TimeoutCancellationException) {
-                awaitFinishedReportJson(handle)?.let { reportJson ->
+                awaitFinishedReportJson(handle, pollingState)?.let { reportJson ->
                     claimCompletionOrCancel(prepared, handle, activeScanRegistry, reportJson)
                     onFinishedReportJson(reportJson)
                     return

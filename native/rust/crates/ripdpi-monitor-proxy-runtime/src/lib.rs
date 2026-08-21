@@ -125,6 +125,20 @@ fn join_runtime_terminal(
     let Some(handle) = handle.take() else {
         return CandidateRuntimeTerminalReceipt::already_joined();
     };
+    if forced && !handle.is_finished() {
+        // A deadline/cancel path may only wait for the runtime's bounded proxy
+        // drain. Dropping the unfinished handle detaches it; `joined=0`
+        // records that fact instead of claiming a completed OS join.
+        let CandidateExecutionEvidenceProjection { evidence, rejected } =
+            candidate_execution_evidence_from_runtime(&control.desync_execution_evidence());
+        let terminal = CandidateRuntimeTerminalReceipt::forced_abort(
+            control.desync_execution_generation(),
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 0, forced_abort: 1, ..Default::default() },
+            evidence,
+        )
+        .expect("bounded forced detach has coherent cleanup");
+        return terminal.with_execution_evidence_overflowed(control.desync_execution_evidence_overflowed() || rejected);
+    }
     match handle.join() {
         Ok(Ok(receipt)) => {
             let projection = candidate_execution_evidence(&receipt);
@@ -134,6 +148,10 @@ fn join_runtime_terminal(
                 stopped: 1,
                 joined: 1,
                 forced_abort: usize::from(receipt.forced_abort()),
+                address_attempt_count: receipt.connection_refused_count(),
+                connection_refused_count: receipt.connection_refused_count(),
+                duplicate_refusal_count: receipt.duplicate_refusal_count(),
+                ..Default::default()
             };
             if receipt.worker_panicked() {
                 let terminal = CandidateRuntimeTerminalReceipt::runtime_panicked(
@@ -170,7 +188,13 @@ fn join_runtime_terminal(
                 candidate_execution_evidence_from_runtime(&control.desync_execution_evidence());
             let terminal = CandidateRuntimeTerminalReceipt::runtime_failed(
                 control.desync_execution_generation(),
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: usize::from(forced) },
+                CandidateCleanupReceipt {
+                    started: 1,
+                    stopped: 1,
+                    joined: 1,
+                    forced_abort: usize::from(forced),
+                    ..Default::default()
+                },
                 terminal_shutdown_mode(forced),
                 evidence,
             );
@@ -183,7 +207,13 @@ fn join_runtime_terminal(
                 candidate_execution_evidence_from_runtime(&control.desync_execution_evidence());
             let terminal = CandidateRuntimeTerminalReceipt::runtime_panicked(
                 control.desync_execution_generation(),
-                CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: usize::from(forced) },
+                CandidateCleanupReceipt {
+                    started: 1,
+                    stopped: 1,
+                    joined: 1,
+                    forced_abort: usize::from(forced),
+                    ..Default::default()
+                },
                 terminal_shutdown_mode(forced),
                 evidence,
             );
@@ -216,11 +246,7 @@ fn candidate_execution_evidence_from_runtime(
 
 impl Drop for TemporaryProxyRuntime {
     fn drop(&mut self) {
-        self.control.request_shutdown();
-        let _ = TcpStream::connect(self.addr);
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
-        }
+        let _ = self.force_abort_and_join();
     }
 }
 
@@ -240,7 +266,7 @@ mod tests {
         let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 42));
         let handle = thread::spawn(move || {
             let _ = listener.accept();
-            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, Vec::new(), false))
+            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, Vec::new(), false, 0, 0, None))
         });
         let runtime = TemporaryProxyRuntime {
             addr,
@@ -273,7 +299,10 @@ mod tests {
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
         let receipt = join_runtime_terminal(&mut handle, false, &control);
 
-        assert_eq!(receipt.cleanup(), CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
+        assert_eq!(
+            receipt.cleanup(),
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() }
+        );
         assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimeFailed);
         assert!(receipt.execution_evidence().is_empty());
     }
@@ -328,7 +357,7 @@ mod tests {
             DesyncExecutionEvidence::new(1, token, 2, unknown).expect("unknown evidence"),
         ];
         let mut handle = Some(thread::spawn(move || {
-            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, evidence, false))
+            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, evidence, false, 0, 0, None))
         }));
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
 
@@ -344,24 +373,33 @@ mod tests {
         let mut handle = Some(thread::spawn(|| -> Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String> {
             panic!("synthetic runtime panic")
         }));
+        while !handle.as_ref().expect("runtime handle").is_finished() {
+            thread::yield_now();
+        }
 
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
         let receipt = join_runtime_terminal(&mut handle, true, &control);
 
-        assert_eq!(receipt.cleanup(), CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 });
+        assert_eq!(
+            receipt.cleanup(),
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() }
+        );
         assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimePanicked);
     }
 
     #[test]
     fn client_worker_panic_is_preserved_as_runtime_panicked_terminal_receipt() {
         let mut handle = Some(thread::spawn(|| {
-            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, true, Vec::new(), false))
+            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, true, Vec::new(), false, 0, 0, None))
         }));
 
         let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
         let receipt = join_runtime_terminal(&mut handle, false, &control);
 
-        assert_eq!(receipt.cleanup(), CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 });
+        assert_eq!(
+            receipt.cleanup(),
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() }
+        );
         assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimePanicked);
     }
 
@@ -372,7 +410,7 @@ mod tests {
         let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1));
         let handle = thread::spawn(move || {
             let _ = listener.accept();
-            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, Vec::new(), false))
+            Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(false, false, Vec::new(), false, 0, 0, None))
         });
         let runtime = TemporaryProxyRuntime {
             addr,

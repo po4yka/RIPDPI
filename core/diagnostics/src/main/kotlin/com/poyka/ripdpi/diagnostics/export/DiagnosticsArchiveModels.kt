@@ -3,11 +3,13 @@ package com.poyka.ripdpi.diagnostics.export
 import com.poyka.ripdpi.data.StartupJournalSnapshot
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsNativeEventArchiveClassCounts
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.archiveEventClassCounts
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
@@ -56,8 +58,8 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 11 adds typed, attempt-correlated strategy execution evidence.
-    const val schemaVersion = 11
+    // Version 12 adds exact semantic-event and post-redaction logcat completeness accounting.
+    const val schemaVersion = 12
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -65,6 +67,7 @@ internal object DiagnosticsArchiveFormat {
     const val telemetryLimit = 120
     const val globalEventLimit = 200
     const val sessionEventLimit = 200
+    const val criticalEventClassLimit = 16
     const val snapshotLimit = 250
 
     fun includedFiles(
@@ -142,6 +145,7 @@ internal data class DiagnosticsArchiveSourceData(
     val snapshots: List<NetworkSnapshotEntity>,
     val telemetry: List<TelemetrySampleEntity>,
     val events: List<NativeSessionEventEntity>,
+    val globalEventSourceCounts: DiagnosticsNativeEventArchiveClassCounts = events.archiveEventClassCounts(),
     val contexts: List<DiagnosticContextEntity>,
     val approachSummaries: List<BypassApproachSummary>,
     val appSettings: AppSettings,
@@ -167,6 +171,10 @@ internal data class DiagnosticsArchiveSelection(
     val latestPassiveSnapshot: NetworkSnapshotEntity?,
     val latestPassiveContext: DiagnosticContextEntity?,
     val globalEvents: List<NativeSessionEventEntity>,
+    val relayTraceEvents: List<NativeSessionEventEntity> = emptyList(),
+    val relayTraceBudgetOmittedAttemptKeys: Set<DiagnosticsArchiveRelayAttemptKey> = emptySet(),
+    val relayTraceSourceWindowOmittedAttemptKeys: Set<DiagnosticsArchiveRelayAttemptKey> = emptySet(),
+    val relayTraceHydrationApplied: Boolean = false,
     val rootSourceCounts: DiagnosticsArchiveRootSourceCounts =
         DiagnosticsArchiveRootSourceCounts(
             telemetrySamples = payload.telemetry.size,
@@ -189,6 +197,8 @@ internal data class DiagnosticsArchiveSelection(
     val effectiveStrategySignature: BypassStrategySignature?,
     val appSettings: AppSettings,
     val sourceCounts: DiagnosticsArchiveScopedCounts,
+    val nativeEventCompleteness: DiagnosticsArchiveNativeEventCompleteness =
+        DiagnosticsArchiveNativeEventCompleteness(),
     val collectionWarnings: List<String>,
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
@@ -282,6 +292,9 @@ internal data class DiagnosticsArchiveSnapshotPayload(
 internal data class DiagnosticsArchiveContextPayload(
     val sessionContexts: List<DiagnosticContextModel>,
     val latestPassiveContext: DiagnosticContextModel?,
+    val postRuntimeRestore: DiagnosticsArchivePostRuntimeRestoreEvidence? = null,
+    @kotlinx.serialization.Transient
+    val postRuntimeRestoreMalformedCount: Int = 0,
 )
 
 @Serializable

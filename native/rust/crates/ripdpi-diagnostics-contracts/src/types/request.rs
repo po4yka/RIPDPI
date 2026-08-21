@@ -5,12 +5,18 @@ mod result;
 
 pub use config::{InPathProxyCredentials, InPathRoute, RouteProbeConfig, ScanRequest};
 pub use progress::{ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane};
-pub use report::{CandidateRuntimeCleanupReceipt, ScanReport};
+pub use report::{
+    CandidateRuntimeCleanupDetail, CandidateRuntimeCleanupOutcome, CandidateRuntimeCleanupReceipt, ScanReport,
+    ScanReportDisposition,
+};
 pub use result::{ProbeDetail, ProbeResult};
 
 #[cfg(test)]
 mod tests {
-    use super::{ScanProgress, ScanReport, ScanRequest, StrategyProbeLiveProgress, StrategyProbeProgressLane};
+    use super::{
+        ScanProgress, ScanReport, ScanReportDisposition, ScanRequest, StrategyProbeLiveProgress,
+        StrategyProbeProgressLane,
+    };
     use crate::types::{DiagnosticProfileFamily, ScanKind};
 
     #[test]
@@ -101,6 +107,7 @@ mod tests {
         assert!(report.classifier_version.is_none());
         assert!(report.pack_versions.is_empty());
         assert!(report.execution_plan.is_none());
+        assert_eq!(report.report_disposition, ScanReportDisposition::Terminal);
     }
 
     #[test]

@@ -70,6 +70,21 @@ impl RuntimeState {
             telemetry.on_upstream_connect_failed(addr, rtt_ms, kind);
         }
     }
+
+    pub(in crate::runtime) fn note_candidate_upstream_connect_failed(
+        &self,
+        addr: SocketAddr,
+        logical_target: Option<&str>,
+        kind: io::ErrorKind,
+    ) {
+        if kind == io::ErrorKind::ConnectionRefused {
+            self.candidate_refusal_trials.note_connection_refused(addr, logical_target);
+        }
+    }
+
+    pub(in crate::runtime) fn candidate_refusal_counters(&self) -> super::CandidateRefusalCounters {
+        self.candidate_refusal_trials.counters()
+    }
     pub(in crate::runtime) fn note_upstream_socket_created(&self) {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_upstream_socket_created();

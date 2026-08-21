@@ -235,7 +235,10 @@ fn is_outcome_token(value: &str) -> bool {
     if EXCLUDED.contains(&value) {
         return false;
     }
-    if matches!(value, "ok" | "slow" | "partial" | "blocked" | "error" | "unknown" | "redirect" | "unreachable") {
+    if matches!(
+        value,
+        "ok" | "slow" | "partial" | "blocked" | "cancelled" | "error" | "unknown" | "redirect" | "unreachable"
+    ) {
         return true;
     }
     !value.is_empty()

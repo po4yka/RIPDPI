@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
+use crate::engine::runtime::cancellation::publish_partial_run_checkpoint;
 use crate::engine::runtime::deadline::stage_budget_deadline;
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageId, RunnerOutcome};
 
@@ -22,6 +23,7 @@ impl ExecutionCoordinator {
         };
         if runtime.is_cancelled() || runtime.is_past_deadline() {
             self.record_deadline_skips(plan, runtime, &plan.stage_order[stage_index..], &HashSet::new());
+            publish_partial_run_checkpoint(plan, runtime);
             return RunnerOutcome::Cancelled;
         }
         if runner.total_steps(plan) == 0 {
@@ -51,6 +53,7 @@ impl ExecutionCoordinator {
                     );
                     self.record_deadline_skips(plan, runtime, &plan.stage_order[stage_index + 1..], &HashSet::new());
                 }
+                publish_partial_run_checkpoint(plan, runtime);
                 RunnerOutcome::Cancelled
             }
             outcome => outcome,

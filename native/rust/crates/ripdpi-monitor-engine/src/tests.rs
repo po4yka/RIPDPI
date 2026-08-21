@@ -113,7 +113,7 @@ impl CandidateProbeRuntime for DirectCandidateRuntime {
     fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
         CandidateRuntimeTerminalReceipt::forced_abort(
             99,
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() },
             self.terminal_evidence(),
         )
         .expect("valid forced receipt")
@@ -122,7 +122,7 @@ impl CandidateProbeRuntime for DirectCandidateRuntime {
     fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
         CandidateRuntimeTerminalReceipt::clean_shutdown(
             99,
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
             self.terminal_evidence(),
         )
         .expect("valid clean receipt")
@@ -160,7 +160,7 @@ impl CandidateProbeRuntime for RuntimeFailedTerminalCandidateRuntime {
     fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt {
         CandidateRuntimeTerminalReceipt::runtime_failed(
             99,
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1 },
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 1, ..Default::default() },
             crate::CandidateRuntimeShutdownMode::ForcedAbort,
             Vec::new(),
         )
@@ -170,7 +170,7 @@ impl CandidateProbeRuntime for RuntimeFailedTerminalCandidateRuntime {
     fn shutdown(self: Box<Self>) -> CandidateRuntimeTerminalReceipt {
         CandidateRuntimeTerminalReceipt::runtime_failed(
             99,
-            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+            CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
             crate::CandidateRuntimeShutdownMode::CleanShutdown,
             Vec::new(),
         )
@@ -990,7 +990,7 @@ fn monitor_session_strategy_probe_terminates_on_candidate_runtime_failure_termin
     assert_eq!(report.termination_reason, Some(ScanTerminationReason::EngineError));
     assert_eq!(
         report.candidate_runtime_cleanup,
-        Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0 })
+        Some(CandidateCleanupReceipt { started: 2, stopped: 2, joined: 2, forced_abort: 0, ..Default::default() })
     );
 }
 

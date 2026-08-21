@@ -20,6 +20,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -200,6 +201,29 @@ class DiagnosticsArchiveRedactor
                     json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson)
                 }.getOrNull()
             }
+
+        internal fun selectPostRuntimeRestoreEvidence(
+            contexts: List<DiagnosticContextEntity>,
+        ): DiagnosticsArchivePostRuntimeRestoreSelection {
+            val receipt =
+                contexts
+                    .asSequence()
+                    .filter(DiagnosticContextEntity::isPostRuntimeRestoreContext)
+                    .sortedWith(
+                        compareByDescending(DiagnosticContextEntity::capturedAt)
+                            .thenBy(DiagnosticContextEntity::id),
+                    ).firstOrNull()
+                    ?: return DiagnosticsArchivePostRuntimeRestoreSelection()
+            val evidence =
+                runCatching {
+                    json.decodeFromString(ArchiveRawPathExecutionResultWire.serializer(), receipt.payloadJson)
+                }.getOrNull()
+                    ?.toArchiveEvidence()
+            return DiagnosticsArchivePostRuntimeRestoreSelection(
+                evidence = evidence,
+                malformedCount = if (evidence == null) 1 else 0,
+            )
+        }
     }
 
 internal fun redactConnectivityAssessment(assessment: ConnectivityAssessment?): ConnectivityAssessment? =
@@ -266,6 +290,14 @@ private fun projectStructuredArchiveJson(
             element
         }
 
+        fieldName?.isArchiveRawWireField == true -> {
+            JsonPrimitive("redacted")
+        }
+
+        element.isNumericByteArray -> {
+            JsonPrimitive("redacted")
+        }
+
         fieldName.isArchiveSensitiveScalarField() && element is JsonPrimitive -> {
             JsonPrimitive("redacted")
         }
@@ -313,6 +345,26 @@ private fun projectStructuredArchiveJson(
 private fun String?.isArchiveSensitiveField(): Boolean =
     isArchiveSensitiveScalarField() || isArchiveSensitiveListField() || this in ArchiveStableCorrelatorFields
 
+private val String.isArchiveRawWireField: Boolean
+    get() {
+        val normalized = lowercase()
+        return this in ArchiveRawWireFields ||
+            ArchiveRawWireSuffixes.any(normalized::endsWith) ||
+            (
+                ArchiveRawWirePrefixes.any(normalized::startsWith) &&
+                    ArchiveRawWireEncodingSuffixes.any(normalized::endsWith)
+            )
+    }
+
+private val JsonElement.isNumericByteArray: Boolean
+    get() =
+        this is JsonArray &&
+            isNotEmpty() &&
+            all { item ->
+                val value = (item as? JsonPrimitive)?.intOrNull
+                value != null && value in 0..UByte.MAX_VALUE.toInt()
+            }
+
 private fun String?.isArchiveSensitiveScalarField(): Boolean {
     val normalized = this?.lowercase() ?: return false
     return this !in ArchiveNonSensitiveScalarFields &&
@@ -331,9 +383,11 @@ private val ArchiveSensitiveScalarFields =
         "addr",
         "authToken",
         "authority",
+        "bodyBytes",
         "bssid",
         "dhcpServer",
         "domain",
+        "encodedPayload",
         "endpoint",
         "gateway",
         "host",
@@ -341,23 +395,62 @@ private val ArchiveSensitiveScalarFields =
         "ipAddress",
         "listenerAddress",
         "operatorOrSsid",
+        "packet",
+        "packetBytes",
         "password",
+        "payload",
+        "payloadBytes",
         "proxyConfigJson",
         "proxyEndpoint",
         "recommendedProxyConfigJson",
+        "rawBytes",
+        "rawPacket",
+        "rawPayload",
+        "requestBytes",
         "resolverEndpoint",
+        "responseBytes",
         "server",
         "secret",
         "sni",
         "ssid",
         "subnetMask",
+        "socksRequestBytes",
         "target",
         "token",
         "upstreamAddress",
         "url",
         "uri",
+        "wireBytes",
+        "wireData",
         "selectedDnscryptPublicKey",
     )
+
+private val ArchiveRawWireFields =
+    setOf(
+        "bodyBytes",
+        "encodedPayload",
+        "packet",
+        "packetBytes",
+        "payload",
+        "payloadBytes",
+        "rawBytes",
+        "rawPacket",
+        "rawPayload",
+        "requestBytes",
+        "responseBytes",
+        "socksRequestBytes",
+        "wireBytes",
+        "wireData",
+    )
+
+private val ArchiveRawWireSuffixes =
+    setOf("packetbytes", "payloadbytes", "rawbytes", "requestbytes", "responsebytes", "wirebytes", "wiredata")
+
+private val ArchiveRawWirePrefixes =
+    setOf("body", "packet", "payload", "raw", "request", "response", "socksrequest", "wire")
+
+private val ArchiveRawWireEncodingSuffixes =
+    setOf("b64", "base64", "hex")
 
 private val ArchiveNonSensitiveScalarFields =
     setOf(
@@ -385,12 +478,19 @@ private val ArchiveSensitiveScalarSuffixes =
         "host",
         "ip",
         "path",
+        "packetbytes",
+        "payloadbytes",
         "publickey",
+        "rawbytes",
+        "requestbytes",
+        "responsebytes",
         "server",
         "servername",
         "sni",
         "url",
         "uri",
+        "wirebytes",
+        "wiredata",
     )
 
 private val ArchiveSensitiveListSuffixes =
@@ -445,9 +545,11 @@ internal fun redactDiagnosticsFreeText(value: String): String =
 
 internal fun redactDiagnosticsLogcat(value: String): String =
     redactDiagnosticsFreeText(value)
+        .replace(RawWireLogArrayRegex, "$1<raw-wire-redacted>")
+        .replace(RawWireLogEncodedValueRegex, "$1<raw-wire-redacted>")
         .let(::redactEncodedHostCarriers)
         .replaceWhenContainsAny(UrlRegex, "<url-redacted>", "http://", "https://")
-        .let(::redactDiagnosticsPaths)
+        .let(DiagnosticsArchivePathRedactor::redact)
         .replace(DnsNameRegex, "<host-redacted>")
         .replaceWhenContainsAny(
             EndpointFieldRegex,
@@ -560,20 +662,17 @@ private val DnsNameRegex =
 
 internal fun containsDiagnosticsDnsName(value: CharSequence): Boolean = DnsNameRegex.containsMatchIn(value)
 
-private val LogicalLineContentRegex = Regex("[^\\r\\n]+")
-private val KnownAppLogcatPrefixRegex =
-    Regex(
-        "^(?:\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+" +
-            "(?:(?:\\d+\\s+){2}[VDIWEF]\\s+(?:ripdpi|ripdpi-native)|" +
-            "[VDIWEF]/(?:ripdpi|ripdpi-native)):\\s*|" +
-            "[VDIWEF]/(?:ripdpi|ripdpi-native)\\(\\s*\\d+\\):\\s*)",
-        RegexOption.IGNORE_CASE,
-    )
-private val SemanticPathKeys = setOf("file", "path", "filepath")
 private val EndpointFieldRegex =
     Regex(
         "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +
             "([^\\s,;\"\\\\\\]}]+)",
+    )
+private val RawWireLogArrayRegex =
+    Regex("(?i)(\\bbytes\\s+(?:long|short(?:ed)?)\\s+version\\s*:\\s*)\\[[^\\r\\n]*]")
+private val RawWireLogEncodedValueRegex =
+    Regex(
+        "(?i)(\\b(?:raw(?:packet|payload|bytes)?|packet|payload|wire)" +
+            "(?:bytes|data|hex|base64|b64)?\\s*[:=]\\s*)[^\\s,;]+",
     )
 private val JsonEndpointFieldRegex =
     Regex(
@@ -591,105 +690,3 @@ private const val JsonEndpointFieldKeyPattern =
         "upstreamAddress)\"\\s*:\\s*\")"
 private const val JsonEndpointFieldValuePattern =
     "(?!redacted|<redacted>|unavailable|unknown|none|null)(?:[^\"\\\\]|\\\\.)*\""
-
-private fun redactDiagnosticsPaths(value: String): String =
-    LogicalLineContentRegex.replace(value) { match -> redactDiagnosticsPathLine(match.value) }
-
-// Ambiguous absolute paths have no reliable boundary once spaces, punctuation, or escape layers are allowed.
-// Fail closed per logical line, retaining only a strict known-app Android logcat prefix when present.
-private fun redactDiagnosticsPathLine(line: String): String {
-    val semanticRedaction = redactSemanticQuotedPathValues(line)
-    if (!semanticRedaction.malformed && !containsResidualAbsolutePath(semanticRedaction.value)) {
-        return semanticRedaction.value
-    }
-    val logcatPrefix = KnownAppLogcatPrefixRegex.find(line)?.value.orEmpty()
-    return logcatPrefix + "<path-redacted>"
-}
-
-private data class SemanticPathRedaction(
-    val value: String,
-    val malformed: Boolean,
-)
-
-private fun redactSemanticQuotedPathValues(line: String): SemanticPathRedaction {
-    val redacted = StringBuilder(line.length)
-    var copiedUntil = 0
-    var searchFrom = 0
-    while (searchFrom < line.length) {
-        val keyStart = line.indexOf('"', searchFrom)
-        val keyEnd = if (keyStart >= 0) findQuotedStringEnd(line, keyStart + 1) else null
-        if (keyStart < 0 || keyEnd == null) {
-            searchFrom = line.length
-        } else {
-            val key = line.substring(keyStart + 1, keyEnd).lowercase()
-            val colon = line.skipWhitespaceFrom(keyEnd + 1)
-            val valueQuote = line.skipWhitespaceFrom(colon + 1)
-            val isSemanticPathValue =
-                key in SemanticPathKeys && line.getOrNull(colon) == ':' && line.getOrNull(valueQuote) == '"'
-            if (isSemanticPathValue) {
-                val valueEnd =
-                    findQuotedStringEnd(line, valueQuote + 1)
-                        ?: return SemanticPathRedaction(line, malformed = true)
-                redacted.append(line, copiedUntil, valueQuote + 1)
-                redacted.append("<path-redacted>")
-                copiedUntil = valueEnd
-                searchFrom = valueEnd + 1
-            } else {
-                searchFrom = keyEnd + 1
-            }
-        }
-    }
-    redacted.append(line, copiedUntil, line.length)
-    return SemanticPathRedaction(redacted.toString(), malformed = false)
-}
-
-private fun findQuotedStringEnd(
-    value: String,
-    start: Int,
-): Int? {
-    var escaped = false
-    for (index in start until value.length) {
-        when {
-            escaped -> escaped = false
-            value[index] == '\\' -> escaped = true
-            value[index] == '"' -> return index
-        }
-    }
-    return null
-}
-
-private fun String.skipWhitespaceFrom(start: Int): Int {
-    var index = start
-    while (index < length && this[index].isWhitespace()) index += 1
-    return index
-}
-
-private fun containsResidualAbsolutePath(line: String): Boolean =
-    line.containsPercentEncodedPathSeparator() ||
-        line.indices.any { index ->
-            val character = line[index]
-            // A backslash may be a Windows separator, a JSON escape layer, or the introducer for
-            // a case-insensitive Unicode slash/backslash escape. None is safe to preserve verbatim.
-            (character == '/' && line.isPathBoundaryBefore(index)) ||
-                line.hasDrivePathStartAt(index) ||
-                character == '\\'
-        }
-
-private fun String.containsPercentEncodedPathSeparator(): Boolean =
-    indices.any { index -> this[index] == '%' && hasPercentEncodedPathSeparatorAt(index) }
-
-private fun String.hasPercentEncodedPathSeparatorAt(percentIndex: Int): Boolean {
-    var encodedByteStart = percentIndex + 1
-    while (regionMatches(encodedByteStart, "25", 0, 2, ignoreCase = true)) encodedByteStart += 2
-    return regionMatches(encodedByteStart, "2f", 0, 2, ignoreCase = true) ||
-        regionMatches(encodedByteStart, "5c", 0, 2, ignoreCase = true)
-}
-
-private fun String.isPathBoundaryBefore(index: Int): Boolean =
-    index == 0 || (!this[index - 1].isLetterOrDigit() && this[index - 1] != '_')
-
-private fun String.hasDrivePathStartAt(index: Int): Boolean =
-    isPathBoundaryBefore(index) &&
-        getOrNull(index)?.isLetter() == true &&
-        getOrNull(index + 1) == ':' &&
-        (getOrNull(index + 2) == '/' || getOrNull(index + 2) == '\\')

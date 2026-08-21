@@ -28,6 +28,7 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -464,6 +465,12 @@ private fun scanFinalizationService(
                 .DefaultNetworkEdgePreferenceStore(stores, clock),
         networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
         serverCapabilityStore = FakeServerCapabilityStore(),
+        rawPathSettlementBarrier =
+            RawPathSettlementBarrier(
+                stores,
+                stores.rawPathSettlementStore,
+                diagnosticsTestJson(),
+            ),
         json = diagnosticsTestJson(),
     )
 

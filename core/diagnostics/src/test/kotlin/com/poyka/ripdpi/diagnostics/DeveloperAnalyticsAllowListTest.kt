@@ -293,6 +293,7 @@ class DeveloperAnalyticsAllowListTest {
                     scanRecordStore = stores,
                     artifactReadStore = stores,
                     artifactQueryStore = stores,
+                    archiveEventQueryStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
                     fileLogWriter =

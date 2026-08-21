@@ -25,7 +25,7 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
             add(
                 textEntry(
                     name = "relay-attempt-traces.jsonl",
-                    content = buildRelayAttemptTracesJsonl(selection.primaryEvents, selection.globalEvents),
+                    content = buildRelayAttemptTracesJsonl(selection.relayTraceSourceEvents()),
                 ),
             )
             add(
@@ -85,11 +85,10 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
         }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
 
     private fun buildRelayAttemptTracesJsonl(
-        primaryEvents: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
-        globalEvents: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
+        traceSourceEvents: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
     ): String {
         val jsonLines = Json(json) { prettyPrint = false }
-        val events = selectRelayAttemptTraceEvents(primaryEvents, globalEvents)
+        val events = selectRelayAttemptTraceEvents(traceSourceEvents, emptyList())
         val attemptAliases = relayAttemptAliases(events)
         val connectionAliases =
             events.map { it.connectionSessionId.orEmpty() }.distinct().withIndex().associate {

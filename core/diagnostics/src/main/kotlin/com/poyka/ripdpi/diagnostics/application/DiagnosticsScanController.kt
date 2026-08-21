@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
@@ -364,7 +365,7 @@ internal class DefaultDiagnosticsScanController
 
         private suspend fun startPreparedScan(
             prepared: PreparedDiagnosticsScan,
-            rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+            rawPathRunner: suspend (suspend () -> Unit) -> RawPathExecutionResult,
             ownerId: String? = null,
         ): String {
             val routedPrepared =
@@ -453,7 +454,7 @@ internal class DefaultDiagnosticsScanController
         private suspend fun launchPreparedScan(
             prepared: PreparedDiagnosticsScan,
             bridgeSession: PreparedBridgeSession,
-            rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+            rawPathRunner: suspend (suspend () -> Unit) -> RawPathExecutionResult,
             startup: StartupTransactionResources,
         ) {
             if (prepared.exposeProgress) {

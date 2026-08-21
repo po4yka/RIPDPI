@@ -96,6 +96,10 @@ data class TelemetrySampleEntity(
             value = ["connectionSessionId", "createdAt"],
         ),
         Index(
+            name = "index_native_session_events_relay_attempt_sequence",
+            value = ["connectionSessionId", "runtimeId", "attemptId", "attemptSequence", "createdAt"],
+        ),
+        Index(
             name = "index_native_session_events_createdAt",
             value = ["createdAt"],
         ),

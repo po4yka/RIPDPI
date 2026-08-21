@@ -86,6 +86,7 @@ impl RuntimeState {
             active_clients: Arc::new(AtomicUsize::new(0)),
             active_tcp_sockets: ActiveSocketRegistry::default(),
             active_upstream_tcp_sockets: ActiveSocketRegistry::default(),
+            candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
             runtime_context,
             control: None,

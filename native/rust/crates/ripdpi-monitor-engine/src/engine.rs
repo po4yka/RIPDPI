@@ -315,6 +315,8 @@ mod tests {
             cancel,
             "session-1".to_string(),
             request,
+            std::time::Instant::now() + std::time::Duration::from_secs(60),
+            Arc::new(Mutex::new(None)),
             None,
             Arc::new(crate::execution::UnavailableCandidateRuntimeLauncher),
         );

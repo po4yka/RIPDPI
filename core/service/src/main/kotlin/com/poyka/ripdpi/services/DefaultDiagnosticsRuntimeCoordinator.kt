@@ -5,12 +5,21 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RawPathExecutionCancelledException
+import com.poyka.ripdpi.data.RawPathExecutionOutcome
+import com.poyka.ripdpi.data.RawPathExecutionResult
+import com.poyka.ripdpi.data.RawPathExecutionSettlement
+import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
+import com.poyka.ripdpi.data.RawPathRuntimeContext
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.toRawPathRuntimeStatus
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlCommand
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlReason
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -52,6 +61,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private var waitDelayMs: Long = 200L
         private val rawPathWindowMutex = Mutex()
         private var rawPathWindow: RawPathWindow? = null
+        private var nextRawPathWindowGeneration: Long = 0L
 
         internal constructor(
             runtimeControlPlane: RuntimeControlPlane,
@@ -76,22 +86,21 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             this.waitDelayMs = waitDelayMs
         }
 
-        override suspend fun runRawPathScan(block: suspend () -> Unit) {
+        override suspend fun runRawPathScan(block: suspend () -> Unit): RawPathExecutionResult {
             val diagnostics = appSettingsRepository.snapshot().toSettingsSections().diagnostics
-            runInRawPathWindow(
+            return runInRawPathWindow(
                 label = "Raw-path scan",
                 resumeIfRuntimeWasRunning = diagnostics.diagnosticsAutoResumeAfterRawScan,
                 block = block,
             )
         }
 
-        override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+        override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit): RawPathExecutionResult =
             runInRawPathWindow(
                 label = "Automatic raw-path scan",
                 resumeIfRuntimeWasRunning = true,
                 block = block,
             )
-        }
 
         override suspend fun acquireInPathRouteLease() =
             serviceRuntimeRegistry
@@ -103,25 +112,47 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             serviceStateStore.status.value == (AppStatus.Running to Mode.VPN) &&
                 serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease == lease
 
+        @Suppress("TooGenericExceptionCaught")
         private suspend fun runInRawPathWindow(
             label: String,
             resumeIfRuntimeWasRunning: Boolean,
             block: suspend () -> Unit,
-        ) {
-            enterRawPathWindow(label, resumeIfRuntimeWasRunning)
+        ): RawPathExecutionResult {
+            enterRawPathWindow(label, resumeIfRuntimeWasRunning)?.let { return it }
+            var executionOutcome = RawPathExecutionOutcome.Completed
+            var executionFailure: String? = null
+            var cancellation: CancellationException? = null
+            var settlement: RawPathExecutionSettlement? = null
             try {
                 block()
+            } catch (failure: CancellationException) {
+                executionOutcome = RawPathExecutionOutcome.BlockCancelled
+                executionFailure = failure.message ?: failure::class.java.simpleName
+                cancellation = failure
+            } catch (failure: Exception) {
+                executionOutcome = RawPathExecutionOutcome.BlockFailed
+                executionFailure = failure.message ?: failure::class.java.simpleName
             } finally {
-                withContext(NonCancellable) {
-                    leaveRawPathWindow()
-                }
+                settlement =
+                    withContext(NonCancellable) {
+                        leaveRawPathWindow()
+                    }
             }
+            val result =
+                RawPathExecutionResult(
+                    settlement = checkNotNull(settlement),
+                    executionOutcome = executionOutcome,
+                    executionFailure = executionFailure,
+                )
+            cancellation?.let { throw RawPathExecutionCancelledException(result, it) }
+            return result
         }
 
+        @Suppress("TooGenericExceptionCaught")
         private suspend fun enterRawPathWindow(
             label: String,
             resumeIfRuntimeWasRunning: Boolean,
-        ) {
+        ): RawPathExecutionResult? =
             rawPathWindowMutex.withLock {
                 rawPathWindow?.let { activeWindow ->
                     activeWindow.participantCount += 1
@@ -129,22 +160,22 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                         activeWindow.shouldResume ||
                         (activeWindow.runtimeWasRunning && resumeIfRuntimeWasRunning)
                     Logger.d { "$label joined active raw-path window" }
-                    return@withLock
+                    return@withLock null
                 }
 
                 val resumeLease = runtimeResumeIntentTracker.captureResumeLease()
                 val (status, mode) = serviceStateStore.status.value
                 val runtimeWasRunning = status == AppStatus.Running
+                nextRawPathWindowGeneration += 1
                 rawPathWindow =
                     RawPathWindow(
+                        rawWindowGeneration = nextRawPathWindowGeneration,
                         mode = mode,
                         resumeLease = resumeLease,
                         runtimeWasRunning = runtimeWasRunning,
                         shouldResume = runtimeWasRunning && resumeIfRuntimeWasRunning,
                     )
                 runtimeModeProjectionStore.markDiagnosticsScanActive(true)
-                var windowPrepared = false
-                var pauseCommandAccepted = false
                 try {
                     val projection = runtimeModeProjectionStore.projection.first()
                     Logger.d { "$label starting; runtime mode = $projection" }
@@ -152,61 +183,168 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                         runtimeControlPlane.execute(
                             RuntimeControlCommand.StopRuntime(RuntimeControlReason.DiagnosticsRawPathScan),
                         )
-                        pauseCommandAccepted = true
+                        checkNotNull(rawPathWindow).stopIssued = true
                         waitForStatus(AppStatus.Halted)
+                        checkNotNull(rawPathWindow).stopObserved = true
                     }
-                    windowPrepared = true
-                } finally {
-                    if (!windowPrepared) {
+                    null
+                } catch (failure: CancellationException) {
+                    val result =
                         withContext(NonCancellable) {
-                            try {
-                                if (pauseCommandAccepted && rawPathWindow?.shouldResume == true) {
-                                    resumeRuntimeIfOwned(mode, resumeLease)
-                                }
-                            } finally {
-                                rawPathWindow = null
-                                runCatching { runtimeModeProjectionStore.markDiagnosticsScanActive(false) }
-                            }
+                            settleEntryFailure(
+                                checkNotNull(rawPathWindow),
+                                RawPathExecutionOutcome.EntryCancelled,
+                                failure.message ?: failure::class.java.simpleName,
+                            )
                         }
+                    throw RawPathExecutionCancelledException(result, failure)
+                } catch (failure: Exception) {
+                    withContext(NonCancellable) {
+                        settleEntryFailure(
+                            checkNotNull(rawPathWindow),
+                            RawPathExecutionOutcome.EntryFailed,
+                            failure.message ?: failure::class.java.simpleName,
+                        )
                     }
                 }
             }
-        }
 
-        private suspend fun leaveRawPathWindow() {
-            rawPathWindowMutex.withLock {
-                val activeWindow = checkNotNull(rawPathWindow) { "Raw-path window is not active" }
-                activeWindow.participantCount -= 1
-                if (activeWindow.participantCount > 0) {
-                    return@withLock
-                }
-                try {
-                    if (activeWindow.shouldResume) {
-                        resumeRuntimeIfOwned(activeWindow.mode, activeWindow.resumeLease)
+        private suspend fun leaveRawPathWindow(): RawPathExecutionSettlement {
+            val settlement =
+                rawPathWindowMutex.withLock {
+                    val activeWindow = checkNotNull(rawPathWindow) { "Raw-path window is not active" }
+                    activeWindow.participantCount -= 1
+                    if (activeWindow.participantCount > 0) {
+                        return@withLock activeWindow.settlement
                     }
-                } finally {
+                    activeWindow.settlement.complete(settleRawPathWindow(activeWindow))
                     rawPathWindow = null
                     runtimeModeProjectionStore.markDiagnosticsScanActive(false)
+                    activeWindow.settlement
                 }
-            }
+            return settlement.await()
         }
 
-        private suspend fun resumeRuntimeIfOwned(
+        private suspend fun settleEntryFailure(
+            activeWindow: RawPathWindow,
+            executionOutcome: RawPathExecutionOutcome,
+            executionFailure: String,
+        ): RawPathExecutionResult {
+            val settlement = settleRawPathWindow(activeWindow, avoidDuplicateStart = true)
+            activeWindow.settlement.complete(settlement)
+            rawPathWindow = null
+            runtimeModeProjectionStore.markDiagnosticsScanActive(false)
+            return RawPathExecutionResult(
+                settlement = settlement,
+                executionOutcome = executionOutcome,
+                executionFailure = executionFailure,
+            )
+        }
+
+        private suspend fun settleRawPathWindow(activeWindow: RawPathWindow): RawPathExecutionSettlement =
+            settleRawPathWindow(activeWindow, avoidDuplicateStart = false)
+
+        private suspend fun settleRawPathWindow(
+            activeWindow: RawPathWindow,
+            avoidDuplicateStart: Boolean,
+        ): RawPathExecutionSettlement {
+            if (activeWindow.stopIssued && serviceStateStore.status.value.first == AppStatus.Halted) {
+                activeWindow.stopObserved = true
+            }
+            val stopMayStillConverge = activeWindow.stopIssued && !activeWindow.stopObserved
+            val restoration =
+                when {
+                    !activeWindow.runtimeWasRunning -> {
+                        RestoreSettlement(RawPathExecutionSettlementOutcome.RestoreNotRequired)
+                    }
+
+                    !activeWindow.shouldResume -> {
+                        RestoreSettlement(RawPathExecutionSettlementOutcome.RestorePolicyDisabled)
+                    }
+
+                    avoidDuplicateStart &&
+                        !stopMayStillConverge &&
+                        serviceStateStore.status.value.first == AppStatus.Running -> {
+                        RestoreSettlement(RawPathExecutionSettlementOutcome.Restored)
+                    }
+
+                    else -> {
+                        restoreRuntimeIfOwned(
+                            mode = activeWindow.mode,
+                            resumeLease = activeWindow.resumeLease,
+                            requireStopObservedBeforeRunning = stopMayStillConverge,
+                        )
+                    }
+                }
+            val (postStatus, postMode) = serviceStateStore.status.value
+            return RawPathExecutionSettlement(
+                rawWindowGeneration = activeWindow.rawWindowGeneration,
+                resumeIntentGeneration = activeWindow.resumeLease.generation,
+                outcome = restoration.outcome,
+                runtimeWasRunning = activeWindow.runtimeWasRunning,
+                resumeRequired = activeWindow.shouldResume,
+                postRuntimeContext =
+                    RawPathRuntimeContext(
+                        status = postStatus.toRawPathRuntimeStatus(),
+                        mode = postMode,
+                    ),
+                restoreFailure = restoration.failure,
+            )
+        }
+
+        @Suppress("TooGenericExceptionCaught")
+        private suspend fun restoreRuntimeIfOwned(
             mode: Mode,
             resumeLease: ResumeLease,
-        ) {
-            val startResult =
-                runtimeResumeIntentTracker.runIfOwned(resumeLease) {
-                    serviceController.startForDiagnostics(mode)
+            requireStopObservedBeforeRunning: Boolean,
+        ): RestoreSettlement =
+            try {
+                if (requireStopObservedBeforeRunning) {
+                    waitForStatus(AppStatus.Halted)
                 }
-            if (startResult == null) {
-                waitForResumeResolution(resumeLease, compensateStoppedIntent = false)
-                return
+                val startResult =
+                    runtimeResumeIntentTracker.runIfOwned(resumeLease) {
+                        serviceController.startForDiagnostics(mode)
+                    }
+                when {
+                    startResult == null -> {
+                        waitForResumeResolution(resumeLease, compensateStoppedIntent = false)
+                        outcomeFromFinalOwnership(resumeLease)
+                    }
+
+                    resumeRuntime(startResult) -> {
+                        waitForResumeResolution(resumeLease, compensateStoppedIntent = true)
+                        outcomeFromFinalOwnership(resumeLease)
+                    }
+
+                    else -> {
+                        RestoreSettlement(
+                            outcome = RawPathExecutionSettlementOutcome.RestoreFailed,
+                            failure = "resume_rejected",
+                        )
+                    }
+                }
+            } catch (failure: Exception) {
+                RestoreSettlement(
+                    outcome = RawPathExecutionSettlementOutcome.RestoreFailed,
+                    failure = failure.message ?: failure::class.java.simpleName,
+                )
             }
-            if (resumeRuntime(startResult)) {
-                waitForResumeResolution(resumeLease, compensateStoppedIntent = true)
+
+        private fun outcomeFromFinalOwnership(resumeLease: ResumeLease): RestoreSettlement =
+            when (val ownership = runtimeResumeIntentTracker.ownership(resumeLease)) {
+                is ResumeLeaseOwnership.Superseded -> {
+                    if (ownership.intent == UserRuntimeIntent.Stopped) {
+                        RestoreSettlement(RawPathExecutionSettlementOutcome.SupersededByUserStop)
+                    } else {
+                        RestoreSettlement(RawPathExecutionSettlementOutcome.Restored)
+                    }
+                }
+
+                ResumeLeaseOwnership.Owned -> {
+                    RestoreSettlement(RawPathExecutionSettlementOutcome.Restored)
+                }
             }
-        }
 
         private fun resumeRuntime(startResult: ServiceStartResult): Boolean =
             when (startResult) {
@@ -318,11 +456,20 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             val compensatedGeneration: Long? = null,
         )
 
+        private data class RestoreSettlement(
+            val outcome: RawPathExecutionSettlementOutcome,
+            val failure: String? = null,
+        )
+
         private data class RawPathWindow(
+            val rawWindowGeneration: Long,
             val mode: Mode,
             val resumeLease: ResumeLease,
             val runtimeWasRunning: Boolean,
             var shouldResume: Boolean,
+            var stopIssued: Boolean = false,
+            var stopObserved: Boolean = false,
             var participantCount: Int = 1,
+            val settlement: CompletableDeferred<RawPathExecutionSettlement> = CompletableDeferred(),
         )
     }

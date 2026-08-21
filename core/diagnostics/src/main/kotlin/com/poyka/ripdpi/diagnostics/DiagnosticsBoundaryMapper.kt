@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
@@ -16,6 +17,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.decodedSource
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
@@ -98,6 +100,14 @@ class DiagnosticsBoundaryMapper
                 connectionSessionId = entity.connectionSessionId,
                 contextKind = entity.contextKind,
                 context = decodeContext(json, entity.payloadJson),
+                rawPathExecutionResult =
+                    entity
+                        .takeIf { it.contextKind == RawPathSettlementContextKind }
+                        ?.let {
+                            runCatching {
+                                json.decodeFromString(RawPathExecutionResult.serializer(), entity.payloadJson)
+                            }.getOrNull()
+                        },
                 capturedAt = entity.capturedAt,
             )
 

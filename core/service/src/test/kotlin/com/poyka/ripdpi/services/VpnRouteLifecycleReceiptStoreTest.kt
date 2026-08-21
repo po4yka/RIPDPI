@@ -12,6 +12,35 @@ import org.junit.Test
 
 class VpnRouteLifecycleReceiptStoreTest {
     @Test
+    fun `route receipt derives own package exclusion from the applied routing plan`() {
+        val ownPackage = "com.poyka.ripdpi"
+        val disallowStore = VpnRouteLifecycleReceiptStore()
+        disallowStore.beginTestGeneration(
+            appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf(ownPackage)),
+            ownPackage = ownPackage,
+        )
+        val allowOnlyStore = VpnRouteLifecycleReceiptStore()
+        allowOnlyStore.beginTestGeneration(
+            appRoutingPlan = VpnAppRoutingPlan.AllowOnly(setOf(ownPackage)),
+            ownPackage = ownPackage,
+        )
+
+        assertEquals(true, disallowStore.capture().lifecycle?.ownPackageExcluded)
+        assertEquals(false, allowOnlyStore.capture().lifecycle?.ownPackageExcluded)
+    }
+
+    @Test
+    fun `route receipt reports exclusion when allow only omits own package`() {
+        val store = VpnRouteLifecycleReceiptStore()
+        store.beginTestGeneration(
+            appRoutingPlan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.browser")),
+            ownPackage = "com.poyka.ripdpi",
+        )
+
+        assertEquals(true, store.capture().lifecycle?.ownPackageExcluded)
+    }
+
+    @Test
     fun `forwarding outcome is correlated to current lifecycle generation`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
@@ -233,11 +262,15 @@ private fun VpnRouteLifecycleReceiptStore.observeVerifiedNetworkShape(networkKey
     )
 }
 
-private fun VpnRouteLifecycleReceiptStore.beginTestGeneration(): Long =
+private fun VpnRouteLifecycleReceiptStore.beginTestGeneration(
+    appRoutingPlan: VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+    ownPackage: String = "com.poyka.ripdpi",
+): Long =
     beginIntended(
         ipv6Enabled = false,
         dns = "1.1.1.1",
-        appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+        appRoutingPlan = appRoutingPlan,
+        ownPackage = ownPackage,
         networkParameters = VpnTunnelNetworkParameters(),
         apiLevel = Build.VERSION_CODES.Q,
     )

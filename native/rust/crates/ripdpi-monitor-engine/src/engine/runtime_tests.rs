@@ -492,8 +492,9 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
         stopped: 2,
         joined: 2,
         forced_abort: 1,
+        ..Default::default()
     };
-    publish_cancelled_run(&plan, &shared, runtime, Some(cleanup_receipt));
+    publish_cancelled_run(&plan, &shared, runtime, None, Some(cleanup_receipt.clone()));
 
     let report = shared.lock().expect("shared").report.clone().expect("cancelled report");
     assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);

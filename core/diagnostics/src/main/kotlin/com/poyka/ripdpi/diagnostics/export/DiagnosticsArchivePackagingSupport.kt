@@ -1,11 +1,15 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.LogcatSnapshot
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import com.poyka.ripdpi.diagnostics.isContractValid
+import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -21,10 +25,17 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(
         stageKey = stageSummary.stageKey,
         stageLabel = redactDiagnosticsArchiveText(stageSummary.stageLabel),
         profileId = stageSummary.profileId,
-        pathMode = stageSummary.pathMode.name,
+        pathMode = stageSummary.pathMode?.name ?: "passive_vpn_route",
+        evidenceType = stageSummary.evidenceType.name.lowercase(),
+        vantage = stageSummary.vantage.name.lowercase(),
+        targetReachability = stageSummary.targetReachability.name.lowercase(),
         sessionId = stageSummary.sessionId,
         status =
-            if (stageSummary.status.name == "COMPLETED" && session == null) {
+            if (
+                stageSummary.status.name == "COMPLETED" &&
+                session == null &&
+                stageSummary.passiveVpnRouteEvidence == null
+            ) {
                 "evidence_unavailable"
             } else {
                 stageSummary.status.name.lowercase()
@@ -46,13 +57,19 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(
         includedTelemetryCount = telemetry.size,
         telemetryTruncated = sourceTelemetryCount > DiagnosticsArchiveFormat.telemetryLimit,
         detectionProvenance = detectionProvenance?.takeIf { stageSummary.stageKey == it.stageKey },
+        passiveVpnRouteEvidence =
+            stageSummary.passiveVpnRouteEvidence?.sanitizeVpnRouteEvidenceForArchive(),
     )
 
 internal fun DiagnosticsArchiveSelection.detectionProvenance(): DiagnosticsArchiveDetectionProvenance? =
     homeCompositeOutcome
         ?.takeIf(DiagnosticsHomeCompositeOutcome::hasDetectionProvenance)
         ?.let { outcome ->
-            val evidenceAvailable = outcome.detectionSignalCount != null
+            val signals = outcome.detectionDecisionSignals
+            val evidenceAvailable =
+                outcome.detectionSignalCount != null &&
+                    outcome.detectionSignalCount == signals.size &&
+                    signals.all { it.isContractValid() }
             DiagnosticsArchiveDetectionProvenance(
                 stageKey = "detection_signals",
                 verdict = outcome.detectionVerdict?.name,
@@ -60,15 +77,43 @@ internal fun DiagnosticsArchiveSelection.detectionProvenance(): DiagnosticsArchi
                 evidenceScopes = outcome.detectionEvidenceScopes.map { it.name },
                 evidenceStatus = if (evidenceAvailable) "available" else "unavailable",
                 uniqueSignalCount = outcome.detectionSignalCount?.let(::JsonPrimitive) ?: JsonNull,
-                localFindingCount = outcome.detectionLocalFindings.size.archiveCountOrNull(evidenceAvailable),
-                networkFindingCount = outcome.detectionNetworkFindings.size.archiveCountOrNull(evidenceAvailable),
+                localFindingCount =
+                    signals
+                        .count { it.scope != "NETWORK_OBSERVATION" }
+                        .archiveCountOrNull(evidenceAvailable),
+                networkFindingCount =
+                    signals
+                        .count { it.scope == "NETWORK_OBSERVATION" }
+                        .archiveCountOrNull(evidenceAvailable),
+                findingDetails =
+                    if (evidenceAvailable) {
+                        signals.mapIndexed { index, signal ->
+                            DiagnosticsArchiveDetectionFindingDetail(
+                                alias = "detection_signal_${index + 1}",
+                                kind =
+                                    if (signal.scope == DetectionScope.NETWORK_OBSERVATION.name) {
+                                        "network_detection_signal"
+                                    } else {
+                                        "local_detection_signal"
+                                    },
+                                category = signal.category.name,
+                                semantics = signal.semantics.name,
+                                source = signal.source,
+                                scope = signal.scope,
+                                confidence = signal.confidence,
+                            )
+                        }
+                    } else {
+                        emptyList()
+                    },
             )
         }
 
 private fun DiagnosticsHomeCompositeOutcome.hasDetectionProvenance(): Boolean =
     detectionVerdict != null ||
         detectionRuleApplied != null ||
-        detectionEvidenceScopes.isNotEmpty()
+        detectionEvidenceScopes.isNotEmpty() ||
+        detectionDecisionSignals.isNotEmpty()
 
 private fun Int.archiveCountOrNull(evidenceAvailable: Boolean) =
     if (evidenceAvailable) JsonPrimitive(this) else JsonNull
@@ -337,16 +382,52 @@ internal fun buildCompleteness(
             ),
         sourceCounts = selection.sourceCounts,
         includedCounts = selection.includedCounts(snapshotPayload, contextPayload),
+        nativeEvents = selection.nativeEventCompleteness,
         relayAttemptTraces = relayCompleteness.trace,
+        logcat = selection.logcatSnapshot?.toArchiveLogcatCompleteness(),
         collectionWarnings = selection.completenessWarnings(decodeFailures),
         reasons = selection.completenessReasons(decodeFailures, relayCompleteness),
         truncation = selection.truncation(),
     )
 }
 
+private fun LogcatSnapshot.toArchiveLogcatCompleteness(): DiagnosticsArchiveLogcatCompleteness {
+    require(sourceByteCount == retainedByteCount + droppedByteCount) {
+        "Collector logcat byte accounting is inconsistent"
+    }
+    val finalAccounting =
+        requireNotNull(postRedactionAccounting) {
+            "Post-redaction logcat byte accounting is unavailable"
+        }
+    require(finalAccounting.sourceByteCount == finalAccounting.retainedByteCount + finalAccounting.droppedByteCount) {
+        "Post-redaction logcat byte accounting is inconsistent"
+    }
+    return DiagnosticsArchiveLogcatCompleteness(
+        captureScope = captureScope,
+        collection =
+            DiagnosticsArchiveLogcatByteAccounting(
+                sourceBytes = sourceByteCount,
+                retainedBytes = retainedByteCount,
+                droppedBytes = droppedByteCount,
+                entryBytes = collectionEntryByteCount,
+            ),
+        postRedaction =
+            DiagnosticsArchiveLogcatByteAccounting(
+                sourceBytes = finalAccounting.sourceByteCount,
+                retainedBytes = finalAccounting.retainedByteCount,
+                droppedBytes = finalAccounting.droppedByteCount,
+                entryBytes = finalAccounting.entryByteCount,
+            ),
+        earliestRetainedTimestamp = finalAccounting.earliestRetainedTimestamp,
+        latestRetainedTimestamp = finalAccounting.latestRetainedTimestamp,
+        preCollectionRingLoss = preCollectionRingLoss.name,
+    )
+}
+
 private data class DiagnosticsArchiveDecodeFailures(
     val snapshotCount: Int,
     val contextCount: Int,
+    val postRuntimeRestoreMalformedCount: Int,
 )
 
 private data class DiagnosticsArchiveRelayCompleteness(
@@ -364,7 +445,7 @@ private fun DiagnosticsArchiveSelection.decodeFailures(
             .map { it.id }
             .toSet()
     val sourceContextCount =
-        primaryContexts.size +
+        primaryContexts.count { !it.isPostRuntimeRestoreContext() } +
             if (latestPassiveContext != null) 1 else 0
     val includedContextCount =
         contextPayload.sessionContexts.size +
@@ -372,12 +453,13 @@ private fun DiagnosticsArchiveSelection.decodeFailures(
     return DiagnosticsArchiveDecodeFailures(
         snapshotCount = (sourceSnapshotIds - snapshotPayload.includedSourceIds).size,
         contextCount = sourceContextCount - includedContextCount,
+        postRuntimeRestoreMalformedCount = contextPayload.postRuntimeRestoreMalformedCount,
     )
 }
 
 private fun DiagnosticsArchiveSelection.relayTraceCompleteness(): DiagnosticsArchiveRelayCompleteness {
-    val relaySourceEvents = (primaryEvents + globalEvents).distinctBy { it.id }
-    val relayTraceEvents = selectRelayAttemptTraceEvents(primaryEvents, globalEvents)
+    val relaySourceEvents = relayTraceSourceEvents()
+    val relayTraceEvents = selectRelayAttemptTraceEvents(relaySourceEvents, emptyList())
     val droppedEventsByConnection =
         (payload.telemetry + compositeStages.flatMap { it.telemetry })
             .filter { !it.connectionSessionId.isNullOrBlank() }
@@ -389,7 +471,10 @@ private fun DiagnosticsArchiveSelection.relayTraceCompleteness(): DiagnosticsArc
             DiagnosticsArchiveRelayTraceCompleteness(
                 retainedEventCount = relayTraceEvents.size,
                 droppedEventCount = droppedEventsByConnection.values.sum(),
-                retainedDecisionCount = relaySourceEvents.count { event -> event.subsystem == "relay_health_decision" },
+                retainedDecisionCount =
+                    (primaryEvents + globalEvents)
+                        .distinctBy { it.id }
+                        .count { event -> event.subsystem == "relay_health_decision" },
                 unsupportedAttemptCount = countUnsupportedRelayAttempts(relaySourceEvents, relayTraceEvents),
                 sequenceGaps = sequenceGaps,
             ),
@@ -405,6 +490,9 @@ private fun DiagnosticsArchiveSelection.completenessWarnings(
         addAll(collectionWarnings)
         if (decodeFailures.snapshotCount > 0) add("snapshot_decode_failed_count:${decodeFailures.snapshotCount}")
         if (decodeFailures.contextCount > 0) add("context_decode_failed_count:${decodeFailures.contextCount}")
+        if (decodeFailures.postRuntimeRestoreMalformedCount > 0) {
+            add("post_runtime_restore_unavailable_malformed_count:${decodeFailures.postRuntimeRestoreMalformedCount}")
+        }
         if (buildProvenance.gitCommit == "unavailable") add("git_commit_unavailable")
         buildProvenance.nativeLibraries
             .filter { it.version == "unavailable" }
@@ -421,6 +509,15 @@ private fun DiagnosticsArchiveSelection.completenessReasons(
         }
         if (decodeFailures.contextCount > 0) {
             add(DiagnosticsArchiveCompletenessReason("contexts", "decode_failed", decodeFailures.contextCount))
+        }
+        if (decodeFailures.postRuntimeRestoreMalformedCount > 0) {
+            add(
+                DiagnosticsArchiveCompletenessReason(
+                    "post_runtime_restore",
+                    "unavailable_malformed",
+                    decodeFailures.postRuntimeRestoreMalformedCount,
+                ),
+            )
         }
         if (buildProvenance.gitCommit == "unavailable") {
             add(DiagnosticsArchiveCompletenessReason("build_provenance", "git_commit_unavailable"))
@@ -446,6 +543,24 @@ private fun DiagnosticsArchiveSelection.completenessReasons(
                     "relay_attempt_traces",
                     "unsupported_attempt",
                     relayCompleteness.trace.unsupportedAttemptCount,
+                ),
+            )
+        }
+        if (relayTraceBudgetOmittedAttemptKeys.isNotEmpty()) {
+            add(
+                DiagnosticsArchiveCompletenessReason(
+                    "relay_attempt_traces",
+                    "budget_omitted",
+                    relayTraceBudgetOmittedAttemptKeys.size,
+                ),
+            )
+        }
+        if (relayTraceSourceWindowOmittedAttemptKeys.isNotEmpty()) {
+            add(
+                DiagnosticsArchiveCompletenessReason(
+                    "relay_attempt_traces",
+                    "source_window_omitted",
+                    relayTraceSourceWindowOmittedAttemptKeys.size,
                 ),
             )
         }

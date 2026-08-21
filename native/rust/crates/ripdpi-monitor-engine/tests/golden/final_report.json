@@ -1,5 +1,10 @@
 {
   "candidateRuntimeCleanup": {
+    "addressAttemptCount": 0,
+    "candidates": [],
+    "connectionRefusedCount": 0,
+    "drainLatencyMs": 0,
+    "duplicateRefusalCount": 0,
     "forcedAbort": 0,
     "joined": 0,
     "started": 0,
@@ -89,6 +94,7 @@
   "packVersions": {},
   "pathMode": "RAW_PATH",
   "profileId": "default",
+  "reportDisposition": "TERMINAL",
   "resolverRecommendation": null,
   "results": [
     {

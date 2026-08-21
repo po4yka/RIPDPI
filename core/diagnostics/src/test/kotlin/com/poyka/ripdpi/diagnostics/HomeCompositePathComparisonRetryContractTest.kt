@@ -4,13 +4,17 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
+import com.poyka.ripdpi.data.RawPathExecutionResult
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -23,16 +27,7 @@ class HomeCompositePathComparisonRetryContractTest {
             val json = diagnosticsTestJson()
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
-            val timelineSource =
-                DefaultDiagnosticsTimelineSource(
-                    profileCatalog = stores,
-                    scanRecordStore = stores,
-                    artifactReadStore = stores,
-                    bypassUsageHistoryStore = stores,
-                    mapper = DiagnosticsBoundaryMapper(json),
-                    scope = backgroundScope,
-                    json = json,
-                )
+            val timelineSource = defaultTimelineSource(stores, json, backgroundScope)
             val control = DomainTarget(host = "control.example", isControl = true)
             val failed = DomainTarget(host = "failed.example")
             stores.profilesState.value =
@@ -101,6 +96,9 @@ class HomeCompositePathComparisonRetryContractTest {
                                 summary = report.summary,
                                 reportJson = json.encodeReport(report),
                             )
+                        if (pathMode == ScanPathMode.RAW_PATH) {
+                            stores.publishRawPathSettlementContext(sessionId, json)
+                        }
                         return DiagnosticsManualScanStartResult.Started(sessionId)
                     }
 
@@ -136,14 +134,24 @@ class HomeCompositePathComparisonRetryContractTest {
                                 sessionId: String,
                             ): DiagnosticsHomeVerificationOutcome = error("unused")
                         },
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    json,
+                                ),
+                            probeResultCache = NoopPathComparisonProbeResultCache,
+                        ),
                     networkHandoverMonitor =
                         object : NetworkHandoverMonitor {
                             override val events = MutableSharedFlow<NetworkHandoverEvent>()
                         },
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoopPathComparisonProbeResultCache,
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
                     json = json,
                     scope = backgroundScope,
@@ -169,6 +177,39 @@ private object NoopPathComparisonProbeResultCache : ProbeResultCache {
     override suspend fun evict(fingerprintHash: String) = Unit
 
     override suspend fun clear() = Unit
+}
+
+private fun defaultTimelineSource(
+    stores: FakeDiagnosticsHistoryStores,
+    json: Json,
+    scope: CoroutineScope,
+) = DefaultDiagnosticsTimelineSource(
+    profileCatalog = stores,
+    scanRecordStore = stores,
+    artifactReadStore = stores,
+    bypassUsageHistoryStore = stores,
+    mapper = DiagnosticsBoundaryMapper(json),
+    scope = scope,
+    json = json,
+)
+
+private fun FakeDiagnosticsHistoryStores.publishRawPathSettlementContext(
+    sessionId: String,
+    json: Json,
+) {
+    contextsState.value =
+        contextsState.value +
+        DiagnosticContextEntity(
+            id = "raw-path-settlement:$sessionId",
+            sessionId = sessionId,
+            contextKind = "post_runtime_restore",
+            payloadJson =
+                json.encodeToString(
+                    RawPathExecutionResult.serializer(),
+                    completedRawPathExecutionResult(),
+                ),
+            capturedAt = 30L,
+        )
 }
 
 private fun pathComparisonEvidenceReport(

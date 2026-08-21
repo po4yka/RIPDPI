@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWi
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -167,6 +168,7 @@ class DiagnosticsBootstrapperTest {
                         ),
                     scope = scope,
                 ),
+            rawPathSettlementBarrier = RawPathSettlementBarrier(stores, stores.rawPathSettlementStore, json),
             importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
             scope = scope,
         )

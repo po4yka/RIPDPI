@@ -1,4 +1,7 @@
 use std::net::{IpAddr, Shutdown};
+use std::time::Instant;
+
+use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
 
 use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed};
 use crate::types::TelegramTarget;
@@ -12,12 +15,25 @@ pub(crate) struct TelegramDcResult {
     pub(crate) results: Vec<String>,
 }
 
+#[cfg(test)]
 pub(crate) fn telegram_dc_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramDcResult {
+    telegram_dc_probe_with_abort(target, transport, &deadline_abort_reason)
+}
+
+pub(crate) fn telegram_dc_probe_with_abort(
+    target: &TelegramTarget,
+    transport: &TransportConfig,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramDcResult {
     let mut results = Vec::new();
     let mut reachable = 0usize;
     let mut total = 0usize;
 
     for dc in &target.dc_endpoints {
+        if let Some(reason) = should_abort() {
+            results.push(format!("dc_probe_aborted:{reason}"));
+            break;
+        }
         total += 1;
         let ip: IpAddr = match dc.ip.parse() {
             Ok(ip) => ip,
@@ -36,6 +52,10 @@ pub(crate) fn telegram_dc_probe(target: &TelegramTarget, transport: &TransportCo
         let mut port_results = Vec::new();
         let mut rtts = Vec::new();
         for port in dc_probe_ports(dc.port) {
+            if let Some(reason) = should_abort() {
+                port_results.push(format!("{port}:fail:{reason}"));
+                break;
+            }
             let start = std::time::Instant::now();
             // Route through the protect-aware transport seam so the probe fd is
             // protected before connect when the VPN is up (DIAG-2), matching the
@@ -62,6 +82,10 @@ pub(crate) fn telegram_dc_probe(target: &TelegramTarget, transport: &TransportCo
     }
 
     TelegramDcResult { reachable, total, results }
+}
+
+pub(crate) fn deadline_abort_reason() -> Option<&'static str> {
+    active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline).then_some("deadline_exceeded")
 }
 
 fn dc_probe_ports(configured_port: u16) -> Vec<u16> {

@@ -58,21 +58,26 @@ pub enum TargetAddr {
 }
 
 impl TargetAddr {
+    pub(crate) fn logging_kind(&self) -> &'static str {
+        match self {
+            TargetAddr::Ip(SocketAddr::V4(_)) => "ipv4",
+            TargetAddr::Ip(SocketAddr::V6(_)) => "ipv6",
+            TargetAddr::Domain(_, _) => "domain",
+        }
+    }
+
     pub async fn resolve_dns(self) -> Result<TargetAddr, AddrError> {
         match self {
             TargetAddr::Ip(ip) => Ok(TargetAddr::Ip(ip)),
             TargetAddr::Domain(domain, port) => {
-                debug!("Attempting SOCKS5 target DNS resolution");
+                debug!("SOCKS DNS resolution started target_kind=domain");
 
                 let socket_addr = lookup_host((&domain[..], port))
                     .await
                     .map_err(|err| AddrError::DNSResolutionFailed(err))?
                     .next()
                     .ok_or(AddrError::NoDNSRecords)?;
-                debug!(
-                    "SOCKS5 target DNS resolution succeeded: family={}",
-                    if socket_addr.is_ipv4() { "ipv4" } else { "ipv6" }
-                );
+                debug!("SOCKS DNS resolution completed resolved_kind={}", TargetAddr::Ip(socket_addr).logging_kind());
 
                 // has been converted to an ip
                 Ok(TargetAddr::Ip(socket_addr))
@@ -102,7 +107,7 @@ impl TargetAddr {
         let mut buf = vec![];
         match self {
             TargetAddr::Ip(SocketAddr::V4(addr)) => {
-                debug!("TargetAddr::IpV4");
+                debug!("SOCKS target encoded target_kind=ipv4");
 
                 buf.extend_from_slice(&[SOCKS5_ADDR_TYPE_IPV4]);
 
@@ -110,14 +115,14 @@ impl TargetAddr {
                 buf.extend_from_slice(&addr.port().to_be_bytes()); // port
             }
             TargetAddr::Ip(SocketAddr::V6(addr)) => {
-                debug!("TargetAddr::IpV6");
+                debug!("SOCKS target encoded target_kind=ipv6");
                 buf.extend_from_slice(&[consts::SOCKS5_ADDR_TYPE_IPV6]);
 
                 buf.extend_from_slice(&(addr.ip()).octets()); // ip
                 buf.extend_from_slice(&addr.port().to_be_bytes()); // port
             }
             TargetAddr::Domain(domain, port) => {
-                debug!("TargetAddr::Domain");
+                debug!("SOCKS target encoded target_kind=domain");
                 if domain.len() > u8::max_value() as usize {
                     return Err(AddrError::DomainLenTooLong(domain.len()));
                 }
@@ -281,7 +286,7 @@ pub async fn read_address<T: AsyncRead + Unpin>(stream: &mut T, atyp: u8) -> Res
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv4Addr, SocketAddr};
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
     use super::TargetAddr;
 
@@ -291,5 +296,12 @@ mod tests {
 
         assert_eq!(TargetAddr::Ip(resolved).socket_addr(), Some(resolved));
         assert_eq!(TargetAddr::Domain("example.com".to_owned(), 443).socket_addr(), None);
+    }
+
+    #[test]
+    fn logging_kind_exposes_only_address_family() {
+        assert_eq!(TargetAddr::Ip(SocketAddr::from((Ipv4Addr::LOCALHOST, 1080))).logging_kind(), "ipv4");
+        assert_eq!(TargetAddr::Ip(SocketAddr::from((Ipv6Addr::LOCALHOST, 1080))).logging_kind(), "ipv6");
+        assert_eq!(TargetAddr::Domain("sensitive.example".to_owned(), 443).logging_kind(), "domain");
     }
 }

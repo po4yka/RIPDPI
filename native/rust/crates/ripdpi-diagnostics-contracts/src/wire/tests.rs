@@ -5,7 +5,7 @@ use crate::types::{
     ConnectionConcurrencyAssessment, ConnectionConcurrencyCellStatus, ConnectionConcurrencyObservationFact,
     ConnectionConcurrencyVerdict, DiagnosticProfileFamily, ExecutionPlanSnapshot, ExecutionPlanTargetCounts,
     ObservationKind, ProbeObservation, ProbeTaskFamily, STRATEGY_PROBE_METHODOLOGY_VERSION, ScanKind, ScanPathMode,
-    StrategyActivePathAuthority, StrategyActivePathObservation, StrategyCandidatePlanSnapshot,
+    ScanReportDisposition, StrategyActivePathAuthority, StrategyActivePathObservation, StrategyCandidatePlanSnapshot,
     StrategyDesyncExecutionReceipt, StrategyEmitterTier, StrategyExecutionDisposition, StrategyExecutionFamily,
     StrategyExecutionPlanSnapshot, StrategyOffsetMarkerBase, StrategyProbeAttemptExecutionEvidence,
     StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
@@ -57,8 +57,10 @@ fn scan_completion_defaults_are_backward_compatible() {
     .expect("legacy report");
 
     assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::Normal);
+    assert_eq!(report.report_disposition, ScanReportDisposition::Terminal);
     assert!(report.termination_reason.is_none());
     let encoded = serde_json::to_value(report).expect("encoded report");
+    assert_eq!(encoded["reportDisposition"], "TERMINAL");
     assert!(encoded.get("completionKind").is_none());
     assert!(encoded.get("terminationReason").is_none());
 }
@@ -118,6 +120,7 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
         started_at: 1000,
         finished_at: 2000,
         summary: "All probes passed".to_string(),
+        report_disposition: ScanReportDisposition::Terminal,
         completion_kind: crate::types::ScanCompletionKind::Normal,
         termination_reason: None,
         results: vec![EngineProbeResultWire {
@@ -389,6 +392,7 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
             stopped: 1,
             joined: 1,
             forced_abort: 0,
+            ..Default::default()
         }),
     };
 

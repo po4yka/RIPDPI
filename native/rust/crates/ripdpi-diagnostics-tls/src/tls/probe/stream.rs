@@ -1,7 +1,7 @@
 use super::super::types::{
     ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile,
 };
-use super::capture::capture_tls_handshake;
+use super::capture::{CaptureTlsHandshakeOptions, capture_tls_handshake};
 use crate::cdn_ech::opportunistic_ech_provider_for_ip;
 use crate::platform_ttl;
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
@@ -15,8 +15,35 @@ pub(crate) fn open_probe_stream_targets_with_options(
     tls_name: Option<&str>,
     options: &ProbeStreamOptions<'_>,
 ) -> Result<ProbeStreamResult, ProbeStreamError> {
+    open_probe_stream_targets_with_options_and_abort(targets, port, transport, tls_name, options, &|| None)
+}
+
+pub(crate) fn open_probe_stream_targets_with_options_and_abort(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    options: &ProbeStreamOptions<'_>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<ProbeStreamResult, ProbeStreamError> {
     let started = Instant::now();
+    if let Some(reason) = should_abort() {
+        return Err(stream_error(
+            ProbeStreamFailureStage::StreamSetup,
+            format!("probe_aborted:{reason}"),
+            started,
+            None,
+        ));
+    }
     let opened = open_transport_stream(targets, port, transport, started)?;
+    if let Some(reason) = should_abort() {
+        return Err(stream_error(
+            ProbeStreamFailureStage::StreamSetup,
+            format!("probe_aborted:{reason}"),
+            started,
+            Some(&opened),
+        ));
+    }
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT)
         .map_err(|err| stream_error(ProbeStreamFailureStage::StreamSetup, err, started, Some(&opened)))?;
     opened
@@ -34,13 +61,16 @@ pub(crate) fn open_probe_stream_targets_with_options(
             let connected_addr = opened.connected_addr;
             let captured = capture_tls_handshake(
                 opened.stream,
-                targets,
-                transport,
-                name,
-                options.profile,
-                options.tls_verifier,
-                options.key_log,
-                options.application_protocol,
+                &CaptureTlsHandshakeOptions {
+                    targets,
+                    transport,
+                    tls_name: name,
+                    profile: options.profile,
+                    tls_verifier: options.tls_verifier,
+                    key_log: options.key_log,
+                    application_protocol: options.application_protocol,
+                    should_abort,
+                },
             )
             .map_err(|err| ProbeStreamError {
                 stage: ProbeStreamFailureStage::TlsHandshake,

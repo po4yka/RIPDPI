@@ -93,8 +93,8 @@ where
                 packet[4..8].copy_from_slice(&(addr.ip()).octets());
                 Ok(())
             }
-            Some(TargetAddr::Ip(SocketAddr::V6(addr))) => {
-                error!("IPv6 are not supported: {:?}", addr);
+            Some(TargetAddr::Ip(SocketAddr::V6(_))) => {
+                error!("SOCKS4 does not support ipv6 targets");
                 Err(ReplySocks4Error(ReplyError::AddressTypeNotSupported))
             }
             Some(TargetAddr::Domain(domain, port)) => {
@@ -166,7 +166,7 @@ impl Socks4Stream<TcpStream> {
         T: ToSocketAddrs,
     {
         let socket = TcpStream::connect(socks_server).await?;
-        debug!("Connected @ {}", &socket.peer_addr()?);
+        debug!("SOCKS4 client connected");
 
         // Specify the target, here domain name, dns will be resolved on the server side
         let target_addr = (target_addr.as_str(), target_port)

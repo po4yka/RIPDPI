@@ -225,6 +225,29 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         self.assertEqual(1, len(baseline["entries"]))
         self.assertEqual("native/rust/crates/ripdpi-monitor-engine/src/lib.rs", baseline["entries"][0]["path"])
 
+    def test_top_functions_does_not_consume_later_body_for_abstract_kotlin_function(self) -> None:
+        source = """
+        abstract class Bindings {
+            abstract fun bindService(
+                implementation: ServiceImplementation,
+            ): Service
+
+            companion object {
+                fun provideService(): Service {
+                    return ServiceImplementation()
+                }
+            }
+        }
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / "Bindings.kt"
+            source_path.write_text(source, encoding="utf-8")
+
+            functions = dict(check_file_loc_limits.top_functions(source_path, "kotlin"))
+
+        self.assertEqual(3, functions["bindService"])
+        self.assertEqual(3, functions["provideService"])
+
 
 if __name__ == "__main__":
     unittest.main()

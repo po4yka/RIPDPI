@@ -342,6 +342,89 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration 12 to current creates home diagnostics run table outside scan sessions`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v12-v13-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.execSQL("DROP INDEX IF EXISTS index_home_diagnostics_runs_updatedAt")
+            legacyDb.execSQL("DROP TABLE IF EXISTS home_diagnostics_runs")
+            legacyDb.execSQL("PRAGMA user_version = 12")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query("SELECT COUNT(*) FROM home_diagnostics_runs")
+                .use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(0, cursor.getInt(0))
+                }
+            migrated.openHelper.writableDatabase
+                .query("PRAGMA index_list(home_diagnostics_runs)")
+                .use { cursor ->
+                    val indexNames =
+                        buildSet {
+                            val nameIndex = cursor.getColumnIndexOrThrow("name")
+                            while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+                        }
+                    assertTrue(indexNames.contains("index_home_diagnostics_runs_updatedAt"))
+                }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun `migration 12 to 13 indexes relay attempt hydration without losing events`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v12-v13-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false).also { db ->
+            db.openHelper.writableDatabase.execSQL(
+                "INSERT INTO native_session_events " +
+                    "(id, connectionSessionId, source, level, message, createdAt, runtimeId, subsystem, " +
+                    "attemptId, attemptSequence, stage, outcome) VALUES " +
+                    "('relay-attempt-v12', 'connection-1', 'relay', 'info', 'relay stage', 42, " +
+                    "'runtime-1', 'relay', 7, 3, 'tcp_connect', 'succeeded')",
+            )
+            db.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.execSQL("DROP INDEX index_native_session_events_relay_attempt_sequence")
+            legacyDb.execSQL("PRAGMA user_version = 12")
+        }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            migrated.openHelper.writableDatabase
+                .query("SELECT attemptSequence FROM native_session_events WHERE id = 'relay-attempt-v12'")
+                .use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(3L, cursor.getLong(0))
+                }
+            migrated.openHelper.writableDatabase.query("PRAGMA index_list(native_session_events)").use { cursor ->
+                val nameIndex = cursor.getColumnIndexOrThrow("name")
+                val indexes =
+                    buildSet {
+                        while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+                    }
+                assertTrue(indexes.contains("index_native_session_events_relay_attempt_sequence"))
+            }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
     private fun android.database.sqlite.SQLiteDatabase.dropRelayTraceColumns() {
         dropRelayAttemptTraceColumns()
         dropRelayHealthColumns()
@@ -354,6 +437,7 @@ class DiagnosticsDatabaseMigrationTest {
     }
 
     private fun android.database.sqlite.SQLiteDatabase.dropRelayAttemptTraceColumns() {
+        execSQL("DROP INDEX IF EXISTS index_native_session_events_relay_attempt_sequence")
         execSQL("ALTER TABLE telemetry_samples DROP COLUMN relayNativeEventsDropped")
         listOf(
             "attemptId",

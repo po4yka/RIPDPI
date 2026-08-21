@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -87,12 +87,60 @@ pub struct PcapCaptureSet {
     dir: PathBuf,
     queue: Arc<ArrayQueue<PcapCaptureRecord>>,
     drops: Arc<AtomicU64>,
+    admissions: Arc<CaptureAdmission>,
     stop: Arc<AtomicBool>,
     writer_thread: Option<JoinHandle<WriterResult>>,
 }
 
 const WRITER_STOP_TIMEOUT: Duration = Duration::from_secs(2);
 const WRITER_JOIN_POLL: Duration = Duration::from_millis(10);
+const ADMISSION_CLOSED: usize = 1usize << (usize::BITS - 1);
+const ADMISSION_COUNT_MASK: usize = !ADMISSION_CLOSED;
+
+/// Closes packet-observer admission before writer retirement and counts
+/// callbacks that must still publish their queue/drop outcome.
+struct CaptureAdmission {
+    state: AtomicUsize,
+}
+
+/// RAII permit for one admitted observer callback. Dropping it publishes the
+/// callback completion to a concurrent closer.
+struct CaptureAdmissionGuard {
+    admission: Arc<CaptureAdmission>,
+}
+
+impl Drop for CaptureAdmissionGuard {
+    fn drop(&mut self) {
+        self.admission.state.fetch_sub(1, Ordering::Release);
+    }
+}
+
+impl CaptureAdmission {
+    fn new() -> Self {
+        Self { state: AtomicUsize::new(0) }
+    }
+    fn try_acquire(self: &Arc<Self>) -> Option<CaptureAdmissionGuard> {
+        let mut state = self.state.load(Ordering::Acquire);
+        loop {
+            if state & ADMISSION_CLOSED != 0 {
+                return None;
+            }
+            debug_assert!(state & ADMISSION_COUNT_MASK < ADMISSION_COUNT_MASK);
+            match self.state.compare_exchange_weak(state, state + 1, Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => return Some(CaptureAdmissionGuard { admission: Arc::clone(self) }),
+                Err(next) => state = next,
+            }
+        }
+    }
+    fn close_and_wait(&self) {
+        let mut state = self.state.fetch_or(ADMISSION_CLOSED, Ordering::AcqRel);
+        while state & ADMISSION_COUNT_MASK != 0 {
+            std::hint::spin_loop();
+            thread::yield_now();
+            state = self.state.load(Ordering::Acquire);
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -134,6 +182,7 @@ impl PcapCaptureSet {
         // 1024 records ~ 1.5 MiB at MTU 1500 ~ 6 s at 200 pkt/s.
         let queue: Arc<ArrayQueue<PcapCaptureRecord>> = Arc::new(ArrayQueue::new(1024));
         let drops = Arc::new(AtomicU64::new(0));
+        let admissions = Arc::new(CaptureAdmission::new());
         let stop = Arc::new(AtomicBool::new(false));
         let q = queue.clone();
         let s = stop.clone();
@@ -141,16 +190,16 @@ impl PcapCaptureSet {
         let writer_thread = thread::Builder::new()
             .name(format!("ripdpi-pcap-writer-{set_id}"))
             .spawn(move || writer_loop(set_id, d, q, s, max_file_bytes, max_files))?;
-        Ok(Self { set_id, dir, queue, drops, stop, writer_thread: Some(writer_thread) })
+        Ok(Self { set_id, dir, queue, drops, admissions, stop, writer_thread: Some(writer_thread) })
     }
 
     /// Try to enqueue a record. Lock-free. On queue-full, increments
     /// the drops counter and returns false -- capture is best-effort.
     pub fn submit(&self, record: PcapCaptureRecord) -> bool {
         // Ordering: `stop` publishes capture retirement before any caller can enqueue another owned packet.
-        if self.stop.load(Ordering::Acquire) {
+        let Some(_admission) = self.admissions.try_acquire() else {
             return false;
-        }
+        };
         match self.queue.push(record) {
             Ok(()) => true,
             Err(_) => {
@@ -191,6 +240,7 @@ impl PcapCaptureSet {
 
     pub(crate) fn request_stop(&self) {
         // Ordering: publish retirement to packet observers before the writer queue and thread are released.
+        self.admissions.close_and_wait();
         self.stop.store(true, Ordering::Release);
     }
 
@@ -210,7 +260,11 @@ impl PcapCaptureSet {
     /// lifetime. Once [`Self::stop`] publishes retirement, stale observer
     /// clones reject packets before allocating an owned record.
     pub fn observer_handle(&self) -> Arc<PcapPacketObserver> {
-        Arc::new(PcapPacketObserver { queue: self.queue.clone(), drops: self.drops.clone(), stop: self.stop.clone() })
+        Arc::new(PcapPacketObserver {
+            queue: self.queue.clone(),
+            drops: self.drops.clone(),
+            admissions: self.admissions.clone(),
+        })
     }
 }
 
@@ -245,15 +299,15 @@ fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> R
 pub struct PcapPacketObserver {
     queue: Arc<ArrayQueue<PcapCaptureRecord>>,
     drops: Arc<AtomicU64>,
-    stop: Arc<AtomicBool>,
+    admissions: Arc<CaptureAdmission>,
 }
 
 impl PcapPacketObserver {
     fn try_push(&self, packet: &[u8]) {
         // Ordering: acquire the retirement published by `PcapCaptureSet::request_stop` before touching the queue or allocating packet storage.
-        if self.stop.load(Ordering::Acquire) {
+        let Some(_admission) = self.admissions.try_acquire() else {
             return;
-        }
+        };
         let record = PcapCaptureRecord { ts_micros: now_micros(), bytes: packet.to_vec() };
         if self.queue.push(record).is_err() {
             self.drops.fetch_add(1, Ordering::Relaxed);
@@ -544,6 +598,78 @@ mod tests {
         assert!(matches!(result, Err(PcapWriterFailure::Timeout)));
         assert!(started.elapsed() < Duration::from_millis(250));
         let _ = release_tx.send(());
+    }
+
+    #[test]
+    fn close_waits_for_admitted_callback_before_writer_retirement() {
+        let admission = Arc::new(CaptureAdmission::new());
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        let callback_admission = Arc::clone(&admission);
+        let callback_entered = Arc::clone(&entered);
+        let callback_release = Arc::clone(&release);
+        let callback = thread::spawn(move || {
+            let _permit = callback_admission.try_acquire().expect("callback must be admitted");
+            callback_entered.wait();
+            callback_release.wait();
+        });
+        entered.wait();
+
+        let closing_admission = Arc::clone(&admission);
+        let (closed_tx, closed_rx) = std::sync::mpsc::channel();
+        let closer = thread::spawn(move || {
+            closing_admission.close_and_wait();
+            closed_tx.send(()).expect("receiver must remain open");
+        });
+        while admission.state.load(Ordering::Acquire) & ADMISSION_CLOSED == 0 {
+            thread::yield_now();
+        }
+        assert!(closed_rx.recv_timeout(Duration::from_millis(50)).is_err());
+
+        release.wait();
+        callback.join().expect("callback must finish");
+        closer.join().expect("closer must finish");
+        closed_rx.recv().expect("close must finish after release");
+    }
+
+    #[test]
+    fn stop_reports_drop_from_callback_admitted_before_retirement() {
+        let queue = Arc::new(ArrayQueue::new(1));
+        queue.push(fake_packet(0)).expect("queue must begin full");
+        let drops = Arc::new(AtomicU64::new(0));
+        let admissions = Arc::new(CaptureAdmission::new());
+        let capture = PcapCaptureSet {
+            set_id: 51,
+            dir: PathBuf::new(),
+            queue: Arc::clone(&queue),
+            drops: Arc::clone(&drops),
+            admissions: Arc::clone(&admissions),
+            stop: Arc::new(AtomicBool::new(false)),
+            writer_thread: None,
+        };
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        let callback_admissions = Arc::clone(&admissions);
+        let callback_queue = Arc::clone(&queue);
+        let callback_drops = Arc::clone(&drops);
+        let callback_entered = Arc::clone(&entered);
+        let callback_release = Arc::clone(&release);
+        let callback = thread::spawn(move || {
+            let _permit = callback_admissions.try_acquire().expect("callback must be admitted");
+            callback_entered.wait();
+            callback_release.wait();
+            assert!(callback_queue.push(fake_packet(1)).is_err());
+            callback_drops.fetch_add(1, Ordering::Relaxed);
+        });
+        entered.wait();
+
+        let stopper = thread::spawn(move || capture.stop());
+        while admissions.state.load(Ordering::Acquire) & ADMISSION_CLOSED == 0 {
+            thread::yield_now();
+        }
+        release.wait();
+        callback.join().expect("callback must finish");
+        assert_eq!(stopper.join().expect("stop must finish").total_drops, 1);
     }
 
     #[test]

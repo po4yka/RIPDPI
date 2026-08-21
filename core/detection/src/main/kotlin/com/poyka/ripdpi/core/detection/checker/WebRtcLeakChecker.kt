@@ -62,15 +62,7 @@ object WebRtcLeakChecker {
                             confidence = EvidenceConfidence.MEDIUM,
                         ),
                     )
-                    evidence.add(
-                        EvidenceItem(
-                            source = EvidenceSource.NETWORK_CAPABILITIES,
-                            scope = DetectionScope.NETWORK_OBSERVATION,
-                            detected = true,
-                            confidence = EvidenceConfidence.MEDIUM,
-                            description = reachabilityDescription,
-                        ),
-                    )
+                    evidence.add(reachableStunEvidence(reachabilityDescription))
                 }
 
                 StunProbeResult.BLOCKED -> {
@@ -90,6 +82,15 @@ object WebRtcLeakChecker {
                 evidence = evidence,
             )
         }
+
+    internal fun reachableStunEvidence(description: String): EvidenceItem =
+        EvidenceItem(
+            source = EvidenceSource.NETWORK_CAPABILITIES,
+            scope = DetectionScope.NETWORK_OBSERVATION,
+            detected = true,
+            confidence = EvidenceConfidence.MEDIUM,
+            description = description,
+        )
 
     private fun probeStunReachability(): StunProbeResult {
         for ((host, port) in STUN_SERVERS) {

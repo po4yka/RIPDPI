@@ -253,12 +253,33 @@ enum class Verdict {
     DETECTED,
 }
 
+enum class DecisionSignalCategory {
+    LOCAL_INVENTORY_REVIEW,
+    LOCAL_OBSERVER_EXPOSURE,
+    NETWORK_OBSERVATION,
+}
+
+enum class DecisionSignalSemantics {
+    LOCAL_INVENTORY_MATCH_REQUIRES_REVIEW,
+    LOCAL_OBSERVER_EXPOSURE_PRESENT,
+    NETWORK_OBSERVATION_PRESENT,
+}
+
+data class DecisionSignal(
+    val category: DecisionSignalCategory,
+    val semantics: DecisionSignalSemantics,
+    val source: EvidenceSource,
+    val confidence: EvidenceConfidence,
+    val scope: DetectionScope,
+)
+
 data class VerdictExplanation(
     val verdict: Verdict,
     val ruleApplied: String,
     val summary: String,
     val appliedScopes: List<DetectionScope> = emptyList(),
     val uniqueSignalCount: Int = 0,
+    val decisionSignals: List<DecisionSignal> = emptyList(),
 )
 
 data class BypassResult(

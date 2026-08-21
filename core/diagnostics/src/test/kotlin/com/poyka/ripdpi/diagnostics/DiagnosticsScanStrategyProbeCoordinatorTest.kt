@@ -74,7 +74,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertFalse(stores.rememberedPoliciesState.value.isEmpty())
             assertEquals(
@@ -153,7 +153,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
@@ -224,7 +224,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
@@ -294,7 +294,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
@@ -353,7 +353,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
@@ -419,7 +419,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
@@ -485,7 +485,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertEquals(1, stores.rememberedPoliciesState.value.size)
             assertEquals(
@@ -561,7 +561,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
             networkFingerprintProvider.fingerprint = changedFingerprint
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val rememberedPolicy = stores.rememberedPoliciesState.value.single()
             assertEquals(preparedFingerprint.scopeKey(), rememberedPolicy.fingerprintHash)

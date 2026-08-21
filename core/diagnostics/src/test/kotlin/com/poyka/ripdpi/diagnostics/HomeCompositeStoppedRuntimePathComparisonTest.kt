@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
+import com.poyka.ripdpi.data.RawPathExecutionResult
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +58,9 @@ class HomeCompositeStoppedRuntimePathComparisonTest {
                                 pathMode = pathMode.name,
                                 summary = "$selectedProfileId complete",
                             )
+                        if (pathMode == ScanPathMode.RAW_PATH) {
+                            stores.publishRawPathSettlementContext(sessionId, json)
+                        }
                         if (selectedProfileId == "ru-dpi-full") {
                             serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
                         }
@@ -94,14 +99,24 @@ class HomeCompositeStoppedRuntimePathComparisonTest {
                                 sessionId: String,
                             ): DiagnosticsHomeVerificationOutcome = error("unused")
                         },
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    json,
+                                ),
+                            probeResultCache = StoppedRuntimeProbeResultCache,
+                        ),
                     networkHandoverMonitor =
                         object : NetworkHandoverMonitor {
                             override val events = MutableSharedFlow<NetworkHandoverEvent>()
                         },
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = StoppedRuntimeProbeResultCache,
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
                     json = json,
                     scope = backgroundScope,
@@ -126,4 +141,23 @@ private object StoppedRuntimeProbeResultCache : ProbeResultCache {
     override suspend fun evict(fingerprintHash: String) = Unit
 
     override suspend fun clear() = Unit
+}
+
+private fun FakeDiagnosticsHistoryStores.publishRawPathSettlementContext(
+    sessionId: String,
+    json: kotlinx.serialization.json.Json,
+) {
+    contextsState.value =
+        contextsState.value +
+        DiagnosticContextEntity(
+            id = "raw-path-settlement:$sessionId",
+            sessionId = sessionId,
+            contextKind = "post_runtime_restore",
+            payloadJson =
+                json.encodeToString(
+                    RawPathExecutionResult.serializer(),
+                    completedRawPathExecutionResult(),
+                ),
+            capturedAt = 30L,
+        )
 }

@@ -174,7 +174,7 @@ fn terminal_receipts_join_attempts_by_token_when_completion_order_is_reversed() 
     let evidence = |token: crate::CandidateAttemptCorrelationId| test_desync_evidence(7, token);
     let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
         7,
-        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
         vec![evidence(second.clone()), evidence(first.clone())],
     )
     .expect("terminal receipt");
@@ -211,7 +211,7 @@ fn terminal_constructor_rejects_mixed_generation_evidence() {
     let execution = build_candidate_execution(&test_spec(), score, 1);
     let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
         8,
-        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
         vec![test_desync_evidence(8, token.clone()), test_desync_evidence(7, token)],
     );
 
@@ -242,7 +242,7 @@ fn terminal_receipt_from_another_generation_is_rejected_before_joining() {
     let mut execution = build_candidate_execution(&test_spec(), score, 1);
     let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
         7,
-        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
         Vec::new(),
     )
     .expect("terminal receipt");
@@ -276,7 +276,7 @@ fn unknown_same_generation_attempt_receipt_makes_candidate_unverified() {
     let mut execution = build_candidate_execution(&test_spec(), score, 1);
     let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
         7,
-        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+        crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
         vec![test_desync_evidence(7, known), test_desync_evidence(7, unknown)],
     )
     .expect("terminal receipt");
@@ -311,7 +311,7 @@ fn duplicate_or_gapped_connection_ordinals_make_candidate_unverified() {
         let second = test_desync_evidence_with_ordinal(7, token, second_ordinal);
         let terminal = crate::CandidateRuntimeTerminalReceipt::clean_shutdown(
             7,
-            crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0 },
+            crate::CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() },
             vec![first, second],
         )
         .expect("same-generation terminal receipt");

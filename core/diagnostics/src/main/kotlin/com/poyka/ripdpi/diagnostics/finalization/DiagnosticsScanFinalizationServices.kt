@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServerCapabilityStore
@@ -15,12 +16,15 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -53,6 +57,7 @@ class ScanFinalizationService
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val serverCapabilityStore: ServerCapabilityStore,
+        private val rawPathSettlementBarrier: RawPathSettlementBarrier,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -93,6 +98,7 @@ class ScanFinalizationService
                     artifactWriteStore = artifactWriteStore,
                     serviceStateStore = serviceStateStore,
                     json = json,
+                    deferTerminal = prepared.pathMode == ScanPathMode.RAW_PATH,
                 )
                 resolverOverride?.let { resolverOverrideStore.setTemporaryOverride(it) }
                 prepared.networkFingerprint?.let { fingerprint ->
@@ -143,6 +149,61 @@ class ScanFinalizationService
             require(report.pathMode == prepared.pathMode) {
                 "Diagnostics report path does not match the prepared scan"
             }
+        }
+
+        internal suspend fun persistRawPathSettlement(
+            prepared: PreparedDiagnosticsScan,
+            result: RawPathExecutionResult,
+            finalizationResult: ScanFinalizationResult?,
+        ) {
+            check(prepared.pathMode == ScanPathMode.RAW_PATH) {
+                "Runtime settlement belongs only to raw-path diagnostics: ${prepared.sessionId}"
+            }
+            val context =
+                DiagnosticContextEntity(
+                    id = "raw-path-settlement:${prepared.sessionId}",
+                    sessionId = prepared.sessionId,
+                    contextKind = RawPathSettlementContextKind,
+                    payloadJson = json.encodeToString(RawPathExecutionResult.serializer(), result),
+                    capturedAt = System.currentTimeMillis(),
+                )
+            val terminalSession =
+                DiagnosticsReportPersister.buildRawPathTerminalSession(
+                    sessionId = prepared.sessionId,
+                    report = finalizationResult?.derived?.report,
+                    result = result,
+                    scanRecordStore = scanRecordStore,
+                    finishedAt = context.capturedAt,
+                )
+            rawPathSettlementBarrier.persist(context, terminalSession)
+        }
+
+        internal suspend fun persistRawPathRecoveryReport(
+            prepared: PreparedDiagnosticsScan,
+            reportJson: String,
+        ) {
+            check(prepared.pathMode == ScanPathMode.RAW_PATH) {
+                "Recovery report staging belongs only to raw-path diagnostics: ${prepared.sessionId}"
+            }
+            val report = json.decodeEngineScanReportWire(reportJson)
+            requireReportMatchesPreparedScan(prepared, report)
+            check(
+                report.reportDisposition in
+                    setOf(
+                        com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition.CHECKPOINT,
+                        com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition.TERMINAL,
+                    ),
+            ) {
+                "Raw-path recovery report requires a known disposition"
+            }
+            DiagnosticsReportPersister.persistScanReport(
+                report = report,
+                scanRecordStore = scanRecordStore,
+                artifactWriteStore = artifactWriteStore,
+                serviceStateStore = serviceStateStore,
+                json = json,
+                deferTerminal = true,
+            )
         }
 
         private suspend fun resolveWinningCombination(

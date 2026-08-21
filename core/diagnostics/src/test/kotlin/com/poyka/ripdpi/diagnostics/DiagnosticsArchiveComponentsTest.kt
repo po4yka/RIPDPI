@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.toNativeEventArchiveSource
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveContextPayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotPayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
@@ -314,11 +315,11 @@ class DiagnosticsArchiveComponentsTest {
                     primaryResults = listOf(probeResult(sessionId = "session-latest")),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
-                    loadNativeEvents = { sessionId ->
+                    loadNativeEventSource = { sessionId ->
                         when (sessionId) {
                             "session-latest" -> listOf(nativeEvent(id = "ev-session", sessionId = sessionId))
                             else -> emptyList()
-                        }
+                        }.toNativeEventArchiveSource()
                     },
                 )
 
@@ -363,9 +364,9 @@ class DiagnosticsArchiveComponentsTest {
                     compositeOutcome = fixture.outcome,
                     compositeSessions = listOf(primary, stage),
                     loadProbeResults = { emptyList() },
-                    loadNativeEvents = { sessionId ->
+                    loadNativeEventSource = { sessionId ->
                         fetchedSessionIds += sessionId
-                        listOf(nativeEvent(id = "ev-$sessionId", sessionId = sessionId))
+                        listOf(nativeEvent(id = "ev-$sessionId", sessionId = sessionId)).toNativeEventArchiveSource()
                     },
                     loadStageTelemetry = { session, _ ->
                         val count =
@@ -418,14 +419,16 @@ class DiagnosticsArchiveComponentsTest {
                     compositeOutcome = fixture.outcome,
                     compositeSessions = listOf(fixture.primary, fixture.stage),
                     loadProbeResults = { emptyList() },
-                    loadNativeEvents = { sessionId ->
-                        if (sessionId == fixture.stage.id) {
-                            List(rawStageEventCount) { index ->
-                                nativeEvent(id = "raw-stage-event-$index", sessionId = sessionId)
+                    loadNativeEventSource = { sessionId ->
+                        (
+                            if (sessionId == fixture.stage.id) {
+                                List(rawStageEventCount) { index ->
+                                    nativeEvent(id = "raw-stage-event-$index", sessionId = sessionId)
+                                }
+                            } else {
+                                emptyList()
                             }
-                        } else {
-                            emptyList()
-                        }
+                        ).toNativeEventArchiveSource()
                     },
                     loadStageTelemetry = { session, _ ->
                         if (session.id == fixture.stage.id) {
@@ -472,47 +475,18 @@ class DiagnosticsArchiveComponentsTest {
                 completeness.includedCounts.archiveWide.telemetrySamples,
             )
         }
+}
+
+class DiagnosticsArchiveCompositeSelectionTest {
+    private val json = DiagnosticsArchiveComponentsJson
+    private val redactor = DiagnosticsArchiveRedactor(json)
+    private val selector = DiagnosticsArchiveSessionSelector(redactor, json)
 
     @Test
     fun `composite stages without sessions do not inherit passive artifacts`() =
         runTest {
-            val sourceData =
-                DiagnosticsArchiveSourceData(
-                    sessions = emptyList(),
-                    usageSessions = emptyList(),
-                    snapshots = listOf(networkSnapshotEntity(id = "snap-passive", sessionId = null)),
-                    telemetry = emptyList(),
-                    events = listOf(nativeEvent(id = "ev-global", sessionId = null)),
-                    contexts = listOf(diagnosticContextEntity(id = "ctx-passive", sessionId = null)),
-                    approachSummaries = emptyList(),
-                    appSettings = appSettings(),
-                    buildProvenance = buildProvenance(),
-                    collectionWarnings = emptyList(),
-                    logcatSnapshot = null,
-                    fileLogSnapshot = null,
-                )
-            val outcome =
-                DiagnosticsHomeCompositeOutcome(
-                    runId = "run-without-stage-sessions",
-                    actionable = false,
-                    headline = "Incomplete",
-                    summary = "Stages did not create scan sessions.",
-                    stageSummaries =
-                        listOf(
-                            stageWithoutSession(
-                                stageKey = "skipped",
-                                status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                            ),
-                            stageWithoutSession(
-                                stageKey = "failed",
-                                status = DiagnosticsHomeCompositeStageStatus.FAILED,
-                            ),
-                            stageWithoutSession(
-                                stageKey = "completed-without-evidence",
-                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                            ),
-                        ),
-                )
+            val sourceData = sessionlessCompositeSourceData()
+            val outcome = sessionlessCompositeOutcome()
 
             val selection =
                 selector.buildSelection(
@@ -527,10 +501,10 @@ class DiagnosticsArchiveComponentsTest {
                     compositeOutcome = outcome,
                     compositeSessions = emptyList(),
                     loadProbeResults = { error("A stage without a session must not load probe results") },
-                    loadNativeEvents = { error("A stage without a session must not load native events") },
+                    loadNativeEventSource = { error("A stage without a session must not load native events") },
                 )
 
-            assertEquals(3, selection.compositeStages.size)
+            assertEquals(4, selection.compositeStages.size)
             selection.compositeStages.forEach { stage ->
                 assertEquals(null, stage.session)
                 assertTrue(stage.results.isEmpty())
@@ -547,7 +521,66 @@ class DiagnosticsArchiveComponentsTest {
                     .single { it.stageKey == "completed-without-evidence" }
                     .status,
             )
+            val passiveStage =
+                buildStageIndexEntries(selection)
+                    .single { it.stageKey == "vpn_route_evidence" }
+            assertEquals("completed", passiveStage.status)
+            assertEquals("passive_vpn_route", passiveStage.evidenceType)
+            assertEquals("vpn_route_observation", passiveStage.vantage)
+            assertEquals("unverified", passiveStage.targetReachability)
+            assertEquals(42L, passiveStage.passiveVpnRouteEvidence?.vpnRouteEvidence?.lifecycleGeneration)
         }
+
+    private fun sessionlessCompositeSourceData() =
+        DiagnosticsArchiveSourceData(
+            sessions = emptyList(),
+            usageSessions = emptyList(),
+            snapshots = listOf(networkSnapshotEntity(id = "snap-passive", sessionId = null)),
+            telemetry = emptyList(),
+            events = listOf(nativeEvent(id = "ev-global", sessionId = null)),
+            contexts = listOf(diagnosticContextEntity(id = "ctx-passive", sessionId = null)),
+            approachSummaries = emptyList(),
+            appSettings = appSettings(),
+            buildProvenance = buildProvenance(),
+            collectionWarnings = emptyList(),
+            logcatSnapshot = null,
+            fileLogSnapshot = null,
+        )
+
+    private fun sessionlessCompositeOutcome() =
+        DiagnosticsHomeCompositeOutcome(
+            runId = "run-without-stage-sessions",
+            actionable = false,
+            headline = "Incomplete",
+            summary = "Stages did not create scan sessions.",
+            stageSummaries =
+                listOf(
+                    stageWithoutSession("skipped", DiagnosticsHomeCompositeStageStatus.SKIPPED),
+                    stageWithoutSession("failed", DiagnosticsHomeCompositeStageStatus.FAILED),
+                    stageWithoutSession("completed-without-evidence", DiagnosticsHomeCompositeStageStatus.COMPLETED),
+                    passiveVpnRouteEvidenceStage(),
+                ),
+        )
+
+    private fun passiveVpnRouteEvidenceStage() =
+        stageWithoutSession("vpn_route_evidence", DiagnosticsHomeCompositeStageStatus.COMPLETED).copy(
+            pathMode = null,
+            passiveVpnRouteEvidence =
+                NetworkPathValidationEvidence(
+                    captureStatus = "captured",
+                    vpnRouteEvidence =
+                        VpnRouteEvidenceSnapshot(
+                            lifecycleGeneration = 42L,
+                            lifecycleState = "established",
+                            callbackState = "complete",
+                            ownerVerification = "verified",
+                            ownPackageExcluded = true,
+                            routeConsistency = "consistent",
+                            forwardingOutcome = "running",
+                            forwardingLifecycleGeneration = 42L,
+                        ),
+                ),
+        )
 
     @Test
     fun `selector marks support bundle exports explicitly`() =
@@ -575,7 +608,7 @@ class DiagnosticsArchiveComponentsTest {
                     primaryResults = emptyList(),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
-                    loadNativeEvents = { emptyList() },
+                    loadNativeEventSource = { emptyList<NativeSessionEventEntity>().toNativeEventArchiveSource() },
                 )
 
             assertEquals(
@@ -628,7 +661,7 @@ class DiagnosticsArchiveComponentsTest {
                     primaryResults = emptyList(),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
-                    loadNativeEvents = { emptyList() },
+                    loadNativeEventSource = { emptyList<NativeSessionEventEntity>().toNativeEventArchiveSource() },
                 )
 
             assertEquals(strategyId, selection.selectedApproachSummary?.approachId?.value)
@@ -665,6 +698,50 @@ class DiagnosticsArchiveComponentsTest {
 
         assertTrue(error?.message.orEmpty().contains("missing-session"))
     }
+}
+
+class DiagnosticsArchiveContextSelectionTest {
+    private val selector =
+        DiagnosticsArchiveSessionSelector(
+            DiagnosticsArchiveRedactor(DiagnosticsArchiveComponentsJson),
+            DiagnosticsArchiveComponentsJson,
+        )
+
+    @Test
+    fun `selector retains post runtime restore receipt beyond generic context quota`() =
+        runTest {
+            val session = scanSession(id = "session-restore")
+            val genericContexts =
+                List(DiagnosticsArchiveFormat.snapshotLimit) { index ->
+                    diagnosticContextEntity(
+                        id = "generic-$index",
+                        sessionId = session.id,
+                        capturedAt = index.toLong(),
+                    )
+                }
+            val receipt =
+                diagnosticContextEntity(id = "restore-receipt", sessionId = session.id).copy(
+                    contextKind = "post_runtime_restore",
+                    payloadJson = "{\"settlement\":{}}",
+                )
+            val fixture = compositeSelectionFixture()
+            val selection =
+                selector.buildSelection(
+                    request = archiveRequest(sessionId = session.id),
+                    primarySession = session,
+                    primaryResults = emptyList(),
+                    sourceData =
+                        fixture.sourceData.copy(
+                            sessions = listOf(session),
+                            contexts = genericContexts + receipt,
+                        ),
+                    loadProbeResults = { emptyList() },
+                    loadNativeEventSource = { emptyList<NativeSessionEventEntity>().toNativeEventArchiveSource() },
+                )
+
+            assertEquals(DiagnosticsArchiveFormat.snapshotLimit + 1, selection.primaryContexts.size)
+            assertTrue(selection.primaryContexts.any { it.id == receipt.id })
+        }
 }
 
 private data class CompositeSelectionFixture(

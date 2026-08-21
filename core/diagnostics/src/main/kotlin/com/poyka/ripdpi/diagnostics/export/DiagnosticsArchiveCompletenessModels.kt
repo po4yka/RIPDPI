@@ -25,3 +25,21 @@ internal data class DiagnosticsArchiveTruncation(
     val appLog: Boolean = false,
     val startupJournal: Boolean = false,
 )
+
+@Serializable
+internal data class DiagnosticsArchiveLogcatByteAccounting(
+    val sourceBytes: Long,
+    val retainedBytes: Long,
+    val droppedBytes: Long,
+    val entryBytes: Int,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveLogcatCompleteness(
+    val captureScope: String,
+    val collection: DiagnosticsArchiveLogcatByteAccounting,
+    val postRedaction: DiagnosticsArchiveLogcatByteAccounting,
+    val earliestRetainedTimestamp: String? = null,
+    val latestRetainedTimestamp: String? = null,
+    val preCollectionRingLoss: String,
+)

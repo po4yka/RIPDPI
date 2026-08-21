@@ -13,7 +13,9 @@ pub use classification::{
 pub use config::{default_root_store, make_server_name, planned_tls_template_metadata, planned_tls_template_profile};
 pub use key_log::{TlsKeyLogCallback, TlsKeyLogFile, tls_key_log_callback_for_path};
 pub use probe::{
-    open_probe_stream_targets_with_options, try_tls_handshake, try_tls_handshake_targets,
+    open_probe_stream, open_probe_stream_targets_with_key_log_and_abort, open_probe_stream_targets_with_options,
+    open_probe_stream_targets_with_options_and_abort, open_probe_stream_with_abort, open_probe_stream_with_key_log,
+    open_probe_stream_with_key_log_and_abort, try_tls_handshake, try_tls_handshake_targets,
     try_tls_handshake_targets_with_key_log, try_tls_handshake_with_key_log,
 };
 pub use types::{

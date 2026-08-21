@@ -85,6 +85,9 @@ pub ripdpi_diagnostics_contracts::types::ScanKind::StrategyProbe
 pub enum ripdpi_diagnostics_contracts::types::ScanPathMode
 pub ripdpi_diagnostics_contracts::types::ScanPathMode::InPath
 pub ripdpi_diagnostics_contracts::types::ScanPathMode::RawPath
+pub enum ripdpi_diagnostics_contracts::types::ScanReportDisposition
+pub ripdpi_diagnostics_contracts::types::ScanReportDisposition::Checkpoint
+pub ripdpi_diagnostics_contracts::types::ScanReportDisposition::Terminal
 pub enum ripdpi_diagnostics_contracts::types::ScanTerminationReason
 pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::DeadlineExceeded
 pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::EngineError
@@ -498,6 +501,7 @@ pub ripdpi_diagnostics_contracts::types::ScanReport::observations: alloc::vec::V
 pub ripdpi_diagnostics_contracts::types::ScanReport::pack_versions: alloc::collections::btree::map::BTreeMap<alloc::string::String, u32>
 pub ripdpi_diagnostics_contracts::types::ScanReport::path_mode: ripdpi_diagnostics_contracts::ScanPathMode
 pub ripdpi_diagnostics_contracts::types::ScanReport::profile_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::ScanReport::report_disposition: ripdpi_diagnostics_contracts::ScanReportDisposition
 pub ripdpi_diagnostics_contracts::types::ScanReport::results: alloc::vec::Vec<ripdpi_diagnostics_contracts::ProbeResult>
 pub ripdpi_diagnostics_contracts::types::ScanReport::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ScanReport::started_at: u64
@@ -559,6 +563,7 @@ pub ripdpi_diagnostics_contracts::types::ServiceTarget::tcp_endpoint_ip: core::o
 pub ripdpi_diagnostics_contracts::types::ServiceTarget::tcp_endpoint_port: u16
 pub ripdpi_diagnostics_contracts::types::ServiceTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::types::SharedState
+pub ripdpi_diagnostics_contracts::types::SharedState::checkpoint_report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::types::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::types::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::types::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
@@ -918,6 +923,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::observations: allo
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::pack_versions: alloc::collections::btree::map::BTreeMap<alloc::string::String, u32>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::path_mode: ripdpi_diagnostics_contracts::ScanPathMode
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::profile_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::report_disposition: ripdpi_diagnostics_contracts::ScanReportDisposition
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::resolver_recommendation: core::option::Option<ripdpi_diagnostics_contracts::ResolverRecommendationWire>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::results: alloc::vec::Vec<ripdpi_diagnostics_contracts::EngineProbeResultWire>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::schema_version: u32
@@ -1066,6 +1072,9 @@ pub ripdpi_diagnostics_contracts::ScanKind::StrategyProbe
 pub enum ripdpi_diagnostics_contracts::ScanPathMode
 pub ripdpi_diagnostics_contracts::ScanPathMode::InPath
 pub ripdpi_diagnostics_contracts::ScanPathMode::RawPath
+pub enum ripdpi_diagnostics_contracts::ScanReportDisposition
+pub ripdpi_diagnostics_contracts::ScanReportDisposition::Checkpoint
+pub ripdpi_diagnostics_contracts::ScanReportDisposition::Terminal
 pub enum ripdpi_diagnostics_contracts::ScanTerminationReason
 pub ripdpi_diagnostics_contracts::ScanTerminationReason::DeadlineExceeded
 pub ripdpi_diagnostics_contracts::ScanTerminationReason::EngineError
@@ -1391,6 +1400,7 @@ pub ripdpi_diagnostics_contracts::EngineScanReportWire::observations: alloc::vec
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::pack_versions: alloc::collections::btree::map::BTreeMap<alloc::string::String, u32>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::path_mode: ripdpi_diagnostics_contracts::ScanPathMode
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::profile_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::EngineScanReportWire::report_disposition: ripdpi_diagnostics_contracts::ScanReportDisposition
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::resolver_recommendation: core::option::Option<ripdpi_diagnostics_contracts::ResolverRecommendationWire>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::results: alloc::vec::Vec<ripdpi_diagnostics_contracts::EngineProbeResultWire>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::schema_version: u32
@@ -1572,6 +1582,7 @@ pub ripdpi_diagnostics_contracts::ScanReport::observations: alloc::vec::Vec<ripd
 pub ripdpi_diagnostics_contracts::ScanReport::pack_versions: alloc::collections::btree::map::BTreeMap<alloc::string::String, u32>
 pub ripdpi_diagnostics_contracts::ScanReport::path_mode: ripdpi_diagnostics_contracts::ScanPathMode
 pub ripdpi_diagnostics_contracts::ScanReport::profile_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::ScanReport::report_disposition: ripdpi_diagnostics_contracts::ScanReportDisposition
 pub ripdpi_diagnostics_contracts::ScanReport::results: alloc::vec::Vec<ripdpi_diagnostics_contracts::ProbeResult>
 pub ripdpi_diagnostics_contracts::ScanReport::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanReport::started_at: u64
@@ -1633,6 +1644,7 @@ pub ripdpi_diagnostics_contracts::ServiceTarget::tcp_endpoint_ip: core::option::
 pub ripdpi_diagnostics_contracts::ServiceTarget::tcp_endpoint_port: u16
 pub ripdpi_diagnostics_contracts::ServiceTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub struct ripdpi_diagnostics_contracts::SharedState
+pub ripdpi_diagnostics_contracts::SharedState::checkpoint_report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>
 pub ripdpi_diagnostics_contracts::SharedState::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::SharedState::progress: core::option::Option<ripdpi_diagnostics_contracts::ScanProgress>
 pub ripdpi_diagnostics_contracts::SharedState::report: core::option::Option<ripdpi_diagnostics_contracts::ScanReport>

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -154,6 +155,66 @@ class ActiveScanRegistryTest {
         }
 
     @Test
+    fun `prepared scan cleanup after bridge detachment clears unclaimed recovery failure`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            val sessionId = "detached-recovery-failure"
+            registry.registerBridge(bridge, sessionId, registerActiveBridge = true)
+            registry.cancelledSessionFailures[sessionId] = IllegalStateException("recovery failed")
+
+            registry.clearBridge(bridge, sessionId, registerActiveBridge = true)
+            registry.removePreparedScan(sessionId)
+
+            assertNull(registry.cancelScan(sessionId))
+            assertFalse(registry.cancelledSessionFailures.containsKey(sessionId))
+        }
+
+    @Test
+    fun `cancelScan leaves destructive report polling to registered execution owner`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    enqueueReport(scanReport("cancelled-session", "Terminal"), ScanReportDisposition.TERMINAL)
+                }
+            val executionReport = CompletableDeferred<String?>()
+            val executionJob =
+                backgroundScope.launch {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        withContext(NonCancellable) {
+                            executionReport.complete(bridge.takeReportJson())
+                            bridge.destroy()
+                            registry.clearBridge(
+                                bridge = bridge,
+                                sessionId = "cancelled-session",
+                                registerActiveBridge = true,
+                            )
+                        }
+                    }
+                }
+            registry.registerBridge(bridge, "cancelled-session", registerActiveBridge = true)
+            registry.registerExecution("cancelled-session", executionJob, registerActiveBridge = true)
+
+            val cancellation = registry.cancelScan("cancelled-session")
+
+            assertEquals(
+                "Terminal",
+                executionReport
+                    .await()
+                    ?.let(json::decodeEngineScanReportWire)
+                    ?.summary,
+            )
+            assertEquals(null, cancellation?.partialReportJson)
+            assertEquals(1, bridge.destroyCount)
+            assertFalse(registry.hasVisibleActiveScan())
+        }
+
+    @Test
     fun `cancelling hidden execution remains registered until cleanup completes`() =
         runTest {
             val registry =
@@ -275,4 +336,17 @@ class ActiveScanRegistryTest {
         ownership.remove("session-one")
         assertEquals(setOf("session-two"), ownership.activeSessionIds("run-one"))
     }
+
+    private fun scanReport(
+        sessionId: String,
+        summary: String,
+    ): ScanReport =
+        ScanReport(
+            sessionId = sessionId,
+            profileId = "default",
+            pathMode = ScanPathMode.RAW_PATH,
+            startedAt = 10L,
+            finishedAt = 20L,
+            summary = summary,
+        )
 }

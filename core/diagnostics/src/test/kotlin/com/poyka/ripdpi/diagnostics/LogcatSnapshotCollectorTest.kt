@@ -138,6 +138,82 @@ class LogcatSnapshotCollectorTest {
             assertTrue(snapshot.byteCount <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
             assertEquals(snapshot.byteCount, snapshot.content.toByteArray(Charsets.UTF_8).size)
         }
+
+    @Test
+    fun `time bound oversized logcat reports observed byte loss with complete retained lines`() =
+        runTest {
+            val startupLine = "03-12 10:00:00.000 I/ripdpi: startup-complete"
+            val newestLine = "03-12 10:04:00.000 I/ripdpi: runtime-complete"
+            val source =
+                buildString {
+                    append(startupLine).append('\n')
+                    repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES / 16) {
+                        append("03-12 10:02:00.000 I/ripdpi: жжжжжжжж\n")
+                    }
+                    append(newestLine).append('\n')
+                }
+            val retained =
+                listOf(
+                    startupLine,
+                    LogcatTruncationMarker.trim(),
+                    newestLine,
+                    "",
+                ).joinToString("\n")
+            val sourceByteCount = source.toByteArray(Charsets.UTF_8).size.toLong()
+            val retainedByteCount = retained.toByteArray(Charsets.UTF_8).size.toLong()
+            val collector =
+                object : LogcatSnapshotCollector() {
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): LogcatReadOutput =
+                        LogcatReadOutput(
+                            content = retained,
+                            sourceByteCount = sourceByteCount,
+                            retainedByteCount = retainedByteCount,
+                            droppedByteCount = sourceByteCount - retainedByteCount,
+                            preCollectionRingLoss = LogcatPreCollectionRingLossStatus.UNKNOWN,
+                            truncated = true,
+                        )
+                }
+
+            val snapshot = requireNotNull(collector.capture(sinceTimestampMs = 1700000000000L))
+
+            assertEquals(sourceByteCount, snapshot.sourceByteCount)
+            assertEquals(retainedByteCount, snapshot.retainedByteCount)
+            assertEquals(sourceByteCount - retainedByteCount, snapshot.droppedByteCount)
+            assertEquals(LogcatPreCollectionRingLossStatus.UNKNOWN, snapshot.preCollectionRingLoss)
+            assertTrue(snapshot.truncated)
+            assertTrue(snapshot.content.contains(LogcatTruncationMarker.trim()))
+            assertEquals(
+                listOf(startupLine, LogcatTruncationMarker.trim(), newestLine, ""),
+                snapshot.content.split('\n'),
+            )
+        }
+
+    @Test
+    fun `line aligned time bound retention reports retained bounds and observed loss`() {
+        val firstLine = "03-12 10:00:00.000 I/ripdpi: startup"
+        val droppedLine = "03-12 10:01:00.000 I/ripdpi: жжжжжжжжжжжжжжжж"
+        val lastLine = "03-12 10:02:00.000 I/ripdpi: restored"
+        val source = "$firstLine\n${droppedLine.repeat(4)}\n$lastLine\n"
+
+        val output =
+            readLineAlignedLogcatOutput(
+                bytes = source.toByteArray(Charsets.UTF_8),
+                retainHead = true,
+                maxBytes = 160,
+            )
+
+        assertTrue(output.truncated)
+        assertEquals(source.toByteArray(Charsets.UTF_8).size.toLong(), output.sourceByteCount)
+        assertEquals(output.sourceByteCount - output.droppedByteCount, output.retainedByteCount)
+        assertEquals(LogcatPreCollectionRingLossStatus.UNKNOWN, output.preCollectionRingLoss)
+        assertEquals("03-12 10:00:00.000", output.earliestRetainedTimestamp)
+        assertEquals("03-12 10:02:00.000", output.latestRetainedTimestamp)
+        assertTrue(output.content.contains(LogcatTruncationMarker.trim()))
+        assertTrue(output.content.contains(firstLine))
+        assertTrue(output.content.contains(lastLine))
+        assertTrue(!output.content.contains("жжжжжжжжжжжжжжжж"))
+        assertTrue(output.content.endsWith('\n'))
+    }
 }
 
 private fun String.asLogcatReadOutput(timeBound: Boolean): LogcatReadOutput {

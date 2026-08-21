@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.data
 
 interface DiagnosticsRuntimeCoordinator {
-    suspend fun runRawPathScan(block: suspend () -> Unit)
+    suspend fun runRawPathScan(block: suspend () -> Unit): RawPathExecutionResult
 
-    suspend fun runAutomaticRawPathScan(block: suspend () -> Unit)
+    suspend fun runAutomaticRawPathScan(block: suspend () -> Unit): RawPathExecutionResult
 
     suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? = null
 

@@ -137,6 +137,7 @@ internal fun createArchiveExporterForTest(
                 scanRecordStore = stores,
                 artifactReadStore = stores,
                 artifactQueryStore = stores,
+                archiveEventQueryStore = stores,
                 bypassUsageHistoryStore = stores,
                 logcatSnapshotCollector = logcatSnapshotCollector,
                 fileLogWriter = fileLogWriter,

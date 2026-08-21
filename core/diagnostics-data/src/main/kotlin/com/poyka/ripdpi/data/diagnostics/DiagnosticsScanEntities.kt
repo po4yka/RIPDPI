@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
+const val DiagnosticsHomeDetectionLaunchOriginStorageValue = "home_detection_local"
+
 @Entity(tableName = "scan_sessions")
 @Serializable
 data class ScanSessionEntity(

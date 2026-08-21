@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -49,7 +50,12 @@ class DiagnosticsScanIntegrationTest {
             assertEquals("completed", session?.status)
             assertEquals(1, stores.storedProbeResults(sessionId).size)
             assertEquals(2, stores.snapshotsState.value.count { it.sessionId == sessionId })
-            assertEquals(2, stores.contextsState.value.count { it.sessionId == sessionId })
+            assertEquals(3, stores.contextsState.value.count { it.sessionId == sessionId })
+            assertTrue(
+                stores.contextsState.value.any { context ->
+                    context.sessionId == sessionId && context.contextKind == RawPathSettlementContextKind
+                },
+            )
             assertTrue(stores.nativeEventsState.value.any { it.sessionId == sessionId })
             assertEquals(1, bridgeFactory.bridge.destroyCount)
         }

@@ -30,5 +30,7 @@ dependencies {
     implementation(libs.zstd.jni)
 
     testImplementation(libs.bundles.unit.test)
+    testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.okhttp.mockwebserver)
 }

@@ -15,15 +15,21 @@ pub(crate) struct TelegramWsProbeResult {
     pub(crate) error: Option<String>,
 }
 
-/// Probe whether the Telegram WebSocket tunnel endpoint is reachable.
-///
-/// Attempts a TLS + WebSocket handshake to `wss://kws2.web.telegram.org/apiws`
-/// (DC2 is the default/most common). Does not send any MTProto data -- only
-/// verifies that the WSS endpoint accepts connections.
-pub(crate) fn telegram_ws_tunnel_probe(key_log: Option<&TlsKeyLogCallback>) -> TelegramWsProbeResult {
-    telegram_ws_tunnel_probe_with(resolve_telegram_ws_addr, |resolved_addr| {
-        WsOverTlsConnector.probe_with_key_log(&telegram_ws_target(resolved_addr), key_log.cloned())
-    })
+impl TelegramWsProbeResult {
+    pub(crate) fn aborted(reason: &str) -> Self {
+        Self { status: reason.to_string(), rtt_ms: 0, error: Some(format!("probe_aborted:{reason}")) }
+    }
+}
+
+pub(crate) fn telegram_ws_tunnel_probe_with_abort_callback(
+    key_log: Option<&TlsKeyLogCallback>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramWsProbeResult {
+    telegram_ws_tunnel_probe_with_target(
+        resolve_telegram_ws_addr,
+        |target| WsOverTlsConnector.probe_with_key_log_and_abort(&target, key_log.cloned(), should_abort),
+        should_abort,
+    )
 }
 
 fn resolve_telegram_ws_addr() -> io::Result<SocketAddr> {
@@ -37,6 +43,7 @@ fn telegram_ws_target(resolved_addr: Option<SocketAddr>) -> WsOverTlsTarget {
     WsOverTlsTarget::new(TELEGRAM_WS_HOST, TELEGRAM_WS_PATH).with_resolved_addr(resolved_addr)
 }
 
+#[cfg(test)]
 pub(crate) fn telegram_ws_tunnel_probe_with<ResolveWsAddr, ProbeWs>(
     resolve_ws_addr: ResolveWsAddr,
     probe_ws: ProbeWs,
@@ -45,6 +52,34 @@ where
     ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
     ProbeWs: FnOnce(Option<SocketAddr>) -> io::Result<()>,
 {
+    telegram_ws_tunnel_probe_with_target(resolve_ws_addr, |target| probe_ws(target.resolved_addr), &|| None)
+}
+
+#[cfg(test)]
+pub(crate) fn telegram_ws_tunnel_probe_with_abort<ResolveWsAddr, ProbeWs>(
+    resolve_ws_addr: ResolveWsAddr,
+    probe_ws: ProbeWs,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramWsProbeResult
+where
+    ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
+    ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
+{
+    telegram_ws_tunnel_probe_with_target(resolve_ws_addr, probe_ws, should_abort)
+}
+
+fn telegram_ws_tunnel_probe_with_target<ResolveWsAddr, ProbeWs>(
+    resolve_ws_addr: ResolveWsAddr,
+    probe_ws: ProbeWs,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramWsProbeResult
+where
+    ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
+    ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
+{
+    if let Some(reason) = should_abort() {
+        return TelegramWsProbeResult::aborted(reason);
+    }
     let start = std::time::Instant::now();
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let resolved_addr = match resolve_ws_addr() {
@@ -54,16 +89,21 @@ where
                 None
             }
         };
+        if let Some(reason) = should_abort() {
+            return TelegramWsProbeResult::aborted(reason);
+        }
 
-        match probe_ws(resolved_addr) {
+        let target = telegram_ws_target(resolved_addr);
+        if let Some(reason) = should_abort() {
+            return TelegramWsProbeResult::aborted(reason);
+        }
+
+        match probe_ws(target) {
             Ok(()) => {
                 let rtt_ms = start.elapsed().as_millis() as u64;
                 TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }
             }
-            Err(e) => {
-                let rtt_ms = start.elapsed().as_millis() as u64;
-                TelegramWsProbeResult { status: "unreachable".to_string(), rtt_ms, error: Some(e.to_string()) }
-            }
+            Err(e) => ws_error_result(e, start),
         }
     })) {
         Ok(result) => result,
@@ -83,5 +123,30 @@ where
                 error: Some(format!("panic during Telegram WS tunnel probe: {message}")),
             }
         }
+    }
+}
+
+fn ws_error_result(error: io::Error, start: std::time::Instant) -> TelegramWsProbeResult {
+    let rtt_ms = start.elapsed().as_millis() as u64;
+    if let Some(reason) = typed_abort_reason(&error) {
+        return TelegramWsProbeResult {
+            status: reason.to_string(),
+            rtt_ms,
+            error: Some(format!("probe_aborted:{reason}")),
+        };
+    }
+    TelegramWsProbeResult { status: "unreachable".to_string(), rtt_ms, error: Some(error.to_string()) }
+}
+
+fn typed_abort_reason(error: &io::Error) -> Option<&'static str> {
+    let message = error.to_string();
+    if error.kind() == io::ErrorKind::Interrupted && message == "probe_aborted:cancelled" {
+        Some("cancelled")
+    } else if error.kind() == io::ErrorKind::TimedOut
+        && matches!(message.as_str(), "scan_deadline_exceeded" | "deadline_exceeded")
+    {
+        Some("deadline_exceeded")
+    } else {
+        None
     }
 }

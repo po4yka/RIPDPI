@@ -36,6 +36,6 @@ where
 {
     match tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await {
         Ok(res) => debug!("transfer closed ({}, {})", res.0, res.1),
-        Err(err) => error!("transfer error: {:?}", err),
+        Err(_) => error!("SOCKS TCP transfer failed"),
     };
 }

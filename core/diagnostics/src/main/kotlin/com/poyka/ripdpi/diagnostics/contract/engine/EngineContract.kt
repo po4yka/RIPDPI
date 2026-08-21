@@ -133,11 +133,19 @@ enum class ScanTerminationReason {
 }
 
 @Serializable
+enum class ScanReportDisposition {
+    TERMINAL,
+    CHECKPOINT,
+}
+
+@Serializable
 data class EngineScanReportWire(
     @Required
     val schemaVersion: Int = DiagnosticsEngineSchemaVersion,
     val sessionId: String,
     val profileId: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val reportDisposition: ScanReportDisposition = ScanReportDisposition.TERMINAL,
     val pathMode: ScanPathMode,
     val startedAt: Long,
     val finishedAt: Long,

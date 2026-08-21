@@ -73,7 +73,7 @@ where
     match try_join!(udp_fut, tcp_fut) {
         Ok(_) => warn!("unreachable"),
         Err(SocksServerError::EOF) => debug!("EOF on controlling TCP stream, closed UDP proxy"),
-        Err(err) => warn!("while UDP proxying: {err}"),
+        Err(_) => warn!("SOCKS UDP proxy ended with an error"),
     }
     Ok(inner)
 }
@@ -100,7 +100,7 @@ async fn handle_udp_request(
     buf: &mut [u8],
 ) -> Result<(), SocksServerError> {
     let (size, client_addr) = inbound.recv_from(buf).await.err_when("udp receiving from")?;
-    debug!("Server recieve udp from {}", client_addr);
+    debug!("SOCKS UDP request received");
     inbound.connect(client_addr).await.err_when("connecting udp inbound")?;
 
     let (frag, target_addr, data) = parse_udp_request(&buf[..size]).await?;
@@ -110,7 +110,7 @@ async fn handle_udp_request(
         return Ok(());
     }
 
-    debug!("Server forward to packet to {}", target_addr);
+    debug!("SOCKS UDP request target_kind={}", target_addr.logging_kind());
     let mut target_addr = target_addr
         .resolve_dns()
         .await?
@@ -133,7 +133,7 @@ async fn handle_udp_requests(inbound: &UdpSocket, outbound: &UdpSocket) -> Resul
     loop {
         match handle_udp_request(inbound, outbound, outbound_v6, &mut buf).await {
             Ok(_) => trace!("handled udp response"),
-            Err(err) => debug!("error in handling udp response: {err}"),
+            Err(_) => debug!("SOCKS UDP request handling failed"),
         }
     }
 }
@@ -144,7 +144,7 @@ async fn handle_udp_response(
     buf: &mut [u8],
 ) -> Result<(), SocksServerError> {
     let (size, mut remote_addr) = outbound.recv_from(buf).await.err_when("udp receiving from")?;
-    debug!("Recieve packet from {}", remote_addr);
+    debug!("SOCKS UDP response received");
 
     // Clients don't tend to expect v6-mapped addresses when they connect to v4 ones
     if let std::net::IpAddr::V6(v6) = remote_addr.ip()
@@ -164,7 +164,7 @@ async fn handle_udp_responses(inbound: &UdpSocket, outbound: &UdpSocket) -> Resu
     loop {
         match handle_udp_response(inbound, outbound, &mut buf).await {
             Ok(_) => trace!("handled udp response"),
-            Err(err) => debug!("error in handling udp response: {err}"),
+            Err(_) => debug!("SOCKS UDP response handling failed"),
         }
     }
 }

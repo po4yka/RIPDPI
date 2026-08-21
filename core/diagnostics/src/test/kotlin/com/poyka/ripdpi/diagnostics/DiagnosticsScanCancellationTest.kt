@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultSpec
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -54,8 +55,8 @@ class DiagnosticsScanCancellationTest {
             services.scanController.cancelActiveScan()
 
             val cancelledSession = requireNotNull(stores.getScanSession(sessionId))
-            assertEquals("completed", cancelledSession.status)
-            assertEquals("Scan completed with partial results", cancelledSession.summary)
+            assertEquals("failed", cancelledSession.status)
+            assertEquals("Diagnostics scan canceled", cancelledSession.summary)
             assertTrue(cancelledSession.reportJson?.contains("partial.example") == true)
             assertFalse(cancelledSession.summary.startsWith("{"))
             assertEquals(1, bridgeFactory.bridge.destroyCount)
@@ -95,7 +96,7 @@ class DiagnosticsScanCancellationTest {
             val sessionId = (started as DiagnosticsManualScanStartResult.Started).sessionId
             val failure = runCatching { services.scanController.cancelActiveScan() }.exceptionOrNull()
 
-            assertTrue(failure is IOException)
+            assertTrue("Expected IOException, got $failure", failure is IOException)
             val cancelledSession = requireNotNull(stores.getScanSession(sessionId))
             assertEquals("failed", cancelledSession.status)
             assertEquals("Diagnostics scan canceled", cancelledSession.summary)
@@ -110,13 +111,6 @@ class DiagnosticsScanCancellationTest {
             val bridgeFactory =
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
                     bridge.autoCompleteOnStart = false
-                    bridge.faults.enqueue(
-                        FaultSpec(
-                            target = DiagnosticsBridgeFaultTarget.TAKE_REPORT,
-                            outcome = FaultOutcome.EXCEPTION,
-                            message = "take report failed",
-                        ),
-                    )
                 }
             val services =
                 createDiagnosticsServices(
@@ -135,9 +129,17 @@ class DiagnosticsScanCancellationTest {
 
             val started = services.scanController.startScan(ScanPathMode.RAW_PATH)
             val sessionId = (started as DiagnosticsManualScanStartResult.Started).sessionId
+            runCurrent()
+            bridgeFactory.bridge.faults.enqueue(
+                FaultSpec(
+                    target = DiagnosticsBridgeFaultTarget.TAKE_REPORT,
+                    outcome = FaultOutcome.EXCEPTION,
+                    message = "take report failed",
+                ),
+            )
             val failure = runCatching { services.scanController.cancelActiveScan() }.exceptionOrNull()
 
-            assertTrue(failure is IOException)
+            assertTrue("Expected execution failure, got $failure", failure is IllegalStateException)
             assertEquals("take report failed", failure?.message)
             assertEquals("failed", requireNotNull(stores.getScanSession(sessionId)).status)
             assertEquals(1, bridgeFactory.bridge.destroyCount)

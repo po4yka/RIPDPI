@@ -2,22 +2,40 @@ use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
 
-use super::dc::{TelegramDcResult, telegram_dc_probe};
+use super::dc::{TelegramDcResult, deadline_abort_reason, telegram_dc_probe_with_abort};
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
-use super::transfer::{TelegramTransferResult, telegram_download_probe, telegram_upload_probe};
-use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe};
+use super::transfer::{TelegramTransferResult, telegram_download_probe_with_abort, telegram_upload_probe_with_abort};
+use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with_abort_callback};
 
 pub fn run_telegram_probe(
     target: &TelegramTarget,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeResult {
-    let dl = telegram_download_probe(target, transport, key_log);
-    let ul = telegram_upload_probe(target, transport, key_log);
-    let dc = telegram_dc_probe(target, transport);
-    let ws = telegram_ws_tunnel_probe(key_log);
+    run_telegram_probe_with_abort(target, transport, key_log, &deadline_abort_reason)
+}
 
-    let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total);
+pub fn run_telegram_probe_with_abort(
+    target: &TelegramTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> ProbeResult {
+    let dl = match should_abort() {
+        Some(reason) => aborted_transfer(reason),
+        None => telegram_download_probe_with_abort(target, transport, key_log, should_abort),
+    };
+    let ul = match should_abort() {
+        Some(reason) => aborted_transfer(reason),
+        None => telegram_upload_probe_with_abort(target, transport, key_log, should_abort),
+    };
+    let dc = telegram_dc_probe_with_abort(target, transport, should_abort);
+    let ws = match should_abort() {
+        Some(reason) => aborted_ws_probe(reason),
+        None => telegram_ws_tunnel_probe_with_abort_callback(key_log, should_abort),
+    };
+
+    let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total, &ws.status);
     let quality_score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
 
     ProbeResult {
@@ -26,6 +44,14 @@ pub fn run_telegram_probe(
         outcome: verdict.to_string(),
         details: build_telegram_details(verdict, quality_score, dl, ul, dc, ws),
     }
+}
+
+fn aborted_transfer(reason: &str) -> TelegramTransferResult {
+    TelegramTransferResult::aborted(reason)
+}
+
+fn aborted_ws_probe(reason: &str) -> TelegramWsProbeResult {
+    TelegramWsProbeResult::aborted(reason)
 }
 
 fn build_telegram_details(

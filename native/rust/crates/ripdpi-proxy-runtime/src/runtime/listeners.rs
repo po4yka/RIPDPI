@@ -24,6 +24,9 @@ pub struct ProxyRuntimeCleanupReceipt {
     worker_panicked: bool,
     desync_execution_evidence: Vec<DesyncExecutionEvidence>,
     desync_execution_evidence_overflowed: bool,
+    connection_refused_count: usize,
+    duplicate_refusal_count: usize,
+    poll_error_kind: Option<io::ErrorKind>,
 }
 
 impl ProxyRuntimeCleanupReceipt {
@@ -32,8 +35,19 @@ impl ProxyRuntimeCleanupReceipt {
         worker_panicked: bool,
         desync_execution_evidence: Vec<DesyncExecutionEvidence>,
         desync_execution_evidence_overflowed: bool,
+        connection_refused_count: usize,
+        duplicate_refusal_count: usize,
+        poll_error_kind: Option<io::ErrorKind>,
     ) -> Self {
-        Self { forced_abort, worker_panicked, desync_execution_evidence, desync_execution_evidence_overflowed }
+        Self {
+            forced_abort,
+            worker_panicked,
+            desync_execution_evidence,
+            desync_execution_evidence_overflowed,
+            connection_refused_count,
+            duplicate_refusal_count,
+            poll_error_kind,
+        }
     }
 
     pub fn forced_abort(&self) -> bool {
@@ -50,6 +64,16 @@ impl ProxyRuntimeCleanupReceipt {
 
     pub fn desync_execution_evidence_overflowed(&self) -> bool {
         self.desync_execution_evidence_overflowed
+    }
+
+    pub fn connection_refused_count(&self) -> usize {
+        self.connection_refused_count
+    }
+    pub fn duplicate_refusal_count(&self) -> usize {
+        self.duplicate_refusal_count
+    }
+    pub(crate) fn poll_error_kind(&self) -> Option<io::ErrorKind> {
+        self.poll_error_kind
     }
 }
 
@@ -88,15 +112,18 @@ pub(super) fn run_proxy_with_listener_internal(
     }
 
     let result = run_accept_loop(listener, state.clone(), RuntimeShutdown::new(control.clone()), client_capacity).map(
-        |drain_outcome| {
+        |outcome| {
             let evidence = control.as_ref().map_or_else(Vec::new, |control| control.desync_execution_evidence());
             let evidence_overflowed =
                 control.as_ref().is_some_and(|control| control.desync_execution_evidence_overflowed());
             ProxyRuntimeCleanupReceipt::clean(
-                drain_outcome.forced_abort,
-                drain_outcome.worker_panicked,
+                outcome.drain_outcome.forced_abort,
+                outcome.drain_outcome.worker_panicked,
                 evidence,
                 evidence_overflowed,
+                state.candidate_refusal_counters().connection_refused_count,
+                state.candidate_refusal_counters().duplicate_refusal_count,
+                outcome.poll_error_kind,
             )
         },
     );

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RuntimeTelemetryState
@@ -11,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 
 @Serializable
@@ -128,6 +130,8 @@ data class DiagnosticContextSnapshot(
     val connectionSessionId: String? = null,
     val contextKind: String,
     val context: DiagnosticContextModel? = null,
+    @Transient
+    val rawPathExecutionResult: RawPathExecutionResult? = null,
     val capturedAt: Long,
 ) {
     constructor(

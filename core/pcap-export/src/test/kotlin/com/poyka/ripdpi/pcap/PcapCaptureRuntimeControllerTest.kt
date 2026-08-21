@@ -25,27 +25,32 @@ class PcapCaptureRuntimeControllerTest {
                     },
                     stopCapture = { handle ->
                         stoppedHandles += handle
-                        PcapStopResult(wasActive = true, files = emptyList())
+                        PcapStopResult(wasActive = true, files = emptyList(), totalDrops = 3L)
                     },
                 )
 
             controller.bindTunnel(bridge)
             assertEquals(PcapCaptureRuntimeState.Recording(7L), controller.start())
-            assertEquals(PcapCaptureRuntimeState.Idle, controller.stop())
+            assertEquals(
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 3L, PcapCaptureOutcome.CapturedSeparate),
+                ),
+                controller.stop(),
+            )
 
             assertEquals(listOf(41L), startedHandles)
             assertEquals(listOf(41L), stoppedHandles)
         }
 
     @Test
-    fun `writer failure clears recording and is surfaced as a safe code`() =
+    fun `writer failure finalizes a path-free receipt with exact drops`() =
         runTest {
             val bridge = FakeTunnelBridge(handle = 42L)
             val controller =
                 PcapCaptureRuntimeController(
                     startCapture = { 9L },
                     stopCapture = {
-                        PcapStopResult(wasActive = true, files = emptyList(), failure = "write")
+                        PcapStopResult(wasActive = true, files = emptyList(), totalDrops = 5L, failure = "write")
                     },
                 )
 
@@ -53,8 +58,77 @@ class PcapCaptureRuntimeControllerTest {
             controller.start()
             val result = controller.stop()
 
-            assertEquals(PcapCaptureRuntimeState.Failed("write"), result)
+            assertEquals(
+                PcapCaptureRuntimeState.Failed(
+                    receipt = PcapCaptureCompletionReceipt(9L, 5L, PcapCaptureOutcome.Failed),
+                    code = "write",
+                ),
+                result,
+            )
             assertTrue(controller.state.value !is PcapCaptureRuntimeState.Recording)
+        }
+
+    @Test
+    fun `stop failure preserves its capture lease for retry`() =
+        runTest {
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 12L },
+                    stopCapture = { error("transient stop") },
+                )
+            controller.bindTunnel(FakeTunnelBridge(44L))
+            controller.start()
+
+            assertEquals(PcapCaptureRuntimeState.StopFailed(12L, "stop_failed"), controller.stop())
+            assertEquals(null, controller.stopIfOwned(13L))
+        }
+
+    @Test
+    fun `idle acquisition never claims an existing capture`() =
+        runTest {
+            val controller = PcapCaptureRuntimeController({ 16L }, { PcapStopResult(true, emptyList()) })
+            controller.bindTunnel(FakeTunnelBridge(45L))
+            assertEquals(
+                PcapCaptureLeaseAcquisition.Acquired(PcapCaptureRuntimeState.Recording(16L)),
+                controller.startIfIdle(),
+            )
+            assertEquals(
+                PcapCaptureLeaseAcquisition.AlreadyActive(PcapCaptureRuntimeState.Recording(16L)),
+                controller.startIfIdle(),
+            )
+        }
+
+    @Test
+    fun `owned stop replays only its matching terminal receipt`() =
+        runTest {
+            val controller =
+                PcapCaptureRuntimeController({ 17L }, { PcapStopResult(true, emptyList(), totalDrops = 1L) })
+            controller.bindTunnel(FakeTunnelBridge(46L))
+            controller.startIfIdle()
+
+            val terminal = controller.stopIfOwned(17L)
+
+            assertEquals(terminal, controller.stopIfOwned(17L))
+            assertEquals(null, controller.stopIfOwned(18L))
+        }
+
+    @Test
+    fun `tunnel retirement terminalizes its active capture`() =
+        runTest {
+            val bridge = FakeTunnelBridge(47L)
+            val controller =
+                PcapCaptureRuntimeController({ 18L }, { PcapStopResult(true, emptyList(), totalDrops = 2L) })
+            controller.bindTunnel(bridge)
+            controller.startIfIdle()
+
+            controller.retireTunnel(bridge)
+
+            assertEquals(
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(18L, 2L, PcapCaptureOutcome.CapturedSeparate),
+                ),
+                controller.state.value,
+            )
         }
 
     private class FakeTunnelBridge(

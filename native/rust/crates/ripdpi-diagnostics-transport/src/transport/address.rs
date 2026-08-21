@@ -330,11 +330,17 @@ fn wait_for_lookup(
 }
 
 pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, DnsResolveError> {
+    resolve_addresses_with_timeout(target, port, DNS_RESOLVE_TIMEOUT)
+}
+
+pub(crate) fn resolve_addresses_with_timeout(
+    target: &TargetAddress,
+    port: u16,
+    timeout: Duration,
+) -> Result<Vec<SocketAddr>, DnsResolveError> {
     match target {
         TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
-        TargetAddress::Host(host) => {
-            DNS_RESOLVER.as_ref().map_err(Clone::clone)?.resolve(host.clone(), port, DNS_RESOLVE_TIMEOUT)
-        }
+        TargetAddress::Host(host) => DNS_RESOLVER.as_ref().map_err(Clone::clone)?.resolve(host.clone(), port, timeout),
     }
 }
 

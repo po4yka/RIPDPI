@@ -123,7 +123,7 @@ impl ClientWorkerPool {
             state.shutdown_active_tcp_sockets();
             self.wait_for_workers(Instant::now() + FORCED_DRAIN_TIMEOUT);
         }
-        let worker_panicked = self.join_worker_handles();
+        let worker_panicked = self.join_finished_worker_handles();
         WorkerDrainOutcome { forced_abort, worker_panicked }
     }
 
@@ -143,10 +143,20 @@ impl ClientWorkerPool {
         }
     }
 
-    fn join_worker_handles(&self) -> bool {
+    fn join_finished_worker_handles(&self) -> bool {
         let handles = {
             let mut workers = self.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            std::mem::take(&mut *workers)
+            let mut finished = Vec::new();
+            let mut pending = Vec::new();
+            for handle in std::mem::take(&mut *workers) {
+                if handle.is_finished() {
+                    finished.push(handle);
+                } else {
+                    pending.push(handle);
+                }
+            }
+            *workers = pending;
+            finished
         };
         let mut worker_panicked = false;
         for handle in handles {
@@ -183,7 +193,9 @@ impl ClientWorkerPool {
 impl Drop for ClientWorkerPool {
     fn drop(&mut self) {
         self.close();
-        let _ = self.join_worker_handles();
+        // Bounded shutdown deliberately detaches still-running workers. They
+        // retain `shared` until their socket-close path returns; Drop must not
+        // turn an elapsed diagnostic deadline into an unbounded join.
     }
 }
 
@@ -312,27 +324,44 @@ mod tests {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(thread::spawn(|| panic!("worker failed")));
+        while !pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner)[0].is_finished() {
+            thread::yield_now();
+        }
 
-        assert!(pool.join_worker_handles());
+        assert!(pool.join_finished_worker_handles());
     }
 
     #[test]
-    fn joining_worker_handles_waits_for_later_workers_after_a_panic() {
+    fn joining_worker_handles_does_not_block_on_later_worker_after_a_panic() {
         let pool = ClientWorkerPool::new(0).expect("worker pool");
         let later_worker_completed = StdArc::new(AtomicBool::new(false));
         let later_worker_flag = later_worker_completed.clone();
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
         let mut workers = pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         workers.push(thread::spawn(|| panic!("first worker failed")));
         workers.push(thread::spawn(move || {
-            thread::sleep(Duration::from_millis(20));
+            started_tx.send(()).expect("signal blocked worker");
+            release_rx.recv().expect("release blocked worker");
             later_worker_flag.store(true, Ordering::Release);
         }));
         drop(workers);
+        started_rx.recv().expect("wait for later worker to block");
+        while !pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner)[0].is_finished() {
+            thread::yield_now();
+        }
 
-        assert!(pool.join_worker_handles());
+        assert!(pool.join_finished_worker_handles());
+        assert_eq!(pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 1);
         assert!(
-            later_worker_completed.load(Ordering::Acquire),
-            "terminal join barrier must wait for every owned worker after an earlier panic",
+            !later_worker_completed.load(Ordering::Acquire),
+            "bounded cleanup must not join a still-running worker",
         );
+        release_tx.send(()).expect("release later worker");
+        while !pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner)[0].is_finished() {
+            thread::yield_now();
+        }
+        assert!(!pool.join_finished_worker_handles());
+        assert!(later_worker_completed.load(Ordering::Acquire));
     }
 }

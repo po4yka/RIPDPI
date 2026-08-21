@@ -85,15 +85,7 @@ object TlsFingerprintChecker {
                         confidence = EvidenceConfidence.MEDIUM,
                     ),
                 )
-                evidence.add(
-                    EvidenceItem(
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        scope = DetectionScope.NETWORK_OBSERVATION,
-                        detected = true,
-                        confidence = EvidenceConfidence.MEDIUM,
-                        description = "TLS cipher suite set differs significantly from browsers",
-                    ),
-                )
+                evidence.add(lowBrowserOverlapEvidence())
             } else {
                 findings.add(
                     Finding("Browser cipher overlap: ${(overlapRatio * 100).toInt()}% (good)"),
@@ -128,6 +120,15 @@ object TlsFingerprintChecker {
                 evidence = evidence,
             )
         }
+
+    internal fun lowBrowserOverlapEvidence(): EvidenceItem =
+        EvidenceItem(
+            source = EvidenceSource.NETWORK_CAPABILITIES,
+            scope = DetectionScope.NETWORK_OBSERVATION,
+            detected = true,
+            confidence = EvidenceConfidence.MEDIUM,
+            description = "TLS cipher suite set differs significantly from browsers",
+        )
 
     @Suppress("TooGenericExceptionCaught")
     private fun getLocalCipherSuites(): List<String> =

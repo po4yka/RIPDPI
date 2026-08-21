@@ -25,89 +25,113 @@ class DiagnosticsDnsReprobeCancellationTest {
     private val json = diagnosticsTestJson()
 
     @Test
-    fun `owned dns corrected reprobe is cancelled and releases hidden admission`() =
+    fun `owned dns corrected reprobe retains terminal report when finalization fails`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
-            val clock = TestDiagnosticsHistoryClock()
-            val timelineSource = coordinatorTimelineSource(stores, backgroundScope)
-            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply { bridge.autoCompleteOnStart = false }
-            val fixtures =
-                executionCoordinatorFixtures(
-                    stores = stores,
-                    timelineSource = timelineSource,
-                    serviceStateStore = serviceStateStore,
-                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
-                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
-                    json = json,
-                    bridgeFactory = bridgeFactory,
-                )
-            fixtures.runtimeCoordinator.updateInPathRouteLease(testInPathRouteLease())
-            val settings =
-                defaultDiagnosticsAppSettings()
-                    .toBuilder()
-                    .setDnsMode(DnsModePlainUdp)
-                    .setDnsProviderId(DnsProviderCustom)
-                    .setDnsIp("8.8.8.8")
-                    .build()
-            val prepared =
-                preparedDiagnosticsScan(
-                    sessionId = "owned-original",
-                    settings = settings,
-                    exposeProgress = false,
-                    registerActiveBridge = false,
-                    kind = ScanKind.STRATEGY_PROBE,
-                    profileId = "automatic-probing",
-                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
-                )
-            seedPreparedScan(stores, prepared)
-            fixtures.activeScanRegistry.rememberPreparedScan(prepared, ownerId = "home-run")
-            val originalBridge = dnsFallbackBridge(prepared.sessionId, settings)
-            fixtures.activeScanRegistry.registerBridge(
-                originalBridge,
-                prepared.sessionId,
-                prepared.registerActiveBridge,
-            )
+            val scenario = ownedReprobeCancellationScenario(backgroundScope)
             val execution =
                 backgroundScope.launch {
-                    fixtures.coordinator.execute(
-                        prepared,
-                        BridgeSessionHandle(originalBridge, prepared.sessionId, prepared.registerActiveBridge),
-                        rawPathRunner = { block -> block() },
+                    scenario.fixtures.coordinator.execute(
+                        scenario.prepared,
+                        BridgeSessionHandle(
+                            scenario.originalBridge,
+                            scenario.prepared.sessionId,
+                            scenario.prepared.registerActiveBridge,
+                        ),
+                        rawPathRunner = ::runSettledRawPathBlock,
                     )
                 }
 
             runCurrent()
 
             val reprobeSessionId =
-                fixtures.activeScanRegistry.sessionOwnership
+                scenario.fixtures.activeScanRegistry.sessionOwnership
                     .activeSessionIds("home-run")
-                    .single()
-            assertTrue(fixtures.activeScanRegistry.hiddenAutomaticProbeActive.value)
-            bridgeFactory.bridge.enqueueReport(
+                    .also { sessionIds ->
+                        assertTrue(
+                            "Expected owned DNS re-probe; sessions=${scenario.stores.sessionsState.value}",
+                            sessionIds.isNotEmpty(),
+                        )
+                    }.single()
+            assertTrue(scenario.fixtures.activeScanRegistry.hiddenAutomaticProbeActive.value)
+            scenario.bridgeFactory.bridge.enqueueReport(
                 ScanReport(
                     sessionId = reprobeSessionId,
                     profileId = "automatic-probing",
-                    pathMode = ScanPathMode.RAW_PATH,
+                    pathMode = ScanPathMode.IN_PATH,
                     startedAt = 30L,
                     finishedAt = 40L,
                     summary = "Partial re-probe",
                     results = listOf(ProbeResult("dns", "partial-reprobe.example", "reachable")),
                 ),
             )
+            var finalizationAttempts = 0
+            scenario.stores.beforePersistCompletedScan = { session ->
+                if (session.id == reprobeSessionId && finalizationAttempts++ == 0) {
+                    error("injected terminal finalization failure")
+                }
+            }
 
-            fixtures.scanController.cancelScan(reprobeSessionId)
+            scenario.fixtures.scanController.cancelScan(reprobeSessionId)
             runCurrent()
 
             assertCompletedPartialCancellation(
-                stores = stores,
+                stores = scenario.stores,
                 sessionId = reprobeSessionId,
-                bridge = bridgeFactory.bridge,
+                bridge = scenario.bridgeFactory.bridge,
                 execution = execution,
-                registry = fixtures.activeScanRegistry,
+                registry = scenario.fixtures.activeScanRegistry,
             )
         }
+
+    private suspend fun ownedReprobeCancellationScenario(
+        scope: kotlinx.coroutines.CoroutineScope,
+    ): OwnedReprobeScenario {
+        val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+        val clock = TestDiagnosticsHistoryClock()
+        val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply { bridge.autoCompleteOnStart = false }
+        val fixtures =
+            executionCoordinatorFixtures(
+                stores = stores,
+                timelineSource = coordinatorTimelineSource(stores, scope),
+                serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                json = json,
+                bridgeFactory = bridgeFactory,
+            )
+        fixtures.runtimeCoordinator.updateInPathRouteLease(testInPathRouteLease())
+        val settings = testDnsFallbackSettings()
+        val prepared = testOwnedReprobePreparedScan(settings)
+        seedPreparedScan(stores, prepared)
+        fixtures.activeScanRegistry.rememberPreparedScan(prepared, ownerId = "home-run")
+        val originalBridge = dnsFallbackBridge(prepared.sessionId, settings)
+        fixtures.activeScanRegistry.registerBridge(
+            originalBridge,
+            prepared.sessionId,
+            prepared.registerActiveBridge,
+        )
+        return OwnedReprobeScenario(stores, fixtures, bridgeFactory, prepared, originalBridge)
+    }
+
+    private fun testDnsFallbackSettings() =
+        defaultDiagnosticsAppSettings()
+            .toBuilder()
+            .setDnsMode(DnsModePlainUdp)
+            .setDnsProviderId(DnsProviderCustom)
+            .setDnsIp("8.8.8.8")
+            .build()
+
+    private suspend fun testOwnedReprobePreparedScan(settings: com.poyka.ripdpi.proto.AppSettings) =
+        preparedDiagnosticsScan(
+            sessionId = "owned-original",
+            settings = settings,
+            exposeProgress = false,
+            registerActiveBridge = false,
+            kind = ScanKind.STRATEGY_PROBE,
+            profileId = "automatic-probing",
+            family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+            strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+        )
 
     @Test
     fun `owner job cancellation finalizes reprobe before bridge registration`() =
@@ -166,7 +190,7 @@ class DiagnosticsDnsReprobeCancellationTest {
                     fixtures.coordinator.execute(
                         prepared,
                         BridgeSessionHandle(originalBridge, prepared.sessionId, prepared.registerActiveBridge),
-                        rawPathRunner = { block -> block() },
+                        rawPathRunner = ::runSettledRawPathBlock,
                     )
                 }
 
@@ -234,3 +258,11 @@ class DiagnosticsDnsReprobeCancellationTest {
         assertTrue(registry.sessionOwnership.activeSessionIds("home-run").isEmpty())
     }
 }
+
+private data class OwnedReprobeScenario(
+    val stores: FakeDiagnosticsHistoryStores,
+    val fixtures: ExecutionCoordinatorFixtures,
+    val bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
+    val prepared: PreparedDiagnosticsScan,
+    val originalBridge: FakeNetworkDiagnosticsBridge,
+)

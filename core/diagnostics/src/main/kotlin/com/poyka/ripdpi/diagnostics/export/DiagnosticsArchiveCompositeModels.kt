@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
+import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.serialization.Serializable
 
@@ -25,6 +26,9 @@ internal data class DiagnosticsArchiveCompositeStageSelection(
     val sourceTelemetryCount: Int = telemetry.size,
     val sourceEventIds: Set<String> = events.mapTo(linkedSetOf()) { it.id },
     val sourceTelemetryIds: Set<String> = telemetry.mapTo(linkedSetOf()) { it.id },
+    val nativeEventRetention: DiagnosticsArchiveNativeEventRetention =
+        selectArchiveNativeEvents(events, DiagnosticsArchiveFormat.sessionEventLimit)
+            .toArchiveNativeEventRetention(),
 )
 
 @Serializable
@@ -33,6 +37,9 @@ internal data class DiagnosticsArchiveStageIndexEntry(
     val stageLabel: String,
     val profileId: String,
     val pathMode: String,
+    val evidenceType: String,
+    val vantage: String,
+    val targetReachability: String,
     val sessionId: String? = null,
     val status: String,
     val headline: String,
@@ -52,6 +59,7 @@ internal data class DiagnosticsArchiveStageIndexEntry(
     val includedTelemetryCount: Int = 0,
     val telemetryTruncated: Boolean = false,
     val detectionProvenance: DiagnosticsArchiveDetectionProvenance? = null,
+    val passiveVpnRouteEvidence: NetworkPathValidationEvidence? = null,
 )
 
 @Serializable

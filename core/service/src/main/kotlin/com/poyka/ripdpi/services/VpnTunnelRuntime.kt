@@ -76,6 +76,7 @@ internal class VpnTunnelRuntime(
     private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore = VpnTunnelAppliedNetworkReceiptStore(),
     private val routeLifecycleReceiptStore: VpnRouteLifecycleReceiptStore = VpnRouteLifecycleReceiptStore(),
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
+    private val ownPackageName: String? = null,
     private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
     @Volatile
@@ -328,6 +329,7 @@ internal class VpnTunnelRuntime(
                 ipv6Enabled = ipv6,
                 dns = dns,
                 appRoutingPlan = appRoutingPlan,
+                ownPackage = ownPackageName,
                 networkParameters = networkParameters,
                 apiLevel = sdkInt,
             )

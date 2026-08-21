@@ -558,8 +558,8 @@ macro_rules! try_notify {
         match $e {
             Ok(res) => res,
             Err(err) => {
-                if let Err(rep_err) = $proto.reply_error(&err.to_reply_error()).await {
-                    error!("extra error while reporting an error to the client: {}", rep_err);
+                if let Err(_) = $proto.reply_error(&err.to_reply_error()).await {
+                    error!("SOCKS reply-error write failed");
                 }
                 return Err(err.into());
             }
@@ -603,7 +603,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Authenti
         // Guess address type
         let target_addr = try_notify!(proto, read_address(&mut proto.inner, address_type).await);
 
-        debug!("Request target is {}", target_addr);
+        debug!("SOCKS request target_kind={}", target_addr.logging_kind());
 
         let cmd = try_notify!(proto, Socks5Command::from_u8(cmd).ok_or(SocksServerError::UnknownCommand(cmd)));
 

@@ -11,11 +11,15 @@ import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RawPathExecutionCancelledException
+import com.poyka.ripdpi.data.RawPathExecutionOutcome
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.RawPathSettlementDurableStatePrefix
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineInPathRouteWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProxyCredentialsWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
@@ -23,6 +27,8 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
+import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -81,7 +87,7 @@ class DiagnosticsScanPolicyFinalizationTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             val preferredPath =
@@ -97,13 +103,13 @@ class DiagnosticsScanPolicyFinalizationTest {
             assertNotNull(preferredPath)
             assertEquals(1, stores.storedProbeResults(prepared.sessionId).size)
             assertEquals(2, stores.snapshotsState.value.count { it.sessionId == prepared.sessionId })
-            assertEquals(2, stores.contextsState.value.count { it.sessionId == prepared.sessionId })
+            assertEquals(3, stores.contextsState.value.count { it.sessionId == prepared.sessionId })
             assertTrue(stores.nativeEventsState.value.any { it.sessionId == prepared.sessionId })
             assertNull(timelineSource.activeScanProgress.value)
         }
 
     @Test
-    fun `post persistence failure does not overwrite completed report`() =
+    fun `post persistence failure keeps report but fails only after settlement receipt`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
@@ -129,12 +135,184 @@ class DiagnosticsScanPolicyFinalizationTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
-            assertEquals("completed", session.status)
+            assertEquals("failed", session.status)
+            assertEquals("injected post-persistence failure", session.summary)
             assertNotNull(session.reportJson)
             assertEquals(1, stores.storedProbeResults(prepared.sessionId).size)
+            assertTrue(
+                stores.contextsState.value.any { context ->
+                    context.sessionId == prepared.sessionId &&
+                        context.contextKind == RawPathSettlementContextKind
+                },
+            )
+        }
+
+    @Test
+    fun `raw path settlement retries the whole atomic publication after terminal write fault`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-settlement-retry",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = buildResolverRecommendationBridge(prepared.sessionId)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            var terminalWriteAttempts = 0
+            var receiptVisibleWithTerminal = false
+            stores.beforeRawPathSettlementTerminalWrite = {
+                terminalWriteAttempts += 1
+                if (terminalWriteAttempts == 1) error("one-shot terminal write fault")
+            }
+            stores.afterUpsertScanSession = { session ->
+                if (session.id == prepared.sessionId && session.status == "completed") {
+                    receiptVisibleWithTerminal =
+                        stores.contextsState.value.any { context ->
+                            context.sessionId == prepared.sessionId &&
+                                context.contextKind == RawPathSettlementContextKind
+                        }
+                }
+            }
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
+
+            assertEquals(2, stores.rawPathSettlementCommitCount.get())
+            assertTrue(receiptVisibleWithTerminal)
+            assertEquals("completed", stores.getScanSession(prepared.sessionId)?.status)
+            assertEquals(
+                1,
+                stores.contextsState.value.count { context ->
+                    context.sessionId == prepared.sessionId && context.contextKind == RawPathSettlementContextKind
+                },
+            )
+            assertTrue(
+                stores.terminalOutboxState.value.none { marker ->
+                    marker.key.startsWith(RawPathSettlementDurableStatePrefix)
+                },
+            )
+        }
+
+    @Test
+    fun `permanent atomic publication fault leaves recoverable marker without partial receipt`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-settlement-recovery",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = buildResolverRecommendationBridge(prepared.sessionId)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            stores.beforeRawPathSettlementTerminalWrite = { error("persistent terminal write fault") }
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
+
+            assertEquals(2, stores.rawPathSettlementCommitCount.get())
+            assertEquals("running", stores.getScanSession(prepared.sessionId)?.status)
+            assertTrue(
+                stores.contextsState.value.none { context ->
+                    context.sessionId == prepared.sessionId && context.contextKind == RawPathSettlementContextKind
+                },
+            )
+            assertEquals(
+                1,
+                stores.terminalOutboxState.value.count { marker ->
+                    marker.key.startsWith(RawPathSettlementDurableStatePrefix)
+                },
+            )
+
+            stores.beforeRawPathSettlementTerminalWrite = {}
+            fixtures.rawPathSettlementBarrier.recoverPending()
+
+            assertEquals("completed", stores.getScanSession(prepared.sessionId)?.status)
+            assertEquals(
+                1,
+                stores.contextsState.value.count { context ->
+                    context.sessionId == prepared.sessionId && context.contextKind == RawPathSettlementContextKind
+                },
+            )
+            assertTrue(
+                stores.terminalOutboxState.value.none { marker ->
+                    marker.key.startsWith(RawPathSettlementDurableStatePrefix)
+                },
+            )
+        }
+
+    @Test
+    fun `raw path failure after report persistence publishes failed terminal after receipt`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-post-report-block-failure",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = buildResolverRecommendationBridge(prepared.sessionId)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            var receiptExistedBeforeTerminal = false
+            stores.afterUpsertScanSession = { session ->
+                if (session.id == prepared.sessionId && session.status == "failed") {
+                    receiptExistedBeforeTerminal =
+                        stores.contextsState.value.any { context ->
+                            context.sessionId == prepared.sessionId &&
+                                context.contextKind == RawPathSettlementContextKind
+                        }
+                }
+            }
+
+            fixtures.coordinator.execute(
+                prepared = prepared,
+                handle = handle,
+                rawPathRunner = { block ->
+                    block()
+                    completedRawPathExecutionResult(
+                        executionOutcome = RawPathExecutionOutcome.BlockFailed,
+                        executionFailure = "passive event persistence failed",
+                    )
+                },
+            )
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertTrue(receiptExistedBeforeTerminal)
+            assertEquals("failed", session.status)
+            assertEquals("passive event persistence failed", session.summary)
+            assertNotNull(session.reportJson)
         }
 
     @Test
@@ -206,7 +384,11 @@ class DiagnosticsScanPolicyFinalizationTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(
+                prepared,
+                handle,
+                rawPathRunner = { block -> runSettledRawPathBlock(block) },
+            )
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             assertEquals("completed", session.status)
@@ -340,7 +522,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
                 serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             }
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val reprobeRequestJson = requireNotNull(fixtures.bridgeFactory.bridge.startedRequestJson)
             val reprobeRequest = json.decodeFromString(EngineScanRequestWire.serializer(), reprobeRequestJson)
@@ -402,7 +584,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
             )
             val handle = BridgeSessionHandle(originalBridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val reprobeSession =
                 stores.sessionsState.value.first { session ->
@@ -455,7 +637,7 @@ private fun buildResolverRecommendationBridge(sessionId: String): FakeNetworkDia
     }
 }
 
-private fun buildDnsFallbackBridge(
+internal fun buildDnsFallbackBridge(
     sessionId: String,
     settings: com.poyka.ripdpi.proto.AppSettings,
 ): FakeNetworkDiagnosticsBridge {
@@ -535,7 +717,7 @@ class DiagnosticsScanExecutionLifecycleTest {
                     }
                 }
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
             advanceUntilIdle()
             collectionJob.cancel()
 
@@ -570,7 +752,16 @@ class DiagnosticsScanExecutionLifecycleTest {
                 fixtures.coordinator.execute(
                     prepared = prepared,
                     handle = handle,
-                    rawPathRunner = { throw CancellationException("owner stopped") },
+                    rawPathRunner = {
+                        val cancellation = CancellationException("owner stopped")
+                        throw RawPathExecutionCancelledException(
+                            result =
+                                completedRawPathExecutionResult(
+                                    executionOutcome = RawPathExecutionOutcome.BlockCancelled,
+                                ),
+                            cause = cancellation,
+                        )
+                    },
                 )
             } catch (error: CancellationException) {
                 thrown = error
@@ -580,6 +771,66 @@ class DiagnosticsScanExecutionLifecycleTest {
             assertEquals(1, bridge.destroyCount)
             assertTrue(!fixtures.activeScanRegistry.hasVisibleActiveScan())
             assertEquals("failed", stores.getScanSession(prepared.sessionId)?.status)
+            val settlementContext =
+                stores.contextsState.value.single { context ->
+                    context.sessionId == prepared.sessionId &&
+                        context.contextKind == RawPathSettlementContextKind
+                }
+            assertEquals(
+                RawPathExecutionOutcome.BlockCancelled,
+                json
+                    .decodeFromString(RawPathExecutionResult.serializer(), settlementContext.payloadJson)
+                    .executionOutcome,
+            )
+        }
+
+    @Test
+    fun `raw path entry failure persists receipt before failed terminal session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-entry-failed",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            var receiptExistedBeforeTerminal = false
+            stores.afterUpsertScanSession = { session ->
+                if (session.id == prepared.sessionId && session.status == "failed") {
+                    receiptExistedBeforeTerminal =
+                        stores.contextsState.value.any { context ->
+                            context.sessionId == prepared.sessionId &&
+                                context.contextKind == RawPathSettlementContextKind
+                        }
+                }
+            }
+
+            fixtures.coordinator.execute(
+                prepared = prepared,
+                handle = handle,
+                rawPathRunner = {
+                    completedRawPathExecutionResult(
+                        executionOutcome = RawPathExecutionOutcome.EntryFailed,
+                        executionFailure = "runtime stop failed",
+                    )
+                },
+            )
+
+            assertTrue(receiptExistedBeforeTerminal)
+            assertEquals("failed", stores.getScanSession(prepared.sessionId)?.status)
+            assertEquals("runtime stop failed", stores.getScanSession(prepared.sessionId)?.summary)
         }
 
     @Test
@@ -618,7 +869,7 @@ class DiagnosticsScanExecutionLifecycleTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val failedSession = stores.getScanSession(prepared.sessionId)
             assertEquals("failed", failedSession?.status)
@@ -670,7 +921,7 @@ class DiagnosticsScanExecutionLifecycleTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             assertEquals("completed", session.status)
@@ -717,7 +968,7 @@ class DiagnosticsScanExecutionLifecycleTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             assertEquals("completed", session.status)
@@ -755,7 +1006,7 @@ class DiagnosticsScanExecutionLifecycleTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             assertEquals("failed", session.status)
@@ -823,7 +1074,7 @@ class DiagnosticsScanRememberedPolicyTest {
             fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
@@ -855,6 +1106,7 @@ internal data class ExecutionCoordinatorFixtures(
     val bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
     val finalizationService: ScanFinalizationService,
     val runtimeCoordinator: FakeDiagnosticsRuntimeCoordinator,
+    val rawPathSettlementBarrier: RawPathSettlementBarrier,
 )
 
 @Suppress("LongMethod")
@@ -885,6 +1137,7 @@ internal fun executionCoordinatorFixtures(
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
     val networkMetadataProvider = FakeNetworkMetadataProvider()
     val diagnosticsContextProvider = FakeDiagnosticsContextProvider()
+    val rawPathSettlementBarrier = RawPathSettlementBarrier(stores, stores.rawPathSettlementStore, json)
     val scanFinalizationService =
         ScanFinalizationService(
             context = TestContext(),
@@ -899,6 +1152,7 @@ internal fun executionCoordinatorFixtures(
             networkEdgePreferenceStore = networkEdgePreferenceStore,
             networkDnsPathPreferenceStore = preferredPathStore,
             serverCapabilityStore = FakeServerCapabilityStore(),
+            rawPathSettlementBarrier = rawPathSettlementBarrier,
             json = json,
         )
     val appSettingsRepository = FakeAppSettingsRepository()
@@ -962,6 +1216,7 @@ internal fun executionCoordinatorFixtures(
         bridgeFactory = bridgeFactory,
         finalizationService = scanFinalizationService,
         runtimeCoordinator = runtimeCoordinator,
+        rawPathSettlementBarrier = rawPathSettlementBarrier,
     )
 }
 

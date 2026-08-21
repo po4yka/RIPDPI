@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
+use super::cancellation::publish_partial_run_checkpoint;
 use super::panic_recovery::{self, JoinedStageOutcome};
 use super::plan::ExecutionPlan;
 use super::recording::{CollectedStageOutcome, record_steps};
@@ -95,6 +96,7 @@ pub(super) fn run_connectivity_group(
                 runtime.record_active_global_deadline_skips(
                     planned_steps.saturating_sub(runtime.completed_steps - completed_before_stage),
                 );
+                publish_partial_run_checkpoint(plan, runtime);
             }
             cancelled = true;
         }

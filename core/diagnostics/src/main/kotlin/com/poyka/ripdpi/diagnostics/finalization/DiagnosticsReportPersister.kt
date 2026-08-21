@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.finalization
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.RawPathExecutionOutcome
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
@@ -13,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.NativeSessionEvent
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.diagnostics.hasAuthoritativeManualConflictCancellation
 import kotlinx.serialization.builtins.ListSerializer
@@ -31,6 +34,7 @@ internal object DiagnosticsReportPersister {
         artifactWriteStore: DiagnosticsArtifactWriteStore,
         serviceStateStore: ServiceStateStore,
         json: Json,
+        deferTerminal: Boolean,
     ) {
         val normalizedReport =
             report.copy(
@@ -71,8 +75,13 @@ internal object DiagnosticsReportPersister {
                 strategyLabel = existing?.strategyLabel,
                 strategyJson = existing?.strategyJson,
                 pathMode = normalizedReport.pathMode.name,
-                serviceMode = serviceStateStore.status.value.second.name,
-                status = manualConflictCancellation?.status ?: "completed",
+                serviceMode =
+                    if (deferTerminal) {
+                        existing?.serviceMode
+                    } else {
+                        serviceStateStore.status.value.second.name
+                    },
+                status = if (deferTerminal) "running" else manualConflictCancellation?.status ?: "completed",
                 summary = manualConflictCancellation?.summary ?: normalizedReport.summary,
                 reportJson = safeReportJson,
                 reportCompletionKind =
@@ -81,7 +90,7 @@ internal object DiagnosticsReportPersister {
                         ?.name,
                 reportTerminationReason = normalizedReport.terminationReason?.name,
                 startedAt = normalizedReport.startedAt,
-                finishedAt = normalizedReport.finishedAt,
+                finishedAt = normalizedReport.finishedAt.takeUnless { deferTerminal },
                 launchOrigin = existing?.launchOrigin,
                 triggerType = existing?.triggerType,
                 triggerClassification = existing?.triggerClassification,
@@ -92,6 +101,52 @@ internal object DiagnosticsReportPersister {
             resultEntities,
         )
         bridgeEventsToHistory(normalizedReport, artifactWriteStore)
+    }
+
+    suspend fun buildRawPathTerminalSession(
+        sessionId: String,
+        report: EngineScanReportWire?,
+        result: RawPathExecutionResult,
+        scanRecordStore: DiagnosticsScanRecordStore,
+        finishedAt: Long,
+    ): ScanSessionEntity {
+        val existing =
+            checkNotNull(scanRecordStore.getScanSession(sessionId)) {
+                "Raw-path scan session disappeared before settlement: $sessionId"
+            }
+        val manualConflictCancellationRequested =
+            existing.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
+        val evaluation = result.evaluateForHomeContinuation()
+        val usableReport =
+            evaluation.disposition == RawPathHomeSettlementDisposition.USABLE &&
+                report?.reportDisposition == ScanReportDisposition.TERMINAL
+        return existing.copy(
+            status = if (!manualConflictCancellationRequested && usableReport) "completed" else "failed",
+            summary =
+                when {
+                    manualConflictCancellationRequested -> {
+                        BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
+                    }
+
+                    evaluation.disposition == RawPathHomeSettlementDisposition.SUPERSEDED_BY_USER_STOP -> {
+                        RawPathSettlementSupersededSummary
+                    }
+
+                    result.executionOutcome != RawPathExecutionOutcome.Completed -> {
+                        result.executionFailure
+                            ?: "$RawPathSettlementInconclusiveSummaryPrefix: ${evaluation.reason}"
+                    }
+
+                    !usableReport -> {
+                        "$RawPathSettlementInconclusiveSummaryPrefix: ${evaluation.reason}"
+                    }
+
+                    else -> {
+                        checkNotNull(report).summary
+                    }
+                },
+            finishedAt = report?.finishedAt ?: finishedAt,
+        )
     }
 
     suspend fun persistScanFailure(

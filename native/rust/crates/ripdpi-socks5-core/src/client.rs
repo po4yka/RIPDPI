@@ -87,10 +87,8 @@ where
         self.target_addr = Some(target_addr);
 
         // Request Lifecycle
-        debug!(
-            "Requesting SOCKS5 header: command={cmd:?}, target_kind={}",
-            target_addr_kind(self.target_addr.as_ref()),
-        );
+        let target_kind = self.target_addr.as_ref().map_or("unset", TargetAddr::logging_kind);
+        debug!("SOCKS request started target_kind={target_kind}");
         self.request_header(cmd).await?;
         let bind_addr = self.read_request_reply().await?;
 
@@ -196,10 +194,10 @@ where
         // distinguish from a real failure. Reject it explicitly instead — this
         // matches the bounds check already enforced in `client::outbound`.
         if user_bytes.len() > 255 {
-            return Err(SocksError::ArgumentInputError("username exceeds 255 bytes (SOCKS5 RFC 1929 ULEN limit)"));
+            return Err(SocksError::ArgumentInputError("SOCKS5 credentials exceed RFC 1929 length limit"));
         }
         if pass_bytes.len() > 255 {
-            return Err(SocksError::ArgumentInputError("password exceeds 255 bytes (SOCKS5 RFC 1929 PLEN limit)"));
+            return Err(SocksError::ArgumentInputError("SOCKS5 credentials exceed RFC 1929 length limit"));
         }
 
         let mut packet: Vec<u8> = vec![1, user_bytes.len() as u8];
@@ -214,10 +212,7 @@ where
         debug!("Auth: [version: {version}, is_success: {is_success}]", version = version, is_success = is_success,);
 
         if is_success != consts::SOCKS5_REPLY_SUCCEEDED {
-            return Err(SocksError::AuthenticationRejected(format!(
-                "Authentication with username `{}`, rejected.",
-                username
-            )));
+            return Err(SocksError::AuthenticationRejected("SOCKS5 authentication rejected".to_owned()));
         }
 
         Ok(())
@@ -264,7 +259,7 @@ where
             }
             Some(target_addr) => match target_addr {
                 TargetAddr::Ip(SocketAddr::V4(addr)) => {
-                    debug!("TargetAddr::IpV4");
+                    debug!("SOCKS request address_kind=ipv4");
                     padding = 10;
 
                     packet[3] = 0x01;
@@ -273,7 +268,7 @@ where
                     // port
                 }
                 TargetAddr::Ip(SocketAddr::V6(addr)) => {
-                    debug!("TargetAddr::IpV6");
+                    debug!("SOCKS request address_kind=ipv6");
                     padding = 22;
 
                     packet[3] = 0x04;
@@ -282,7 +277,7 @@ where
                     // port
                 }
                 TargetAddr::Domain(domain, port) => {
-                    debug!("TargetAddr::Domain");
+                    debug!("SOCKS request address_kind=domain");
                     if domain.len() > u8::MAX as usize {
                         return Err(SocksError::ExceededMaxDomainLen(domain.len()));
                     }
@@ -297,7 +292,8 @@ where
             },
         }
 
-        debug!("SOCKS5 request header encoded: command={cmd:?}");
+        let target_kind = self.target_addr.as_ref().map_or("unspecified", TargetAddr::logging_kind);
+        debug!("SOCKS request encoded target_kind={target_kind} request_bytes={padding}");
 
         // we limit the end of the packet right after the domain + port number, we don't need to print
         // useless 0 bytes, otherwise other protocol won't understand the request (like HTTP servers).
@@ -331,7 +327,7 @@ where
         }
 
         let address = read_address(&mut self.socket, address_type).await?;
-        debug!("SOCKS5 request accepted: bind_kind={}", target_addr_kind(Some(&address)));
+        debug!("SOCKS reply bind address_kind={}", address.logging_kind());
 
         Ok(address)
     }
@@ -418,7 +414,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
     async fn create_out_sock<U: ToSocketAddrs>(client_bind_addr: U) -> Result<UdpSocket> {
         let client_bind_addr = client_bind_addr.to_socket_addrs()?.next().context("unreachable")?;
         let out_sock = UdpSocket::bind(client_bind_addr).await?;
-        debug!("SOCKS5 UDP client socket bound");
+        debug!("SOCKS UDP client socket bound");
         Ok(out_sock)
     }
 
@@ -436,7 +432,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
         let proxy_addr = proxy_stream.request(Socks5Command::UDPAssociate, client_src).await?;
 
         let proxy_addr_resolved = proxy_addr.to_socket_addrs()?.next().context("unreachable")?;
-        debug!("SOCKS5 UDP client connecting to proxy relay");
+        debug!("SOCKS UDP client connecting proxy_kind={}", proxy_addr.logging_kind());
         out_sock.connect(proxy_addr_resolved).await?;
         debug!("UdpSocket client connected");
 
@@ -538,7 +534,7 @@ impl Socks5Stream<TcpStream> {
             None => tcp_connect(addr).await?,
             Some(connect_timeout) => tcp_connect_with_timeout(addr, connect_timeout).await?,
         };
-        debug!("Connected to SOCKS5 proxy");
+        debug!("SOCKS TCP client connected");
 
         // Specify the target, here domain name, dns will be resolved on the server side
         let target_addr = (target_addr.as_str(), target_port)
@@ -550,15 +546,6 @@ impl Socks5Stream<TcpStream> {
         socks_stream.request(cmd, target_addr).await?;
 
         Ok(socks_stream)
-    }
-}
-
-fn target_addr_kind(target: Option<&TargetAddr>) -> &'static str {
-    match target {
-        Some(TargetAddr::Ip(SocketAddr::V4(_))) => "ipv4",
-        Some(TargetAddr::Ip(SocketAddr::V6(_))) => "ipv6",
-        Some(TargetAddr::Domain(_, _)) => "domain",
-        None => "none",
     }
 }
 
@@ -678,17 +665,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn socks_request_logs_exclude_raw_wire_and_target_values() {
+        let source = include_str!("client.rs");
+        let forbidden = [
+            "Bytes ".to_owned() + "long version",
+            "Bytes ".to_owned() + "shorted version",
+            "Requesting ".to_owned() + "headers `{:?}`",
+            "addr ".to_owned() + "ip {:?}",
+        ];
+
+        for phrase in forbidden {
+            assert!(!source.contains(&phrase), "raw SOCKS logging must not include {phrase}");
+        }
+    }
+
     /// A 256-byte username must be rejected with a clean error rather than
     /// silently truncating the ULEN byte and desynchronizing the auth frame.
     #[tokio::test]
     async fn use_password_auth_rejects_oversized_username() {
         let (mut stream, _server) = duplex_stream();
-        let methods = password_methods(&"u".repeat(256), "secret");
+        let sensitive_username = "private-user-".repeat(32);
+        let methods = password_methods(&sensitive_username, "secret");
 
         let result = stream.use_password_auth(methods).await;
 
         match result {
-            Err(SocksError::ArgumentInputError(msg)) => assert!(msg.contains("username")),
+            Err(SocksError::ArgumentInputError(msg)) => {
+                assert!(!msg.contains("username"));
+                assert!(!msg.contains(&sensitive_username));
+                assert_eq!(msg, "SOCKS5 credentials exceed RFC 1929 length limit");
+            }
             other => panic!("expected ArgumentInputError for oversized username, got {other:?}"),
         }
     }
@@ -702,8 +709,31 @@ mod tests {
         let result = stream.use_password_auth(methods).await;
 
         match result {
-            Err(SocksError::ArgumentInputError(msg)) => assert!(msg.contains("password")),
+            Err(SocksError::ArgumentInputError(msg)) => {
+                assert_eq!(msg, "SOCKS5 credentials exceed RFC 1929 length limit");
+            }
             other => panic!("expected ArgumentInputError for oversized password, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn use_password_auth_rejection_does_not_expose_username() {
+        let (mut stream, mut server) = duplex_stream();
+        let sensitive_username = "private-user-42";
+        let methods = password_methods(sensitive_username, "secret");
+        let handle = tokio::spawn(async move { stream.use_password_auth(methods).await });
+        let mut frame = vec![0u8; 1 + 1 + sensitive_username.len() + 1 + "secret".len()];
+
+        server.read_exact(&mut frame).await.expect("read auth frame");
+        server.write_all(&[consts::SOCKS5_VERSION, 1]).await.expect("write rejection reply");
+
+        let result = handle.await.expect("join");
+        match result {
+            Err(SocksError::AuthenticationRejected(message)) => {
+                assert!(!message.contains(sensitive_username));
+                assert_eq!(message, "SOCKS5 authentication rejected");
+            }
+            other => panic!("expected authentication rejection, got {other:?}"),
         }
     }
 

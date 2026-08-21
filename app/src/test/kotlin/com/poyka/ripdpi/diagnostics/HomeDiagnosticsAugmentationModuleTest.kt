@@ -4,6 +4,9 @@ import android.content.Context
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DecisionSignal
+import com.poyka.ripdpi.core.detection.DecisionSignalCategory
+import com.poyka.ripdpi.core.detection.DecisionSignalSemantics
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
@@ -47,6 +50,18 @@ class HomeDiagnosticsAugmentationModuleTest {
                     outcome?.findings?.any { it.contains("on this network", ignoreCase = true) },
                 ),
             )
+            assertEquals(
+                listOf(
+                    HomeDetectionDecisionSignal(
+                        category = HomeDetectionSignalCategory.LOCAL_INVENTORY_REVIEW,
+                        semantics = HomeDetectionSignalSemantics.LOCAL_INVENTORY_MATCH_REQUIRES_REVIEW,
+                        source = "INSTALLED_APP",
+                        confidence = "MEDIUM",
+                        scope = "LOCAL_INVENTORY",
+                    ),
+                ),
+                outcome?.decisionSignals,
+            )
         }
 
     private fun inventoryOnlyDetectionResult(): DetectionCheckResult {
@@ -89,6 +104,16 @@ class HomeDiagnosticsAugmentationModuleTest {
                     summary = "Local inventory evidence requires review",
                     appliedScopes = listOf(DetectionScope.LOCAL_INVENTORY),
                     uniqueSignalCount = 1,
+                    decisionSignals =
+                        listOf(
+                            DecisionSignal(
+                                category = DecisionSignalCategory.LOCAL_INVENTORY_REVIEW,
+                                semantics = DecisionSignalSemantics.LOCAL_INVENTORY_MATCH_REQUIRES_REVIEW,
+                                source = EvidenceSource.INSTALLED_APP,
+                                confidence = EvidenceConfidence.MEDIUM,
+                                scope = DetectionScope.LOCAL_INVENTORY,
+                            ),
+                        ),
                 ),
         )
     }

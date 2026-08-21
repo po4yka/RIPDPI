@@ -3,19 +3,45 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::http::{extract_host_from_url, extract_path_from_url, read_http_headers};
+use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
+
+use crate::http::{extract_host_from_url, extract_path_from_url};
 use crate::tls::{
     ApplicationProtocolPolicy, NoCertificateVerification, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
-    open_probe_stream_targets_with_options,
+    open_probe_stream_targets_with_options_and_abort,
 };
-use crate::transport::{TargetAddress, TransportConfig};
+use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 use crate::types::TelegramTarget;
 use crate::util::{
-    MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_DOWNLOAD_EXPECTED_BYTES, TELEGRAM_SPEED_SAMPLE_INTERVAL,
+    IO_TIMEOUT, MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_DOWNLOAD_EXPECTED_BYTES, TELEGRAM_SPEED_SAMPLE_INTERVAL,
     find_headers_end,
 };
 
 const TELEGRAM_UPLOAD_HOST: &str = "telegram.org";
+
+trait TelegramIo: Read + Write {
+    fn shutdown(&mut self);
+    fn set_io_timeout(&mut self, timeout: Duration) -> std::io::Result<()>;
+}
+
+impl TelegramIo for ConnectionStream {
+    fn shutdown(&mut self) {
+        ConnectionStream::shutdown(self);
+    }
+
+    fn set_io_timeout(&mut self, timeout: Duration) -> std::io::Result<()> {
+        match self {
+            ConnectionStream::Plain(stream) => {
+                stream.set_read_timeout(Some(timeout))?;
+                stream.set_write_timeout(Some(timeout))
+            }
+            ConnectionStream::Tls(stream) => {
+                stream.sock.set_read_timeout(Some(timeout))?;
+                stream.sock.set_write_timeout(Some(timeout))
+            }
+        }
+    }
+}
 
 pub(crate) struct TelegramTransferResult {
     pub(crate) status: String,
@@ -35,6 +61,17 @@ impl TelegramTransferResult {
             bytes_total: 0,
             duration_ms: 0,
             error: Some(error),
+        }
+    }
+
+    pub(crate) fn aborted(reason: &str) -> Self {
+        Self {
+            status: reason.to_string(),
+            avg_bps: 0,
+            peak_bps: 0,
+            bytes_total: 0,
+            duration_ms: 0,
+            error: Some(format!("probe_aborted:{reason}")),
         }
     }
 
@@ -94,15 +131,22 @@ fn upload_tls_host(target: &TargetAddress) -> String {
     }
 }
 
-pub(crate) fn telegram_download_probe(
+pub(crate) fn telegram_download_probe_with_abort(
     target: &TelegramTarget,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramTransferResult {
+    if let Some(reason) = should_abort() {
+        return TelegramTransferResult::aborted(reason);
+    }
     let Some(host) = extract_host_from_url(&target.media_url) else {
         return TelegramTransferResult::blocked("invalid media_url".to_string());
     };
     let path = extract_path_from_url(&target.media_url);
+    if let Some(reason) = should_abort() {
+        return TelegramTransferResult::aborted(reason);
+    }
 
     let target_address = TargetAddress::Host(host.clone());
     let verifier_mode = verifier_mode_for_target(&target_address, &host);
@@ -114,29 +158,56 @@ pub(crate) fn telegram_download_probe(
         tls_verifier: tls_verifier.as_ref(),
         key_log,
     };
-    let stream_result = open_probe_stream_targets_with_options(
+    let stream_result = open_probe_stream_targets_with_options_and_abort(
         std::slice::from_ref(&target_address),
         443,
         transport,
         Some(&host),
         &options,
+        should_abort,
     );
     let mut stream = match stream_result {
         Ok(result) => result.stream,
-        Err(err) => return TelegramTransferResult::blocked(err.to_string()),
+        Err(err) => return transfer_error_result(err.to_string()),
     };
+    if let Some(reason) = should_abort() {
+        stream.shutdown();
+        return TelegramTransferResult::aborted(reason);
+    }
 
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
         stream.shutdown();
+        if let Some(result) = transfer_admin_result_after_io(should_abort) {
+            return result;
+        }
         return TelegramTransferResult::blocked(err.to_string());
     }
+    if let Some(reason) = should_abort() {
+        stream.shutdown();
+        return TelegramTransferResult::aborted(reason);
+    }
 
-    let header_buf = match read_http_headers(&mut stream, MAX_HTTP_BYTES) {
+    telegram_download_transfer_loop(
+        &mut stream,
+        Duration::from_millis(target.stall_timeout_ms),
+        Duration::from_millis(target.total_timeout_ms),
+        should_abort,
+    )
+}
+
+fn telegram_download_transfer_loop(
+    stream: &mut dyn TelegramIo,
+    stall_timeout: Duration,
+    total_timeout: Duration,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramTransferResult {
+    let header_buf = match read_telegram_http_headers(stream, MAX_HTTP_BYTES, should_abort) {
         Ok(h) => h,
         Err(err) => {
             stream.shutdown();
-            return TelegramTransferResult::blocked(err);
+            let status = abort_status_from_error(&err).unwrap_or("blocked");
+            return TelegramTransferResult::from_transfer(status, 0, 0, std::time::Instant::now(), Some(err));
         }
     };
     let Some(header_end) = find_headers_end(&header_buf) else {
@@ -145,8 +216,6 @@ pub(crate) fn telegram_download_probe(
     };
     let body_prefix_len = header_buf.len() - (header_end + 4);
 
-    let stall_timeout = Duration::from_millis(target.stall_timeout_ms);
-    let total_timeout = Duration::from_millis(target.total_timeout_ms);
     let start = std::time::Instant::now();
     let mut last_data_at = start;
     let mut bytes_total = body_prefix_len;
@@ -154,8 +223,32 @@ pub(crate) fn telegram_download_probe(
     let mut sample_bytes = 0usize;
     let mut sample_start = start;
     let mut buf = [0u8; TELEGRAM_CHUNK_SIZE];
+    if let Some(reason) = should_abort() {
+        stream.shutdown();
+        return TelegramTransferResult::from_transfer(
+            reason,
+            bytes_total,
+            peak_bps,
+            start,
+            Some(format!("probe_aborted:{reason}")),
+        );
+    }
 
     loop {
+        if let Some(reason) = should_abort() {
+            stream.shutdown();
+            return TelegramTransferResult::from_transfer(
+                reason,
+                bytes_total,
+                peak_bps,
+                start,
+                Some(format!("probe_aborted:{reason}")),
+            );
+        }
+        if let Err(err) = clamp_transfer_io_timeout(stream) {
+            stream.shutdown();
+            return TelegramTransferResult::from_transfer("deadline_exceeded", bytes_total, peak_bps, start, Some(err));
+        }
         if start.elapsed() > total_timeout {
             break;
         }
@@ -189,6 +282,9 @@ pub(crate) fn telegram_download_probe(
             }
             Err(err) => {
                 stream.shutdown();
+                if let Some(result) = transfer_admin_result_after_io(should_abort) {
+                    return result;
+                }
                 let status = if bytes_total == 0 { "blocked" } else { "stalled" };
                 return TelegramTransferResult::from_transfer(
                     status,
@@ -212,11 +308,77 @@ pub(crate) fn telegram_download_probe(
     TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, None)
 }
 
-pub(crate) fn telegram_upload_probe(
+fn read_telegram_http_headers(
+    stream: &mut dyn TelegramIo,
+    max_bytes: usize,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> Result<Vec<u8>, String> {
+    let mut buffer = Vec::new();
+    let mut chunk = [0u8; 1024];
+    while buffer.len() < max_bytes {
+        if let Some(reason) = should_abort() {
+            return Err(format!("probe_aborted:{reason}"));
+        }
+        clamp_transfer_io_timeout(stream)?;
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => {
+                buffer.extend_from_slice(&chunk[..n]);
+                if find_headers_end(&buffer).is_some() {
+                    return Ok(buffer);
+                }
+            }
+            Err(ref err) if err.kind() == ErrorKind::TimedOut || err.kind() == ErrorKind::WouldBlock => continue,
+            Err(err) => {
+                if let Some(reason) = should_abort() {
+                    return Err(format!("probe_aborted:{reason}"));
+                }
+                if bounded_scan_io_timeout(IO_TIMEOUT).is_err() {
+                    return Err("scan_deadline_exceeded".to_string());
+                }
+                return Err(err.to_string());
+            }
+        }
+    }
+    Ok(buffer)
+}
+
+fn abort_status_from_error(error: &str) -> Option<&'static str> {
+    if matches!(error, "scan_deadline_exceeded" | "deadline_exceeded" | "probe_aborted:deadline_exceeded") {
+        Some("deadline_exceeded")
+    } else if error == "probe_aborted:cancelled" {
+        Some("cancelled")
+    } else {
+        None
+    }
+}
+
+fn transfer_error_result(error: String) -> TelegramTransferResult {
+    match abort_status_from_error(&error) {
+        Some(reason) => TelegramTransferResult::aborted(reason),
+        None => TelegramTransferResult::blocked(error),
+    }
+}
+
+fn transfer_admin_result_after_io(should_abort: &dyn Fn() -> Option<&'static str>) -> Option<TelegramTransferResult> {
+    if let Some(reason) = should_abort() {
+        Some(TelegramTransferResult::aborted(reason))
+    } else if bounded_scan_io_timeout(IO_TIMEOUT).is_err() {
+        Some(TelegramTransferResult::aborted("deadline_exceeded"))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn telegram_upload_probe_with_abort(
     target: &TelegramTarget,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
+    should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramTransferResult {
+    if let Some(reason) = should_abort() {
+        return TelegramTransferResult::aborted(reason);
+    }
     let target_address = upload_target_address(&target.upload_ip);
     let upload_host = upload_tls_host(&target_address);
     let verifier_mode = verifier_mode_for_target(&target_address, &upload_host);
@@ -228,17 +390,22 @@ pub(crate) fn telegram_upload_probe(
         tls_verifier: tls_verifier.as_ref(),
         key_log,
     };
-    let stream_result = open_probe_stream_targets_with_options(
+    let stream_result = open_probe_stream_targets_with_options_and_abort(
         std::slice::from_ref(&target_address),
         target.upload_port,
         transport,
         Some(&upload_host),
         &options,
+        should_abort,
     );
     let mut stream = match stream_result {
         Ok(result) => result.stream,
-        Err(err) => return TelegramTransferResult::blocked(err.to_string()),
+        Err(err) => return transfer_error_result(err.to_string()),
     };
+    if let Some(reason) = should_abort() {
+        stream.shutdown();
+        return TelegramTransferResult::aborted(reason);
+    }
 
     let content_length = target.upload_size_bytes;
     let header = format!(
@@ -247,11 +414,32 @@ pub(crate) fn telegram_upload_probe(
     );
     if let Err(err) = stream.write_all(header.as_bytes()).and_then(|_| stream.flush()) {
         stream.shutdown();
+        if let Some(result) = transfer_admin_result_after_io(should_abort) {
+            return result;
+        }
         return TelegramTransferResult::blocked(err.to_string());
     }
+    if let Some(reason) = should_abort() {
+        stream.shutdown();
+        return TelegramTransferResult::aborted(reason);
+    }
 
-    let stall_timeout = Duration::from_millis(target.stall_timeout_ms);
-    let total_timeout = Duration::from_millis(target.total_timeout_ms);
+    telegram_upload_transfer_loop(
+        &mut stream,
+        content_length,
+        Duration::from_millis(target.stall_timeout_ms),
+        Duration::from_millis(target.total_timeout_ms),
+        should_abort,
+    )
+}
+
+fn telegram_upload_transfer_loop(
+    stream: &mut dyn TelegramIo,
+    content_length: usize,
+    stall_timeout: Duration,
+    total_timeout: Duration,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramTransferResult {
     let start = std::time::Instant::now();
     let chunk = [0u8; TELEGRAM_CHUNK_SIZE];
     let mut bytes_total = 0usize;
@@ -260,6 +448,20 @@ pub(crate) fn telegram_upload_probe(
     let mut sample_start = start;
 
     while bytes_total < content_length {
+        if let Some(reason) = should_abort() {
+            stream.shutdown();
+            return TelegramTransferResult::from_transfer(
+                reason,
+                bytes_total,
+                peak_bps,
+                start,
+                Some(format!("probe_aborted:{reason}")),
+            );
+        }
+        if let Err(err) = clamp_transfer_io_timeout(stream) {
+            stream.shutdown();
+            return TelegramTransferResult::from_transfer("deadline_exceeded", bytes_total, peak_bps, start, Some(err));
+        }
         if start.elapsed() > total_timeout {
             break;
         }
@@ -279,6 +481,9 @@ pub(crate) fn telegram_upload_probe(
             }
             Err(err) => {
                 stream.shutdown();
+                if let Some(result) = transfer_admin_result_after_io(should_abort) {
+                    return result;
+                }
                 let status = if bytes_total == 0 { "blocked" } else { "stalled" };
                 return TelegramTransferResult::from_transfer(
                     status,
@@ -311,6 +516,11 @@ pub(crate) fn telegram_upload_probe(
         "blocked"
     };
     TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, None)
+}
+
+fn clamp_transfer_io_timeout(stream: &mut dyn TelegramIo) -> Result<(), String> {
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+    stream.set_io_timeout(timeout).map_err(|err| err.to_string())
 }
 
 #[cfg(test)]

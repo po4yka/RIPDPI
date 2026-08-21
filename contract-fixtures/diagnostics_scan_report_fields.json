@@ -1,4 +1,9 @@
 [
+  "candidateRuntimeCleanup.addressAttemptCount",
+  "candidateRuntimeCleanup.candidates[]",
+  "candidateRuntimeCleanup.connectionRefusedCount",
+  "candidateRuntimeCleanup.drainLatencyMs",
+  "candidateRuntimeCleanup.duplicateRefusalCount",
   "candidateRuntimeCleanup.forcedAbort",
   "candidateRuntimeCleanup.joined",
   "candidateRuntimeCleanup.started",
@@ -100,6 +105,7 @@
   "packVersions.core",
   "pathMode",
   "profileId",
+  "reportDisposition",
   "resolverRecommendation.appliedTemporarily",
   "resolverRecommendation.persistable",
   "resolverRecommendation.rationale",

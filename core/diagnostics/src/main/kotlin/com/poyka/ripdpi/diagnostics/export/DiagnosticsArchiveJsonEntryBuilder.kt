@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
@@ -139,7 +140,10 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             primaryReport = redactor.redact(selection.primaryReport),
             results = selection.payload.results.map(redactor::redact),
             sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
-            sessionContexts = selection.payload.sessionContexts.map(redactor::redact),
+            sessionContexts =
+                selection.payload.sessionContexts
+                    .filterNot(DiagnosticContextEntity::isPostRuntimeRestoreContext)
+                    .map(redactor::redact),
             sessionEvents = selection.payload.sessionEvents.map(redactor::redact),
             latestPassiveSnapshot = selection.payload.latestPassiveSnapshot?.let(redactor::redact),
             latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
@@ -182,17 +186,22 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         )
     }
 
-    internal fun buildContextPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveContextPayload =
-        DiagnosticsArchiveContextPayload(
+    internal fun buildContextPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveContextPayload {
+        val restoreReceipt = redactor.selectPostRuntimeRestoreEvidence(selection.primaryContexts)
+        return DiagnosticsArchiveContextPayload(
             sessionContexts =
                 selection.primaryContexts
+                    .filterNot(DiagnosticContextEntity::isPostRuntimeRestoreContext)
                     .mapNotNull(redactor::decodeDiagnosticContext)
                     .map(redactor::redact),
             latestPassiveContext =
                 redactor
                     .decodeDiagnosticContext(selection.latestPassiveContext)
                     ?.let(redactor::redact),
+            postRuntimeRestore = restoreReceipt.evidence,
+            postRuntimeRestoreMalformedCount = restoreReceipt.malformedCount,
         )
+    }
 
     internal fun buildSummary(
         createdAt: Long,
@@ -323,6 +332,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             connectivityAssessment = redactor.redact(outcome.connectivityAssessment),
                             internetLossReproAction = redactor.redact(outcome.internetLossReproAction),
                             detectionProvenance = selection.detectionProvenance(),
+                            packetCaptureDisposition = outcome.packetCaptureDisposition.toArchiveProjection(),
                         ),
                 ),
             )
@@ -533,11 +543,19 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 
     private fun buildStageContextPayload(
         stage: DiagnosticsArchiveCompositeStageSelection,
-    ): DiagnosticsArchiveContextPayload =
-        DiagnosticsArchiveContextPayload(
-            sessionContexts = stage.contexts.mapNotNull(redactor::decodeDiagnosticContext).map(redactor::redact),
+    ): DiagnosticsArchiveContextPayload {
+        val restoreReceipt = redactor.selectPostRuntimeRestoreEvidence(stage.contexts)
+        return DiagnosticsArchiveContextPayload(
+            sessionContexts =
+                stage.contexts
+                    .filterNot(DiagnosticContextEntity::isPostRuntimeRestoreContext)
+                    .mapNotNull(redactor::decodeDiagnosticContext)
+                    .map(redactor::redact),
             latestPassiveContext = null,
+            postRuntimeRestore = restoreReceipt.evidence,
+            postRuntimeRestoreMalformedCount = restoreReceipt.malformedCount,
         )
+    }
 
     private fun buildStageArchivePayload(
         stage: DiagnosticsArchiveCompositeStageSelection,
@@ -551,7 +569,10 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             primaryReport = redactor.redact(stage.report),
             results = stage.results.map(redactor::redact),
             sessionSnapshots = stage.snapshots.map(redactor::redact),
-            sessionContexts = stage.contexts.map(redactor::redact),
+            sessionContexts =
+                stage.contexts
+                    .filterNot(DiagnosticContextEntity::isPostRuntimeRestoreContext)
+                    .map(redactor::redact),
             sessionEvents =
                 stage.events
                     .take(DiagnosticsArchiveFormat.sessionEventLimit)

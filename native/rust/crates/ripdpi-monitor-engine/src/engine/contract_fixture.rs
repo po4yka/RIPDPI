@@ -91,7 +91,7 @@ pub(crate) fn connectivity_partial_report_contract_fixture() -> crate::types::Sc
     let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
     let outcome = coordinator.run(&plan, &mut runtime, None);
     assert!(matches!(outcome, RunnerOutcome::Cancelled));
-    publish_cancelled_run(&plan, &shared, runtime, None);
+    publish_cancelled_run(&plan, &shared, runtime, None, None);
 
     let mut report = shared.lock().expect("contract fixture shared state").report.clone().expect("partial report");
     report.started_at = 1_700_000_000_000;

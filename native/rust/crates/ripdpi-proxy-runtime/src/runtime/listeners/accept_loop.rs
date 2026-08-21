@@ -23,12 +23,17 @@ pub(crate) fn run_accept_loop(
     state: RuntimeState,
     shutdown: RuntimeShutdown,
     client_capacity: usize,
-) -> io::Result<WorkerDrainOutcome> {
+) -> io::Result<AcceptLoopOutcome> {
     let worker_pool = ClientWorkerPool::new(client_capacity)?;
     let result = poll_accept_loop(listener, state.clone(), shutdown, &worker_pool, client_capacity);
     state.note_listener_stopped();
     let drain_outcome = worker_pool.drain_gracefully(&state);
-    result.map(|()| drain_outcome)
+    Ok(AcceptLoopOutcome { drain_outcome, poll_error_kind: result.err().map(|error| error.kind()) })
+}
+
+pub(crate) struct AcceptLoopOutcome {
+    pub(crate) drain_outcome: WorkerDrainOutcome,
+    pub(crate) poll_error_kind: Option<io::ErrorKind>,
 }
 
 fn poll_accept_loop(

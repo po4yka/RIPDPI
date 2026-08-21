@@ -10,6 +10,7 @@ use crate::runtime::destination_routing::DestinationEgress;
 
 pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     targets: &[SocketAddr],
+    logical_target: Option<&str>,
     state: &RuntimeState,
     group_index: usize,
     payload: Option<&[u8]>,
@@ -45,7 +46,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
         } else {
             None
         };
-        match connect_target_via_group_with_policy(candidate, state, group_index, &policy) {
+        match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, &policy) {
             Ok(stream) => return Ok((stream, guard)),
             Err(err) => last_error = Some(err), // guard drops here -> slot freed for the failed candidate
         }
@@ -60,7 +61,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
             target: "ripdpi::proxy::exit_ip_cap",
             "all route candidates at per-exit-IP cap; proceeding without a slot (advisory cap)"
         );
-        match connect_target_via_group_with_policy(candidate, state, group_index, &policy) {
+        match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, &policy) {
             Ok(stream) => return Ok((stream, None)),
             Err(err) => last_error = Some(err),
         }
@@ -74,6 +75,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
 
 fn connect_target_via_group_with_policy(
     target: SocketAddr,
+    logical_target: Option<&str>,
     state: &RuntimeState,
     group_index: usize,
     policy: &RouteConnectPolicy,
@@ -112,6 +114,7 @@ fn connect_target_via_group_with_policy(
             // `record_connect_telemetry` path so QualityWindow sees both arms.
             let rtt_ms = started.elapsed().as_millis() as u64;
             let kind = err.source.kind();
+            state.note_candidate_upstream_connect_failed(target, logical_target, kind);
             state.note_upstream_connect_failed(target, rtt_ms, kind);
             return Err(err);
         }
@@ -120,6 +123,7 @@ fn connect_target_via_group_with_policy(
     if let Err(err) = apply_group_socket_options(&stream, policy) {
         let rtt_ms = started.elapsed().as_millis() as u64;
         let kind = err.source.kind();
+        state.note_candidate_upstream_connect_failed(target, logical_target, kind);
         state.note_upstream_connect_failed(target, rtt_ms, kind);
         return Err(err);
     }
@@ -185,9 +189,17 @@ mod exit_ip_cap_wiring_tests {
 
         // Connecting with cap-slot acquisition must return a live guard and
         // increment the in-flight session count for this exit IP.
-        let (stream, guard) =
-            connect_target_candidates_via_group(&[addr], &state, 0, None, true, true, DestinationEgress::Tunneled)
-                .expect("connect candidate");
+        let (stream, guard) = connect_target_candidates_via_group(
+            &[addr],
+            None,
+            &state,
+            0,
+            None,
+            true,
+            true,
+            DestinationEgress::Tunneled,
+        )
+        .expect("connect candidate");
         assert!(guard.is_some(), "acquire_cap_slot=true must yield a slot guard on a clear path");
         assert_eq!(state.active_exit_sessions(exit_ip), 1, "an acquired slot must be counted in-flight");
 
@@ -221,6 +233,7 @@ mod exit_ip_cap_wiring_tests {
         // and connect to B instead, holding a slot on B.
         let (stream, guard) = connect_target_candidates_via_group(
             &[addr_a, addr_b],
+            None,
             &state,
             0,
             None,
@@ -258,9 +271,17 @@ mod exit_ip_cap_wiring_tests {
             .collect();
         assert!(state.try_acquire_exit_session(exit_ip).is_none(), "candidate must be at cap");
 
-        let (stream, guard) =
-            connect_target_candidates_via_group(&[addr], &state, 0, None, true, true, DestinationEgress::Tunneled)
-                .expect("advisory fallback must still connect when every candidate is at cap");
+        let (stream, guard) = connect_target_candidates_via_group(
+            &[addr],
+            None,
+            &state,
+            0,
+            None,
+            true,
+            true,
+            DestinationEgress::Tunneled,
+        )
+        .expect("advisory fallback must still connect when every candidate is at cap");
         assert!(guard.is_none(), "the advisory-fallback connection must NOT hold a slot");
         // The count is unchanged: the fallback did not open a counted session.
         assert_eq!(
@@ -294,6 +315,7 @@ mod exit_ip_cap_wiring_tests {
 
         let result = connect_target_candidates_via_group(
             &[addr_a, addr_b],
+            None,
             &state,
             0,
             None,

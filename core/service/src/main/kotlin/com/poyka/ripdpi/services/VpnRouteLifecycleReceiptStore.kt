@@ -47,6 +47,7 @@ class VpnRouteLifecycleReceiptStore
             ipv6Enabled: Boolean,
             dns: String,
             appRoutingPlan: VpnAppRoutingPlan,
+            ownPackage: String?,
             networkParameters: VpnTunnelNetworkParameters,
             apiLevel: Int,
         ): Long {
@@ -63,7 +64,7 @@ class VpnRouteLifecycleReceiptStore
                             dnsServerFamilies = dnsAddressFamilies(dns),
                             appRoutingShape = appRoutingPlan.shape(),
                             configuredAppCount = boundedNetworkPathCount(appRoutingPlan.configuredAppCount()),
-                            ownPackageExcluded = true,
+                            ownPackageExcluded = appRoutingPlan.excludesOwnPackage(ownPackage),
                             ipv6Intent = ipv6Enabled,
                             mtuBand = networkPathMtuBand(networkParameters.tunnelMtu),
                             metered = networkParameters.metered.takeIf { apiLevel >= Build.VERSION_CODES.Q },
@@ -624,3 +625,13 @@ private fun VpnAppRoutingPlan.configuredAppCount(): Int =
         is VpnAppRoutingPlan.AllowOnly -> packages.size
         is VpnAppRoutingPlan.Disallow -> packages.size
     }
+
+private fun VpnAppRoutingPlan.excludesOwnPackage(ownPackage: String?): Boolean =
+    ownPackage
+        ?.takeIf(String::isNotBlank)
+        ?.let { packageName ->
+            when (this) {
+                is VpnAppRoutingPlan.AllowOnly -> packageName !in packages
+                is VpnAppRoutingPlan.Disallow -> packageName in packages
+            }
+        } ?: false

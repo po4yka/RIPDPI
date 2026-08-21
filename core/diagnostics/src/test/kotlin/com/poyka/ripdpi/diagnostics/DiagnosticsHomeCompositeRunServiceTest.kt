@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.diagnostics.testsupport.ControllableNetworkHandoverMonitor
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -99,11 +100,21 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -194,11 +205,21 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -314,8 +335,229 @@ class DiagnosticsHomeCompositeRunCancellationTest {
     }
 }
 
+private data class SerializedLifecycleFixture(
+    val service: DefaultDiagnosticsHomeCompositeRunService,
+    val tracker: SerializedLifecycleTracker,
+)
+
+private class SerializedLifecycleTracker(
+    private val stores: FakeDiagnosticsHistoryStores,
+    private val timelineSource: MutableDiagnosticsTimelineSource,
+) {
+    val allowMiddleStagesToFinish = CompletableDeferred<Unit>()
+    val firstMiddleStageStarted = CompletableDeferred<Unit>()
+    val startedProfiles = mutableListOf<String>()
+    var maxActiveLifecycleSensitiveScans = 0
+        private set
+    private var activeLifecycleSensitiveScans = 0
+
+    suspend fun recordStart(
+        profileId: String?,
+        sessionId: String,
+    ) {
+        val resolvedProfileId = requireNotNull(profileId)
+        startedProfiles += resolvedProfileId
+        if (resolvedProfileId != "automatic-audit") {
+            activeLifecycleSensitiveScans += 1
+            maxActiveLifecycleSensitiveScans = maxOf(maxActiveLifecycleSensitiveScans, activeLifecycleSensitiveScans)
+            firstMiddleStageStarted.complete(Unit)
+            allowMiddleStagesToFinish.await()
+            activeLifecycleSensitiveScans -= 1
+        }
+        val session =
+            diagnosticsSession(
+                id = sessionId,
+                profileId = resolvedProfileId,
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "$resolvedProfileId complete",
+            )
+        stores.sessionsState.value = stores.sessionsState.value + session
+        timelineSource.sessions.value =
+            timelineSource.sessions.value + serializedDiagnosticScanSession(sessionId, resolvedProfileId)
+    }
+}
+
+private fun serializedDiagnosticScanSession(
+    sessionId: String,
+    profileId: String,
+) = DiagnosticScanSession(
+    id = sessionId,
+    profileId = profileId,
+    pathMode = ScanPathMode.RAW_PATH.name,
+    serviceMode = "VPN",
+    status = "completed",
+    summary = "Completed",
+    startedAt = 10L,
+    finishedAt = 20L,
+)
+
+private fun serializedLifecycleFixture(scope: CoroutineScope): SerializedLifecycleFixture {
+    val stores = FakeDiagnosticsHistoryStores()
+    val timelineSource = MutableDiagnosticsTimelineSource()
+    val tracker = SerializedLifecycleTracker(stores, timelineSource)
+    val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+    val service =
+        DefaultDiagnosticsHomeCompositeRunService(
+            detectionStageRunner = NoopHomeDetectionStageRunner,
+            detectorCatalogSource = NoopHomeDetectorCatalogSource,
+            analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+            networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+            diagnosticsProfileCatalog = stores,
+            diagnosticsHomeWorkflowService = serializedLifecycleWorkflowService(),
+            persistencePorts = serializedLifecyclePersistencePorts(stores),
+            networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+            serviceStateStore = serviceStateStore,
+            vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
+            stageExecutor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController =
+                        RecordingHomeCompositeScanController(timelineSource) { _, profileId, sessionId ->
+                            tracker.recordStart(profileId, sessionId)
+                        },
+                    diagnosticsTimelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                ),
+            json = diagnosticsTestJson(),
+            scope = scope,
+        )
+    return SerializedLifecycleFixture(service, tracker)
+}
+
+private fun serializedLifecycleWorkflowService(): DiagnosticsHomeWorkflowService =
+    object : DiagnosticsHomeWorkflowService {
+        override suspend fun currentFingerprintHash(): String = "fp-serialized"
+
+        override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+            DiagnosticsHomeAuditOutcome(
+                sessionId = sessionId,
+                fingerprintHash = "fp-serialized",
+                actionable = false,
+                headline = "Analysis complete",
+                summary = "No reusable settings found.",
+            )
+
+        override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+            error("unused")
+    }
+
+private fun serializedLifecyclePersistencePorts(stores: FakeDiagnosticsHistoryStores) =
+    HomeCompositePersistencePorts(
+        scanRecordStore = stores,
+        comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+        homeRunPersistence =
+            HomeDiagnosticsRunPersistence(
+                stores,
+                TestDiagnosticsHistoryClock(),
+                diagnosticsTestJson(),
+            ),
+        probeResultCache = NoOpProbeResultCache(),
+    )
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsHomeCompositeRunSettlementTest {
+    @Test
+    fun `superseded raw settlement cancels composite before later stages`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            val scanController =
+                RecordingHomeCompositeScanController(
+                    timelineSource = timelineSource,
+                    rawPathExecutionResult =
+                        completedRawPathExecutionResult(
+                            settlementOutcome =
+                                com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome.SupersededByUserStop,
+                        ),
+                    onStart = { _, profileId, sessionId ->
+                        timelineSource.sessions.value =
+                            timelineSource.sessions.value +
+                            settlementDiagnosticScanSession(
+                                sessionId = sessionId,
+                                profileId = requireNotNull(profileId),
+                                status = "failed",
+                            )
+                    },
+                )
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val service =
+                DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
+                    diagnosticsHomeWorkflowService =
+                        object : DiagnosticsHomeWorkflowService {
+                            override suspend fun currentFingerprintHash(): String = "fp-superseded"
+
+                            override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                                error("superseded run must not finalize")
+
+                            override suspend fun summarizeVerification(
+                                sessionId: String,
+                            ): DiagnosticsHomeVerificationOutcome = error("unused")
+                        },
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
+                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = serviceStateStore,
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
+                    stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+                    json = diagnosticsTestJson(),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startHomeAnalysis()
+            val progress =
+                service.observeHomeRun(started.runId).first {
+                    it.status != DiagnosticsHomeCompositeRunStatus.RUNNING
+                }
+
+            assertEquals(DiagnosticsHomeCompositeRunStatus.CANCELLED, progress.status)
+            assertEquals(listOf(ScanPathMode.RAW_PATH to "automatic-audit"), scanController.startedRequests)
+        }
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsHomeCompositeRunServiceTest {
+    @Test
+    fun `home analysis serializes lifecycle sensitive profile scans in stage order`() =
+        runTest {
+            val fixture = serializedLifecycleFixture(backgroundScope)
+
+            val started = fixture.service.startHomeAnalysis()
+            fixture.tracker.firstMiddleStageStarted.await()
+            runCurrent()
+
+            assertEquals(1, fixture.tracker.maxActiveLifecycleSensitiveScans)
+
+            fixture.tracker.allowMiddleStagesToFinish.complete(Unit)
+            advanceUntilIdle()
+            fixture.service.finalizeHomeRun(started.runId)
+
+            assertEquals(
+                listOf(
+                    "automatic-audit",
+                    "default",
+                    "ru-throttling",
+                    "ru-circumvention",
+                    "ru-dpi-full",
+                    "ru-dpi-strategy",
+                ),
+                fixture.tracker.startedProfiles,
+            )
+        }
+
     @Test
     fun `startHomeAnalysis runs fixed stage order and keeps actionable audit recommendation`() =
         runTest {
@@ -323,6 +565,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val timelineSource = MutableDiagnosticsTimelineSource()
             val scanController =
                 RecordingHomeCompositeScanController(
+                    timelineSource = timelineSource,
                     onStart = { _, profileId, sessionId ->
                         val session =
                             diagnosticsSession(
@@ -363,11 +606,21 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -384,17 +637,16 @@ class DiagnosticsHomeCompositeRunServiceTest {
 
             // Detection stage (detection_signals) runs via HomeDetectionStageRunner,
             // not DiagnosticsScanController — so startedRequests lists only profile-scan stages.
-            // Middle stages execute in parallel so order is not deterministic; sort for stability.
             assertEquals(
                 listOf(
                     ScanPathMode.RAW_PATH to "automatic-audit",
                     ScanPathMode.RAW_PATH to "default",
+                    ScanPathMode.RAW_PATH to "ru-throttling",
                     ScanPathMode.RAW_PATH to "ru-circumvention",
                     ScanPathMode.RAW_PATH to "ru-dpi-full",
                     ScanPathMode.RAW_PATH to "ru-dpi-strategy",
-                    ScanPathMode.RAW_PATH to "ru-throttling",
                 ),
-                scanController.startedRequests.sortedBy { it.second },
+                scanController.startedRequests,
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
@@ -410,6 +662,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val timelineSource = MutableDiagnosticsTimelineSource()
             val scanController =
                 RecordingHomeCompositeScanController(
+                    timelineSource = timelineSource,
                     onStart = { _, profileId, sessionId ->
                         val failed = profileId == "default"
                         val session =
@@ -457,11 +710,21 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -535,6 +798,9 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         stores.sessionsState.value = stores.sessionsState.value + session
                         timelineSource.sessions.value =
                             timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, status, summary)
+                        if (pathMode == ScanPathMode.RAW_PATH && status != "running") {
+                            timelineSource.publishRawSettlement(sessionId)
+                        }
                         if (profileId == "ru-dpi-strategy") {
                             activeStrategySessionId = sessionId
                             liveSessionIds += sessionId
@@ -572,6 +838,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                                 "completed",
                                 ScanCompletedWithPartialResultsSummary,
                             )
+                        timelineSource.publishRawSettlement(sessionId)
                         activeStrategySessionId = null
                     }
 
@@ -602,11 +869,21 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -632,91 +909,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
         }
 
     @Test
-    fun `audit failure skips remaining stages`() =
-        runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            val timelineSource = MutableDiagnosticsTimelineSource()
-            val scanController =
-                RecordingHomeCompositeScanController(
-                    onStart = { _, profileId, sessionId ->
-                        val failed = profileId == "automatic-audit"
-                        val session =
-                            diagnosticsSession(
-                                id = sessionId,
-                                profileId = requireNotNull(profileId),
-                                pathMode = ScanPathMode.RAW_PATH.name,
-                                summary = if (failed) "$profileId failed" else "$profileId complete",
-                                status = if (failed) "failed" else "completed",
-                                reportJson = null,
-                            )
-                        stores.sessionsState.value = stores.sessionsState.value + session
-                        timelineSource.sessions.value =
-                            timelineSource.sessions.value +
-                            diagnosticScanSession(
-                                sessionId = sessionId,
-                                profileId = profileId,
-                                status = if (failed) "failed" else "completed",
-                                summary = session.summary,
-                            )
-                    },
-                )
-            val workflowService =
-                object : DiagnosticsHomeWorkflowService {
-                    override suspend fun currentFingerprintHash(): String = "fp-3"
-
-                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
-                        error("should not be called when audit failed")
-
-                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
-                        error("unused")
-                }
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
-                    json = diagnosticsTestJson(),
-                    scope = backgroundScope,
-                )
-
-            val started = service.startHomeAnalysis()
-            advanceUntilIdle()
-            val outcome = service.finalizeHomeRun(started.runId)
-
-            // Only audit stage ran; remaining 7 stages (6 profile + 1 detection) were skipped
-            assertEquals(1, scanController.startedRequests.size)
-            assertEquals(0, outcome.completedStageCount)
-            assertEquals(7, outcome.skippedStageCount)
-            assertEquals(
-                DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                outcome.stageSummaries.first { it.profileId == "default" }.status,
-            )
-            assertEquals(
-                DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                outcome.stageSummaries.first { it.profileId == "ru-dpi-full" }.status,
-            )
-            assertEquals(
-                DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                outcome.stageSummaries.first { it.profileId == "ru-dpi-strategy" }.status,
-            )
-        }
-
-    @Test
     fun `network change during run appends warning to summary`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -725,24 +917,10 @@ class DiagnosticsHomeCompositeRunServiceTest {
 
             val scanController =
                 RecordingHomeCompositeScanController(
+                    timelineSource = timelineSource,
                     onStart = { _, profileId, sessionId ->
-                        // Emit a network handover event when the second stage (default) starts
                         if (profileId == "default") {
-                            monitor.emit(
-                                NetworkHandoverEvent(
-                                    previousFingerprint = null,
-                                    currentFingerprint =
-                                        NetworkFingerprint(
-                                            transport = "cellular",
-                                            networkValidated = true,
-                                            captivePortalDetected = false,
-                                            privateDnsMode = "system",
-                                            dnsServers = listOf("8.8.8.8"),
-                                        ),
-                                    classification = "wifi_to_cellular",
-                                    occurredAt = 1000L,
-                                ),
-                            )
+                            monitor.emit(cellularNetworkHandoverEvent())
                         }
                         val session =
                             diagnosticsSession(
@@ -781,11 +959,21 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = monitor,
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -855,6 +1043,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         timelineSource.sessions.value =
                             timelineSource.sessions.value +
                             diagnosticScanSession(sessionId, selectedProfileId, "completed")
+                        timelineSource.publishRawSettlement(sessionId)
                         return DiagnosticsManualScanStartResult.Started(sessionId)
                     }
 
@@ -892,11 +1081,21 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
                     diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    persistencePorts =
+                        HomeCompositePersistencePorts(
+                            scanRecordStore = stores,
+                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            homeRunPersistence =
+                                HomeDiagnosticsRunPersistence(
+                                    stores,
+                                    TestDiagnosticsHistoryClock(),
+                                    diagnosticsTestJson(),
+                                ),
+                            probeResultCache = NoOpProbeResultCache(),
+                        ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
+                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
                         HomeCompositeStageExecutor(
                             diagnosticsScanController = scanController,
@@ -930,6 +1129,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
 
             val scanController =
                 RecordingHomeCompositeScanController(
+                    timelineSource = timelineSource,
                     onStart = { _, profileId, sessionId ->
                         val reportJson =
                             when (profileId) {
@@ -968,24 +1168,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                createHomeCompositeRunService(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    scanController = scanController,
+                    workflowService = workflowService,
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -1058,105 +1246,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
             report.toEngineScanReportWire(),
         )
 
-    @Test
-    fun `dns issues detected appends note to summary`() =
-        runTest {
-            val json = diagnosticsTestJson()
-            val stores = FakeDiagnosticsHistoryStores()
-            val timelineSource = MutableDiagnosticsTimelineSource()
-
-            val auditReport =
-                ScanReport(
-                    sessionId = "scan-1",
-                    profileId = "automatic-audit",
-                    pathMode = ScanPathMode.RAW_PATH,
-                    startedAt = 10L,
-                    finishedAt = 20L,
-                    summary = "Audit complete",
-                    resolverRecommendation =
-                        ResolverRecommendation(
-                            triggerOutcome = "tampering_detected",
-                            selectedResolverId = "cloudflare",
-                            selectedProtocol = "doh",
-                            selectedEndpoint = "https://cloudflare-dns.com/dns-query",
-                            rationale = "DNS tampering detected",
-                        ),
-                )
-
-            val auditReportJson =
-                kotlinx.serialization.json.Json.encodeToString(
-                    com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
-                        .serializer(),
-                    auditReport.toEngineScanReportWire(),
-                )
-
-            val scanController =
-                RecordingHomeCompositeScanController(
-                    onStart = { _, profileId, sessionId ->
-                        val reportJson = if (profileId == "automatic-audit") auditReportJson else null
-                        val session =
-                            diagnosticsSession(
-                                id = sessionId,
-                                profileId = requireNotNull(profileId),
-                                pathMode = ScanPathMode.RAW_PATH.name,
-                                summary = "$profileId complete",
-                                reportJson = reportJson,
-                            )
-                        stores.sessionsState.value = stores.sessionsState.value + session
-                        timelineSource.sessions.value =
-                            timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, "completed")
-                    },
-                )
-            val workflowService =
-                object : DiagnosticsHomeWorkflowService {
-                    override suspend fun currentFingerprintHash(): String = "fp-dns"
-
-                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
-                        DiagnosticsHomeAuditOutcome(
-                            sessionId = sessionId,
-                            fingerprintHash = "fp-dns",
-                            actionable = false,
-                            headline = "Analysis complete",
-                            summary = "No reusable settings found.",
-                        )
-
-                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
-                        error("unused")
-                }
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
-                    json = json,
-                    scope = backgroundScope,
-                )
-
-            val started = service.startHomeAnalysis()
-            advanceUntilIdle()
-            val outcome = service.finalizeHomeRun(started.runId)
-
-            assertTrue(
-                "Expected summary to mention DNS issues, got: ${outcome.summary}",
-                outcome.summary.contains("DNS issues were detected"),
-            )
-        }
-
     private fun diagnosticScanSession(
         sessionId: String,
         profileId: String,
@@ -1173,13 +1262,78 @@ class DiagnosticsHomeCompositeRunServiceTest {
             startedAt = 10L,
             finishedAt = if (status == "completed" || status == "failed") 20L else null,
         )
+
+    private fun createHomeCompositeRunService(
+        stores: FakeDiagnosticsHistoryStores,
+        timelineSource: MutableDiagnosticsTimelineSource,
+        scanController: DiagnosticsScanController,
+        workflowService: DiagnosticsHomeWorkflowService,
+        serviceStateStore: FakeServiceStateStore,
+        json: kotlinx.serialization.json.Json = diagnosticsTestJson(),
+        scope: CoroutineScope,
+    ): DefaultDiagnosticsHomeCompositeRunService =
+        DefaultDiagnosticsHomeCompositeRunService(
+            detectionStageRunner = NoopHomeDetectionStageRunner,
+            detectorCatalogSource = NoopHomeDetectorCatalogSource,
+            analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+            networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+            diagnosticsProfileCatalog = stores,
+            diagnosticsHomeWorkflowService = workflowService,
+            persistencePorts =
+                HomeCompositePersistencePorts(
+                    scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                    homeRunPersistence = HomeDiagnosticsRunPersistence(stores, TestDiagnosticsHistoryClock(), json),
+                    probeResultCache = NoOpProbeResultCache(),
+                ),
+            networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+            serviceStateStore = serviceStateStore,
+            vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
+            stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+            json = json,
+            scope = scope,
+        )
 }
+
+private fun cellularNetworkHandoverEvent() =
+    NetworkHandoverEvent(
+        previousFingerprint = null,
+        currentFingerprint =
+            NetworkFingerprint(
+                transport = "cellular",
+                networkValidated = true,
+                captivePortalDetected = false,
+                privateDnsMode = "system",
+                dnsServers = listOf("8.8.8.8"),
+            ),
+        classification = "wifi_to_cellular",
+        occurredAt = 1000L,
+    )
+
+private fun settlementDiagnosticScanSession(
+    sessionId: String,
+    profileId: String,
+    status: String,
+): DiagnosticScanSession =
+    DiagnosticScanSession(
+        id = sessionId,
+        profileId = profileId,
+        pathMode = ScanPathMode.RAW_PATH.name,
+        serviceMode = "VPN",
+        status = status,
+        summary = "Completed",
+        startedAt = 10L,
+        finishedAt = if (status == "completed" || status == "failed") 20L else null,
+    )
 
 private class NoOpNetworkHandoverMonitor : NetworkHandoverMonitor {
     override val events = MutableSharedFlow<NetworkHandoverEvent>()
 }
 
 private class RecordingHomeCompositeScanController(
+    private val timelineSource: MutableDiagnosticsTimelineSource,
+    private val rawPathExecutionResult: com.poyka.ripdpi.data.RawPathExecutionResult =
+        completedRawPathExecutionResult(),
     private val onStart: suspend (ScanPathMode, String?, String) -> Unit,
 ) : DiagnosticsScanController {
     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
@@ -1199,6 +1353,9 @@ private class RecordingHomeCompositeScanController(
         val sessionId = "scan-$nextId"
         startedRequests += pathMode to selectedProfileId
         onStart(pathMode, selectedProfileId, sessionId)
+        if (pathMode == ScanPathMode.RAW_PATH) {
+            timelineSource.publishRawSettlement(sessionId, rawPathExecutionResult)
+        }
         return DiagnosticsManualScanStartResult.Started(sessionId)
     }
 
@@ -1239,6 +1396,21 @@ private class MutableDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val exports = MutableStateFlow(emptyList<DiagnosticExportRecord>())
 }
 
+private fun MutableDiagnosticsTimelineSource.publishRawSettlement(
+    sessionId: String,
+    result: com.poyka.ripdpi.data.RawPathExecutionResult = completedRawPathExecutionResult(),
+) {
+    contexts.value =
+        contexts.value +
+        DiagnosticContextSnapshot(
+            id = "raw-path-settlement:$sessionId",
+            sessionId = sessionId,
+            contextKind = "post_runtime_restore",
+            rawPathExecutionResult = result,
+            capturedAt = 30L,
+        )
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeCompositeStageExecutorVpnHaltTest {
     @Test
@@ -1273,6 +1445,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
             assertFalse(result.isCompleted)
 
             timelineSource.sessions.value = listOf(stageSession(spec, status = "completed"))
+            timelineSource.publishRawSettlement(SessionId)
             assertEquals(SessionId, result.await()?.first)
         }
 
@@ -1352,7 +1525,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
     ) = DiagnosticScanSession(
         id = SessionId,
         profileId = spec.profileId,
-        pathMode = spec.pathMode.name,
+        pathMode = requireNotNull(spec.pathMode).name,
         serviceMode = "VPN",
         status = status,
         summary = status,
@@ -1360,7 +1533,8 @@ class HomeCompositeStageExecutorVpnHaltTest {
         finishedAt = if (status == "running") null else 20L,
     )
 
-    private fun unusedScanController() = RecordingHomeCompositeScanController { _, _, _ -> error("unused") }
+    private fun unusedScanController() =
+        RecordingHomeCompositeScanController(MutableDiagnosticsTimelineSource()) { _, _, _ -> error("unused") }
 
     private companion object {
         const val RunId = "run"

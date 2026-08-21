@@ -82,6 +82,7 @@ internal class MainHomeDiagnosticsActions(
     private val requestVpnStart: () -> Unit,
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
+    private val homePcapCaptureLeaseCoordinator = pcapCaptureRuntimeController?.let(::HomePcapCaptureLeaseCoordinator)
     private var activeRunObservation: Job? = null
     private var analysisStartJob: Job? = null
 
@@ -236,7 +237,8 @@ internal class MainHomeDiagnosticsActions(
     fun runFullAnalysis() {
         startAnalysis(quickScan = false) {
             diagnosticsHomeCompositeRunService.startHomeAnalysis(
-                DiagnosticsHomeRunOptions(),
+                homePcapCaptureLeaseCoordinator?.runOptions(homeDiagnosticsState.value.pcapRecordingRequested)
+                    ?: DiagnosticsHomeRunOptions(),
             )
         }
     }
@@ -340,19 +342,16 @@ internal class MainHomeDiagnosticsActions(
     fun runQuickAnalysis() {
         startAnalysis(quickScan = true) {
             diagnosticsHomeCompositeRunService.startQuickAnalysis(
-                DiagnosticsHomeRunOptions(),
+                homePcapCaptureLeaseCoordinator?.runOptions(homeDiagnosticsState.value.pcapRecordingRequested)
+                    ?: DiagnosticsHomeRunOptions(),
             )
         }
     }
 
     fun togglePcapRecording() {
-        val controller = pcapCaptureRuntimeController ?: return
-        mutations.launch {
-            if (controller.state.value is PcapCaptureRuntimeState.Recording) {
-                controller.stop()
-            } else {
-                controller.start()
-            }
+        if (homePcapCaptureLeaseCoordinator == null || homeDiagnosticsState.value.analysisInProgress()) return
+        homeDiagnosticsState.update { current ->
+            current.copy(pcapRecordingRequested = !current.pcapRecordingRequested)
         }
     }
 

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     CandidateRuntimeCleanupReceipt, ConfirmGoodDpiVerdict, Diagnosis, ExecutionPlanSnapshot, ProbeDetail,
-    ScanCompletionKind, ScanPathMode, ScanTerminationReason, StrategyProbeReport,
+    ScanCompletionKind, ScanPathMode, ScanReportDisposition, ScanTerminationReason, StrategyProbeReport,
 };
 
 use super::{EngineObservationWire, ResolverRecommendationWire};
@@ -31,6 +31,8 @@ pub struct EngineScanReportWire {
     pub started_at: u64,
     pub finished_at: u64,
     pub summary: String,
+    #[serde(default)]
+    pub report_disposition: ScanReportDisposition,
     #[serde(default, skip_serializing_if = "ScanCompletionKind::is_normal")]
     pub completion_kind: ScanCompletionKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]

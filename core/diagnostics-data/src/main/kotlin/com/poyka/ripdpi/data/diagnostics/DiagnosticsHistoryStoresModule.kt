@@ -19,6 +19,10 @@ abstract class DiagnosticsHistoryStoresModule {
 
     @Binds
     @Singleton
+    abstract fun bindHomeDiagnosticsRunStore(store: RoomHomeDiagnosticsRunStore): HomeDiagnosticsRunStore
+
+    @Binds
+    @Singleton
     abstract fun bindDiagnosticsArtifactReadStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactReadStore
 
     @Binds
@@ -27,7 +31,17 @@ abstract class DiagnosticsHistoryStoresModule {
 
     @Binds
     @Singleton
+    abstract fun bindDiagnosticsArchiveNativeEventQueryStore(
+        store: RoomDiagnosticsArtifactStore,
+    ): DiagnosticsArchiveNativeEventQueryStore
+
+    @Binds
+    @Singleton
     abstract fun bindDiagnosticsArtifactWriteStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactWriteStore
+
+    @Binds
+    @Singleton
+    abstract fun bindRawPathSettlementStore(store: RoomDiagnosticsArtifactStore): RawPathSettlementStore
 
     @Binds
     @Singleton

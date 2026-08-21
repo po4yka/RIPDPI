@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.RawPathExecutionResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -21,14 +22,18 @@ class DiagnosticsScanControllerRawPathStartTest {
             var rawPathRunnerEntered = false
             val runtimeCoordinator =
                 object : DiagnosticsRuntimeCoordinator {
-                    override suspend fun runRawPathScan(block: suspend () -> Unit) {
+                    override suspend fun runRawPathScan(block: suspend () -> Unit): RawPathExecutionResult {
                         rawPathRunnerEntered = true
                         assertNull(bridgeFactory.bridge.startedRequestJson)
                         block()
                         assertTrue(bridgeFactory.bridge.startedRequestJson != null)
+                        return completedRawPathExecutionResult()
                     }
 
-                    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) = block()
+                    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit): RawPathExecutionResult {
+                        block()
+                        return completedRawPathExecutionResult()
+                    }
                 }
             val services =
                 createDiagnosticsServices(

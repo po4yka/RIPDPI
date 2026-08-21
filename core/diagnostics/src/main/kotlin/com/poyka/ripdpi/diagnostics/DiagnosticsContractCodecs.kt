@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsExecutionPolicyProje
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition as EngineScanReportDisposition
 
 internal fun Json.decodeProfileSpecWire(payload: String): ProfileSpecWire =
     decodeFromString(ProfileSpecWire.serializer(), payload).backfillLegacyProbePersistencePolicy()
@@ -31,6 +32,9 @@ internal fun Json.decodeStoredEngineScanReportWire(payload: String): EngineScanR
             "Unsupported stored diagnostics report schema version: ${report.schemaVersion}"
         }
     }
+
+internal fun Json.decodeEngineScanReportDisposition(payload: String): EngineScanReportDisposition =
+    decodeEngineScanReportWire(payload).reportDisposition
 
 internal fun Json.decodeEngineProgressWire(payload: String): EngineProgressWire =
     decodeFromString(EngineProgressWire.serializer(), payload).also(::validateDiagnosticsSchemaVersion)

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.application
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHomeDetectionLaunchOriginStorageValue
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanOrigin
 import kotlinx.serialization.Serializable
 import java.util.Locale
@@ -12,6 +13,7 @@ enum class DiagnosticsScanLaunchOrigin(
     USER_INITIATED("user_initiated"),
     AUTOMATIC_BACKGROUND("automatic_background"),
     DNS_CORRECTED_REPROBE("dns_corrected_reprobe"),
+    HOME_DETECTION_LOCAL(DiagnosticsHomeDetectionLaunchOriginStorageValue),
     UNKNOWN("unknown"),
     ;
 

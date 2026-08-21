@@ -5,31 +5,41 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use super::dc::TelegramDcResult;
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
 use super::transfer::TelegramTransferResult;
-use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with};
+use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with, telegram_ws_tunnel_probe_with_abort};
 
 #[test]
 fn verdict_blocked_when_both_transfers_blocked_and_no_dc() {
-    assert_eq!(classify_telegram_verdict("blocked", "blocked", 0, 3), "blocked");
+    assert_eq!(classify_telegram_verdict("blocked", "blocked", 0, 3, "ok"), "blocked");
 }
 
 #[test]
 fn verdict_slow_when_download_stalled() {
-    assert_eq!(classify_telegram_verdict("stalled", "ok", 3, 3), "slow");
+    assert_eq!(classify_telegram_verdict("stalled", "ok", 3, 3, "ok"), "slow");
 }
 
 #[test]
 fn verdict_partial_when_some_dc_unreachable() {
-    assert_eq!(classify_telegram_verdict("ok", "ok", 2, 3), "partial");
+    assert_eq!(classify_telegram_verdict("ok", "ok", 2, 3, "ok"), "partial");
 }
 
 #[test]
 fn verdict_ok_when_all_good() {
-    assert_eq!(classify_telegram_verdict("ok", "ok", 3, 3), "ok");
+    assert_eq!(classify_telegram_verdict("ok", "ok", 3, 3, "ok"), "ok");
 }
 
 #[test]
 fn verdict_error_when_unrecognized_state() {
-    assert_eq!(classify_telegram_verdict("blocked", "ok", 3, 3), "error");
+    assert_eq!(classify_telegram_verdict("blocked", "ok", 3, 3, "ok"), "error");
+}
+
+#[test]
+fn verdict_cancelled_when_any_subprobe_is_cancelled() {
+    assert_eq!(classify_telegram_verdict("cancelled", "ok", 3, 3, "ok"), "cancelled");
+}
+
+#[test]
+fn verdict_deadline_exceeded_when_any_subprobe_exceeds_deadline() {
+    assert_eq!(classify_telegram_verdict("deadline_exceeded", "ok", 3, 3, "ok"), "deadline_exceeded");
 }
 
 #[test]
@@ -168,4 +178,22 @@ fn telegram_ws_tunnel_probe_falls_back_to_unresolved_probe_when_lookup_fails() {
     assert_eq!(captured_addr.get(), None);
     assert_eq!(result.status, "ok");
     assert!(result.error.is_none());
+}
+
+#[test]
+fn telegram_ws_probe_stops_after_resolution_when_cancelled() {
+    let probe_called = Cell::new(false);
+
+    let result = telegram_ws_tunnel_probe_with_abort(
+        || Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443)),
+        |_target| {
+            probe_called.set(true);
+            Ok(())
+        },
+        &|| Some("cancelled"),
+    );
+
+    assert_eq!(result.status, "cancelled");
+    assert_eq!(result.error.as_deref(), Some("probe_aborted:cancelled"));
+    assert!(!probe_called.get());
 }

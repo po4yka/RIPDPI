@@ -1,0 +1,77 @@
+{
+    "actionable": true,
+    "appliedSettings": [
+        {
+            "label": "TCP/TLS lane",
+            "value": "Split"
+        }
+    ],
+    "bundleSessionIds": [
+        "audit-session",
+        "default-session",
+        "dpi-session"
+    ],
+    "completedStageCount": 2,
+    "confidenceSummary": "Confidence high",
+    "connectivityAssessment": {
+        "affectedTargets": [
+            "redacted(2)"
+        ],
+        "assessmentCode": "raw_network_selective_blocking",
+        "assessmentSummary": "Observed pattern: raw-path controls passed while affected targets failed. This is consistent with target-specific direct-path interference; cause is not established.",
+        "confidence": "high",
+        "controlOutcome": "raw_controls_passed",
+        "inPathEvidence": {
+            "affectedTargetFailureCount": 0,
+            "affectedTargetSuccessCount": 0,
+            "affectedTargets": [],
+            "controlFailureCount": 0,
+            "controlSuccessCount": 0,
+            "controls": [],
+            "sessionIds": []
+        },
+        "rawPathEvidence": {
+            "affectedTargetFailureCount": 2,
+            "affectedTargetSuccessCount": 0,
+            "affectedTargets": [
+                "redacted(2)"
+            ],
+            "controlFailureCount": 0,
+            "controlSuccessCount": 2,
+            "controls": [
+                "redacted(2)"
+            ],
+            "sessionIds": [
+                "default-session",
+                "dpi-session"
+            ]
+        },
+        "recommendedNextAction": "Run a paired raw-path and in-path reproduction and inspect control and affected-target evidence before attributing a cause.",
+        "resolverAssessment": {
+            "diagnosisCodes": [],
+            "mismatchTargets": [],
+            "strongestSignal": "none",
+            "summary": "No resolver interference signal recorded."
+        },
+        "serviceRuntimeAssessment": {
+            "actionable": false,
+            "lastNativeErrorHeadline": "none",
+            "nativeFailureClass": "none",
+            "serviceStatus": "unavailable",
+            "summary": "No actionable native runtime failure recorded."
+        }
+    },
+    "coverageSummary": "Coverage 92%",
+    "failedStageCount": 1,
+    "fingerprintHash": "redacted",
+    "headline": "Analysis complete and settings applied",
+    "packetCaptureDisposition": {
+        "outcome": "not_requested",
+        "requested": false
+    },
+    "recommendationSummary": "TCP split + QUIC fake",
+    "recommendedSessionId": "audit-session",
+    "runId": "home-run-1",
+    "skippedStageCount": 0,
+    "summary": "Composite diagnostics finished."
+}

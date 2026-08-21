@@ -29,6 +29,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.OutputStream
@@ -248,7 +249,33 @@ data class DiagnosticsHomeCompositeStageSummary(
     val stageKey: String,
     val stageLabel: String,
     val profileId: String,
-    val pathMode: ScanPathMode,
+    val pathMode: ScanPathMode?,
+    val evidenceType: HomeCompositeStageEvidenceType =
+        when (stageKey) {
+            "detection_signals" -> HomeCompositeStageEvidenceType.DETECTION_SIGNALS
+            "vpn_route_evidence" -> HomeCompositeStageEvidenceType.PASSIVE_VPN_ROUTE
+            else -> HomeCompositeStageEvidenceType.ACTIVE_SCAN
+        },
+    val vantage: HomeCompositeStageVantage =
+        when {
+            evidenceType == HomeCompositeStageEvidenceType.PASSIVE_VPN_ROUTE -> {
+                HomeCompositeStageVantage.VPN_ROUTE_OBSERVATION
+            }
+
+            pathMode == ScanPathMode.IN_PATH -> {
+                HomeCompositeStageVantage.PROXY_VANTAGE
+            }
+
+            else -> {
+                HomeCompositeStageVantage.RAW_PATH
+            }
+        },
+    val targetReachability: HomeCompositeTargetReachability =
+        if (evidenceType == HomeCompositeStageEvidenceType.PASSIVE_VPN_ROUTE) {
+            HomeCompositeTargetReachability.UNVERIFIED
+        } else {
+            HomeCompositeTargetReachability.VERIFIED_BY_STAGE
+        },
     val sessionId: String? = null,
     val status: DiagnosticsHomeCompositeStageStatus,
     val headline: String,
@@ -257,6 +284,8 @@ data class DiagnosticsHomeCompositeStageSummary(
     val recommendationContributor: Boolean = false,
     /** Wall-clock duration of the underlying scan session in milliseconds, or null if not yet completed. */
     val wallClockMs: Long? = null,
+    /** Sessionless, generation-bound VPN route receipt captured by this Home run. */
+    val passiveVpnRouteEvidence: NetworkPathValidationEvidence? = null,
 )
 
 enum class DiagnosticsHomeDetectionVerdict {
@@ -360,6 +389,7 @@ data class DiagnosticsHomeCompositeOutcome(
     val detectionSignalCount: Int? = null,
     val detectionLocalFindings: List<String> = emptyList(),
     val detectionNetworkFindings: List<String> = emptyList(),
+    val detectionDecisionSignals: List<HomeDetectionDecisionSignal> = emptyList(),
     val installedVpnDetectorCount: Int? = null,
     val installedVpnDetectorTopApps: List<String> = emptyList(),
     val actionableHeadline: String? = null,
@@ -372,7 +402,85 @@ data class DiagnosticsHomeCompositeOutcome(
     val dnsCharacterization: HomeDnsCharacterization? = null,
     val connectivityAssessment: ConnectivityAssessment? = null,
     val internetLossReproAction: HomeReproAction? = null,
+    val packetCaptureDisposition: DiagnosticsHomePacketCaptureDisposition =
+        DiagnosticsHomePacketCaptureDisposition.notRequested(),
 )
+
+@Serializable
+data class DiagnosticsHomePacketCaptureDisposition(
+    val requested: Boolean,
+    val outcome: DiagnosticsHomePacketCaptureOutcome,
+    val captureSetId: Long? = null,
+    val totalDrops: Long? = null,
+    val failureCode: String? = null,
+) {
+    init {
+        require(captureSetId == null || captureSetId > 0L)
+        require(totalDrops == null || totalDrops >= 0L)
+        require(failureCode == null || failureCode.matches(SafePacketCaptureFailureCode))
+        when (outcome) {
+            DiagnosticsHomePacketCaptureOutcome.NOT_REQUESTED -> {
+                require(!requested && captureSetId == null && totalDrops == null && failureCode == null)
+            }
+
+            DiagnosticsHomePacketCaptureOutcome.UNAVAILABLE -> {
+                require(requested && captureSetId == null && totalDrops == null && failureCode != null)
+            }
+
+            DiagnosticsHomePacketCaptureOutcome.RECORDING -> {
+                // A live lease carries captureSetId. Durable and archive-safe projections omit it.
+                require(requested && totalDrops == null)
+            }
+
+            DiagnosticsHomePacketCaptureOutcome.CLEANUP_PENDING -> {
+                // The report records that capture retirement was not confirmed at export time.
+                // captureSetId stays process-local so recovery retains exact ownership.
+                require(requested && totalDrops == null && failureCode != null)
+            }
+
+            DiagnosticsHomePacketCaptureOutcome.CAPTURED_SEPARATE -> {
+                // A live receipt carries captureSetId. The persisted, privacy-safe projection
+                // deliberately omits that local identifier and restores the terminal facts only.
+                require(requested && totalDrops != null && failureCode == null)
+            }
+
+            DiagnosticsHomePacketCaptureOutcome.FAILED -> {
+                require(requested && failureCode != null)
+            }
+        }
+    }
+
+    companion object {
+        private val SafePacketCaptureFailureCode = Regex("[a-z0-9_]{1,64}")
+
+        fun notRequested(): DiagnosticsHomePacketCaptureDisposition =
+            DiagnosticsHomePacketCaptureDisposition(
+                requested = false,
+                outcome = DiagnosticsHomePacketCaptureOutcome.NOT_REQUESTED,
+            )
+    }
+}
+
+@Serializable
+enum class DiagnosticsHomePacketCaptureOutcome {
+    @SerialName("not_requested")
+    NOT_REQUESTED,
+
+    @SerialName("unavailable")
+    UNAVAILABLE,
+
+    @SerialName("recording")
+    RECORDING,
+
+    @SerialName("cleanup_pending")
+    CLEANUP_PENDING,
+
+    @SerialName("captured_separate")
+    CAPTURED_SEPARATE,
+
+    @SerialName("failed")
+    FAILED,
+}
 
 data class DiagnosticsHomeCompositeProgress(
     val runId: String,
@@ -406,7 +514,15 @@ interface DiagnosticsHomeCompositeRunService {
     suspend fun evictCachedOutcome(fingerprintHash: String)
 }
 
-class DiagnosticsHomeRunOptions
+data class DiagnosticsHomeRunOptions(
+    val packetCaptureRequested: Boolean = false,
+    /** Runs after a stable Home run id is allocated and before any diagnostic stage starts. */
+    val admitPacketCapture: suspend (String) -> DiagnosticsHomePacketCaptureDisposition = {
+        DiagnosticsHomePacketCaptureDisposition.notRequested()
+    },
+    /** Settles only this run's capture before the Home outcome becomes terminally observable. */
+    val settlePacketCapture: suspend (String) -> DiagnosticsHomePacketCaptureDisposition? = { null },
+)
 
 @Module
 @InstallIn(SingletonComponent::class)

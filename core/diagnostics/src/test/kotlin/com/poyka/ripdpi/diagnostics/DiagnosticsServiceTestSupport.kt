@@ -18,6 +18,13 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.RawPathExecutionCancelledException
+import com.poyka.ripdpi.data.RawPathExecutionOutcome
+import com.poyka.ripdpi.data.RawPathExecutionResult
+import com.poyka.ripdpi.data.RawPathExecutionSettlement
+import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
+import com.poyka.ripdpi.data.RawPathRuntimeContext
+import com.poyka.ripdpi.data.RawPathRuntimeStatus
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServerCapabilityObservation
@@ -33,6 +40,7 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArchiveNativeEventQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
@@ -41,10 +49,15 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsExportRecordStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsFailureArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHomeDetectionLaunchOriginStorageValue
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsNativeEventArchiveClass
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsNativeEventArchiveSource
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTerminalOutboxStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.data.diagnostics.HomeDiagnosticsRunEntity
+import com.poyka.ripdpi.data.diagnostics.HomeDiagnosticsRunStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
@@ -53,6 +66,8 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RawPathSettlementDurableStatePrefix
+import com.poyka.ripdpi.data.diagnostics.RawPathSettlementStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -60,11 +75,14 @@ import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.TerminalOutboxDurableStatePrefix
 import com.poyka.ripdpi.data.diagnostics.TerminalPolicyDependencyDurableStatePrefix
+import com.poyka.ripdpi.data.diagnostics.archiveEventClass
+import com.poyka.ripdpi.data.diagnostics.archiveEventClassCounts
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -137,9 +155,11 @@ internal class FakeDiagnosticsHistoryStores :
     DiagnosticsScanRecordStore,
     DiagnosticsArtifactReadStore,
     DiagnosticsArtifactQueryStore,
+    DiagnosticsArchiveNativeEventQueryStore,
     DiagnosticsArtifactWriteStore,
     DiagnosticsFailureArtifactWriteStore,
     DiagnosticsExportRecordStore,
+    HomeDiagnosticsRunStore,
     BypassUsageHistoryStore,
     DiagnosticsTerminalOutboxStore,
     RememberedNetworkPolicyRecordStore,
@@ -155,11 +175,14 @@ internal class FakeDiagnosticsHistoryStores :
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
     val terminalOutboxState = MutableStateFlow<List<DiagnosticsDurableStateEntity>>(emptyList())
+    val homeRunsState = MutableStateFlow<List<HomeDiagnosticsRunEntity>>(emptyList())
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     val usageSessionsCollectorCount = AtomicInteger(0)
     val failureArtifactBatchCount = AtomicInteger(0)
+    val rawPathSettlementCommitCount = AtomicInteger(0)
+    val rawPathSettlementStore = FakeRawPathSettlementStore(this)
     val observedTelemetryConnectionSessionIds = CopyOnWriteArrayList<String>()
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var beforeInsertExportRecord: suspend (ExportRecordEntity) -> Unit = {}
@@ -175,16 +198,23 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
+    var beforePersistCompletedScan: suspend (ScanSessionEntity) -> Unit = {}
     var beforeUpsertSnapshot: suspend (NetworkSnapshotEntity) -> Unit = {}
     var afterUpsertSnapshot: suspend (NetworkSnapshotEntity) -> Unit = {}
     var afterUpsertContextSnapshot: suspend (DiagnosticContextEntity) -> Unit = {}
+    var beforeRawPathSettlementTerminalWrite: suspend (ScanSessionEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
 
     override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = profilesState
 
-    override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> = sessionsState
+    override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> =
+        sessionsState.map { sessions ->
+            sessions
+                .filter { session -> session.launchOrigin != DiagnosticsHomeDetectionLaunchOriginStorageValue }
+                .take(limit)
+        }
 
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
         snapshotsState.map { snapshots -> snapshots.take(limit) }
@@ -267,11 +297,47 @@ internal class FakeDiagnosticsHistoryStores :
         limit: Int,
     ): List<NativeSessionEventEntity> = nativeEventsState.value.filter { it.sessionId == sessionId }.take(limit)
 
+    override suspend fun getNativeEventArchiveSourceForSession(
+        sessionId: String,
+        newestLimit: Int,
+        criticalClassLimit: Int,
+    ): DiagnosticsNativeEventArchiveSource =
+        nativeEventsState.value
+            .filter { event -> event.sessionId == sessionId }
+            .toBoundedNativeEventArchiveSource(newestLimit, criticalClassLimit)
+
+    override suspend fun getRelayAttemptTraceEvents(
+        connectionSessionId: String,
+        runtimeId: String,
+        attemptId: Long,
+        limit: Int,
+    ): List<NativeSessionEventEntity> =
+        nativeEventsState.value
+            .asSequence()
+            .filter { event ->
+                event.connectionSessionId == connectionSessionId &&
+                    event.runtimeId == runtimeId &&
+                    event.attemptId == attemptId &&
+                    event.attemptSequence != null &&
+                    event.subsystem == "relay"
+            }.sortedWith(
+                compareBy<NativeSessionEventEntity>({ it.attemptSequence }, { it.createdAt }, { it.id }),
+            ).take(limit)
+            .toList()
+
     override suspend fun getNativeEventById(id: String): NativeSessionEventEntity? =
         nativeEventsState.value.firstOrNull { it.id == id }
 
     override suspend fun getGlobalNativeEvents(limit: Int): List<NativeSessionEventEntity> =
         nativeEventsState.value.filter { it.sessionId == null }.take(limit)
+
+    override suspend fun getGlobalNativeEventArchiveSource(
+        newestLimit: Int,
+        criticalClassLimit: Int,
+    ): DiagnosticsNativeEventArchiveSource =
+        nativeEventsState.value
+            .filter { event -> event.sessionId == null }
+            .toBoundedNativeEventArchiveSource(newestLimit, criticalClassLimit)
 
     override fun observeConnectionNativeEvents(
         connectionSessionId: String,
@@ -339,6 +405,27 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
         sessionsState.value.find { it.id == sessionId }
 
+    override suspend fun getHomeRun(runId: String): HomeDiagnosticsRunEntity? =
+        homeRunsState.value.find { it.runId == runId }
+
+    override suspend fun upsertHomeRun(run: HomeDiagnosticsRunEntity) {
+        homeRunsState.value = homeRunsState.value.upsertById(run) { it.runId }
+    }
+
+    override suspend fun persistCompletedHomeRun(
+        run: HomeDiagnosticsRunEntity,
+        detectionSession: ScanSessionEntity?,
+        detectionResults: List<ProbeResultEntity>,
+    ) {
+        check(detectionSession != null || detectionResults.isEmpty()) {
+            "Local detection probe results require a detection scan session"
+        }
+        detectionSession?.let { session ->
+            persistCompletedScan(session, detectionResults)
+        }
+        upsertHomeRun(run)
+    }
+
     override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
         usageSessionsState.value.find { it.id == sessionId }
 
@@ -400,6 +487,7 @@ internal class FakeDiagnosticsHistoryStores :
         session: ScanSessionEntity,
         results: List<ProbeResultEntity>,
     ) {
+        beforePersistCompletedScan(session)
         sessionsState.value = sessionsState.value.upsertById(session) { it.id }
         probeResults[session.id] = results
         afterUpsertScanSession(session)
@@ -751,6 +839,96 @@ internal class TestDiagnosticsHistoryClock(
     override fun now(): Long = currentTime
 }
 
+internal class FakeRawPathSettlementStore(
+    private val stores: FakeDiagnosticsHistoryStores,
+) : RawPathSettlementStore {
+    override suspend fun stageRawPathSettlement(marker: DiagnosticsDurableStateEntity): DiagnosticsDurableStateEntity {
+        val current = stores.terminalOutboxState.value.firstOrNull { state -> state.key == marker.key }
+        if (current == null) {
+            stores.terminalOutboxState.value =
+                stores.terminalOutboxState.value.upsertById(marker) { it.key }
+        }
+        return current ?: marker
+    }
+
+    override suspend fun getPendingRawPathSettlements(limit: Int): List<DiagnosticsDurableStateEntity> =
+        stores.terminalOutboxState.value
+            .filter { state -> state.key.startsWith(RawPathSettlementDurableStatePrefix) }
+            .take(limit)
+
+    override suspend fun commitRawPathSettlement(
+        marker: DiagnosticsDurableStateEntity,
+        context: DiagnosticContextEntity,
+        terminalSession: ScanSessionEntity,
+    ): Boolean {
+        stores.rawPathSettlementCommitCount.incrementAndGet()
+        if (stores.terminalOutboxState.value
+                .firstOrNull { it.key == marker.key }
+                ?.value != marker.value
+        ) {
+            return false
+        }
+        val previousContexts = stores.contextsState.value
+        val previousSessions = stores.sessionsState.value
+        val previousMarkers = stores.terminalOutboxState.value
+        val commit =
+            runCatching {
+                stores.contextsState.value = stores.contextsState.value.upsertById(context) { it.id }
+                stores.beforeRawPathSettlementTerminalWrite(terminalSession)
+                stores.sessionsState.value = stores.sessionsState.value.upsertById(terminalSession) { it.id }
+                stores.terminalOutboxState.value =
+                    stores.terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+                stores.afterUpsertContextSnapshot(context)
+                stores.afterUpsertScanSession(terminalSession)
+            }
+        commit.exceptionOrNull()?.let { failure ->
+            stores.contextsState.value = previousContexts
+            stores.sessionsState.value = previousSessions
+            stores.terminalOutboxState.value = previousMarkers
+            throw failure
+        }
+        return true
+    }
+
+    override suspend fun quarantineMalformedRawPathSettlement(
+        marker: DiagnosticsDurableStateEntity,
+        quarantineMarker: DiagnosticsDurableStateEntity,
+        sessionId: String,
+        terminalSummary: String,
+        finishedAt: Long,
+    ): Boolean {
+        if (stores.terminalOutboxState.value
+                .firstOrNull { it.key == marker.key }
+                ?.value != marker.value
+        ) {
+            return false
+        }
+        val previousSessions = stores.sessionsState.value
+        val previousMarkers = stores.terminalOutboxState.value
+        val quarantine =
+            runCatching {
+                stores.sessionsState.value =
+                    stores.sessionsState.value.map { session ->
+                        if (session.id == sessionId && session.status != "failed") {
+                            session.copy(status = "failed", summary = terminalSummary, finishedAt = finishedAt)
+                        } else {
+                            session
+                        }
+                    }
+                stores.terminalOutboxState.value =
+                    stores.terminalOutboxState.value
+                        .filterNot { state -> state.key == marker.key }
+                        .upsertById(quarantineMarker) { it.key }
+            }
+        quarantine.exceptionOrNull()?.let { failure ->
+            stores.sessionsState.value = previousSessions
+            stores.terminalOutboxState.value = previousMarkers
+            throw failure
+        }
+        return true
+    }
+}
+
 internal class FakeNetworkMetadataProvider : NetworkMetadataProvider {
     override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel = networkSnapshotModelForTest()
 }
@@ -891,6 +1069,7 @@ internal class FakeNetworkDiagnosticsBridge(
     private val json: Json,
 ) : NetworkDiagnosticsBridge {
     var startedRequestJson: String? = null
+    var startedSessionId: String? = null
     var autoCompleteOnStart: Boolean = true
     var startScanEntered: CompletableDeferred<Unit>? = null
     var releaseStartScan: CompletableDeferred<Unit>? = null
@@ -902,6 +1081,10 @@ internal class FakeNetworkDiagnosticsBridge(
     var destroyIgnoresCancellation: Boolean = false
     var cancelCount: Int = 0
     var destroyCount: Int = 0
+    var lastTakenReportJson: String? = null
+        private set
+    var lastTakenReportJsonAtDestroy: String? = null
+        private set
     val faults = FaultQueue<DiagnosticsBridgeFaultTarget>()
     private val passiveEventsPayloads = ArrayDeque<String>()
     private val scriptedProgress = ArrayDeque<DiagnosticsBridgeStep>()
@@ -918,6 +1101,7 @@ internal class FakeNetworkDiagnosticsBridge(
         releaseStartScan?.await()
         faults.next(DiagnosticsBridgeFaultTarget.START_SCAN)?.throwOrIgnore()
         startedRequestJson = requestJson
+        startedSessionId = sessionId
         afterStartScan()
         if (autoCompleteOnStart) {
             val request = json.decodeFromString(EngineScanRequestWire.serializer(), requestJson)
@@ -986,6 +1170,9 @@ internal class FakeNetworkDiagnosticsBridge(
     override suspend fun takeReportJson(): String? {
         faults.next(DiagnosticsBridgeFaultTarget.TAKE_REPORT)?.throwOrIgnore()
         return scriptedReports.removeFirstOrNull().resolve(reportJson).also {
+            if (it != null) {
+                lastTakenReportJson = it
+            }
             if (scriptedReports.isEmpty()) {
                 reportJson = null
             }
@@ -1010,6 +1197,7 @@ internal class FakeNetworkDiagnosticsBridge(
             releaseDestroy?.await()
             if (requireActiveContextOnDestroy) currentCoroutineContext().ensureActive()
             faults.next(DiagnosticsBridgeFaultTarget.DESTROY)?.throwOrIgnore()
+            lastTakenReportJsonAtDestroy = lastTakenReportJson
             destroyCount += 1
             destroyCompleted?.complete(Unit)
         }
@@ -1041,12 +1229,22 @@ internal class FakeNetworkDiagnosticsBridge(
     }
 
     fun enqueueReport(report: ScanReport) {
+        enqueueReport(
+            report = report,
+            disposition = com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition.TERMINAL,
+        )
+    }
+
+    fun enqueueReport(
+        report: ScanReport,
+        disposition: com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition,
+    ) {
         scriptedReports.addLast(
             DiagnosticsBridgeStep.Payload(
                 json.encodeToString(
                     com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
                         .serializer(),
-                    report.toEngineScanReportWire(),
+                    report.toEngineScanReportWire().copy(reportDisposition = disposition),
                 ),
             ),
         )
@@ -1068,14 +1266,14 @@ internal class FakeDiagnosticsRuntimeCoordinator(
     val automaticRawScanCount = AtomicInteger(0)
     private val scriptedLeaseValidationResults = ArrayDeque<Boolean>()
 
-    override suspend fun runRawPathScan(block: suspend () -> Unit) {
+    override suspend fun runRawPathScan(block: suspend () -> Unit): RawPathExecutionResult {
         rawScanCount.incrementAndGet()
-        block()
+        return runSettledRawPathBlock(block)
     }
 
-    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit): RawPathExecutionResult {
         automaticRawScanCount.incrementAndGet()
-        block()
+        return runSettledRawPathBlock(block)
     }
 
     override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? = inPathRouteLease
@@ -1091,6 +1289,48 @@ internal class FakeDiagnosticsRuntimeCoordinator(
         inPathRouteLease = lease
     }
 }
+
+@Suppress("TooGenericExceptionCaught")
+internal suspend fun runSettledRawPathBlock(block: suspend () -> Unit): RawPathExecutionResult =
+    try {
+        block()
+        completedRawPathExecutionResult()
+    } catch (failure: CancellationException) {
+        val result =
+            completedRawPathExecutionResult(
+                executionOutcome = RawPathExecutionOutcome.BlockCancelled,
+                executionFailure = failure.message,
+            )
+        throw RawPathExecutionCancelledException(result, failure)
+    } catch (failure: Exception) {
+        completedRawPathExecutionResult(
+            executionOutcome = RawPathExecutionOutcome.BlockFailed,
+            executionFailure = failure.message,
+        )
+    }
+
+internal fun completedRawPathExecutionResult(
+    executionOutcome: RawPathExecutionOutcome = RawPathExecutionOutcome.Completed,
+    settlementOutcome: RawPathExecutionSettlementOutcome = RawPathExecutionSettlementOutcome.Restored,
+    executionFailure: String? = null,
+): RawPathExecutionResult =
+    RawPathExecutionResult(
+        settlement =
+            RawPathExecutionSettlement(
+                rawWindowGeneration = 1L,
+                resumeIntentGeneration = 1L,
+                outcome = settlementOutcome,
+                runtimeWasRunning = true,
+                resumeRequired = true,
+                postRuntimeContext =
+                    RawPathRuntimeContext(
+                        status = RawPathRuntimeStatus.Running,
+                        mode = Mode.VPN,
+                    ),
+            ),
+        executionOutcome = executionOutcome,
+        executionFailure = executionFailure,
+    )
 
 private fun DiagnosticsBridgeStep?.resolve(defaultValue: String?): String? =
     when (this) {
@@ -1469,6 +1709,27 @@ private fun <T, K> List<T>.upsertById(
     val key = keySelector(item)
     val remaining = filterNot { keySelector(it) == key }
     return remaining + item
+}
+
+private fun List<NativeSessionEventEntity>.toBoundedNativeEventArchiveSource(
+    newestLimit: Int,
+    criticalClassLimit: Int,
+): DiagnosticsNativeEventArchiveSource {
+    val sourceEvents = distinctBy(NativeSessionEventEntity::id)
+    val newest = sourceEvents.sortedByDescending(NativeSessionEventEntity::createdAt).take(newestLimit)
+    val critical =
+        DiagnosticsNativeEventArchiveClass.entries
+            .filterNot { eventClass -> eventClass == DiagnosticsNativeEventArchiveClass.OTHER }
+            .flatMap { eventClass ->
+                sourceEvents
+                    .filter { event -> event.archiveEventClass() == eventClass }
+                    .sortedByDescending(NativeSessionEventEntity::createdAt)
+                    .take(criticalClassLimit)
+            }
+    return DiagnosticsNativeEventArchiveSource(
+        events = (newest + critical).distinctBy(NativeSessionEventEntity::id),
+        sourceCounts = sourceEvents.archiveEventClassCounts(),
+    )
 }
 
 internal object NoopNetworkEdgePreferenceStore : NetworkEdgePreferenceStore {

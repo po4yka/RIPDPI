@@ -13,6 +13,24 @@ internal const val DetectionStageTimeoutMs = 90_000L
 internal enum class HomeCompositeStageKind {
     PROFILE_SCAN,
     DETECTION_SIGNALS,
+    PASSIVE_VPN_ROUTE_EVIDENCE,
+}
+
+enum class HomeCompositeStageEvidenceType {
+    ACTIVE_SCAN,
+    DETECTION_SIGNALS,
+    PASSIVE_VPN_ROUTE,
+}
+
+enum class HomeCompositeStageVantage {
+    RAW_PATH,
+    PROXY_VANTAGE,
+    VPN_ROUTE_OBSERVATION,
+}
+
+enum class HomeCompositeTargetReachability {
+    VERIFIED_BY_STAGE,
+    UNVERIFIED,
 }
 
 internal const val DetectionStageProfileId = "detection-signals"
@@ -21,9 +39,27 @@ internal data class HomeCompositeStageSpec(
     val key: String,
     val label: String,
     val profileId: String,
-    val pathMode: ScanPathMode,
+    val pathMode: ScanPathMode?,
     val kind: HomeCompositeStageKind = HomeCompositeStageKind.PROFILE_SCAN,
+    val evidenceType: HomeCompositeStageEvidenceType = defaultEvidenceType(kind),
+    val vantage: HomeCompositeStageVantage = defaultStageVantage(pathMode),
+    val targetReachability: HomeCompositeTargetReachability = HomeCompositeTargetReachability.VERIFIED_BY_STAGE,
+    val startsScanSession: Boolean = kind != HomeCompositeStageKind.PASSIVE_VPN_ROUTE_EVIDENCE,
 )
+
+private fun defaultEvidenceType(kind: HomeCompositeStageKind): HomeCompositeStageEvidenceType =
+    when (kind) {
+        HomeCompositeStageKind.PROFILE_SCAN -> HomeCompositeStageEvidenceType.ACTIVE_SCAN
+        HomeCompositeStageKind.DETECTION_SIGNALS -> HomeCompositeStageEvidenceType.DETECTION_SIGNALS
+        HomeCompositeStageKind.PASSIVE_VPN_ROUTE_EVIDENCE -> HomeCompositeStageEvidenceType.PASSIVE_VPN_ROUTE
+    }
+
+private fun defaultStageVantage(pathMode: ScanPathMode?): HomeCompositeStageVantage =
+    when (pathMode) {
+        ScanPathMode.RAW_PATH -> HomeCompositeStageVantage.RAW_PATH
+        ScanPathMode.IN_PATH -> HomeCompositeStageVantage.PROXY_VANTAGE
+        null -> HomeCompositeStageVantage.VPN_ROUTE_OBSERVATION
+    }
 
 internal val HomeCompositeStageSpecs =
     listOf(
@@ -67,9 +103,20 @@ internal val HomeCompositeStageSpecs =
         ),
         HomeCompositeStageSpec(
             key = "path_comparison",
-            label = "VPN vs direct path",
+            label = "Proxy vs direct path",
             profileId = "path-comparison",
             pathMode = ScanPathMode.IN_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "vpn_route_evidence",
+            label = "VPN route evidence",
+            profileId = "vpn-route-evidence",
+            pathMode = null,
+            kind = HomeCompositeStageKind.PASSIVE_VPN_ROUTE_EVIDENCE,
+            evidenceType = HomeCompositeStageEvidenceType.PASSIVE_VPN_ROUTE,
+            vantage = HomeCompositeStageVantage.VPN_ROUTE_OBSERVATION,
+            targetReachability = HomeCompositeTargetReachability.UNVERIFIED,
+            startsScanSession = false,
         ),
         HomeCompositeStageSpec(
             key = "dpi_strategy",
@@ -95,6 +142,17 @@ internal val QuickScanStageSpecs =
             kind = HomeCompositeStageKind.DETECTION_SIGNALS,
         ),
         HomeCompositeStageSpec(
+            key = "vpn_route_evidence",
+            label = "VPN route evidence",
+            profileId = "vpn-route-evidence",
+            pathMode = null,
+            kind = HomeCompositeStageKind.PASSIVE_VPN_ROUTE_EVIDENCE,
+            evidenceType = HomeCompositeStageEvidenceType.PASSIVE_VPN_ROUTE,
+            vantage = HomeCompositeStageVantage.VPN_ROUTE_OBSERVATION,
+            targetReachability = HomeCompositeTargetReachability.UNVERIFIED,
+            startsScanSession = false,
+        ),
+        HomeCompositeStageSpec(
             key = "dpi_strategy",
             label = "DPI strategy probe",
             profileId = "ru-dpi-strategy",
@@ -107,8 +165,17 @@ internal sealed interface StageSessionSignal {
         val session: DiagnosticScanSession,
     ) : StageSessionSignal
 
+    data class RawPathSettled(
+        val session: DiagnosticScanSession,
+        val result: com.poyka.ripdpi.data.RawPathExecutionResult?,
+    ) : StageSessionSignal
+
     data object VpnHalted : StageSessionSignal
 }
+
+internal class HomeRawPathSupersededByUserStopException(
+    sessionId: String,
+) : IllegalStateException("Raw-path runtime settlement was superseded by user stop: $sessionId")
 
 internal fun stageTimeoutMs(
     spec: HomeCompositeStageSpec,

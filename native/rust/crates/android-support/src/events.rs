@@ -568,6 +568,39 @@ mod tests {
     }
 
     #[test]
+    fn relay_internal_events_do_not_consume_attempt_stage_sequence() {
+        let rings = EventRingBuffers::default();
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(rings.clone()));
+        let _guard = tracing::subscriber::set_default(subscriber);
+        let attempt = tracing::info_span!(
+            "relay_attempt",
+            ring = "relay",
+            runtime_id = "runtime-sequence",
+            subsystem = "relay",
+            attempt_id = 42_u64,
+        );
+        let _entered = attempt.enter();
+
+        tracing::info!(kind = "relay_attempt_stage", stage = "tcp_connect", outcome = "started", "stage-one");
+        tracing::info!(kind = "relay_internal_marker", stage = "socket_probe", outcome = "started", "internal");
+        tracing::info!(kind = "relay_attempt_stage", stage = "tcp_connect", outcome = "succeeded", "stage-two");
+
+        let events = rings.drain_relay_for_runtime("runtime-sequence").events;
+
+        assert_eq!(
+            events
+                .into_iter()
+                .map(|event| (event.message, event.attempt_id, event.attempt_sequence))
+                .collect::<Vec<_>>(),
+            [
+                ("stage-one".to_string(), Some(42), Some(1)),
+                ("internal".to_string(), Some(42), None),
+                ("stage-two".to_string(), Some(42), Some(2)),
+            ],
+        );
+    }
+
+    #[test]
     fn relay_emission_drops_without_blocking_when_runtime_drain_gate_is_contended() {
         let rings = EventRingBuffers::new(RingConfig { relay_capacity: 1, ..RingConfig::default() });
         let mut retained = event("retained");

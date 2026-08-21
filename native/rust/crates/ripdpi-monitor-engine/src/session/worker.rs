@@ -1,25 +1,52 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Instant;
 
 use log::LevelFilter;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::engine::run_engine_scan;
-use crate::types::{ScanRequest, SharedState};
+use crate::types::{ScanRequest, ScanTerminationReason, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
 use super::panic_state::record_panic_terminal_state;
+
+pub(super) struct ScanWorkerConfig {
+    scan_deadline: Instant,
+    cancellation_reason: Arc<Mutex<Option<ScanTerminationReason>>>,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    platform_bridge: Arc<dyn MonitorPlatformBridge>,
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    native_log_level: Option<LevelFilter>,
+}
+
+impl ScanWorkerConfig {
+    pub(super) fn new(
+        scan_deadline: Instant,
+        cancellation_reason: Arc<Mutex<Option<ScanTerminationReason>>>,
+        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        platform_bridge: Arc<dyn MonitorPlatformBridge>,
+        candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+        native_log_level: Option<LevelFilter>,
+    ) -> Self {
+        Self {
+            scan_deadline,
+            cancellation_reason,
+            tls_verifier,
+            platform_bridge,
+            candidate_runtime_launcher,
+            native_log_level,
+        }
+    }
+}
 
 pub(super) fn spawn_scan_worker(
     shared: Arc<Mutex<SharedState>>,
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
-    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-    platform_bridge: Arc<dyn MonitorPlatformBridge>,
-    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
-    native_log_level: Option<LevelFilter>,
+    config: ScanWorkerConfig,
 ) -> JoinHandle<()> {
     let shared_panic = shared.clone();
     let session_id_panic = session_id.clone();
@@ -27,16 +54,7 @@ pub(super) fn spawn_scan_worker(
     thread::spawn(move || {
         let started_at = crate::util::now_ms();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_scan(
-                shared,
-                cancel,
-                session_id,
-                request,
-                tls_verifier,
-                platform_bridge,
-                candidate_runtime_launcher,
-                native_log_level,
-            );
+            run_scan(shared, cancel, session_id, request, config);
         }));
         if let Err(panic_payload) = result {
             record_panic_terminal_state(shared_panic, session_id_panic, request_panic, started_at, panic_payload);
@@ -62,14 +80,21 @@ fn run_scan(
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
-    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-    platform_bridge: Arc<dyn MonitorPlatformBridge>,
-    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
-    native_log_level: Option<LevelFilter>,
+    config: ScanWorkerConfig,
 ) {
-    let _log_scope =
-        native_log_level.map(|level| platform_bridge.scoped_log_level("diagnostics_native".to_string(), level));
-    run_engine_scan(shared, cancel, session_id, request, tls_verifier, candidate_runtime_launcher);
+    let _log_scope = config
+        .native_log_level
+        .map(|level| config.platform_bridge.scoped_log_level("diagnostics_native".to_string(), level));
+    run_engine_scan(
+        shared,
+        cancel,
+        session_id,
+        request,
+        config.scan_deadline,
+        config.cancellation_reason,
+        config.tls_verifier,
+        config.candidate_runtime_launcher,
+    );
 }
 
 #[cfg(test)]
@@ -135,6 +160,7 @@ mod tests {
                 None,
                 None,
             )),
+            checkpoint_report: None,
             log_context: None,
             terminal_session_id: None,
         }));
@@ -157,6 +183,31 @@ mod tests {
         let progress = state.progress.as_ref().expect("terminal progress");
         assert_eq!((progress.completed_steps, progress.total_steps), (3, 8));
         assert!(progress.is_finished);
+    }
+
+    #[test]
+    fn worker_panic_recovery_uses_poisoned_shared_state() {
+        let shared = Arc::new(Mutex::new(SharedState::default()));
+        let poison_shared = shared.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = poison_shared.lock().expect("shared state");
+            panic!("poison shared state for recovery");
+        })
+        .join();
+
+        record_panic_terminal_state(
+            shared.clone(),
+            "panic-session".to_string(),
+            request(),
+            100,
+            Box::new("probe exploded".to_string()),
+        );
+
+        let state = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        assert!(state.progress.as_ref().is_some_and(|progress| progress.is_finished));
+        assert!(state.report.as_ref().is_some_and(|report| {
+            report.termination_reason == Some(crate::types::ScanTerminationReason::WorkerPanicked)
+        }));
     }
 
     fn request() -> ScanRequest {
