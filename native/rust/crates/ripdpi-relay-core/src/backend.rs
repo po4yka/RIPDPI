@@ -18,7 +18,7 @@ use crate::telemetry::{ChainHopTelemetrySnapshot, ChainHopTelemetryState};
 pub(crate) use pool::{BoxedIo, PooledRelayBackend};
 
 macro_rules! dispatch_pooled_backend {
-    ($self:expr_2021, $backend:ident => $expr:expr_2021, unsupported => $unsupported:expr_2021) => {
+    ($self:expr_2021, $backend:ident => $expr:expr_2021, unsupported => $kind:ident => $unsupported:expr_2021) => {
         match $self {
             RelayBackend::Hysteria2($backend) => $expr,
             RelayBackend::Tuic($backend) => $expr,
@@ -33,7 +33,7 @@ macro_rules! dispatch_pooled_backend {
             RelayBackend::AnyTls($backend) => $expr,
             RelayBackend::Shadowsocks($backend) => $expr,
             RelayBackend::Tor($backend) => $expr,
-            RelayBackend::Unsupported { .. } => $unsupported,
+            RelayBackend::Unsupported { kind: $kind } => $unsupported,
         }
     };
 }
@@ -70,11 +70,11 @@ impl RelayBackend {
     }
 
     pub(crate) fn capabilities(&self) -> RelayCapabilities {
-        dispatch_pooled_backend!(self, backend => backend.capabilities(), unsupported => RelayCapabilities::default())
+        dispatch_pooled_backend!(self, backend => backend.capabilities(), unsupported => _kind => RelayCapabilities::default())
     }
 
     pub(crate) fn pool_health(&self) -> Option<RelayPoolHealth> {
-        dispatch_pooled_backend!(self, backend => Some(backend.pool_health()), unsupported => None)
+        dispatch_pooled_backend!(self, backend => Some(backend.pool_health()), unsupported => _kind => None)
     }
 
     pub(crate) fn udp_capable(&self) -> bool {
@@ -116,10 +116,7 @@ impl RelayBackend {
         let result = dispatch_pooled_backend!(
             self,
             backend => backend.connect_tcp(target).await,
-            unsupported => {
-                let Self::Unsupported { kind } = self else { unreachable!("macro must only route Unsupported here") };
-                Err(Self::unsupported_error(kind))
-            }
+            unsupported => kind => Err(Self::unsupported_error(kind))
         );
         // Turn a ShadowTLS v2-server reject into the
         // `FailureClass::ShadowTlsVersionMismatch` token + actionable diagnostic
