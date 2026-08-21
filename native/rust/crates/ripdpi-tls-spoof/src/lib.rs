@@ -20,7 +20,8 @@
 //! * [`config`] — [`SpoofMethod`], [`TlsSpoofConfig`] (default-off), validation.
 //! * [`client_hello`] — [`forge_decoy_client_hello`]: JA3/JA4-preserving SNI
 //!   surgery on a record-framed ClientHello.
-//! * [`telemetry`] — pull-model `AtomicU64` tally + `note_spoofed_connection`.
+//! * [`telemetry`] — pull-model `AtomicU64` tallies for successful and failed
+//!   injections (`note_spoofed_connection` / `note_spoof_failed`).
 //! * [`signaling`] — [`SpoofRequest`]: the client -> relay intent wire type.
 //! * [`segment`] — [`SpoofSegmentParams`] + [`build_spoof_segment`]: pure
 //!   IPv4+TCP segment construction with per-method corruption. **All-target**
@@ -71,7 +72,9 @@ impl RelaySpoofer {
     /// 2. Validate `config` (rejects empty / IP-literal / malformed decoy SNI).
     /// 3. Forge the decoy ClientHello from `real_client_hello`.
     /// 4. On Linux with raw-socket capabilities present, inject the decoy
-    ///    segment and record the telemetry tally. Where capabilities are
+    ///    segment. A successful injection records the telemetry tally; a failed
+    ///    one logs the failure class (`io::ErrorKind`) and records a failure
+    ///    tally, but never aborts the real handshake. Where capabilities are
     ///    absent (e.g. the macOS dev host, or an unprivileged relay), forging
     ///    and validation still run and succeed, but no segment is emitted.
     ///
@@ -91,11 +94,17 @@ impl RelaySpoofer {
         let forged = client_hello::forge_decoy_client_hello(real_client_hello, &config.decoy_sni)?;
 
         if inject::has_raw_socket_caps() {
-            // Best-effort: an injection I/O failure must not abort the real
-            // handshake. We record the attempt only when emission is wired
-            // (the live sender is Linux-CI verified; see `inject`).
-            if inject::inject_decoy_segment(conn, &forged, config.method).is_ok() {
-                telemetry::note_spoofed_connection();
+            // An injection I/O failure must not abort the real handshake, but
+            // it is never silent: the failure class is logged and tallied so
+            // relay operators can see why spoofing is not happening.
+            match inject::inject_decoy_segment(conn, &forged, config.method) {
+                Ok(()) => telemetry::note_spoofed_connection(),
+                Err(err) => {
+                    // AC7 redaction: log the io::ErrorKind class only —
+                    // never the decoy hostname, destination, or method value.
+                    tracing::warn!(kind = %err.kind(), "tls.spoof_inject_failed");
+                    telemetry::note_spoof_failed();
+                }
             }
         }
         Ok(())
