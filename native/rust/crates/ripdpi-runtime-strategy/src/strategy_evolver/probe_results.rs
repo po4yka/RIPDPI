@@ -4,7 +4,9 @@ use std::path::Path;
 use std::sync::{OnceLock, RwLock};
 
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
-use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_desync::{
+    AdaptiveOobBytePlacement, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile,
+};
 use ripdpi_failure_classifier::FailureClass;
 use serde::{Deserialize, Serialize};
 
@@ -243,6 +245,26 @@ pub fn probe_combo_for_strategy_id(strategy_id: &str) -> Option<StrategyCombo> {
         "quic_realistic_burst" => {
             Some(StrategyCombo { quic_fake_profile: Some(QuicFakeProfile::RealisticInitial), ..split_combo() })
         }
+        "timing_jitter_balanced" => {
+            Some(StrategyCombo { timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Balanced), ..split_combo() })
+        }
+        "timing_jitter_aggressive" => Some(StrategyCombo {
+            timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Aggressive),
+            ..split_combo()
+        }),
+        "timing_jitter_conservative" => Some(StrategyCombo {
+            timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Conservative),
+            ..split_combo()
+        }),
+        "oob_pre_handshake" => {
+            Some(StrategyCombo { oob_byte_placement: Some(AdaptiveOobBytePlacement::PreHandshake), ..split_combo() })
+        }
+        "oob_post_sni" => {
+            Some(StrategyCombo { oob_byte_placement: Some(AdaptiveOobBytePlacement::PostSni), ..split_combo() })
+        }
+        "oob_mid_payload" => {
+            Some(StrategyCombo { oob_byte_placement: Some(AdaptiveOobBytePlacement::MidPayload), ..split_combo() })
+        }
         _ => None,
     }
 }
@@ -293,6 +315,23 @@ fn stats_from_local_prior_with_age(record: &LocalPriorRecord, age_ms: u64) -> Co
 }
 
 fn strategy_id_for_probe_combo(combo: &StrategyCombo) -> Option<&'static str> {
+    // Timing-jitter and OOB-placement arms are checked first: they had no
+    // representation before, so without priority they would keep collapsing
+    // into "split" (jitter) or being dropped entirely (OOB placement).
+    if let Some(profile) = combo.timing_jitter_profile {
+        return Some(match profile {
+            AdaptiveTimingJitterProfile::Balanced => "timing_jitter_balanced",
+            AdaptiveTimingJitterProfile::Aggressive => "timing_jitter_aggressive",
+            AdaptiveTimingJitterProfile::Conservative => "timing_jitter_conservative",
+        });
+    }
+    if let Some(placement) = combo.oob_byte_placement {
+        return Some(match placement {
+            AdaptiveOobBytePlacement::PreHandshake => "oob_pre_handshake",
+            AdaptiveOobBytePlacement::PostSni => "oob_post_sni",
+            AdaptiveOobBytePlacement::MidPayload => "oob_mid_payload",
+        });
+    }
     if combo.fake_ttl.is_some() {
         Some("fake")
     } else if combo.tls_record_offset_base.is_some() {
@@ -321,6 +360,32 @@ fn normalize_strategy_id(strategy_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn probe_strategy_ids_round_trip_through_combo_mapping() {
+        // H3 regression: every loadable strategy id must save back to the
+        // same id; otherwise local_priors silently drop or collapse arms.
+        let ids = [
+            "split",
+            "fake",
+            "oob",
+            "tls_rec_split",
+            "tls_rand_rec",
+            "udp_fake_burst",
+            "quic_compat_burst",
+            "quic_realistic_burst",
+            "timing_jitter_balanced",
+            "timing_jitter_aggressive",
+            "timing_jitter_conservative",
+            "oob_pre_handshake",
+            "oob_post_sni",
+            "oob_mid_payload",
+        ];
+        for id in ids {
+            let combo = probe_combo_for_strategy_id(id).unwrap_or_else(|| panic!("{id} must map to a combo"));
+            assert_eq!(strategy_id_for_probe_combo(&combo), Some(id), "combo for {id} must save back to the same id");
+        }
+    }
 
     #[test]
     fn global_probe_results_replace_previous_batch() {

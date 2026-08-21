@@ -121,6 +121,36 @@ fn load_local_priors_decays_history_by_saved_at_stamp() {
     );
 }
 
+#[test]
+fn local_priors_round_trip_preserves_oob_and_timing_jitter_arms() {
+    // H3 regression: oob-placement arms were silently dropped on save and
+    // timing-jitter arms collapsed into plain "split"; both dimensions must
+    // survive a save/load cycle.
+    let document = r#"{"local_priors":[
+        {"strategy_id":"oob_post_sni","attempts":5,"successes":4,"total_latency_ms":200,"total_latency_square_ms":10000,"last_attempt_ms":10},
+        {"strategy_id":"timing_jitter_balanced","attempts":6,"successes":5,"total_latency_ms":300,"total_latency_square_ms":15000,"last_attempt_ms":11}
+    ]}"#;
+    let path = priors_fixture_path("dims");
+    std::fs::write(&path, document).expect("write dims fixture");
+
+    let mut evolver = tls_evolver();
+    let loaded = evolver.load_local_priors(&path).expect("load dims priors");
+    assert_eq!(loaded, 2, "oob and timing-jitter ids must load as combos");
+    evolver.save_local_priors(&path).expect("save dims priors");
+    let saved = std::fs::read_to_string(&path).expect("read saved priors");
+    let _ = std::fs::remove_file(&path);
+
+    let saved: serde_json::Value = serde_json::from_str(&saved).expect("parse saved priors");
+    let ids = saved["local_priors"]
+        .as_array()
+        .expect("local_priors array")
+        .iter()
+        .filter_map(|record| record["strategy_id"].as_str())
+        .collect::<Vec<_>>();
+    assert!(ids.contains(&"oob_post_sni"), "oob arm must survive save: {ids:?}");
+    assert!(ids.contains(&"timing_jitter_balanced"), "timing-jitter arm must survive save: {ids:?}");
+}
+
 fn priors_fixture_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("ripdpi-local-priors-{label}-{}-{}.json", std::process::id(), monotonic_suffix()))
 }
