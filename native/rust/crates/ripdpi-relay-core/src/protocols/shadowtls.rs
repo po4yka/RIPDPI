@@ -20,10 +20,15 @@ pub(crate) fn classify_shadowtls_handshake_error(error: io::Error) -> io::Error 
     if !is_version_mismatch {
         return error;
     }
-    // The discriminator downstream consumes is the leading token string
-    // (`shadowtls_version_mismatch`), NOT `ErrorKind` — `Unsupported` is shared
-    // with other relay errors. Key on the token, mirroring the TUIC mapping.
-    io::Error::new(io::ErrorKind::Unsupported, format!("{}: {error}", FailureClass::ShadowTlsVersionMismatch.as_str()))
+    // The discriminator downstream consumes used to be the leading token
+    // string (`shadowtls_version_mismatch`); it now travels as typed data on
+    // the error payload via `crate::error::relay_failure_class`. Display text
+    // stays byte-identical for the telemetry surface.
+    crate::error::classified_error(
+        FailureClass::ShadowTlsVersionMismatch,
+        io::ErrorKind::Unsupported,
+        error.to_string(),
+    )
 }
 
 #[cfg(test)]
@@ -53,5 +58,18 @@ mod tests {
         let mapped = classify_shadowtls_handshake_error(original);
         assert_eq!(mapped.kind(), io::ErrorKind::ConnectionReset);
         assert_eq!(mapped.to_string(), "upstream reset");
+    }
+    #[test]
+    fn classified_handshake_error_exposes_the_failure_class_for_downcast() {
+        use crate::error::relay_failure_class;
+
+        let mapped =
+            super::classify_shadowtls_handshake_error(io::Error::other(ShadowTlsHandshakeError::version_mismatch()));
+
+        assert_eq!(
+            Some(FailureClass::ShadowTlsVersionMismatch),
+            relay_failure_class(&mapped),
+            "the failure class must travel as typed data, not only as a display-token prefix"
+        );
     }
 }

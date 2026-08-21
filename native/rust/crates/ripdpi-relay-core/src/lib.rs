@@ -9,6 +9,7 @@
 
 mod backend;
 mod config;
+mod error;
 mod protocols;
 mod runtime;
 mod runtime_validation;

@@ -38,9 +38,10 @@ fn build_masque_client_config_with_ech_lookup(
     };
     let tcp_protocol = ripdpi_masque::config::MasqueTcpProtocol::from_wire(&masque.tcp_protocol)?;
     if tcp_protocol == ripdpi_masque::config::MasqueTcpProtocol::Http3 {
-        return Err(io::Error::new(
+        return Err(crate::error::classified_error(
+            ripdpi_failure_classifier::FailureClass::MasqueH3TcpUnsupported,
             io::ErrorKind::Unsupported,
-            "masque_h3_tcp_unsupported: HTTP/3 TCP requires RFC 9114 classic CONNECT; select HTTP/2",
+            "HTTP/3 TCP requires RFC 9114 classic CONNECT; select HTTP/2",
         ));
     }
     if config.common.socket_protection == crate::config::SocketProtection::VpnRequired
@@ -144,6 +145,11 @@ mod tests {
             .expect_err("H3 TCP must fail before ECH lookup");
 
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        assert_eq!(
+            Some(ripdpi_failure_classifier::FailureClass::MasqueH3TcpUnsupported),
+            crate::error::relay_failure_class(&error),
+            "the h3 rejection must carry its failure class as typed data, got: {error}"
+        );
         assert!(error.to_string().contains("masque_h3_tcp_unsupported"));
         assert!(lookup.requests().is_empty(), "H3 TCP rejection must precede encrypted-DNS network I/O");
     }

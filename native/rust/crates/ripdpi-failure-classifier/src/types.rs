@@ -37,6 +37,10 @@ pub enum FailureClass {
     /// budget. The engine must jump straight to owned-stack arms (A10/A9);
     /// TLS-family arms must not be attempted in this state.
     IpBlockSuspect,
+    /// The MASQUE backend was configured for HTTP/3 TCP, which requires
+    /// RFC 9114 classic CONNECT support the configured server does not
+    /// offer; the config must select HTTP/2 instead.
+    MasqueH3TcpUnsupported,
     /// A classic VLESS Reality flow completed its catalog-validated TLS/VLESS
     /// handshake but repeatedly established no application response bytes,
     /// while a same-network QUIC control succeeded.
@@ -63,6 +67,7 @@ impl FailureClass {
             Self::TuicVersionUnsupported => "tuic_version_unsupported",
             Self::ShadowTlsVersionMismatch => "shadowtls_version_mismatch",
             Self::IpBlockSuspect => "ip_block_suspect",
+            Self::MasqueH3TcpUnsupported => "masque_h3_tcp_unsupported",
             Self::ConfirmGoodDpiSuspected => "confirm_good_dpi_suspected",
         }
     }

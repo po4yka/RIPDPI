@@ -46,9 +46,14 @@ async fn shadowtls_v2_server_surfaces_version_mismatch_token_through_backend() {
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
     let error = backend.connect_tcp(&target).await.err().expect("a v2 server must fail the ShadowTLS handshake");
 
+    assert_eq!(
+        Some(FailureClass::ShadowTlsVersionMismatch),
+        crate::error::relay_failure_class(&error),
+        "the failure class must survive the backend boundary as typed data, got: {error}",
+    );
     assert!(
         error.to_string().starts_with(FailureClass::ShadowTlsVersionMismatch.as_str()),
-        "handshake-error string must lead with the failure-class token, got: {error}",
+        "telemetry display text must keep leading with the failure-class token, got: {error}",
     );
 
     server.shutdown().await;
@@ -81,9 +86,14 @@ async fn chain_relay_shadowtls_entry_v2_server_surfaces_version_mismatch_token()
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
     let error = backend.connect_tcp(&target).await.err().expect("the v2 entry hop must fail the chain connect");
 
+    assert_eq!(
+        Some(FailureClass::ShadowTlsVersionMismatch),
+        crate::error::relay_failure_class(&error),
+        "the failure class must survive the chain-hop remapping as typed data, got: {error}",
+    );
     assert!(
         error.to_string().starts_with(FailureClass::ShadowTlsVersionMismatch.as_str()),
-        "chain handshake-error string must lead with the failure-class token, got: {error}",
+        "chain telemetry display text must keep leading with the failure-class token, got: {error}",
     );
 
     server.shutdown().await;

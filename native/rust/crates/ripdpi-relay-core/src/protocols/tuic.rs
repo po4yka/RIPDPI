@@ -24,10 +24,11 @@ fn classify_tuic_handshake_error(error: io::Error) -> io::Error {
     if !is_version_unsupported {
         return error;
     }
-    // The discriminator downstream consumes is the leading token string
-    // (`tuic_version_unsupported`), NOT `ErrorKind` — `Unsupported` is shared
-    // with `udp_session`'s "datagrams unavailable". Do not key on `kind()` alone.
-    io::Error::new(io::ErrorKind::Unsupported, format!("{}: {error}", FailureClass::TuicVersionUnsupported.as_str()))
+    // The discriminator downstream consumes used to be the leading token
+    // string (`tuic_version_unsupported`); it now travels as typed data on the
+    // error payload via `crate::error::relay_failure_class`. Display text
+    // stays byte-identical for the telemetry surface.
+    crate::error::classified_error(FailureClass::TuicVersionUnsupported, io::ErrorKind::Unsupported, error.to_string())
 }
 
 #[derive(Clone)]
@@ -125,5 +126,17 @@ mod tests {
         let factory = TuicSessionFactory { config, migration: QuicMigrationTelemetryState::default() };
 
         assert!(!factory.capabilities().udp);
+    }
+    #[test]
+    fn classified_handshake_error_exposes_the_failure_class_for_downcast() {
+        use crate::error::relay_failure_class;
+
+        let mapped = super::classify_tuic_handshake_error(io::Error::other(TuicHandshakeError::version_unsupported()));
+
+        assert_eq!(
+            Some(FailureClass::TuicVersionUnsupported),
+            relay_failure_class(&mapped),
+            "the failure class must travel as typed data, not only as a display-token prefix"
+        );
     }
 }

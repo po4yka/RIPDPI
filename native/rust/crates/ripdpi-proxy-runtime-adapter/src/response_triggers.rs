@@ -104,6 +104,7 @@ pub fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
         FailureClass::CapabilitySkipped => 0,
         FailureClass::TuicVersionUnsupported => 0,
         FailureClass::ShadowTlsVersionMismatch => 0,
+        FailureClass::MasqueH3TcpUnsupported => 0,
         FailureClass::IpBlockSuspect => 0,
         FailureClass::ConfirmGoodDpiSuspected => 0,
     }
