@@ -242,7 +242,7 @@ internal class HomeCompositeStageExecutor
                     pathMode = pathMode,
                     selectedProfileId = spec.profileId,
                     skipActiveScanCheck = true,
-                    scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
+                    scanDeadlineMs = stageScanDeadlineMs(spec, quickScan),
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
                     resumeRuntimeAfterRawPath = pathMode == ScanPathMode.RAW_PATH,

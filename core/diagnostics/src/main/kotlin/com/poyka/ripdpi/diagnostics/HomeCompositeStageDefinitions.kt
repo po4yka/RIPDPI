@@ -1,12 +1,17 @@
 package com.poyka.ripdpi.diagnostics
 
 private const val DpiFullStageTimeoutMs = 240_000L
-private const val StrategyProbeStageTimeoutMs = 300_000L
+private const val StrategyProbeNativeDeadlineMs = 270_000L
+private const val QuickScanStrategyProbeNativeDeadlineMs = 60_000L
+private const val StrategyProbeFinalizationTimeoutMs = 60_000L
+private const val DefaultStageFinalizationTimeoutMs = 30_000L
+private const val StrategyProbeStageTimeoutMs = StrategyProbeNativeDeadlineMs + StrategyProbeFinalizationTimeoutMs
 private const val DefaultStageTimeoutMs = 120_000L
 private const val PathComparisonStageTimeoutMs = 180_000L
 private const val ThrottlingStageTimeoutMs = 240_000L
 private const val SensitiveServicesStageTimeoutMs = 240_000L
-private const val QuickScanStrategyProbeTimeoutMs = 90_000L
+private const val QuickScanStrategyProbeTimeoutMs =
+    QuickScanStrategyProbeNativeDeadlineMs + StrategyProbeFinalizationTimeoutMs
 
 internal const val DetectionStageTimeoutMs = 90_000L
 
@@ -190,6 +195,16 @@ internal fun stageTimeoutMs(
         spec.profileId == "ru-throttling" -> ThrottlingStageTimeoutMs
         spec.profileId == "ru-circumvention" -> SensitiveServicesStageTimeoutMs
         else -> DefaultStageTimeoutMs
+    }
+
+internal fun stageScanDeadlineMs(
+    spec: HomeCompositeStageSpec,
+    quickScan: Boolean = false,
+): Long =
+    when {
+        quickScan && spec.profileId == "ru-dpi-strategy" -> QuickScanStrategyProbeNativeDeadlineMs
+        spec.profileId in listOf("automatic-audit", "ru-dpi-strategy") -> StrategyProbeNativeDeadlineMs
+        else -> stageTimeoutMs(spec, quickScan) - DefaultStageFinalizationTimeoutMs
     }
 
 internal inline fun Map<String, DiagnosticsHomeCompositeProgress>.updatedRun(

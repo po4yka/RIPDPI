@@ -17,6 +17,51 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeCompositeStageExecutorResumePolicyTest {
     @Test
+    fun `strategy stages reserve finalization time after the native deadline`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val json = diagnosticsTestJson()
+            val spec = HomeCompositeStageSpecs.first { it.profileId == "ru-dpi-strategy" }
+            val progress = MutableStateFlow(mapOf("run" to pendingProgress(spec)))
+            val nativeDeadlines = mutableListOf<Long?>()
+            val controller =
+                object : RuntimeUnavailableController() {
+                    override suspend fun startScanOwnedBy(
+                        ownerId: String,
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                        resumeRuntimeAfterRawPath: Boolean,
+                    ): DiagnosticsManualScanStartResult {
+                        nativeDeadlines += scanDeadlineMs
+                        return DiagnosticsManualScanStartResult.Started("session-${nativeDeadlines.size}")
+                    }
+                }
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = controller,
+                    diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                )
+
+            listOf(false, true).forEach { quickScan ->
+                executor.launchStageSession("run", 0, spec, quickScan, progress)
+            }
+
+            assertEquals(
+                listOf(330_000L to 270_000L, 120_000L to 60_000L),
+                listOf(
+                    stageTimeoutMs(spec) to nativeDeadlines[0],
+                    stageTimeoutMs(spec, quickScan = true) to nativeDeadlines[1],
+                ),
+            )
+        }
+
+    @Test
     fun `active vpn allows controller to acquire the owned in-path route`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
