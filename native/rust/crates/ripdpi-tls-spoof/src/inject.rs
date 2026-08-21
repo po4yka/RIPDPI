@@ -19,7 +19,7 @@
 //! ```text
 //! inject_decoy_segment(stream, forged_hello, method)
 //!   1. stream.local_addr() / peer_addr()  → SpoofSegmentParams src/dst
-//!   2. stale_timestamp_value(stream)      → WrongTimestamp tsval (may be None)
+//!   2. TCP_INFO snapshot                  → WrongTimestamp tsval + advertised window
 //!   3. setsockopt(fd, TCP_REPAIR=19, 1)   → enter repair mode (CAP_NET_ADMIN)
 //!   4. setsockopt(fd, TCP_REPAIR_QUEUE=20, 2)  → select SEND queue
 //!   5. getsockopt(fd, TCP_QUEUE_SEQ=21)   → read live send seq
@@ -173,8 +173,11 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
 
     let fd = stream.as_raw_fd();
 
-    // Snapshot fingerprint inputs before entering repair mode.
-    let tsval = stale_timestamp_value(stream)?;
+    // Snapshot fingerprint inputs before entering repair mode. One TCP_INFO
+    // read feeds both the WrongTimestamp tsval and the advertised window.
+    let info = get_tcp_info(fd)?;
+    let tsval = stale_timestamp_value(&info, fd)?;
+    let window = advertised_window_field(&info);
 
     // Enter TCP_REPAIR mode so we can read the live sequence numbers without
     // disrupting the connection's state machine.
@@ -201,7 +204,7 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
             dst_port,
             seq,
             ack,
-            window: 65535,
+            window,
             ttl,
             ip_id: (seq & 0xFFFF) as u16,
             payload: forged_hello.to_vec(),
@@ -295,19 +298,9 @@ fn get_tcp_u32_opt(fd: libc::c_int, opt: libc::c_int) -> io::Result<u32> {
     if rc != 0 { Err(io::Error::last_os_error()) } else { Ok(val) }
 }
 
-/// Return the stale TCP timestamp value for the `WrongTimestamp` decoy.
-///
-/// Returns `None` when the upstream connection did not negotiate TCP
-/// timestamps (`TCP_INFO.tcpi_options` lacks `TCPI_OPT_TIMESTAMPS`): without
-/// negotiation the server ignores the TS option entirely and would ACCEPT the
-/// decoy segment, corrupting the stream — so the caller must fail closed
-/// instead of emitting. Otherwise returns the live `TCP_TIMESTAMP` value minus
-/// [`STALE_TS_DELTA`]: older than every TSval the server has seen, which is
-/// what PAWS (RFC 7323 §5.3) actually rejects.
+/// Read the live `TCP_INFO` snapshot for a TCP socket fd.
 #[cfg(target_os = "linux")]
-fn stale_timestamp_value(stream: &TcpStream) -> io::Result<Option<u32>> {
-    let fd = stream.as_raw_fd();
-
+fn get_tcp_info(fd: libc::c_int) -> io::Result<libc::tcp_info> {
     let mut info: libc::tcp_info = unsafe { std::mem::zeroed() };
     let mut len = std::mem::size_of::<libc::tcp_info>() as libc::socklen_t;
     // SAFETY: `fd` is a valid TCP socket; `info` is a stack-allocated all-zero
@@ -319,14 +312,29 @@ fn stale_timestamp_value(stream: &TcpStream) -> io::Result<Option<u32>> {
     if rc != 0 {
         return Err(io::Error::last_os_error());
     }
+    Ok(info)
+}
+
+/// Return the stale TCP timestamp value for the `WrongTimestamp` decoy.
+///
+/// Returns `None` when the upstream connection did not negotiate TCP
+/// timestamps (`TCP_INFO.tcpi_options` lacks `TCPI_OPT_TIMESTAMPS`): without
+/// negotiation the server ignores the TS option entirely and would ACCEPT the
+/// decoy segment, corrupting the stream — so the caller must fail closed
+/// instead of emitting. Otherwise returns the live `TCP_TIMESTAMP` value minus
+/// [`STALE_TS_DELTA`]: older than every TSval the server has seen, which is
+/// what PAWS (RFC 7323 §5.3) actually rejects.
+#[cfg(target_os = "linux")]
+fn stale_timestamp_value(info: &libc::tcp_info, fd: libc::c_int) -> io::Result<Option<u32>> {
     if info.tcpi_options & TCPI_OPT_TIMESTAMPS == 0 {
         return Ok(None);
     }
 
     let mut ts: libc::c_uint = 0;
     let mut ts_len = std::mem::size_of::<libc::c_uint>() as libc::socklen_t;
-    // SAFETY: same invariants as above with a stack-allocated `c_uint`; the
-    // kernel writes exactly `sizeof(c_uint)` bytes for TCP_TIMESTAMP.
+    // SAFETY: `fd` is a valid TCP socket; `ts` is a stack-allocated `c_uint`
+    // valid for the duration of the syscall; the kernel writes exactly
+    // `sizeof(c_uint)` bytes for TCP_TIMESTAMP.
     let rc = unsafe {
         libc::getsockopt(fd, IPPROTO_TCP, libc::TCP_TIMESTAMP, (&mut ts as *mut libc::c_uint).cast(), &mut ts_len)
     };
@@ -334,6 +342,28 @@ fn stale_timestamp_value(stream: &TcpStream) -> io::Result<Option<u32>> {
         return Err(io::Error::last_os_error());
     }
     Ok(Some(ts.saturating_sub(crate::segment::STALE_TS_DELTA)))
+}
+
+/// Derive the TCP window-field value the kernel would currently advertise on
+/// this connection, so the decoy segment's window matches the rest of the
+/// flow instead of a fixed fingerprint-breaking constant.
+///
+/// The outgoing window field carries our receive window in unscaled units —
+/// the peer left-shifts it by the wscale we announced in the SYN — so the
+/// value is `tcpi_rcv_wnd >> tcpi_rcv_wscale`. libc packs both 4-bit scales
+/// into one byte (`tcpi_snd_rcv_wscale`): low nibble snd, high nibble rcv.
+///
+/// A zero or overflowing result means either a genuinely collapsed
+/// zero-window or an old kernel that does not fill `tcpi_rcv_wnd` (< 5.4);
+/// both fall back to the previous fixed 65535 rather than emit a degenerate
+/// window field.
+#[cfg(target_os = "linux")]
+fn advertised_window_field(info: &libc::tcp_info) -> u16 {
+    let rcv_wscale = info.tcpi_snd_rcv_wscale >> 4;
+    match u16::try_from(info.tcpi_rcv_wnd >> rcv_wscale) {
+        Ok(field) if field > 0 => field,
+        _ => u16::MAX,
+    }
 }
 
 // ── Public inject entry point ────────────────────────────────────────────────

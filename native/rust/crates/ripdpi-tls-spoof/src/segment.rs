@@ -85,7 +85,10 @@ pub struct SpoofSegmentParams {
     /// `WrongAck` this is offset by [`WRONG_ACK_DELTA`]; for all other methods
     /// it is used verbatim.
     pub ack: u32,
-    /// TCP receive-window size from the snapshot.
+    /// TCP receive-window field for the decoy segment. Use the live value the
+    /// kernel would advertise (`tcpi_rcv_wnd >> rcv_wscale`) so the segment
+    /// matches the rest of the flow; a fixed constant is a fingerprint
+    /// inconsistency a correlating DPI box can spot.
     pub window: u16,
     /// IP TTL. Use the live socket TTL to match the connection's fingerprint.
     pub ttl: u8,
