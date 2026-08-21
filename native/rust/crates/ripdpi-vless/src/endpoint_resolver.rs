@@ -10,6 +10,13 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 const PROTECTED_DNS_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Resolver IDs used to bootstrap relay-hostname resolution when socket
+/// protection is active. Both entries come from the shared encrypted-DNS
+/// catalog; changing this set changes which third-party resolvers see
+/// relay-hostname lookups, so it stays one named decision here instead of
+/// inline string literals.
+const PROTECTED_RELAY_DNS_RESOLVER_IDS: [&str; 2] = ["adguard", "dnssb"];
+
 pub type SocketProtectFn = dyn Fn(RawFd) -> io::Result<()> + Send + Sync + 'static;
 
 pub async fn resolve_server_addr(
@@ -23,7 +30,9 @@ pub async fn resolve_server_addr(
     }
 
     match protect {
-        Some(protect) => resolve_hostname_via_protected_doh(server, port, bind_ip, protect).await,
+        Some(protect) => {
+            resolve_hostname_via_protected_doh(server, port, bind_ip, protect, &PROTECTED_RELAY_DNS_RESOLVER_IDS).await
+        }
         None => resolve_hostname_via_system_dns(server, port, bind_ip).await,
     }
 }
@@ -55,6 +64,7 @@ async fn resolve_hostname_via_protected_doh(
     port: u16,
     bind_ip: Option<IpAddr>,
     protect: Box<SocketProtectFn>,
+    resolver_ids: &[&str],
 ) -> io::Result<SocketAddr> {
     let protect = std::sync::Arc::new(protect);
     let hooks = EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
@@ -63,9 +73,16 @@ async fn resolve_hostname_via_protected_doh(
             async move { connect_protected_tcp_socket(target, bind_ip, timeout, protect.as_ref()) }
         },
     );
-    let pipeline = DohResolverPipeline::builder()
-        .primary_endpoint(ripdpi_ech_dns::encrypted_dns_endpoint_for_resolver_id("adguard"))
-        .secondary_endpoint(ripdpi_ech_dns::encrypted_dns_endpoint_for_resolver_id("dnssb"))
+    let primary_id = resolver_ids.first().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, "protected relay DNS needs a primary resolver id")
+    })?;
+    let secondary = resolver_ids.get(1).map(|id| ripdpi_ech_dns::encrypted_dns_endpoint_for_resolver_id(id));
+    let mut builder = DohResolverPipeline::builder()
+        .primary_endpoint(ripdpi_ech_dns::encrypted_dns_endpoint_for_resolver_id(primary_id));
+    if let Some(secondary) = secondary {
+        builder = builder.secondary_endpoint(secondary);
+    }
+    let pipeline = builder
         .transport(EncryptedDnsTransport::Direct)
         .timeout(PROTECTED_DNS_TIMEOUT)
         .connect_hooks(hooks)
@@ -142,5 +159,15 @@ mod tests {
         .expect_err("protected hostname resolution must fail closed through the protector");
 
         assert!(err.to_string().contains("protected resolver sentinel"), "unexpected protected resolver error: {err}",);
+    }
+
+    #[tokio::test]
+    async fn protected_doh_requires_a_primary_resolver_id() {
+        let protect: Box<SocketProtectFn> = Box::new(|_| Ok(()));
+        let err = resolve_hostname_via_protected_doh("relay.invalid", 443, None, protect, &[])
+            .await
+            .expect_err("empty resolver id list must fail before any network I/O");
+
+        assert!(err.to_string().contains("primary resolver id"), "unexpected error: {err}");
     }
 }
