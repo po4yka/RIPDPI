@@ -1,4 +1,5 @@
-use crate::types::{EngineProgressWire, EngineScanReportWire, NativeSessionEvent, ScanProgress, ScanReport};
+use crate::types::{NativeSessionEvent, ScanProgress, ScanReport};
+use ripdpi_diagnostics_contracts::{EngineProgressWire, EngineScanReportWire};
 
 pub(super) fn progress_to_json(progress: Option<&ScanProgress>) -> Result<Option<String>, String> {
     progress

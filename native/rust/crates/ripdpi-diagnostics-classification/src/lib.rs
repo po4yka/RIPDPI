@@ -25,7 +25,7 @@ pub mod candidates {
     pub use ripdpi_diagnostics_candidates::candidates::*;
 }
 
-pub(crate) use ripdpi_diagnostics_contracts as types;
+pub(crate) use ripdpi_diagnostics_contracts::types;
 
 pub mod wire {
     pub use ripdpi_diagnostics_contracts::wire::{

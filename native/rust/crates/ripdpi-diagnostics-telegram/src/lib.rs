@@ -14,7 +14,7 @@ pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::*;
 }
 
-pub(crate) use ripdpi_diagnostics_contracts as types;
+pub(crate) use ripdpi_diagnostics_contracts::types;
 
 pub(crate) mod util {
     #![allow(unused_imports)]

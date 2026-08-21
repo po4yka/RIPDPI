@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
 pub(super) use ripdpi_config::{EmitterTier, TcpChainStepKind, UdpChainStepKind};
-pub(super) use ripdpi_diagnostics_contracts::{
+pub(super) use ripdpi_diagnostics_contracts::types::{
     ProbeResult, StrategyEmitterTier, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel,
     StrategyProbeCandidateSummary, StrategyProbeRecommendation,
 };

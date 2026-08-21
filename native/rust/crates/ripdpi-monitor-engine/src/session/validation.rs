@@ -1,4 +1,5 @@
-use crate::types::{EngineScanRequestWire, ScanRequest};
+use crate::types::ScanRequest;
+use ripdpi_diagnostics_contracts::EngineScanRequestWire;
 
 use super::request_validation::validate_scan_request;
 
@@ -29,9 +30,9 @@ impl From<ValidatedScanRequest> for ScanRequest {
 mod tests {
     use super::*;
     use crate::types::{
-        DIAGNOSTICS_ENGINE_SCHEMA_VERSION, DiagnosticProfileFamily, ScanKind, ScanPathMode, StrategyProbeRequest,
-        TcpTarget, ThroughputTarget,
+        DiagnosticProfileFamily, ScanKind, ScanPathMode, StrategyProbeRequest, TcpTarget, ThroughputTarget,
     };
+    use ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION;
 
     fn request() -> EngineScanRequestWire {
         EngineScanRequestWire {

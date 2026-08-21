@@ -3,7 +3,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use crate::types::{EngineScanRequestWire, ScanRequest, SharedState};
+use crate::types::{ScanRequest, SharedState};
+use ripdpi_diagnostics_contracts::EngineScanRequestWire;
 
 use super::super::log_level::parse_native_log_level;
 use super::super::validation::ValidatedScanRequest;

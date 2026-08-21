@@ -32,4 +32,4 @@ pub(crate) mod util {
     };
 }
 
-pub(crate) use ripdpi_diagnostics_contracts as types;
+pub(crate) use ripdpi_diagnostics_contracts::types;

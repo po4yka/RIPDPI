@@ -25,7 +25,7 @@ pub(crate) use probes::{
     blockpage_fingerprints, candidates, cdn_ech, classification, connectivity, http, observations, strategy, telegram,
     tls, transport, util,
 };
-pub(crate) use ripdpi_diagnostics_contracts as types;
+pub(crate) use ripdpi_diagnostics_contracts::types;
 #[cfg(test)]
 pub(crate) use session::validate_scan_request;
 

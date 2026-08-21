@@ -2,7 +2,8 @@ use std::io::{self, Write};
 
 use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
-use crate::types::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire, ScanKind, ScanPathMode};
+use crate::types::{ScanKind, ScanPathMode};
+use ripdpi_diagnostics_contracts::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire};
 
 const MAX_REQUEST_WIRE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_PROFILE_ID_BYTES: usize = 256;

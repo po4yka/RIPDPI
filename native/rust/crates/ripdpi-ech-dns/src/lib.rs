@@ -32,7 +32,7 @@ pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::TransportConfig;
 }
 
-pub(crate) use ripdpi_diagnostics_contracts as types;
+pub(crate) use ripdpi_diagnostics_contracts::types;
 
 pub(crate) mod util {
     pub use ripdpi_diagnostics_contracts::util::{

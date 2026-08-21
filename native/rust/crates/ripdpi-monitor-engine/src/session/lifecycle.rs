@@ -96,10 +96,10 @@ impl MonitorSession {
 mod tests {
     use super::*;
     use crate::types::{
-        DIAGNOSTICS_ENGINE_SCHEMA_VERSION, DiagnosticProfileFamily, EngineScanRequestWire, NativeSessionEvent,
-        ProbeResult, ScanCompletionKind, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanReportDisposition,
-        ScanTerminationReason,
+        DiagnosticProfileFamily, NativeSessionEvent, ProbeResult, ScanCompletionKind, ScanKind, ScanPathMode,
+        ScanProgress, ScanReport, ScanReportDisposition, ScanTerminationReason,
     };
+    use ripdpi_diagnostics_contracts::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire};
     use ripdpi_telemetry::recorder::RecorderSnapshot;
     use std::sync::atomic::Ordering;
     use std::sync::{Barrier, Weak, mpsc};
