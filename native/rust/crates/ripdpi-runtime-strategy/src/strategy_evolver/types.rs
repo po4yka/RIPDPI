@@ -14,6 +14,8 @@ pub use stats::ComboStats;
 #[cfg(test)]
 pub(crate) use context::FamilyStats;
 pub(crate) use context::{ContextBanditState, StrategyFamily};
+#[cfg(test)]
+pub(crate) use identity::UNKNOWN_VARIANT_DISC;
 pub(crate) use identity::{
     entropy_mode_disc, offset_base_disc, oob_placement_disc, quic_fake_disc, timing_jitter_disc, tls_randrec_disc,
     udp_burst_disc,

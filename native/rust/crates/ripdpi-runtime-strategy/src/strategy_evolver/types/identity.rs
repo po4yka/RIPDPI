@@ -107,6 +107,14 @@ impl StrategyCombo {
     }
 }
 
+/// Discriminant reserved for variants added to the non_exhaustive
+/// `ripdpi-config` / `ripdpi-desync` enums after this mapping was written.
+/// Distinct from every known variant and from the 0xFF "absent dimension"
+/// sentinel, so future variants cannot collide with `Disabled` in the Hash
+/// impl or the canonical shared-priors key; unknown variants may only
+/// collide with each other until their arms are written.
+pub(crate) const UNKNOWN_VARIANT_DISC: u8 = 0xFE;
+
 pub(crate) fn offset_base_disc(o: OffsetBase) -> u8 {
     match o {
         OffsetBase::Abs => 0,
@@ -139,7 +147,7 @@ pub(crate) fn quic_fake_disc(q: QuicFakeProfile) -> u8 {
         QuicFakeProfile::Disabled => 0,
         QuicFakeProfile::CompatDefault => 1,
         QuicFakeProfile::RealisticInitial => 2,
-        _ => 0,
+        _ => UNKNOWN_VARIANT_DISC,
     }
 }
 
@@ -165,7 +173,7 @@ pub(crate) fn entropy_mode_disc(e: EntropyMode) -> u8 {
         EntropyMode::Popcount => 1,
         EntropyMode::Shannon => 2,
         EntropyMode::Combined => 3,
-        _ => 0,
+        _ => UNKNOWN_VARIANT_DISC,
     }
 }
 

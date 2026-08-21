@@ -244,6 +244,21 @@ impl Default for FailoverConfig {
     }
 }
 
+impl FailoverConfig {
+    /// Defensive normalization for caller-supplied knobs: `score_smoothing`
+    /// is clamped into `(0, 1]` (NaN and non-positive values fall back to
+    /// 1.0 so the EWMA always advances), and a zero `failure_threshold` is
+    /// lifted to 1 so roles stay usable after a failure instead of being
+    /// permanently excluded from every resolution walk.
+    fn sanitized(mut self) -> Self {
+        if !(self.score_smoothing.is_finite() && self.score_smoothing > 0.0 && self.score_smoothing <= 1.0) {
+            self.score_smoothing = 1.0;
+        }
+        self.failure_threshold = self.failure_threshold.max(1);
+        self
+    }
+}
+
 /// UDP/443 viability for the current network, gating Hysteria2.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UdpViability {
@@ -301,7 +316,7 @@ impl OutboundFailover {
     /// Create a failover machine starting on the primary REALITY outbound.
     pub fn new(config: FailoverConfig) -> Self {
         Self {
-            config,
+            config: config.sanitized(),
             state: FailoverState::ConnectedPrimary,
             roles: [RoleState::new(); 3],
             udp_viability: UdpViability::Unknown,
@@ -737,6 +752,30 @@ mod tests {
         fo.on_probe(healthy(OutboundRole::Primary), FailoverTrigger::HealthProbe);
         fo.on_probe(failed(OutboundRole::Primary), FailoverTrigger::HealthProbe);
         assert_eq!(fo.state(), FailoverState::ConnectedPrimary);
+    }
+
+    #[test]
+    fn config_sanitizes_degenerate_knobs() {
+        // M3 regression: score_smoothing outside (0, 1] froze or poisoned the
+        // EWMA, and a zero failure_threshold made every role permanently
+        // unusable.
+        let config =
+            FailoverConfig { failure_threshold: 0, score_smoothing: f64::NAN, ..FailoverConfig::default() }.sanitized();
+        assert_eq!(config.failure_threshold, 1);
+        assert_eq!(config.score_smoothing, 1.0);
+
+        let config = FailoverConfig { score_smoothing: 2.0, ..FailoverConfig::default() }.sanitized();
+        assert_eq!(config.score_smoothing, 1.0);
+
+        let config = FailoverConfig { score_smoothing: 0.25, ..FailoverConfig::default() }.sanitized();
+        assert_eq!(config.score_smoothing, 0.25);
+    }
+
+    #[test]
+    fn zero_failure_threshold_still_fails_over_after_one_miss() {
+        let mut fo = OutboundFailover::new(FailoverConfig { failure_threshold: 0, ..FailoverConfig::default() });
+        let state = fo.on_probe(failed(OutboundRole::Primary), FailoverTrigger::HealthProbe);
+        assert_eq!(state, FailoverState::TryHttpsFallback);
     }
 
     #[test]

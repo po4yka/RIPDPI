@@ -1,7 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::sync::{OnceLock, RwLock};
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
 use ripdpi_desync::{
@@ -88,6 +88,7 @@ fn global_probe_results() -> &'static RwLock<GlobalProbeResults> {
 impl StrategyEvolver {
     pub fn inject_probe_results(&mut self, results: &[ProbeResult]) {
         let context = self.current_learning_context.clone();
+        let mut any_applied = false;
         for result in results {
             let Some(combo) = probe_combo_for_strategy_id(&result.strategy_id) else {
                 continue;
@@ -95,11 +96,17 @@ impl StrategyEvolver {
             if !combo_matches_bucket(&combo, context.target_bucket) {
                 continue;
             }
+            any_applied = true;
             for _ in 0..PROBE_OBSERVATION_WEIGHT {
                 self.record_probe_result(&context, &combo, result);
             }
         }
-        self.clear_pending_probe_selection();
+        // Re-roll the selection only when the batch actually changed arm
+        // statistics; an empty or fully filtered batch must not discard an
+        // in-flight experiment that has not recorded feedback yet.
+        if any_applied {
+            self.clear_pending_probe_selection();
+        }
     }
 
     pub fn combo_stats_for(&self, combo: &StrategyCombo) -> Option<&ComboStats> {
@@ -116,8 +123,18 @@ impl StrategyEvolver {
         // evolver-epoch-relative and die with the process, so the loader
         // needs an absolute reference to reconstruct their age.
         document.insert("local_priors_saved_at_unix_ms".to_owned(), serde_json::to_value(now_millis())?);
-        fs::write(path, serde_json::to_vec_pretty(&serde_json::Value::Object(document))?)?;
-        Ok(())
+        // Atomic replace: write a sibling temporary file and rename it over
+        // the target so a crash mid-write cannot truncate the priors file.
+        let bytes = serde_json::to_vec_pretty(&serde_json::Value::Object(document))?;
+        let tmp_path = path.with_extension("json.tmp");
+        fs::write(&tmp_path, bytes)?;
+        match fs::rename(&tmp_path, path) {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                let _ = fs::remove_file(&tmp_path);
+                Err(error.into())
+            }
+        }
     }
 
     /// Load locally persisted priors. The document's
@@ -208,20 +225,20 @@ pub fn apply_global_probe_results(results: &[ProbeResult]) -> usize {
     if results.is_empty() {
         return 0;
     }
-    let mut global = global_probe_results().write().expect("probe result registry poisoned");
+    let mut global = global_probe_results().write().unwrap_or_else(PoisonError::into_inner);
     global.generation = global.generation.saturating_add(1);
     global.results = results.to_vec();
     results.len()
 }
 
 pub fn latest_global_probe_results() -> (u64, Vec<ProbeResult>) {
-    let global = global_probe_results().read().expect("probe result registry poisoned");
+    let global = global_probe_results().read().unwrap_or_else(PoisonError::into_inner);
     (global.generation, global.results.clone())
 }
 
 #[doc(hidden)]
 pub fn clear_global_probe_results_for_tests() {
-    let mut global = global_probe_results().write().expect("probe result registry poisoned");
+    let mut global = global_probe_results().write().unwrap_or_else(PoisonError::into_inner);
     *global = GlobalProbeResults::default();
 }
 

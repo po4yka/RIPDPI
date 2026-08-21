@@ -151,6 +151,50 @@ fn local_priors_round_trip_preserves_oob_and_timing_jitter_arms() {
     assert!(ids.contains(&"timing_jitter_balanced"), "timing-jitter arm must survive save: {ids:?}");
 }
 
+#[test]
+fn inject_probe_results_keeps_pending_experiment_when_nothing_applies() {
+    // M1 regression: an empty batch or one fully filtered by bucket must not
+    // discard an in-flight experiment that has not recorded feedback yet.
+    let mut evolver = tls_evolver();
+    let hints = evolver.suggest_hints().expect("initial hints");
+
+    evolver.inject_probe_results(&[]);
+    assert_eq!(evolver.peek_hints(), Some(hints), "empty batch must keep the pending experiment");
+
+    // Probe combos are built over the split base, so under the Tls bucket
+    // every id matches; use a Quic-bucket evolver where a split-only combo
+    // is genuinely filtered out.
+    let mut quic_evolver = StrategyEvolver::new(true, 0.0);
+    quic_evolver.set_learning_context(LearningContext {
+        target_bucket: LearningTargetBucket::Quic,
+        transport: LearningTransportKind::UdpQuic,
+        ..LearningContext::default()
+    });
+    let quic_hints = quic_evolver.suggest_hints().expect("initial quic hints");
+    quic_evolver.inject_probe_results(&[ProbeResult::success("split", "youtube.com", 80)]);
+    assert_eq!(
+        quic_evolver.peek_hints(),
+        Some(quic_hints),
+        "batch fully filtered by bucket must keep the pending experiment"
+    );
+}
+
+#[test]
+fn save_local_priors_leaves_no_temporary_file_behind() {
+    let path = priors_fixture_path("atomic");
+    std::fs::write(&path, r#"{"shared_priors":{"version":1}}"#).expect("seed shared-priors section");
+    let mut evolver = tls_evolver();
+    evolver.inject_probe_results(&[ProbeResult::success("fake", "youtube.com", 50)]);
+    evolver.save_local_priors(&path).expect("save local priors");
+    let saved_exists = path.exists();
+    let tmp_path = path.with_extension("json.tmp");
+    let tmp_exists = tmp_path.exists();
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&tmp_path);
+    assert!(saved_exists, "save must produce the target file");
+    assert!(!tmp_exists, "atomic replace must not leave a temporary file behind");
+}
+
 fn priors_fixture_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("ripdpi-local-priors-{label}-{}-{}.json", std::process::id(), monotonic_suffix()))
 }

@@ -16,6 +16,42 @@ fn evolver_disabled_returns_none() {
 }
 
 #[test]
+fn evolver_epsilon_is_sanitized_into_unit_range() {
+    // M3 regression: NaN compared false against every threshold and silently
+    // disabled exploration; out-of-range values were passed through as-is.
+    assert_eq!(StrategyEvolver::new(true, f64::NAN).epsilon(), 0.0);
+    assert_eq!(StrategyEvolver::new(true, -0.5).epsilon(), 0.0);
+    assert_eq!(StrategyEvolver::new(true, 2.0).epsilon(), 1.0);
+    assert_eq!(StrategyEvolver::new(true, 0.3).epsilon(), 0.3);
+}
+
+#[test]
+fn discriminant_sentinel_is_reserved_for_unknown_variants() {
+    // M2 regression: the wildcard arms mapped future non_exhaustive variants
+    // onto Disabled's discriminant, colliding in both the Hash impl and the
+    // canonical shared-priors key. The sentinel must stay unused by every
+    // known variant.
+    use crate::strategy_evolver::types::{UNKNOWN_VARIANT_DISC, entropy_mode_disc, quic_fake_disc};
+    for disc in [
+        quic_fake_disc(QuicFakeProfile::Disabled),
+        quic_fake_disc(QuicFakeProfile::CompatDefault),
+        quic_fake_disc(QuicFakeProfile::RealisticInitial),
+    ] {
+        assert_ne!(disc, UNKNOWN_VARIANT_DISC);
+    }
+    for disc in [
+        entropy_mode_disc(EntropyMode::Disabled),
+        entropy_mode_disc(EntropyMode::Popcount),
+        entropy_mode_disc(EntropyMode::Shannon),
+        entropy_mode_disc(EntropyMode::Combined),
+    ] {
+        assert_ne!(disc, UNKNOWN_VARIANT_DISC);
+    }
+    assert_eq!(quic_fake_disc(QuicFakeProfile::Disabled), 0);
+    assert_eq!(entropy_mode_disc(EntropyMode::Disabled), 0);
+}
+
+#[test]
 fn evolver_selects_best_combo_after_training() {
     let mut e = StrategyEvolver::new(true, 0.0); // pure exploitation
 

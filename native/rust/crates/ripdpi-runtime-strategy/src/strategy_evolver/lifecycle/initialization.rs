@@ -9,6 +9,10 @@ use crate::strategy_evolver::types::{LearningContext, now_millis};
 
 impl StrategyEvolver {
     pub fn new(enabled: bool, epsilon: f64) -> Self {
+        // Clamp the caller-supplied exploration rate into [0, 1]. NaN would
+        // otherwise compare false against every threshold and silently
+        // disable exploration forever.
+        let explore_epsilon = if epsilon.is_finite() { epsilon.clamp(0.0, 1.0) } else { 0.0 };
         Self {
             combos: HashMap::new(),
             contexts: HashMap::new(),
@@ -17,7 +21,7 @@ impl StrategyEvolver {
             current_experiment_family: None,
             current_experiment_started_ms: None,
             current_learning_context: LearningContext::default(),
-            explore_epsilon: epsilon,
+            explore_epsilon,
             max_combos: 64,
             enabled,
             rng_state: initial_rng_state(),
