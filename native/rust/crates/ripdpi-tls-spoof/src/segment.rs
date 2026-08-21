@@ -175,7 +175,11 @@ pub fn build_spoof_segment(params: &SpoofSegmentParams) -> std::io::Result<Vec<u
     let mut ip = Ipv4Header::new(tcp_segment_len, params.ttl, ip_number::TCP, src.ip().octets(), dst.ip().octets())
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "IPv4 header construction failed"))?;
     ip.identification = params.ip_id;
-    ip.dont_fragment = false;
+    // Typical egress HTTPS segments carry DF=1; matching that keeps the
+    // decoy's IP fingerprint consistent with the flow, and forbidding
+    // fragmentation guarantees the SNI stays in the first packet where the
+    // DPI box can read it.
+    ip.dont_fragment = true;
     ip.more_fragments = false;
     ip.header_checksum = ip.calc_header_checksum();
 
@@ -497,6 +501,10 @@ mod tests {
             assert_eq!(pkt[0] >> 4, 4, "{method:?}: IP version");
             assert_eq!(pkt[0] & 0x0F, 5, "{method:?}: IHL=5 (no IP options)");
             assert_eq!(pkt[9], 6, "{method:?}: protocol=TCP");
+            // DF must be set: matches egress HTTPS fingerprint and keeps the
+            // ClientHello unfragmented for the DPI box to read.
+            assert_ne!(pkt[6] & 0x40, 0, "{method:?}: DF bit set");
+            assert_eq!(pkt[6] & 0x20, 0, "{method:?}: MF bit clear");
             // TTL.
             assert_eq!(pkt[8], params.ttl, "{method:?}: TTL");
             // Src/dst IP embedded.
