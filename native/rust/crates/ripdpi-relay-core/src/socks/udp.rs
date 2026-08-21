@@ -53,6 +53,26 @@ pub(crate) trait UdpCarrier: Send {
     }
 }
 
+/// The client-facing relay UDP socket of an association.
+///
+/// Internal seam over [`tokio::net::UdpSocket`] so the pump loop's
+/// downlink-delivery policy can be driven against a test fake.
+pub(crate) trait ClientUdpSocket: Send {
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
+
+    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<()>;
+}
+
+impl ClientUdpSocket for UdpSocket {
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        UdpSocket::recv_from(self, buf).await
+    }
+
+    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<()> {
+        UdpSocket::send_to(self, buf, target).await.map(|_| ())
+    }
+}
+
 pub(crate) async fn handle_udp_associate<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
@@ -127,10 +147,10 @@ struct UdpPumpOutcome {
 /// indefinitely or be reused after a partial frame. The success reply
 /// (`REP=0x00`) and the first loop poll are separated by no externally
 /// cancellable drop point, so a confirmed `ASSOCIATE` always enters the pump.
-async fn pump_udp_association<C, S, T>(
+async fn pump_udp_association<C, U, S, T>(
     mut control: S,
     control_ip: IpAddr,
-    udp_socket: UdpSocket,
+    udp_socket: U,
     udp_session: &mut C,
     config: &SocksSessionConfig,
     telemetry: &T,
@@ -138,6 +158,7 @@ async fn pump_udp_association<C, S, T>(
 ) -> UdpPumpOutcome
 where
     C: UdpCarrier,
+    U: ClientUdpSocket,
     S: AsyncRead + Unpin,
     T: SocksTelemetry + ?Sized,
 {
@@ -145,7 +166,11 @@ where
     let mut termination_reason = "association_aborted";
     let mut last_activity = tokio::time::Instant::now();
 
-    let mut associated_client = None;
+    // Anti-spoofing pin: the association locks to the first client socket
+    // address that passes the control-IP gate. Later datagrams from any other
+    // source are dropped, so a local process that discovers the relay port can
+    // neither inject uplink datagrams nor receive downlink ones.
+    let mut pinned_client = None;
     let mut udp_buffer = vec![0u8; UDP_BUFFER_SIZE];
     let mut control_probe = [0u8; 1];
     let control_closed = async {
@@ -170,14 +195,34 @@ where
                     Ok(datagram) => datagram,
                     Err(error) => break Err(error),
                 };
-                if source.ip() != control_ip {
-                    continue;
+                match pinned_client {
+                    None => {
+                        if source.ip() != control_ip {
+                            continue;
+                        }
+                        pinned_client = Some(source);
+                    }
+                    Some(pinned) if pinned != source => continue,
+                    Some(_) => {}
                 }
-                associated_client = Some(source);
                 last_activity = tokio::time::Instant::now();
                 let (target, payload) = match decode_udp_frame(&udp_buffer[..received]) {
                     Ok(frame) => frame,
-                    Err(error) => break Err(error),
+                    // A single malformed datagram must not tear down the whole
+                    // association: SOCKS5 UDP is lossy by design, so the frame
+                    // is dropped and the pump keeps serving the pinned client.
+                    Err(error) => {
+                        tracing::debug!(
+                            ring = "relay",
+                            subsystem = "relay",
+                            source = "relay",
+                            kind = "udp_frame_malformed",
+                            size = received,
+                            error = %error,
+                            "dropping malformed SOCKS5 UDP frame"
+                        );
+                        continue;
+                    }
                 };
                 // XUDP may carry DNS and arbitrary per-datagram destinations.
                 // Keep those endpoints out of the runtime telemetry surface;
@@ -221,15 +266,26 @@ where
                 if is_xudp {
                     telemetry.record_xudp_downlink(payload.len());
                 }
-                let Some(destination) = associated_client else {
+                let Some(destination) = pinned_client else {
                     continue;
                 };
                 let frame = match encode_udp_frame(&target, &payload) {
                     Ok(frame) => frame,
                     Err(error) => break Err(error),
                 };
+                // One undeliverable datagram must not tear down the
+                // association: a vanished or congested client surfaces as an
+                // ICMP-triggered send failure here, and the control-connection
+                // EOF or the idle timeout remains the real teardown signal.
                 if let Err(error) = udp_socket.send_to(&frame, destination).await {
-                    break Err(error);
+                    tracing::debug!(
+                        ring = "relay",
+                        subsystem = "relay",
+                        source = "relay",
+                        kind = "udp_downlink_dropped",
+                        error = %error,
+                        "dropping undeliverable downlink datagram"
+                    );
                 }
             }
             () = tokio::time::sleep_until(idle_deadline) => {
@@ -244,9 +300,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{Duration, Instant};
+
+    use tokio::sync::mpsc;
 
     use tokio::io::duplex;
     use tokio_util::sync::CancellationToken;
@@ -266,6 +325,47 @@ mod tests {
         async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
             self.recv_calls.fetch_add(1, Ordering::Relaxed);
             std::future::pending().await
+        }
+    }
+
+    struct RecordingUdpCarrier {
+        sent: mpsc::UnboundedSender<Vec<u8>>,
+        downlink: tokio::sync::Mutex<mpsc::UnboundedReceiver<(RelayTargetAddr, Vec<u8>)>>,
+    }
+
+    impl UdpCarrier for RecordingUdpCarrier {
+        async fn send_to(&mut self, _target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
+            let _ = self.sent.send(payload.to_vec());
+            Ok(())
+        }
+
+        async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+            self.downlink.lock().await.recv().await.ok_or_else(|| io::Error::other("downlink script channel closed"))
+        }
+    }
+
+    struct FailingDownlinkSocket {
+        uplink: tokio::sync::Mutex<mpsc::UnboundedReceiver<(Vec<u8>, SocketAddr)>>,
+        sends_attempted: Arc<AtomicU64>,
+    }
+
+    impl ClientUdpSocket for FailingDownlinkSocket {
+        async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+            let (data, source) = self
+                .uplink
+                .lock()
+                .await
+                .recv()
+                .await
+                .ok_or_else(|| io::Error::other("uplink script channel closed"))?;
+            let received = data.len().min(buf.len());
+            buf[..received].copy_from_slice(&data[..received]);
+            Ok((received, source))
+        }
+
+        async fn send_to(&self, _buf: &[u8], _target: SocketAddr) -> io::Result<()> {
+            self.sends_attempted.fetch_add(1, Ordering::Relaxed);
+            Err(io::Error::other("simulated downlink delivery failure"))
         }
     }
 
@@ -357,5 +457,160 @@ mod tests {
         outcome.result.expect("cancellation is graceful");
         assert_eq!("runtime_cancelled", outcome.termination_reason);
         drop(control_peer);
+    }
+
+    #[tokio::test]
+    async fn udp_pump_drops_malformed_frames_without_tearing_down_the_association() {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let (sent_tx, mut sent_rx) = mpsc::unbounded_channel();
+        let (_downlink_tx, downlink_rx) = mpsc::unbounded_channel();
+        let mut carrier = RecordingUdpCarrier { sent: sent_tx, downlink: tokio::sync::Mutex::new(downlink_rx) };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS client socket");
+        client.send_to(&[0x05, 0x00], relay_addr).await.expect("send malformed frame");
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+        let frame = crate::socks::encode_udp_frame(&target, b"after-malformed").expect("encode valid frame");
+        client.send_to(&frame, relay_addr).await.expect("send valid frame");
+
+        let forwarded = tokio::time::timeout(Duration::from_secs(2), sent_rx.recv())
+            .await
+            .expect("valid frame never reached the carrier after a malformed one");
+        assert_eq!(Some(b"after-malformed".to_vec()), forwarded);
+
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("a dropped malformed frame must not end the association as an error");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+    }
+    #[tokio::test]
+    async fn udp_pump_pins_the_first_client_socket_and_drops_foreign_sources() {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let (sent_tx, mut sent_rx) = mpsc::unbounded_channel();
+        let (_downlink_tx, downlink_rx) = mpsc::unbounded_channel();
+        let mut carrier = RecordingUdpCarrier { sent: sent_tx, downlink: tokio::sync::Mutex::new(downlink_rx) };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let pinned_client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind pinned client socket");
+        let foreign_client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind foreign client socket");
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+
+        let pinned_frame = crate::socks::encode_udp_frame(&target, b"from-pinned").expect("encode pinned frame");
+        pinned_client.send_to(&pinned_frame, relay_addr).await.expect("send pinned frame");
+        let forwarded = tokio::time::timeout(Duration::from_secs(2), sent_rx.recv())
+            .await
+            .expect("pinned client frame never reached the carrier");
+        assert_eq!(Some(b"from-pinned".to_vec()), forwarded);
+
+        let foreign_frame = crate::socks::encode_udp_frame(&target, b"from-foreign").expect("encode foreign frame");
+        foreign_client.send_to(&foreign_frame, relay_addr).await.expect("send foreign frame");
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert!(
+            matches!(sent_rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)),
+            "a datagram from a foreign source socket must never reach the carrier"
+        );
+
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("pump must end gracefully after pinning");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+    }
+    #[tokio::test]
+    async fn udp_pump_keeps_serving_after_a_failed_downlink_delivery() {
+        let (control, control_peer) = duplex(64);
+        let (sent_tx, mut sent_rx) = mpsc::unbounded_channel();
+        let (downlink_tx, downlink_rx) = mpsc::unbounded_channel();
+        let (uplink_tx, uplink_rx) = mpsc::unbounded_channel();
+        let sends_attempted = Arc::new(AtomicU64::new(0));
+        let mut carrier = RecordingUdpCarrier { sent: sent_tx, downlink: tokio::sync::Mutex::new(downlink_rx) };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+        let socket = FailingDownlinkSocket {
+            uplink: tokio::sync::Mutex::new(uplink_rx),
+            sends_attempted: Arc::clone(&sends_attempted),
+        };
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let pinned_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40_000);
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+        let ping = crate::socks::encode_udp_frame(&target, b"ping").expect("encode ping frame");
+        uplink_tx.send((ping, pinned_addr)).expect("script uplink datagram");
+        let forwarded = tokio::time::timeout(Duration::from_secs(2), sent_rx.recv())
+            .await
+            .expect("pinned client frame never reached the carrier");
+        assert_eq!(Some(b"ping".to_vec()), forwarded);
+
+        downlink_tx.send((target, b"reply".to_vec())).expect("script downlink datagram");
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert!(sends_attempted.load(Ordering::Relaxed) >= 1, "downlink delivery must have been attempted");
+
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("a failed downlink delivery must not end the association as an error");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+        drop(uplink_tx);
+        drop(downlink_tx);
     }
 }
