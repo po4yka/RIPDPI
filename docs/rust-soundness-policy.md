@@ -1472,7 +1472,7 @@ The asymmetry on `jint` is the most important one: a careless `Default::default(
 
 The same rule applies to every Rust function whose POINTER is handed to foreign code: BoringSSL SSL_CTX callbacks, POSIX signal handlers, JavaVM thread-attach callbacks, libc qsort comparators. The `reality_client_hello_cb` in `ripdpi-vless/src/reality_hook.rs` is the canonical example — its body opens with `std::panic::catch_unwind(AssertUnwindSafe(|| inner(...)))`.
 
-POSIX signal handlers (`signal_handler` in `ripdpi-root-helper`, `handle_signal` in `ripdpi-proxy-runtime`) are an exception by construction: they must remain async-signal-safe, so panicking in them is already undefined behaviour for reasons independent of FFI. The bodies are restricted to single `AtomicBool::store` calls that cannot panic; both are allowlisted on that basis.
+POSIX signal handlers (`signal_handler` in `ripdpi-root-helper`, `handle_shutdown_signal` in `ripdpi-runtime-platform`) are an exception by construction: they must remain async-signal-safe, so panicking in them is already undefined behaviour for reasons independent of FFI. The bodies are restricted to single `AtomicBool::store` calls that cannot panic; both are allowlisted on that basis.
 
 ### Drop in async / FFI contexts
 

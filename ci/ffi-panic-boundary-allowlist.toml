@@ -39,19 +39,6 @@ owner = "infra"
 review_date = "2026-11-17"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-proxy-runtime/src/process.rs"
-function = "handle_signal"
-reason = """\
-Body delegates to `request_shutdown()` whose entire body is \
-`SHUTDOWN.store(true, Ordering::Release)`. AtomicBool::store cannot panic. \
-Registered as a POSIX signal handler via the platform's \
-`install_shutdown_signal_handlers`; the body MUST stay async-signal-safe \
-(atomic store + nothing else) regardless of boundary status.\
-"""
-owner = "infra"
-review_date = "2026-11-17"
-
-[[entries]]
 file = "native/rust/crates/ripdpi-runtime-platform/src/process.rs"
 function = "handle_shutdown_signal"
 reason = """\
