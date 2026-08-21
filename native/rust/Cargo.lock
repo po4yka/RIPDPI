@@ -5661,10 +5661,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-diagnostics-pcap"
-version = "0.1.0"
-
-[[package]]
 name = "ripdpi-diagnostics-probes"
 version = "0.1.0"
 dependencies = [

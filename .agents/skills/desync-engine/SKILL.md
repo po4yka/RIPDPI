@@ -264,11 +264,11 @@ destination's TCP stack uses the first valid data; the DPI may use the fake.
 Gated by `seqovl_hard_gate_matches()` (round 1 only, small payloads).
 
 ### PcapHook
-Optional `PcapHook` callback invoked on each outbound packet during
-`execute_tcp_actions()` and `execute_tcp_plan()`. When registered, captures
-raw packet bytes to a `PcapRecordingSession` in `ripdpi-diagnostics-pcap` for
-diagnostic PCAP recording. No-op when not registered; zero overhead on the
-hot path.
+Optional `PcapHook` callback (`Arc<dyn Fn(&[u8], bool) + Send + Sync>`) invoked
+on each packet written during `execute_tcp_actions()` and `execute_tcp_plan()`
+(the bool is `true` for outbound packets). The embedding layer owns the sink:
+the runtime only forwards raw packet bytes and does no PCAP encoding itself.
+No-op when not registered; zero overhead on the hot path.
 
 ## Adding a new desync technique
 

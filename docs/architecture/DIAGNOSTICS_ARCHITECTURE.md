@@ -307,7 +307,7 @@ declaration is load-bearing for the Play Store Data Safety surface.
 | **Candidate planning** | `ripdpi-diagnostics-candidates` — `StrategyCandidateSpec` enumeration |
 | **Classification** | `ripdpi-diagnostics-classification` — probe observations → verdict |
 | **Probe-task execution** | `ripdpi-diagnostics-probes` — the `Probe` trait + concrete probe tasks |
-| **Support** | `ripdpi-diagnostics-parsers` (HTTP response + DNS packet parsers; currently fuzz/test consumption only), `ripdpi-diagnostics-pcap` (standalone PCAP utility, not yet wired into scans) |
+| **Support** | `ripdpi-diagnostics-parsers` (HTTP response + DNS packet parsers; currently fuzz/test consumption only) |
 | **Scan runner** | `ripdpi-diagnostics-runner` — connectivity / strategy / domain scans, budget, winner selection |
 | **Monitor engine** | `ripdpi-monitor-engine` — the active-scan engine (sessions, the `ExecutionStageRunner` loop) |
 | **Monitor adapters** | `ripdpi-monitor-adapter` (↔ contracts), `ripdpi-monitor-lane-adapter` (`LANE_ADAPTERS` probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |

@@ -268,7 +268,6 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-diagnostics-fat-header` | TCP fat-header probes | Probe API | `ripdpi-diagnostics-{http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-http` | HTTP reachability probes | Probe API | `ripdpi-diagnostics-{tls,transport}`, `ripdpi-failure-classifier` | Fan-in 6 | Keep |
 | `ripdpi-diagnostics-parsers` | Response parsers (HTTP + DNS packet helpers) | Parser API | `ripdpi-failure-classifier` | No runtime consumer | Prune candidate unless parser extraction is revived |
-| `ripdpi-diagnostics-pcap` | PCAP diagnostic recording | Recorder API | — (leaf) | Used by `ripdpi-android-proxy-adapter` | Keep |
 | `ripdpi-diagnostics-probes` | Probe-task execution | Probe API | `ripdpi-diagnostics-{classification,contracts,http}`, … | — | Keep |
 | `ripdpi-diagnostics-protocols` | Protocol-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | Consumed by `-runner` | Keep |
 | `ripdpi-diagnostics-runner` | Scan runner / orchestration | Runner API | `ripdpi-diagnostics-{candidates,classification,protocols}`, … | Mid | Keep |
