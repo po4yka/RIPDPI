@@ -576,6 +576,33 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
 }
 
 #[test]
+fn cancelled_strategy_probe_preserves_partial_report_when_one_transport_lane_is_empty() {
+    for populated_lane in [StrategyProbeProgressLane::Tcp, StrategyProbeProgressLane::Quic] {
+        let shared = Arc::new(Mutex::new(SharedState::default()));
+        let cancel = Arc::new(AtomicBool::new(true));
+        let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
+        let plan = strategy_test_plan();
+        match populated_lane {
+            StrategyProbeProgressLane::Tcp => {
+                runtime.strategy.tcp_candidates.push(candidate_summary("baseline_current", "baseline", 80));
+            }
+            StrategyProbeProgressLane::Quic => {
+                runtime.strategy.quic_candidates.push(candidate_summary("quic_disabled", "quic_disabled", 70));
+            }
+        }
+
+        publish_cancelled_run(&plan, &shared, runtime, None, None);
+
+        let report = shared.lock().expect("shared").report.clone().expect("cancelled report");
+        let strategy_probe = report.strategy_probe_report.expect("partial strategy report");
+        assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);
+        assert!(strategy_probe.recommendation.is_none());
+        assert_eq!(strategy_probe.tcp_candidates.is_empty(), populated_lane != StrategyProbeProgressLane::Tcp);
+        assert_eq!(strategy_probe.quic_candidates.is_empty(), populated_lane != StrategyProbeProgressLane::Quic);
+    }
+}
+
+#[test]
 fn skipped_strategy_probe_candidate_publishes_live_progress_and_increments_step() {
     let shared = Arc::new(Mutex::new(SharedState::default()));
     let cancel = Arc::new(AtomicBool::new(false));

@@ -23,7 +23,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
     if runtime.strategy.strategy_probe_report.is_some() {
         return true;
     }
-    if runtime.strategy.tcp_candidates.is_empty() || runtime.strategy.quic_candidates.is_empty() {
+    if runtime.strategy.tcp_candidates.is_empty() && runtime.strategy.quic_candidates.is_empty() {
         runtime.strategy.summary = Some("Automatic probing finished".to_string());
         return false;
     }
