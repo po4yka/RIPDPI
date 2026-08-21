@@ -51,8 +51,10 @@ pub fn note_spoof_failed() {
 mod tests {
     use super::*;
 
-    // NOTE: SPOOF_ACTIVE is process-global; this is the only test that mutates
-    // it, so the before/after delta is deterministic within this binary.
+    // INVARIANT: each process-global counter is mutated by exactly one test
+    // in this binary. cargo test runs tests in parallel threads, so a second
+    // mutator of the same counter would interleave fetch_adds and break these
+    // exact-delta assertions.
     #[test]
     fn increments_once_per_call() {
         let before = spoof_active_count();
@@ -62,7 +64,8 @@ mod tests {
         assert_eq!(spoof_active_count(), before + 2);
     }
 
-    // NOTE: SPOOF_FAILED is process-global and only this test mutates it.
+    // See the INVARIANT note on `increments_once_per_call`: this is the sole
+    // mutator of SPOOF_FAILED.
     #[test]
     fn failures_tallied_independently_of_successes() {
         let before_ok = spoof_active_count();

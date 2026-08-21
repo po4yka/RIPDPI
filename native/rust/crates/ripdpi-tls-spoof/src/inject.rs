@@ -100,6 +100,10 @@ const TCPI_OPT_TIMESTAMPS: u8 = 0x02;
 /// failure is surfaced as an `io::Error` from `send_spoof_segment` and is
 /// handled gracefully by the caller.
 ///
+/// The probe uses `SOCK_RAW / IPPROTO_TCP` while injection sends via
+/// `SOCK_RAW / IPPROTO_RAW`; both protocols gate raw socket creation on the
+/// same `CAP_NET_RAW` capability, so the probe result transfers.
+///
 /// Always returns `false` on non-Linux.
 #[cfg(target_os = "linux")]
 #[must_use]
@@ -206,7 +210,7 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
             ack,
             window,
             ttl,
-            ip_id: (seq & 0xFFFF) as u16,
+            ip_id: (seq ^ (process_entropy() as u32)) as u16,
             payload: forged_hello.to_vec(),
             method,
             tsval,
@@ -345,20 +349,25 @@ fn stale_timestamp_value(info: &libc::tcp_info, fd: libc::c_int) -> io::Result<O
     Ok(Some(ts.saturating_sub(crate::segment::STALE_TS_DELTA)))
 }
 
+/// Process-random 64-bit seed, computed once and stable for the process
+/// lifetime. Entropy comes from `RandomState`'s OS-seeded hash keys mixed
+/// with the pid.
+#[cfg(target_os = "linux")]
+fn process_entropy() -> u64 {
+    static SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *SEED.get_or_init(|| {
+        std::collections::hash_map::RandomState::new().build_hasher().finish() ^ (u64::from(std::process::id()) << 32)
+    })
+}
+
 /// Process-random nonzero ACK offset for `WrongAck` decoys.
 ///
 /// A fixed well-known offset would be a static signature DPI vendors can scan
 /// for; deriving one value per process keeps every deployment (and every relay
-/// restart) different while staying stable for the process lifetime. Entropy
-/// comes from `RandomState`'s OS-seeded hash keys mixed with the pid.
+/// restart) different while staying stable for the process lifetime.
 #[cfg(target_os = "linux")]
 fn process_ack_delta() -> u32 {
-    static DELTA: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
-    *DELTA.get_or_init(|| {
-        let seed = std::collections::hash_map::RandomState::new().build_hasher().finish()
-            ^ (u64::from(std::process::id()) << 32);
-        (seed as u32) | 1
-    })
+    (process_entropy() as u32) | 1
 }
 
 /// Derive the TCP window-field value the kernel would currently advertise on/// this connection, so the decoy segment's window matches the rest of the

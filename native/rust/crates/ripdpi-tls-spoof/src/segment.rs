@@ -91,7 +91,9 @@ pub struct SpoofSegmentParams {
     pub window: u16,
     /// IP TTL. Use the live socket TTL to match the connection's fingerprint.
     pub ttl: u8,
-    /// IPv4 identification field (arbitrary; caller may use time-derived value).
+    /// IPv4 identification field. Prefer a value not trivially predictable
+    /// from `seq` alone; the Linux send path mixes the sequence with
+    /// per-process entropy.
     pub ip_id: u16,
     /// The forged ClientHello bytes (already SNI-replaced). Becomes the TCP
     /// payload of the decoy segment.

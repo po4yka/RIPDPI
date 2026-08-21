@@ -366,6 +366,25 @@ mod tests {
     }
 
     #[test]
+    fn length_overflow_fails_closed() {
+        // A decoy long enough to push the record past the u16 length field
+        // must fail closed instead of wrapping a length counter.
+        let input = build_client_hello("a.io");
+        let decoy = format!("{}.example.com", "x".repeat(70_000));
+        assert_eq!(forge_decoy_client_hello(&input, &decoy), Err(SpoofError::MalformedClientHello));
+    }
+
+    #[test]
+    fn large_but_fitting_decoy_succeeds() {
+        // Just under the u16 record-length ceiling: the surgery must still
+        // work and the output must reparse.
+        let input = build_client_hello("a.io");
+        let decoy = format!("{}.example.com", "x".repeat(64_000));
+        let out = forge_decoy_client_hello(&input, &decoy).unwrap();
+        assert_eq!(parse_tls(&out).unwrap(), decoy.as_bytes());
+    }
+
+    #[test]
     fn no_sni_extension_returns_err() {
         // Hand-build a ClientHello with NO extensions block at all.
         let mut body = Vec::new();
