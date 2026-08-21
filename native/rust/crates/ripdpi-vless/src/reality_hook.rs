@@ -30,6 +30,7 @@
 //! is therefore a single function call.
 
 use std::ffi::c_int;
+use std::io;
 use std::os::raw::c_void;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -242,6 +243,12 @@ unsafe impl Send for RealityHookGuard {}
 /// as the SSL object — otherwise the callback dereferences freed
 /// memory the next time it fires.
 ///
+/// # Errors
+///
+/// Fails when the SSL object has no backing `SSL_CTX`; installing the
+/// hook is the whole point of this call, so a missing CTX must fail
+/// the connect here instead of silently skipping the Reality seal.
+///
 /// # Safety
 ///
 /// `ssl` must be a valid `*mut SSL` from `boring`'s safe API
@@ -252,7 +259,7 @@ pub(crate) unsafe fn install_reality_client_hello_hook(
     ssl: *mut SslHandle,
     server_pubkey: [u8; 32],
     short_id: Vec<u8>,
-) -> RealityHookGuard {
+) -> io::Result<RealityHookGuard> {
     let state = Box::new(RealityCallbackState {
         server_pubkey,
         short_id,
@@ -275,7 +282,7 @@ unsafe fn install_reality_client_hello_hook_for_test(
     short_id: Vec<u8>,
     fixed_now_secs: u32,
     trace: Arc<Mutex<RealityHookTrace>>,
-) -> RealityHookGuard {
+) -> io::Result<RealityHookGuard> {
     let state = Box::new(RealityCallbackState {
         server_pubkey,
         short_id,
@@ -292,16 +299,17 @@ unsafe fn install_reality_client_hello_hook_for_test(
 unsafe fn install_reality_client_hello_hook_with_state(
     ssl: *mut SslHandle,
     state: Box<RealityCallbackState>,
-) -> RealityHookGuard {
-    let state_ptr = Box::into_raw(state);
+) -> io::Result<RealityHookGuard> {
     // SAFETY: caller upholds the contract that `ssl` is a valid SSL pointer.
     let ctx = unsafe { SSL_get_SSL_CTX(ssl.cast_const()) };
-    if !ctx.is_null() {
-        // SAFETY: ctx is the SSL_CTX backing the caller-provided ssl; the
-        // patched BoringSSL accepts a non-null cb + arg pair.
-        unsafe { SSL_CTX_set_client_hello_cb(ctx, reality_client_hello_cb, state_ptr.cast::<c_void>()) };
+    if ctx.is_null() {
+        return Err(io::Error::other("Reality client_hello_cb install failed: SSL object has no SSL_CTX"));
     }
-    RealityHookGuard { state_ptr }
+    let state_ptr = Box::into_raw(state);
+    // SAFETY: ctx is the non-null SSL_CTX backing the caller-provided ssl; the
+    // patched BoringSSL accepts a non-null cb + arg pair.
+    unsafe { SSL_CTX_set_client_hello_cb(ctx, reality_client_hello_cb, state_ptr.cast::<c_void>()) };
+    Ok(RealityHookGuard { state_ptr })
 }
 
 extern "C" fn reality_client_hello_cb(ssl: *mut SslHandle, msg: *mut u8, msg_len: usize, arg: *mut c_void) -> c_int {
@@ -673,7 +681,8 @@ mod tests {
                 REALITY_HOOK_FIXED_NOW_SECS,
                 trace,
             )
-        };
+        }
+        .expect("install reality client hello hook");
 
         let stream = TcpStream::connect(addr).expect("connect loopback");
         stream.set_read_timeout(Some(Duration::from_secs(5))).expect("client read timeout");

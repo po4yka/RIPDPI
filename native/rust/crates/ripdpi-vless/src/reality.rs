@@ -320,7 +320,8 @@ where
     // because the caller must uphold that lifetime relationship.
     let hook_guard = unsafe {
         install_reality_client_hello_hook(ssl_handle, config.reality_public_key, config.reality_short_id.clone())
-    };
+    }
+    .map_err(|error| io::Error::other(format!("Reality TLS setup: {error}")))?;
 
     // 3. Perform the TLS handshake. The callback runs inside this
     //    await point during `ssl_add_client_hello`.
