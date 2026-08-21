@@ -173,7 +173,9 @@ pub enum FailoverTrigger {
     HealthProbe,
     /// The user (or a fail-closed emergency policy) explicitly asked the
     /// machine to re-evaluate and swap to the best available role even if
-    /// the current one still works.
+    /// the current one still works. The probe outcome carried alongside the
+    /// trigger is recorded for health tracking but otherwise ignored: the
+    /// transition is driven by the trigger alone.
     EmergencyFailover,
 }
 
@@ -414,6 +416,11 @@ impl OutboundFailover {
     /// When UDP becomes [`UdpViability::Blocked`] and Hysteria2 is the
     /// active auto role, the machine immediately re-evaluates so it does
     /// not keep traffic on a path the network no longer permits.
+    ///
+    /// Asymmetry by design: becoming [`UdpViability::Viable`] does *not*
+    /// proactively exit [`FailoverState::WhitelistModeHint`]; the machine
+    /// waits for the next accepted probe (or reconnect poll) to re-walk,
+    /// keeping all transitions probe-driven.
     pub fn set_udp_viability(&mut self, viability: UdpViability) {
         self.udp_viability = viability;
         if self.manual_override.is_some() {
@@ -478,9 +485,10 @@ impl OutboundFailover {
         }
 
         let Some(active) = self.state.active_role() else {
-            // WhitelistModeHint: a fresh probe is a chance to recover --
-            // re-walk the whole priority order in case UDP became viable or
-            // a higher-priority role came back.
+            // WhitelistModeHint: any accepted probe -- including a failing
+            // one -- is a chance to recover; re-walk the whole priority
+            // order in case UDP became viable or a higher-priority role
+            // came back.
             self.state = self.resolve_from(OutboundRole::Primary);
             return self.state;
         };

@@ -14,4 +14,12 @@ impl StrategyEvolver {
     pub(in crate::strategy_evolver) fn lcg_f64(&mut self) -> f64 {
         self.lcg_next() as f64 / (u32::MAX as f64 + 1.0)
     }
+
+    /// Uniform index in [0, len) via multiply-shift (Lemire), avoiding the
+    /// modulo bias that `lcg_next() % len` incurs whenever 2^32 is not a
+    /// multiple of `len`.
+    pub(in crate::strategy_evolver) fn lcg_index(&mut self, len: usize) -> usize {
+        debug_assert!(len > 0);
+        ((u64::from(self.lcg_next()) * len as u64) >> 32) as usize
+    }
 }

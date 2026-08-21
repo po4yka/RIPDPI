@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 
-pub mod arm_penalties;
 pub mod outbound_failover;
 pub mod profiles;
 pub mod scoring;

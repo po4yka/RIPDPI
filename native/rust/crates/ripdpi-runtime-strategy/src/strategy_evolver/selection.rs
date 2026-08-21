@@ -64,7 +64,7 @@ impl StrategyEvolver {
         if available.is_empty() {
             return pilot_combo_for_bucket(bucket);
         }
-        let idx = available[self.lcg_next() as usize % available.len()];
+        let idx = available[self.lcg_index(available.len())];
         combo_from_pool(idx)
     }
 
@@ -88,7 +88,9 @@ impl StrategyEvolver {
                 };
                 (*family, score)
             })
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            // Score ties (untouched arms) are broken by declaration order so
+            // the choice never depends on HashMap iteration order.
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.0.cmp(&a.0)))
             .map(|(family, _)| family)
     }
 
@@ -115,7 +117,13 @@ impl StrategyEvolver {
                 };
                 (combo.clone(), score)
             })
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            // Score ties (untouched arms) are broken by the stable dimension
+            // key so the choice never depends on HashMap iteration order.
+            .max_by(|a, b| {
+                a.1.partial_cmp(&b.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.0.disc_key().cmp(&b.0.disc_key()).reverse())
+            })
             .map(|(combo, _)| combo)
     }
 }

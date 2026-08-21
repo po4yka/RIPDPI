@@ -56,7 +56,7 @@ impl StrategyEvolver {
         );
         let updated_fitness = combo_fitness_at(combo, stats, last_attempt_ms, half_life);
         let family_stats = state.families.entry(family).or_default();
-        family_stats.attempts += 1;
+        family_stats.attempts = family_stats.attempts.saturating_add(1);
         family_stats.total_reward += updated_fitness;
         let _ = stats;
 

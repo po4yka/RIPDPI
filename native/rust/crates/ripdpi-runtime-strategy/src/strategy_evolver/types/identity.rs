@@ -65,6 +65,23 @@ impl StrategyCombo {
         }
     }
 
+    /// Stable total-order key derived from the per-dimension discriminants
+    /// (absent dimension = 0xFF). Used to break score ties deterministically
+    /// instead of relying on HashMap iteration order.
+    pub(crate) fn disc_key(&self) -> [u8; 9] {
+        [
+            self.split_offset_base.map_or(0xFF, offset_base_disc),
+            self.tls_record_offset_base.map_or(0xFF, offset_base_disc),
+            self.tlsrandrec_profile.map_or(0xFF, tls_randrec_disc),
+            self.udp_burst_profile.map_or(0xFF, udp_burst_disc),
+            self.quic_fake_profile.map_or(0xFF, quic_fake_disc),
+            self.fake_ttl.unwrap_or(0xFF),
+            self.entropy_mode.map_or(0xFF, entropy_mode_disc),
+            self.timing_jitter_profile.map_or(0xFF, timing_jitter_disc),
+            self.oob_byte_placement.map_or(0xFF, oob_placement_disc),
+        ]
+    }
+
     pub(crate) fn family(&self) -> StrategyFamily {
         let dimensions = [
             self.split_offset_base.is_some(),

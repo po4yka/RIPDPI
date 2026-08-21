@@ -10,6 +10,50 @@ use super::selection::{combo_matches_bucket, pilot_combo_for_bucket};
 use super::*;
 
 #[test]
+fn evolver_rng_seed_varies_between_instances() {
+    // L3 regression: the seed was a predictable wall-clock product; it must
+    // now mix per-process ASLR-backed entropy.
+    let a = StrategyEvolver::new(true, 0.0);
+    let b = StrategyEvolver::new(true, 0.0);
+    assert_ne!(a.rng_state, b.rng_state);
+}
+
+#[test]
+fn lcg_index_stays_in_range_without_modulo_bias_helper() {
+    let mut evolver = StrategyEvolver::new(true, 0.0);
+    for _ in 0..1_000 {
+        assert!(evolver.lcg_index(7) < 7);
+        assert_eq!(evolver.lcg_index(1), 0);
+    }
+}
+
+#[test]
+fn untouched_family_ties_resolve_deterministically() {
+    // L2 regression: equal f64::MAX scores for untouched arms used to fall
+    // through to HashMap iteration order; ties must break by declaration
+    // order instead.
+    let mut state = ContextBanditState::default();
+    state.families.insert(StrategyFamily::QuicFake, FamilyStats::default());
+    state.families.insert(StrategyFamily::Baseline, FamilyStats::default());
+    assert_eq!(StrategyEvolver::select_next_family(&state, LearningTargetBucket::Tls), Some(StrategyFamily::Baseline));
+}
+
+#[test]
+fn untouched_combo_ties_resolve_deterministically() {
+    let split = StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() };
+    let jitter = StrategyCombo {
+        timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Balanced),
+        ..StrategyCombo::default_combo()
+    };
+    let mut state = ContextBanditState::default();
+    state.combos.insert(jitter.clone(), ComboStats::new());
+    state.combos.insert(split.clone(), ComboStats::new());
+    // Both arms are untouched (f64::MAX tie); the smaller disc_key wins.
+    // split key starts [15, ..], jitter key starts [255, ..] -> split wins.
+    assert_eq!(StrategyEvolver::best_context_combo_for_family(&state, StrategyFamily::Mixed, 0, 1_000), Some(split));
+}
+
+#[test]
 fn evolver_disabled_returns_none() {
     let mut e = StrategyEvolver::new(false, 0.1);
     assert!(e.suggest_hints().is_none());

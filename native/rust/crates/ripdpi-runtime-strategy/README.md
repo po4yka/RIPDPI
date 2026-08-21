@@ -10,7 +10,7 @@ runs the Geneva-style strategy evolver that explores adaptive dimensions.
 
 ## What belongs here
 
-- `scoring` and `arm_penalties` — strategy-arm ranking and penalty/cooldown logic.
+- `scoring` — strategy-arm ranking and penalty/cooldown logic.
 - `outbound_failover` — failover ordering across strategy arms.
 - `profiles` — adaptive strategy profiles.
 - `strategy_evolver` — epsilon-greedy / UCB1 combo exploration.

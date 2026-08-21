@@ -179,8 +179,10 @@ fn bytes_baseline(net: &NetProfile) -> f64 {
 /// do not always map to the same sort position.
 ///
 /// The jitter is derived by hashing `arm_id` bytes with `run_seed` via a
-/// simple FNV-1a mix, then scaling to `[0, 1e-9)`.  At this magnitude it
-/// cannot change which arm wins a non-tie; it only breaks exact ties.
+/// simple FNV-1a mix, then scaling to `[0, 1e-9)`. It is added to every
+/// arm's score unconditionally (not only on exact ties); harmlessness
+/// relies on the magnitude bound: at <= 1e-9 it cannot flip a non-tie, and
+/// on exact ties it provides the deterministic-per-seed tie-break.
 fn tie_break_jitter(arm_id: &str, run_seed: u64) -> f64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325_u64.wrapping_add(run_seed);
     for b in arm_id.bytes() {

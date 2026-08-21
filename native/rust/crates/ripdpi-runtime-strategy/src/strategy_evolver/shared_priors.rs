@@ -25,7 +25,14 @@ pub fn canonical_combo_hash(combo: &StrategyCombo) -> u64 {
     write_dim(&mut bytes, 2, combo.tlsrandrec_profile.map(tls_randrec_disc));
     write_dim(&mut bytes, 3, combo.udp_burst_profile.map(udp_burst_disc));
     write_dim(&mut bytes, 4, combo.quic_fake_profile.map(quic_fake_disc));
-    write_dim(&mut bytes, 5, combo.fake_ttl);
+    // fake_ttl is a raw TTL, not an enum discriminant: 0xFF is reserved as
+    // the "absent dimension" marker, so Some(255) cannot be written as-is.
+    // Encode it with an explicit escape tail instead of clamping (clamping
+    // would collide with 254); every other value hashes exactly as before.
+    write_dim(&mut bytes, 5, combo.fake_ttl.filter(|ttl| *ttl != u8::MAX));
+    if combo.fake_ttl == Some(u8::MAX) {
+        bytes.extend_from_slice(&[5, 0x00]);
+    }
     write_dim(&mut bytes, 6, combo.entropy_mode.map(entropy_mode_disc));
     if combo.timing_jitter_profile.is_some() || combo.oob_byte_placement.is_some() {
         write_dim(&mut bytes, 7, combo.timing_jitter_profile.map(timing_jitter_disc));
@@ -119,5 +126,17 @@ mod tests {
         assert_ne!(canonical_combo_hash(&timing), canonical_combo_hash(&StrategyCombo::default_combo()));
         assert_ne!(canonical_combo_hash(&oob), canonical_combo_hash(&StrategyCombo::default_combo()));
         assert_ne!(canonical_combo_hash(&timing), canonical_combo_hash(&oob));
+    }
+
+    #[test]
+    fn canonical_combo_hash_separates_absent_fake_ttl_from_max_ttl() {
+        // L6 regression: fake_ttl is a raw byte, so Some(255) used to encode
+        // as the 0xFF "absent dimension" marker and collide with None.
+        let absent = StrategyCombo { fake_ttl: None, ..StrategyCombo::default_combo() };
+        let max_ttl = StrategyCombo { fake_ttl: Some(255), ..StrategyCombo::default_combo() };
+        let ttl_254 = StrategyCombo { fake_ttl: Some(254), ..StrategyCombo::default_combo() };
+        assert_ne!(canonical_combo_hash(&absent), canonical_combo_hash(&max_ttl));
+        assert_ne!(canonical_combo_hash(&absent), canonical_combo_hash(&ttl_254));
+        assert_ne!(canonical_combo_hash(&max_ttl), canonical_combo_hash(&ttl_254));
     }
 }

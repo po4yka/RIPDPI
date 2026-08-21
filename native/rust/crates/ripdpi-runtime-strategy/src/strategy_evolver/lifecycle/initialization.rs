@@ -67,5 +67,13 @@ pub(in crate::strategy_evolver) fn clear_pending_experiment(evolver: &mut Strate
 }
 
 fn initial_rng_state() -> u64 {
-    now_millis().wrapping_add(1).wrapping_mul(6_364_136_223_846_793_005).wrapping_add(std::process::id() as u64)
+    // Mix per-process ASLR-backed entropy (RandomState) with the clock and
+    // pid; the wall-clock-plus-constant product alone was trivially
+    // predictable across devices booting at the same time.
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
+    let mut hasher = RandomState::new().build_hasher();
+    hasher.write_u64(now_millis());
+    hasher.write_u32(std::process::id());
+    hasher.finish()
 }
