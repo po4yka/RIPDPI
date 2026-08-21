@@ -28,7 +28,13 @@
 //! |---|---|---|
 //! | `WrongAck` | TCP ACK number | `real_ack.wrapping_add(WRONG_ACK_DELTA)` (0xDEAD_BEEF offset; out of peer window) |
 //! | `WrongMd5` | TCP options | Kind=19 (RFC 2385), Len=18, 16-byte deterministic-from-seq bogus digest (server drops on auth mismatch) |
-//! | `WrongTimestamp` | TCP options | Kind=8 (RFC 7323), Len=10, TSval=`u32::MAX` (PAWS: server drops as stale) |
+//! | `WrongTimestamp` | TCP options | Kind=8 (RFC 7323), Len=10, TSval = live `TCP_TIMESTAMP` − [`STALE_TS_DELTA`] (PAWS: server drops as an old retransmission) |
+
+//! For `WrongTimestamp` the injected TSval must be **older** than every
+//! timestamp the peer has seen on this connection: PAWS (RFC 7323 §5.3)
+//! discards segments whose TSval is less than the receiver's stored
+//! `TS.Recent` — a future value such as `u32::MAX` would instead be accepted
+//! and adopted as the new `TS.Recent`, permanently poisoning the connection.
 //!
 //! For `WrongMd5` and `WrongTimestamp` the ACK field carries `real_ack` — the
 //! corruption is in the options. For `WrongAck` there are no corrupted options.
@@ -48,6 +54,17 @@ use crate::config::SpoofMethod;
 /// (typical window ≤ 65535) so the real server drops the segment, while the
 /// DPI box still parses the ClientHello payload.
 pub const WRONG_ACK_DELTA: u32 = 0xDEAD_BEEF;
+
+/// How far behind the live TCP clock the decoy's TSval sits for
+/// `WrongTimestamp`, in Linux timestamp ticks (~1 ms each).
+///
+/// PAWS (RFC 7323 §5.3) discards segments whose TSval is *older* than the
+/// receiver's stored `TS.Recent`. The server's `TS.Recent` comes from our SYN
+/// and prior segments, so a TSval one million ticks (~16 minutes) behind the
+/// live clock is guaranteed older than anything seen on this connection while
+/// staying well inside the 24-day `ts_recent` freshness window past which
+/// PAWS checks are skipped entirely.
+pub const STALE_TS_DELTA: u32 = 1_000_000;
 
 /// Parameters for building one corrupted decoy TCP segment.
 #[derive(Debug, Clone)]
@@ -79,6 +96,13 @@ pub struct SpoofSegmentParams {
     pub payload: Vec<u8>,
     /// Corruption method. Determines which field or option is sabotaged.
     pub method: SpoofMethod,
+    /// Stale TCP timestamp value (live `TCP_TIMESTAMP` − [`STALE_TS_DELTA`])
+    /// for the `WrongTimestamp` decoy's TS option. Must be older than every
+    /// TSval the peer has seen on this connection so PAWS discards the
+    /// segment. `None` means timestamps were not negotiated (or could not be
+    /// read); `WrongTimestamp` then fails closed instead of emitting a
+    /// segment the server would accept.
+    pub tsval: Option<u32>,
 }
 
 /// Build a single IPv4+TCP segment carrying the forged decoy ClientHello.
@@ -119,7 +143,15 @@ pub fn build_spoof_segment(params: &SpoofSegmentParams) -> std::io::Result<Vec<u
             Vec::new()
         }
         SpoofMethod::WrongMd5 => build_wrong_md5_options(params.seq),
-        SpoofMethod::WrongTimestamp => build_wrong_timestamp_options(),
+        SpoofMethod::WrongTimestamp => {
+            let tsval = params.tsval.ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "WrongTimestamp requires negotiated TCP timestamps (no stale tsval available)",
+                )
+            })?;
+            build_wrong_timestamp_options(tsval)
+        }
     };
 
     if !raw_opts.is_empty() {
@@ -192,22 +224,22 @@ fn build_wrong_md5_options(seq: u32) -> Vec<u8> {
 /// ```text
 /// [01] [01]      2x Noop (alignment)
 /// [08] [0A]      Kind=8, Len=10
-/// [FF FF FF FF]  TSval = u32::MAX  (PAWS: far in the future — server drops)
+/// [xx xx xx xx]  TSval = live_ts - STALE_TS_DELTA  (older than TS.Recent)
 /// [00 00 00 00]  TSecr = 0
 /// ```
 /// Total: 12 bytes (3 groups of 4).
 ///
-/// `u32::MAX` as TSval is guaranteed to be outside the peer's current window
-/// (PAWS, RFC 7323 §5.3): `SEG.TSval >= Recent.TSval` check uses a
-/// monotonically-increasing clock; `u32::MAX` wraps the 32-bit counter to the
-/// farthest-future value.
-fn build_wrong_timestamp_options() -> Vec<u8> {
+/// PAWS (RFC 7323 §5.3) discards segments whose TSval is *older* than the
+/// receiver's stored `TS.Recent`; `tsval` must therefore be a stale value
+/// (see [`STALE_TS_DELTA`]). A future value would be accepted and adopted as
+/// the new `TS.Recent`, permanently poisoning the connection.
+fn build_wrong_timestamp_options(tsval: u32) -> Vec<u8> {
     let mut opts = Vec::with_capacity(12);
     opts.push(1); // Noop
     opts.push(1); // Noop
     opts.push(8); // Kind = Timestamp
     opts.push(10); // Length = 10
-    opts.extend_from_slice(&u32::MAX.to_be_bytes()); // TSval — out-of-window
+    opts.extend_from_slice(&tsval.to_be_bytes()); // TSval — older than TS.Recent
     opts.extend_from_slice(&0u32.to_be_bytes()); // TSecr
     debug_assert_eq!(opts.len(), 12);
     debug_assert!(opts.len().is_multiple_of(4));
@@ -304,6 +336,7 @@ mod tests {
             ip_id: 0x1234,
             payload: b"GET / HTTP/1.1\r\nHost: decoy.example.com\r\n\r\n".to_vec(),
             method,
+            tsval: Some(0x0200_0000),
         }
     }
 
@@ -413,9 +446,22 @@ mod tests {
         let opt_off = find_tcp_option_in_packet(&pkt, 8).expect("Kind=8 (Timestamp) must be present");
         assert_eq!(pkt[opt_off], 8, "kind byte");
         assert_eq!(pkt[opt_off + 1], 10, "len byte");
-        // TSval must be u32::MAX.
+        // TSval must be the stale value from params (older than TS.Recent),
+        // NOT a future value: PAWS only rejects older-than-recent timestamps.
         let tsval = u32::from_be_bytes([pkt[opt_off + 2], pkt[opt_off + 3], pkt[opt_off + 4], pkt[opt_off + 5]]);
-        assert_eq!(tsval, u32::MAX, "TSval must be u32::MAX (PAWS out-of-window)");
+        assert_eq!(tsval, params.tsval.unwrap(), "TSval must be the caller-supplied stale value");
+        let tsecr = u32::from_be_bytes([pkt[opt_off + 6], pkt[opt_off + 7], pkt[opt_off + 8], pkt[opt_off + 9]]);
+        assert_eq!(tsecr, 0, "TSecr must be zero");
+    }
+
+    #[test]
+    fn wrong_timestamp_fails_closed_without_tsval() {
+        // No negotiated timestamps -> no tsval -> the builder must refuse to
+        // emit a segment the server would silently ACCEPT.
+        let mut params = base_params(SpoofMethod::WrongTimestamp);
+        params.tsval = None;
+        let err = build_spoof_segment(&params).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
     }
 
     #[test]

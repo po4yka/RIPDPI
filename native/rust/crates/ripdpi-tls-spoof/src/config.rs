@@ -29,8 +29,11 @@ pub enum SpoofMethod {
     /// not configured for MD5 silently drops the segment; the DPI box still
     /// sees the ClientHello.
     WrongMd5,
-    /// Use an out-of-window TCP timestamp (PAWS, RFC 7323) so the real server
-    /// discards the segment as stale while the DPI box parses it.
+    /// Attach a deliberately stale TCP timestamp option (Kind=8, RFC 7323).
+    /// PAWS (RFC 7323 §5.3) makes the real server discard the segment as an
+    /// old retransmission while the DPI box still parses it. Requires the
+    /// upstream connection to have negotiated TCP timestamps; injection fails
+    /// closed when they are absent.
     WrongTimestamp,
 }
 

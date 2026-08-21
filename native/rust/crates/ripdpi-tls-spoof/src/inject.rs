@@ -68,6 +68,11 @@ const TCP_SEND_QUEUE: libc::c_int = 2;
 /// Select the receive queue for `TCP_REPAIR_QUEUE`.
 #[cfg(target_os = "linux")]
 const TCP_RECV_QUEUE: libc::c_int = 1;
+/// `TCP_INFO` bit: TCP timestamps negotiated on the connection
+/// (linux/tcp.h `TCPI_OPT_TIMESTAMPS`; not in libc's Linux surface, like the
+/// other local TCP constants above).
+#[cfg(target_os = "linux")]
+const TCPI_OPT_TIMESTAMPS: u8 = 0x02;
 
 // ── Capability probe ─────────────────────────────────────────────────────────
 
@@ -143,6 +148,9 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
 
     let fd = stream.as_raw_fd();
 
+    // Snapshot fingerprint inputs before entering repair mode.
+    let tsval = stale_timestamp_value(stream)?;
+
     // Enter TCP_REPAIR mode so we can read the live sequence numbers without
     // disrupting the connection's state machine.
     set_tcp_int_opt(fd, TCP_REPAIR, TCP_REPAIR_ON)?;
@@ -173,6 +181,7 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
             ip_id: (seq & 0xFFFF) as u16,
             payload: forged_hello.to_vec(),
             method,
+            tsval,
         };
 
         let packet = build_spoof_segment(&params)?;
@@ -259,6 +268,47 @@ fn get_tcp_u32_opt(fd: libc::c_int, opt: libc::c_int) -> io::Result<u32> {
     // the whole `u32`).
     let rc = unsafe { libc::getsockopt(fd, IPPROTO_TCP, opt, (&mut val as *mut u32).cast(), &mut len) };
     if rc != 0 { Err(io::Error::last_os_error()) } else { Ok(val) }
+}
+
+/// Return the stale TCP timestamp value for the `WrongTimestamp` decoy.
+///
+/// Returns `None` when the upstream connection did not negotiate TCP
+/// timestamps (`TCP_INFO.tcpi_options` lacks `TCPI_OPT_TIMESTAMPS`): without
+/// negotiation the server ignores the TS option entirely and would ACCEPT the
+/// decoy segment, corrupting the stream — so the caller must fail closed
+/// instead of emitting. Otherwise returns the live `TCP_TIMESTAMP` value minus
+/// [`STALE_TS_DELTA`]: older than every TSval the server has seen, which is
+/// what PAWS (RFC 7323 §5.3) actually rejects.
+#[cfg(target_os = "linux")]
+fn stale_timestamp_value(stream: &TcpStream) -> io::Result<Option<u32>> {
+    let fd = stream.as_raw_fd();
+
+    let mut info: libc::tcp_info = unsafe { std::mem::zeroed() };
+    let mut len = std::mem::size_of::<libc::tcp_info>() as libc::socklen_t;
+    // SAFETY: `fd` is a valid TCP socket; `info` is a stack-allocated all-zero
+    // `tcp_info` (plain-old-data, valid as an output buffer); `len` is its
+    // exact size. The kernel writes at most `*len` bytes into it.
+    let rc = unsafe {
+        libc::getsockopt(fd, IPPROTO_TCP, libc::TCP_INFO, (&mut info as *mut libc::tcp_info).cast(), &mut len)
+    };
+    if rc != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if info.tcpi_options & TCPI_OPT_TIMESTAMPS == 0 {
+        return Ok(None);
+    }
+
+    let mut ts: libc::c_uint = 0;
+    let mut ts_len = std::mem::size_of::<libc::c_uint>() as libc::socklen_t;
+    // SAFETY: same invariants as above with a stack-allocated `c_uint`; the
+    // kernel writes exactly `sizeof(c_uint)` bytes for TCP_TIMESTAMP.
+    let rc = unsafe {
+        libc::getsockopt(fd, IPPROTO_TCP, libc::TCP_TIMESTAMP, (&mut ts as *mut libc::c_uint).cast(), &mut ts_len)
+    };
+    if rc != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(Some(ts.saturating_sub(crate::segment::STALE_TS_DELTA)))
 }
 
 // ── Public inject entry point ────────────────────────────────────────────────
