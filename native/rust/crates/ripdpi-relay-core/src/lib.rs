@@ -8,7 +8,6 @@
 #![forbid(unsafe_code)]
 
 mod backend;
-mod bootstrap;
 mod config;
 mod protocols;
 mod runtime;

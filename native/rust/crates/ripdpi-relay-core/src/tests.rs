@@ -2,7 +2,6 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use android_support::EventRingLayer;
 use local_network_fixture::{
     AnyTlsLoopback, AnyTlsLoopbackConfig, ShadowsocksLoopback, TrojanLoopback, VlessRealityLoopback,
     XhttpRealityLoopback,
@@ -11,7 +10,6 @@ use ripdpi_failure_classifier::FailureClass;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
-use tracing_subscriber::prelude::*;
 
 mod backend_fixture_tests;
 mod cross_stack;
@@ -24,7 +22,6 @@ mod transport_registry;
 
 use crate::backend::RelayBackend;
 use crate::backend::builder::build_backend;
-use crate::bootstrap::bootstrap_relay_endpoints;
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
     MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
@@ -196,157 +193,6 @@ async fn tor_vpn_mode_fails_before_arti_can_open_unprotected_sockets() {
         panic!("Tor VPN mode must fail closed");
     };
     assert_eq!(error.kind(), io::ErrorKind::Unsupported);
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_preserves_common_hostname_and_sni_without_direct_dns() {
-    let config = sample_config("vless_reality");
-
-    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    assert_eq!(bootstrapped.common.server, "relay.example");
-    assert_eq!(bootstrapped.common.server_name, "relay.example");
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_emits_no_direct_lookup_or_endpoint_event() {
-    let buffers = android_support::EventRingBuffers::default();
-    let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
-    let dispatch = tracing::Dispatch::new(subscriber);
-    let _guard = tracing::dispatcher::set_default(&dispatch);
-    let config = sample_config("vless_reality");
-
-    let _bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    let events = buffers.drain_relay();
-    assert!(
-        events.iter().all(|event| event.kind.as_deref() != Some("relay_endpoint_bootstrap_direct_lookup")),
-        "bootstrap must not publish direct DNS lookup telemetry",
-    );
-    let serialized = format!("{events:?}");
-    assert!(!serialized.contains("relay.example"), "bootstrap telemetry leaked relay host: {serialized}");
-    assert!(!serialized.contains("443"), "bootstrap telemetry leaked relay port: {serialized}");
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_skips_ip_literals() {
-    let mut config = sample_config("trojan");
-    config.common.server = "198.51.100.8".to_string();
-
-    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    assert_eq!(bootstrapped.common.server, "198.51.100.8");
-    assert_eq!(bootstrapped.common.server_name, "relay.example");
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_preserves_chain_entry_and_exit_hostnames() {
-    let mut config = sample_config("chain_relay");
-    let chain = chain_config_mut(&mut config);
-    chain.entry_server = "entry.example".to_string();
-    chain.entry_server_name = "entry.example".to_string();
-    chain.exit_server = "exit.example".to_string();
-    chain.exit_server_name = "exit.example".to_string();
-
-    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
-        panic!("expected chain config");
-    };
-    assert_eq!(chain.entry_server, "entry.example");
-    assert_eq!(chain.entry_server_name, "entry.example");
-    assert_eq!(chain.exit_server, "exit.example");
-    assert_eq!(chain.exit_server_name, "exit.example");
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_preserves_resolved_chain_entry_and_exit_hostnames() {
-    let mut config = sample_config("chain_relay");
-    let chain = chain_config_mut(&mut config);
-    chain.entry_server = "stale-entry.example".to_string();
-    chain.entry_port = 443;
-    chain.exit_server = "stale-exit.example".to_string();
-    chain.exit_port = 443;
-    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
-        kind: "vless_reality".to_string(),
-        profile_id: "entry".to_string(),
-        server: "entry.example".to_string(),
-        server_port: 443,
-        server_name: "entry.example".to_string(),
-        ..ResolvedChainRelayHopConfig::default()
-    }));
-    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
-        kind: "vless_reality".to_string(),
-        profile_id: "exit".to_string(),
-        server: "exit.example".to_string(),
-        server_port: 443,
-        server_name: "exit.example".to_string(),
-        ..ResolvedChainRelayHopConfig::default()
-    }));
-
-    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
-        panic!("expected chain config");
-    };
-    let entry = chain.entry.expect("resolved entry");
-    let exit = chain.exit.expect("resolved exit");
-    assert_eq!(entry.server, "entry.example");
-    assert_eq!(entry.server_name, "entry.example");
-    assert_eq!(exit.server, "exit.example");
-    assert_eq!(exit.server_name, "exit.example");
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_preserves_shadowtls_outer_and_inner_hostnames() {
-    let mut config = sample_config("shadowtls_v3");
-    config.common.server = "outer.example".to_string();
-    config.common.server_name = "outer.example".to_string();
-    let shadowtls = shadowtls_config_mut(&mut config);
-    shadowtls.inner_profile_id = "inner-vless".to_string();
-    shadowtls.inner = Some(ResolvedShadowTlsInnerRelayConfig {
-        kind: "vless_reality".to_string(),
-        profile_id: "inner-vless".to_string(),
-        server: "inner.example".to_string(),
-        server_port: 443,
-        server_name: "inner.example".to_string(),
-        reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
-        reality_short_id: String::new(),
-        vless_flow: "xtls-rprx-vision".to_string(),
-        vless_transport: "reality_tcp".to_string(),
-        xhttp_mode: "auto".to_string(),
-        vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
-        tls_fingerprint_profile: "firefox_stable".to_string(),
-    });
-
-    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    assert_eq!(bootstrapped.common.server, "outer.example");
-    assert_eq!(bootstrapped.common.server_name, "outer.example");
-    let RelayBackendConfig::ShadowTlsV3(shadowtls) = bootstrapped.backend else {
-        panic!("expected shadowtls config");
-    };
-    let inner = shadowtls.inner.expect("inner relay config");
-    assert_eq!(inner.server, "inner.example");
-    assert_eq!(inner.server_name, "inner.example");
-}
-
-#[tokio::test]
-async fn relay_endpoint_bootstrap_preserves_masque_url_without_proxy_socket_resolution() {
-    let mut config = sample_config("masque");
-    config.common.server = "unused-common.example".to_string();
-    let RelayBackendConfig::Masque(masque) = &mut config.backend else {
-        panic!("expected MASQUE config");
-    };
-    masque.url = "https://masque.example:8443/.well-known/masque/ip".to_string();
-
-    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
-
-    let RelayBackendConfig::Masque(masque) = bootstrapped.backend else {
-        panic!("expected MASQUE config");
-    };
-    assert_eq!(masque.url, "https://masque.example:8443/.well-known/masque/ip");
-    assert_eq!(masque.proxy_socket_addr, None);
 }
 
 #[test]
