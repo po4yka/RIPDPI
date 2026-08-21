@@ -116,6 +116,7 @@ members = [
     "crates/ripdpi-ssh",
     "crates/ripdpi-network-time",
     "crates/ripdpi-wireguard-ws",
+    "crates/soundness-canaries",
 ]
 
 [workspace.package]

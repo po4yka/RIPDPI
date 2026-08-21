@@ -539,8 +539,8 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # its resources. Conversely, calling `assume_init*` on a slot
     # whose initialisation was abandoned mid-loop reads uninit
     # bytes → UB. Issue #32 audit found ZERO production
-    # occurrences (the one test-only `scoped_handle.rs` reference
-    # is in `mod tests` documenting the canonical safe shape).
+    # occurrences (the one test-only reference lives in the
+    # `soundness-canaries` crate documenting the canonical safe shape).
     # New occurrences must restructure to safe `Vec::push` /
     # `Vec::extend_from_slice` / `Vec::with_capacity` +
     # `spare_capacity_mut` (where `T: !Drop` removes the

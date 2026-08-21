@@ -1,8 +1,7 @@
 // Crate-local hardening for issue #15 (`Box::from_raw` ownership transfer).
-// `ripdpi-vless` is the sole crate in the workspace that uses
+// `ripdpi-vless` is the sole production crate in the workspace that uses
 // `Box::into_raw` / `Box::from_raw` (the BoringSSL Reality client_hello
-// hook) and the workspace's generic FFI handle wrapper (`ScopedHandle`)
-// lives in this crate. Per docs/rust-soundness-policy.md § "`Box::into_raw`
+// hook). Per docs/rust-soundness-policy.md § "`Box::into_raw`
 // / `Box::from_raw` ownership transfer", every `unsafe` block touching
 // the matched pair MUST document its preconditions inline. Re-enabling
 // the workspace-deferred `undocumented_unsafe_blocks` lint locally
@@ -18,7 +17,6 @@ pub mod mux;
 pub mod reality;
 pub(crate) mod reality_hook;
 pub(crate) mod reality_seal;
-pub mod scoped_handle;
 pub mod vision;
 pub mod wire;
 mod xudp;

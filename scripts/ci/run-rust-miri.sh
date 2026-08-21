@@ -11,19 +11,19 @@ rustup component add --toolchain nightly miri rust-src >/dev/null
 cd "$native_root"
 cargo +nightly miri setup >/dev/null
 
-# Issue #15/#16/#17/#18/#19 unsafe-boundary regression suite:
-# the `scoped_handle::tests` module covers `Box::into_raw`/`from_raw`
+# Issue #15/#16/#17/#18/#19/#32/#33 unsafe-boundary regression suite:
+# the `soundness-canaries` crate covers `Box::into_raw`/`from_raw`
 # FFI ownership transfer, `Vec::with_capacity` + `spare_capacity_mut` +
 # `set_len` raw-buffer initialisation, invalid-UTF-8 input rejection,
-# and the panic-unwind-still-frees discipline. All 10 tests must
-# pass under Miri so the workspace's recommended unsafe-buffer
-# initialisation idioms are exercised against the strict-provenance
-# borrow-stacked machine. The `miri-stubs` feature additionally
-# substitutes the three BoringSSL FFI calls in reality_hook.rs with
-# Miri-friendly stubs, so the Box::into_raw / RealityHookGuard
-# drop / extern "C" callback panic-trap dance is also exercised
-# under Miri (issue #15 / #18 production code path).
-cargo +nightly miri test --locked -p ripdpi-vless --features miri-stubs scoped_handle
+# the partial-initialisation guard, and the ManuallyDrop discipline
+# canary. All tests must pass under Miri so the workspace's recommended
+# unsafe-buffer initialisation idioms are exercised against the
+# strict-provenance borrow-stacked machine. The `miri-stubs` feature
+# (ripdpi-vless) additionally substitutes the three BoringSSL FFI calls
+# in reality_hook.rs with Miri-friendly stubs, so the Box::into_raw /
+# RealityHookGuard drop / extern "C" callback panic-trap dance is also
+# exercised under Miri (issue #15 / #18 production code path).
+cargo +nightly miri test --locked -p soundness-canaries
 
 # Issue #15 / #18 reality_hook regression under Miri with the
 # `miri-stubs` feature substituting the three BoringSSL FFI calls.

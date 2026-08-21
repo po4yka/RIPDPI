@@ -30,8 +30,8 @@
 //! Run under Miri to verify no double-drop, no use-after-free, no
 //! leak across the panic-unwind path:
 //!
-//!     cargo +nightly miri test -p ripdpi-vless \
-//!         --features miri-stubs --test manuallydrop_canary
+//!     cargo +nightly miri test -p soundness-canaries \
+//!         --test manuallydrop_canary
 
 mod canary {
     //! Private module -- the `ManuallyDrop`-bearing struct does

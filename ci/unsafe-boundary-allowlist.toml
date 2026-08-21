@@ -651,8 +651,10 @@ owner = "vless"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------
-# `ripdpi-vless/src/scoped_handle.rs` — generic RAII wrapper for refcount-
-# managed FFI handles. This is exactly the "safe ownership wrapper" shape
+# `soundness-canaries/src/lib.rs` — generic RAII wrapper for refcount-
+# managed FFI handles (relocated from `ripdpi-vless/src/scoped_handle.rs`
+# when the speculative wrapper moved out of the transport crate). This is
+# exactly the "safe ownership wrapper" shape
 # issue #15 recommends for `Box::from_raw`-style ownership transfer. The
 # three findings on this file are the wrapper's three public APIs: an
 # `unsafe fn from_ptr` constructor (caller asserts the alloc/free dual),
@@ -662,16 +664,16 @@ review_date = "2026-11-15"
 # the cleanup fires even on unwind.
 # ---------------------------------------------------------------------------
 [[entries]]
-file = "native/rust/crates/ripdpi-vless/src/scoped_handle.rs"
+file = "native/rust/crates/soundness-canaries/src/lib.rs"
 pattern = "raw pointer in public fn"
 reason = "Three APIs of the generic RAII handle wrapper: `unsafe fn from_ptr(ptr: *mut T) -> Option<Self>` (constructor), `fn as_ptr(&self) -> *mut T` (borrow accessor), `fn take(self) -> *mut T` (consume-without-free)"
 preconditions = "`from_ptr` is already `unsafe fn` and documents the `F::free` dual contract in its `# Safety` section; `as_ptr` returns the pointer for read-only inspection (doc-comment explicitly forbids passing it to `F::free`); `take` consumes the wrapper via `self`, returning the pointer and `mem::forget`-ing the wrapper so the caller is responsible for freeing"
 enforcement = "Move-only `ScopedHandle<T, F>` (no Copy/Clone derives or impls); Drop calls `F::free` exactly once via the `FreeFunction` trait's `unsafe fn free`; `take` uses `mem::forget(self)` to suppress that Drop. The four unit tests in the same module (free-exactly-once, take-suppresses-free, null-rejected, panic-unwind-still-frees) lock in the discipline at runtime"
-owner = "vless"
+owner = "soundness-canaries"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------
-# `ripdpi-vless/src/scoped_handle.rs` test-mode entries. Three findings in
+# `soundness-canaries/src/lib.rs` test-mode entries. Three findings in
 # the `#[cfg(test)] mod tests` block, each adjacent to its matched
 # counterpart inside the same `#[test]` function. The scanner's
 # file-pattern exclusion (`tests.rs` / `test_*.rs` / `tests/` dir) does
@@ -680,30 +682,30 @@ review_date = "2026-11-15"
 # All three are Miri-validated.
 # ---------------------------------------------------------------------------
 [[entries]]
-file = "native/rust/crates/ripdpi-vless/src/scoped_handle.rs"
+file = "native/rust/crates/soundness-canaries/src/lib.rs"
 pattern = "Box::into_raw"
 reason = "Test-mode `Box::into_raw` in `ffi_round_trip_rust_alloc_rust_free_box_through_scoped_handle` (issue #18 regression). Hands a freshly-boxed `BoxedState` across a simulated FFI boundary; the matching `Box::from_raw` runs inside `BoxFree::free` on the same allocator (default global)."
 preconditions = "Same `BoxedState` type on both sides; default global allocator on both sides; pointer never offset between `into_raw` and `from_raw`; `ScopedHandle<BoxedState, BoxFree>` is `!Copy + !Clone` so exactly one owner exists; the test scope's lexical lifetime guarantees the matching `from_raw` runs before the test returns"
-enforcement = "Issue #15+#18 audit checklist completed in the same function. `ScopedHandle` Drop runs `BoxFree::free`, which adopts via `Box::from_raw` and drops — the unique reclamation site. Miri validates the round-trip (`cargo +nightly miri test scoped_handle` 10/10 pass)."
-owner = "vless"
+enforcement = "Issue #15+#18 audit checklist completed in the same function. `ScopedHandle` Drop runs `BoxFree::free`, which adopts via `Box::from_raw` and drops — the unique reclamation site. Miri validates the round-trip (`cargo +nightly miri test -p soundness-canaries` 10/10 pass)."
+owner = "soundness-canaries"
 review_date = "2026-11-15"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-vless/src/scoped_handle.rs"
+file = "native/rust/crates/soundness-canaries/src/lib.rs"
 pattern = "Box::from_raw"
 reason = "Test-mode `Box::from_raw` in `ffi_round_trip_rust_alloc_rust_free_box_through_scoped_handle::BoxFree::free` — the matched counterpart of the `Box::into_raw` allowlisted above. Sole reclamation site for the test's allocation."
-preconditions = "Pointer was produced by exactly one `Box::into_raw` in the same test function (line 387) and has not been freed since (no aliased handle exists; `ScopedHandle<BoxedState, BoxFree>` is move-only). Same `BoxedState` type on both sides."
+preconditions = "Pointer was produced by exactly one `Box::into_raw` in the same test function and has not been freed since (no aliased handle exists; `ScopedHandle<BoxedState, BoxFree>` is move-only). Same `BoxedState` type on both sides."
 enforcement = "`ScopedHandle::drop` is the only path that calls `BoxFree::free`, which is the only path that calls `Box::from_raw`. The test scope cannot leak the handle (no `mem::forget` / no `take()`) so the reclamation runs exactly once at the end of the block. Miri validates the lifetime."
-owner = "vless"
+owner = "soundness-canaries"
 review_date = "2026-11-15"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-vless/src/scoped_handle.rs"
+file = "native/rust/crates/soundness-canaries/src/lib.rs"
 pattern = "unsafe Vec::set_len"
 reason = "Test-mode `unsafe { v.set_len(n) }` in `vec_with_capacity_spare_capacity_round_trip_models_recv_fill` (issue #16 regression). Demonstrates the workspace's recommended `Vec::with_capacity` + `spare_capacity_mut` + `set_len` idiom — the safe alternative to `Vec::from_raw_parts` for the 'Rust allocates, foreign code writes' pattern."
 preconditions = "`v` is a freshly-allocated `Vec<u8>` from `Vec::with_capacity(CAPACITY)`; bytes `[0, n)` of the spare region were written via `MaybeUninit::write` inside `simulated_recv_fill` BEFORE `set_len(n)` is called; `n <= v.capacity()` is asserted on the line immediately above the `set_len` call; `T = u8` has trivial Drop so even if a panic between `with_capacity` and `set_len` left the tail uninitialised, no destructor would run on uninit bytes."
 enforcement = "Inline `// SAFETY:` comment at the call site enumerates the producer (`simulated_recv_fill`) and the `n <= capacity` guard. `T = u8` is `Copy + !Drop`, so partial-initialisation panic paths are sound by element-type construction. Miri validates the round-trip (10/10 pass). Issue #19 audit found ZERO production `Vec::set_len` calls; this is the only occurrence in the workspace."
-owner = "vless"
+owner = "soundness-canaries"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------

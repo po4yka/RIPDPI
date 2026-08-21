@@ -7796,6 +7796,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "soundness-canaries"
+version = "0.1.0"
+
+[[package]]
 name = "spin"
 version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

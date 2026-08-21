@@ -374,7 +374,7 @@ A `Box::into_raw` / `Box::from_raw` pair encodes a manual ownership transfer tha
 
 **Rule.** Application code SHOULD NOT use `Box::into_raw` / `Box::from_raw` directly. The preferred shapes, in order:
 
-1. **A typed RAII wrapper** — the `ripdpi-vless/src/scoped_handle.rs` `ScopedHandle<T, F: FreeFunction<T>>` is the workspace's general-purpose shape for any refcount- or malloc-managed FFI handle. Construct from an `unsafe fn from_ptr(*mut T) -> Option<Self>`; the `Drop` impl calls `F::free` exactly once. Tests in the same module assert "frees exactly once on drop", "panic-unwind still frees", "null rejected", and "two handles freed independently".
+1. **A typed RAII wrapper** — the `soundness-canaries/src/lib.rs` `ScopedHandle<T, F: FreeFunction<T>>` is the workspace's general-purpose shape for any refcount- or malloc-managed FFI handle. Construct from an `unsafe fn from_ptr(*mut T) -> Option<Self>`; the `Drop` impl calls `F::free` exactly once. Tests in the same module assert "frees exactly once on drop", "panic-unwind still frees", "null rejected", and "two handles freed independently".
 2. **An explicit free callback registered with the FFI.** If the C side has a destruction hook, register it and let the foreign code free the Rust-owned allocation — keeping the allocator boundary one-sided.
 3. **`unsafe fn` install + RAII guard reclaim.** Used by `ripdpi-vless/src/reality_hook.rs`: `install_reality_client_hello_hook` (`unsafe fn`, `pub(crate)`) leaks one `Box<RealityCallbackState>` via `Box::into_raw` into BoringSSL's `SSL_CTX_set_client_hello_cb` `arg` slot. The returned `RealityHookGuard` is move-only (`!Copy + !Clone`); its `Drop` impl is the unique site that calls `Box::from_raw`, after checking `state_ptr` is non- null (defence in depth — Rust cannot actually drop the same value twice). The module-level doc-comment enforces the "guard outlives the SSL object" contract that the type system cannot express on its own.
 
@@ -412,7 +412,7 @@ When the matched `from_raw` is itself called from a non- Rust context (the most 
 
 **Shape C — `unsafe fn` install + RAII guard reclaim.** Rust leaks one Box into a foreign slot via `Box::into_raw` and immediately returns an `unsafe`-constructed RAII guard that owns the reclaim side. The guard's `Drop` impl calls `Box::from_raw` and nulls the holder field. The install function is `unsafe fn` because the caller must uphold the "guard outlives the foreign reference" contract that the type system cannot express. Use this shape when the foreign API has no destructor callback and the install function is the natural moment to bind a Rust lifetime to the registration. This is the shape used by `install_reality_client_hello_hook` / `Drop for RealityHookGuard`.
 
-Mixing the shapes (e.g. `rust_alloc_FOO` paired with a RAII guard on the Rust side) is permitted only if the guard's `take()` method releases ownership back to the foreign code by returning the raw pointer and `mem::forget`-ing the guard so its Drop does not fire. The `ScopedHandle::take()` method in `ripdpi-vless/src/scoped_handle.rs` is the canonical implementation of that escape hatch.
+Mixing the shapes (e.g. `rust_alloc_FOO` paired with a RAII guard on the Rust side) is permitted only if the guard's `take()` method releases ownership back to the foreign code by returning the raw pointer and `mem::forget`-ing the guard so its Drop does not fire. The `ScopedHandle::take()` method in `soundness-canaries/src/lib.rs` is the canonical implementation of that escape hatch.
 
 ## `Vec::from_raw_parts` ownership transfer
 
@@ -520,7 +520,7 @@ The four classic allocator-mismatch patterns:
 
 **Rule.** Each allocation that crosses an FFI boundary MUST take one of these forms:
 
-1. **Foreign-managed lifetime.** The foreign library allocates AND frees; Rust receives a `*mut T` / `*const T` and either: - never frees it (non-owning observer pattern; the foreign side guarantees the pointer outlives every Rust use), OR - explicitly calls the foreign deallocator (e.g. `SSL_CTX_free`, `EVP_PKEY_free`) inside an RAII wrapper. The workspace's `ScopedHandle<T, F: FreeFunction<T>>` in `ripdpi-vless/src/scoped_handle.rs` is the canonical implementation.
+1. **Foreign-managed lifetime.** The foreign library allocates AND frees; Rust receives a `*mut T` / `*const T` and either: - never frees it (non-owning observer pattern; the foreign side guarantees the pointer outlives every Rust use), OR - explicitly calls the foreign deallocator (e.g. `SSL_CTX_free`, `EVP_PKEY_free`) inside an RAII wrapper. The workspace's `ScopedHandle<T, F: FreeFunction<T>>` in `soundness-canaries/src/lib.rs` is the canonical implementation.
 2. **Rust-managed lifetime.** Rust allocates AND frees; the foreign side receives a borrowed `*const T` / `*mut T` for the duration of a call and never retains it past the call. No `Box::into_raw` needed.
 3. **Paired `rust_alloc` / `rust_free` exports** (also documented in "`Box::into_raw` / `Box::from_raw` ownership transfer" § "FFI ownership shapes"). The crate exposes two `extern "C" fn`s: `rust_alloc_FOO() -> *mut FOO` (Box::into_raw) and `rust_free_FOO(*mut FOO)` (Box::from_raw). Foreign code is contractually required to call exactly one `rust_free_FOO` for every `rust_alloc_FOO`.
 4. **Unsafe-fn install + RAII reclaim** (also documented in "`Box::into_raw` / `Box::from_raw` ownership transfer" § "FFI ownership shapes"). Rust leaks one Box via `Box::into_raw` and reclaims it in the guard's `Drop`.
@@ -570,7 +570,7 @@ The audit checklist for every `Vec::set_len(n)` site:
 **Rule.** Application code SHOULD NOT call `Vec::set_len` directly. The preferred shapes, in order:
 
 1. **Safe `Vec::push` / `Vec::extend` / `Vec::extend_from_slice`.** The bytes are typed `T` on the way in; no `MaybeUninit` exists; no `set_len` needed.
-2. **`Vec::with_capacity` + `spare_capacity_mut` + guarded `set_len`.** Use when a foreign filler (`recv`, `read`, FFI buffer fill) writes into a Rust-allocated buffer. The `spare_capacity_mut()` typing (`&mut [MaybeUninit<T>]`) keeps the uninitialised state visible to the type system; the filler writes through `MaybeUninit::write`; the matching `set_len(n)` runs only after the filler reports `n`. This is the workspace's recommended idiom for the "Rust allocates, foreign code writes" pattern, demonstrated end- to-end by `vec_with_capacity_spare_capacity_round_trip_models_recv_fill` in `ripdpi-vless/src/scoped_handle.rs`.
+2. **`Vec::with_capacity` + `spare_capacity_mut` + guarded `set_len`.** Use when a foreign filler (`recv`, `read`, FFI buffer fill) writes into a Rust-allocated buffer. The `spare_capacity_mut()` typing (`&mut [MaybeUninit<T>]`) keeps the uninitialised state visible to the type system; the filler writes through `MaybeUninit::write`; the matching `set_len(n)` runs only after the filler reports `n`. This is the workspace's recommended idiom for the "Rust allocates, foreign code writes" pattern, demonstrated end- to-end by `vec_with_capacity_spare_capacity_round_trip_models_recv_fill` in `soundness-canaries/src/lib.rs`.
 3. **A typed buffer wrapper.** When the lifecycle spans multiple operations (e.g. io_uring fixed buffers), encapsulate the spare-region writing in a safe `&mut [u8]`-handing-out wrapper. The workspace's `BufferHandle` in `ripdpi-io-uring/src/bufpool.rs` is the reference: `BufferHandle::set_len(&mut self, len: usize)` is a SAFE inherent method that clamps to `buffer_size`; the caller never sees `MaybeUninit<u8>` or the bare `Vec::set_len`.
 
 **Anti-patterns.**
@@ -591,7 +591,7 @@ that API from unrelated methods such as `std::fs::File::set_len`.
 4. **Panic-path safety.** The argument that an unwind between `with_capacity` and `set_len` cannot run destructors on uninitialised memory. Either field 3's `T: !Drop` is sufficient, OR the entry names the unwind guard.
 5. **Owner.** Crate/team responsible for keeping the entry sound. Matches the `owner` TOML field but restated in the `enforcement` summary so the reviewer can see the responsible party without scrolling.
 
-**CI Miri coverage.** Every `unsafe Vec::set_len` allowlist entry SHOULD also be exercised under Miri in `scripts/ci/run-rust-miri.sh` (the workspace's "targeted Miri smoke" CI gate). The existing `scoped_handle::tests` Miri coverage already includes the workspace's only `Vec::set_len` site (the `with_capacity` + `spare_capacity_mut` + `set_len` round-trip test); future allowlisted occurrences in production code must add their own Miri coverage in the same script so the strict-provenance borrow- stacked machine validates them at every PR.
+**CI Miri coverage.** Every `unsafe Vec::set_len` allowlist entry SHOULD also be exercised under Miri in `scripts/ci/run-rust-miri.sh` (the workspace's "targeted Miri smoke" CI gate). The existing `soundness-canaries` Miri coverage already includes the workspace's only `Vec::set_len` site (the `with_capacity` + `spare_capacity_mut` + `set_len` round-trip test); future allowlisted occurrences in production code must add their own Miri coverage in the same script so the strict-provenance borrow- stacked machine validates them at every PR.
 
 ## `MaybeUninit` correctness
 
@@ -632,7 +632,7 @@ The audit checklist for every `assume_init*` call:
 | Site | Shape | Audit |
 |---|---|---|
 | `ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` recv buffer, consumed via `slice::from_raw_parts(buf.as_ptr().cast::<u8>(), received)` | Sound. `UdpSocket::recv_from` natively accepts `&mut [MaybeUninit<u8>]` and is documented to initialise the first `received` bytes. The follow-on `slice::from_raw_parts` is allowlisted under issue #6. No `assume_init*` is used. |
-| `ripdpi-vless/.../scoped_handle.rs:304` | Test-mode `&mut [MaybeUninit<u8>]` parameter in `simulated_recv_fill` | Sound. Issue #16 regression test demonstrating the workspace's recommended `with_capacity + spare_capacity_mut + set_len` idiom. Miri-validated. |
+| `soundness-canaries/.../lib.rs (test)` | Test-mode `&mut [MaybeUninit<u8>]` parameter in `simulated_recv_fill` | Sound. Issue #16 regression test demonstrating the workspace's recommended `with_capacity + spare_capacity_mut + set_len` idiom. Miri-validated. |
 
 **ZERO production `assume_init` / `assume_init_ref` / `assume_init_mut` / `assume_init_drop` / `assume_init_read` calls** in the entire workspace. Every byte-fill operation goes through either `recv_from(&mut [MaybeUninit<u8>])` followed by `slice::from_raw_parts` (issue-#6-audited) or `Vec::with_capacity + spare_capacity_mut + MaybeUninit::write + set_len` (issue-#16-audited). The scanner enforces zero baseline going forward.
 
@@ -644,7 +644,7 @@ The audit checklist for every `assume_init*` call:
 4. **Drop safety** (panic-path guard, or `T: !Drop` stated explicitly).
 5. **Owner** (crate/team, restated in the enforcement summary).
 
-**CI Miri coverage.** Per "`Vec::set_len` initialisation contract", any new allowlisted `assume_init*` site in production code SHOULD also be exercised under Miri in `scripts/ci/run-rust-miri.sh`. The existing `scoped_handle::tests` Miri coverage validates the recommended `with_capacity + spare_capacity_mut + set_len` round-trip (which writes via `MaybeUninit::write` and would catch a regression that introduced unsound `assume_init` usage in the same crate).
+**CI Miri coverage.** Per "`Vec::set_len` initialisation contract", any new allowlisted `assume_init*` site in production code SHOULD also be exercised under Miri in `scripts/ci/run-rust-miri.sh`. The existing `soundness-canaries` Miri coverage validates the recommended `with_capacity + spare_capacity_mut + set_len` round-trip (which writes via `MaybeUninit::write` and would catch a regression that introduced unsound `assume_init` usage in the same crate).
 
 ## Zero-initialisation validity
 
@@ -930,7 +930,7 @@ The workspace has ONE production callback-with-context system: `RealityHookGuard
 
 ### CI surface
 
-- **Scanner pattern `Box::into_raw`** (existing from issue #15): every occurrence requires an allowlist entry naming the matching `Box::from_raw` site AND the ownership-transfer contract. The single workspace site is `reality_hook.rs:219` (Reality callback state install) plus three test-mode sites in `scoped_handle.rs` (all allowlisted).
+- **Scanner pattern `Box::into_raw`** (existing from issue #15): every occurrence requires an allowlist entry naming the matching `Box::from_raw` site AND the ownership-transfer contract. The single workspace site is `reality_hook.rs:219` (Reality callback state install) plus three test-mode sites in the `soundness-canaries` crate (all allowlisted).
 - **Scanner pattern `derive Clone on owner-named type`** (existing from issue #13): prevents accidental duplication of guard handles that would lead to double-free.
 - **Scanner pattern `derive Copy on owner-named type`** (existing from issue #14): same for `Copy`.
 - **Miri test stage** `ripdpi-vless --features miri-stubs reality_hook` in `scripts/ci/run-rust-miri.sh` exercises the install / callback / drop cycle end-to-end without linking BoringSSL.
@@ -1097,7 +1097,7 @@ In order of preference for a fallible initialisation that fills `n` slots:
 
 1. **Safe `Vec::push` / `Vec::extend_from_slice` / `Vec::extend(iter)`.** Each element is moved into the Vec by value; if the iterator panics mid-way, the `Vec`'s Drop runs on the prefix already pushed (which contains valid `T` values, hence `T::drop` runs exactly once per element). No `unsafe` needed. Default to this for every case that can be expressed as "iterate and push".
 
-2. **`Vec::with_capacity` + `spare_capacity_mut` + `set_len`, restricted to `T: !Drop`.** The `T: !Drop` bound makes panic-leak vacuously safe: there are no resources to leak. This is the canonical workspace pattern, documented by the reference test in `ripdpi-vless/src/scoped_handle.rs::tests` (with `T = u8`). New occurrences must add a `static_assertions::assert_not_impl_any!(T, Drop)` or an equivalent compile-time check naming the `T: !Drop` precondition.
+2. **`Vec::with_capacity` + `spare_capacity_mut` + `set_len`, restricted to `T: !Drop`.** The `T: !Drop` bound makes panic-leak vacuously safe: there are no resources to leak. This is the canonical workspace pattern, documented by the reference test in `soundness-canaries/src/lib.rs::tests` (with `T = u8`). New occurrences must add a `static_assertions::assert_not_impl_any!(T, Drop)` or an equivalent compile-time check naming the `T: !Drop` precondition.
 
 3. **All-or-nothing init using infallible writes.** Collect into a temporary (`Vec<T>`, array literal, struct literal) using safe operations; commit the result in a single infallible move into the final destination. No partial-init state exists, no panic can interrupt the commit.
 
@@ -1116,7 +1116,7 @@ Audit log: the workspace has ONE production `MaybeUninit` site plus ONE producti
 | File | Pattern | Why panic-safe |
 |---|---|---|
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` stack buffer | `u8: !Drop`, so panic leaves no resources to leak. The slice constructed in the SAFETY block is sized to `received` (the contract-fulfilled prefix). |
-| `crates/ripdpi-vless/src/scoped_handle.rs::tests` (test code) | `Vec<u8>::with_capacity + spare_capacity_mut + set_len(n)` | `u8: !Drop`, plus test isolation. Documents the canonical workspace shape. |
+| `crates/soundness-canaries/src/lib.rs::tests` (test code) | `Vec<u8>::with_capacity + spare_capacity_mut + set_len(n)` | `u8: !Drop`, plus test isolation. Documents the canonical workspace shape. |
 | `crates/ripdpi-io-uring/src/bufpool.rs::RegisteredBufferPool::new` | `Vec::collect` + fallible `register_buffers(&iovecs)?` | All buffers are FULLY initialised with `vec![0u8; ...]` BEFORE the fallible syscall; Err branch drops them via standard `Vec<Box<[u8]>>` Drop. No partial-init window. |
 | `crates/ripdpi-privileged-ops/.../mmap_region.rs::MmapRegion::new` | Single fallible step (`mmap_anonymous`) | Err branch: nothing has been allocated yet. Ok branch: the `NonNull<u8>` is moved into `Self` infallibly. No partial-init window. |
 
@@ -1184,7 +1184,7 @@ Audit log (2026-05-17): every Drop impl in `native/rust/crates/*` has been revie
 | `RealityHookGuard` | Owns single `*mut RealityCallbackState`; `Box::from_raw` + null the pointer to defuse accidental re-use | `ripdpi-vless/src/reality_hook.rs` |
 | `PidFileGuard` | `take()` + drop the `Flock<File>` BEFORE `fs::remove_file(&path)` (fix landed for issue #31) | `ripdpi-proxy-runtime-adapter/src/platform.rs` |
 | `MmapRegion` / `MappedFile` | Sole-owner; single `munmap` in Drop, no cross-field dep | `ripdpi-privileged-ops/src/linux/mmap_region.rs`, `ripdpi-geo/src/mapped_file.rs` |
-| `ScopedHandle<T, F>` | Sole-owner generic RAII; `F::free(ptr)` exactly once | `ripdpi-vless/src/scoped_handle.rs` |
+| `ScopedHandle<T, F>` | Sole-owner generic RAII; `F::free(ptr)` exactly once | `soundness-canaries/src/lib.rs` |
 | `RootHelperRegistration` | `registered: bool` gates `unregister_root_helper()` call; no second field to order against | `ripdpi-proxy-runtime/src/runtime/listeners.rs` |
 
 The workspace has ZERO known field-order soundness bugs as of this audit. The `PidFileGuard` fix is the only modification the audit produced: the prior shape used `self.file.as_mut().flush()` (borrow, not move) which left the `Flock<File>` to drop AFTER `fs::remove_file(&self.path)`. Functionally correct (Linux flock is per-fd, an open-but-unlinked inode keeps its lock until the fd closes), but the conventional teardown order eliminates the small window in which a sibling process could `open(path, CREATE)` + `flock` on a fresh inode while the original guard still holds the lock on the orphaned one.
@@ -1246,7 +1246,7 @@ In the unusual case where `ManuallyDrop` is unavoidable (a crate-private FFI hel
 
 - Satisfy the three Soundness-Boundary rules above.
 - Carry a `// SAFETY:` block on every `ManuallyDrop::drop` / `ManuallyDrop::take` / `ManuallyDrop::into_inner` call site naming the matching construction site and the state transition that proves the call is reachable exactly once.
-- Have a `#[test]` exercising the panic-unwind path (`std::panic::catch_unwind` around the construction + teardown sequence; assert the leak counter is unchanged) AND a Miri test (`cargo +nightly miri test`) that runs the same sequence under Miri's UB / UAF / leak detector. The reference implementation lives in `crates/ripdpi-vless/tests/manuallydrop_canary.rs`.
+- Have a `#[test]` exercising the panic-unwind path (`std::panic::catch_unwind` around the construction + teardown sequence; assert the leak counter is unchanged) AND a Miri test (`cargo +nightly miri test`) that runs the same sequence under Miri's UB / UAF / leak detector. The reference implementation lives in `crates/soundness-canaries/tests/manuallydrop_canary.rs`.
 - Earn an entry in `ci/unsafe-boundary-allowlist.toml` with the `ManuallyDrop` pattern AND the three extra required fields enforced by the scanner's allowlist validator: * `drop_state_protocol` -- the explicit state machine (e.g. `"NotInitialized -> Initialized -> ManuallyDropped; transition via Self::dispose() consuming self"`) and which code path triggers each transition. * `panic_safety` -- per-unwind-path proof that the manual drop runs exactly once or the leak is bounded (name the leak budget). * `alternative_rejected` -- a specific reason `Option<T>` + `Option::take`, a private RAII guard, `mem::take` + `Default`, or an explicit enum state with the resource in the variant is NOT sufficient for this site. The default policy answer is "use one of those"; the allowlist entry must rebut the default.
 
 The scanner-side allowlist validator (`scripts/ci/check_unsafe_boundaries.py::load_allowlist`) enforces all of the above at PR time. An entry that lists `pattern = "ManuallyDrop"` but omits any of the three extra fields exits with code 2 (allowlist malformed), failing CI before the scan itself runs. Six unit tests in `scripts/ci/tests/test_check_unsafe_boundaries.py:: AllowlistValidatorTests` pin this enforcement down.
@@ -1255,7 +1255,7 @@ The scanner-side allowlist validator (`scripts/ci/check_unsafe_boundaries.py::lo
 
 `scripts/ci/check_unsafe_boundaries.py` runs on every PR (via `scripts/ci/run-rust-lint.sh`). The `ManuallyDrop` pattern in that scanner's `PATTERNS` dict flags any new occurrence of the type. The four unit tests in `scripts/ci/tests/test_check_unsafe_boundaries.py` cover the field-shape match, the local-binding match, the substring guard (must NOT match `ManuallyDropped` / `manually_drop_*`), and the whitespace-tolerant `ManuallyDrop  <T>` form.
 
-`mem::forget` is a separate but related pattern that suppresses Drop without `ManuallyDrop`. The five production `mem::forget` sites in the workspace (`ripdpi-vless/src/scoped_handle.rs::take`, `ripdpi-io-uring/src/bufpool.rs::into_pending`, `ripdpi-privileged-ops/src/linux/fd.rs::close_owned_fd`, `ripdpi-android-proxy-adapter/src/lifecycle.rs::start_session`'s `IdleGuard` disarm, and the same disarm pattern in `ripdpi-proxy-runtime/src/runtime/listeners.rs`) are each allowlisted with documented enforcement and matching construction sites. New `mem::forget` occurrences inherit the existing allowlist discipline -- no new CI surface needed because the unsafe-boundary scanner already requires the allowlist entry on the surrounding `Box::into_raw` / `unsafe impl Send` / `Vec::set_len` patterns that the `mem::forget` site typically pairs with.
+`mem::forget` is a separate but related pattern that suppresses Drop without `ManuallyDrop`. The five production `mem::forget` sites in the workspace (`soundness-canaries/src/lib.rs::take`, `ripdpi-io-uring/src/bufpool.rs::into_pending`, `ripdpi-privileged-ops/src/linux/fd.rs::close_owned_fd`, `ripdpi-android-proxy-adapter/src/lifecycle.rs::start_session`'s `IdleGuard` disarm, and the same disarm pattern in `ripdpi-proxy-runtime/src/runtime/listeners.rs`) are each allowlisted with documented enforcement and matching construction sites. New `mem::forget` occurrences inherit the existing allowlist discipline -- no new CI surface needed because the unsafe-boundary scanner already requires the allowlist entry on the surrounding `Box::into_raw` / `unsafe impl Send` / `Vec::set_len` patterns that the `mem::forget` site typically pairs with.
 
 ### Cross-references
 
