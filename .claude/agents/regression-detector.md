@@ -2,7 +2,7 @@
 name: regression-detector
 description: Detects performance and binary size regressions across native libraries -- compares Criterion benchmarks, Android macrobenchmarks, .so sizes, and cargo-bloat hotspots against checked-in baselines and pinpoints the offending commit.
 tools: Read, Grep, Glob, Bash
-model: haiku
+model: opencode/claude-sonnet-5
 maxTurns: 30
 skills:
   - rust-performance

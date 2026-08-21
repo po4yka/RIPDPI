@@ -2,7 +2,7 @@
 name: android-test-runner
 description: Runs and triages Android instrumentation, Maestro, Appium, and Android CLI Journey suites on emulator or device with failure-artifact collection.
 tools: Bash, Read, Grep, Glob
-model: sonnet
+model: opencode/claude-sonnet-5
 maxTurns: 30
 skills:
   - kotlin-test-patterns

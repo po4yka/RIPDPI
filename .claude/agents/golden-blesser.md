@@ -2,7 +2,7 @@
 name: golden-blesser
 description: Bless, diff-review, and triage golden test fixtures across Roborazzi screenshots, telemetry/logging goldens, wire contract fixtures, and Rust contract_fixtures. Invoke when golden tests fail, fixtures need updating, or you need to decide bless-vs-bug.
 tools: Bash, Read, Grep, Glob
-model: haiku
+model: opencode/claude-sonnet-5
 maxTurns: 30
 isolation: worktree
 skills:

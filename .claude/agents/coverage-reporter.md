@@ -2,7 +2,7 @@
 name: coverage-reporter
 description: Analyze Kotlin and Rust test coverage, enforce thresholds, identify uncovered critical paths, and generate summary reports.
 tools: Bash, Read, Grep, Glob
-model: haiku
+model: opencode/claude-sonnet-5
 maxTurns: 30
 skills:
   - kotlin-test-patterns

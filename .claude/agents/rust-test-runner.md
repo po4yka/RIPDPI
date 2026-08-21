@@ -2,7 +2,7 @@
 name: rust-test-runner
 description: Runs and triages Rust test suites for the RIPDPI native Rust workspace -- picks the right suite, executes it, interprets failures, and returns only actionable diagnostics.
 tools: Bash, Read, Grep, Glob
-model: sonnet
+model: opencode/claude-sonnet-5
 maxTurns: 30
 skills:
   - cargo-workflows

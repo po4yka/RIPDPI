@@ -2,7 +2,7 @@
 name: async-cancel-safety
 description: Audits `async fn` for cancel-safety in the RIPDPI workspace. Walks every `.await` point in a diff, classifies the function as cancel-safe / not cancel-safe / conditional with a documented reason, requires a `# Cancel safety:` rustdoc block, and flags `tokio::select!` / `tokio::time::timeout` / `FuturesUnordered` call sites whose inner futures lack annotation. Use when adding or modifying async code, or for periodic async-safety audits.
 tools: Bash, Read, Grep, Glob
-model: opus
+model: opencode/claude-opus-5
 maxTurns: 30
 skills:
   - rust-async-internals

@@ -2,7 +2,7 @@
 name: kotlin-design-auditor
 description: Audits Kotlin code for SOLID violations -- god ViewModels, Hilt scope misuse, Compose anti-patterns, coroutine safety, and dependency inversion gaps. Use for periodic design quality checks.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: opencode/claude-opus-5
 maxTurns: 30
 skills:
   - jetpack-compose-api

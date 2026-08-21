@@ -2,7 +2,7 @@
 name: jni-bridge-verifier
 description: Audits JNI method signatures, panic safety, type marshaling, thread attachment, and GlobalRef lifecycle across the Rust-Java FFI boundary. Use when changing JNI exports, VpnProtect callback, or android adapter crates.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: opencode/claude-opus-5
 maxTurns: 30
 skills:
   - rust-unsafe
