@@ -81,6 +81,13 @@ impl RelaySpoofer {
     /// `conn` is the established TCP connection to the real upstream; it is
     /// used only as the injection target and is never written to by this
     /// function on the no-capability path.
+    ///
+    /// # Exclusivity contract
+    ///
+    /// While the injection runs, the caller MUST NOT perform I/O on `conn` or
+    /// any `try_clone()` of it: the injection snapshots the live sequence
+    /// numbers and emits the decoy against that snapshot, and racing I/O would
+    /// land it at a wrong stream offset. See [`inject::inject_decoy_segment`].
     pub fn spoof_before_handshake(
         &self,
         config: &TlsSpoofConfig,

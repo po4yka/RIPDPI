@@ -19,20 +19,36 @@
 //! ```text
 //! inject_decoy_segment(stream, forged_hello, method)
 //!   1. stream.local_addr() / peer_addr()  → SpoofSegmentParams src/dst
-//!   2. setsockopt(fd, TCP_REPAIR=19, 1)   → enter repair mode (CAP_NET_ADMIN)
-//!   3. setsockopt(fd, TCP_REPAIR_QUEUE=20, 2)  → select SEND queue
-//!   4. getsockopt(fd, TCP_QUEUE_SEQ=21)   → read live send seq
-//!   5. setsockopt(fd, TCP_REPAIR_QUEUE=20, 1)  → select RECV queue
-//!   6. getsockopt(fd, TCP_QUEUE_SEQ=21)   → read live ack
-//!   7. setsockopt(fd, TCP_REPAIR=19, -1)  → leave repair mode
+//!   2. stale_timestamp_value(stream)      → WrongTimestamp tsval (may be None)
+//!   3. setsockopt(fd, TCP_REPAIR=19, 1)   → enter repair mode (CAP_NET_ADMIN)
+//!   4. setsockopt(fd, TCP_REPAIR_QUEUE=20, 2)  → select SEND queue
+//!   5. getsockopt(fd, TCP_QUEUE_SEQ=21)   → read live send seq
+//!   6. setsockopt(fd, TCP_REPAIR_QUEUE=20, 1)  → select RECV queue
+//!   7. getsockopt(fd, TCP_QUEUE_SEQ=21)   → read live ack
 //!   8. build_spoof_segment(params)        → full IPv4+TCP bytes
 //!   9. SOCK_RAW / IPPROTO_RAW socket, IP_HDRINCL=1, sendto(dst) → on-wire
+//!  10. setsockopt(fd, TCP_REPAIR=19, -1)  → leave repair mode (always runs)
 //! ```
 //!
-//! Step 9 needs `CAP_NET_RAW`; steps 2–7 need `CAP_NET_ADMIN`.
+//! Steps 8–9 run while `TCP_REPAIR` is still engaged: repair mode quiesces
+//! the connection, so the seq/ack snapshot and the raw emit describe one
+//! instant of its lifecycle instead of racing concurrent traffic.
+//!
+//! Step 9 needs `CAP_NET_RAW`; steps 3–7 need `CAP_NET_ADMIN`.
 //! [`has_raw_socket_caps`] probes only `CAP_NET_RAW`; the `TCP_REPAIR`
-//! `EPERM` from step 2 is surfaced as an `io::Error` and handled gracefully
+//! `EPERM` from step 3 is surfaced as an `io::Error` and handled gracefully
 //! in [`crate::RelaySpoofer::spoof_before_handshake`].
+//!
+//! ## Exclusivity contract
+//!
+//! The seq/ack snapshot and the raw emit must describe one instant of the
+//! connection's lifecycle. The caller MUST guarantee exclusive access to
+//! `stream` for the duration of the call: no concurrent reads or writes on
+//! `stream` or any `try_clone()` of it. I/O racing before step 3 or after
+//! step 10 would invalidate the captured sequence numbers and land the decoy
+//! at a wrong stream offset. Ownership-based enforcement is not possible at
+//! the `std` level — `TcpStream` shares one fd across clones — so this
+//! contract is documentation, not types.
 
 use std::io;
 use std::net::TcpStream;
@@ -127,6 +143,15 @@ pub fn has_raw_socket_caps() -> bool {
 /// `SOCK_RAW`). Returns `Err(EPERM)` if either capability is absent.
 ///
 /// Only IPv4 connections are supported; IPv6 returns `Unsupported`.
+///
+/// # Exclusivity contract
+///
+/// The caller MUST guarantee exclusive access to `stream` for the duration
+/// of the call — no concurrent reads or writes on `stream` or any
+/// `try_clone()` of it. The seq/ack snapshot and the raw emit must describe
+/// one instant of the connection's lifecycle; racing I/O invalidates the
+/// snapshot and lands the decoy at a wrong stream offset. See the module
+/// docs for why this cannot be enforced by types.
 #[cfg(target_os = "linux")]
 pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: SpoofMethod) -> io::Result<()> {
     use std::net::SocketAddr;
@@ -321,6 +346,12 @@ fn stale_timestamp_value(stream: &TcpStream) -> io::Result<Option<u32>> {
 /// Calls [`send_spoof_segment`]: reads the live seq/ack via `TCP_REPAIR`,
 /// builds the segment bytes via [`build_spoof_segment`], and emits them via
 /// `SOCK_RAW / IPPROTO_RAW`. The send path is **Linux-CI verified**.
+///
+/// # Exclusivity contract
+///
+/// The caller MUST guarantee exclusive access to `stream` for the duration
+/// of the call — no concurrent I/O on `stream` or any `try_clone()` of it;
+/// see [`send_spoof_segment`] and the module docs.
 ///
 /// ## Non-Linux
 ///
