@@ -385,6 +385,16 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
 }
 
 #[test]
+fn relay_runtime_config_rejects_unknown_wire_fields() {
+    let mut serialized = serde_json::to_value(sample_config("trojan")).expect("serialize relay config");
+    serialized["sentinelUnknownField"] = serde_json::json!(true);
+
+    let error = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serialized)
+        .expect_err("unknown wire fields must fail closed instead of silently defaulting");
+    assert!(error.to_string().contains("sentinelUnknownField"), "the error must name the unknown field, got: {error}");
+}
+
+#[test]
 fn masque_tcp_protocol_round_trips_independently_from_udp_fallback() {
     let mut config = sample_config("masque");
     let masque = masque_config_mut(&mut config);

@@ -93,8 +93,11 @@ impl std::fmt::Display for RelayConfigError {
 
 impl std::error::Error for RelayConfigError {}
 
+// `deny_unknown_fields` is the wire-contract guard for the Kotlin boundary:
+// a misspelled or renamed field must fail closed here instead of silently
+// falling back to its default on both sides of the schema-version gate.
 #[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FlatResolvedRelayRuntimeConfig {
     pub schema_version: u32,
     pub enabled: bool,
