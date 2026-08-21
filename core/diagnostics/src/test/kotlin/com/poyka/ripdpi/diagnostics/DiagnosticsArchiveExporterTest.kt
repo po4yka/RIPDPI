@@ -1078,6 +1078,42 @@ internal class DiagnosticsArchiveCompositeExporterTest : DiagnosticsArchiveExpor
         }
 
     @Test
+    fun `createArchive retains the only failed stage report at the archive root`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            stores.sessionsState.value = stores.sessionsState.value.filter { it.id == "dpi-session" }
+            val baseOutcome = nonActionableCompositeOutcome(runId = "home-failed-stage-evidence")
+            val outcome =
+                baseOutcome.copy(
+                    stageSummaries =
+                        baseOutcome.stageSummaries.map { stage ->
+                            stage.copy(status = DiagnosticsHomeCompositeStageStatus.FAILED)
+                        },
+                )
+            compositeRunService.putCompletedRun(outcome)
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 29L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val rootReport =
+                    json.decodeFromString(
+                        DiagnosticsArchivePayload.serializer(),
+                        zip.getInputStream(zip.getEntry("report.json")).bufferedReader().readText(),
+                    )
+                assertEquals("dpi-session", rootReport.primaryReport?.sessionId)
+            }
+        }
+
+    @Test
     fun `createArchive rejects home analysis with an invalid bundled recommendation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

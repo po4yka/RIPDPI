@@ -303,13 +303,24 @@ internal class DefaultDiagnosticsArchiveExporter
                     "Primary home diagnostics session is unavailable: $recommendedSessionId"
                 }
             } else {
-                outcome.stageSummaries
+                val stageSessions =
+                    outcome.stageSummaries
+                        .asSequence()
+                        .mapNotNull { stage ->
+                            stage.sessionId
+                                ?.takeIf { sessionId -> sessionId in outcome.bundleSessionIds }
+                                ?.let { sessionId -> compositeSessions.firstOrNull { it.id == sessionId } }
+                                ?.let { session -> stage to session }
+                        }.toList()
+                stageSessions
                     .asSequence()
-                    .filter { stage -> stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED }
-                    .mapNotNull { stage -> stage.sessionId }
-                    .filter { sessionId -> sessionId in outcome.bundleSessionIds }
-                    .mapNotNull { sessionId -> compositeSessions.firstOrNull { it.id == sessionId } }
-                    .firstOrNull()
+                    .firstOrNull { (stage) -> stage.status == DiagnosticsHomeCompositeStageStatus.COMPLETED }
+                    ?.second
+                    ?: stageSessions
+                        .asSequence()
+                        .map { (_, session) -> session }
+                        .firstOrNull { session -> !session.reportJson.isNullOrBlank() }
+                    ?: stageSessions.firstOrNull()?.second
             }
         }
 
