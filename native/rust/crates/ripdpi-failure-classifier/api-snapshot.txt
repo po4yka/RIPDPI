@@ -94,6 +94,7 @@ pub ripdpi_failure_classifier::FailureClass::CapabilitySkipped
 pub ripdpi_failure_classifier::FailureClass::ConfirmGoodDpiSuspected
 pub ripdpi_failure_classifier::FailureClass::ConnectFailure
 pub ripdpi_failure_classifier::FailureClass::ConnectionFreeze
+pub ripdpi_failure_classifier::FailureClass::DnsResolutionFailure
 pub ripdpi_failure_classifier::FailureClass::DnsTampering
 pub ripdpi_failure_classifier::FailureClass::HttpBlockpage
 pub ripdpi_failure_classifier::FailureClass::IpBlockSuspect

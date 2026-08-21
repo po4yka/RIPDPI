@@ -1,5 +1,12 @@
 pub mod ripdpi_diagnostics_contracts
 pub mod ripdpi_diagnostics_contracts::types
+pub enum ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome::Aborted
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome::Cancelled
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome::Deadline
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome::Graceful
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome::JoinFailed
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupOutcome::RuntimeFailed
 pub enum ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Active
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Mixed
@@ -261,7 +268,24 @@ pub enum ripdpi_diagnostics_contracts::types::TransportPivotViability
 pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Blocked
 pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Confirmed
 pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Unknown
+pub struct ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::address_attempt_count: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::candidate_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::connection_refused_count: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::drain_latency_ms: u64
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::duplicate_refusal_count: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::forced_abort: bool
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::lane: ripdpi_diagnostics_contracts::StrategyProbeProgressLane
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::outcome: ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::scan_session_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupDetail::trial_alias: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::address_attempt_count: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::candidates: alloc::vec::Vec<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail>
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::cleanup_outcome: core::option::Option<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome>
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::connection_refused_count: usize
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::drain_latency_ms: u64
+pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::duplicate_refusal_count: usize
 pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::forced_abort: usize
 pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::joined: usize
 pub ripdpi_diagnostics_contracts::types::CandidateRuntimeCleanupReceipt::started: usize
@@ -987,6 +1011,13 @@ pub const ripdpi_diagnostics_contracts::wire::DIAGNOSTICS_ENGINE_SCHEMA_VERSION:
 pub type ripdpi_diagnostics_contracts::wire::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation
 pub type ripdpi_diagnostics_contracts::wire::EngineProbeTaskFamily = ripdpi_diagnostics_contracts::ProbeTaskFamily
 pub type ripdpi_diagnostics_contracts::wire::EngineProbeTaskWire = ripdpi_diagnostics_contracts::ProbeTask
+pub enum ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome::Aborted
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome::Cancelled
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome::Deadline
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome::Graceful
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome::JoinFailed
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome::RuntimeFailed
 pub enum ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Active
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Mixed
@@ -1248,7 +1279,24 @@ pub enum ripdpi_diagnostics_contracts::TransportPivotViability
 pub ripdpi_diagnostics_contracts::TransportPivotViability::Blocked
 pub ripdpi_diagnostics_contracts::TransportPivotViability::Confirmed
 pub ripdpi_diagnostics_contracts::TransportPivotViability::Unknown
+pub struct ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::address_attempt_count: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::candidate_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::connection_refused_count: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::drain_latency_ms: u64
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::duplicate_refusal_count: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::forced_abort: bool
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::lane: ripdpi_diagnostics_contracts::StrategyProbeProgressLane
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::outcome: ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::scan_session_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail::trial_alias: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::address_attempt_count: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::candidates: alloc::vec::Vec<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupDetail>
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::cleanup_outcome: core::option::Option<ripdpi_diagnostics_contracts::CandidateRuntimeCleanupOutcome>
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::connection_refused_count: usize
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::drain_latency_ms: u64
+pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::duplicate_refusal_count: usize
 pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::forced_abort: usize
 pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::joined: usize
 pub ripdpi_diagnostics_contracts::CandidateRuntimeCleanupReceipt::started: usize
