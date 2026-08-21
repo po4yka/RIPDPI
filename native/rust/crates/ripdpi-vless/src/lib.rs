@@ -141,7 +141,6 @@ impl VlessRealityClient {
         }
         tracing::debug!("VLESS+Reality: connecting XUDP carrier");
         let tcp = connect_tcp(config, bind_ip).await?;
-        configure_tcp_liveness(&tcp)?;
         let tls = reality::connect_reality_tls(tcp, config).await?;
         let carrier = Self::vless_handshake_and_wrap_command(tls, config, wire::VlessCommand::Mux, None).await?;
         xudp::VlessXudpSession::new(carrier, config.flow == crate::addons::VlessFlow::VisionUdp443)
@@ -396,6 +395,8 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
     }
     let stream = socket.connect(address).await?;
     stream.set_nodelay(true)?;
+    // Half-open detection for every carrier, not only XUDP.
+    configure_tcp_liveness(&stream)?;
     Ok(stream)
 }
 
@@ -551,9 +552,7 @@ mod protect_tests {
 
         let cfg = config_for("127.0.0.1", port);
         let stream = connect_tcp(&cfg, None).await.expect("loopback connect must succeed without protect");
-        assert!(!SockRef::from(&stream).keepalive().expect("read default SO_KEEPALIVE"));
-        configure_tcp_liveness(&stream).expect("configure XUDP TCP liveness");
-        assert!(SockRef::from(&stream).keepalive().expect("read SO_KEEPALIVE"));
+        assert!(SockRef::from(&stream).keepalive().expect("read SO_KEEPALIVE"), "connect_tcp must apply TCP liveness");
         drop(stream);
 
         assert_eq!(cb.calls.load(Ordering::SeqCst), 0, "loopback target must be exempt from protect");
