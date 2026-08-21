@@ -1,6 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-const REDACTED_CREDENTIALS: &str = "<redacted>";
+pub(crate) const REDACTED_CREDENTIALS: &str = "<redacted>";
 
 macro_rules! impl_redacted_debug {
     ($config:ident { $($field:ident),* $(,)? }) => {
@@ -8,17 +8,24 @@ macro_rules! impl_redacted_debug {
             fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut debug = formatter.debug_struct(stringify!($config));
                 $(debug.field(stringify!($field), &self.$field);)*
-                debug.field("credentials", &REDACTED_CREDENTIALS);
+                debug.field("credentials", &crate::config::REDACTED_CREDENTIALS);
                 debug.finish_non_exhaustive()
             }
         }
     };
 }
 
-include!("config/finalmask.rs");
-include!("config/kind.rs");
-include!("config/runtime.rs");
-include!("config/backend.rs");
-include!("config/flat.rs");
-include!("config/conversions.rs");
-include!("config/shadowtls_inner.rs");
+mod backend;
+mod conversions;
+mod finalmask;
+mod flat;
+mod kind;
+mod runtime;
+mod shadowtls_inner;
+
+pub use backend::*;
+pub use finalmask::*;
+pub(crate) use flat::*;
+pub(crate) use kind::*;
+pub use runtime::*;
+pub use shadowtls_inner::*;

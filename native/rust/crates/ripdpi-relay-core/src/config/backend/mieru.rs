@@ -9,10 +9,4 @@ pub struct MieruRelayConfig {
     pub mtu: i32,
 }
 
-impl_redacted_debug!(MieruRelayConfig {
-    server,
-    port,
-    protocol,
-    multiplexing,
-    mtu,
-});
+impl_redacted_debug!(MieruRelayConfig { server, port, protocol, multiplexing, mtu });

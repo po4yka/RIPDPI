@@ -1,16 +1,17 @@
+pub(crate) use super::*;
 /// The only relay native-config wire schema version this build accepts.
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant.
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 10;
+pub(crate) const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 10;
 
-fn default_vless_flow() -> String {
+pub(crate) fn default_vless_flow() -> String {
     "xtls-rprx-vision".to_string()
 }
 
-fn default_xhttp_mode() -> String {
+pub(crate) fn default_xhttp_mode() -> String {
     "auto".to_string()
 }
 
-fn default_vless_transport() -> String {
+pub(crate) fn default_vless_transport() -> String {
     "reality_tcp".to_string()
 }
 
@@ -44,7 +45,7 @@ fn default_ssh_auth_type() -> String {
 
 /// Rejects a `schemaVersion` envelope value this build does not support.
 ///
-fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
+pub(crate) fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
     if found == SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION {
         Ok(())
     } else {
@@ -52,7 +53,7 @@ fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
     }
 }
 
-fn validate_required_relay_identity(flat: &FlatResolvedRelayRuntimeConfig) -> Result<(), RelayConfigError> {
+pub(crate) fn validate_required_relay_identity(flat: &FlatResolvedRelayRuntimeConfig) -> Result<(), RelayConfigError> {
     if flat.kind == "chain_relay" && flat.chain_hops.is_empty() {
         if flat.chain_entry.is_none() {
             return Err(RelayConfigError::MissingResolvedChainHop { role: "entry" });
@@ -98,7 +99,7 @@ impl std::error::Error for RelayConfigError {}
 // falling back to its default on both sides of the schema-version gate.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct FlatResolvedRelayRuntimeConfig {
+pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub schema_version: u32,
     pub enabled: bool,
     pub kind: String,
@@ -313,14 +314,8 @@ mod tests {
 
     fn assert_debug_redacts(value: &impl std::fmt::Debug) {
         let rendered = format!("{value:?}");
-        assert!(
-            rendered.contains(REDACTED_CREDENTIALS),
-            "Debug output should make redaction explicit: {rendered}"
-        );
-        assert!(
-            !rendered.contains(DEBUG_SECRET),
-            "Debug output leaked a relay credential: {rendered}"
-        );
+        assert!(rendered.contains(REDACTED_CREDENTIALS), "Debug output should make redaction explicit: {rendered}");
+        assert!(!rendered.contains(DEBUG_SECRET), "Debug output leaked a relay credential: {rendered}");
     }
 
     fn relay_config_json_object() -> serde_json::Map<String, Value> {
@@ -458,8 +453,8 @@ mod tests {
             object.remove(key);
         }
 
-        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object.clone()))
-            .expect("sparse Kotlin payload should deserialize");
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(object.clone())).expect("sparse Kotlin payload should deserialize");
         let value = serde_json::to_value(config).expect("serialize migrated config");
 
         assert_eq!(value["outboundBindIp"], json!(""));
@@ -525,10 +520,7 @@ mod tests {
 
     #[test]
     fn public_config_debug_redacts_credentials() {
-        assert_debug_redacts(&AnyTlsRelayConfig {
-            password: Some(secret()),
-            root_certificate_pem: Some(secret()),
-        });
+        assert_debug_redacts(&AnyTlsRelayConfig { password: Some(secret()), root_certificate_pem: Some(secret()) });
         assert_debug_redacts(&Hysteria2RelayConfig {
             password: Some(secret()),
             salamander_key: Some(secret()),
@@ -608,10 +600,7 @@ mod tests {
             inner_profile_id: "inner".to_string(),
             inner: Some(inner.clone()),
         });
-        assert_debug_redacts(&TrojanRelayConfig {
-            password: Some(secret()),
-            root_certificate_pem: Some(secret()),
-        });
+        assert_debug_redacts(&TrojanRelayConfig { password: Some(secret()), root_certificate_pem: Some(secret()) });
         assert_debug_redacts(&ShadowsocksRelayConfig {
             method: "2022-blake3-aes-256-gcm".to_string(),
             password: Some(secret()),

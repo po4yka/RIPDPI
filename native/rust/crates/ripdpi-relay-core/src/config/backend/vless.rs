@@ -8,11 +8,7 @@ pub struct VlessRelayConfig {
     pub uuid: Option<String>,
 }
 
-impl_redacted_debug!(VlessRelayConfig {
-    vless_flow,
-    vless_transport,
-    xhttp_mode,
-});
+impl_redacted_debug!(VlessRelayConfig { vless_flow, vless_transport, xhttp_mode });
 
 #[derive(Clone, Default)]
 pub struct VlessRealityRelayConfig {

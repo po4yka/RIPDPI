@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
     fn from(flat: FlatResolvedRelayRuntimeConfig) -> Self {
         let vless_flow = normalize_vless_flow(flat.vless_flow);

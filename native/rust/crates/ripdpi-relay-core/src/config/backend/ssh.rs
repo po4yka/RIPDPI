@@ -11,9 +11,4 @@ pub struct SshRelayConfig {
     pub strict_host_key: bool,
 }
 
-impl_redacted_debug!(SshRelayConfig {
-    host,
-    port,
-    auth_type,
-    strict_host_key,
-});
+impl_redacted_debug!(SshRelayConfig { host, port, auth_type, strict_host_key });

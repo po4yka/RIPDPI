@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 fn default_shadowtls_inner_vless_flow() -> String {
     "xtls-rprx-vision".to_string()
 }
@@ -29,7 +30,6 @@ pub struct ResolvedShadowTlsInnerRelayConfig {
     pub vless_uuid: Option<String>,
     pub tls_fingerprint_profile: String,
 }
-
 
 impl_redacted_debug!(ResolvedShadowTlsInnerRelayConfig {
     kind,

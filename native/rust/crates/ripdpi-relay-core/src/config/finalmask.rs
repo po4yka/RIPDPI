@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedRelayFinalmaskConfig {

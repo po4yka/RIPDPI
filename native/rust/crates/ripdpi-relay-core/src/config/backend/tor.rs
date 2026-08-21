@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 #[derive(Clone, Default)]
 pub struct TorRelayConfig {
     pub state_dir: String,
@@ -6,11 +7,7 @@ pub struct TorRelayConfig {
     pub transports: Vec<TorPluggableTransportConfig>,
 }
 
-impl_redacted_debug!(TorRelayConfig {
-    state_dir,
-    cache_dir,
-    transports,
-});
+impl_redacted_debug!(TorRelayConfig { state_dir, cache_dir, transports });
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,8 +21,4 @@ pub struct TorPluggableTransportConfig {
     pub run_on_startup: bool,
 }
 
-impl_redacted_debug!(TorPluggableTransportConfig {
-    protocols,
-    binary_path,
-    run_on_startup,
-});
+impl_redacted_debug!(TorPluggableTransportConfig { protocols, binary_path, run_on_startup });

@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 #[derive(Clone, Default)]
 pub struct ShadowTlsRelayConfig {
     pub password: Option<String>,
@@ -5,7 +6,4 @@ pub struct ShadowTlsRelayConfig {
     pub inner: Option<ResolvedShadowTlsInnerRelayConfig>,
 }
 
-impl_redacted_debug!(ShadowTlsRelayConfig {
-    inner_profile_id,
-    inner,
-});
+impl_redacted_debug!(ShadowTlsRelayConfig { inner_profile_id, inner });

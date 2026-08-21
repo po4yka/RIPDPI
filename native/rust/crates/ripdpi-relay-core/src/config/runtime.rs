@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 #[derive(Debug, Clone)]
 pub struct ResolvedRelayRuntimeConfig {
     pub common: CommonRelayConfig,

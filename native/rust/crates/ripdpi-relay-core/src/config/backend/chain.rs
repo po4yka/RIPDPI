@@ -1,3 +1,4 @@
+pub(crate) use super::*;
 /// The minimum and maximum number of hops a composed chain may carry.
 ///
 /// Mirrors the Kotlin `RelayChainHopBounds` (min 2, max 4). The native
@@ -85,13 +86,10 @@ impl ChainRelayConfig {
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!(
-                    "chain relay must compose {CHAIN_RELAY_MIN_HOPS}..={CHAIN_RELAY_MAX_HOPS} hops, got {count}"
-                ),
+                format!("chain relay must compose {CHAIN_RELAY_MIN_HOPS}..={CHAIN_RELAY_MAX_HOPS} hops, got {count}"),
             ))
         }
     }
-
 }
 
 fn default_chain_hop_server_port() -> i32 {

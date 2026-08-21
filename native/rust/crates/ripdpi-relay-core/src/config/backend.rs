@@ -1,18 +1,36 @@
-include!("backend/hysteria2.rs");
-include!("backend/tuic.rs");
-include!("backend/vless.rs");
-include!("backend/mieru.rs");
-include!("backend/ssh.rs");
-include!("backend/cloudflare.rs");
-include!("backend/chain.rs");
-include!("backend/masque.rs");
-include!("backend/shadowtls.rs");
-include!("backend/trojan.rs");
-include!("backend/tor.rs");
-include!("backend/anytls.rs");
-include!("backend/shadowsocks.rs");
-include!("backend/naive.rs");
-include!("backend/unsupported.rs");
+pub(crate) use super::*;
+
+mod anytls;
+mod chain;
+mod cloudflare;
+mod hysteria2;
+mod masque;
+mod mieru;
+mod naive;
+mod shadowsocks;
+mod shadowtls;
+mod ssh;
+mod tor;
+mod trojan;
+mod tuic;
+mod unsupported;
+mod vless;
+
+pub use anytls::*;
+pub use chain::*;
+pub use cloudflare::*;
+pub use hysteria2::*;
+pub use masque::*;
+pub use mieru::*;
+pub use naive::*;
+pub use shadowsocks::*;
+pub use shadowtls::*;
+pub use ssh::*;
+pub use tor::*;
+pub use trojan::*;
+pub use tuic::*;
+pub use unsupported::*;
+pub use vless::*;
 
 #[derive(Debug, Clone)]
 pub enum RelayBackendConfig {
