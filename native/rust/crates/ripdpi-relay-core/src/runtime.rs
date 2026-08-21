@@ -99,6 +99,12 @@ impl RelayRuntime {
     }
 
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
+        if self.state.stop_requested() {
+            // A stop requested before `run` wins before any lifecycle side
+            // effect: no backend build, no listener bind, and no transient
+            // ready-then-stopped event pair.
+            return Ok(());
+        }
         let backend = match self.socket_protector.clone() {
             Some(protector) => Arc::new(build_backend_with_socket_protector(&self.config, Some(protector)).await?),
             None => Arc::new(build_backend(&self.config).await?),

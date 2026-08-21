@@ -1457,6 +1457,25 @@ fn confirm_good_observation_is_limited_to_catalog_validated_classic_reality() {
     assert!(!RelayRuntime::new(sample_config("chain_relay")).confirm_good_dpi_eligible());
 }
 
+#[tokio::test]
+async fn relay_runtime_run_is_a_no_op_when_stop_was_requested_before_run() {
+    let runtime = RelayRuntime::new(sample_config("vless_reality"));
+    let ready_fired = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let observer_flag = std::sync::Arc::clone(&ready_fired);
+    runtime.set_readiness_observer(std::sync::Arc::new(move || {
+        observer_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+    }));
+    runtime.stop();
+
+    let run = std::sync::Arc::clone(&runtime).run();
+    let outcome = tokio::time::timeout(Duration::from_secs(5), run)
+        .await
+        .expect("run must return promptly when stop was requested before run");
+    outcome.expect("an early-stopped run must not fail");
+
+    assert!(!ready_fired.load(std::sync::atomic::Ordering::SeqCst), "a pre-stop runtime must never report readiness");
+}
+
 #[test]
 fn upstream_telemetry_omits_masque_credentials_path_and_query() {
     let mut config = sample_config("masque");
