@@ -977,6 +977,59 @@ fn apply_decay_no_op_on_zero_attempts() {
     assert_eq!(stats.successes, 0);
 }
 
+#[test]
+fn apply_decay_shrinks_flip_and_detectability_counters_with_attempts() {
+    // H1 regression: outcome_flips and detectability_events are numerators of
+    // per-attempt penalty ratios in `fitness_at`. If they stay constant while
+    // `attempts` decays, the stability/detectability penalties grow without
+    // bound after a long idle period. Decay must shrink them together with
+    // the attempt history so their ratios stay in [0, 1].
+    use crate::strategy_evolver::types::LOSS_HALF_LIFE_MS;
+    let mut stats = ComboStats::new();
+    for i in 0..10u64 {
+        let success = i % 2 == 0;
+        stats.record_attempt(success, 100, Some(FailureClass::TlsAlert), i * 1_000, 0, 0);
+    }
+    assert_eq!(stats.attempts, 10);
+    assert_eq!(stats.outcome_flips, 9); // first attempt never flips
+    assert_eq!(stats.detectability_events, 5);
+
+    stats.apply_decay(LOSS_HALF_LIFE_MS * 4);
+
+    assert!(stats.attempts > 0, "decay must not zero out the history entirely");
+    let stability_ratio = stats.outcome_flips as f64 / stats.attempts as f64;
+    let detectability_ratio = stats.detectability_events as f64 / stats.attempts as f64;
+    assert!(
+        stability_ratio <= 1.0 + f64::EPSILON,
+        "stability ratio {stability_ratio} exceeds 1.0 after decay (flips={}, attempts={})",
+        stats.outcome_flips,
+        stats.attempts
+    );
+    assert!(
+        detectability_ratio <= 1.0 + f64::EPSILON,
+        "detectability ratio {detectability_ratio} exceeds 1.0 after decay (events={}, attempts={})",
+        stats.detectability_events,
+        stats.attempts
+    );
+}
+
+#[test]
+fn fitness_after_long_idle_stays_within_documented_penalty_envelope() {
+    // H1 regression: after a long idle decay the fitness of a formerly
+    // flip-heavy combo must stay inside the documented weight envelope
+    // (~ -280 worst case) instead of collapsing without bound.
+    use crate::strategy_evolver::types::LOSS_HALF_LIFE_MS;
+    let mut stats = ComboStats::new();
+    for i in 0..40u64 {
+        let success = i % 2 == 0;
+        stats.record_attempt(success, 100, Some(FailureClass::ConnectionFreeze), i * 1_000, 0, 0);
+    }
+    let idle_ms = LOSS_HALF_LIFE_MS * 20;
+    stats.apply_decay(idle_ms);
+    let fitness = stats.fitness_at(stats.last_attempt_ms + idle_ms, 0);
+    assert!(fitness > -300.0, "fitness {fitness} collapsed below the documented penalty envelope after idle decay");
+}
+
 // ── Time-driven evolver semantics: TTL, decay, cooldown ──
 
 #[test]

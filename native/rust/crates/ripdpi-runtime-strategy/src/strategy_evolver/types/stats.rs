@@ -174,7 +174,9 @@ impl ComboStats {
     /// when `attempts == 0` (nothing to decay). `total_latency_ms` and
     /// `total_latency_square_ms` are scaled by the win multiplier so that
     /// the average-latency computation remains consistent with the decayed
-    /// success count.
+    /// success count. `outcome_flips` and `detectability_events` are scaled
+    /// by the overall history multiplier so their per-attempt ratios stay
+    /// bounded.
     pub fn apply_decay(&mut self, elapsed_ms: u64) {
         if elapsed_ms == 0 || self.attempts == 0 {
             return;
@@ -188,6 +190,7 @@ impl ComboStats {
 
         let old_wins = self.successes as f64;
         let old_losses = (self.attempts - self.successes) as f64;
+        let old_history = old_wins + old_losses;
 
         let new_wins = (old_wins * win_mult).max(0.0);
         let new_losses = (old_losses * loss_mult).max(0.0);
@@ -198,6 +201,22 @@ impl ComboStats {
         // Ensure consistency: successes can never exceed attempts after rounding.
         if self.successes > self.attempts {
             self.successes = self.attempts;
+        }
+
+        // Scale the flip and detectability counters by the same overall
+        // history multiplier so the per-attempt penalty ratios in
+        // `fitness_at` stay in [0, 1] instead of growing without bound as
+        // the decayed `attempts` denominator shrinks.
+        if old_history > 0.0 {
+            let history_mult = (new_wins + new_losses) / old_history;
+            self.outcome_flips = (self.outcome_flips as f64 * history_mult).round() as u32;
+            self.detectability_events = (self.detectability_events as f64 * history_mult).round() as u32;
+            if self.outcome_flips > self.attempts {
+                self.outcome_flips = self.attempts;
+            }
+            if self.detectability_events > self.attempts {
+                self.detectability_events = self.attempts;
+            }
         }
 
         // Scale latency accumulators proportionally with the win multiplier so
