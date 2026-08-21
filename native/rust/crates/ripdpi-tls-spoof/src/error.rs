@@ -16,6 +16,13 @@ pub enum SpoofError {
     #[error("decoy SNI is empty")]
     EmptySni,
 
+    /// The ClientHello's `server_name_list` does not contain exactly one
+    /// ServerName entry (RFC 6066 §3). The length surgery patches only the
+    /// first entry, so other shapes are rejected instead of rewritten into a
+    /// malformed ClientHello.
+    #[error("server_name_list must contain exactly one entry")]
+    UnsupportedServerNameList,
+
     /// `decoy_sni` parsed as an IP literal (v4 or v6). The TLS SNI extension
     /// must carry a DNS hostname, never an address literal.
     #[error("decoy SNI is an IP literal, not a hostname")]

@@ -41,17 +41,31 @@ const HANDSHAKE_LEN_OFFSET: usize = 6; // u24
 /// Produce a decoy ClientHello: a copy of `real_client_hello` with the SNI
 /// host string replaced by `decoy_sni` and all dependent length fields fixed.
 ///
+/// A single trailing dot on `decoy_sni` (dot-terminated FQDN) is normalized
+/// out of the wire form: RFC 6066 §3 forbids it in the ServerName.
+///
 /// `decoy_sni` may be longer or shorter than the original host; the output is
 /// resized accordingly. Returns [`SpoofError::MalformedClientHello`] if the
-/// input is not a record-framed ClientHello with a `server_name` extension —
-/// it never panics on malformed input.
+/// input is not a record-framed ClientHello with a `server_name` extension,
+/// and [`SpoofError::UnsupportedServerNameList`] if the list does not hold
+/// exactly one entry — it never panics on malformed input.
 ///
 /// Note: caller is expected to have validated `decoy_sni` already
-/// (`crate::config::validate_decoy_sni`); this function does no hostname-syntax
-/// checking — it performs the byte surgery only.
+/// (`crate::config::validate_decoy_sni`); this function performs no further
+/// hostname-syntax checking beyond the trailing-dot normalization — it does
+/// the byte surgery only.
 pub fn forge_decoy_client_hello(real_client_hello: &[u8], decoy_sni: &str) -> Result<Vec<u8>, SpoofError> {
     let layout = parse_tls_client_hello_layout(real_client_hello).ok_or(SpoofError::MalformedClientHello)?;
     let markers = layout.markers;
+
+    ensure_single_server_name_entry(real_client_hello, &markers)?;
+
+    // RFC 6066 §3 forbids a trailing dot in ServerName; accept dot-terminated
+    // FQDN input but normalize it out of the wire form.
+    let decoy_sni = decoy_sni.strip_suffix('.').unwrap_or(decoy_sni);
+    if decoy_sni.is_empty() {
+        return Err(SpoofError::EmptySni);
+    }
 
     let host_start = markers.host_start;
     let host_end = markers.host_end;
@@ -78,6 +92,38 @@ pub fn forge_decoy_client_hello(real_client_hello: &[u8], decoy_sni: &str) -> Re
     }
 
     Ok(out)
+}
+
+/// RFC 6066 §3 requires exactly one ServerName entry per list. The length
+/// surgery patches only the first HostName length field, so a multi-entry
+/// list would come out malformed — reject it instead of emitting garbage.
+///
+/// `markers.sni_ext_start` points at the ServerNameList length (u16); entries
+/// follow as `name_type(1) + host_name_len(2) + name`.
+fn ensure_single_server_name_entry(buf: &[u8], markers: &TlsMarkerInfo) -> Result<(), SpoofError> {
+    let list_len = buf
+        .get(markers.sni_ext_start..markers.sni_ext_start + 2)
+        .map(|b| u16::from_be_bytes([b[0], b[1]]) as usize)
+        .ok_or(SpoofError::MalformedClientHello)?;
+    let list_end = markers.sni_ext_start + 2 + list_len;
+    if list_end > buf.len() {
+        return Err(SpoofError::MalformedClientHello);
+    }
+
+    let mut off = markers.sni_ext_start + 2;
+    let mut entries = 0usize;
+    while off + 3 <= list_end {
+        let name_len = u16::from_be_bytes([buf[off + 1], buf[off + 2]]) as usize;
+        off += 3 + name_len;
+        entries += 1;
+    }
+    if off != list_end {
+        return Err(SpoofError::MalformedClientHello);
+    }
+    if entries != 1 {
+        return Err(SpoofError::UnsupportedServerNameList);
+    }
+    Ok(())
 }
 
 /// Apply `delta` to the six length fields that bracket the SNI host string.
@@ -148,16 +194,23 @@ mod tests {
     /// single SNI extension for `host`, plus a couple of GREASE/other
     /// extensions so the "JA3-relevant bytes unchanged" assertion is meaningful.
     fn build_client_hello(host: &str) -> Vec<u8> {
-        let host = host.as_bytes();
+        build_client_hello_with_hosts(&[host])
+    }
 
+    /// Like [`build_client_hello`], but with full control over the
+    /// ServerNameList entries (for multi-entry rejection tests).
+    fn build_client_hello_with_hosts(hosts: &[&str]) -> Vec<u8> {
         // --- SNI extension (type 0x0000) ---
-        // server_name entry: name_type(1) + host_name_len(2) + host
+        // server_name entries: name_type(1) + host_name_len(2) + host each.
         let mut sni_ext_data = Vec::new();
-        let server_name_list_len = (1 + 2 + host.len()) as u16;
-        sni_ext_data.extend_from_slice(&server_name_list_len.to_be_bytes());
-        sni_ext_data.push(0x00); // name_type = host_name
-        sni_ext_data.extend_from_slice(&(host.len() as u16).to_be_bytes());
-        sni_ext_data.extend_from_slice(host);
+        let list_len: usize = hosts.iter().map(|h| 3 + h.len()).sum();
+        sni_ext_data.extend_from_slice(&(list_len as u16).to_be_bytes());
+        for host in hosts {
+            let host = host.as_bytes();
+            sni_ext_data.push(0x00); // name_type = host_name
+            sni_ext_data.extend_from_slice(&(host.len() as u16).to_be_bytes());
+            sni_ext_data.extend_from_slice(host);
+        }
 
         let mut extensions = Vec::new();
         // SNI ext: type 0x0000, len, data
@@ -286,6 +339,30 @@ mod tests {
         let mut not_ch = build_client_hello("real.example.com");
         not_ch[5] = 0x02;
         assert_eq!(forge_decoy_client_hello(&not_ch, "x.com"), Err(SpoofError::MalformedClientHello));
+    }
+
+    #[test]
+    fn multi_entry_server_name_list_rejected() {
+        // RFC 6066 allows exactly one entry; the surgery only patches the
+        // first HostName length, so anything else must fail closed instead
+        // of producing a malformed rewrite.
+        let input = build_client_hello_with_hosts(&["real.example.com", "second.example.net"]);
+        assert_eq!(forge_decoy_client_hello(&input, "decoy.test"), Err(SpoofError::UnsupportedServerNameList));
+    }
+
+    #[test]
+    fn trailing_dot_fqdn_normalized() {
+        let input = build_client_hello("real.example.com");
+        let dotted = forge_decoy_client_hello(&input, "www.wikipedia.org.").unwrap();
+        let plain = forge_decoy_client_hello(&input, "www.wikipedia.org").unwrap();
+        assert_eq!(dotted, plain, "trailing dot must be stripped from the wire form");
+        assert_eq!(parse_tls(&dotted).unwrap(), b"www.wikipedia.org");
+    }
+
+    #[test]
+    fn dot_only_decoy_rejected() {
+        let input = build_client_hello("real.example.com");
+        assert_eq!(forge_decoy_client_hello(&input, "."), Err(SpoofError::EmptySni));
     }
 
     #[test]
