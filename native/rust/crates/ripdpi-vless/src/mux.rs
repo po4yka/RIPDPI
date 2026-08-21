@@ -28,9 +28,14 @@ pub enum MuxConfigError {
     /// The selected protocol has no complete native wire implementation.
     #[error("unsupported VLESS mux protocol")]
     UnsupportedProtocol,
-    /// A profile asks for zero concurrent substreams.
-    #[error("VLESS mux max_concurrent_streams must be at least 1")]
-    ZeroMaxStreams,
+    /// The profile sets a legacy throughput/padding knob that the native
+    /// yamux carrier does not implement; carrying it would silently change
+    /// the requested profile.
+    #[error("legacy mux knob `{field}` must be zero for the native yamux carrier")]
+    LegacyKnobNonZero {
+        /// Name of the offending profile knob.
+        field: &'static str,
+    },
 }
 
 impl VlessMuxProtocol {
@@ -62,13 +67,14 @@ impl VlessMuxConfig {
         per_connection_kbps: u32,
         sing_mux_padding_max: u32,
     ) -> Result<Self, MuxConfigError> {
-        if per_connection_kbps != 0 || sing_mux_padding_max != 0 {
-            return Err(MuxConfigError::UnsupportedProtocol);
+        if per_connection_kbps != 0 {
+            return Err(MuxConfigError::LegacyKnobNonZero { field: "per_connection_kbps" });
         }
+        if sing_mux_padding_max != 0 {
+            return Err(MuxConfigError::LegacyKnobNonZero { field: "sing_mux_padding_max" });
+        }
+        // Zero means the sing-box default of 256 concurrent substreams.
         let max_concurrent_streams = if max_concurrent_streams == 0 { 256 } else { max_concurrent_streams as usize };
-        if max_concurrent_streams == 0 {
-            return Err(MuxConfigError::ZeroMaxStreams);
-        }
         Ok(Self { protocol: VlessMuxProtocol::parse(protocol)?, max_concurrent_streams })
     }
 }
@@ -149,6 +155,24 @@ mod tests {
         for token in ["sing-mux", "smux", "h2mux"] {
             assert_eq!(VlessMuxProtocol::parse(token), Err(MuxConfigError::UnsupportedProtocol));
         }
+    }
+
+    #[test]
+    fn legacy_knobs_are_rejected_with_the_offending_field_named() {
+        assert_eq!(
+            VlessMuxConfig::from_strings("yamux", 64, 1024, 0),
+            Err(MuxConfigError::LegacyKnobNonZero { field: "per_connection_kbps" })
+        );
+        assert_eq!(
+            VlessMuxConfig::from_strings("yamux", 64, 0, 512),
+            Err(MuxConfigError::LegacyKnobNonZero { field: "sing_mux_padding_max" })
+        );
+    }
+
+    #[test]
+    fn zero_max_streams_defaults_to_the_sing_box_default() {
+        let config = VlessMuxConfig::from_strings("yamux", 0, 0, 0).expect("zero streams must default");
+        assert_eq!(config.max_concurrent_streams, 256);
     }
 
     #[test]
