@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
@@ -53,8 +54,22 @@ internal class VpnServiceSessionCleanup {
         destroyCoordinator: () -> Unit,
         cleanupSocketProtection: () -> Unit,
     ) {
-        stopRuntime()
+        // A stop that fails on its own must not orphan the native session:
+        // the coordinator destroy and the protect registration cleanup are
+        // both idempotent, so they run before the stop failure is rethrown
+        // for the caller to record. Outer cancellation still propagates
+        // immediately; the destroyRunningSession path owns guaranteed
+        // teardown for that case.
+        var stopError: Throwable? = null
+        try {
+            stopRuntime()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (stopFailure: Throwable) {
+            stopError = stopFailure
+        }
         destroySession(destroyCoordinator, cleanupSocketProtection)
+        stopError?.let { throw it }
     }
 
     fun destroyRunningSession(
@@ -67,10 +82,9 @@ internal class VpnServiceSessionCleanup {
             // A stop that outlives the budget must not orphan the native
             // session: the coordinator destroy and the protect registration
             // cleanup are both idempotent, so they run unconditionally and the
-            // timeout is rethrown afterwards for the caller to record. Only
-            // the timeout is contained here; a stop that fails on its own
-            // keeps the revokeSession contract (see
-            // runtimeStopFailureKeepsSocketProtectionRegistered).
+            // timeout is rethrown afterwards for the caller to record.
+            // revokeSession applies the same guarantee for stops that fail on
+            // their own; only outer cancellation skips teardown here.
             val stopTimeout: TimeoutCancellationException? =
                 try {
                     withTimeout(timeoutMillis) {

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
@@ -183,17 +184,18 @@ class VpnServiceSessionCleanupTest {
         }
 
     @Test
-    fun runtimeStopFailureKeepsSocketProtectionRegistered() =
+    fun runtimeStopFailureStillDestroysCoordinatorAndRemovesSocketProtection() =
         runTest {
             val calls = mutableListOf<String>()
             val cleanup = VpnServiceSessionCleanup()
+            val stopFailure = IllegalStateException("stop failed")
 
             val result =
                 runCatching {
                     cleanup.revokeSession(
                         stopRuntime = {
                             calls += "runtime-stop"
-                            error("stop failed")
+                            throw stopFailure
                         },
                         destroyCoordinator = { calls += "runtime-destroy" },
                         cleanupSocketProtection = {
@@ -205,8 +207,43 @@ class VpnServiceSessionCleanupTest {
                     )
                 }
 
-            assertTrue(result.isFailure)
-            assertEquals(listOf("runtime-stop"), calls)
+            assertSame(stopFailure, result.exceptionOrNull())
+            assertEquals(
+                "a failed runtime stop must still run the idempotent teardown before surfacing the failure",
+                listOf("runtime-stop", "runtime-destroy", "protect-unregister", "protect-stop"),
+                calls,
+            )
+        }
+
+    @Test
+    fun outerCancellationPropagatesWithoutTeardown() =
+        runTest {
+            val calls = mutableListOf<String>()
+            val cleanup = VpnServiceSessionCleanup()
+
+            val result =
+                runCatching {
+                    cleanup.revokeSession(
+                        stopRuntime = {
+                            calls += "runtime-stop"
+                            throw CancellationException("outer scope cancelled")
+                        },
+                        destroyCoordinator = { calls += "runtime-destroy" },
+                        cleanupSocketProtection = {
+                            cleanup.cleanupNativeProtect(
+                                unregisterNativeProtect = { calls += "protect-unregister" },
+                                stopProtectSocketServer = { calls += "protect-stop" },
+                            )
+                        },
+                    )
+                }
+
+            assertTrue(result.exceptionOrNull() is CancellationException)
+            assertEquals(
+                "outer cancellation must propagate immediately; destroyRunningSession owns teardown then",
+                listOf("runtime-stop"),
+                calls,
+            )
         }
 
     @Test
