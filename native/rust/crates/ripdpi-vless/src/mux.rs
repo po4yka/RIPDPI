@@ -120,13 +120,7 @@ pub async fn read_stream_response(stream: &mut (impl tokio::io::AsyncRead + Unpi
 }
 
 fn split_destination(destination: &str) -> io::Result<(String, u16)> {
-    if let Some(end) = destination.rfind("]:") {
-        return Ok((destination[1..end].to_owned(), destination[end + 2..].parse().map_err(invalid_destination)?));
-    }
-    let (host, port) = destination
-        .rsplit_once(':')
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "mux destination must include port"))?;
-    Ok((host.to_owned(), port.parse().map_err(invalid_destination)?))
+    crate::wire::parse_target(destination).map_err(|_| invalid_destination(destination))
 }
 
 fn invalid_destination(_: impl std::fmt::Display) -> io::Error {

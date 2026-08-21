@@ -16,7 +16,11 @@ use tokio::task::JoinHandle;
 use tokio::time::{Instant, MissedTickBehavior, interval, timeout};
 
 pub const MAX_XUDP_METADATA: usize = 512;
-pub const MAX_XUDP_PAYLOAD: usize = 8192 - 666;
+/// Combined worst-case wire overhead mirrored from xray's XUDP payload
+/// budget: a full-size datagram plus the VLESS request header and the XUDP
+/// frame header must still fit one transport buffer.
+const XUDP_OVERHEAD_RESERVE: usize = 666;
+pub const MAX_XUDP_PAYLOAD: usize = 8192 - XUDP_OVERHEAD_RESERVE;
 const READER_CHANNEL_CAPACITY: usize = 32;
 const WRITER_CHANNEL_CAPACITY: usize = 32;
 const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -340,26 +344,10 @@ fn encode_target(output: &mut Vec<u8>, target: &str) -> Result<(), XudpError> {
 }
 
 fn parse_target(target: &str) -> Result<(String, u16), XudpError> {
-    let (host, port_text) = if target.starts_with('[') {
-        let bracket = target.rfind("]:");
-        let Some(bracket) = bracket else {
-            return Err(XudpError::InvalidTarget);
-        };
-        (&target[1..bracket], &target[bracket + 2..])
-    } else {
-        let Some(colon) = target.rfind(':') else {
-            return Err(XudpError::InvalidTarget);
-        };
-        if target[..colon].contains(':') {
-            return Err(XudpError::InvalidTarget);
-        }
-        (&target[..colon], &target[colon + 1..])
-    };
-    if host.is_empty() {
-        return Err(XudpError::InvalidTarget);
-    }
-    let port = port_text.parse::<u16>().map_err(|_| XudpError::InvalidPort)?;
-    Ok((host.to_owned(), port))
+    crate::wire::parse_target(target).map_err(|error| match error {
+        crate::wire::EncodeError::InvalidPort { .. } => XudpError::InvalidPort,
+        _ => XudpError::InvalidTarget,
+    })
 }
 
 fn decode_target(metadata: &[u8], cursor: &mut usize) -> Result<String, XudpError> {

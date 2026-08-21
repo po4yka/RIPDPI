@@ -288,7 +288,9 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for ResponseHeaderStream<S> {
 impl<S: XtlsDirectRead> XtlsDirectRead for ResponseHeaderStream<S> {
     fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, output: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
-        debug_assert_eq!(this.state, ResponseHeaderState::Payload, "direct mode requires a validated VLESS response");
+        if this.state != ResponseHeaderState::Payload {
+            return Poll::Ready(Err(io::Error::other("direct read before VLESS response validation")));
+        }
         Pin::new(&mut this.inner).poll_read_direct(cx, output)
     }
 }
@@ -511,7 +513,7 @@ fn validate_response_version(version: u8) -> Result<(), DecodeError> {
     if version == RESPONSE_VERSION { Ok(()) } else { Err(DecodeError::UnsupportedResponseVersion(version)) }
 }
 
-fn parse_target(target: &str) -> Result<(String, u16), EncodeError> {
+pub(crate) fn parse_target(target: &str) -> Result<(String, u16), EncodeError> {
     // Handle IPv6 bracket notation: [::1]:443
     if target.starts_with('[') {
         let Some(bracket_end) = target.rfind("]:") else {
@@ -533,10 +535,8 @@ fn parse_target(target: &str) -> Result<(String, u16), EncodeError> {
         let port_text = &target[colon + 1..];
         let port = port_text.parse().map_err(|_| EncodeError::InvalidPort { port: port_text.to_owned() })?;
         Ok((host, port))
-    } else if target.is_empty() {
-        Err(EncodeError::InvalidTarget { target: target.to_owned() })
     } else {
-        Ok((target.to_owned(), 443))
+        Err(EncodeError::InvalidTarget { target: target.to_owned() })
     }
 }
 
@@ -659,6 +659,16 @@ mod tests {
         // Version + UUID + addons length + command + port. The next byte,
         // the address type, is not yet available.
         assert_eq!(Err(ParseRequestError::NeedMoreData), parse_request_header(&encoded[..21]));
+    }
+
+    #[test]
+    fn parse_target_rejects_portless_targets_instead_of_defaulting() {
+        for target in ["example.com", "127.0.0.1", ""] {
+            assert!(
+                matches!(parse_target(target), Err(EncodeError::InvalidTarget { .. })),
+                "portless target {target:?} must be a typed error, not an implicit :443"
+            );
+        }
     }
 
     #[test]
