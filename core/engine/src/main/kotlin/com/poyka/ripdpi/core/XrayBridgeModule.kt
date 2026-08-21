@@ -6,7 +6,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import java.io.File
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -42,7 +41,7 @@ object XrayBridgeModule {
     @XrayDatDir
     fun provideXrayDatDir(
         @ApplicationContext context: Context,
-    ): String = File(resolveGeoDatabasePaths(context).geoipDbPath).parentFile!!.absolutePath
+    ): String = resolveGeoDatabasePaths(context).geoDirPath
 
     @Provides
     @Singleton

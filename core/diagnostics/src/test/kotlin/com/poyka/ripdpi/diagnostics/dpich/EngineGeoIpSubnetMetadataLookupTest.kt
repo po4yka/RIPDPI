@@ -25,7 +25,7 @@ class EngineGeoIpSubnetMetadataLookupTest {
         val lookup =
             EngineGeoIpSubnetMetadataLookup(
                 bindings = bindings,
-                paths = GeoDatabasePaths("/geo/geoip.db", "/geo/geosite.db"),
+                paths = GeoDatabasePaths("/geo", "/geo/geoip.db", "/geo/geosite.db"),
             )
 
         assertEquals(15169, lookup.asnForIp("8.8.8.8"))
@@ -42,7 +42,7 @@ class EngineGeoIpSubnetMetadataLookupTest {
                     RecordingBindings(
                         metadata = mapOf("8.8.8.8" to RipDpiGeoIpMetadata(countryCode = "US", asn = 15169)),
                     ),
-                paths = GeoDatabasePaths("/geo/geoip.db", "/geo/geosite.db"),
+                paths = GeoDatabasePaths("/geo", "/geo/geoip.db", "/geo/geosite.db"),
             )
 
         assertEquals(emptySet<IpRange>(), lookup.subnetsForAsn(15169))
@@ -56,7 +56,7 @@ class EngineGeoIpSubnetMetadataLookupTest {
         val lookup =
             EngineGeoIpSubnetMetadataLookup(
                 bindings = ThrowingBindings(),
-                paths = GeoDatabasePaths("/geo/geoip.db", "/geo/geosite.db"),
+                paths = GeoDatabasePaths("/geo", "/geo/geoip.db", "/geo/geosite.db"),
             )
 
         assertNull(lookup.asnForIp("8.8.8.8"))

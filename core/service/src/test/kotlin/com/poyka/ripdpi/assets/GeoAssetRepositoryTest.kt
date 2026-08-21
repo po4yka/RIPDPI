@@ -52,7 +52,7 @@ class GeoAssetRepositoryTest {
 
     @Before
     fun setUp() {
-        geoDirectory = File(resolveGeoDatabasePaths(application).geoipDbPath).parentFile!!
+        geoDirectory = File(resolveGeoDatabasePaths(application).geoDirPath)
         geoDirectory.deleteRecursively()
     }
 
