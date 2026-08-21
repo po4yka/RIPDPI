@@ -10,6 +10,8 @@ use super::{
     StrategyExecutionPlan,
 };
 use crate::candidates::build_strategy_probe_suite;
+use crate::engine::runners::execution_coordinator;
+use crate::execution::{CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime};
 use crate::transport::direct_transport;
 use crate::types::{
     DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanRequest, SharedState,
@@ -184,6 +186,27 @@ struct StageBudgetCancellingRunner {
     work: Duration,
 }
 
+struct DeadlineObservingRuntimeLauncher {
+    observed_deadlines: Mutex<Vec<Option<std::time::Instant>>>,
+    work: Duration,
+}
+
+impl CandidateRuntimeLauncher for DeadlineObservingRuntimeLauncher {
+    fn start_candidate_runtime(
+        &self,
+        _prepared: PreparedCandidateRuntime,
+    ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
+        self.observed_deadlines
+            .lock()
+            .expect("observed deadlines lock")
+            .push(ripdpi_diagnostics_contracts::util::active_scan_io_deadline());
+        let permitted = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(self.work)
+            .expect("TCP candidate must start before its stage deadline");
+        std::thread::sleep(permitted);
+        Err(CandidateRuntimeError::Launch("deliberately slow test launcher".to_string()))
+    }
+}
+
 impl ExecutionStageRunner for StageBudgetCancellingRunner {
     fn id(&self) -> ExecutionStageId {
         self.stage.clone()
@@ -350,6 +373,52 @@ fn stage_budget_exhaustion_skips_only_its_stage_and_advances_progress() {
     assert_eq!(runtime.stage_executions()[0].executed_steps, 0);
     assert_eq!(runtime.stage_executions()[0].skipped_by_stage_budget_steps, 1);
     assert_eq!(runtime.stage_executions()[1].executed_steps, 1);
+}
+
+#[test]
+fn strategy_tcp_runner_enforces_stage_deadline_before_global_deadline() {
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    let global_deadline = std::time::Instant::now() + Duration::from_millis(300);
+    runtime.set_scan_deadline(global_deadline);
+    let mut plan = strategy_test_plan();
+    plan.request.domain_targets.push(crate::types::DomainTarget {
+        host: "example.test".to_string(),
+        connect_ip: None,
+        connect_ips: Vec::new(),
+        https_port: Some(443),
+        http_port: Some(80),
+        http_path: "/".to_string(),
+        is_control: false,
+        concurrency_probe: None,
+    });
+    plan.strategy.as_mut().expect("strategy plan").suite.tcp_candidates.truncate(2);
+    plan.stage_order = vec![ExecutionStageId::StrategyTcpCandidates, ExecutionStageId::StrategyRecommendation];
+    plan.total_steps = 3;
+    let launcher = Arc::new(DeadlineObservingRuntimeLauncher {
+        observed_deadlines: Mutex::new(Vec::new()),
+        work: Duration::from_millis(220),
+    });
+    let (coordinator, _supervisor) = execution_coordinator(launcher.clone());
+
+    assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Completed));
+    let observed = launcher.observed_deadlines.lock().expect("observed deadlines lock");
+    assert!(
+        observed.first().copied().flatten().is_some_and(|deadline| deadline < global_deadline),
+        "TCP candidate I/O must inherit the stage deadline, observed={observed:?}"
+    );
+    let stages = runtime.stage_executions();
+    let tcp = stages
+        .iter()
+        .find(|stage| stage.stage_id == ExecutionStageId::StrategyTcpCandidates.as_str())
+        .expect("TCP strategy stage snapshot");
+    assert_eq!(tcp.skipped_by_stage_budget_steps, 1);
+    let recommendation = stages
+        .iter()
+        .find(|stage| stage.stage_id == ExecutionStageId::StrategyRecommendation.as_str())
+        .expect("recommendation stage snapshot");
+    assert_eq!(recommendation.skipped_by_global_deadline_steps, 0);
 }
 
 #[test]

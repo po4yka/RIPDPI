@@ -53,6 +53,20 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         runtime: &mut ExecutionRuntime,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
+        let deadline = runtime.stage_deadline().or_else(|| runtime.scan_deadline());
+        ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+            self.run_with_deadline(plan, runtime, tls_verifier)
+        })
+    }
+}
+
+impl StrategyTcpRunner {
+    fn run_with_deadline(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
         let Some(strategy_plan) = plan.strategy.as_ref() else {
             return RunnerOutcome::Completed;
         };
@@ -62,6 +76,9 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         }
         if skip_for_confirmed_quic(plan, runtime, tcp_specs) {
             return RunnerOutcome::Completed;
+        }
+        if execution_should_stop(runtime) {
+            return RunnerOutcome::Cancelled;
         }
         // Use encrypted-DNS-resolved targets when DNS tampering was detected.
         // Clone to avoid holding an immutable borrow on `runtime` across mutable calls.
@@ -76,12 +93,14 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         let baseline_results = baseline_run.execution.results;
         runtime.strategy.tcp_candidates.push(baseline_run.execution.summary);
 
-        if tcp_specs.len() > 1 {
-            thread::sleep(Duration::from_millis(candidate_pause_ms(
+        if tcp_specs.len() > 1
+            && !sleep_within_active_deadline(Duration::from_millis(candidate_pause_ms(
                 strategy_plan.probe_seed,
                 baseline_run.spec,
                 runtime.strategy.baseline_failure.is_some(),
-            )));
+            )))
+        {
+            return RunnerOutcome::Cancelled;
         }
 
         let capabilities = probe_tcp_capabilities(&baseline_results, runtime.strategy.baseline_failure.as_ref());
@@ -108,13 +127,13 @@ impl ExecutionStageRunner for StrategyTcpRunner {
 
         // Round 2: test up to 2 candidates concurrently to reduce wall-clock time.
         while !pending_tcp_specs.is_empty() {
-            if runtime.is_cancelled() || runtime.is_past_deadline() {
+            if execution_should_stop(runtime) {
                 tracing::warn!(
                     executed = executed_count,
                     planned = planned_count,
                     "strategy probe: TCP suite terminated early"
                 );
-                break;
+                return RunnerOutcome::Cancelled;
             }
 
             // Pick up to ROUND2_PARALLELISM candidates, skipping blocked families.
@@ -208,23 +227,24 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             if any_cancelled {
                 return RunnerOutcome::Cancelled;
             }
-            // Break out with partial results if the scan deadline has passed.
-            if runtime.is_past_deadline() {
+            if execution_should_stop(runtime) {
                 tracing::warn!(
                     executed = executed_count,
                     planned = planned_count,
                     "strategy probe: TCP suite deadline-terminated"
                 );
-                break;
+                return RunnerOutcome::Cancelled;
             }
-            if !pending_tcp_specs.is_empty() {
-                // Brief pause between batches to avoid overwhelming the network.
-                thread::sleep(Duration::from_millis(candidate_pause_ms(
+            if !pending_tcp_specs.is_empty()
+                && !sleep_within_active_deadline(Duration::from_millis(candidate_pause_ms(
                     strategy_plan.probe_seed,
                     // Use the first spec's seed for pause calculation.
                     tcp_specs.first().expect("tcp candidate"),
                     false,
-                )));
+                )))
+            {
+                // Brief pause between batches to avoid overwhelming the network.
+                return RunnerOutcome::Cancelled;
             }
         }
         let skipped_count = planned_count.saturating_sub(executed_count);
@@ -236,4 +256,16 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         );
         RunnerOutcome::Completed
     }
+}
+
+fn execution_should_stop(runtime: &ExecutionRuntime) -> bool {
+    runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline()
+}
+
+fn sleep_within_active_deadline(delay: Duration) -> bool {
+    let Ok(permitted) = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(delay) else {
+        return false;
+    };
+    thread::sleep(permitted);
+    permitted == delay
 }

@@ -49,7 +49,7 @@ pub(super) fn qualify_pilot_candidates(
     // Test in parallel batches of up to 3, grouped by family so each
     // family gets at least one representative tested early.
     for batch in testable_specs.chunks(3) {
-        if runtime.is_cancelled() || runtime.is_past_deadline() {
+        if runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline() {
             // Don't eliminate untested candidates on cancellation/deadline.
             for spec in batch {
                 qualified_specs.push(spec.clone());
