@@ -112,7 +112,7 @@ pub(crate) fn validate_decoy_sni(decoy_sni: &str) -> Result<(), SpoofError> {
 /// dot-separated label 1..=63 chars of `[A-Za-z0-9-]`, no leading/trailing
 /// hyphen in a label, no empty labels. A single trailing dot (FQDN root) is
 /// tolerated.
-fn is_valid_dns_hostname(host: &str) -> bool {
+pub(crate) fn is_valid_dns_hostname(host: &str) -> bool {
     let host = host.strip_suffix('.').unwrap_or(host);
     if host.is_empty() || host.len() > MAX_HOSTNAME_LEN {
         return false;

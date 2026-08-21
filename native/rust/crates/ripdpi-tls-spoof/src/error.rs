@@ -34,4 +34,12 @@ pub enum SpoofError {
     /// `server_name` (SNI) extension to rewrite.
     #[error("input is not a ClientHello with an SNI extension")]
     MalformedClientHello,
+
+    /// `SpoofRequest::destination` is not a syntactically valid `host:port`
+    /// pointing at a globally routable address. Loopback, private,
+    /// link-local, and other non-global targets are rejected so the relay
+    /// cannot be aimed at its own internal network. The offending value is
+    /// never echoed (AC7 redaction).
+    #[error("destination is not a valid public host:port")]
+    InvalidDestination,
 }
