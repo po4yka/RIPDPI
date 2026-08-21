@@ -4,6 +4,7 @@ use std::io::Read;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use ripdpi_diagnostics_transport::transport::wait_for_listener;
 use ripdpi_diagnostics_transport::transport::{Socks5Credentials, TransportConfig};
@@ -16,6 +17,8 @@ use ripdpi_runtime_api::EmbeddedProxyControl;
 mod evidence_projection;
 
 use evidence_projection::{CandidateExecutionEvidenceProjection, project_runtime_execution_evidence_batch};
+
+const FORCED_ABORT_JOIN_GRACE: Duration = Duration::from_millis(100);
 
 pub struct ProductionCandidateRuntimeLauncher;
 
@@ -125,7 +128,7 @@ fn join_runtime_terminal(
     let Some(handle) = handle.take() else {
         return CandidateRuntimeTerminalReceipt::already_joined();
     };
-    if forced && !handle.is_finished() {
+    if forced && !wait_for_forced_abort(&handle) {
         // A deadline/cancel path may only wait for the runtime's bounded proxy
         // drain. Dropping the unfinished handle detaches it; `joined=0`
         // records that fact instead of claiming a completed OS join.
@@ -222,6 +225,19 @@ fn join_runtime_terminal(
             terminal.with_execution_evidence_overflowed(control.desync_execution_evidence_overflowed() || rejected)
         }
     }
+}
+
+fn wait_for_forced_abort(
+    handle: &JoinHandle<Result<ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt, String>>,
+) -> bool {
+    let deadline = Instant::now() + FORCED_ABORT_JOIN_GRACE;
+    while !handle.is_finished() {
+        if Instant::now() >= deadline {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(1));
+    }
+    true
 }
 
 fn terminal_shutdown_mode(forced: bool) -> ripdpi_monitor_engine::CandidateRuntimeShutdownMode {
