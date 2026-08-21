@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsContext
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsSource
+import com.poyka.ripdpi.diagnostics.DeveloperStageProbeEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveFailureCode
@@ -382,6 +383,16 @@ internal class DefaultDiagnosticsArchiveExporter
                     primaryProfileId = primarySession?.profileId,
                     pcapFiles = selection.pcapFiles,
                     compositeSessionIds = selection.compositeStages.mapNotNull { it.session?.id },
+                    stageProbeEvidence =
+                        selection.compositeStages.flatMap { stage ->
+                            stage.results.map { result ->
+                                DeveloperStageProbeEvidence(
+                                    stageKey = stage.stageSummary.stageKey,
+                                    probeType = result.probeType,
+                                    outcome = result.outcome,
+                                )
+                            }
+                        },
                 )
             return runCatching { developerAnalyticsSource.collect(analyticsContext) }
                 .getOrDefault(

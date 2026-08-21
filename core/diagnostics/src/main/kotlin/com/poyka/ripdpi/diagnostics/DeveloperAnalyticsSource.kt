@@ -16,6 +16,13 @@ data class DeveloperAnalyticsContext(
     val primaryProfileId: String? = null,
     val pcapFiles: List<File> = emptyList(),
     val compositeSessionIds: List<String> = emptyList(),
+    val stageProbeEvidence: List<DeveloperStageProbeEvidence> = emptyList(),
+)
+
+data class DeveloperStageProbeEvidence(
+    val stageKey: String,
+    val probeType: String,
+    val outcome: String,
 )
 
 /**

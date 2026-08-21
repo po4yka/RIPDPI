@@ -122,6 +122,7 @@ internal fun createArchiveExporterForTest(
                 .createTempDirectory("file-log-test")
                 .toFile(),
         ),
+    developerAnalyticsSource: DeveloperAnalyticsSource = NoopDeveloperAnalyticsSource,
 ): DefaultDiagnosticsArchiveExporter {
     val exportSequence = AtomicInteger()
     val appSettings =
@@ -166,7 +167,7 @@ internal fun createArchiveExporterForTest(
             ),
         zipWriter = DiagnosticsArchiveZipWriter(),
         idGenerator = DiagnosticsArchiveIdGenerator { "export-${exportSequence.incrementAndGet()}" },
-        developerAnalyticsSource = NoopDeveloperAnalyticsSource,
+        developerAnalyticsSource = developerAnalyticsSource,
     )
 }
 

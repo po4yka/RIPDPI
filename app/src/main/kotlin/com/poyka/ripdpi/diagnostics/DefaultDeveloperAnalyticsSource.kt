@@ -47,6 +47,10 @@ private const val TcpErrorPreviewLimit = 5
 private const val TlsErrorPreviewLimit = 5
 private const val DnsErrorPreviewLimit = 5
 private const val HttpErrorPreviewLimit = 5
+private const val DeveloperFailureTokenLimit = 64
+private val FailureTokenSeparators = Regex("[^a-z0-9_-]+")
+private val RepeatedFailureTokenSeparators = Regex("_+")
+private val HttpFailureOutcome = Regex("http_status_[45][0-9]{2}")
 
 /**
  * Lightweight in-memory ring buffer for breadcrumbs surfaced into
@@ -132,31 +136,33 @@ class DefaultDeveloperAnalyticsSource
                 .filter { it.status == DiagnosticsHomeCompositeStageStatus.FAILED }
                 .map { stage ->
                     val summary = stage.summary
+                    val structuredEvidence =
+                        context.stageProbeEvidence.filter { evidence -> evidence.stageKey == stage.stageKey }
                     DeveloperFailureEnvelopeEntry(
                         stageKey = stage.stageKey,
                         stageLabel = stage.stageLabel,
                         headline = stage.headline,
                         summary = summary,
                         tcpErrors =
-                            extractHints(
-                                summary,
-                                listOf("RST", "reset", "refused", "timed out"),
-                            ).take(TcpErrorPreviewLimit),
+                            failureCategories(structuredEvidence, DeveloperFailureKind.TCP)
+                                .plus(extractHints(summary, listOf("RST", "reset", "refused", "timed out")))
+                                .distinct()
+                                .take(TcpErrorPreviewLimit),
                         tlsErrors =
-                            extractHints(
-                                summary,
-                                listOf("TLS", "certificate", "handshake", "SNI"),
-                            ).take(TlsErrorPreviewLimit),
+                            failureCategories(structuredEvidence, DeveloperFailureKind.TLS)
+                                .plus(extractHints(summary, listOf("TLS", "certificate", "handshake", "SNI")))
+                                .distinct()
+                                .take(TlsErrorPreviewLimit),
                         dnsErrors =
-                            extractHints(
-                                summary,
-                                listOf("NXDOMAIN", "SERVFAIL", "resolve", "dns"),
-                            ).take(DnsErrorPreviewLimit),
+                            failureCategories(structuredEvidence, DeveloperFailureKind.DNS)
+                                .plus(extractHints(summary, listOf("NXDOMAIN", "SERVFAIL", "resolve", "dns")))
+                                .distinct()
+                                .take(DnsErrorPreviewLimit),
                         httpErrors =
-                            extractHints(
-                                summary,
-                                listOf("HTTP", "status=", "4", "5"),
-                            ).take(HttpErrorPreviewLimit),
+                            failureCategories(structuredEvidence, DeveloperFailureKind.HTTP)
+                                .plus(extractHints(summary, listOf("HTTP", "status=", "4", "5")))
+                                .distinct()
+                                .take(HttpErrorPreviewLimit),
                     )
                 }
         }
@@ -432,7 +438,7 @@ class DefaultDeveloperAnalyticsSource
             val notes = mutableListOf<String>()
             notes +=
                 "Stage wallClockMs reflects the scan session duration (finishedAt - startedAt); cpuMs is not captured."
-            notes += "Failure envelopes are heuristically extracted from the stage summary text."
+            notes += "Failure envelopes use structured stage probe outcomes with summary hints as fallback."
             return notes
         }
 
@@ -446,3 +452,63 @@ class DefaultDeveloperAnalyticsSource
 
         private fun isoNowUtc(): String = DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC))
     }
+
+private enum class DeveloperFailureKind {
+    TCP,
+    TLS,
+    DNS,
+    HTTP,
+}
+
+private fun failureCategories(
+    evidence: List<DeveloperStageProbeEvidence>,
+    kind: DeveloperFailureKind,
+): List<String> =
+    evidence
+        .mapNotNull { probe ->
+            val probeType = probe.probeType.toFailureToken()
+            val outcome = probe.outcome.toFailureToken()
+            val classifiedKind = classifyFailureKind(probeType, outcome) ?: return@mapNotNull null
+            if (classifiedKind == kind) "$probeType:$outcome" else null
+        }.distinct()
+
+private fun classifyFailureKind(
+    probeType: String,
+    outcome: String,
+): DeveloperFailureKind? {
+    if (!outcome.isFailureOutcome()) return null
+    val evidence = "$probeType $outcome"
+    return when {
+        evidence.containsAny("dns", "nxdomain", "servfail", "resolve") -> DeveloperFailureKind.DNS
+        evidence.containsAny("tls", "certificate", "handshake", "sni", "ech") -> DeveloperFailureKind.TLS
+        evidence.containsAny("tcp", "connection_reset", "connection_refused") -> DeveloperFailureKind.TCP
+        evidence.containsAny("http", "status_") -> DeveloperFailureKind.HTTP
+        else -> null
+    }
+}
+
+private fun String.isFailureOutcome(): Boolean =
+    containsAny(
+        "fail",
+        "error",
+        "timeout",
+        "timed_out",
+        "unreachable",
+        "refused",
+        "reset",
+        "nxdomain",
+        "servfail",
+        "blocked",
+        "split",
+        "alert",
+    ) || matches(HttpFailureOutcome)
+
+private fun String.containsAny(vararg tokens: String): Boolean = tokens.any(::contains)
+
+private fun String.toFailureToken(): String =
+    lowercase(Locale.ROOT)
+        .replace(FailureTokenSeparators, "_")
+        .replace(RepeatedFailureTokenSeparators, "_")
+        .trim('_')
+        .take(DeveloperFailureTokenLimit)
+        .ifBlank { "unknown" }

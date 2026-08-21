@@ -36,6 +36,21 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
 
     protected fun createArchiveExporter(
         stores: FakeDiagnosticsHistoryStores,
+        developerAnalyticsSource: DeveloperAnalyticsSource,
+    ): DefaultDiagnosticsArchiveExporter {
+        val context = TestContext()
+        return createArchiveExporterForTest(
+            stores = stores,
+            context = context,
+            rootModeEnabled = false,
+            compositeRunService = compositeRunService,
+            json = json,
+            developerAnalyticsSource = developerAnalyticsSource,
+        )
+    }
+
+    protected fun createArchiveExporter(
+        stores: FakeDiagnosticsHistoryStores,
         context: TestContext,
         rootModeEnabled: Boolean,
     ): DefaultDiagnosticsArchiveExporter =
