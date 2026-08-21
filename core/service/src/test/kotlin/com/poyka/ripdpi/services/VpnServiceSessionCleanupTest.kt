@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -126,6 +129,34 @@ class VpnServiceSessionCleanupTest {
         )
 
         assertEquals(listOf("runtime-stop", "runtime-destroy", "protect-cleanup"), calls)
+    }
+
+    @Test
+    fun runtimeStopTimeoutStillDestroysCoordinatorAndRemovesSocketProtection() {
+        val calls = mutableListOf<String>()
+        val cleanup = VpnServiceSessionCleanup()
+
+        val thrown =
+            assertThrows(TimeoutCancellationException::class.java) {
+                runBlocking {
+                    cleanup.destroyRunningSession(
+                        stopRuntime = {
+                            calls += "runtime-stop"
+                            awaitCancellation()
+                        },
+                        destroyCoordinator = { calls += "runtime-destroy" },
+                        cleanupSocketProtection = { calls += "protect-cleanup" },
+                        timeoutMillis = 50L,
+                    )
+                }
+            }
+
+        assertTrue(thrown is TimeoutCancellationException)
+        assertEquals(
+            "a timed-out runtime stop must not skip the idempotent coordinator destroy and protection cleanup",
+            listOf("runtime-stop", "runtime-destroy", "protect-cleanup"),
+            calls,
+        )
     }
 
     @Test

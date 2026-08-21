@@ -124,11 +124,13 @@ internal class VpnServiceSessionLifecycle(
                     timeoutMillis = DESTROY_TIMEOUT_MS,
                 )
             }.exceptionOrNull()
+        // Cleared regardless of the teardown outcome: this service instance is
+        // going away, and after a timed-out stop the coordinator destroy and
+        // protection cleanup have already run inside destroyRunningSession.
+        clearSessionReferences()
         if (failure != null) {
             serviceStateStore.emitFailed(Sender.VPN, FailureReason.Unexpected(failure))
-            return
         }
-        clearSessionReferences()
     }
 
     private fun clearSessionReferences() {

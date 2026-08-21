@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicBoolean
@@ -63,9 +64,24 @@ internal class VpnServiceSessionCleanup {
         timeoutMillis: Long,
     ) {
         runBlocking(Dispatchers.IO) {
-            withTimeout(timeoutMillis) {
-                revokeSession(stopRuntime, destroyCoordinator, cleanupSocketProtection)
-            }
+            // A stop that outlives the budget must not orphan the native
+            // session: the coordinator destroy and the protect registration
+            // cleanup are both idempotent, so they run unconditionally and the
+            // timeout is rethrown afterwards for the caller to record. Only
+            // the timeout is contained here; a stop that fails on its own
+            // keeps the revokeSession contract (see
+            // runtimeStopFailureKeepsSocketProtectionRegistered).
+            val stopTimeout: TimeoutCancellationException? =
+                try {
+                    withTimeout(timeoutMillis) {
+                        stopRuntime()
+                    }
+                    null
+                } catch (timeout: TimeoutCancellationException) {
+                    timeout
+                }
+            destroySession(destroyCoordinator, cleanupSocketProtection)
+            stopTimeout?.let { throw it }
         }
     }
 }
