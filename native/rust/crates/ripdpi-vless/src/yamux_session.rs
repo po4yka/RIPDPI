@@ -2,7 +2,7 @@
 
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use futures::future::poll_fn;
 use futures::io::AsyncWriteExt as FuturesAsyncWriteExt;
@@ -45,10 +45,7 @@ impl VlessYamuxSession {
         let driver_closed = Arc::clone(&closed);
         let driver = tokio::spawn(async move {
             loop {
-                let next = poll_fn(|cx| {
-                    driver_connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
-                })
-                .await;
+                let next = poll_fn(|cx| lock_connection(&driver_connection).poll_next_inbound(cx)).await;
                 match next {
                     Some(Ok(_)) => {
                         // Client VLESS mux sessions do not accept peer-opened
@@ -74,14 +71,10 @@ impl VlessYamuxSession {
     /// only the newly opened yamux stream; its Drop resets that substream while
     /// the shared carrier remains owned by the driver.
     pub async fn open_stream(&self, destination: &str) -> io::Result<tokio_util::compat::Compat<yamux::Stream>> {
-        if self.closed.load(Ordering::Acquire) {
+        if self.is_closed() {
             return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "VLESS mux carrier closed"));
         }
-        let stream = poll_fn(|cx| {
-            self.connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_new_outbound(cx)
-        })
-        .await
-        .map_err(|error| {
+        let stream = poll_fn(|cx| lock_connection(&self.connection).poll_new_outbound(cx)).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionAborted, format!("VLESS mux carrier closed: {error}"))
         })?;
         let mut stream = stream.compat();
@@ -90,6 +83,19 @@ impl VlessYamuxSession {
         crate::mux::read_stream_response(&mut stream).await?;
         Ok(stream)
     }
+
+    /// Whether the driver has observed a terminal carrier error. A `false`
+    /// result is advisory only — the next `open_stream` can still fail.
+    pub fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::Acquire)
+    }
+}
+
+/// Lock the shared yamux connection, resuming through a poisoned lock: the
+/// driver never leaves protocol state inconsistent across a panic boundary
+/// (every mutation completes before the panicking poll returns).
+fn lock_connection<T>(connection: &Mutex<yamux::Connection<T>>) -> MutexGuard<'_, yamux::Connection<T>> {
+    connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Compile-time contract for the stream handed to relay-core.
@@ -180,12 +186,10 @@ mod tests {
             )));
             let mut workers = Vec::new();
             for _ in 0..3 {
-                let stream = poll_fn(|cx| {
-                    connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
-                })
-                .await
-                .expect("carrier stays open")
-                .expect("valid inbound yamux stream");
+                let stream = poll_fn(|cx| lock_connection(&connection).poll_next_inbound(cx))
+                    .await
+                    .expect("carrier stays open")
+                    .expect("valid inbound yamux stream");
                 workers.push(tokio::spawn(async move {
                     let mut stream = stream.compat();
                     let mut flags = [0u8; 2];
@@ -208,13 +212,7 @@ mod tests {
             let driver_connection = Arc::clone(&connection);
             let driver = tokio::spawn(async move {
                 loop {
-                    let _ = poll_fn(|cx| {
-                        driver_connection
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .poll_next_inbound(cx)
-                    })
-                    .await;
+                    let _ = poll_fn(|cx| lock_connection(&driver_connection).poll_next_inbound(cx)).await;
                 }
             });
             for worker in workers {
@@ -268,36 +266,26 @@ mod tests {
                 yamux::Config::default(),
                 yamux::Mode::Server,
             )));
-            let first = poll_fn(|cx| {
-                connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
-            })
-            .await
-            .expect("first inbound stream")
-            .expect("valid first inbound stream");
+            let first = poll_fn(|cx| lock_connection(&connection).poll_next_inbound(cx))
+                .await
+                .expect("first inbound stream")
+                .expect("valid first inbound stream");
             let mut first = first.compat();
             read_stream_request(&mut first).await;
             first_request_tx.send(()).expect("signal first request");
             cancelled_rx.await.expect("client cancellation signal");
             drop(first);
 
-            let second = poll_fn(|cx| {
-                connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
-            })
-            .await
-            .expect("second inbound stream")
-            .expect("valid second inbound stream");
+            let second = poll_fn(|cx| lock_connection(&connection).poll_next_inbound(cx))
+                .await
+                .expect("second inbound stream")
+                .expect("valid second inbound stream");
             let mut second = second.compat();
             read_stream_request(&mut second).await;
             let driver_connection = Arc::clone(&connection);
             let driver = tokio::spawn(async move {
                 loop {
-                    let _ = poll_fn(|cx| {
-                        driver_connection
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .poll_next_inbound(cx)
-                    })
-                    .await;
+                    let _ = poll_fn(|cx| lock_connection(&driver_connection).poll_next_inbound(cx)).await;
                 }
             });
             second.write_all(&[0]).await.expect("acknowledge second stream");
