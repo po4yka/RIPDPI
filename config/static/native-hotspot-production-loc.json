@@ -621,12 +621,24 @@
       "maxProductionLoc": 127
     },
     {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/session/lifecycle/reporting.rs",
+      "maxProductionLoc": 83
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/session/lifecycle/start.rs",
+      "maxProductionLoc": 111
+    },
+    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/session/validation.rs",
       "maxProductionLoc": 30
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/session/worker.rs",
       "maxProductionLoc": 85
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/session/worker/execution.rs",
+      "maxProductionLoc": 26
     },
     {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/test_fixtures.rs",

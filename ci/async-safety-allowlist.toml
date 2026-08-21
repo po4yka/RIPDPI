@@ -48,30 +48,3 @@ executor_strategy = "wrapped in `tokio::task::spawn_blocking`; `to_socket_addrs`
 reason = "`resolve_hostname_via_system_dns` wraps the std blocking DNS lookup in `spawn_blocking` before awaiting the join handle."
 owner = "transport-team"
 review_date = "2026-11-22"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-socks5-core/src/client.rs"
-pattern = "to_socket_addrs"
-line = 419
-executor_strategy = "review-needed: SOCKS5 client outbound bind address resolution. Called from CLI/tool code paths, not from the proxy runtime worker pool. Switch to `lookup_host` when ripdpi-socks5-core is next touched."
-reason = "SOCKS5 client resolves its outbound bind IP."
-owner = "transport-team"
-review_date = "2026-11-17"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-socks5-core/src/client.rs"
-pattern = "to_socket_addrs"
-line = 438
-executor_strategy = "review-needed: SOCKS5 client proxy address resolution. Called from CLI/tool code paths, not from the proxy runtime worker pool."
-reason = "SOCKS5 client resolves the proxy server address."
-owner = "transport-team"
-review_date = "2026-11-17"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-socks5-core/src/client.rs"
-pattern = "to_socket_addrs"
-line = 536
-executor_strategy = "review-needed: SOCKS5 client session-establishment, called once per session. Switch to `lookup_host` when the crate is next touched."
-reason = "SOCKS5 client resolves the SOCKS server address."
-owner = "transport-team"
-review_date = "2026-11-17"

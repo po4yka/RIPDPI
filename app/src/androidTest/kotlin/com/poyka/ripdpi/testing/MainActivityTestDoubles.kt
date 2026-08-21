@@ -504,11 +504,6 @@ class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompos
 
     override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = runs[runId]?.value?.outcome
 
-    override suspend fun recordPacketCaptureDisposition(
-        runId: String,
-        disposition: DiagnosticsHomePacketCaptureDisposition,
-    ) = Unit
-
     override suspend fun lookupCachedOutcome(
         fingerprintHash: String,
     ): com.poyka.ripdpi.diagnostics.CachedProbeOutcome? = null

@@ -9,12 +9,11 @@ use crate::{
 use anyhow::Context;
 use std::io;
 use std::net::SocketAddr;
-use std::net::ToSocketAddrs;
 use std::pin::Pin;
 use std::task::Poll;
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::{TcpStream, UdpSocket};
+use tokio::net::{TcpStream, ToSocketAddrs, UdpSocket, lookup_host};
 
 const MAX_ADDR_LEN: usize = 260;
 
@@ -375,6 +374,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
     /// #   Ok(())
     /// # }
     /// ```
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: cancellation can interrupt the SOCKS authentication or UDP ASSOCIATE
+    /// handshake after it has written a partial frame to `backing_socket`.
     pub async fn bind<U>(backing_socket: S, client_bind_addr: U) -> Result<Socks5Datagram<S>>
     where
         U: ToSocketAddrs,
@@ -384,6 +387,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
     /// Creates a UDP socket bound to the specified address which will have its
     /// traffic routed through the specified proxy. The given username and password
     /// is used to authenticate to the SOCKS proxy.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: cancellation can interrupt the SOCKS authentication or UDP ASSOCIATE
+    /// handshake after it has written a partial frame to `backing_socket`.
     pub async fn bind_with_password<U>(
         backing_socket: S,
         client_bind_addr: U,
@@ -411,13 +418,21 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
         Self::bind_internal(backing_socket, out_sock, Some(auth)).await
     }
 
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: `lookup_host` and `UdpSocket::bind` leave no shared state behind when their
+    /// future is dropped; the unreturned socket is dropped with this future.
     async fn create_out_sock<U: ToSocketAddrs>(client_bind_addr: U) -> Result<UdpSocket> {
-        let client_bind_addr = client_bind_addr.to_socket_addrs()?.next().context("unreachable")?;
+        let client_bind_addr = lookup_host(client_bind_addr).await?.next().context("unreachable")?;
         let out_sock = UdpSocket::bind(client_bind_addr).await?;
         debug!("SOCKS UDP client socket bound");
         Ok(out_sock)
     }
 
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: the SOCKS authentication and UDP ASSOCIATE handshake use `write_all` and
+    /// `read_exact`, so cancellation can leave the proxy with a partially processed request.
     async fn bind_internal(
         backing_socket: S,
         out_sock: UdpSocket,
@@ -431,7 +446,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
         let client_src = TargetAddr::Ip("[::]:0".parse().unwrap());
         let proxy_addr = proxy_stream.request(Socks5Command::UDPAssociate, client_src).await?;
 
-        let proxy_addr_resolved = proxy_addr.to_socket_addrs()?.next().context("unreachable")?;
+        let proxy_addr_resolved =
+            proxy_addr.socket_addr().context("SOCKS UDP ASSOCIATE reply must contain an IP address")?;
         debug!("SOCKS UDP client connecting proxy_kind={}", proxy_addr.logging_kind());
         out_sock.connect(proxy_addr_resolved).await?;
         debug!("UdpSocket client connected");
@@ -492,6 +508,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
 /// Api if you want to use TcpStream to create a new connection to the SOCKS5 server.
 impl Socks5Stream<TcpStream> {
     /// Connects to a target server through a SOCKS5 proxy.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: cancellation can interrupt the SOCKS handshake after a partial request
+    /// has been written to the proxy connection.
     pub async fn connect<T>(socks_server: T, target_addr: String, target_port: u16, config: Config) -> Result<Self>
     where
         T: ToSocketAddrs,
@@ -500,6 +520,10 @@ impl Socks5Stream<TcpStream> {
     }
 
     /// Connect with credentials
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: cancellation can interrupt the authenticated SOCKS handshake after a
+    /// partial request has been written to the proxy connection.
     pub async fn connect_with_password<T>(
         socks_server: T,
         target_addr: String,
@@ -518,6 +542,11 @@ impl Socks5Stream<TcpStream> {
 
     /// Process clients SOCKS requests
     /// This is the entry point where a whole request is processed.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: although DNS lookup and TCP connection are cancel-safe, `use_stream` and
+    /// `request` can be cancelled during `write_all` or `read_exact`, leaving a partial SOCKS
+    /// exchange on the discarded connection.
     pub async fn connect_raw<T>(
         cmd: Socks5Command,
         socks_server: T,
@@ -529,7 +558,7 @@ impl Socks5Stream<TcpStream> {
     where
         T: ToSocketAddrs,
     {
-        let addr = socks_server.to_socket_addrs()?.next().context("unreachable")?;
+        let addr = lookup_host(socks_server).await?.next().context("unreachable")?;
         let socket = match config.connect_timeout {
             None => tcp_connect(addr).await?,
             Some(connect_timeout) => tcp_connect_with_timeout(addr, connect_timeout).await?,

@@ -276,7 +276,7 @@ private class LineAlignedLogcatRetention(
 
 private fun retainedLinesToBytes(lines: Collection<ByteArray>): ByteArray {
     val bytes = ByteArrayOutputStream()
-    lines.forEach(bytes::writeBytes)
+    lines.forEach(bytes::write)
     return bytes.toByteArray()
 }
 
