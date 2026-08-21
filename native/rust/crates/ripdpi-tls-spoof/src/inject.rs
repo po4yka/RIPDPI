@@ -210,6 +210,7 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
             payload: forged_hello.to_vec(),
             method,
             tsval,
+            ack_delta: process_ack_delta(),
         };
 
         let packet = build_spoof_segment(&params)?;
@@ -344,8 +345,23 @@ fn stale_timestamp_value(info: &libc::tcp_info, fd: libc::c_int) -> io::Result<O
     Ok(Some(ts.saturating_sub(crate::segment::STALE_TS_DELTA)))
 }
 
-/// Derive the TCP window-field value the kernel would currently advertise on
-/// this connection, so the decoy segment's window matches the rest of the
+/// Process-random nonzero ACK offset for `WrongAck` decoys.
+///
+/// A fixed well-known offset would be a static signature DPI vendors can scan
+/// for; deriving one value per process keeps every deployment (and every relay
+/// restart) different while staying stable for the process lifetime. Entropy
+/// comes from `RandomState`'s OS-seeded hash keys mixed with the pid.
+#[cfg(target_os = "linux")]
+fn process_ack_delta() -> u32 {
+    static DELTA: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *DELTA.get_or_init(|| {
+        let seed = std::collections::hash_map::RandomState::new().build_hasher().finish()
+            ^ (u64::from(std::process::id()) << 32);
+        (seed as u32) | 1
+    })
+}
+
+/// Derive the TCP window-field value the kernel would currently advertise on/// this connection, so the decoy segment's window matches the rest of the
 /// flow instead of a fixed fingerprint-breaking constant.
 ///
 /// The outgoing window field carries our receive window in unscaled units —

@@ -26,7 +26,7 @@
 //!
 //! | Method | Corrupted field | Rule |
 //! |---|---|---|
-//! | `WrongAck` | TCP ACK number | `real_ack.wrapping_add(WRONG_ACK_DELTA)` (0xDEAD_BEEF offset; out of peer window) |
+//! | `WrongAck` | TCP ACK number | `real_ack.wrapping_add(params.ack_delta)` (per-process random offset; out of peer window) |
 //! | `WrongMd5` | TCP options | Kind=19 (RFC 2385), Len=18, 16-byte deterministic-from-seq bogus digest (server drops on auth mismatch) |
 //! | `WrongTimestamp` | TCP options | Kind=8 (RFC 7323), Len=10, TSval = live `TCP_TIMESTAMP` − [`STALE_TS_DELTA`] (PAWS: server drops as an old retransmission) |
 
@@ -47,13 +47,6 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use etherparse::{Ipv4Header, TcpHeader, ip_number};
 
 use crate::config::SpoofMethod;
-
-/// Delta added to the real ACK number for `WrongAck` corruption.
-///
-/// `0xDEAD_BEEF` places the spoofed ACK far outside the peer's receive window
-/// (typical window ≤ 65535) so the real server drops the segment, while the
-/// DPI box still parses the ClientHello payload.
-pub const WRONG_ACK_DELTA: u32 = 0xDEAD_BEEF;
 
 /// How far behind the live TCP clock the decoy's TSval sits for
 /// `WrongTimestamp`, in Linux timestamp ticks (~1 ms each).
@@ -82,9 +75,15 @@ pub struct SpoofSegmentParams {
     /// in-window for the DPI box's TCP state machine.
     pub seq: u32,
     /// The live TCP ACK number from the same `TCP_REPAIR` snapshot. For
-    /// `WrongAck` this is offset by [`WRONG_ACK_DELTA`]; for all other methods
-    /// it is used verbatim.
+    /// `WrongAck` this is offset by `ack_delta`; for all other methods it is
+    /// used verbatim.
     pub ack: u32,
+    /// Offset added to `ack` for the `WrongAck` decoy, supplied by the caller.
+    /// Use a per-process random nonzero value: a fixed well-known constant is
+    /// a static signature DPI vendors can scan for. Must be nonzero — a zero
+    /// offset would leave the ACK valid and the server would ACCEPT the decoy,
+    /// corrupting the stream; `WrongAck` fails closed on zero.
+    pub ack_delta: u32,
     /// TCP receive-window field for the decoy segment. Use the live value the
     /// kernel would advertise (`tcpi_rcv_wnd >> rcv_wscale`) so the segment
     /// matches the rest of the flow; a fixed constant is a fingerprint
@@ -130,7 +129,15 @@ pub fn build_spoof_segment(params: &SpoofSegmentParams) -> std::io::Result<Vec<u
 
     // --- TCP header ---
     let ack = match params.method {
-        SpoofMethod::WrongAck => params.ack.wrapping_add(WRONG_ACK_DELTA),
+        SpoofMethod::WrongAck => {
+            if params.ack_delta == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "WrongAck requires a nonzero ack_delta (zero would leave the ACK valid)",
+                ));
+            }
+            params.ack.wrapping_add(params.ack_delta)
+        }
         SpoofMethod::WrongMd5 | SpoofMethod::WrongTimestamp => params.ack,
     };
 
@@ -258,10 +265,8 @@ fn build_wrong_timestamp_options(tsval: u32) -> Vec<u8> {
 ///
 /// `ip_hdr_len` is the IPv4 header length (typically `Ipv4Header::MIN_LEN`).
 /// Returns the parsed ACK field so callers can assert corruption was applied.
-///
-/// This is a test-support function exported for use in unit tests.
-#[must_use]
-pub fn verify_checksum_from_packet(packet: &[u8], src_ip: [u8; 4], dst_ip: [u8; 4], payload_len: usize) -> bool {
+#[cfg(test)]
+fn verify_checksum_from_packet(packet: &[u8], src_ip: [u8; 4], dst_ip: [u8; 4], payload_len: usize) -> bool {
     let ip_len = Ipv4Header::MIN_LEN;
     let Some(tcp_slice) = packet.get(ip_len..) else { return false };
     let Ok(header) = etherparse::TcpHeaderSlice::from_slice(tcp_slice) else { return false };
@@ -275,8 +280,8 @@ pub fn verify_checksum_from_packet(packet: &[u8], src_ip: [u8; 4], dst_ip: [u8; 
 }
 
 /// Read the TCP ACK field from an assembled packet (after the IPv4 header).
-#[must_use]
-pub fn read_tcp_ack(packet: &[u8]) -> Option<u32> {
+#[cfg(test)]
+fn read_tcp_ack(packet: &[u8]) -> Option<u32> {
     let ip_len = Ipv4Header::MIN_LEN;
     let bytes = packet.get(ip_len + 8..ip_len + 12)?;
     Some(u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
@@ -284,8 +289,8 @@ pub fn read_tcp_ack(packet: &[u8]) -> Option<u32> {
 
 /// Read a TCP option (kind, len, data) from the options region of an assembled
 /// packet, returning the offset of the first occurrence of `kind`, or `None`.
-#[must_use]
-pub fn find_tcp_option_in_packet(packet: &[u8], kind: u8) -> Option<usize> {
+#[cfg(test)]
+fn find_tcp_option_in_packet(packet: &[u8], kind: u8) -> Option<usize> {
     let ip_len = Ipv4Header::MIN_LEN;
     let tcp_start = ip_len;
     // Data offset is in the high nibble of byte 12 of the TCP header, in units of 4.
@@ -344,6 +349,7 @@ mod tests {
             payload: b"GET / HTTP/1.1\r\nHost: decoy.example.com\r\n\r\n".to_vec(),
             method,
             tsval: Some(0x0200_0000),
+            ack_delta: 0xDEAD_BEEF,
         }
     }
 
@@ -355,13 +361,24 @@ mod tests {
         let pkt = build_spoof_segment(&params).unwrap();
 
         let got_ack = read_tcp_ack(&pkt).expect("TCP ACK present");
-        let expected = params.ack.wrapping_add(WRONG_ACK_DELTA);
+        let expected = params.ack.wrapping_add(params.ack_delta);
         assert_eq!(
             got_ack, expected,
-            "WrongAck: ACK field should be real_ack + WRONG_ACK_DELTA ({WRONG_ACK_DELTA:#010X})"
+            "WrongAck: ACK field should be real_ack + ack_delta ({:#010X})",
+            params.ack_delta
         );
         // ACK must differ from the real ack.
         assert_ne!(got_ack, params.ack);
+    }
+
+    #[test]
+    fn wrong_ack_fails_closed_on_zero_delta() {
+        // A zero delta would leave the ACK valid and the server would ACCEPT
+        // the decoy, corrupting the stream — the builder must refuse.
+        let mut params = base_params(SpoofMethod::WrongAck);
+        params.ack_delta = 0;
+        let err = build_spoof_segment(&params).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
     }
 
     #[test]
