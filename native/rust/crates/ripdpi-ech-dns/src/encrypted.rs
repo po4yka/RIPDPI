@@ -5,8 +5,8 @@ use std::time::Duration;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use ripdpi_dns_resolver::{
-    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsTransport, HttpsRr,
-    extract_ip_answers, parse_ech_config_list, parse_https_service_bindings,
+    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
+    EncryptedDnsTransport, HttpsRr, extract_ip_answers, parse_ech_config_list, parse_https_service_bindings,
 };
 
 use crate::transport::TransportConfig;
@@ -170,8 +170,12 @@ fn exchange_encrypted_dns_query_with_bind(
 ) -> Result<Vec<u8>, String> {
     let transport = match transport {
         TransportConfig::Direct { .. } => EncryptedDnsTransport::Direct,
-        TransportConfig::Socks5 { host, port, .. } => {
-            EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port, credentials: None }
+        TransportConfig::Socks5 { host, port, credentials } => {
+            let credentials = credentials.as_ref().map(|credentials| EncryptedDnsSocks5Credentials {
+                username: credentials.username().to_string(),
+                password: credentials.password().to_string(),
+            });
+            EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port, credentials }
         }
     };
     let timeout = bounded_scan_io_timeout(Duration::from_secs(4)).map_err(str::to_string)?;
@@ -258,6 +262,12 @@ pub fn ech_public_name(config_list: &[u8]) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
+
+    use ripdpi_dns_resolver::EncryptedDnsProtocol;
+
     use super::*;
 
     const BORING_ECH_CONFIG_LIST: &[u8] = &[
@@ -288,5 +298,56 @@ mod tests {
     #[test]
     fn encrypted_ech_resolver_reuses_ech_config_list_parser_for_public_name() {
         assert_eq!(ech_public_name(BORING_ECH_CONFIG_LIST).as_deref(), Some("ech.com"));
+    }
+
+    #[test]
+    fn encrypted_dns_query_preserves_authenticated_socks_route() {
+        const USERNAME: &str = "ech-fixture";
+        const PASSWORD: &str = "ech-secret";
+        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind SOCKS fixture");
+        let proxy_addr = listener.local_addr().expect("SOCKS fixture address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept encrypted DNS client");
+            let mut greeting = [0u8; 2];
+            stream.read_exact(&mut greeting).expect("read SOCKS greeting");
+            assert_eq!(greeting[0], 5);
+            let mut methods = vec![0u8; usize::from(greeting[1])];
+            stream.read_exact(&mut methods).expect("read SOCKS methods");
+            assert!(methods.contains(&2), "encrypted DNS must advertise username/password authentication");
+            stream.write_all(&[5, 2]).expect("select SOCKS username/password authentication");
+
+            let mut auth_header = [0u8; 2];
+            stream.read_exact(&mut auth_header).expect("read SOCKS auth header");
+            assert_eq!(auth_header[0], 1);
+            let mut username = vec![0u8; usize::from(auth_header[1])];
+            stream.read_exact(&mut username).expect("read SOCKS username");
+            let mut password_len = [0u8; 1];
+            stream.read_exact(&mut password_len).expect("read SOCKS password length");
+            let mut password = vec![0u8; usize::from(password_len[0])];
+            stream.read_exact(&mut password).expect("read SOCKS password");
+            assert_eq!(username, USERNAME.as_bytes());
+            assert_eq!(password, PASSWORD.as_bytes());
+        });
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: Some("fixture".to_string()),
+            host: "resolver.fixture".to_string(),
+            port: 853,
+            tls_server_name: Some("resolver.fixture".to_string()),
+            bootstrap_ips: Vec::new(),
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        };
+        let transport = TransportConfig::Socks5 {
+            host: proxy_addr.ip().to_string(),
+            port: proxy_addr.port(),
+            credentials: ripdpi_diagnostics_transport::transport::Socks5Credentials::new(USERNAME, PASSWORD),
+        };
+
+        let _ = exchange_encrypted_dns_query("example.com", DNS_RECORD_TYPE_A, endpoint, &transport);
+
+        server.join().expect("SOCKS fixture must observe encrypted DNS credentials");
     }
 }
