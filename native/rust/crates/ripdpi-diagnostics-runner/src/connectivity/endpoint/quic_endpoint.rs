@@ -43,7 +43,7 @@ pub(super) fn run_quic_endpoint_probe(
         },
         Err(err) => EndpointProbeObservation {
             status: "quic_error".to_string(),
-            error: err,
+            error: err.to_string(),
             local_addr: None,
             route_report: None,
         },

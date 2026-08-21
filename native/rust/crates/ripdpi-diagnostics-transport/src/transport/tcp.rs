@@ -7,7 +7,7 @@ use super::route_experiment::{connect_addresses_with_route_experiment, route_ide
 use super::socks5::connect_via_socks5_observed;
 use super::types::{
     RouteExperimentConfig, TargetAddress, TransportConfig, TransportConnectError, TransportConnectResult,
-    TransportFailureStage,
+    TransportError, TransportFailureStage,
 };
 use crate::util::{CONNECT_TIMEOUT, active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
 
@@ -28,10 +28,10 @@ pub fn connect_transport_observed(
     }
 }
 
-pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
+pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, TransportError> {
     connect_direct_observed(std::slice::from_ref(target), port, None)
         .map(|result| result.stream)
-        .map_err(|err| err.message)
+        .map_err(|err| TransportError::ConnectFailed { stage: err.stage, message: err.message })
 }
 
 pub(super) fn connect_direct_observed(
@@ -40,7 +40,7 @@ pub(super) fn connect_direct_observed(
     route_experiment: Option<&RouteExperimentConfig>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
     let addresses = resolve_candidate_addresses(targets, port)
-        .map_err(|err| TransportConnectError::new(TransportFailureStage::DnsResolution, err))?;
+        .map_err(|err| TransportConnectError::new(TransportFailureStage::DnsResolution, err.to_string()))?;
     if let Some(config) = route_experiment {
         let route_identity = route_identity(&addresses);
         let ((stream, connected_addr, local_addr), route_report) =
@@ -54,30 +54,31 @@ pub(super) fn connect_direct_observed(
         });
     }
     let (stream, connected_addr) = connect_addresses_with_race(&addresses)
-        .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
+        .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err.to_string()))?;
     let local_addr = stream.local_addr().ok();
     Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr), local_addr, route_report: None })
 }
 
-pub(super) fn resolve_candidate_addresses(targets: &[TargetAddress], port: u16) -> Result<Vec<SocketAddr>, String> {
+pub(super) fn resolve_candidate_addresses(
+    targets: &[TargetAddress],
+    port: u16,
+) -> Result<Vec<SocketAddr>, TransportError> {
     let mut resolved = Vec::new();
     for target in targets {
-        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
-        for address in
-            super::resolve_addresses_with_timeout(target, port, timeout).map_err(|error| error.to_string())?
-        {
+        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+        for address in super::resolve_addresses_with_timeout(target, port, timeout)? {
             if !resolved.contains(&address) {
                 resolved.push(address);
             }
         }
     }
     if resolved.is_empty() {
-        return Err("no_socket_addrs".to_string());
+        return Err(TransportError::NoSocketAddrs);
     }
     Ok(resolved)
 }
 
-fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), String> {
+fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), TransportError> {
     let initial_batch = addresses.iter().take(2).copied().collect::<Vec<_>>();
     let initial_batch_len = initial_batch.len();
     let mut last_error = None;
@@ -85,8 +86,9 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
         let raced = race_initial_addresses(
             initial_batch,
             Arc::new(move |address| {
-                let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
-                super::protect::protected_tcp_connect(address, timeout).map_err(|error| error.to_string())
+                let timeout =
+                    bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+                Ok(super::protect::protected_tcp_connect(address, timeout)?)
             }),
         );
         if let Ok((stream, address)) = raced {
@@ -95,19 +97,21 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
         last_error = raced.err();
     }
     for address in addresses.iter().skip(initial_batch_len).copied() {
-        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
+        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
         match super::protect::protected_tcp_connect(address, timeout) {
             Ok(stream) => return Ok((stream, address)),
-            Err(err) => last_error = Some(err.to_string()),
+            Err(err) => last_error = Some(TransportError::Io(err)),
         }
     }
-    Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
+    Err(last_error.unwrap_or(TransportError::NoAddresses))
 }
 
-fn race_initial_addresses<T, F>(addresses: Vec<SocketAddr>, connect: Arc<F>) -> Result<(T, SocketAddr), String>
+fn race_initial_addresses<T>(
+    addresses: Vec<SocketAddr>,
+    connect: Arc<dyn Fn(SocketAddr) -> Result<T, TransportError> + Send + Sync + 'static>,
+) -> Result<(T, SocketAddr), TransportError>
 where
     T: Send + 'static,
-    F: Fn(SocketAddr) -> Result<T, String> + Send + Sync + 'static,
 {
     let scan_deadline = active_scan_io_deadline();
     let attempt_count = addresses.len();
@@ -124,7 +128,7 @@ where
                 let result = with_scan_io_deadline(scan_deadline, || connect(address));
                 let _ = result_tx.send((address, result));
             })
-            .map_err(|error| format!("connect_race_spawn_failed: {error}"))?;
+            .map_err(TransportError::ConnectRaceSpawnFailed)?;
     }
     drop(result_tx);
 
@@ -133,20 +137,20 @@ where
         match result_rx.recv() {
             Ok((address, Ok(stream))) => return Ok((stream, address)),
             Ok((_, Err(error))) => last_error = Some(error),
-            Err(_) => return Err(last_error.unwrap_or_else(|| "connect_race_panicked".to_string())),
+            Err(_) => return Err(TransportError::ConnectRacePanicked),
         }
     }
-    Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
+    Err(last_error.unwrap_or(TransportError::NoAddresses))
 }
 
-pub fn wait_for_listener(addr: SocketAddr) -> Result<(), String> {
+pub fn wait_for_listener(addr: SocketAddr) -> Result<(), TransportError> {
     for _ in 0..40 {
         if super::protect::protected_tcp_connect(addr, Duration::from_millis(50)).is_ok() {
             return Ok(());
         }
         thread::sleep(Duration::from_millis(25));
     }
-    Err(format!("probe runtime listener did not become ready on {addr}"))
+    Err(TransportError::ListenerNotReady(addr))
 }
 
 #[cfg(test)]
@@ -168,7 +172,7 @@ mod tests {
             Arc::new(move |address| {
                 if address == first {
                     thread::sleep(Duration::from_secs(1));
-                    Err("slow failure".to_string())
+                    Err(TransportError::Io(std::io::Error::other("slow failure")))
                 } else {
                     Ok("fast success")
                 }
@@ -188,7 +192,7 @@ mod tests {
             connect_addresses_with_race(&[loopback])
         });
 
-        assert!(matches!(result, Err(error) if error == "scan_deadline_exceeded"));
+        assert!(matches!(result, Err(error) if error.to_string() == "scan_deadline_exceeded"));
     }
 
     #[test]

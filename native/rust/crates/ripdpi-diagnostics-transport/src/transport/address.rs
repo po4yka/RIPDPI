@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use crate::types::{DomainTarget, QuicTarget};
 
-use super::types::TargetAddress;
+use super::types::{TargetAddress, TransportError};
 
 pub fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
     domain_connect_targets(target).into_iter().next().unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
@@ -344,26 +344,25 @@ pub(crate) fn resolve_addresses_with_timeout(
     }
 }
 
-pub fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, String> {
-    resolve_first_socket_addr_with(value, DNS_RESOLVER.as_ref().map_err(ToString::to_string)?)
+pub fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, TransportError> {
+    resolve_first_socket_addr_with(value, DNS_RESOLVER.as_ref().map_err(Clone::clone)?)
 }
 
-fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> Result<SocketAddr, String> {
+fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> Result<SocketAddr, TransportError> {
     if let Ok(address) = value.parse::<SocketAddr>() {
         return Ok(address);
     }
-    let (host, port) = value.rsplit_once(':').ok_or_else(|| "missing_socket_port".to_string())?;
+    let (host, port) = value.rsplit_once(':').ok_or(TransportError::MissingSocketPort)?;
     let host = host.trim().trim_start_matches('[').trim_end_matches(']');
     if host.is_empty() {
-        return Err("missing_socket_host".to_string());
+        return Err(TransportError::MissingSocketHost);
     }
-    let port = port.parse::<u16>().map_err(|error| format!("invalid_socket_port: {error}"))?;
+    let port = port.parse::<u16>().map_err(TransportError::InvalidSocketPort)?;
     resolver
-        .resolve(host.to_string(), port, DNS_RESOLVE_TIMEOUT)
-        .map_err(|error| error.to_string())?
+        .resolve(host.to_string(), port, DNS_RESOLVE_TIMEOUT)?
         .into_iter()
         .next()
-        .ok_or_else(|| "no_socket_addrs".to_string())
+        .ok_or(TransportError::NoSocketAddrs)
 }
 
 #[cfg(test)]

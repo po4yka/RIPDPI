@@ -35,7 +35,7 @@ impl CandidateRuntimeLauncher for ProductionCandidateRuntimeLauncher {
         &self,
         prepared: PreparedCandidateRuntime,
     ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
-        start_candidate_runtime_with_readiness(prepared, wait_for_listener)
+        start_candidate_runtime_with_readiness(prepared, |addr| wait_for_listener(addr).map_err(|err| err.to_string()))
     }
 }
 

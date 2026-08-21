@@ -1,6 +1,9 @@
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream};
 
+use ripdpi_socks5_core::{SocksError, UdpHeaderError};
+
+use super::address::DnsResolveError;
 use rustls::{ClientConnection, StreamOwned};
 
 #[derive(Clone, Debug)]
@@ -108,6 +111,131 @@ impl std::fmt::Display for TransportConnectError {
 }
 
 impl std::error::Error for TransportConnectError {}
+
+/// Typed error for the probe transport surface.
+///
+/// Display texts are byte-for-byte compatible with the historical
+/// `Result<_, String>` messages so diagnostics summaries and JNI-visible text
+/// are unchanged. `RouteExperiment` marks the one remaining legacy seam: the
+/// route-experiment tracker formats failures into its report as strings.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum TransportError {
+    Dns(DnsResolveError),
+    Io(io::Error),
+    Socks(SocksError),
+    SocksUdpHeader(UdpHeaderError),
+    ScanDeadlineExceeded,
+    NoSocketAddrs,
+    NoTargetCandidates,
+    NoAddresses,
+    ConnectRacePanicked,
+    ConnectRaceSpawnFailed(io::Error),
+    ListenerNotReady(SocketAddr),
+    MissingSocketPort,
+    MissingSocketHost,
+    InvalidSocketPort(std::num::ParseIntError),
+    SocksNegotiationTimedOut,
+    SocksAuthFailed([u8; 2]),
+    SocksUserpassFailed(u8),
+    SocksUdpAssociateFailed(u8),
+    SocksUdpAssociateAtypUnsupported(u8),
+    SocksUdpFrameTooShort,
+    SocksUdpFrameTooShortIpv6,
+    SocksUdpAtypUnsupported(u8),
+    UdpRecvTimeout,
+    UdpRecvWouldBlock,
+    UdpRecvFailed { kind: io::ErrorKind, source: io::Error },
+    ConnectFailed { stage: TransportFailureStage, message: String },
+    RouteExperiment(String),
+}
+
+impl TransportError {
+    pub(crate) fn udp_recv_error(error: io::Error) -> Self {
+        match error.kind() {
+            io::ErrorKind::TimedOut => Self::UdpRecvTimeout,
+            io::ErrorKind::WouldBlock => Self::UdpRecvWouldBlock,
+            kind => Self::UdpRecvFailed { kind, source: error },
+        }
+    }
+}
+
+impl std::fmt::Display for TransportError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Dns(error) => write!(formatter, "{error}"),
+            Self::Io(error) => write!(formatter, "{error}"),
+            Self::Socks(error) => write!(formatter, "{error}"),
+            Self::SocksUdpHeader(error) => write!(formatter, "SOCKS5 UDP: {error}"),
+            Self::ScanDeadlineExceeded => formatter.write_str("scan_deadline_exceeded"),
+            Self::NoSocketAddrs => formatter.write_str("no_socket_addrs"),
+            Self::NoTargetCandidates => formatter.write_str("no_target_candidates"),
+            Self::NoAddresses => formatter.write_str("no_addresses"),
+            Self::ConnectRacePanicked => formatter.write_str("connect_race_panicked"),
+            Self::ConnectRaceSpawnFailed(error) => write!(formatter, "connect_race_spawn_failed: {error}"),
+            Self::ListenerNotReady(addr) => {
+                write!(formatter, "probe runtime listener did not become ready on {addr}")
+            }
+            Self::MissingSocketPort => formatter.write_str("missing_socket_port"),
+            Self::MissingSocketHost => formatter.write_str("missing_socket_host"),
+            Self::InvalidSocketPort(error) => write!(formatter, "invalid_socket_port: {error}"),
+            Self::SocksNegotiationTimedOut => formatter.write_str("SOCKS5 negotiation timed out"),
+            Self::SocksAuthFailed(reply) => write!(formatter, "SOCKS5 auth failed: {reply:?}"),
+            Self::SocksUserpassFailed(code) => write!(formatter, "SOCKS5 USERPASS authentication failed: {code}"),
+            Self::SocksUdpAssociateFailed(code) => write!(formatter, "SOCKS5 UDP ASSOCIATE failed: {code:x}"),
+            Self::SocksUdpAssociateAtypUnsupported(atyp) => {
+                write!(formatter, "SOCKS5 UDP ASSOCIATE atyp unsupported: {atyp}")
+            }
+            Self::SocksUdpFrameTooShort => formatter.write_str("SOCKS5 UDP frame too short"),
+            Self::SocksUdpFrameTooShortIpv6 => formatter.write_str("SOCKS5 UDP IPv6 frame too short"),
+            Self::SocksUdpAtypUnsupported(atyp) => write!(formatter, "SOCKS5 UDP atyp unsupported: {atyp}"),
+            Self::UdpRecvTimeout => formatter.write_str("udp_recv_timeout"),
+            Self::UdpRecvWouldBlock => formatter.write_str("udp_recv_would_block"),
+            Self::UdpRecvFailed { kind, source } => write!(formatter, "udp_recv_{kind:?}: {source}"),
+            Self::ConnectFailed { message, .. } => formatter.write_str(message),
+            Self::RouteExperiment(message) => formatter.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for TransportError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Dns(error) => Some(error),
+            Self::Io(error) | Self::ConnectRaceSpawnFailed(error) | Self::UdpRecvFailed { source: error, .. } => {
+                Some(error)
+            }
+            Self::Socks(error) => Some(error),
+            Self::SocksUdpHeader(error) => Some(error),
+            Self::InvalidSocketPort(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<io::Error> for TransportError {
+    fn from(value: io::Error) -> Self {
+        Self::Io(value)
+    }
+}
+
+impl From<DnsResolveError> for TransportError {
+    fn from(value: DnsResolveError) -> Self {
+        Self::Dns(value)
+    }
+}
+
+impl From<SocksError> for TransportError {
+    fn from(value: SocksError) -> Self {
+        Self::Socks(value)
+    }
+}
+
+impl From<UdpHeaderError> for TransportError {
+    fn from(value: UdpHeaderError) -> Self {
+        Self::SocksUdpHeader(value)
+    }
+}
 
 #[derive(Debug)]
 pub struct UdpRelayResult {

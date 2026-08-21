@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use ripdpi_packets::parse_quic_initial;
 
-use crate::transport::UdpRelayResult;
+use crate::transport::{TransportError, UdpRelayResult};
 
 pub(super) struct QuicProbeOutcome {
     pub(super) kind: String,
@@ -11,7 +11,7 @@ pub(super) struct QuicProbeOutcome {
     pub(super) connected_addr: Option<SocketAddr>,
 }
 
-pub(super) fn classify_quic_response(response: Result<UdpRelayResult, String>) -> QuicProbeOutcome {
+pub(super) fn classify_quic_response(response: Result<UdpRelayResult, TransportError>) -> QuicProbeOutcome {
     match response {
         Ok(result) if parse_quic_initial(&result.payload).is_some() => {
             ok("quic_initial_response", result.connected_addr)
@@ -21,7 +21,7 @@ pub(super) fn classify_quic_response(response: Result<UdpRelayResult, String>) -
         Err(error) => QuicProbeOutcome {
             kind: "quic_error".to_string(),
             status: "quic_error".to_string(),
-            error,
+            error: error.to_string(),
             connected_addr: None,
         },
     }

@@ -235,12 +235,12 @@ fn execute_udp_query(
 ) -> Result<(Vec<String>, Vec<u8>), String> {
     let raw = match transport {
         TransportConfig::Direct { .. } => {
-            let server_addr = resolve_first_socket_addr(server)?;
-            relay_udp_direct(server_addr, packet)
+            let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
+            relay_udp_direct(server_addr, packet).map_err(|err| err.to_string())
         }
         TransportConfig::Socks5 { host, port, credentials } => {
-            let server_addr = resolve_first_socket_addr(server)?;
-            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref())
+            let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
+            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref()).map_err(|err| err.to_string())
         }
     }?;
     let (response, _local_addr) = raw;

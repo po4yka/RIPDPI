@@ -55,11 +55,15 @@ fn execute_variant(
     packet: &[u8],
     query_id: u16,
 ) -> Result<Vec<String>, String> {
-    let server_addr = resolve_first_socket_addr(server)?;
+    let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
     let response = match transport {
-        TransportConfig::Direct { .. } => relay_udp_direct(server_addr, packet).map(|(bytes, _)| bytes),
+        TransportConfig::Direct { .. } => {
+            relay_udp_direct(server_addr, packet).map_err(|err| err.to_string()).map(|(bytes, _)| bytes)
+        }
         TransportConfig::Socks5 { host, port, credentials } => {
-            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref()).map(|(bytes, _)| bytes)
+            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref())
+                .map_err(|err| err.to_string())
+                .map(|(bytes, _)| bytes)
         }
     }?;
 

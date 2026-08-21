@@ -37,7 +37,7 @@ pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -> Probe
             result.local_addr,
             result.route_report,
         ),
-        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err, None, None, None),
+        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err.to_string(), None, None, None),
     };
     let mut result = ProbeResult {
         probe_type: "quic_reachability".to_string(),

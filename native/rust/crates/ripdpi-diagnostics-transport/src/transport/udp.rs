@@ -1,4 +1,3 @@
-use std::io::ErrorKind;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
@@ -7,20 +6,21 @@ use super::address::resolve_addresses;
 use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
 use super::socks5::relay_udp_via_socks5;
 use super::tcp::resolve_candidate_addresses;
-use super::types::{TargetAddress, TransportConfig, UdpRelayResult};
+use super::types::{TargetAddress, TransportConfig, TransportError, UdpRelayResult};
 
 pub fn relay_udp_payload_observed(
     targets: &[TargetAddress],
     port: u16,
     transport: &TransportConfig,
     payload: &[u8],
-) -> Result<UdpRelayResult, String> {
+) -> Result<UdpRelayResult, TransportError> {
     match transport {
         TransportConfig::Direct { route_experiment } => {
             let destinations = resolve_candidate_addresses(targets, port)?;
             if let Some(config) = route_experiment.as_ref() {
                 let route_identity = route_identity(&destinations);
-                return relay_udp_direct_with_route_experiment(&destinations, payload, config, &route_identity);
+                return relay_udp_direct_with_route_experiment(&destinations, payload, config, &route_identity)
+                    .map_err(TransportError::RouteExperiment);
             }
             let mut last_error = None;
             for destination in destinations {
@@ -36,7 +36,7 @@ pub fn relay_udp_payload_observed(
                     Err(err) => last_error = Some(err),
                 }
             }
-            Err(last_error.unwrap_or_else(|| "no_socket_addrs".to_string()))
+            Err(last_error.unwrap_or(TransportError::NoSocketAddrs))
         }
         TransportConfig::Socks5 { host, port: proxy_port, credentials } => {
             let mut last_error = None;
@@ -44,10 +44,8 @@ pub fn relay_udp_payload_observed(
                 let destination = match target {
                     TargetAddress::Ip(ip) => SocketAddr::new(*ip, port),
                     TargetAddress::Host(host_name) => {
-                        let Some(address) = resolve_addresses(&TargetAddress::Host(host_name.clone()), port)
-                            .map_err(|error| error.to_string())?
-                            .into_iter()
-                            .next()
+                        let Some(address) =
+                            resolve_addresses(&TargetAddress::Host(host_name.clone()), port)?.into_iter().next()
                         else {
                             continue;
                         };
@@ -66,31 +64,23 @@ pub fn relay_udp_payload_observed(
                     Err(err) => last_error = Some(err),
                 }
             }
-            Err(last_error.unwrap_or_else(|| "no_target_candidates".to_string()))
+            Err(last_error.unwrap_or(TransportError::NoTargetCandidates))
         }
     }
 }
 
-pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), String> {
-    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), TransportError> {
+    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
-    let socket = super::protect::protected_udp_bind(bind_addr, server).map_err(|err| err.to_string())?;
-    socket.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
-    socket.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
-    socket.send_to(payload, server).map_err(|err| err.to_string())?;
+    let socket = super::protect::protected_udp_bind(bind_addr, server)?;
+    socket.set_read_timeout(Some(timeout))?;
+    socket.set_write_timeout(Some(timeout))?;
+    socket.send_to(payload, server)?;
     let mut buf = [0u8; 2048];
-    let (size, _) = socket.recv_from(&mut buf).map_err(format_udp_recv_error)?;
-    let local_addr = socket.local_addr().map_err(|err| err.to_string())?;
+    let (size, _) = socket.recv_from(&mut buf).map_err(TransportError::udp_recv_error)?;
+    let local_addr = socket.local_addr()?;
     Ok((buf[..size].to_vec(), local_addr))
-}
-
-fn format_udp_recv_error(err: std::io::Error) -> String {
-    match err.kind() {
-        ErrorKind::TimedOut => "udp_recv_timeout".to_string(),
-        ErrorKind::WouldBlock => "udp_recv_would_block".to_string(),
-        kind => format!("udp_recv_{kind:?}: {err}"),
-    }
 }
 
 #[cfg(test)]
@@ -112,7 +102,7 @@ mod tests {
             relay_udp_direct(server, b"probe")
         });
 
-        assert_eq!(result, Err("scan_deadline_exceeded".to_string()));
+        assert_eq!(result.unwrap_err().to_string(), "scan_deadline_exceeded");
     }
 
     #[test]

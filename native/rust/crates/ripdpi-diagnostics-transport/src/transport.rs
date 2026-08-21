@@ -20,6 +20,6 @@ pub use socks5::{
 pub use tcp::{connect_direct, connect_transport_observed, wait_for_listener};
 pub use types::{
     ConnectionStream, RouteExperimentConfig, RouteExperimentReport, Socks5Credentials, TargetAddress, TransportConfig,
-    TransportConnectError, TransportConnectResult, TransportFailureStage, UdpRelayResult,
+    TransportConnectError, TransportConnectResult, TransportError, TransportFailureStage, UdpRelayResult,
 };
 pub use udp::{relay_udp_direct, relay_udp_payload_observed};
