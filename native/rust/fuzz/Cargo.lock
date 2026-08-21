@@ -809,7 +809,6 @@ dependencies = [
  "libfuzzer-sys",
  "ripdpi-config",
  "ripdpi-desync",
- "ripdpi-diagnostics-parsers",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
@@ -819,6 +818,7 @@ dependencies = [
  "ripdpi-vless",
  "ripdpi-ws-tunnel",
  "ripdpi-xhttp",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1979,16 +1979,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-diagnostics-parsers"
-version = "0.1.0"
-dependencies = [
- "hickory-proto",
- "ripdpi-failure-classifier",
- "serde",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "ripdpi-diagnostics-transport"
 version = "0.1.0"
 dependencies = [
@@ -2178,6 +2168,7 @@ dependencies = [
  "tracing",
  "x25519-dalek 3.0.0",
  "yamux",
+ "zeroize",
 ]
 
 [[package]]
@@ -2673,9 +2664,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-boring"
-version = "5.0.0"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "888f55b68689784b01b8625c9c1486080d8a790972355d45a1bef231b5f5aa83"
+checksum = "f7c8b403954655fa821f069961b8c414b52d3bc67597e993463946c633fe4b46"
 dependencies = [
  "boring",
  "boring-sys",

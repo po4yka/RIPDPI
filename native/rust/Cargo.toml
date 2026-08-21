@@ -18,9 +18,7 @@ members = [
     "crates/ripdpi-diagnostics-dns",
     "crates/ripdpi-diagnostics-fat-header",
     "crates/ripdpi-diagnostics-http",
-    "crates/ripdpi-diagnostics-parsers",
     "crates/ripdpi-diagnostics-probes",
-    "crates/ripdpi-diagnostics-protocols",
     "crates/ripdpi-diagnostics-runner",
     "crates/ripdpi-diagnostics-telegram",
     "crates/ripdpi-diagnostics-tls",
@@ -142,9 +140,7 @@ ripdpi-diagnostics-contracts = { path = "crates/ripdpi-diagnostics-contracts" }
 ripdpi-diagnostics-dns = { path = "crates/ripdpi-diagnostics-dns" }
 ripdpi-diagnostics-fat-header = { path = "crates/ripdpi-diagnostics-fat-header" }
 ripdpi-diagnostics-http = { path = "crates/ripdpi-diagnostics-http" }
-ripdpi-diagnostics-parsers = { path = "crates/ripdpi-diagnostics-parsers" }
 ripdpi-diagnostics-probes = { path = "crates/ripdpi-diagnostics-probes" }
-ripdpi-diagnostics-protocols = { path = "crates/ripdpi-diagnostics-protocols" }
 ripdpi-diagnostics-runner = { path = "crates/ripdpi-diagnostics-runner" }
 ripdpi-diagnostics-telegram = { path = "crates/ripdpi-diagnostics-telegram" }
 ripdpi-diagnostics-tls = { path = "crates/ripdpi-diagnostics-tls" }

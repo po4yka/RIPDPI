@@ -267,10 +267,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-diagnostics-dns` | DNS integrity / tampering probes | Probe API | `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, … | Fan-in 7 | Keep |
 | `ripdpi-diagnostics-fat-header` | TCP fat-header probes | Probe API | `ripdpi-diagnostics-{http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-http` | HTTP reachability probes | Probe API | `ripdpi-diagnostics-{tls,transport}`, `ripdpi-failure-classifier` | Fan-in 6 | Keep |
-| `ripdpi-diagnostics-parsers` | Response parsers (HTTP + DNS packet helpers) | Parser API | `ripdpi-failure-classifier` | No runtime consumer | Prune candidate unless parser extraction is revived |
 | `ripdpi-diagnostics-probes` | Probe-task execution | Probe API | `ripdpi-diagnostics-{classification,contracts,http}`, … | — | Keep |
-| `ripdpi-diagnostics-protocols` | Protocol-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | Consumed by `-runner` | Keep |
-| `ripdpi-diagnostics-runner` | Scan runner / orchestration | Runner API | `ripdpi-diagnostics-{candidates,classification,protocols}`, … | Mid | Keep |
+| `ripdpi-diagnostics-runner` | Scan runner / orchestration | Runner API | `ripdpi-diagnostics-{candidates,classification,dns,fat-header,http,tls,transport}`, … | Mid | Keep |
 | `ripdpi-diagnostics-telegram` | Telegram-availability probes | Probe API | `ripdpi-diagnostics-{contracts,http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-tls` | TLS reachability probes | Probe API | `ripdpi-diagnostics-{contracts,dns,transport}`, `ripdpi-tls-profiles` | Fan-in 6 | Keep |
 | `ripdpi-diagnostics-transport` | Transport-layer probe primitives | Probe primitives | `ripdpi-diagnostics-contracts`, `ripdpi-socks5-core` | Fan-in 9 | Keep |
@@ -442,7 +440,7 @@ These are current source-state notes for triage. None block the build.
 - **`ripdpi-relay-android` Kotlin counterpart exists** — `RipDpiRelayNativeBindings`
   is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and
   `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
-- **Library crates with no runtime consumer** — `ripdpi-protocol-detect` and `ripdpi-diagnostics-parsers` still have no workspace consumer beyond their own crate entry. They remain prune candidates unless a feature or test plan wires them. `ripdpi-runtime-dns-cache` is consumed by `ripdpi-ws-bootstrap`. `ripdpi-protocol-loopback` is test infrastructure consumed by `ripdpi-hysteria2`, so it is not part of this prune-candidate set.
+- **Library crates with no runtime consumer** — `ripdpi-protocol-detect` has no workspace consumer beyond its own crate entry and remains a prune candidate unless a feature or test plan wires it. `ripdpi-runtime-dns-cache` is consumed by `ripdpi-ws-bootstrap`. `ripdpi-protocol-loopback` is test infrastructure consumed by `ripdpi-hysteria2`, so it is not part of this prune-candidate set.
 - **Relay transport crates are wired** — `ripdpi-shadowsocks` and
   `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is
   consumed by `ripdpi-relay-core`; they are not prune candidates.

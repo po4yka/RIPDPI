@@ -15,7 +15,6 @@ ripdpi-config = { path = "../crates/ripdpi-config" }
 ripdpi-desync = { path = "../crates/ripdpi-desync" }
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-dns-resolver = { path = "../crates/ripdpi-dns-resolver" }
-ripdpi-diagnostics-parsers = { path = "../crates/ripdpi-diagnostics-parsers" }
 ripdpi-packets = { path = "../crates/ripdpi-packets" }
 ripdpi-proxy-config = { path = "../crates/ripdpi-proxy-config" }
 ripdpi-session = { path = "../crates/ripdpi-session" }
@@ -23,6 +22,7 @@ ripdpi-tunnel-config = { path = "../crates/ripdpi-tunnel-config" }
 ripdpi-vless = { path = "../crates/ripdpi-vless" }
 ripdpi-ws-tunnel = { path = "../crates/ripdpi-ws-tunnel" }
 ripdpi-xhttp = { path = "../crates/ripdpi-xhttp" }
+thiserror = "2"
 
 [[bin]]
 name = "packets_parse"

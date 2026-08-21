@@ -14,8 +14,8 @@ Targets:
 - `session_request_parse` - SOCKS4/SOCKS5/HTTP CONNECT request parsing in `ripdpi-session`
 - `dns_response_answers` - DNS response answer extraction in `ripdpi-dns-resolver`
 - `dns_https_service_binding` - HTTPS/SVCB service-binding parsing in `ripdpi-dns-resolver`
-- `monitor_dns_response` - DNS response parsing in `ripdpi-diagnostics-parsers`
-- `monitor_http_response` - HTTP response parsing in `ripdpi-diagnostics-parsers`
+- `monitor_dns_response` - DNS response parsing in the shared `parsers` module (`fuzz_targets/parsers.rs`)
+- `monitor_http_response` - HTTP response parsing in the shared `parsers` module (`fuzz_targets/parsers.rs`)
 - `config_offset_expr` - offset-expression parsing in `ripdpi-config`
 - `client_hello_offsets` - TLS ClientHello offset discovery used by desync planning
 - `mtproto_init` - Telegram MTProto obfuscated2 init seed classifier in `ripdpi-ws-tunnel` (covers `classify_mtproto_seed`, `decrypt_init_packet`, `extract_dc_from_init`)

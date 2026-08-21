@@ -5651,16 +5651,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-diagnostics-parsers"
-version = "0.1.0"
-dependencies = [
- "hickory-proto",
- "ripdpi-failure-classifier",
- "serde",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "ripdpi-diagnostics-probes"
 version = "0.1.0"
 dependencies = [
@@ -5678,19 +5668,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-diagnostics-protocols"
-version = "0.1.0"
-dependencies = [
- "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-fat-header",
- "ripdpi-diagnostics-http",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
-]
-
-[[package]]
 name = "ripdpi-diagnostics-runner"
 version = "0.1.0"
 dependencies = [
@@ -5700,8 +5677,12 @@ dependencies = [
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-fat-header",
+ "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-probes",
- "ripdpi-diagnostics-protocols",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",

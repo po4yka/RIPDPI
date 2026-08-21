@@ -10,7 +10,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
 use ripdpi_diagnostics_contracts::util::{CONNECT_TIMEOUT, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
-use ripdpi_diagnostics_protocols::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
+use ripdpi_diagnostics_transport::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
 
 pub struct UdpDnsServer {
     addr: SocketAddr,

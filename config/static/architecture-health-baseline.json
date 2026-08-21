@@ -156,6 +156,17 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
+      "id": "dependency-hub:native-rust-crates-ripdpi-diagnostics-runner-cargo.toml:ripdpi-diagnostics-runner",
+      "rule": "dependency-hub",
+      "priority": 3,
+      "path": "native/rust/crates/ripdpi-diagnostics-runner/Cargo.toml",
+      "message": "ripdpi-diagnostics-runner links 12 internal crates",
+      "metricName": "internalDependencyCount",
+      "baselineValue": 12,
+      "limit": 8,
+      "suggestion": "Move feature composition behind narrower ports or adapter crates."
+    },
+    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticstelemetrymetrics.kt:adaptive-diagnostics-dns-relay-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,

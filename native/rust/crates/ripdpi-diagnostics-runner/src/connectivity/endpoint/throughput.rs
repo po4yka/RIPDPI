@@ -284,7 +284,7 @@ mod tests {
     use std::sync::Arc;
     use std::thread::JoinHandle;
 
-    use ripdpi_diagnostics_protocols::transport::TransportConfig;
+    use ripdpi_diagnostics_transport::transport::TransportConfig;
     use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
     use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
     use rustls::{

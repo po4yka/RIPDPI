@@ -38,7 +38,7 @@ active proxy/VPN). Scan kinds include `quick_v1` (fast recommendation) and
 ```
 ScanRequest
   → candidate planning      ripdpi-diagnostics-candidates   (TCP + QUIC lanes)
-  → probe execution         ripdpi-diagnostics-probes / -protocols, per protocol
+  → probe execution         ripdpi-diagnostics-probes, per protocol
   → result classification   ripdpi-diagnostics-classification (observations → verdict)
   → winner selection        ripdpi-diagnostics-runner        (confidence + coverage)
   → ScanReport              ripdpi-diagnostics-contracts wire types
@@ -303,11 +303,9 @@ declaration is load-bearing for the Play Store Data Safety surface.
 | **Contract** (L2) | `ripdpi-diagnostics-contracts` — `ScanRequest`/`ScanReport`/progress wire types, `ScanPathMode`, `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` |
 | **Probe primitives** | `ripdpi-diagnostics-transport` — TCP-connect / TTL / WS-TLS |
 | **Per-protocol probes** | `ripdpi-diagnostics-{tls, http, dns, fat-header, telegram}` |
-| **Protocol-probe aggregation** | `ripdpi-diagnostics-protocols` |
 | **Candidate planning** | `ripdpi-diagnostics-candidates` — `StrategyCandidateSpec` enumeration |
 | **Classification** | `ripdpi-diagnostics-classification` — probe observations → verdict |
 | **Probe-task execution** | `ripdpi-diagnostics-probes` — the `Probe` trait + concrete probe tasks |
-| **Support** | `ripdpi-diagnostics-parsers` (HTTP response + DNS packet parsers; currently fuzz/test consumption only) |
 | **Scan runner** | `ripdpi-diagnostics-runner` — connectivity / strategy / domain scans, budget, winner selection |
 | **Monitor engine** | `ripdpi-monitor-engine` — the active-scan engine (sessions, the `ExecutionStageRunner` loop) |
 | **Monitor adapters** | `ripdpi-monitor-adapter` (↔ contracts), `ripdpi-monitor-lane-adapter` (`LANE_ADAPTERS` probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |

@@ -33,7 +33,7 @@ pub fn detect_strategy_probe_dns_tampering(
     runtime_context: Option<&ProxyRuntimeContext>,
 ) -> Option<StrategyProbeBaseline> {
     let probe_context = ProbeExecutionContext::from_runtime_context(
-        ripdpi_diagnostics_protocols::transport::direct_transport(),
+        ripdpi_diagnostics_transport::transport::direct_transport(),
         runtime_context,
     )
     .ok()?;

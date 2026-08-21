@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::types::{ProbeResult, ProbeTaskFamily, ScanProgress, ScanRequest, SharedState};
-use ripdpi_diagnostics_protocols::transport::TransportConfig;
+use ripdpi_diagnostics_transport::transport::TransportConfig;
 
 pub struct ExecutionPlan {
     pub session_id: String,
@@ -129,7 +129,7 @@ impl ExecutionRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_diagnostics_protocols::transport::direct_transport;
+    use ripdpi_diagnostics_transport::transport::direct_transport;
     use std::sync::atomic::AtomicBool;
 
     struct FakeRunner {

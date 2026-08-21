@@ -11,7 +11,9 @@ a probe budget.
 ## Main dependencies
 
 `ripdpi-diagnostics-candidates`, `ripdpi-diagnostics-classification`,
-`ripdpi-diagnostics-contracts`, `ripdpi-diagnostics-protocols`,
+`ripdpi-diagnostics-contracts`, `ripdpi-diagnostics-dns`,
+`ripdpi-diagnostics-fat-header`, `ripdpi-diagnostics-http`,
+`ripdpi-diagnostics-tls`, `ripdpi-diagnostics-transport`,
 `ripdpi-dns-resolver`, `ripdpi-failure-classifier`, `ripdpi-packets`,
 `ripdpi-proxy-config`; `rustls`.
 
