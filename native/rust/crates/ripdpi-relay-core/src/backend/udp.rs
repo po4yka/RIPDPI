@@ -8,6 +8,7 @@ use crate::protocols::{
     TrojanSession, TrojanUdpSession, TuicSession,
 };
 use crate::socks::RelayTargetAddr;
+use crate::socks::UdpCarrier;
 use crate::telemetry::{QuicMigrationTelemetryState, sync_quic_migration_state};
 
 pub(crate) enum RelayUdpSession {
@@ -29,15 +30,15 @@ pub(crate) enum RelayUdpSession {
     VlessReality(MuxLease<ripdpi_vless::VlessXudpSession, crate::protocols::VlessRealitySession>),
 }
 
-impl RelayUdpSession {
-    pub(crate) fn queue_high_water_mark(&self) -> usize {
+impl UdpCarrier for RelayUdpSession {
+    fn queue_high_water_mark(&self) -> usize {
         match self {
             Self::VlessReality(session) => session.get_ref().queue_high_water_mark(),
             _ => 0,
         }
     }
 
-    pub(crate) async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
+    async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
         match self {
             Self::Hysteria2 { session, migration } => {
                 let result = session.get_mut().send_to(&target.to_connect_target(), payload).await.map_err(to_io_error);
@@ -61,7 +62,7 @@ impl RelayUdpSession {
         }
     }
 
-    pub(crate) async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+    async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
         match self {
             Self::Hysteria2 { session, migration } => {
                 let (address, payload) = session.get_mut().recv_from().await.map_err(to_io_error)?;

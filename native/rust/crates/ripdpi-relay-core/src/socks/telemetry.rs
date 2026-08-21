@@ -1,9 +1,44 @@
+use std::time::Duration;
+
 use crate::telemetry::TcpConnectObservation;
+
+/// Upper bound for one upstream dial through a relay backend.
+///
+/// Generous enough for QUIC handshakes through censored networks; without it a
+/// backend that never completes its handshake would pin an admission permit
+/// (max 256) and an fd until runtime shutdown.
+pub(crate) const RELAY_CONNECT_DEADLINE: Duration = Duration::from_secs(30);
+
+/// Tear down a relayed TCP session after this much wire silence in both
+/// directions. Detection latency is bounded by twice the window.
+pub(crate) const RELAY_TCP_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Tear down a UDP association after this much datagram silence.
+pub(crate) const RELAY_UDP_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Per-session relay timeout policy, injected so tests can shrink the windows.
+#[derive(Clone, Copy)]
+pub(crate) struct RelaySessionTimeouts {
+    pub connect_deadline: Duration,
+    pub tcp_idle: Duration,
+    pub udp_idle: Duration,
+}
+
+impl RelaySessionTimeouts {
+    pub(crate) fn production() -> Self {
+        Self {
+            connect_deadline: RELAY_CONNECT_DEADLINE,
+            tcp_idle: RELAY_TCP_IDLE_TIMEOUT,
+            udp_idle: RELAY_UDP_IDLE_TIMEOUT,
+        }
+    }
+}
 
 pub(crate) struct SocksSessionConfig {
     pub(crate) local_socks_host: String,
     pub(crate) backend_kind: String,
     pub(crate) confirm_good_eligible: bool,
+    pub(crate) timeouts: RelaySessionTimeouts,
 }
 
 pub(crate) trait SocksTelemetry {

@@ -1,13 +1,17 @@
+use std::future::Future;
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-use tokio::io::AsyncReadExt;
+use std::net::IpAddr;
+
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::{TcpStream, UdpSocket};
 use tokio_util::sync::CancellationToken;
 
 use crate::backend::RelayBackend;
 use crate::socks::reply::write_reply;
+use crate::socks::target::RelayTargetAddr;
 use crate::socks::telemetry::{SocksSessionConfig, SocksTelemetry};
 use crate::socks::{decode_udp_frame, encode_udp_frame};
 
@@ -30,27 +34,25 @@ impl<T: SocksTelemetry + ?Sized> Drop for XudpAssociationTelemetry<'_, T> {
     }
 }
 
-/// Drive a SOCKS5 `UDP ASSOCIATE`: bind the relay socket, reply, then pump
-/// datagrams in both directions until the control connection or `cancel` ends
-/// the session.
+/// Drive a SOCKS5 `UDP ASSOCIATE`: gate on carrier UDP capability, open the
+/// upstream session, bind the relay socket, and write the success reply, then
+/// hand off to [`pump_udp_association`], which owns every teardown arm
+/// (`cancel`, control EOF, carrier errors, idle timeout) and documents the
+/// cancel-safety contract for the whole association.
+/// The datagram carrier a SOCKS5 `UDP ASSOCIATE` pumps through.
 ///
-/// # Cancel safety
-///
-/// Cancel-safe. `cancel` is the session's shutdown token. The relay loop's
-/// `select!` is `biased` with the two teardown arms first — `cancel.cancelled()`
-/// (arm 0) and the control-connection EOF (arm 1) — so sustained upstream UDP
-/// on the recv arms can never starve teardown (the original fairness hazard).
-/// `cancel` leads `control_closed` because the historic outer `select!` that
-/// dropped this future on shutdown was removed (see `runtime/session.rs`); this
-/// loop is now the sole place shutdown is observed, so it must lead. Teardown is
-/// at the `select!` boundary only: once a recv arm has been selected, its body
-/// runs a follow-on message-atomic `send_to().await` (relay→client or
-/// client→relay). VLESS/XUDP sends are executed by a bounded writer task with a
-/// terminal deadline, so a stalled Reality carrier cannot defer cancellation
-/// indefinitely or be reused after a partial frame. The success reply
-/// (`REP=0x00`) and the first loop poll are separated by
-/// no externally-cancellable drop point, so a confirmed `ASSOCIATE` always enters
-/// the pump.
+/// Internal seam over [`crate::backend::udp::RelayUdpSession`] so the pump
+/// loop can be driven against a test fake without building a real backend.
+pub(crate) trait UdpCarrier: Send {
+    fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> impl Future<Output = io::Result<()>> + Send;
+
+    fn recv_from(&mut self) -> impl Future<Output = io::Result<(RelayTargetAddr, Vec<u8>)>> + Send;
+
+    fn queue_high_water_mark(&self) -> usize {
+        0
+    }
+}
+
 pub(crate) async fn handle_udp_associate<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
@@ -90,37 +92,93 @@ where
     let bound = udp_socket.local_addr()?;
     write_reply(&mut client, 0x00, bound).await?;
 
-    let control_ip = client.peer_addr()?.ip();
+    let Ok(control_addr) = client.peer_addr() else {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "UDP control connection has no peer"));
+    };
+    let outcome =
+        pump_udp_association(client, control_addr.ip(), udp_socket, &mut udp_session, &config, telemetry, cancel).await;
+    if let Some(state) = &mut xudp_telemetry {
+        state.set_termination_reason(outcome.termination_reason);
+    }
+    outcome.result
+}
+
+/// The terminal state of a UDP association pump: its `io` result plus the
+/// xudp termination reason it concluded with.
+struct UdpPumpOutcome {
+    result: io::Result<()>,
+    termination_reason: &'static str,
+}
+
+/// Pump datagrams between the client's UDP socket and the carrier until the
+/// control connection closes, `cancel` fires, the carrier errors, or no
+/// datagram moves for `config.timeouts.udp_idle`.
+///
+/// # Cancel safety
+///
+/// Cancel-safe. The pump `select!` is `biased` with the teardown arms first —
+/// `cancel.cancelled()` then the control-connection EOF — so sustained traffic
+/// can never starve teardown. The idle arm trails every activity arm, so a
+/// datagram racing the idle deadline wins and restarts the window. Teardown is
+/// at the `select!` boundary only: once a recv arm has been selected, its body
+/// runs a follow-on message-atomic `send_to().await` (relay→client or
+/// client→relay). VLESS/XUDP sends are executed by a bounded writer task with a
+/// terminal deadline, so a stalled Reality carrier cannot defer cancellation
+/// indefinitely or be reused after a partial frame. The success reply
+/// (`REP=0x00`) and the first loop poll are separated by no externally
+/// cancellable drop point, so a confirmed `ASSOCIATE` always enters the pump.
+async fn pump_udp_association<C, S, T>(
+    mut control: S,
+    control_ip: IpAddr,
+    udp_socket: UdpSocket,
+    udp_session: &mut C,
+    config: &SocksSessionConfig,
+    telemetry: &T,
+    cancel: CancellationToken,
+) -> UdpPumpOutcome
+where
+    C: UdpCarrier,
+    S: AsyncRead + Unpin,
+    T: SocksTelemetry + ?Sized,
+{
+    let is_xudp = config.backend_kind == "vless_reality";
+    let mut termination_reason = "association_aborted";
+    let mut last_activity = tokio::time::Instant::now();
+
     let mut associated_client = None;
     let mut udp_buffer = vec![0u8; UDP_BUFFER_SIZE];
     let mut control_probe = [0u8; 1];
     let control_closed = async {
-        let _ = client.read(&mut control_probe).await;
+        let _ = control.read(&mut control_probe).await;
     };
     tokio::pin!(control_closed);
 
-    loop {
+    let result = loop {
+        let idle_deadline = last_activity + config.timeouts.udp_idle;
         tokio::select! {
             biased;
             () = cancel.cancelled() => {
-                if let Some(state) = &mut xudp_telemetry {
-                    state.set_termination_reason("runtime_cancelled");
-                }
-                break;
+                termination_reason = "runtime_cancelled";
+                break Ok(());
             },
             _ = &mut control_closed => {
-                if let Some(state) = &mut xudp_telemetry {
-                    state.set_termination_reason("control_closed");
-                }
-                break;
+                termination_reason = "control_closed";
+                break Ok(());
             },
             recv = udp_socket.recv_from(&mut udp_buffer) => {
-                let (received, source) = recv?;
+                let (received, source) = match recv {
+                    Ok(datagram) => datagram,
+                    Err(error) => break Err(error),
+                };
                 if source.ip() != control_ip {
                     continue;
                 }
                 associated_client = Some(source);
-                let (target, payload) = decode_udp_frame(&udp_buffer[..received])?;
+                last_activity = tokio::time::Instant::now();
+                let (target, payload) = match decode_udp_frame(&udp_buffer[..received]) {
+                    Ok(frame) => frame,
+                    Err(error) => break Err(error),
+                };
                 // XUDP may carry DNS and arbitrary per-datagram destinations.
                 // Keep those endpoints out of the runtime telemetry surface;
                 // the backend kind and aggregate session counters remain enough
@@ -129,16 +187,16 @@ where
                     telemetry.record_target(target.to_string());
                 }
                 if let Err(error) = udp_session.send_to(&target, payload).await {
-                    if let Some(state) = &mut xudp_telemetry {
-                        state.set_termination_reason(if error.kind() == io::ErrorKind::TimedOut {
+                    if is_xudp {
+                        termination_reason = if error.kind() == io::ErrorKind::TimedOut {
                             "write_timeout"
                         } else {
                             "write_error"
-                        });
+                        };
                         telemetry.record_xudp_write_failure(error.kind() == io::ErrorKind::TimedOut);
                     }
                     telemetry.record_handshake_error(error.to_string());
-                    return Err(error);
+                    break Err(error);
                 }
                 if is_xudp {
                     telemetry.record_xudp_uplink(payload.len(), udp_session.queue_high_water_mark());
@@ -148,28 +206,156 @@ where
                 let (target, payload) = match result {
                     Ok(datagram) => datagram,
                     Err(error) => {
-                        if let Some(state) = &mut xudp_telemetry {
-                            state.set_termination_reason(if error.kind() == io::ErrorKind::TimedOut {
+                        if is_xudp {
+                            termination_reason = if error.kind() == io::ErrorKind::TimedOut {
                                 "read_timeout"
                             } else {
                                 "read_error"
-                            });
+                            };
                             telemetry.record_xudp_read_failure(error.kind() == io::ErrorKind::TimedOut);
                         }
-                        return Err(error);
+                        break Err(error);
                     }
                 };
+                last_activity = tokio::time::Instant::now();
                 if is_xudp {
                     telemetry.record_xudp_downlink(payload.len());
                 }
                 let Some(destination) = associated_client else {
                     continue;
                 };
-                let frame = encode_udp_frame(&target, &payload)?;
-                udp_socket.send_to(&frame, destination).await?;
+                let frame = match encode_udp_frame(&target, &payload) {
+                    Ok(frame) => frame,
+                    Err(error) => break Err(error),
+                };
+                if let Err(error) = udp_socket.send_to(&frame, destination).await {
+                    break Err(error);
+                }
             }
+            () = tokio::time::sleep_until(idle_deadline) => {
+                termination_reason = "idle_timeout";
+                break Ok(());
+            }
+        }
+    };
+
+    UdpPumpOutcome { result, termination_reason }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{Duration, Instant};
+
+    use tokio::io::duplex;
+    use tokio_util::sync::CancellationToken;
+
+    use super::*;
+    use crate::socks::telemetry::RelaySessionTimeouts;
+
+    struct NeverUdpCarrier {
+        recv_calls: Arc<AtomicU64>,
+    }
+
+    impl UdpCarrier for NeverUdpCarrier {
+        async fn send_to(&mut self, _target: &RelayTargetAddr, _payload: &[u8]) -> io::Result<()> {
+            Err(io::Error::other("silent test carrier must not be sent to"))
+        }
+
+        async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+            self.recv_calls.fetch_add(1, Ordering::Relaxed);
+            std::future::pending().await
         }
     }
 
-    Ok(())
+    #[derive(Default)]
+    struct FakeSocksTelemetry {
+        handshake_errors: Arc<AtomicU64>,
+    }
+
+    impl SocksTelemetry for FakeSocksTelemetry {
+        fn next_attempt_id(&self) -> u64 {
+            0
+        }
+
+        fn record_target(&self, _target: String) {}
+
+        fn record_handshake_error(&self, _error: String) {
+            self.handshake_errors.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    fn silent_session_config(udp_idle: Duration) -> SocksSessionConfig {
+        SocksSessionConfig {
+            local_socks_host: "127.0.0.1".to_string(),
+            backend_kind: "trojan".to_string(),
+            confirm_good_eligible: false,
+            timeouts: RelaySessionTimeouts {
+                connect_deadline: Duration::from_secs(30),
+                tcp_idle: Duration::from_secs(300),
+                udp_idle,
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn udp_pump_ends_gracefully_after_idle_timeout_without_traffic() {
+        let (control, control_peer) = duplex(64);
+        let udp_socket = UdpSocket::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let mut carrier = NeverUdpCarrier { recv_calls: Arc::new(AtomicU64::new(0)) };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_millis(50));
+
+        let started = Instant::now();
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            pump_udp_association(
+                control,
+                IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+                udp_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                CancellationToken::new(),
+            ),
+        )
+        .await
+        .expect("idle watchdog did not fire; pump hung past the outer guard");
+
+        outcome.result.expect("a silent association must end gracefully on the idle timeout");
+        assert!(started.elapsed() < Duration::from_secs(1), "idle window must fire near 50ms");
+        assert_eq!(0, telemetry.handshake_errors.load(Ordering::Relaxed), "idle expiry is not a handshake error");
+        drop(control_peer);
+    }
+
+    #[tokio::test]
+    async fn udp_pump_reports_runtime_cancelled_reason_on_shutdown_token() {
+        let (control, control_peer) = duplex(64);
+        let udp_socket = UdpSocket::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let mut carrier = NeverUdpCarrier { recv_calls: Arc::new(AtomicU64::new(0)) };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            pump_udp_association(
+                control,
+                IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+                udp_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            ),
+        )
+        .await
+        .expect("cancelled pump must resolve promptly");
+
+        outcome.result.expect("cancellation is graceful");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+    }
 }

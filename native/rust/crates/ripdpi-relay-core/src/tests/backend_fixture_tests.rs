@@ -1,6 +1,8 @@
 use super::*;
 use std::sync::Arc;
 
+use crate::socks::UdpCarrier;
+
 #[tokio::test]
 async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
     let mut config = sample_config("cloudflare_tunnel");

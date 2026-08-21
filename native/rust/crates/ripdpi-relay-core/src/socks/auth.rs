@@ -90,9 +90,18 @@ where
             telemetry.record_target(target.to_string());
             let traced = config.backend_kind == "vless_reality";
             let attempt_id = telemetry.next_attempt_id();
-            handle_connect(client, backend, target, config.confirm_good_eligible, traced, telemetry, cancel)
-                .instrument(tracing::info_span!("relay_attempt", attempt_id))
-                .await
+            handle_connect(
+                client,
+                backend,
+                target,
+                config.confirm_good_eligible,
+                traced,
+                config.timeouts,
+                telemetry,
+                cancel,
+            )
+            .instrument(tracing::info_span!("relay_attempt", attempt_id))
+            .await
         }
         0x03 => handle_udp_associate(client, backend, config, telemetry, cancel).await,
         _ => {

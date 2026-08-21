@@ -2,8 +2,9 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf, copy_bidirectional};
 use tokio::net::TcpStream;
@@ -12,13 +13,18 @@ use tokio_util::sync::CancellationToken;
 use crate::backend::RelayBackend;
 use crate::socks::reply::write_reply;
 use crate::socks::target::RelayTargetAddr;
-use crate::socks::telemetry::SocksTelemetry;
+use crate::socks::telemetry::{RelaySessionTimeouts, SocksTelemetry};
 use crate::telemetry::TcpConnectObservation;
+
+const RELAY_IDLE_TIMEOUT_MESSAGE: &str = "relay session exceeded the idle timeout with no traffic";
 
 struct CountingIo<S> {
     inner: S,
     read_bytes: u64,
     written_bytes: u64,
+    /// Shared byte total feeding the relay idle watchdog; `None` when the
+    /// wrapper is used without a watchdog.
+    progress: Option<Arc<AtomicU64>>,
 }
 
 struct RelayStageGuard {
@@ -54,8 +60,14 @@ impl Drop for RelayStageGuard {
 }
 
 impl<S> CountingIo<S> {
-    const fn new(inner: S) -> Self {
-        Self { inner, read_bytes: 0, written_bytes: 0 }
+    fn tracked(inner: S, progress: Arc<AtomicU64>) -> Self {
+        Self { inner, read_bytes: 0, written_bytes: 0, progress: Some(progress) }
+    }
+
+    fn note_progress(&mut self, bytes: u64) {
+        if let Some(progress) = &self.progress {
+            progress.fetch_add(bytes, Ordering::Relaxed);
+        }
     }
 }
 
@@ -67,7 +79,9 @@ where
         let before = buf.filled().len();
         match Pin::new(&mut self.inner).poll_read(cx, buf) {
             Poll::Ready(Ok(())) => {
-                self.read_bytes = self.read_bytes.saturating_add((buf.filled().len() - before) as u64);
+                let advanced = (buf.filled().len() - before) as u64;
+                self.read_bytes = self.read_bytes.saturating_add(advanced);
+                self.note_progress(advanced);
                 Poll::Ready(Ok(()))
             }
             other => other,
@@ -83,6 +97,7 @@ where
         match Pin::new(&mut self.inner).poll_write(cx, buf) {
             Poll::Ready(Ok(written)) => {
                 self.written_bytes = self.written_bytes.saturating_add(written as u64);
+                self.note_progress(written as u64);
                 Poll::Ready(Ok(written))
             }
             other => other,
@@ -135,6 +150,7 @@ pub(crate) async fn handle_connect<T>(
     target: RelayTargetAddr,
     confirm_good_eligible: bool,
     trace_stages: bool,
+    timeouts: RelaySessionTimeouts,
     telemetry: &T,
     cancel: CancellationToken,
 ) -> io::Result<()>
@@ -143,10 +159,16 @@ where
 {
     let connect_start = Instant::now();
     // Pre-reply: abandoning the dial by drop is safe — no reply is on the wire.
+    // The dial is bounded by `connect_deadline` so a backend that never
+    // completes its handshake cannot pin an admission permit indefinitely.
     let upstream_result = tokio::select! {
         biased;
         () = cancel.cancelled() => return Ok(()),
-        result = backend.connect_tcp(&target) => result,
+        result = with_deadline(
+            backend.connect_tcp(&target),
+            timeouts.connect_deadline,
+            "relay upstream connect timed out",
+        ) => result,
     };
     let rtt_ms = connect_start.elapsed().as_millis() as u64;
 
@@ -180,39 +202,120 @@ where
     reply_stage.finish("succeeded", None, None);
     let mut relay_stage = RelayStageGuard::start(trace_stages, "relay_stream");
     let target_label = target.to_string();
-    let mut client = CountingIo::new(client);
-    let mut upstream = CountingIo::new(upstream);
+    let transfer = relay_bidirectional(client, upstream, timeouts.tcp_idle, cancel).await;
+    match transfer.result {
+        Ok(()) => {
+            if transfer.cancelled {
+                relay_stage.finish("cancelled", None, None);
+            } else {
+                relay_stage.finish("closed", None, None);
+            }
+            Ok(())
+        }
+        Err(error) => {
+            if confirm_good_eligible && matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock) {
+                telemetry.record_confirm_good_passive_stall(
+                    &target_label,
+                    transfer.upstream_written_bytes,
+                    transfer.upstream_read_bytes,
+                    true,
+                );
+            }
+            relay_stage.finish("failed", Some(&error), None);
+            Err(error)
+        }
+    }
+}
+
+/// Bound `future` by `deadline`, mapping expiry to a `TimedOut` error.
+///
+/// Cancel-safe: dropping the returned future drops both the inner future and
+/// the deadline sleep with no side effects.
+pub(crate) async fn with_deadline<T>(
+    future: impl Future<Output = io::Result<T>>,
+    deadline: Duration,
+    message: &'static str,
+) -> io::Result<T> {
     tokio::select! {
         biased;
+        result = future => result,
+        () = tokio::time::sleep(deadline) => Err(io::Error::new(io::ErrorKind::TimedOut, message)),
+    }
+}
+
+/// Outcome of a completed relay copy between the SOCKS client and upstream.
+pub(crate) struct RelayTransfer {
+    pub result: io::Result<()>,
+    /// True when the shutdown token ended the transfer gracefully (FIN).
+    pub cancelled: bool,
+    pub upstream_read_bytes: u64,
+    pub upstream_written_bytes: u64,
+}
+
+/// Resolve once no relayed byte has moved for a full `idle_timeout` window.
+///
+/// The watchdog compares the shared byte total across sleeps, so any read or
+/// write in either direction restarts the window. Detection latency is bounded
+/// by `2 * idle_timeout`; dropping the watchdog loses nothing (it owns only an
+/// atomic counter).
+async fn idle_watchdog(progress: Arc<AtomicU64>, idle_timeout: Duration) {
+    let mut last_seen = progress.load(Ordering::Relaxed);
+    loop {
+        tokio::time::sleep(idle_timeout).await;
+        let current = progress.load(Ordering::Relaxed);
+        if current == last_seen {
+            return;
+        }
+        last_seen = current;
+    }
+}
+
+/// Copy bytes bidirectionally between the confirmed SOCKS client and the
+/// upstream stream until either side closes, the shutdown token fires, or no
+/// byte flows for `idle_timeout`.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe externally by contract: an external drop can discard
+/// buffered `copy_bidirectional` bytes mid-copy. Production callers await this
+/// future directly (`runtime/session.rs`) and observe shutdown through
+/// `cancel`, which ends the transfer gracefully with a client FIN. Dropping is
+/// valid only as last-resort socket abandonment.
+pub(crate) async fn relay_bidirectional<A, B>(
+    client: A,
+    upstream: B,
+    idle_timeout: Duration,
+    cancel: CancellationToken,
+) -> RelayTransfer
+where
+    A: AsyncRead + AsyncWrite + Unpin + Send,
+    B: AsyncRead + AsyncWrite + Unpin + Send,
+{
+    let progress = Arc::new(AtomicU64::new(0));
+    let mut client = CountingIo::tracked(client, Arc::clone(&progress));
+    let mut upstream = CountingIo::tracked(upstream, Arc::clone(&progress));
+    let mut cancelled = false;
+    let result = tokio::select! {
+        biased;
         () = cancel.cancelled() => {
+            cancelled = true;
             // Graceful close: signal FIN on the client write half so the peer
             // sees an ordinary end-of-session rather than a reset. Sending FIN
             // does not wait on the peer reading, so this cannot stall the drain
             // grace window; any error is ignored since the socket is closing.
             let _ = client.shutdown().await;
-            relay_stage.finish("cancelled", None, None);
             Ok(())
         }
-        result = copy_bidirectional(&mut client, &mut upstream) => {
-            match result {
-                Ok(_) => {
-                    relay_stage.finish("closed", None, None);
-                    Ok(())
-                },
-                Err(error) => {
-                    if confirm_good_eligible && matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock) {
-                        telemetry.record_confirm_good_passive_stall(
-                            &target_label,
-                            upstream.written_bytes,
-                            upstream.read_bytes,
-                            true,
-                        );
-                    }
-                    relay_stage.finish("failed", Some(&error), None);
-                    Err(error)
-                }
-            }
-        },
+        result = copy_bidirectional(&mut client, &mut upstream) => result.map(|_| ()),
+        () = idle_watchdog(progress, idle_timeout) => {
+            Err(io::Error::new(io::ErrorKind::TimedOut, RELAY_IDLE_TIMEOUT_MESSAGE))
+        }
+    };
+    RelayTransfer {
+        result,
+        cancelled,
+        upstream_read_bytes: upstream.read_bytes,
+        upstream_written_bytes: upstream.written_bytes,
     }
 }
 
@@ -255,7 +358,7 @@ mod tests {
     #[tokio::test]
     async fn counting_io_tracks_read_and_written_bytes_independently() {
         let (stream, mut peer) = tokio::io::duplex(64);
-        let mut counted = CountingIo::new(stream);
+        let mut counted = CountingIo::tracked(stream, Arc::new(AtomicU64::new(0)));
 
         peer.write_all(b"response").await.expect("write response fixture");
         let mut response = [0_u8; 8];
@@ -266,6 +369,93 @@ mod tests {
 
         assert_eq!(counted.read_bytes, 8);
         assert_eq!(counted.written_bytes, 7);
+    }
+
+    #[tokio::test]
+    async fn with_deadline_returns_timed_out_error_when_the_inner_future_stalls() {
+        let started = Instant::now();
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            with_deadline(std::future::pending::<io::Result<()>>(), Duration::from_millis(50), "dial deadline"),
+        )
+        .await
+        .expect("with_deadline must resolve instead of hanging");
+
+        let error = result.expect_err("a stalled future must surface the deadline");
+        assert_eq!(io::ErrorKind::TimedOut, error.kind());
+        assert!(started.elapsed() < Duration::from_secs(1), "deadline must fire near 50ms");
+    }
+
+    #[tokio::test]
+    async fn with_deadline_returns_inner_value_before_the_deadline() {
+        let result = with_deadline(std::future::ready(Ok(7_u8)), Duration::from_secs(5), "unused").await;
+        assert_eq!(7, result.expect("inner value must pass through"));
+    }
+
+    #[tokio::test]
+    async fn relay_bidirectional_times_out_when_neither_side_sends_bytes() {
+        let (client, _client_peer) = tokio::io::duplex(64);
+        let (upstream, _upstream_peer) = tokio::io::duplex(64);
+        let cancel = CancellationToken::new();
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            relay_bidirectional(client, upstream, Duration::from_millis(50), cancel),
+        )
+        .await
+        .expect("relay idle watchdog did not fire; transfer hung past the outer guard");
+
+        let error = outcome.result.expect_err("a fully silent relay must surface the idle timeout");
+        assert_eq!(io::ErrorKind::TimedOut, error.kind());
+        assert!(!outcome.cancelled);
+    }
+
+    #[tokio::test]
+    async fn relay_bidirectional_survives_while_bytes_keep_flowing() {
+        let (client, mut client_peer) = tokio::io::duplex(64);
+        let (upstream, mut upstream_peer) = tokio::io::duplex(64);
+        let cancel = CancellationToken::new();
+
+        let pump = tokio::spawn(async move {
+            for _ in 0..20 {
+                client_peer.write_all(b"payload").await.expect("write relay payload");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            let mut seen = [0_u8; 140];
+            upstream_peer.read_exact(&mut seen).await.expect("client payload must reach the upstream peer");
+            // Close both peers so the relay observes EOF in both directions.
+            drop(client_peer);
+            drop(upstream_peer);
+        });
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            relay_bidirectional(client, upstream, Duration::from_millis(50), cancel),
+        )
+        .await
+        .expect("transfer must end once both peers close");
+
+        pump.await.expect("pump task");
+        outcome.result.expect("steady traffic must outlive the idle window");
+        assert_eq!(140, outcome.upstream_written_bytes, "every forwarded byte must be counted");
+    }
+
+    #[tokio::test]
+    async fn relay_bidirectional_reports_cancelled_outcome_on_shutdown_token() {
+        let (client, _client_peer) = tokio::io::duplex(64);
+        let (upstream, _upstream_peer) = tokio::io::duplex(64);
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            relay_bidirectional(client, upstream, Duration::from_secs(60), cancel),
+        )
+        .await
+        .expect("cancelled transfer must resolve promptly");
+
+        assert!(outcome.cancelled, "shutdown token must mark the transfer cancelled");
+        outcome.result.expect("graceful cancellation is not an error");
     }
 
     #[test]

@@ -6,7 +6,7 @@ use tracing::Instrument;
 
 use super::RelayRuntime;
 use crate::backend::RelayBackend;
-use crate::socks::{SocksSessionConfig, handle_client};
+use crate::socks::{RelaySessionTimeouts, SocksSessionConfig, handle_client};
 
 pub(super) fn spawn_socks_session(
     runtime: Arc<RelayRuntime>,
@@ -31,6 +31,7 @@ pub(super) fn spawn_socks_session(
                 local_socks_host: session_runtime.config.common.local_socks_host.clone(),
                 backend_kind: session_runtime.config.kind_id().to_string(),
                 confirm_good_eligible: session_runtime.confirm_good_dpi_eligible(),
+                timeouts: RelaySessionTimeouts::production(),
             };
             // `handle_client` owns the shutdown token and honors it at the right
             // boundaries: it abandons pre-reply negotiation by drop, but once a
