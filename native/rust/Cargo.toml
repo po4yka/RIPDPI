@@ -294,6 +294,7 @@ tokio-rustls = { version = "0.26", default-features = false }
 tokio-util = { version = "0.7", default-features = false, features = ["codec"] }
 tokio-stream = "0.1"
 tracing = "0.1"
+zeroize = { version = "1", default-features = false, features = ["alloc"] }
 md5 = "0.8"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }

@@ -29,6 +29,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::hkdf;
 use x25519_dalek::{PublicKey, StaticSecret};
+use zeroize::Zeroizing;
 
 /// Offset of the session_id field inside the raw ClientHello
 /// handshake message (including the 4-byte handshake header).
@@ -61,8 +62,12 @@ pub(crate) fn build_session_id_plaintext(short_id: &[u8], now_secs: u32) -> [u8;
 /// Matches xray-core `reality.go:167`:
 /// `hkdf.New(sha256.New, ECDH(priv, server_pub), Random[:20], "REALITY")`.
 /// IKM = ECDH shared secret, salt = `client_random[..20]`, info =
-/// `b"REALITY"`, OKM length = 32.
-pub(crate) fn derive_auth_key(priv_key: &[u8; 32], server_pub: &[u8; 32], client_random: &[u8; 32]) -> [u8; 32] {
+/// `b"REALITY"`, OKM length = 32. The key is returned zeroized on drop.
+pub(crate) fn derive_auth_key(
+    priv_key: &[u8; 32],
+    server_pub: &[u8; 32],
+    client_random: &[u8; 32],
+) -> Zeroizing<[u8; 32]> {
     let secret = StaticSecret::from(*priv_key);
     let pub_key = PublicKey::from(*server_pub);
     let shared = secret.diffie_hellman(&pub_key);
@@ -71,8 +76,8 @@ pub(crate) fn derive_auth_key(priv_key: &[u8; 32], server_pub: &[u8; 32], client
     let prk = salt.extract(shared.as_bytes());
     let info: [&[u8]; 1] = [b"REALITY"];
     let okm = prk.expand(&info, AuthKeyLen).expect("HKDF expand auth_key (length is known-good)");
-    let mut auth_key = [0u8; 32];
-    okm.fill(&mut auth_key).expect("HKDF fill auth_key (length is known-good)");
+    let mut auth_key = Zeroizing::new([0u8; 32]);
+    okm.fill(auth_key.as_mut()).expect("HKDF fill auth_key (length is known-good)");
     auth_key
 }
 
@@ -119,7 +124,7 @@ pub(crate) fn seal_session_id(
     let mut aad_buf = raw_hello.to_vec();
     aad_buf[SESSION_ID_OFFSET..SESSION_ID_END].fill(0);
 
-    let unbound = UnboundKey::new(&AES_256_GCM, &auth_key)
+    let unbound = UnboundKey::new(&AES_256_GCM, auth_key.as_slice())
         .map_err(|_| io::Error::other("AES-256-GCM key construction failed"))?;
     let key = LessSafeKey::new(unbound);
     let nonce_bytes: [u8; 12] = client_random[20..32].try_into().expect("12-byte nonce slice from 32B random");
@@ -201,7 +206,7 @@ mod tests {
         assert_eq!(sealed.len(), SESSION_ID_LEN);
 
         let auth_key = derive_auth_key(&priv_key, &server_pub, &client_random);
-        let unbound = UnboundKey::new(&AES_256_GCM, &auth_key).unwrap();
+        let unbound = UnboundKey::new(&AES_256_GCM, auth_key.as_slice()).unwrap();
 
         struct Once([u8; 12], bool);
         impl NonceSequence for Once {

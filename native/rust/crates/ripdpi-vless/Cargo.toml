@@ -20,6 +20,7 @@ ripdpi-native-protect = { workspace = true }
 ring = { workspace = true }
 aes = { workspace = true }
 x25519-dalek = { workspace = true }
+zeroize = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-util = { workspace = true, features = ["compat"] }
 yamux = { workspace = true }

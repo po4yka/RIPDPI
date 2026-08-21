@@ -6797,6 +6797,7 @@ dependencies = [
  "tracing-subscriber",
  "x25519-dalek 3.0.0",
  "yamux",
+ "zeroize",
 ]
 
 [[package]]

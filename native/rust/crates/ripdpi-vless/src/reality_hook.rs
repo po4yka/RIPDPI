@@ -37,6 +37,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use zeroize::Zeroizing;
+
 use crate::reality_seal::{SESSION_ID_LEN, SESSION_ID_OFFSET, seal_session_id};
 
 #[repr(C)]
@@ -344,8 +346,9 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
     client_random.copy_from_slice(&msg_slice[6..38]);
 
     // Read the X25519 private key from the patched BoringSSL
-    // accessor. The buffer is a local; the caller owns the lifetime.
-    let mut priv_key = [0u8; 32];
+    // accessor. Zeroizing guarantees the wipe survives optimization;
+    // a plain `fill(0)` on a dead stack local is elidable.
+    let mut priv_key = Zeroizing::new([0u8; 32]);
     // SAFETY: ssl pointer is owned by the caller; out is a 32-byte
     // local buffer.
     let key_ok = unsafe { SSL_handshake_get_x25519_private_key(ssl.cast_const(), priv_key.as_mut_ptr()) };
@@ -367,8 +370,6 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
     let Ok(sealed) = seal_session_id(&priv_key, &state.server_pubkey, &client_random, &state.short_id, msg_slice, now)
     else {
         state.failed.store(true, Ordering::Release);
-        // Best-effort wipe before returning.
-        priv_key.fill(0);
         return 0;
     };
 
@@ -376,7 +377,7 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
     #[cfg(test)]
     if let (Some(trace), Some(raw_hello_before)) = (&state.trace, raw_hello_before) {
         let mut trace = trace.lock().expect("reality hook trace lock");
-        trace.priv_key = priv_key;
+        trace.priv_key = *priv_key;
         trace.client_random = client_random;
         trace.raw_hello_before = raw_hello_before;
         trace.raw_hello_after = msg_slice.to_vec();
@@ -386,9 +387,6 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
     }
 
     state.succeeded.store(true, Ordering::Release);
-
-    // Best-effort wipe of the priv_key local before returning.
-    priv_key.fill(0);
     1
 }
 
@@ -691,7 +689,7 @@ mod tests {
 
     fn open_reality_session_id(trace: &RealityHookTrace, server_pubkey: [u8; 32]) -> [u8; 16] {
         let auth_key = derive_auth_key(&trace.priv_key, &server_pubkey, &trace.client_random);
-        let unbound = UnboundKey::new(&AES_256_GCM, &auth_key).expect("AES-256-GCM key");
+        let unbound = UnboundKey::new(&AES_256_GCM, auth_key.as_slice()).expect("AES-256-GCM key");
         let key = LessSafeKey::new(unbound);
         let nonce_bytes: [u8; 12] = trace.client_random[20..32].try_into().expect("nonce slice");
         let nonce = Nonce::assume_unique_for_key(nonce_bytes);
