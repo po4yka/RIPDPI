@@ -193,13 +193,16 @@ where
 mod tests {
     use std::io;
     use std::net::{Ipv4Addr, SocketAddr};
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
     use tokio_util::sync::CancellationToken;
 
     use super::{PreReplyNegotiation, negotiate_no_auth, negotiate_request};
+    use crate::backend::RelayBackend;
     use crate::socks::target::RelayTargetAddr;
+    use crate::socks::telemetry::{RelaySessionTimeouts, SocksSessionConfig, SocksTelemetry};
 
     #[tokio::test]
     async fn stalled_pre_reply_negotiation_times_out() {
@@ -279,5 +282,55 @@ mod tests {
         let mut reply = [0u8; 2];
         tokio::io::AsyncReadExt::read_exact(&mut client_end, &mut reply).await.expect("read reply");
         assert_eq!(reply, [0x05, 0xFF], "server must reply with 0xFF (NO ACCEPTABLE METHODS)");
+    }
+    #[derive(Default)]
+    struct RecordingTelemetry {
+        targets: Mutex<Vec<String>>,
+    }
+
+    impl SocksTelemetry for RecordingTelemetry {
+        fn next_attempt_id(&self) -> u64 {
+            0
+        }
+
+        fn record_target(&self, target: String) {
+            self.targets.lock().expect("target lock").push(target);
+        }
+
+        fn record_handshake_error(&self, _error: String) {}
+    }
+
+    /// Characterization guard for the user-visible `lastTarget` surface: a
+    /// CONNECT authority is recorded exactly once, before dispatch.
+    #[tokio::test]
+    async fn connect_command_records_the_target_authority_in_telemetry() {
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind test listener");
+        let listener_addr = listener.local_addr().expect("listener addr");
+        let mut client_end = tokio::net::TcpStream::connect(listener_addr).await.expect("connect test client");
+        let (server_end, _) = listener.accept().await.expect("accept test server");
+        client_end
+            .write_all(&[0x05, 0x01, 0x00, 0x05, 0x01, 0x00, 0x01, 203, 0, 113, 5, 0x01, 0xbb])
+            .await
+            .expect("write greeting and CONNECT request");
+
+        let telemetry = RecordingTelemetry::default();
+        let config = SocksSessionConfig {
+            local_socks_host: "127.0.0.1".to_string(),
+            backend_kind: "trojan".to_string(),
+            confirm_good_eligible: false,
+            timeouts: RelaySessionTimeouts::production(),
+        };
+        let backend = Arc::new(RelayBackend::Unsupported { kind: "trojan".to_string() });
+        let cancel = CancellationToken::new();
+
+        // The unsupported backend fails the dial after dispatch; the target
+        // must already be recorded by then.
+        let _ = super::handle_client(server_end, backend, config, &telemetry, cancel).await;
+
+        assert_eq!(
+            vec!["203.0.113.5:443".to_string()],
+            *telemetry.targets.lock().expect("target lock"),
+            "a CONNECT authority must populate the last-target telemetry marker"
+        );
     }
 }

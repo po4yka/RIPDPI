@@ -224,13 +224,11 @@ where
                         continue;
                     }
                 };
-                // XUDP may carry DNS and arbitrary per-datagram destinations.
-                // Keep those endpoints out of the runtime telemetry surface;
-                // the backend kind and aggregate session counters remain enough
-                // to diagnose the transport without exposing user traffic.
-                if config.backend_kind != "vless_reality" {
-                    telemetry.record_target(target.to_string());
-                }
+                // Policy: per-datagram UDP destinations never enter the
+                // runtime telemetry surface, for any backend. Datagram flows
+                // carry DNS lookups and arbitrary endpoints; only aggregate
+                // session counters describe them. The user-visible last-target
+                // marker is reserved for CONNECT authorities (see auth.rs).
                 if let Err(error) = udp_session.send_to(&target, payload).await {
                     if is_xudp {
                         termination_reason = if error.kind() == io::ErrorKind::TimedOut {
@@ -372,6 +370,7 @@ mod tests {
     #[derive(Default)]
     struct FakeSocksTelemetry {
         handshake_errors: Arc<AtomicU64>,
+        targets: std::sync::Mutex<Vec<String>>,
     }
 
     impl SocksTelemetry for FakeSocksTelemetry {
@@ -379,7 +378,9 @@ mod tests {
             0
         }
 
-        fn record_target(&self, _target: String) {}
+        fn record_target(&self, target: String) {
+            self.targets.lock().expect("target lock").push(target);
+        }
 
         fn record_handshake_error(&self, _error: String) {
             self.handshake_errors.fetch_add(1, Ordering::Relaxed);
@@ -612,5 +613,54 @@ mod tests {
         drop(control_peer);
         drop(uplink_tx);
         drop(downlink_tx);
+    }
+    #[tokio::test]
+    async fn udp_pump_never_records_datagram_targets_regardless_of_backend_kind() {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let (sent_tx, _sent_rx) = mpsc::unbounded_channel();
+        let (_downlink_tx, downlink_rx) = mpsc::unbounded_channel();
+        let mut carrier = RecordingUdpCarrier { sent: sent_tx, downlink: tokio::sync::Mutex::new(downlink_rx) };
+        let telemetry = Arc::new(FakeSocksTelemetry::default());
+        let mut config = silent_session_config(Duration::from_secs(300));
+        // A non-VLESS backend must follow the same per-datagram privacy rule as
+        // VLESS XUDP: destinations never enter the runtime telemetry surface.
+        config.backend_kind = "shadowsocks".to_string();
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+        let pump_telemetry = Arc::clone(&telemetry);
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                pump_telemetry.as_ref(),
+                cancel,
+            )
+            .await
+        });
+
+        let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS client socket");
+        let target = RelayTargetAddr::Domain("tracker.example".to_string(), 443);
+        let frame = crate::socks::encode_udp_frame(&target, b"announce").expect("encode frame");
+        client.send_to(&frame, relay_addr).await.expect("send uplink frame");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        assert!(
+            telemetry.targets.lock().expect("target lock").is_empty(),
+            "per-datagram UDP destinations must never reach runtime telemetry"
+        );
+
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("pump must end gracefully");
+        drop(control_peer);
     }
 }
