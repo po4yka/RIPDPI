@@ -2,10 +2,10 @@ use super::super::types::{
     ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile,
 };
 use super::capture::{CaptureTlsHandshakeOptions, capture_tls_handshake};
-use crate::cdn_ech::opportunistic_ech_provider_for_ip;
 use crate::platform_ttl;
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
+use ripdpi_diagnostics_dns::cdn_ech::opportunistic_ech_provider_for_ip;
 use std::time::Instant;
 
 pub(crate) fn open_probe_stream_targets_with_options(

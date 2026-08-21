@@ -4,14 +4,6 @@ pub mod ech_spike;
 pub mod ja3;
 pub mod tls;
 
-pub(crate) mod cdn_ech {
-    pub use ripdpi_diagnostics_dns::cdn_ech::*;
-}
-
-pub(crate) mod dns {
-    pub use ripdpi_diagnostics_dns::dns::*;
-}
-
 pub(crate) mod platform_ttl {
     pub use ripdpi_diagnostics_transport::platform_ttl::*;
 }

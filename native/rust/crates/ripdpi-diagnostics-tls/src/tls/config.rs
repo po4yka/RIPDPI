@@ -8,12 +8,12 @@ use rustls::{ClientConfig, RootCertStore};
 
 use super::key_log::TlsKeyLogCallback;
 use super::types::{ApplicationProtocolPolicy, TlsClientProfile};
-use crate::cdn_ech::opportunistic_ech_config_for_ip;
-use crate::dns::{
+use crate::transport::{TargetAddress, TransportConfig};
+use ripdpi_diagnostics_dns::cdn_ech::{CdnEchConfig, opportunistic_ech_config_for_ip};
+use ripdpi_diagnostics_dns::dns::{
     EchResolutionOutcome, encrypted_dns_endpoint_for_resolver_id,
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
 };
-use crate::transport::{TargetAddress, TransportConfig};
 
 pub(super) const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
 
@@ -110,7 +110,7 @@ pub(super) fn build_ech_client_config(
 
 /// Attempt to find an opportunistic ECH config by checking if the target IP
 /// belongs to a known CDN provider.
-fn resolve_opportunistic_ech(target: &TargetAddress) -> Option<&'static crate::cdn_ech::CdnEchConfig> {
+fn resolve_opportunistic_ech(target: &TargetAddress) -> Option<&'static CdnEchConfig> {
     match target {
         TargetAddress::Ip(ip) => opportunistic_ech_config_for_ip(*ip),
         TargetAddress::Host(_) => None,
