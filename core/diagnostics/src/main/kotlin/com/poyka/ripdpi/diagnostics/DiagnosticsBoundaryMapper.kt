@@ -93,23 +93,21 @@ class DiagnosticsBoundaryMapper
                 capturedAt = entity.capturedAt,
             )
 
-        fun toDiagnosticContextSnapshot(entity: DiagnosticContextEntity): DiagnosticContextSnapshot =
-            DiagnosticContextSnapshot(
+        fun toDiagnosticContextSnapshot(entity: DiagnosticContextEntity): DiagnosticContextSnapshot {
+            val isRawPathSettlement = entity.contextKind == RawPathSettlementContextKind
+            return DiagnosticContextSnapshot(
                 id = entity.id,
                 sessionId = entity.sessionId,
                 connectionSessionId = entity.connectionSessionId,
                 contextKind = entity.contextKind,
-                context = decodeContext(json, entity.payloadJson),
+                context = entity.payloadJson.takeUnless { isRawPathSettlement }?.let { decodeContext(json, it) },
                 rawPathExecutionResult =
-                    entity
-                        .takeIf { it.contextKind == RawPathSettlementContextKind }
-                        ?.let {
-                            runCatching {
-                                json.decodeFromString(RawPathExecutionResult.serializer(), entity.payloadJson)
-                            }.getOrNull()
-                        },
+                    entity.payloadJson
+                        .takeIf { isRawPathSettlement }
+                        ?.let { decodeRawPathExecutionResult(json, it) },
                 capturedAt = entity.capturedAt,
             )
+        }
 
         fun toDiagnosticTelemetrySample(entity: TelemetrySampleEntity): DiagnosticTelemetrySample =
             DiagnosticTelemetrySample(
@@ -300,6 +298,11 @@ private fun decodeContext(
     json: Json,
     payload: String?,
 ): DiagnosticContextModel? = decodeOrNull(json, DiagnosticContextModel.serializer(), payload)
+
+private fun decodeRawPathExecutionResult(
+    json: Json,
+    payload: String?,
+): RawPathExecutionResult? = decodeOrNull(json, RawPathExecutionResult.serializer(), payload)
 
 private fun decodeNetworkSnapshot(
     json: Json,
