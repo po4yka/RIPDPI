@@ -3,20 +3,20 @@ use std::io;
 use std::net::SocketAddr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum RelayTargetAddr {
+pub(crate) enum RelayTargetAddr {
     Ip(SocketAddr),
     Domain(String, u16),
 }
 
 impl RelayTargetAddr {
-    pub fn to_connect_target(&self) -> String {
+    pub(crate) fn to_connect_target(&self) -> String {
         match self {
             Self::Ip(addr) => addr.to_string(),
             Self::Domain(host, port) => format!("{host}:{port}"),
         }
     }
 
-    pub fn from_authority(authority: &str) -> io::Result<Self> {
+    pub(crate) fn from_authority(authority: &str) -> io::Result<Self> {
         if let Ok(addr) = authority.parse::<SocketAddr>() {
             return Ok(Self::Ip(addr));
         }
