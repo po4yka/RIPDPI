@@ -51,7 +51,7 @@ internal fun RawPathExecutionResult.evaluateForHomeContinuation(): RawPathHomeSe
                 RawPathHomeSettlementEvaluation(RawPathHomeSettlementDisposition.INCONCLUSIVE, reason)
             } ?: RawPathHomeSettlementEvaluation(
                 RawPathHomeSettlementDisposition.USABLE,
-                "post_runtime_running",
+                if (settlement.resumeRequired) "post_runtime_running" else "restore_not_required",
             )
         }
     }
@@ -70,7 +70,8 @@ private fun com.poyka.ripdpi.data.RawPathExecutionSettlement.inconclusiveReason(
             "required_resume_not_restored"
         }
 
-        postRuntimeContext.status != RawPathRuntimeStatus.Running || postRuntimeContext.mode == null -> {
+        resumeRequired &&
+            (postRuntimeContext.status != RawPathRuntimeStatus.Running || postRuntimeContext.mode == null) -> {
             "post_runtime_not_usable"
         }
 

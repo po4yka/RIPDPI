@@ -4,7 +4,12 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
+import com.poyka.ripdpi.data.RawPathExecutionOutcome
 import com.poyka.ripdpi.data.RawPathExecutionResult
+import com.poyka.ripdpi.data.RawPathExecutionSettlement
+import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
+import com.poyka.ripdpi.data.RawPathRuntimeContext
+import com.poyka.ripdpi.data.RawPathRuntimeStatus
 import com.poyka.ripdpi.data.VpnRouteAppRoutingShape
 import com.poyka.ripdpi.data.VpnRouteCallbackState
 import com.poyka.ripdpi.data.VpnRouteConsistency
@@ -301,6 +306,37 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
         }
 
     @Test
+    fun `halted runtime preserves a completed raw path audit`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = EdgeCaseDiagnosticsTimelineSource()
+            val service =
+                createHomeCompositeRunService(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    scanController =
+                        scanControllerWithAuditReport(
+                            stores,
+                            timelineSource,
+                            dnsTamperingAuditReport().encodeScanReport(),
+                            completedRawPathResultForHaltedRuntime(),
+                        ),
+                    workflowService = dnsIssueWorkflowService(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startHomeAnalysis()
+            advanceUntilIdle()
+            val outcome = service.finalizeHomeRun(started.runId)
+
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                outcome.stageSummaries.single { it.profileId == "automatic-audit" }.status,
+            )
+        }
+
+    @Test
     fun `audit failure skips remaining stages`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -387,6 +423,7 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
         stores: FakeDiagnosticsHistoryStores,
         timelineSource: EdgeCaseDiagnosticsTimelineSource,
         auditReportJson: String,
+        rawPathExecutionResult: RawPathExecutionResult = completedRawPathExecutionResult(),
     ): EdgeCaseHomeCompositeScanController =
         EdgeCaseHomeCompositeScanController(
             onStart = { _, profileId, sessionId ->
@@ -401,8 +438,26 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
                 stores.sessionsState.value = stores.sessionsState.value + session
                 timelineSource.sessions.value =
                     timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, "completed")
-                publishRawPathSettlement(stores, timelineSource, sessionId)
+                publishRawPathSettlement(stores, timelineSource, sessionId, rawPathExecutionResult)
             },
+        )
+
+    private fun completedRawPathResultForHaltedRuntime(): RawPathExecutionResult =
+        RawPathExecutionResult(
+            settlement =
+                RawPathExecutionSettlement(
+                    rawWindowGeneration = 1L,
+                    resumeIntentGeneration = 0L,
+                    outcome = RawPathExecutionSettlementOutcome.RestoreNotRequired,
+                    runtimeWasRunning = false,
+                    resumeRequired = false,
+                    postRuntimeContext =
+                        RawPathRuntimeContext(
+                            status = RawPathRuntimeStatus.Halted,
+                            mode = Mode.Proxy,
+                        ),
+                ),
+            executionOutcome = RawPathExecutionOutcome.Completed,
         )
 
     private fun auditFailureWorkflowService(): DiagnosticsHomeWorkflowService =
