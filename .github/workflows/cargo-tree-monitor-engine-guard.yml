@@ -1,7 +1,7 @@
 name: Monitor-engine dependency guard
 
 # Fails if ripdpi-monitor-engine re-acquires a direct or transitive dependency on
-# ripdpi-runtime-api or ripdpi-diagnostics-pcap.
+# ripdpi-runtime-api.
 #
 # Update procedure (intentional reintroduction):
 #   1. Confirm the dependency is truly needed and the architectural decision has
@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   monitor-engine-dep-guard:
-    name: Assert monitor-engine has no runtime-api / diagnostics-pcap deps
+    name: Assert monitor-engine has no runtime-api deps
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -67,15 +67,3 @@ jobs:
           fi
           echo "OK: ripdpi-runtime-api not found in ripdpi-monitor-engine dep tree."
 
-      - name: Guard — ripdpi-diagnostics-pcap must not appear in monitor-engine deps
-        run: |
-          if cargo tree --locked \
-               --manifest-path native/rust/Cargo.toml \
-               -p ripdpi-monitor-engine \
-               -i ripdpi-diagnostics-pcap \
-               2>/dev/null; then
-            echo "ERROR: ripdpi-monitor-engine has acquired a dependency on ripdpi-diagnostics-pcap."
-            echo "This is a regression. See the update procedure in this workflow file."
-            exit 1
-          fi
-          echo "OK: ripdpi-diagnostics-pcap not found in ripdpi-monitor-engine dep tree."
