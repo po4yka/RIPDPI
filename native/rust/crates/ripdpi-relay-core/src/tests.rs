@@ -37,7 +37,7 @@ use crate::runtime_validation::{
 use crate::socks::RelayTargetAddr;
 use backend_fixture_tests::relay_backend_kind_id;
 
-fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
+pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
     let common = CommonRelayConfig {
         enabled: true,
         profile_id: "default".to_string(),
