@@ -58,11 +58,11 @@ pub trait XtlsDirectWrite: AsyncWrite + Unpin {
     fn poll_shutdown_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
 }
 
-/// Vision command bytes (xray-core `proxy/proxy.go` const block). `End` (0x01)
-/// is a valid terminal command the reader handles generically, but the client
-/// never sends it — it always splices via `Direct` — so it has no named
-/// constant here.
+/// Vision command bytes (xray-core `proxy/proxy.go` const block).
 const CMD_CONTINUE: u8 = 0x00;
+/// Terminal command that stops padding without removing the TLS layer —
+/// the transition xray uses when the connection is not splice-eligible.
+const CMD_END: u8 = 0x01;
 const CMD_DIRECT: u8 = 0x02;
 
 /// TLS record content types used to find the handshake -> application-data
@@ -349,8 +349,7 @@ impl<S: AsyncWrite + Unpin> VisionStream<S> {
 }
 
 /// Encode a single Vision padding chunk into `out`. Pure (the padding length is
-/// supplied) so the wire format is golden-testable. `End` is unused by the
-/// client (which always splices via `Direct`) but kept for completeness.
+/// supplied) so the wire format is golden-testable.
 fn encode_padding_chunk(out: &mut Vec<u8>, uuid: Option<&[u8; 16]>, cmd: u8, content: &[u8], padding: u16) {
     debug_assert!(content.len() <= usize::from(u16::MAX));
     if let Some(uuid) = uuid {
@@ -368,6 +367,10 @@ impl<S: XtlsDirectRead> AsyncRead for VisionStream<S> {
         let this = self.get_mut();
         if !this.vision {
             return Pin::new(&mut this.inner).poll_read(cx, read_buf);
+        }
+        if read_buf.remaining() == 0 && !this.r_out.is_empty() {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
         }
         loop {
             if !this.r_out.is_empty() {
@@ -429,13 +432,13 @@ impl<S: XtlsDirectWrite> AsyncWrite for VisionStream<S> {
 
         this.w_chunks += 1;
         let reached_appdata = this.note_records(buf);
-        let stop =
-            this.allow_direct && (reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT));
-        let cmd = if stop { CMD_DIRECT } else { CMD_CONTINUE };
+        let stop = reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT);
+        let final_cmd = if this.allow_direct { CMD_DIRECT } else { CMD_END };
+        let cmd = if stop { final_cmd } else { CMD_CONTINUE };
         this.encode_outgoing(buf, cmd);
         if stop {
             this.w_padding = false;
-            this.w_direct = true;
+            this.w_direct = this.allow_direct;
         }
 
         // Best-effort flush; remaining bytes stay buffered for the next poll.
@@ -666,7 +669,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn tls_only_vision_never_writes_non_tls_payload_directly() {
+    async fn tls_only_vision_ends_padding_but_never_bypasses_outer_tls() {
         let mut writer =
             VisionStream::new_vision_tls_only(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
 
@@ -676,9 +679,16 @@ mod tests {
         writer.flush().await.expect("flush outer TLS transport");
 
         assert!(writer.inner.direct.is_empty(), "XUDP payload must never bypass Reality TLS");
+        // Past NON_TLS_CHUNK_LIMIT the client sends the End command and stops
+        // framing writes: the fifth payload lands raw at the stream tail.
+        let end_command = 0x01;
         assert!(
-            writer.inner.outer_tls.windows(b"xudp-secret-five".len()).any(|window| window == b"xudp-secret-five"),
-            "the fifth payload must remain on the outer TLS write path"
+            writer.inner.outer_tls[..writer.inner.outer_tls.len() - 5].contains(&end_command),
+            "an End-command chunk must precede the raw tail"
+        );
+        assert!(
+            writer.inner.outer_tls.ends_with(b"xudp-secret-five"),
+            "post-End payloads must be written without Vision framing"
         );
     }
 
