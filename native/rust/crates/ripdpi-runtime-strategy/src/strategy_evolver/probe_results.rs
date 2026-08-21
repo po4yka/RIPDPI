@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::StrategyEvolver;
 use super::selection::combo_matches_bucket;
-use super::types::{ComboStats, LearningContext, StrategyCombo, combo_fitness_at};
+use super::types::{ComboStats, LearningContext, StrategyCombo, combo_fitness_at, now_millis};
 
 pub const PROBE_OBSERVATION_WEIGHT: u32 = 3;
 
@@ -110,23 +110,35 @@ impl StrategyEvolver {
         let path = path.as_ref();
         let mut document = read_prior_document(path)?;
         document.insert("local_priors".to_owned(), serde_json::to_value(records)?);
+        // Wall-clock stamp for the whole batch: `last_attempt_ms` values are
+        // evolver-epoch-relative and die with the process, so the loader
+        // needs an absolute reference to reconstruct their age.
+        document.insert("local_priors_saved_at_unix_ms".to_owned(), serde_json::to_value(now_millis())?);
         fs::write(path, serde_json::to_vec_pretty(&serde_json::Value::Object(document))?)?;
         Ok(())
     }
 
+    /// Load locally persisted priors. The document's
+    /// `local_priors_saved_at_unix_ms` stamp (written by
+    /// [`Self::save_local_priors`]) is converted into a wall-clock age that
+    /// is baked into the counters via [`ComboStats::apply_decay`]; records
+    /// are then anchored at the new evolver epoch. Documents without the
+    /// stamp keep the pre-stamp behaviour of trusting the stored counters.
     pub fn load_local_priors(&mut self, path: impl AsRef<Path>) -> Result<usize, ProbeResultsError> {
         let bytes = fs::read(path)?;
         let document = serde_json::from_slice::<serde_json::Value>(&bytes)?;
         let records = serde_json::from_value::<Vec<LocalPriorRecord>>(
             document.get("local_priors").cloned().unwrap_or_else(|| serde_json::Value::Array(Vec::new())),
         )?;
+        let saved_at_unix_ms = document.get("local_priors_saved_at_unix_ms").and_then(serde_json::Value::as_u64);
+        let age_ms = stored_age_ms(saved_at_unix_ms);
         let context = self.current_learning_context.clone();
         let mut loaded = 0usize;
         for record in records {
             let Some(combo) = probe_combo_for_strategy_id(&record.strategy_id) else {
                 continue;
             };
-            let stats = stats_from_local_prior(&record);
+            let stats = stats_from_local_prior_with_age(&record, age_ms);
             self.combos.insert(combo.clone(), stats.clone());
             self.seed_context_prior(&context, &combo, stats);
             loaded += 1;
@@ -259,6 +271,25 @@ fn stats_from_local_prior(record: &LocalPriorRecord) -> ComboStats {
         last_attempt_ms: record.last_attempt_ms,
         ..ComboStats::new()
     }
+}
+
+/// Wall-clock age of a saved priors batch. `None` (legacy documents without
+/// a stamp) yields zero age, preserving the pre-stamp behaviour.
+fn stored_age_ms(saved_at_unix_ms: Option<u64>) -> u64 {
+    saved_at_unix_ms.map_or(0, |saved_at| now_millis().saturating_sub(saved_at))
+}
+
+fn stats_from_local_prior_with_age(record: &LocalPriorRecord, age_ms: u64) -> ComboStats {
+    let mut stats = stats_from_local_prior(record);
+    // Bake the stored age into the counters so decay reflects reality even
+    // though the new evolver's monotonic clock restarts at zero and cannot
+    // represent ages larger than its own uptime.
+    stats.apply_decay(age_ms);
+    // The age is now encoded in the decayed counters; anchoring at the new
+    // epoch start prevents double-decay from a meaningless cross-session
+    // timestamp while letting idle decay continue forward from load time.
+    stats.last_attempt_ms = 0;
+    stats
 }
 
 fn strategy_id_for_probe_combo(combo: &StrategyCombo) -> Option<&'static str> {
