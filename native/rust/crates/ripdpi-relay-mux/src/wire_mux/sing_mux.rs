@@ -122,6 +122,19 @@ pub enum SingMuxCodecError {
         /// Configured maximum data length.
         max: u16,
     },
+    /// A frame's payload plus pad block does not fit the protocol's 16-bit
+    /// on-wire `data` length. The encoder refuses to truncate silently:
+    /// writing a wrapped length would desynchronize the entire session.
+    #[error(
+        "sing-mux frame payload of {data_len} bytes plus {pad_block_len} pad-block bytes exceeds the u16 on-wire data length"
+    )]
+    DataTooLargeForWire {
+        /// Frame payload length in bytes.
+        data_len: usize,
+        /// Pad block overhead (2-byte pad-length field plus pad bytes)
+        /// included in the on-wire data block, if any.
+        pad_block_len: usize,
+    },
     /// A `KeepAlive` frame carried non-empty `data`, which is a protocol
     /// violation.
     #[error("sing-mux KeepAlive frame must carry empty data, got {0} bytes")]
@@ -183,7 +196,13 @@ impl SingMuxFrame {
     /// a v2 decoder strips it deterministically -- never by guessing. `Close`
     /// / `KeepAlive` frames and v1 (`Disabled`) sessions emit the payload
     /// verbatim with no pad block.
-    pub fn encode(&self, out: &mut Vec<u8>, padding: PaddingMode) {
+    ///
+    /// Errors with [`SingMuxCodecError::DataTooLargeForWire`] when the
+    /// payload plus pad block does not fit the protocol's 16-bit on-wire
+    /// data length; callers must split oversized payloads into smaller
+    /// frames. A lossy cast here would silently corrupt the length field
+    /// and desynchronize the whole session.
+    pub fn encode(&self, out: &mut Vec<u8>, padding: PaddingMode) -> Result<(), SingMuxCodecError> {
         let pad_len = match self.command {
             Command::New | Command::Data => padding.pad_len(),
             Command::Close | Command::KeepAlive => 0,
@@ -192,23 +211,30 @@ impl SingMuxFrame {
         // every other case has no pad block at all.
         let has_pad_block =
             matches!(padding, PaddingMode::Enabled { .. }) && matches!(self.command, Command::New | Command::Data);
-        let on_wire_data_len = self.data.len() + if has_pad_block { 2 + pad_len as usize } else { 0 };
-        out.reserve(FRAME_PREFIX_LEN + on_wire_data_len);
+        let pad_block_len = if has_pad_block { 2 + pad_len as usize } else { 0 };
+        let Ok(on_wire_data_len) = u16::try_from(self.data.len() + pad_block_len) else {
+            return Err(SingMuxCodecError::DataTooLargeForWire { data_len: self.data.len(), pad_block_len });
+        };
+        out.reserve(FRAME_PREFIX_LEN + on_wire_data_len as usize);
         out.extend_from_slice(&self.stream_id.to_be_bytes());
         out.push(self.command.to_wire());
-        out.extend_from_slice(&(on_wire_data_len as u16).to_be_bytes());
+        out.extend_from_slice(&on_wire_data_len.to_be_bytes());
         if has_pad_block {
             out.extend_from_slice(&pad_len.to_be_bytes());
             out.extend(std::iter::repeat_n(0u8, pad_len as usize));
         }
         out.extend_from_slice(&self.data);
+        Ok(())
     }
 
     /// Serialize the frame to a fresh `Vec` with no padding (v1 wire form).
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(FRAME_PREFIX_LEN + self.data.len());
-        self.encode(&mut out, PaddingMode::Disabled);
-        out
+    ///
+    /// Errors with [`SingMuxCodecError::DataTooLargeForWire`] when the
+    /// payload does not fit the 16-bit on-wire data length.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, SingMuxCodecError> {
+        let mut out = Vec::with_capacity(FRAME_PREFIX_LEN.saturating_add(self.data.len()));
+        self.encode(&mut out, PaddingMode::Disabled)?;
+        Ok(out)
     }
 }
 
@@ -398,7 +424,7 @@ mod tests {
     fn frame_encodes_to_documented_prefix_layout() {
         // New frame on stream 1 carrying "abc" -> 4-byte id, cmd, u16 len, data.
         let frame = SingMuxFrame::new_stream(1, b"abc".to_vec());
-        let bytes = frame.to_bytes();
+        let bytes = frame.to_bytes().expect("encodable frame");
         assert_eq!(u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]), 1);
         assert_eq!(bytes[4], Command::New.to_wire());
         assert_eq!(u16::from_be_bytes([bytes[5], bytes[6]]), 3);
@@ -409,7 +435,7 @@ mod tests {
     fn data_frame_round_trips_through_decoder() {
         let frame = SingMuxFrame::data(42, b"the quick brown fox".to_vec());
         let mut decoder = SingMuxDecoder::without_version_prefix(false);
-        decoder.extend(&frame.to_bytes());
+        decoder.extend(&frame.to_bytes().expect("encodable frame"));
         let decoded = decoder.next_frame().expect("decode ok").expect("one frame");
         assert_eq!(decoded, frame);
         assert!(decoder.is_empty());
@@ -419,7 +445,7 @@ mod tests {
     fn new_frame_round_trips_request_bytes() {
         let frame = SingMuxFrame::new_stream(3, b"example.com:443".to_vec());
         let mut decoder = SingMuxDecoder::without_version_prefix(false);
-        decoder.extend(&frame.to_bytes());
+        decoder.extend(&frame.to_bytes().expect("encodable frame"));
         let decoded = decoder.next_frame().expect("decode ok").expect("frame");
         assert_eq!(decoded.command, Command::New);
         assert_eq!(decoded.data, b"example.com:443");
@@ -434,8 +460,8 @@ mod tests {
         assert_eq!(keepalive.stream_id, 0);
 
         let mut decoder = SingMuxDecoder::without_version_prefix(false);
-        decoder.extend(&close.to_bytes());
-        decoder.extend(&keepalive.to_bytes());
+        decoder.extend(&close.to_bytes().expect("encodable frame"));
+        decoder.extend(&keepalive.to_bytes().expect("encodable frame"));
         assert_eq!(decoder.next_frame().expect("ok").expect("close"), close);
         assert_eq!(decoder.next_frame().expect("ok").expect("keepalive"), keepalive);
     }
@@ -443,7 +469,7 @@ mod tests {
     #[test]
     fn decoder_consumes_leading_version_byte() {
         let mut wire = vec![session_version_prefix(PaddingMode::Disabled)];
-        SingMuxFrame::data(1, b"hello".to_vec()).encode(&mut wire, PaddingMode::Disabled);
+        SingMuxFrame::data(1, b"hello".to_vec()).encode(&mut wire, PaddingMode::Disabled).expect("encodable frame");
 
         let mut decoder = SingMuxDecoder::new();
         decoder.extend(&wire);
@@ -468,7 +494,7 @@ mod tests {
         ];
         let mut wire = vec![session_version_prefix(PaddingMode::Disabled)];
         for frame in &frames {
-            frame.encode(&mut wire, PaddingMode::Disabled);
+            frame.encode(&mut wire, PaddingMode::Disabled).expect("encodable frame");
         }
         let mut decoder = SingMuxDecoder::new();
         decoder.extend(&wire);
@@ -481,7 +507,7 @@ mod tests {
     #[test]
     fn partial_frame_is_buffered_until_complete() {
         let frame = SingMuxFrame::data(5, b"deferred payload".to_vec());
-        let bytes = frame.to_bytes();
+        let bytes = frame.to_bytes().expect("encodable frame");
         let split = bytes.len() / 2;
         let mut decoder = SingMuxDecoder::without_version_prefix(false);
 
@@ -495,7 +521,7 @@ mod tests {
     #[test]
     fn byte_at_a_time_feed_still_decodes() {
         let frame = SingMuxFrame::data(7, b"streamed one byte at a time".to_vec());
-        let bytes = frame.to_bytes();
+        let bytes = frame.to_bytes().expect("encodable frame");
         let mut decoder = SingMuxDecoder::without_version_prefix(false);
         let mut result = None;
         for byte in &bytes {
@@ -539,7 +565,7 @@ mod tests {
         // *knows* the session is v2 -- it is not a guess.
         let frame = SingMuxFrame::data(1, b"real-payload".to_vec());
         let mut wire = Vec::new();
-        frame.encode(&mut wire, PaddingMode::Enabled { max: 64 });
+        frame.encode(&mut wire, PaddingMode::Enabled { max: 64 }).expect("encodable frame");
         assert!(wire.len() > FRAME_PREFIX_LEN + b"real-payload".len(), "padding should grow the frame");
 
         let mut decoder = SingMuxDecoder::without_version_prefix(true);
@@ -555,7 +581,7 @@ mod tests {
         // pad block. A v1-encoded frame round-trips byte-exact.
         let frame = SingMuxFrame::data(1, vec![0x00, 0x03, 0, 0, 0, b'h', b'i']);
         let mut decoder = SingMuxDecoder::without_version_prefix(false);
-        decoder.extend(&frame.to_bytes());
+        decoder.extend(&frame.to_bytes().expect("encodable frame"));
         let decoded = decoder.next_frame().expect("decode ok").expect("frame");
         assert_eq!(decoded, frame, "v1 session must not strip anything");
     }
@@ -564,7 +590,7 @@ mod tests {
     fn v2_padded_new_frame_round_trips() {
         let frame = SingMuxFrame::new_stream(2, b"host:443".to_vec());
         let mut wire = vec![session_version_prefix(PaddingMode::Enabled { max: 32 })];
-        frame.encode(&mut wire, PaddingMode::Enabled { max: 32 });
+        frame.encode(&mut wire, PaddingMode::Enabled { max: 32 }).expect("encodable frame");
         // `new()` consumes the v2 version byte and switches the decoder into
         // padded-session mode on its own.
         let mut decoder = SingMuxDecoder::new();
@@ -581,7 +607,7 @@ mod tests {
         // decoder must skip exactly those 2 bytes and recover the payload.
         let frame = SingMuxFrame::data(4, b"zero-pad".to_vec());
         let mut wire = Vec::new();
-        frame.encode(&mut wire, PaddingMode::Enabled { max: 0 });
+        frame.encode(&mut wire, PaddingMode::Enabled { max: 0 }).expect("encodable frame");
         assert_eq!(wire.len(), FRAME_PREFIX_LEN + 2 + b"zero-pad".len(), "2-byte pad-length field, no pad bytes");
         let mut decoder = SingMuxDecoder::without_version_prefix(true);
         decoder.extend(&wire);
@@ -622,5 +648,52 @@ mod tests {
         assert_eq!(frame.stream_id, 1);
         assert_eq!(frame.command, Command::New);
         assert_eq!(frame.data, b"abc");
+    }
+
+    /// Regression test for the encoder's lossy `as u16` cast: a payload whose
+    /// on-wire data length does not fit 16 bits used to be written with a
+    /// silently wrapped length field (70000 bytes declared as 4464),
+    /// desynchronizing the whole session. The encoder must refuse instead.
+    #[test]
+    fn oversized_payload_is_rejected_not_truncated() {
+        let frame = SingMuxFrame::data(1, vec![0_u8; u16::MAX as usize + 1]);
+        assert_eq!(
+            frame.to_bytes(),
+            Err(SingMuxCodecError::DataTooLargeForWire { data_len: u16::MAX as usize + 1, pad_block_len: 0 })
+        );
+    }
+
+    #[test]
+    fn oversized_payload_with_pad_block_is_rejected_accounting_for_padding() {
+        // The payload alone would fit (65534 <= 65535), but the v2 pad-length
+        // field pushes the on-wire data block to 65536: still too large.
+        let frame = SingMuxFrame::data(1, vec![0_u8; u16::MAX as usize - 1]);
+        let mut out = Vec::new();
+        assert_eq!(
+            frame.encode(&mut out, PaddingMode::Enabled { max: 0 }),
+            Err(SingMuxCodecError::DataTooLargeForWire { data_len: u16::MAX as usize - 1, pad_block_len: 2 })
+        );
+        assert!(out.is_empty(), "a rejected frame must not leave partial bytes in the output");
+    }
+
+    #[test]
+    fn boundary_payloads_fit_exactly() {
+        // v1: the payload itself may use the full 16-bit range.
+        let frame = SingMuxFrame::data(1, vec![0_u8; u16::MAX as usize]);
+        let bytes = frame.to_bytes().expect("exact v1 fit");
+        assert_eq!(u16::from_be_bytes([bytes[5], bytes[6]]), u16::MAX);
+        assert_eq!(bytes.len(), FRAME_PREFIX_LEN + u16::MAX as usize);
+
+        // v2 with a pad block: payload + 2-byte pad-length field must fit.
+        let frame = SingMuxFrame::data(1, vec![0_u8; u16::MAX as usize - 2]);
+        let mut wire = Vec::new();
+        frame.encode(&mut wire, PaddingMode::Enabled { max: 0 }).expect("exact v2 fit");
+        assert_eq!(u16::from_be_bytes([wire[5], wire[6]]), u16::MAX);
+
+        // The exact-fit frames must decode back intact.
+        let mut decoder = SingMuxDecoder::without_version_prefix(true);
+        decoder.extend(&wire);
+        let decoded = decoder.next_frame().expect("decode ok").expect("frame");
+        assert_eq!(decoded.data.len(), u16::MAX as usize - 2);
     }
 }

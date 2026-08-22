@@ -76,8 +76,11 @@ mod tests {
             let id = allocator.allocate().expect("id space large enough for 100 flows");
             stream_ids.push(id);
             SingMuxFrame::new_stream(id, format!("flow-{flow}.example:443").into_bytes())
-                .encode(&mut wire, PaddingMode::Disabled);
-            SingMuxFrame::data(id, format!("payload-{flow}").into_bytes()).encode(&mut wire, PaddingMode::Disabled);
+                .encode(&mut wire, PaddingMode::Disabled)
+                .expect("encodable frame");
+            SingMuxFrame::data(id, format!("payload-{flow}").into_bytes())
+                .encode(&mut wire, PaddingMode::Disabled)
+                .expect("encodable frame");
         }
 
         // Decode every frame back through ONE decoder and route it to a
