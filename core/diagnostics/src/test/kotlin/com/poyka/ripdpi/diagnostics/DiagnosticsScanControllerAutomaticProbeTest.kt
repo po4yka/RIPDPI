@@ -54,8 +54,10 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                 )
             val event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent()
 
-            assertFalse(services.scanController.launchAutomaticProbe(settings, event))
-            assertFalse(services.scanController.launchAutomaticProbe(settings, event))
+            val firstLaunch = services.scanController.launchAutomaticProbe(settings, event)
+            assertEquals(AutomaticProbeLaunchOutcome.LAUNCHED, firstLaunch)
+            val retryWhileRunning = services.scanController.launchAutomaticProbe(settings, event)
+            assertEquals(AutomaticProbeLaunchOutcome.RETRY, retryWhileRunning)
 
             assertEquals(1, stores.sessionsState.value.size)
 
@@ -66,7 +68,8 @@ class DiagnosticsScanControllerAutomaticProbeTest {
             completeHiddenScan(bridgeFactory, sessionId, settings)
             advanceUntilIdle()
 
-            assertTrue(services.scanController.launchAutomaticProbe(settings, event))
+            val replaySettled = services.scanController.launchAutomaticProbe(settings, event)
+            assertEquals(AutomaticProbeLaunchOutcome.SETTLED, replaySettled)
             assertEquals(1, stores.sessionsState.value.size)
         }
 
@@ -115,7 +118,8 @@ class DiagnosticsScanControllerAutomaticProbeTest {
             }
         val replayServices = automaticProbeServices(settings, stores, replayBridgeFactory)
 
-        assertTrue(replayServices.scanController.launchAutomaticProbe(settings, event))
+        val replaySettled = replayServices.scanController.launchAutomaticProbe(settings, event)
+        assertEquals(AutomaticProbeLaunchOutcome.SETTLED, replaySettled)
         assertEquals(1, stores.sessionsState.value.size)
         assertFalse(replayServices.scanController.hiddenAutomaticProbeActive.value)
     }
@@ -212,7 +216,7 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                     json = json,
                 )
 
-            val launched =
+            val outcome =
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event =
@@ -227,7 +231,7 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                             occurredAt = 10L,
                         ),
                 )
-            assertFalse(launched)
+            assertEquals(AutomaticProbeLaunchOutcome.LAUNCHED, outcome)
             val launchedSession = stores.sessionsState.value.single()
             val sessionId = launchedSession.id
             bridgeFactory.bridge.enqueueProgress(
@@ -283,7 +287,7 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                     json = json,
                 )
 
-            val acknowledged =
+            val settled =
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event =
@@ -292,7 +296,7 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                             .copy(currentFingerprintHash = "stale-network"),
                 )
 
-            assertTrue(acknowledged)
+            assertEquals(AutomaticProbeLaunchOutcome.SETTLED, settled)
             assertTrue(stores.sessionsState.value.isEmpty())
             assertNull(bridgeFactory.bridge.startedRequestJson)
         }
@@ -322,13 +326,13 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                     json = json,
                 )
 
-            val acknowledged =
+            val settled =
                 services.scanController.launchAutomaticProbe(
                     settings,
                     automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
                 )
 
-            assertFalse(acknowledged)
+            assertEquals(AutomaticProbeLaunchOutcome.RETRY, settled)
             assertTrue(stores.sessionsState.value.isEmpty())
             assertNull(bridgeFactory.bridge.startedRequestJson)
         }
@@ -359,13 +363,13 @@ class DiagnosticsScanControllerAutomaticProbeTest {
                     json = json,
                 )
 
-            val acknowledged =
+            val settled =
                 services.scanController.launchAutomaticProbe(
                     settings,
                     automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
                 )
 
-            assertTrue(acknowledged)
+            assertEquals(AutomaticProbeLaunchOutcome.SETTLED, settled)
             assertTrue(stores.sessionsState.value.isEmpty())
             assertNull(bridgeFactory.bridge.startedRequestJson)
         }

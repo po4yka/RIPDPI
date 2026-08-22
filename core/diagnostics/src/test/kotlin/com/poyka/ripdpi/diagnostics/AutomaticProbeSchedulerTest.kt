@@ -20,6 +20,47 @@ import javax.inject.Provider
 @OptIn(ExperimentalCoroutinesApi::class)
 class AutomaticProbeSchedulerTest {
     @Test
+    fun `scheduler records cooldown when a probe launches so sibling deliveries stay suppressed`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    telemetrySamples =
+                        listOf(
+                            telemetrySample(
+                                createdAt = now - 500L,
+                                failureClass = "dns_tampering",
+                            ),
+                        ),
+                    now = now,
+                    launchOutcome = AutomaticProbeLaunchOutcome.LAUNCHED,
+                    activeProbeSafetyPolicy =
+                        ActiveProbeSafetyPolicy(
+                            automaticHandoverProbeDelayMs = 100L,
+                            automaticHandoverProbeCooldownMs = Long.MAX_VALUE,
+                        ),
+                )
+
+            env.scheduler.schedule(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            // A new delivery for the same fingerprint must not launch while the
+            // freshly started probe owns the cooldown.
+            env.scheduler.schedule(handoverEvent(classification = "link_refresh"))
+            advanceTimeBy(300L)
+            runCurrent()
+
+            assertEquals(
+                listOf("delivery-transport_switch"),
+                env.launcher.events
+                    .map { it.deliveryId }
+                    .distinct(),
+            )
+            assertTrue(env.handoverStore.acknowledged.isEmpty())
+        }
+
+    @Test
     fun `scheduler launches eligible transport switch probe after configured delay`() =
         runTest {
             val now = System.currentTimeMillis()
@@ -463,7 +504,7 @@ class AutomaticProbeSchedulerTest {
                             ),
                         ),
                     now = now,
-                    launchResult = false,
+                    launchOutcome = AutomaticProbeLaunchOutcome.RETRY,
                 )
 
             env.scheduler.schedule(handoverEvent())
@@ -488,7 +529,7 @@ class AutomaticProbeSchedulerTest {
                             ),
                         ),
                     now = now,
-                    launchResult = false,
+                    launchOutcome = AutomaticProbeLaunchOutcome.RETRY,
                 )
             val event = handoverEvent()
 
@@ -498,7 +539,7 @@ class AutomaticProbeSchedulerTest {
             assertEquals(listOf(event), env.launcher.events)
             assertTrue(env.handoverStore.acknowledged.isEmpty())
 
-            env.launcher.launchResult = true
+            env.launcher.launchOutcome = AutomaticProbeLaunchOutcome.SETTLED
             advanceTimeBy(100L)
             runCurrent()
 
@@ -540,7 +581,7 @@ class AutomaticProbeSchedulerTest {
                     telemetrySamples =
                         listOf(telemetrySample(createdAt = now - 500L, failureClass = "dns_tampering")),
                     now = now,
-                    launchResult = false,
+                    launchOutcome = AutomaticProbeLaunchOutcome.RETRY,
                 )
             val event = handoverEvent()
             env.launcher.afterLaunch = {
@@ -553,7 +594,7 @@ class AutomaticProbeSchedulerTest {
             assertEquals(listOf(event), env.launcher.events)
 
             assertTrue(!env.handoverStore.isPending(event.deliveryId))
-            env.launcher.launchResult = true
+            env.launcher.launchOutcome = AutomaticProbeLaunchOutcome.SETTLED
             advanceTimeBy(100L)
             runCurrent()
 
@@ -570,7 +611,7 @@ class AutomaticProbeSchedulerTest {
         telemetrySamples: List<TelemetrySampleEntity> = emptyList(),
         rememberedPolicies: List<RememberedNetworkPolicyEntity> = emptyList(),
         hasActiveScan: Boolean = false,
-        launchResult: Boolean = true,
+        launchOutcome: AutomaticProbeLaunchOutcome = AutomaticProbeLaunchOutcome.SETTLED,
         now: Long = System.currentTimeMillis(),
         activeProbeSafetyPolicy: ActiveProbeSafetyPolicy =
             ActiveProbeSafetyPolicy(
@@ -588,7 +629,7 @@ class AutomaticProbeSchedulerTest {
         val launcher =
             RecordingAutomaticProbeLauncher(
                 hasActiveScan = hasActiveScan,
-                launchResult = launchResult,
+                launchOutcome = launchOutcome,
             )
         val handoverStore = FakePolicyHandoverEventStore()
         val scheduler =
@@ -621,7 +662,7 @@ private data class SchedulerEnv(
 
 private class RecordingAutomaticProbeLauncher(
     hasActiveScan: Boolean = false,
-    var launchResult: Boolean = true,
+    var launchOutcome: AutomaticProbeLaunchOutcome = AutomaticProbeLaunchOutcome.SETTLED,
 ) : AutomaticProbeLauncher {
     val events = mutableListOf<PolicyHandoverEvent>()
     var hasActiveScan = hasActiveScan
@@ -633,14 +674,14 @@ private class RecordingAutomaticProbeLauncher(
     override suspend fun launchAutomaticProbe(
         settings: com.poyka.ripdpi.proto.AppSettings,
         event: PolicyHandoverEvent,
-    ): Boolean {
+    ): AutomaticProbeLaunchOutcome {
         events += event
         afterLaunch?.invoke()
         nextFailure?.let { failure ->
             nextFailure = null
             throw failure
         }
-        return launchResult
+        return launchOutcome
     }
 }
 

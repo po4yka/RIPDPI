@@ -331,15 +331,19 @@ internal class DefaultDiagnosticsScanController
         override suspend fun launchAutomaticProbe(
             settings: com.poyka.ripdpi.proto.AppSettings,
             event: PolicyHandoverEvent,
-        ): Boolean =
+        ): AutomaticProbeLaunchOutcome =
             startMutex.withLock {
                 val sessionId = policyHandoverScanSessionId(event.deliveryId)
                 val existingSession = scanRecordStore.getScanSession(sessionId)
-                if (existingSession != null && existingSession.status != "running") return@withLock true
-                if (existingSession?.status == "running" && activeScanRegistry.hasRegisteredExecution(sessionId)) {
-                    return@withLock false
+                if (existingSession != null && existingSession.status != "running") {
+                    return@withLock AutomaticProbeLaunchOutcome.SETTLED
                 }
-                val profile = scanAdmissionService.admitAutomaticProbe(settings) ?: return@withLock false
+                if (existingSession?.status == "running" && activeScanRegistry.hasRegisteredExecution(sessionId)) {
+                    return@withLock AutomaticProbeLaunchOutcome.RETRY
+                }
+                val profile =
+                    scanAdmissionService.admitAutomaticProbe(settings)
+                        ?: return@withLock AutomaticProbeLaunchOutcome.RETRY
                 val prepared =
                     scanRequestFactory.prepareScan(
                         profile = profile,
@@ -351,16 +355,17 @@ internal class DefaultDiagnosticsScanController
                         registerActiveBridge = false,
                         sessionIdOverride = sessionId,
                     )
-                val preparedFingerprintHash = prepared.networkFingerprint?.scopeKey() ?: return@withLock false
+                val preparedFingerprintHash =
+                    prepared.networkFingerprint?.scopeKey() ?: return@withLock AutomaticProbeLaunchOutcome.RETRY
                 val modeMatches = prepared.context.serviceMode.equals(event.mode.name, ignoreCase = true)
                 if (preparedFingerprintHash != event.currentFingerprintHash || !modeMatches) {
-                    return@withLock true
+                    return@withLock AutomaticProbeLaunchOutcome.SETTLED
                 }
                 startPreparedScan(
                     prepared = prepared,
                     rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
                 )
-                false
+                AutomaticProbeLaunchOutcome.LAUNCHED
             }
 
         private suspend fun startPreparedScan(

@@ -52,7 +52,8 @@ class DiagnosticsScanControllerHiddenProbeTest {
                     json = json,
                 )
 
-            assertFalse(
+            assertEquals(
+                AutomaticProbeLaunchOutcome.LAUNCHED,
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event =
@@ -101,7 +102,8 @@ class DiagnosticsScanControllerHiddenProbeTest {
                 }
             val services = createServicesWithHiddenProbeCapable(appSettingsRepository, stores, bridgeFactory)
 
-            assertFalse(
+            assertEquals(
+                AutomaticProbeLaunchOutcome.LAUNCHED,
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
@@ -184,7 +186,8 @@ class DiagnosticsScanControllerHiddenProbeTest {
                     json = json,
                 )
 
-            assertFalse(
+            assertEquals(
+                AutomaticProbeLaunchOutcome.LAUNCHED,
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event =
@@ -256,7 +259,8 @@ class DiagnosticsScanControllerHiddenProbeTest {
                     json = json,
                 )
 
-            assertFalse(
+            assertEquals(
+                AutomaticProbeLaunchOutcome.LAUNCHED,
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
                     event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
@@ -353,7 +357,8 @@ class DiagnosticsScanControllerHiddenProbeTest {
                 json = json,
             )
 
-        assertFalse(
+        assertEquals(
+            AutomaticProbeLaunchOutcome.LAUNCHED,
             services.scanController.launchAutomaticProbe(
                 settings = settings,
                 event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),

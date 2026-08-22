@@ -246,7 +246,7 @@ private object NoopAutomaticProbeLauncher : AutomaticProbeLauncher {
     override suspend fun launchAutomaticProbe(
         settings: com.poyka.ripdpi.proto.AppSettings,
         event: com.poyka.ripdpi.data.PolicyHandoverEvent,
-    ): Boolean = false
+    ): AutomaticProbeLaunchOutcome = AutomaticProbeLaunchOutcome.RETRY
 }
 
 private fun constantProvider(launcher: AutomaticProbeLauncher): Provider<AutomaticProbeLauncher> =
@@ -262,9 +262,9 @@ private class BootstrapperRecordingAutomaticProbeLauncher : AutomaticProbeLaunch
     override suspend fun launchAutomaticProbe(
         settings: com.poyka.ripdpi.proto.AppSettings,
         event: PolicyHandoverEvent,
-    ): Boolean {
+    ): AutomaticProbeLaunchOutcome {
         events += event
-        return true
+        return AutomaticProbeLaunchOutcome.SETTLED
     }
 }
 

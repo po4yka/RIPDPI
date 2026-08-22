@@ -19,14 +19,25 @@ import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 
+/** Outcome of one automatic probe launch attempt for a handover delivery. */
+enum class AutomaticProbeLaunchOutcome {
+    /** A new probe scan started; the delivery settles once its durable terminal row appears. */
+    LAUNCHED,
+
+    /** A durable terminal row already exists or the trigger is stale; the delivery may be acknowledged. */
+    SETTLED,
+
+    /** Nothing was launched; retry after the transient condition clears. */
+    RETRY,
+}
+
 interface AutomaticProbeLauncher {
     fun hasActiveScan(): Boolean
 
-    /** Returns true only when this delivery already has a durable terminal scan row and may be acknowledged. */
     suspend fun launchAutomaticProbe(
         settings: com.poyka.ripdpi.proto.AppSettings,
         event: PolicyHandoverEvent,
-    ): Boolean
+    ): AutomaticProbeLaunchOutcome
 }
 
 @Singleton
@@ -44,6 +55,13 @@ class AutomaticProbeScheduler
     ) {
         private val pendingProbeJobs = ConcurrentHashMap<String, Job>()
         private val recentProbeRuns = ConcurrentHashMap<String, Long>()
+
+        /**
+         * Deliveries for which this scheduler started a probe and that have not settled yet.
+         * Their retries skip eligibility so the launcher can report the terminal row even
+         * though the just-recorded cooldown now rejects a fresh evaluation.
+         */
+        private val launchedDeliveries = ConcurrentHashMap.newKeySet<String>()
 
         fun schedule(event: PolicyHandoverEvent) {
             val job =
@@ -91,20 +109,30 @@ class AutomaticProbeScheduler
         }
 
         private suspend fun launchIfEligible(event: PolicyHandoverEvent): Boolean {
+            val settleOnly = event.deliveryId in launchedDeliveries
             val isStrategyFailure =
                 event.classification == AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE
             val settings = appSettingsRepository.snapshot()
             val launcher = launcherProvider.get()
             val now = System.currentTimeMillis()
-            val eligibility = evaluateEligibility(event, settings, launcher, isStrategyFailure, now)
-            if (eligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
-                return eligibility.reason !in TransientRejectionReasons
+            if (!settleOnly) {
+                val eligibility = evaluateEligibility(event, settings, launcher, isStrategyFailure, now)
+                if (eligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
+                    return eligibility.reason !in TransientRejectionReasons
+                }
             }
-            val launched = launcher.launchAutomaticProbe(settings, event)
-            if (launched) {
+            val outcome = launcher.launchAutomaticProbe(settings, event)
+            if (outcome == AutomaticProbeLaunchOutcome.LAUNCHED) {
+                // Record the cooldown when a probe actually starts. The launcher's Boolean
+                // predecessors only returned true for already-settled deliveries, which left
+                // this map empty and let every new delivery for the same fingerprint bypass
+                // the cooldown entirely.
                 recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
+                launchedDeliveries.add(event.deliveryId)
+            } else {
+                launchedDeliveries.remove(event.deliveryId)
             }
-            return launched
+            return outcome == AutomaticProbeLaunchOutcome.SETTLED
         }
 
         private suspend fun evaluateEligibility(
