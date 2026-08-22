@@ -223,7 +223,15 @@ where
     let (mut app_read, mut app_write) = tokio::io::split(relay_stream);
     let (mut socket_read, mut socket_write) = tokio::io::split(transport);
 
-    tokio::spawn(async move {
+    // The two pumps each hold one half of the split relay stream, so a single
+    // pump exiting cannot deliver EOF to the application -- the sibling's half
+    // keeps `relay_stream` alive and the application hangs. Whenever either
+    // pump finishes (EOF, I/O error, or the terminal decryption failure above),
+    // abort the sibling so the whole relay tears down and the application half
+    // observes EOF too. The pumps own no state that needs graceful teardown,
+    // so abort is safe here.
+    let mut pumps = tokio::task::JoinSet::new();
+    pumps.spawn(async move {
         let mut buffer = [0_u8; 4096];
         loop {
             let Ok(read) = app_read.read(&mut buffer).await else {
@@ -240,15 +248,27 @@ where
             }
         }
     });
-
-    tokio::spawn(async move {
+    pumps.spawn(async move {
         let mut encrypted = Vec::new();
         let mut buffer = [0_u8; 4096];
         loop {
-            while let Ok(Some((plain, consumed))) = decrypt.decrypt_chunk(&encrypted, 0).map_err(to_io) {
-                encrypted.drain(..consumed);
-                if app_write.write_all(&plain).await.is_err() {
-                    return;
+            // Drain every complete AEAD chunk already buffered.
+            loop {
+                match decrypt.decrypt_chunk(&encrypted, 0) {
+                    Ok(Some((plain, consumed))) => {
+                        encrypted.drain(..consumed);
+                        if app_write.write_all(&plain).await.is_err() {
+                            return;
+                        }
+                    }
+                    Ok(None) => break,
+                    // A tag failure is terminal for the response direction:
+                    // the stream is AEAD-authenticated and the codec's nonce
+                    // counter has already advanced past this chunk, so a retry
+                    // can never succeed. Falling through to the socket read
+                    // instead would spin on the same bytes while `encrypted`
+                    // grows without bound.
+                    Err(_) => return,
                 }
             }
             let Ok(read) = socket_read.read(&mut buffer).await else {
@@ -259,6 +279,10 @@ where
             }
             encrypted.extend_from_slice(&buffer[..read]);
         }
+    });
+    tokio::spawn(async move {
+        let _ = pumps.join_next().await;
+        pumps.abort_all();
     });
 
     Ok(app_stream)
@@ -419,5 +443,48 @@ mod tests {
             assert_eq!(received, payload);
             assert_eq!(session.receive_buffer.as_ptr(), receive_buffer, "receive buffer must retain its allocation");
         }
+    }
+
+    /// Regression test for the downstream pump retry loop: a failed AEAD
+    /// authentication is terminal, so the relay task must stop and deliver EOF
+    /// to the application half. Before the fix, the `while let Ok(Some(..))`
+    /// loop silently fell through to the socket read on `Err` and retried the
+    /// same undecryptable bytes forever: the application hung, the buffered
+    /// ciphertext grew without bound, and the codec's nonce counter (already
+    /// advanced past the failed chunk) guaranteed the retry could never
+    /// succeed.
+    #[tokio::test]
+    async fn downstream_decrypt_failure_terminates_relay_instead_of_retrying() {
+        let cipher = Cipher::AeadAes128Gcm;
+        let credential = "test-credential";
+        let config = Arc::new(ShadowsocksClientConfig {
+            server_host: "192.0.2.1".to_string(),
+            server_port: 443,
+            cipher,
+            password: credential.to_owned(),
+            outbound_bind_ip: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        });
+        let (transport, mut server) = tokio::io::duplex(4096);
+
+        // A hostile/broken server: valid salt, then ciphertext that never
+        // authenticates. The connection is deliberately held open so the
+        // pre-fix retry loop would park on the socket read forever.
+        let server_task = tokio::spawn(async move {
+            let mut salt = vec![0_u8; cipher.salt_len()];
+            rand::rng().fill(&mut salt);
+            server.write_all(&salt).await.expect("write salt");
+            server.write_all(&[0xAB_u8; 128]).await.expect("write garbage ciphertext");
+            std::future::pending::<()>().await;
+        });
+
+        let mut app = connect_tcp_over_transport(config, transport, "192.0.2.1:443").await.expect("connect");
+
+        let mut sink = Vec::new();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), app.read_to_end(&mut sink)).await;
+        assert!(result.is_ok(), "relay must terminate after a failed authentication, not hang");
+        assert!(sink.is_empty(), "no plaintext may be delivered from unauthenticated bytes");
+
+        server_task.abort();
     }
 }
