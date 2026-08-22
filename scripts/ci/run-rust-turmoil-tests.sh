@@ -7,13 +7,13 @@ workspace_manifest="$repo_root/native/rust/Cargo.toml"
 NEXTEST_PROFILE="${CI:+ci}"
 NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
 
-if cargo nextest --version >/dev/null 2>&1; then
+if bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest --version >/dev/null 2>&1; then
     run_tunnel_tests() {
-        cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --no-capture "${NEXTEST_ARGS[@]}"
+        bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --no-capture "${NEXTEST_ARGS[@]}"
     }
 
     run_resolver_tests() {
-        cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver --no-capture "${NEXTEST_ARGS[@]}"
+        bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver --no-capture "${NEXTEST_ARGS[@]}"
     }
 else
     run_tunnel_tests() {

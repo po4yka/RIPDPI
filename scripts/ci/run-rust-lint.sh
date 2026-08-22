@@ -83,7 +83,7 @@ echo "==> PhantomData / variance guard (issues 45-46)"
 python3 "$repo_root/scripts/ci/check_phantomdata_variance.py"
 
 echo "==> clippy"
-cargo clippy --locked --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo clippy --locked --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
 echo "==> rustdoc"
 # `cargo doc --locked` is run without `-D warnings` because the workspace has a small

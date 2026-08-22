@@ -8,13 +8,13 @@ workspace_manifest="$repo_root/native/rust/Cargo.toml"
 NEXTEST_PROFILE="${CI:+ci}"
 NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
 
-if cargo nextest --version >/dev/null 2>&1; then
+if bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest --version >/dev/null 2>&1; then
     run_fixture_tests() {
-        cargo nextest run --locked --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
+        bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
     }
 
     run_proxy_e2e() {
-        cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_e2e --no-capture "${NEXTEST_ARGS[@]}"
+        bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_e2e --no-capture "${NEXTEST_ARGS[@]}"
     }
 
 else

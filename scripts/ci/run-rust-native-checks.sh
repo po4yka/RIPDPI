@@ -15,7 +15,7 @@ echo "==> rustfmt"
 cargo fmt --manifest-path "$workspace_manifest" --all --check
 
 echo "==> clippy"
-cargo clippy --locked --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo clippy --locked --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
 echo "==> REALITY BoringSSL hook vector guard"
 python3 "$repo_root/scripts/ci/check_reality_boring_vector.py"
@@ -152,12 +152,12 @@ echo "==> native architecture contracts"
 python3 "$repo_root/scripts/ci/check_native_architecture_contracts.py"
 
 echo "==> tests (workspace)"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android "${NEXTEST_ARGS[@]}"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-android "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-android "${NEXTEST_ARGS[@]}"
 # Exclude integration test binaries that have their own dedicated CI jobs
 # (rust-network-e2e, rust-turmoil) and platform tests needing CAP_NET_ADMIN.
-cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
   -E 'not binary(network_e2e) and not binary(tun_e2e) and not test(/^platform::linux::tests::bpf_/) and not test(/^platform::linux::tests::tcp_window_clamp/) and not test(/^runtime::tests::window_clamp/)' \
   "${NEXTEST_ARGS[@]}"
 
@@ -166,7 +166,7 @@ cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
 # exercises socks4::* tests. Run the crate explicitly with the feature so the
 # SOCKS4 reply round-trip / no-panic tests stay in the merge gate.
 echo "==> tests (ripdpi-socks5-core, socks4 feature)"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-socks5-core --features socks4 "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-socks5-core --features socks4 "${NEXTEST_ARGS[@]}"
 
 echo "==> tests (ignored / smoke)"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"

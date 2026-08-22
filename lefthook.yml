@@ -58,7 +58,7 @@ pre-commit:
 
     cargo-deny:
       glob: "{native/rust/Cargo*.toml,native/rust/deny.toml}"
-      run: command -v cargo-deny >/dev/null || exit 0; cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
+      run: command -v cargo-deny >/dev/null || exit 0; bash scripts/ci/cargo-guarded.sh cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
 
     advisory-waivers:
       glob: "{native/rust/deny.toml,native/rust/advisory-waivers.toml,scripts/ci/check_rust_advisory_waivers.py,scripts/ci/test_rust_advisory_waivers.py}"
@@ -67,7 +67,7 @@ pre-commit:
     rust-clippy:
       glob: "*.rs"
       root: "native/rust/"
-      run: cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
+      run: bash ../../scripts/ci/cargo-guarded.sh cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
 
     design-md:
       glob: "DESIGN.md"

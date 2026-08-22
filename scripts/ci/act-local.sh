@@ -143,7 +143,7 @@ run_native_rust_lint() {
 
 run_native_cargo_deny() {
   require_cmd cargo-deny "cargo install cargo-deny" || return
-  cargo deny --locked --manifest-path "$WORKSPACE_MANIFEST" check
+  bash "$REPO_ROOT/scripts/ci/cargo-guarded.sh" cargo deny --locked --manifest-path "$WORKSPACE_MANIFEST" check
 }
 
 run_native_rust_workspace_tests() {

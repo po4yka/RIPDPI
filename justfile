@@ -68,7 +68,7 @@ test-class mod class:
 # Run all Rust workspace tests
 [group('test')]
 test-rust:
-    cargo nextest run --manifest-path {{rust_dir}}/Cargo.toml --workspace
+    bash scripts/ci/cargo-guarded.sh cargo nextest run --manifest-path {{rust_dir}}/Cargo.toml --workspace
 
 # Run Rust native load/stress tests (smoke profile)
 [group('test')]
