@@ -493,6 +493,25 @@ internal class DiagnosticsScanExecutionCoordinator
                 runCatching {
                     activeScanRegistry.rememberPreparedScan(preparedReprobe, ownerId)
                     scanRecordStore.upsertScanSession(preparedReprobe.initialSession)
+                    // Reserve the hidden scan slot and bind the execution job BEFORE
+                    // the VPN-resume wait. Admission control (hasActiveScan /
+                    // HiddenAutomaticProbeConflict) reads only the registry, so a slot
+                    // reserved here is what prevents a manual or automatic start from
+                    // being admitted into the resume window and probing the same
+                    // network path concurrently with this re-probe.
+                    reprobeHandle =
+                        bridgeExecutionService.createHandle(
+                            sessionId = preparedReprobe.sessionId,
+                            registerActiveBridge = false,
+                        )
+                    val reprobeExecutionJob = checkNotNull(currentCoroutineContext()[Job])
+                    check(
+                        activeScanRegistry.registerExecution(
+                            sessionId = preparedReprobe.sessionId,
+                            job = reprobeExecutionJob,
+                            registerActiveBridge = false,
+                        ),
+                    ) { "DNS-corrected re-probe was cancelled before startup" }
                     waitForVpnServiceResume()
                     reprobe =
                         preparedReprobe.bindCurrentInPathRoute(
@@ -500,19 +519,6 @@ internal class DiagnosticsScanExecutionCoordinator
                             runtimeCoordinator = runtimeCoordinator,
                             scanRequestFactory = scanRequestFactory,
                         )
-                    reprobeHandle =
-                        bridgeExecutionService.createHandle(
-                            sessionId = reprobe.sessionId,
-                            registerActiveBridge = false,
-                        )
-                    val reprobeExecutionJob = checkNotNull(currentCoroutineContext()[Job])
-                    check(
-                        activeScanRegistry.registerExecution(
-                            sessionId = reprobe.sessionId,
-                            job = reprobeExecutionJob,
-                            registerActiveBridge = false,
-                        ),
-                    ) { "DNS-corrected re-probe was cancelled before startup" }
                     bridgeExecutionService.start(
                         handle = requireNotNull(reprobeHandle),
                         requestJson = reprobe.requestJson,

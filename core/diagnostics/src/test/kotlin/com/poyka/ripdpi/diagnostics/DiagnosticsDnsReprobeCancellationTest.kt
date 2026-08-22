@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -209,6 +210,75 @@ class DiagnosticsDnsReprobeCancellationTest {
                     .activeSessionIds("startup-home-run")
                     .isEmpty(),
             )
+        }
+
+    @Test
+    fun `pending reprobe reserves hidden slot before vpn resume so admission rejects concurrent starts`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val clock = TestDiagnosticsHistoryClock()
+            // Halted service parks the re-probe inside waitForVpnServiceResume.
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply { bridge.autoCompleteOnStart = false }
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = coordinatorTimelineSource(stores, backgroundScope),
+                    serviceStateStore = serviceStateStore,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                    bridgeFactory = bridgeFactory,
+                )
+            fixtures.runtimeCoordinator.updateInPathRouteLease(testInPathRouteLease())
+            val settings = testDnsFallbackSettings()
+            val prepared = testOwnedReprobePreparedScan(settings)
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared, ownerId = "admission-home-run")
+            val originalBridge = dnsFallbackBridge(prepared.sessionId, settings)
+            fixtures.activeScanRegistry.registerBridge(
+                originalBridge,
+                prepared.sessionId,
+                prepared.registerActiveBridge,
+            )
+            backgroundScope.launch {
+                fixtures.coordinator.execute(
+                    prepared,
+                    BridgeSessionHandle(originalBridge, prepared.sessionId, prepared.registerActiveBridge),
+                    rawPathRunner = ::runSettledRawPathBlock,
+                )
+            }
+
+            var reservedDuringResumeWait = false
+            repeat(40) {
+                testScheduler.advanceTimeBy(250)
+                runCurrent()
+                if (fixtures.activeScanRegistry.hasHiddenActiveScan) {
+                    reservedDuringResumeWait = true
+                }
+            }
+            assertTrue(
+                "Re-probe must reserve the hidden scan slot while waiting for VPN resume",
+                reservedDuringResumeWait,
+            )
+            assertTrue(serviceStateStore.status.value.first != AppStatus.Running)
+
+            val admission = ScanAdmissionService(FakeAppSettingsRepository(), stores, fixtures.activeScanRegistry, json)
+            assertNull(
+                "Admission must reject an automatic probe while a DNS-corrected re-probe is pending",
+                admission.admitAutomaticProbe(settings),
+            )
+
+            // The reservation is released once the resume wait times out and cleanup
+            // runs; afterwards the same admission call succeeds, proving the rejection
+            // above was caused by the pending re-probe rather than static policy.
+            repeat(30) {
+                testScheduler.advanceTimeBy(500)
+                runCurrent()
+            }
+            assertFalse(fixtures.activeScanRegistry.hasActiveScan())
+            assertTrue(admission.admitAutomaticProbe(settings) != null)
+            assertTrue(admission.admitAutomaticProbe(settings) != null)
         }
 
     private fun testInPathRouteLease() =
