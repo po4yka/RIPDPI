@@ -120,6 +120,7 @@ mod tests {
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
         };

@@ -333,6 +333,33 @@ async fn tor_backend_builds_in_process_and_rejects_udp() {
     assert_eq!(io::ErrorKind::Unsupported, error.kind());
 }
 
+/// A v6 `outbound_bind_ip` against a v4-only loopback server must fail closed
+/// at the transport dial — proving the builder actually forwards the bind IP
+/// into each transport's client config instead of silently dropping it.
+/// Covers every kind whose descriptor advertises `supports_outbound_bind_ip`
+/// and whose carrier is wired in this crate (the remaining kinds fail closed
+/// inside their own transports or are subprocess-backed).
+#[tokio::test]
+async fn outbound_bind_ip_reaches_trojan_anytls_and_tuic_transports() {
+    for kind_id in ["trojan", "anytls", "tuic_v5"] {
+        let mut config = sample_config(kind_id);
+        config.common.server = "127.0.0.1".to_string();
+        config.common.outbound_bind_ip = "::1".to_string();
+
+        let backend = build_backend(&config).await.unwrap_or_else(|error| panic!("{kind_id} backend: {error}"));
+        validate_runtime_config(&config, &backend).unwrap_or_else(|error| panic!("{kind_id} validate: {error}"));
+
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+        let Err(error) = backend.connect_tcp(&target).await else {
+            panic!("{kind_id} family mismatch must fail closed at the transport");
+        };
+        assert!(
+            error.to_string().contains("outbound bind IP family"),
+            "{kind_id} must surface the bind-family failure, got: {error}"
+        );
+    }
+}
+
 /// Asserts whether `validate_runtime_config` accepts an outbound bind IP for a
 /// relay kind, exercising the descriptor-driven capability gate end to end.
 fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeConfig, supported: bool) {

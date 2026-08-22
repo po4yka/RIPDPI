@@ -317,6 +317,7 @@ mod tests {
             server_name: "localhost".to_string(),
             inner_profile_id: "default".to_string(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
         }
     }
 
@@ -503,6 +504,45 @@ mod tests {
             tls.read_exact(&mut buf).await.expect("read echo");
             assert_eq!(buf, payload, "handshake {round} must round-trip");
         }
+
+        server.shutdown().await;
+    }
+}
+
+#[cfg(test)]
+mod outbound_bind_tests {
+    use crate::{Config, ShadowTlsClient, ShadowTlsLoopback};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+    fn config(password: &str) -> Config {
+        Config {
+            password: password.to_string(),
+            server_name: "localhost".to_string(),
+            inner_profile_id: "default".to_string(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+        }
+    }
+
+    /// A v6 bind IP against a v4-only resolved server must fail closed before
+    /// any connect runs — silently ignoring the bind would route the carrier
+    /// over the default interface instead of the pinned one.
+    #[tokio::test]
+    async fn connect_fails_closed_on_bind_ip_family_mismatch() {
+        let pw = "loopback-bind-password";
+        let server = ShadowTlsLoopback::start(pw.to_string()).await.expect("start loopback");
+
+        let mut cfg = config(pw);
+        cfg.outbound_bind_ip = Some(IpAddr::V6(Ipv6Addr::LOCALHOST));
+        let client = ShadowTlsClient::new(cfg);
+
+        let error =
+            client.connect(Ipv4Addr::LOCALHOST.to_string().as_str(), i32::from(server.local_addr().port())).await;
+        let Err(error) = error else {
+            panic!("family mismatch must fail closed");
+        };
+        assert_eq!(error.kind(), std::io::ErrorKind::AddrNotAvailable);
+        assert!(error.to_string().contains("outbound bind IP family"), "unexpected error: {error}");
 
         server.shutdown().await;
     }

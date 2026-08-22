@@ -22,6 +22,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 root_certificate_pem: anytls.root_certificate_pem.clone(),
                 client_name: "ripdpi-anytls/0.1.0".to_string(),
                 socket_protection: context.socket_protection,
+                outbound_bind_ip: context.outbound_bind_ip,
             },
         },
         context.pool_config,

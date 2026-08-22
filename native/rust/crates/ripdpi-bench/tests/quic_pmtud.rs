@@ -120,6 +120,7 @@ async fn tuic_survives_mid_connection_mtu_drop() {
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
+        outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         // Pin the fixture's self-signed cert; TLS verification stays ON.
         root_certificate_pem: Some(server.certificate_pem().to_string()),

@@ -23,6 +23,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 quic_bind_low_port: config.common.quic_bind_low_port,
                 quic_migrate_after_handshake: config.common.quic_migrate_after_handshake,
                 socket_protection: context.socket_protection,
+                outbound_bind_ip: context.outbound_bind_ip,
                 // Relay profiles currently expose TUIC zero-RTT and congestion
                 // control, but not TUIC keepalive. Keep it disabled until the
                 // Kotlin/native relay config contract adds an explicit field.

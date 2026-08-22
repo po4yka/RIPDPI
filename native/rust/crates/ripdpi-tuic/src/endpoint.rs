@@ -22,6 +22,10 @@ pub(crate) struct ClientSocketSpec {
     pub(crate) ipv6: bool,
     pub(crate) bind_low_port: bool,
     pub(crate) socket_protection: SocketProtectionPolicy,
+    /// Interface pinning: the carrier binds to this address instead of an
+    /// unspecified one. The family is validated against the resolved server
+    /// address at resolve time (`resolve_server_addr`).
+    pub(crate) outbound_bind_ip: Option<std::net::IpAddr>,
 }
 
 pub(crate) fn build_endpoint(
@@ -63,13 +67,15 @@ fn build_transport_config(keepalive_interval_ms: u32, congestion_control: &str) 
 }
 
 pub(crate) fn build_client_udp_socket(socket_spec: ClientSocketSpec) -> io::Result<std::net::UdpSocket> {
-    let bind_addr = if socket_spec.ipv6 {
-        SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))
-    } else {
-        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
-    };
+    let mut ipv6 = socket_spec.ipv6;
+    let mut bind_addr =
+        if ipv6 { SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)) } else { SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)) };
+    if let Some(ip) = socket_spec.outbound_bind_ip {
+        ipv6 = ip.is_ipv6();
+        bind_addr = SocketAddr::new(ip, 0);
+    }
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
-    if socket_spec.ipv6 {
+    if ipv6 {
         let _ = socket.set_only_v6(false);
     }
     if socket_spec.bind_low_port {
@@ -179,14 +185,20 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
 pub(crate) async fn resolve_server_addr(
     server: &str,
     port: i32,
+    outbound_bind_ip: Option<std::net::IpAddr>,
     socket_protection: SocketProtectionPolicy,
 ) -> io::Result<SocketAddr> {
-    socket_protection
-        .resolve_host(server, port as u16)
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))
+    let addrs = socket_protection.resolve_host(server, port as u16).await?;
+    let resolved = match outbound_bind_ip {
+        Some(bind_ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
+        })?,
+        None => addrs
+            .into_iter()
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))?,
+    };
+    Ok(resolved)
 }
 
 #[cfg(test)]
@@ -254,8 +266,12 @@ mod protect_tests {
         }
     }
 
-    const SPEC: ClientSocketSpec =
-        ClientSocketSpec { ipv6: false, bind_low_port: false, socket_protection: SocketProtectionPolicy::VpnRequired };
+    const SPEC: ClientSocketSpec = ClientSocketSpec {
+        ipv6: false,
+        bind_low_port: false,
+        socket_protection: SocketProtectionPolicy::VpnRequired,
+        outbound_bind_ip: None,
+    };
 
     const INACTIVE_SPEC: ClientSocketSpec =
         ClientSocketSpec { socket_protection: SocketProtectionPolicy::Inactive, ..SPEC };

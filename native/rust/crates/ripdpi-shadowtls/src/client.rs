@@ -49,10 +49,15 @@ impl ShadowTlsClient {
         let port = u16::try_from(server_port).map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ShadowTLS port {server_port}"))
         })?;
-        let address =
-            self.config.socket_protection.resolve_host(server, port).await?.into_iter().next().ok_or_else(|| {
+        let addrs = self.config.socket_protection.resolve_host(server, port).await?;
+        let address = match self.config.outbound_bind_ip {
+            Some(bind_ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
+            })?,
+            None => addrs.into_iter().next().ok_or_else(|| {
                 io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
-            })?;
+            })?,
+        };
         // PROTECT INVARIANT: the carrier socket is protected before connect via the
         // in-process VpnService.protect registry (loopback-skipped, fail-closed under
         // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
@@ -66,6 +71,9 @@ impl ShadowTlsClient {
             SocketAddr::V6(_) => TcpSocket::new_v6()?,
         };
         protect_outbound_socket(&socket, address, self.config.socket_protection)?;
+        if let Some(bind_ip) = self.config.outbound_bind_ip {
+            socket.bind(SocketAddr::new(bind_ip, 0))?;
+        }
         let stream = socket.connect(address).await?;
         stream.set_nodelay(true)?;
         self.connect_over(stream).await

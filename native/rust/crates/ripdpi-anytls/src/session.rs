@@ -23,23 +23,34 @@ const UDP_OVER_TCP_V2_TARGET: &str = "sp.v2.udp-over-tcp.arpa";
 ///
 /// Builds the socket explicitly and protects its fd via the in-process
 /// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier
-/// socket bypasses the app's own TUN route. REL-1.
+/// socket bypasses the app's own TUN route. REL-1. When `bind_ip` is set, the
+/// resolved server address must match its family or the connect fails closed,
+/// and the carrier socket is bound to the address before connect (interface
+/// pinning).
 async fn connect_protected_tcp(
     host: &str,
     port: u16,
+    bind_ip: Option<std::net::IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
-    let server_addr = socket_protection
-        .resolve_host(host, port)
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for anytls server"))?;
+    let addrs = socket_protection.resolve_host(host, port).await?;
+    let server_addr = match bind_ip {
+        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
+        })?,
+        None => addrs
+            .into_iter()
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for anytls server"))?,
+    };
     let socket = match server_addr {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
     protect_outbound_socket(&socket, server_addr, socket_protection)?;
+    if let Some(ip) = bind_ip {
+        socket.bind(SocketAddr::new(ip, 0))?;
+    }
     let tcp = socket.connect(server_addr).await?;
     tcp.set_nodelay(true)?;
     Ok(tcp)
@@ -77,6 +88,9 @@ pub struct AnyTlsClientConfig {
     pub root_certificate_pem: Option<String>,
     pub client_name: String,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+    /// Local address the carrier socket is bound to before connect (interface
+    /// pinning). `None` binds to an unspecified address.
+    pub outbound_bind_ip: Option<std::net::IpAddr>,
 }
 
 // Hand-written `Debug` so the AnyTLS password and root-certificate material never
@@ -94,6 +108,8 @@ impl std::fmt::Debug for AnyTlsClientConfig {
             .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
             .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
             .field("client_name", &self.client_name)
+            .field("socket_protection", &self.socket_protection)
+            .field("outbound_bind_ip", &self.outbound_bind_ip)
             .finish()
     }
 }
@@ -428,6 +444,7 @@ impl AnyTlsClient {
         let tcp = connect_protected_tcp(
             self.config.server_host.as_str(),
             self.config.server_port,
+            self.config.outbound_bind_ip,
             self.config.socket_protection,
         )
         .await?;
@@ -849,6 +866,7 @@ mod redaction_tests {
             root_certificate_pem: Some("-----BEGIN CERTIFICATE-----\nSECRET\n-----END CERTIFICATE-----".to_owned()),
             client_name: "ripdpi-anytls/0.1.0".to_owned(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
         }
     }
 
@@ -895,6 +913,7 @@ mod session_cache_tests {
             root_certificate_pem: None,
             client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
         })
         .expect("client");
         let (outbound, outbound_rx) = mpsc::channel::<Outbound>(1);
@@ -929,6 +948,7 @@ mod session_cache_tests {
             root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
             client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
         })
         .expect("client");
         let stream = client

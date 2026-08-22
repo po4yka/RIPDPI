@@ -57,10 +57,12 @@ impl ChainHopConnector {
     ///
     /// `outbound_bind_ip` binds the socket to the protected physical interface —
     /// the relay data plane's protect-equivalent (see
-    /// `.claude/rules/vpnservice-protect-invariant.md`) — and is honored only by
-    /// the transports that create a bindable TCP socket. The kinds that cannot
-    /// honor a bind IP ([`reject_bind_for_kind`]: AnyTLS, ShadowTLS, Trojan,
-    /// MASQUE, Hysteria2, TUIC) **fail closed** — they return `Err` before any
+    /// `.claude/rules/vpnservice-protect-invariant.md`). Each transport honors
+    /// the bind through its own config (`outbound_bind_ip` on the client
+    /// configs): VLESS Reality, Trojan, AnyTLS and ShadowTLS bind their carrier
+    /// TCP socket before connect; TUIC binds its QUIC UDP carrier. The kinds
+    /// that cannot honor a bind IP ([`reject_bind_for_kind`]: MASQUE,
+    /// Hysteria2) **fail closed** — they return `Err` before any
     /// `connect`/`bind` runs rather than open an unbound, TUN-routed socket that
     /// the kernel would loop back into the VPN's own TUN device. Non-entry hops
     /// never call this (they tunnel via [`connect_over`](Self::connect_over));
@@ -87,12 +89,10 @@ impl ChainHopConnector {
                 Ok(Box::new(stream))
             }
             Self::Trojan(config) => {
-                reject_bind_for_kind(outbound_bind_ip, "Trojan")?;
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp(config, target).await?;
                 Ok(Box::new(stream))
             }
             Self::AnyTls(config) => {
-                reject_bind_for_kind(outbound_bind_ip, "AnyTLS")?;
                 let stream = ripdpi_relay_tls_transports::connect_anytls_tcp(config, target).await?;
                 Ok(Box::new(stream))
             }
@@ -101,7 +101,6 @@ impl ChainHopConnector {
                 Ok(Box::new(stream))
             }
             Self::ShadowTls(factory) => {
-                reject_bind_for_kind(outbound_bind_ip, "ShadowTLS")?;
                 let stream = ripdpi_relay_tls_transports::connect_shadowtls_tcp(factory, target).await?;
                 Ok(Box::new(stream))
             }
@@ -112,7 +111,6 @@ impl ChainHopConnector {
                 Ok(Box::new(stream))
             }
             Self::Tuic(factory) => {
-                reject_bind_for_kind(outbound_bind_ip, "TUIC")?;
                 let session = factory.create_session().await?;
                 let stream = session.open_stream(target).await?;
                 Ok(Box::new(stream))
@@ -295,22 +293,22 @@ mod tests {
     /// fail closed. `connect(Some(bind_ip), ..)` routes every such kind through
     /// `reject_bind_for_kind` *before* any `connect`/`bind` runs, so a bind IP it
     /// cannot honor never opens an unbound, TUN-routed socket. This pins that the
-    /// guard rejects a bind IP for each of those kinds (AnyTLS, ShadowTLS, Trojan,
-    /// MASQUE, Hysteria2, TUIC) and accepts the no-bind path.
+    /// guard rejects a bind IP for each of those kinds (MASQUE, Hysteria2) and
+    /// accepts the no-bind path.
     #[test]
     fn reject_bind_for_kind_fails_closed_on_bind_ip() {
         let bind_ip = Some(IpAddr::from([10, 0, 0, 1]));
 
         // Every kind whose `connect` arm calls `reject_bind_for_kind` must
         // surface an error the moment a bind IP is supplied.
-        for kind in ["AnyTLS", "ShadowTLS", "Trojan", "MASQUE", "Hysteria2", "TUIC"] {
+        for kind in ["MASQUE", "Hysteria2"] {
             let err = reject_bind_for_kind(bind_ip, kind)
                 .expect_err("a bind IP must be rejected so the hop never opens an unbound socket");
             assert_eq!(err.kind(), io::ErrorKind::InvalidInput, "kind {kind} must reject the bind IP");
         }
 
         // The no-bind path is the only accepted shape for these kinds.
-        for kind in ["AnyTLS", "ShadowTLS", "Trojan", "MASQUE", "Hysteria2", "TUIC"] {
+        for kind in ["MASQUE", "Hysteria2"] {
             reject_bind_for_kind(None, kind).expect("a missing bind IP must be accepted");
         }
     }

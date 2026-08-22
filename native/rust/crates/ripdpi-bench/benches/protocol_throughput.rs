@@ -158,6 +158,7 @@ fn bench_shadowtls(c: &mut Criterion, rt: &Runtime) {
             server_name: "localhost".to_string(),
             inner_profile_id: "default".to_string(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
+            outbound_bind_ip: None,
         });
         client.connect_over(tcp).await.expect("ShadowTLS handshake")
     });
@@ -304,6 +305,7 @@ fn bench_tuic(c: &mut Criterion, rt: &Runtime) {
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
+        outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         // Pin the fixture's self-signed cert; TLS verification stays ON.
         root_certificate_pem: Some(server.certificate_pem().to_string()),

@@ -17,6 +17,7 @@ fn client_config(fixture: &AnyTlsLoopback, password: &str) -> AnyTlsClientConfig
         root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
         client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
     }
 }
 
@@ -360,4 +361,27 @@ async fn udp_uses_sing_box_udp_over_tcp_v2_magic_target() {
 
     assert_eq!(datagram.payload, b"dns");
     assert_eq!(fixture.observed().udp_magic_targets, vec!["sp.v2.udp-over-tcp.arpa:0".to_owned()]);
+}
+
+#[tokio::test]
+async fn session_honors_outbound_bind_ip_and_fails_closed_on_family_mismatch() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+
+    let mut config = client_config(&fixture, "fixture-password");
+    config.outbound_bind_ip = Some(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+    let client = AnyTlsClient::new(config.clone()).expect("client");
+    let mut stream =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("bound connect");
+    stream.write_all(b"bound").await.expect("write over bound carrier");
+
+    // A v6 bind IP against a v4-only resolved server must fail closed before
+    // any connect runs — silently ignoring the bind would route the carrier
+    // over the default interface instead of the pinned one.
+    config.outbound_bind_ip = Some(std::net::IpAddr::V6("::1".parse().expect("v6 loopback")));
+    let failed = AnyTlsClient::new(config).expect("client");
+    let error = failed
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("family mismatch must fail closed");
+    assert!(error.to_string().contains("outbound bind IP family"), "unexpected error: {error}");
 }

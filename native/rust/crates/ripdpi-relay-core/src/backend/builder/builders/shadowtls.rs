@@ -26,6 +26,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 server_name: config.common.server_name.clone(),
                 inner_profile_id: shadowtls.inner_profile_id.clone(),
                 socket_protection: context.socket_protection,
+                outbound_bind_ip: context.outbound_bind_ip,
             },
             outer_server: config.common.server.clone(),
             outer_server_port: config.common.server_port,

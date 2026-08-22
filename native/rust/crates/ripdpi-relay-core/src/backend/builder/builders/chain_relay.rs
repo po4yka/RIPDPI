@@ -101,13 +101,16 @@ fn chain_hop_connector(
             resolved_hop_vless_reality_config(hop, &label, hop_socket_protection).map(ChainHopConnector::VlessReality)
         }
         "masque" => resolved_hop_masque_config(hop, &label, hop_socket_protection).map(ChainHopConnector::Masque),
-        "trojan" => resolved_hop_trojan_config(hop, &label, hop_socket_protection).map(ChainHopConnector::Trojan),
-        "anytls" => resolved_hop_anytls_config(hop, &label, hop_socket_protection).map(ChainHopConnector::AnyTls),
+        "trojan" => {
+            resolved_hop_trojan_config(hop, &label, hop_bind_ip, hop_socket_protection).map(ChainHopConnector::Trojan)
+        }
+        "anytls" => {
+            resolved_hop_anytls_config(hop, &label, hop_bind_ip, hop_socket_protection).map(ChainHopConnector::AnyTls)
+        }
         "shadowsocks" => resolved_hop_shadowsocks_factory(hop, &label, hop_bind_ip, hop_socket_protection)
             .map(ChainHopConnector::Shadowsocks),
-        "shadowtls_v3" => {
-            resolved_hop_shadowtls_factory(hop, &label, hop_socket_protection).map(ChainHopConnector::ShadowTls)
-        }
+        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, &label, hop_bind_ip, hop_socket_protection)
+            .map(ChainHopConnector::ShadowTls),
         "hysteria2" => {
             reject_quic_non_entry(position, &label, "Hysteria2")?;
             resolved_hop_hysteria2_factory(hop, &label, hop_socket_protection, quic_migration)
@@ -115,7 +118,8 @@ fn chain_hop_connector(
         }
         "tuic_v5" => {
             reject_quic_non_entry(position, &label, "TUIC")?;
-            resolved_hop_tuic_factory(hop, &label, hop_socket_protection, quic_migration).map(ChainHopConnector::Tuic)
+            resolved_hop_tuic_factory(hop, &label, hop_bind_ip, hop_socket_protection, quic_migration)
+                .map(ChainHopConnector::Tuic)
         }
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -211,6 +215,7 @@ fn resolved_hop_masque_config(
 fn resolved_hop_trojan_config(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    outbound_bind_ip: Option<IpAddr>,
     socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::TrojanClientConfig> {
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
@@ -224,12 +229,14 @@ fn resolved_hop_trojan_config(
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.trojan_root_certificate_pem.clone(),
         socket_protection,
+        outbound_bind_ip,
     })
 }
 
 fn resolved_hop_anytls_config(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    outbound_bind_ip: Option<IpAddr>,
     socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::AnyTlsClientConfig> {
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
@@ -244,6 +251,7 @@ fn resolved_hop_anytls_config(
         root_certificate_pem: hop.anytls_root_certificate_pem.clone(),
         client_name: "ripdpi-anytls/0.1.0".to_string(),
         socket_protection,
+        outbound_bind_ip,
     })
 }
 
@@ -276,6 +284,7 @@ fn resolved_hop_shadowsocks_factory(
 fn resolved_hop_shadowtls_factory(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    outbound_bind_ip: Option<IpAddr>,
     socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::ShadowTlsSessionFactory> {
     let inner = hop.shadow_tls_inner.as_ref().ok_or_else(|| {
@@ -287,6 +296,7 @@ fn resolved_hop_shadowtls_factory(
             server_name: hop.server_name.clone(),
             inner_profile_id: hop.shadow_tls_inner_profile_id.clone(),
             socket_protection,
+            outbound_bind_ip,
         },
         outer_server: hop.server.clone(),
         outer_server_port: hop.server_port,
@@ -328,6 +338,7 @@ fn resolved_hop_hysteria2_factory(
 fn resolved_hop_tuic_factory(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    outbound_bind_ip: Option<IpAddr>,
     socket_protection: SocketProtectionPolicy,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<crate::protocols::TuicSessionFactory> {
@@ -347,6 +358,7 @@ fn resolved_hop_tuic_factory(
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             socket_protection,
+            outbound_bind_ip,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
         },

@@ -21,6 +21,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
                 root_certificate_pem: trojan.root_certificate_pem.clone(),
                 socket_protection: context.socket_protection,
+                outbound_bind_ip: context.outbound_bind_ip,
             },
         },
         context.pool_config,

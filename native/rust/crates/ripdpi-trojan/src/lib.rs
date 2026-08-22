@@ -248,6 +248,10 @@ pub struct TrojanClientConfig {
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+    /// Local address the carrier socket is bound to before connect (interface
+    /// pinning). `None` binds to an unspecified address. The bind IP family must
+    /// match the resolved server address family or the connect fails closed.
+    pub outbound_bind_ip: Option<IpAddr>,
 }
 
 impl std::fmt::Debug for TrojanClientConfig {
@@ -261,6 +265,7 @@ impl std::fmt::Debug for TrojanClientConfig {
             .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
             .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
             .field("socket_protection", &self.socket_protection)
+            .field("outbound_bind_ip", &self.outbound_bind_ip)
             .finish()
     }
 }
@@ -272,18 +277,25 @@ impl std::fmt::Debug for TrojanClientConfig {
 /// socket bypasses the app's own TUN route. Loopback-skip and fail-closed are
 /// handled by [`protect_outbound_socket`]. REL-1.
 async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream> {
-    let server_addr = config
-        .socket_protection
-        .resolve_host(&config.server_host, config.server_port)
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for trojan server"))?;
+    let bind_ip = config.outbound_bind_ip;
+    let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
+    let server_addr = match bind_ip {
+        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
+        })?,
+        None => addrs
+            .into_iter()
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for trojan server"))?,
+    };
     let socket = match server_addr {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
     protect_outbound_socket(&socket, server_addr, config.socket_protection)?;
+    if let Some(ip) = bind_ip {
+        socket.bind(SocketAddr::new(ip, 0))?;
+    }
     let tcp = socket.connect(server_addr).await?;
     tcp.set_nodelay(true)?;
     Ok(tcp)
@@ -490,6 +502,7 @@ mod tests {
             tls_fingerprint_profile: "chrome".to_string(),
             root_certificate_pem: Some("debug-root-certificate-secret".to_string()),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
         };
 
         let rendered = format!("{config:?}");
@@ -1014,6 +1027,7 @@ mod client_hello_parity_tests {
             tls_fingerprint_profile: PROFILE.to_owned(),
             root_certificate_pem: None,
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
         };
         // connect_tcp opens the TCP socket, builds the BoringSSL connector from
         // the profile, and writes the ClientHello before the handshake fails on

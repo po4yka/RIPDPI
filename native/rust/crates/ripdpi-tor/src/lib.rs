@@ -401,7 +401,12 @@ where
 
 fn ensure_rustls_crypto_provider() {
     RUSTLS_PROVIDER.call_once(|| {
-        rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install rustls aws-lc provider");
+        // TUIC installs the ring provider as the process-global default; when
+        // it won the install race, keep that default instead of panicking —
+        // both providers provide the TLS 1.3 suites Tor's arti client needs.
+        if rustls::crypto::CryptoProvider::get_default().is_none() {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        }
     });
 }
 
