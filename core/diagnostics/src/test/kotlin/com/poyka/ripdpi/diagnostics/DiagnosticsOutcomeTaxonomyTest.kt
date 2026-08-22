@@ -37,6 +37,21 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `masque h3 tcp unsupported maps to failed bucket`() {
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                probeType = "strategy_failure_classification",
+                pathMode = ScanPathMode.RAW_PATH,
+                outcome = "masque_h3_tcp_unsupported",
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Failed, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Negative, classification.uiTone)
+        assertEquals("error", classification.eventLevel)
+        assertEquals(false, classification.healthyEnoughForSummary)
+    }
+
+    @Test
     fun `tls ech only outcomes map to attention bucket`() {
         val domainClassification =
             DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(

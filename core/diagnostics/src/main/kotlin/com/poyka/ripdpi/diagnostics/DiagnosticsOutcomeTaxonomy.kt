@@ -315,6 +315,7 @@ private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOut
         "shadowtls_version_mismatch",
         "strategy_execution_failure",
         "tuic_version_unsupported",
+        "masque_h3_tcp_unsupported",
         -> DiagnosticsOutcomeBucket.Failed
 
         // Capability-skipped is not a network failure; a required platform
