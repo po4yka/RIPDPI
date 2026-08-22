@@ -2,6 +2,18 @@ use std::io;
 
 use crate::config::ResolvedRelayFinalmaskConfig;
 
+/// Fail closed on a missing or blank credential instead of silently deriving
+/// an empty-string secret (`unwrap_or_default()`), which surfaces downstream
+/// as an opaque authentication timeout rather than a config error. A
+/// whitespace-only value counts as missing; the returned secret is the
+/// ORIGINAL string, never trimmed.
+pub(crate) fn required_secret<'a>(value: Option<&'a str>, what: &str) -> io::Result<&'a str> {
+    match value {
+        Some(secret) if !secret.trim().is_empty() => Ok(secret),
+        _ => Err(io::Error::new(io::ErrorKind::InvalidInput, format!("{what} is required"))),
+    }
+}
+
 pub(crate) fn finalmask_config(config: &ResolvedRelayFinalmaskConfig) -> ripdpi_xhttp::FinalmaskConfig {
     ripdpi_xhttp::FinalmaskConfig {
         r#type: config.r#type.clone(),

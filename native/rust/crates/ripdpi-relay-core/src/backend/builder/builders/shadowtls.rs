@@ -1,6 +1,7 @@
 use std::io;
 
 use crate::backend::builder::BuildContext;
+use crate::backend::builder::builders::common::required_secret;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::ShadowTlsSessionFactory;
@@ -19,10 +20,11 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
             "ShadowTLS supports only a VLESS Reality TCP inner relay",
         ));
     }
+    let password = required_secret(shadowtls.password.as_deref(), "ShadowTLS password")?.to_string();
     Ok(RelayBackend::ShadowTls(PooledRelayBackend::new(
         ShadowTlsSessionFactory {
             client_config: ripdpi_relay_tls_transports::ShadowTlsClientConfig {
-                password: shadowtls.password.clone().unwrap_or_default(),
+                password,
                 server_name: config.common.server_name.clone(),
                 inner_profile_id: shadowtls.inner_profile_id.clone(),
                 socket_protection: context.socket_protection,
@@ -47,4 +49,81 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         context.pool_config,
         None,
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{
+        CommonRelayConfig, ResolvedRelayFinalmaskConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
+    };
+    use crate::telemetry::QuicMigrationTelemetryState;
+    use ripdpi_relay_mux::RelayPoolConfig;
+
+    fn shadowtls_config(password: Option<String>) -> ResolvedRelayRuntimeConfig {
+        ResolvedRelayRuntimeConfig {
+            common: CommonRelayConfig {
+                enabled: true,
+                profile_id: "default".to_string(),
+                outbound_bind_ip: String::new(),
+                socket_protection: crate::config::SocketProtection::Inactive,
+                server: "relay.example".to_string(),
+                server_port: 443,
+                server_name: "relay.example".to_string(),
+                local_socks_host: "127.0.0.1".to_string(),
+                local_socks_port: 10_80,
+                udp_enabled: false,
+                tcp_fallback_enabled: true,
+                quic_bind_low_port: false,
+                quic_migrate_after_handshake: false,
+                tls_fingerprint_profile: "chrome_stable".to_string(),
+                finalmask: ResolvedRelayFinalmaskConfig::default(),
+            },
+            backend: RelayBackendConfig::ShadowTlsV3(ShadowTlsRelayConfig {
+                password,
+                inner_profile_id: "inner-vless".to_string(),
+                inner: Some(ResolvedShadowTlsInnerRelayConfig {
+                    kind: "vless_reality".to_string(),
+                    profile_id: "inner-vless".to_string(),
+                    server: "inner.example".to_string(),
+                    server_port: 443,
+                    server_name: "inner.example".to_string(),
+                    reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
+                    reality_short_id: String::new(),
+                    vless_flow: "xtls-rprx-vision".to_string(),
+                    vless_transport: "reality_tcp".to_string(),
+                    xhttp_mode: "auto".to_string(),
+                    vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+                    tls_fingerprint_profile: "chrome_stable".to_string(),
+                }),
+            }),
+        }
+    }
+
+    fn build_context() -> BuildContext {
+        BuildContext {
+            outbound_bind_ip: None,
+            socket_protector: None,
+            socket_protection: ripdpi_relay_tls_transports::SocketProtectionPolicy::Inactive,
+            pool_config: RelayPoolConfig::default(),
+            quic_migration: QuicMigrationTelemetryState::default(),
+        }
+    }
+
+    #[test]
+    fn build_rejects_missing_password() {
+        let Err(error) = build(&shadowtls_config(None), &build_context()) else {
+            panic!("missing password must be rejected");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(error.to_string().contains("ShadowTLS password is required"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn build_accepts_present_password() {
+        match build(&shadowtls_config(Some("shadowtls-secret".to_string())), &build_context()) {
+            Ok(RelayBackend::ShadowTls(_)) => {}
+            other => panic!("valid password must build a ShadowTLS backend, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
 }

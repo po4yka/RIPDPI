@@ -3,7 +3,7 @@ use std::io;
 use std::net::IpAddr;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::vless_reality_config;
+use crate::backend::builder::builders::common::{required_secret, vless_reality_config};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{ChainHopConnector, ChainRelaySessionFactory};
@@ -221,11 +221,14 @@ fn resolved_hop_trojan_config(
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Trojan server port must fit u16"))
     })?;
+    let password = required_secret(hop.trojan_password.as_deref(), "Trojan password")
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?
+        .to_string();
     Ok(ripdpi_relay_tls_transports::TrojanClientConfig {
         server_host: hop.server.clone(),
         server_port,
         server_name: hop.server_name.clone(),
-        password: hop.trojan_password.clone().unwrap_or_default(),
+        password,
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.trojan_root_certificate_pem.clone(),
         socket_protection,
@@ -242,11 +245,14 @@ fn resolved_hop_anytls_config(
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: AnyTLS server port must fit u16"))
     })?;
+    let password = required_secret(hop.anytls_password.as_deref(), "AnyTLS password")
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?
+        .to_string();
     Ok(ripdpi_relay_tls_transports::AnyTlsClientConfig {
         server_host: hop.server.clone(),
         server_port,
         server_name: hop.server_name.clone(),
-        password: hop.anytls_password.clone().unwrap_or_default(),
+        password,
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.anytls_root_certificate_pem.clone(),
         client_name: "ripdpi-anytls/0.1.0".to_string(),
@@ -290,9 +296,12 @@ fn resolved_hop_shadowtls_factory(
     let inner = hop.shadow_tls_inner.as_ref().ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: ShadowTLS inner relay config is required"))
     })?;
+    let password = required_secret(hop.shadow_tls_password.as_deref(), "ShadowTLS password")
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?
+        .to_string();
     Ok(ripdpi_relay_tls_transports::ShadowTlsSessionFactory {
         client_config: ripdpi_relay_tls_transports::ShadowTlsClientConfig {
-            password: hop.shadow_tls_password.clone().unwrap_or_default(),
+            password,
             server_name: hop.server_name.clone(),
             inner_profile_id: hop.shadow_tls_inner_profile_id.clone(),
             socket_protection,
@@ -345,13 +354,19 @@ fn resolved_hop_tuic_factory(
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: TUIC server port must fit u16"))
     })?;
+    let uuid = required_secret(hop.tuic_uuid.as_deref(), "TUIC UUID")
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?
+        .to_string();
+    let password = required_secret(hop.tuic_password.as_deref(), "TUIC password")
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?
+        .to_string();
     Ok(crate::protocols::TuicSessionFactory {
         config: ripdpi_tuic::Config {
             server: hop.server.clone(),
             server_port: i32::from(server_port),
             server_name: hop.server_name.clone(),
-            uuid: hop.tuic_uuid.clone().unwrap_or_default(),
-            password: hop.tuic_password.clone().unwrap_or_default(),
+            uuid,
+            password,
             zero_rtt: hop.tuic_zero_rtt,
             congestion_control: hop.tuic_congestion_control.clone(),
             udp_enabled: false,
@@ -364,4 +379,94 @@ fn resolved_hop_tuic_factory(
         },
         migration: quic_migration,
     })
+}
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+    use crate::config::ResolvedChainRelayHopConfig;
+
+    fn hop(kind: &str) -> ResolvedChainRelayHopConfig {
+        ResolvedChainRelayHopConfig { kind: kind.to_string(), ..ResolvedChainRelayHopConfig::default() }
+    }
+
+    #[test]
+    fn chain_trojan_hop_rejects_missing_password() {
+        let Err(error) = resolved_hop_trojan_config(&hop("trojan"), "entry", None, SocketProtectionPolicy::Inactive)
+        else {
+            panic!("missing Trojan hop password must be rejected");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(
+            error.to_string().contains("chain entry") && error.to_string().contains("Trojan password is required"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn chain_anytls_hop_rejects_blank_password() {
+        let mut anytls = hop("anytls");
+        anytls.anytls_password = Some("   ".to_string());
+        let Err(error) = resolved_hop_anytls_config(&anytls, "hop 1", None, SocketProtectionPolicy::Inactive) else {
+            panic!("a blank AnyTLS hop password is a misconfiguration, not a credential");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(error.to_string().contains("AnyTLS password is required"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn chain_shadowtls_hop_rejects_missing_password() {
+        let mut inner = hop("shadowtls_v3");
+        inner.shadow_tls_inner = Some(crate::config::ResolvedShadowTlsInnerRelayConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: "inner-vless".to_string(),
+            server: "inner.example".to_string(),
+            server_port: 443,
+            server_name: "inner.example".to_string(),
+            reality_public_key: String::new(),
+            reality_short_id: String::new(),
+            vless_flow: "xtls-rprx-vision".to_string(),
+            vless_transport: "reality_tcp".to_string(),
+            xhttp_mode: "auto".to_string(),
+            vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            tls_fingerprint_profile: "chrome_stable".to_string(),
+        });
+        let Err(error) = resolved_hop_shadowtls_factory(&inner, "exit", None, SocketProtectionPolicy::Inactive) else {
+            panic!("missing ShadowTLS hop password must be rejected");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(error.to_string().contains("ShadowTLS password is required"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn chain_tuic_hop_rejects_missing_uuid_and_password() {
+        let missing_uuid = resolved_hop_tuic_factory(
+            &hop("tuic_v5"),
+            "entry",
+            None,
+            SocketProtectionPolicy::Inactive,
+            QuicMigrationTelemetryState::default(),
+        );
+        let Err(missing_uuid) = missing_uuid else {
+            panic!("missing TUIC hop UUID must be rejected");
+        };
+        assert!(missing_uuid.to_string().contains("TUIC UUID is required"), "unexpected error: {missing_uuid}");
+
+        let mut no_password = hop("tuic_v5");
+        no_password.tuic_uuid = Some("00000000-0000-0000-0000-000000000000".to_string());
+        let missing_password = resolved_hop_tuic_factory(
+            &no_password,
+            "entry",
+            None,
+            SocketProtectionPolicy::Inactive,
+            QuicMigrationTelemetryState::default(),
+        );
+        let Err(missing_password) = missing_password else {
+            panic!("missing TUIC hop password must be rejected");
+        };
+        assert!(
+            missing_password.to_string().contains("TUIC password is required"),
+            "unexpected error: {missing_password}"
+        );
+    }
 }
