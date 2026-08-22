@@ -4,7 +4,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::classification::next_candidate_index;
-use crate::execution::{CandidateExecution, StrategyLaneExecutor};
+use crate::execution::{CandidateExecution, StrategyLaneExecutor, failed_candidate_execution};
 use crate::types::DomainTarget;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
@@ -39,8 +39,10 @@ pub(super) fn execute_candidate_batch(
     let deadline = ripdpi_diagnostics_contracts::util::active_scan_io_deadline();
     thread::scope(|s| {
         let handles: Vec<_> = to_execute
-            .into_iter()
+            .iter()
             .map(|(candidate_index, spec)| {
+                let candidate_index = *candidate_index;
+                let spec = spec.clone();
                 s.spawn(move || {
                     ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
                         let execution = runner.lane_executor.execute_tcp_candidate(
@@ -57,6 +59,21 @@ pub(super) fn execute_candidate_batch(
                 })
             })
             .collect();
-        handles.into_iter().map(|h| h.join().expect("tcp candidate thread panicked")).collect()
+        // A panicking candidate worker must not discard its siblings' completed
+        // executions or abort the remaining stages; degrade it to a failed
+        // execution like the per-probe containment in domain_probe does.
+        super::worker_join::join_with_panic_fallback(handles, |index| {
+            let (candidate_index, spec) = &to_execute[index];
+            (
+                *candidate_index,
+                spec.clone(),
+                failed_candidate_execution(
+                    spec,
+                    domain_targets.len() * 2,
+                    3,
+                    "candidate probe worker panicked".to_string(),
+                ),
+            )
+        })
     })
 }

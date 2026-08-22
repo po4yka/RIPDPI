@@ -5,7 +5,7 @@ use std::thread;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::execution::{CandidateExecution, StrategyLaneExecutor};
+use crate::execution::{CandidateExecution, StrategyLaneExecutor, failed_candidate_execution};
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
 use super::StrategyTcpRunner;
@@ -45,6 +45,20 @@ pub(super) fn execute_pilot_batch(
                 })
             })
             .collect();
-        handles.into_iter().map(|handle| handle.join().expect("qualifier thread panicked")).collect()
+        // A panicking qualifier worker must not discard its siblings' results or
+        // unwind through the runner; degrade it to a failed execution so the
+        // candidate is eliminated by the normal Round 1 rules.
+        super::worker_join::join_with_panic_fallback(handles, |index| {
+            let spec = &batch[index];
+            (
+                spec.clone(),
+                Some(failed_candidate_execution(
+                    spec,
+                    qualifier_targets.len() * 2,
+                    3,
+                    "candidate probe worker panicked".to_string(),
+                )),
+            )
+        })
     })
 }

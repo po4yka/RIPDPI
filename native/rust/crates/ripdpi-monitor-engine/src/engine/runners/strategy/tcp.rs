@@ -7,6 +7,7 @@ mod pilot_qualification;
 mod quic_pivot;
 mod result_recording;
 mod runner;
+mod worker_join;
 
 use std::sync::Arc;
 use std::thread;

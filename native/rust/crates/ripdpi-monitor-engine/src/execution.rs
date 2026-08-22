@@ -13,8 +13,8 @@ pub use runtime::{
     CandidateRuntimeTerminalStatus, PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,
 };
 pub(super) use scoring::{
-    CandidateExecution, eliminated_candidate_summary, not_applicable_candidate_execution, skipped_candidate_summary,
-    winning_candidate_index_with,
+    CandidateExecution, eliminated_candidate_summary, failed_candidate_execution, not_applicable_candidate_execution,
+    skipped_candidate_summary, winning_candidate_index_with,
 };
 
 #[cfg(test)]
