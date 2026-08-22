@@ -167,9 +167,13 @@ where
     let mut last_activity = tokio::time::Instant::now();
 
     // Anti-spoofing pin: the association locks to the first client socket
-    // address that passes the control-IP gate. Later datagrams from any other
-    // source are dropped, so a local process that discovers the relay port can
-    // neither inject uplink datagrams nor receive downlink ones.
+    // address whose datagram BOTH passes the control-IP gate AND decodes as a
+    // well-formed SOCKS5 UDP frame. Decoding happens BEFORE the pin decision,
+    // so a local process that discovers the relay port cannot win the pin with
+    // a malformed datagram and lock the legitimate client out of its own
+    // association (or start receiving its downlink). Later datagrams from any
+    // other source are dropped, so a pinned-out process can neither inject
+    // uplink datagrams nor receive downlink ones.
     let mut pinned_client = None;
     let mut udp_buffer = vec![0u8; UDP_BUFFER_SIZE];
     let mut control_probe = [0u8; 1];
@@ -195,22 +199,12 @@ where
                     Ok(datagram) => datagram,
                     Err(error) => break Err(error),
                 };
-                match pinned_client {
-                    None => {
-                        if source.ip() != control_ip {
-                            continue;
-                        }
-                        pinned_client = Some(source);
-                    }
-                    Some(pinned) if pinned != source => continue,
-                    Some(_) => {}
-                }
-                last_activity = tokio::time::Instant::now();
                 let (target, payload) = match decode_udp_frame(&udp_buffer[..received]) {
                     Ok(frame) => frame,
                     // A single malformed datagram must not tear down the whole
-                    // association: SOCKS5 UDP is lossy by design, so the frame
-                    // is dropped and the pump keeps serving the pinned client.
+                    // association, and it must never consume the pin either:
+                    // SOCKS5 UDP is lossy by design, so the frame is dropped
+                    // before any state changes.
                     Err(error) => {
                         tracing::debug!(
                             ring = "relay",
@@ -224,6 +218,17 @@ where
                         continue;
                     }
                 };
+                match pinned_client {
+                    None => {
+                        if source.ip() != control_ip {
+                            continue;
+                        }
+                        pinned_client = Some(source);
+                    }
+                    Some(pinned) if pinned != source => continue,
+                    Some(_) => {}
+                }
+                last_activity = tokio::time::Instant::now();
                 // Policy: per-datagram UDP destinations never enter the
                 // runtime telemetry surface, for any backend. Datagram flows
                 // carry DNS lookups and arbitrary endpoints; only aggregate
@@ -557,6 +562,73 @@ mod tests {
             .expect("pump task hung after cancellation")
             .expect("pump task panicked");
         outcome.result.expect("pump must end gracefully after pinning");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+    }
+
+    /// Regression for the pin-before-validate hijack: a malformed datagram that
+    /// arrives FIRST from a foreign local socket must be dropped without
+    /// consuming the pin. The legitimate client's first well-formed frame then
+    /// pins the association, and every later datagram from the attacker — even
+    /// a well-formed one — is discarded.
+    #[tokio::test]
+    async fn udp_pump_does_not_let_a_malformed_foreign_datagram_steal_the_pin() {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let (sent_tx, mut sent_rx) = mpsc::unbounded_channel();
+        let (_downlink_tx, downlink_rx) = mpsc::unbounded_channel();
+        let mut carrier = RecordingUdpCarrier { sent: sent_tx, downlink: tokio::sync::Mutex::new(downlink_rx) };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let attacker = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind attacker socket");
+        let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind client socket");
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+
+        // The attacker's garbage lands first and would have won the pin under
+        // the old validate-after-pin order.
+        attacker.send_to(&[0x05, 0x00], relay_addr).await.expect("send malformed frame");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let client_frame = crate::socks::encode_udp_frame(&target, b"from-real-client").expect("encode client frame");
+        client.send_to(&client_frame, relay_addr).await.expect("send client frame");
+        let forwarded = tokio::time::timeout(Duration::from_secs(2), sent_rx.recv())
+            .await
+            .expect("client was locked out of its own association");
+        assert_eq!(Some(b"from-real-client".to_vec()), forwarded);
+
+        // The association is pinned to the client now: even a WELL-FORMED
+        // attacker datagram must never reach the carrier.
+        let attacker_frame = crate::socks::encode_udp_frame(&target, b"from-attacker").expect("encode attacker frame");
+        attacker.send_to(&attacker_frame, relay_addr).await.expect("send attacker frame");
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert!(
+            matches!(sent_rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)),
+            "an attacker datagram must not reach the carrier after the legitimate client pinned"
+        );
+
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("pump must end gracefully");
         assert_eq!("runtime_cancelled", outcome.termination_reason);
         drop(control_peer);
     }
