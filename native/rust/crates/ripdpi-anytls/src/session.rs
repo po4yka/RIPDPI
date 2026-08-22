@@ -204,6 +204,9 @@ pub struct AnyTlsStream {
     inbound: mpsc::Receiver<Vec<u8>>,
     read_buffer: VecDeque<u8>,
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
+    /// Set once [`AnyTlsStream::close`] queued the substream's FIN so `Drop`
+    /// does not send a duplicate.
+    fin_queued: bool,
 }
 
 pub struct AnyTlsUdpOverTcp {
@@ -330,6 +333,7 @@ impl AnyTlsClient {
                     inbound: inbound_rx,
                     read_buffer: VecDeque::new(),
                     streams: Arc::clone(&session.streams),
+                    fin_queued: false,
                 };
                 if result_tx.send(Ok(stream)).is_err() || accepted_rx.await.is_err() {
                     close_pending_stream(&session, stream_id);
@@ -523,11 +527,32 @@ impl AnyTlsStream {
         }
         self.inbound.recv().await.ok_or(AnyTlsError::SessionClosed)
     }
+
+    /// Half-close the substream towards the server: queue a FIN frame while
+    /// leaving the stream registered, so the inbound direction keeps working.
+    ///
+    /// Use this when the local writer is done but the peer may still send
+    /// data. Dropping the stream instead closes it in one step (route release
+    /// plus FIN). Idempotent: a second `close` is a no-op, and after a
+    /// successful `close` the `Drop` impl no longer sends a duplicate FIN.
+    pub async fn close(&mut self) -> Result<(), AnyTlsError> {
+        if self.fin_queued {
+            return Ok(());
+        }
+        self.outbound
+            .send(Outbound::Batch(vec![Frame::control(Command::Fin, self.stream_id)]))
+            .await
+            .map_err(|_| AnyTlsError::SessionClosed)?;
+        self.fin_queued = true;
+        Ok(())
+    }
 }
 
 impl Drop for AnyTlsStream {
     fn drop(&mut self) {
-        if self.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.stream_id).is_some() {
+        if !self.fin_queued
+            && self.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.stream_id).is_some()
+        {
             queue_fin(&self.outbound, self.stream_id);
         }
     }

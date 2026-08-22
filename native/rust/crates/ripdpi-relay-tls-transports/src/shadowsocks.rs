@@ -226,59 +226,66 @@ where
     // The two pumps each hold one half of the split relay stream, so a single
     // pump exiting cannot deliver EOF to the application -- the sibling's half
     // keeps `relay_stream` alive and the application hangs. Whenever either
-    // pump finishes (EOF, I/O error, or the terminal decryption failure above),
-    // abort the sibling so the whole relay tears down and the application half
-    // observes EOF too. The pumps own no state that needs graceful teardown,
-    // so abort is safe here.
+    // pump finishes, abort the sibling so the whole relay tears down and the
+    // application half observes EOF too. The application half is a
+    // DuplexStream handoff, which cannot express a write-only half-close: an
+    // upstream exit therefore means the application is gone entirely, and the
+    // pump has already forwarded that close to the server (TLS close_notify /
+    // TCP FIN) before exiting. The pumps own no state that needs graceful
+    // teardown beyond that forwarded close, so abort is safe here.
     let mut pumps = tokio::task::JoinSet::new();
     pumps.spawn(async move {
-        let mut buffer = [0_u8; 4096];
-        loop {
-            let Ok(read) = app_read.read(&mut buffer).await else {
-                return;
-            };
-            if read == 0 {
-                return;
-            }
-            let Ok(encrypted) = encrypt.encrypt_payload(&buffer[..read]).map_err(to_io) else {
-                return;
-            };
-            if socket_write.write_all(&encrypted).await.is_err() {
-                return;
+        let result: io::Result<()> = async {
+            let mut buffer = [0_u8; 4096];
+            loop {
+                let read = app_read.read(&mut buffer).await?;
+                if read == 0 {
+                    // Forward the application's disconnect to the server in
+                    // order -- instead of dropping the transport mid-flight --
+                    // so the request stream ends cleanly rather than truncated.
+                    socket_write.shutdown().await?;
+                    return Ok(());
+                }
+                let encrypted = encrypt.encrypt_payload(&buffer[..read]).map_err(to_io)?;
+                socket_write.write_all(&encrypted).await?;
             }
         }
+        .await;
+        result
     });
     pumps.spawn(async move {
-        let mut encrypted = Vec::new();
-        let mut buffer = [0_u8; 4096];
-        loop {
-            // Drain every complete AEAD chunk already buffered.
+        let result: io::Result<()> = async {
+            let mut encrypted = Vec::new();
+            let mut buffer = [0_u8; 4096];
             loop {
-                match decrypt.decrypt_chunk(&encrypted, 0) {
-                    Ok(Some((plain, consumed))) => {
-                        encrypted.drain(..consumed);
-                        if app_write.write_all(&plain).await.is_err() {
-                            return;
+                // Drain every complete AEAD chunk already buffered.
+                loop {
+                    match decrypt.decrypt_chunk(&encrypted, 0) {
+                        Ok(Some((plain, consumed))) => {
+                            encrypted.drain(..consumed);
+                            app_write.write_all(&plain).await?;
+                        }
+                        Ok(None) => break,
+                        // A tag failure is terminal for the response direction:
+                        // the stream is AEAD-authenticated and the codec's nonce
+                        // counter has already advanced past this chunk, so a retry
+                        // can never succeed. Falling through to the socket read
+                        // instead would spin on the same bytes while `encrypted`
+                        // grows without bound.
+                        Err(_) => {
+                            return Err(io::Error::other("shadowsocks response authentication failed"));
                         }
                     }
-                    Ok(None) => break,
-                    // A tag failure is terminal for the response direction:
-                    // the stream is AEAD-authenticated and the codec's nonce
-                    // counter has already advanced past this chunk, so a retry
-                    // can never succeed. Falling through to the socket read
-                    // instead would spin on the same bytes while `encrypted`
-                    // grows without bound.
-                    Err(_) => return,
                 }
+                let read = socket_read.read(&mut buffer).await?;
+                if read == 0 {
+                    return Ok(());
+                }
+                encrypted.extend_from_slice(&buffer[..read]);
             }
-            let Ok(read) = socket_read.read(&mut buffer).await else {
-                return;
-            };
-            if read == 0 {
-                return;
-            }
-            encrypted.extend_from_slice(&buffer[..read]);
         }
+        .await;
+        result
     });
     tokio::spawn(async move {
         let _ = pumps.join_next().await;
@@ -406,6 +413,10 @@ fn invalid_input(error: impl std::fmt::Display) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use tokio::io::ReadBuf;
+    use tokio::sync::Notify;
 
     #[tokio::test]
     async fn udp_receive_reuses_session_buffer_across_datagrams() {
@@ -486,5 +497,88 @@ mod tests {
         assert!(sink.is_empty(), "no plaintext may be delivered from unauthenticated bytes");
 
         server_task.abort();
+    }
+
+    /// Regression test for half-close propagation: when the application
+    /// disconnects, the upstream pump must forward the close to the server
+    /// (`AsyncWrite::shutdown`, i.e. TLS close_notify / TCP FIN) BEFORE the
+    /// relay tears down. Before the fix the pump returned on app EOF without
+    /// shutting anything down and the supervisor aborted the sibling, so the
+    /// carrier socket was dropped mid-flight and the server saw a truncated,
+    /// unordered end of stream.
+    #[tokio::test]
+    async fn app_disconnect_forwards_shutdown_to_server_before_teardown() {
+        let cipher = Cipher::AeadAes128Gcm;
+        let credential = "test-credential";
+        let config = Arc::new(ShadowsocksClientConfig {
+            server_host: "192.0.2.1".to_string(),
+            server_port: 443,
+            cipher,
+            password: credential.to_owned(),
+            outbound_bind_ip: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        });
+
+        // tokio's DuplexStream shutdown is a no-op, so wrap the transport in a
+        // double that records shutdown calls instead of forwarding them.
+        struct ShutdownRecordingTransport {
+            inner: tokio::io::DuplexStream,
+            shutdowns: Arc<Notify>,
+        }
+
+        impl AsyncRead for ShutdownRecordingTransport {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context<'_>,
+                buf: &mut ReadBuf<'_>,
+            ) -> Poll<io::Result<()>> {
+                Pin::new(&mut self.inner).poll_read(cx, buf)
+            }
+        }
+
+        impl AsyncWrite for ShutdownRecordingTransport {
+            fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+                Pin::new(&mut self.inner).poll_write(cx, buf)
+            }
+
+            fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+                Pin::new(&mut self.inner).poll_flush(cx)
+            }
+
+            fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+                self.shutdowns.notify_one();
+                Poll::Ready(Ok(()))
+            }
+        }
+
+        let (inner, mut server) = tokio::io::duplex(4096);
+        let shutdowns = Arc::new(Notify::new());
+        let transport = ShutdownRecordingTransport { inner, shutdowns: Arc::clone(&shutdowns) };
+
+        let salt_len = cipher.salt_len();
+        let server_task = tokio::spawn(async move {
+            let mut salt = vec![0_u8; salt_len];
+            rand::rng().fill(&mut salt);
+            server.write_all(&salt).await.expect("write salt");
+
+            // Receive (and ignore) the encrypted request bytes.
+            let mut request = [0_u8; 512];
+            let read = server.read(&mut request).await.expect("read request");
+            assert!(read > 0, "server must receive the client request");
+
+            // The forwarded close must arrive while the relay is still alive.
+            tokio::time::timeout(std::time::Duration::from_secs(5), shutdowns.notified())
+                .await
+                .expect("app disconnect must be forwarded to the server as a shutdown");
+        });
+
+        let mut app = connect_tcp_over_transport(config, transport, "192.0.2.1:443").await.expect("connect");
+        app.write_all(b"GET /").await.expect("write request");
+
+        // The application goes away entirely; through the DuplexStream handoff
+        // this is the only observable form of write-side close.
+        drop(app);
+
+        server_task.await.expect("server task");
     }
 }

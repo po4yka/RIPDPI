@@ -99,6 +99,34 @@ async fn dropping_open_stream_sends_fin_and_releases_route() {
 }
 
 #[tokio::test]
+async fn close_sends_fin_once_and_drop_does_not_duplicate_it() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let mut stream =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open stream");
+
+    // The stream is alive before the half-close.
+    stream.write_all(b"ping").await.expect("write");
+    assert_eq!(stream.read_exact_len(4).await.expect("echo"), b"ping");
+
+    stream.close().await.expect("close");
+
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while fixture.observed().fin_stream_ids != vec![1] {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("close must send FIN");
+
+    // Dropping after a successful half-close must not queue a second FIN for
+    // the same substream.
+    drop(stream);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(fixture.observed().fin_stream_ids, vec![1], "drop must not duplicate the FIN");
+}
+
+#[tokio::test]
 async fn concurrent_opens_share_one_in_flight_tls_session() {
     let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
     let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");

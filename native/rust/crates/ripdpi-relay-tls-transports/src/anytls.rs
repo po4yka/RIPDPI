@@ -106,14 +106,22 @@ fn bridge_stream(mut anytls: ripdpi_anytls::session::AnyTlsStream) -> tokio::io:
         loop {
             tokio::select! {
                 read = app_read.read(&mut buffer) => {
-                    let Ok(read) = read else {
-                        return;
-                    };
-                    if read == 0 {
-                        return;
-                    }
-                    if anytls.write_all(&buffer[..read]).await.is_err() {
-                        return;
+                    match read {
+                        // The application half is going away. Queue the
+                        // substream's FIN explicitly -- instead of relying on
+                        // Drop racing the relay teardown -- so the server sees
+                        // an ordered end-of-request rather than an abrupt
+                        // session-level failure.
+                        Ok(0) => {
+                            let _ = anytls.close().await;
+                            return;
+                        }
+                        Ok(read) => {
+                            if anytls.write_all(&buffer[..read]).await.is_err() {
+                                return;
+                            }
+                        }
+                        Err(_) => return,
                     }
                 }
                 chunk = anytls.read_chunk() => {
