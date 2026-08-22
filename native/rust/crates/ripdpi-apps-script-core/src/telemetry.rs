@@ -80,6 +80,14 @@ impl RelayTelemetryState {
         self.active_sessions.store(0, Ordering::Relaxed);
     }
 
+    /// Record a per-connection authority as the user-visible last-target
+    /// marker.
+    ///
+    /// Policy (mirrors relay-core's CONNECT-authority rule): every call site -
+    /// the SOCKS CONNECT host, the MITM'd TLS host, and the HTTP relay origin -
+    /// records exactly once per connection. The marker feeds Connection Health
+    /// and capability autolearn, so it stays plaintext; there is deliberately
+    /// no per-request or per-datagram recording anywhere on this path.
     pub fn record_target(&self, target: &str) {
         *self.last_target.lock().expect("target telemetry mutex") = Some(target.to_string());
         let host = target.split(':').next().unwrap_or(target).to_string();
@@ -151,3 +159,57 @@ fn now_epoch_millis() -> u64 {
 }
 
 pub(crate) type SharedTelemetryState = Arc<RelayTelemetryState>;
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::AppsScriptRuntimeConfig;
+
+    fn test_config() -> AppsScriptRuntimeConfig {
+        AppsScriptRuntimeConfig {
+            kind: "google_apps_script".to_string(),
+            profile_id: "default".to_string(),
+            listen_host: "127.0.0.1".to_string(),
+            listen_port: 11_980,
+            google_ip: "142.250.0.1".to_string(),
+            front_domain: "script.example".to_string(),
+            script_ids: vec![],
+            sni_hosts: vec![],
+            auth_key: String::new(),
+            parallel_relay: false,
+            direct_hosts: vec![],
+            data_dir: PathBuf::from("/tmp"),
+            hosts: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn record_target_stores_authority_and_derived_host_replacing_per_connection() {
+        let state = RelayTelemetryState::new(&test_config());
+
+        state.record_target("example.com:443");
+
+        let snapshot = state.snapshot(&test_config());
+        assert_eq!(Some("example.com:443".to_string()), snapshot.last_target);
+        assert_eq!(Some("example.com".to_string()), snapshot.last_host);
+
+        state.record_target("other.example:8443");
+        let snapshot = state.snapshot(&test_config());
+        assert_eq!(Some("other.example:8443".to_string()), snapshot.last_target);
+        assert_eq!(Some("other.example".to_string()), snapshot.last_host);
+    }
+
+    #[test]
+    fn record_target_tolerates_authorities_without_a_port_suffix() {
+        let state = RelayTelemetryState::new(&test_config());
+
+        state.record_target("portless.example");
+
+        let snapshot = state.snapshot(&test_config());
+        assert_eq!(Some("portless.example".to_string()), snapshot.last_target);
+        assert_eq!(Some("portless.example".to_string()), snapshot.last_host);
+    }
+}
