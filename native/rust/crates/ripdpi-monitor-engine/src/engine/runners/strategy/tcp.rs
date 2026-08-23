@@ -259,14 +259,38 @@ impl StrategyTcpRunner {
     }
 }
 
-fn execution_should_stop(runtime: &ExecutionRuntime) -> bool {
+pub(super) fn execution_should_stop(runtime: &ExecutionRuntime) -> bool {
     runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline()
 }
 
-fn sleep_within_active_deadline(delay: Duration) -> bool {
+pub(super) fn sleep_within_active_deadline(delay: Duration) -> bool {
     let Ok(permitted) = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(delay) else {
         return false;
     };
     thread::sleep(permitted);
     permitted == delay
+}
+
+#[cfg(test)]
+mod deadline_pacing_tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn sleeps_full_delay_without_ambient_deadline() {
+        assert!(sleep_within_active_deadline(Duration::from_millis(1)));
+    }
+
+    #[test]
+    fn truncates_inter_candidate_pause_at_active_deadline() {
+        let deadline = Instant::now() + Duration::from_millis(5);
+        ripdpi_diagnostics_contracts::util::with_scan_io_deadline(Some(deadline), || {
+            let started = Instant::now();
+            assert!(!sleep_within_active_deadline(Duration::from_secs(30)));
+            assert!(started.elapsed() < Duration::from_secs(5));
+            // Once the deadline has elapsed the pause must report exhaustion.
+            std::thread::sleep(Duration::from_millis(10));
+            assert!(!sleep_within_active_deadline(Duration::from_secs(30)));
+        });
+    }
 }
