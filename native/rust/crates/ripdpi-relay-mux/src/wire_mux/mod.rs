@@ -40,8 +40,8 @@ pub mod sing_mux;
 pub mod yamux;
 
 pub use session::{
-    DEFAULT_MAILBOX_CAPACITY, DEFAULT_MAX_STREAMS, DeliverOutcome, MuxError, MuxLimits, MuxProtocol, MuxTransport,
-    StreamIdAllocator, StreamMailbox,
+    DEFAULT_MAILBOX_BUFFERED_BYTES, DEFAULT_MAX_STREAMS, DeliverOutcome, MuxError, MuxLimits, MuxProtocol,
+    MuxTransport, StreamIdAllocator, StreamMailbox,
 };
 pub use sing_mux::{
     Command as SingMuxCommand, FRAME_PREFIX_LEN as SING_MUX_FRAME_PREFIX_LEN, PaddingMode, SingMuxCodecError,
@@ -88,7 +88,7 @@ mod tests {
         let mut decoder = SingMuxDecoder::new();
         decoder.extend(&wire);
         let mailboxes: std::collections::HashMap<u32, StreamMailbox> =
-            stream_ids.iter().map(|&id| (id, StreamMailbox::new(DEFAULT_MAILBOX_CAPACITY))).collect();
+            stream_ids.iter().map(|&id| (id, StreamMailbox::new(DEFAULT_MAILBOX_BUFFERED_BYTES))).collect();
 
         let mut new_count = 0u32;
         let mut data_count = 0u32;
@@ -132,7 +132,7 @@ mod tests {
         decoder.extend(&wire);
         let mut decoded = 0u32;
         let mailboxes: std::collections::HashMap<u32, StreamMailbox> =
-            stream_ids.iter().map(|&id| (id, StreamMailbox::new(DEFAULT_MAILBOX_CAPACITY))).collect();
+            stream_ids.iter().map(|&id| (id, StreamMailbox::new(DEFAULT_MAILBOX_BUFFERED_BYTES))).collect();
         while let Some(frame) = decoder.next_frame().expect("decode ok") {
             assert!(frame.header.has_flag(yamux_flags::SYN), "each flow opens with SYN");
             let mailbox = mailboxes.get(&frame.header.stream_id).expect("known substream");
@@ -165,7 +165,8 @@ mod tests {
         let _allocator = StreamIdAllocator::for_protocol(MuxProtocol::SingMux);
         // ...and O(FLOWS) mailboxes, which are just bounded VecDeques --
         // far cheaper than a TCP/TLS connection apiece.
-        let mailboxes: Vec<StreamMailbox> = (0..FLOWS).map(|_| StreamMailbox::new(DEFAULT_MAILBOX_CAPACITY)).collect();
+        let mailboxes: Vec<StreamMailbox> =
+            (0..FLOWS).map(|_| StreamMailbox::new(DEFAULT_MAILBOX_BUFFERED_BYTES)).collect();
         assert_eq!(mailboxes.len(), FLOWS);
         // The invariant: connection-level state count is 1, independent of
         // FLOWS. The 100-connection alternative would have FLOWS of it.
