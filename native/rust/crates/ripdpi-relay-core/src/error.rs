@@ -34,5 +34,18 @@ pub(crate) fn classified_error(class: FailureClass, kind: io::ErrorKind, message
 /// boundary) consumes this same accessor once relay failures feed it.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relay_failure_class(error: &io::Error) -> Option<FailureClass> {
-    error.get_ref().and_then(|payload| payload.downcast_ref::<ClassifiedRelayError>()).map(|payload| payload.class)
+    // Walk the source chain so a class tagged inside a hop (e.g. TUIC's
+    // version classification) survives the chain layer's hop-error wrapping.
+    let mut current = error.get_ref().map(|payload| payload as &(dyn std::error::Error + 'static));
+    loop {
+        match current {
+            None => return None,
+            Some(inner) => {
+                if let Some(payload) = inner.downcast_ref::<ClassifiedRelayError>() {
+                    return Some(payload.class);
+                }
+                current = inner.source();
+            }
+        }
+    }
 }

@@ -13,10 +13,18 @@ use ripdpi_relay_tls_transports::{ShadowTlsFailureKind, ShadowTlsHandshakeError}
 /// `docs/architecture/shadowtls-version-policy.md`. Non-version errors pass
 /// through unchanged. Mirrors `classify_tuic_handshake_error`.
 pub(crate) fn classify_shadowtls_handshake_error(error: io::Error) -> io::Error {
-    let is_version_mismatch = error
-        .get_ref()
-        .and_then(|inner| inner.downcast_ref::<ShadowTlsHandshakeError>())
-        .is_some_and(|handshake| handshake.kind() == ShadowTlsFailureKind::VersionMismatch);
+    // Walk the error's source chain: a chain-relay failure arrives wrapped in
+    // a hop-tagged payload whose source carries the typed handshake error.
+    let mut current = error.get_ref().map(|inner| inner as &(dyn std::error::Error + 'static));
+    let is_version_mismatch = loop {
+        match current {
+            None => break false,
+            Some(inner) => match inner.downcast_ref::<ShadowTlsHandshakeError>() {
+                Some(handshake) => break handshake.kind() == ShadowTlsFailureKind::VersionMismatch,
+                None => current = inner.source(),
+            },
+        }
+    };
     if !is_version_mismatch {
         return error;
     }
@@ -71,5 +79,43 @@ mod tests {
             relay_failure_class(&mapped),
             "the failure class must travel as typed data, not only as a display-token prefix"
         );
+    }
+}
+
+#[cfg(test)]
+mod hop_tagged_classification_tests {
+    use super::*;
+
+    /// A chain-relay failure arrives wrapped in the chain layer's
+    /// `HopTaggedError` payload. The classifier must still find the typed
+    /// handshake error through the source chain and map it to the
+    /// user-actionable version-mismatch diagnostic.
+    #[test]
+    fn classifier_reaches_typed_error_through_a_hop_tagged_wrapper() {
+        let tagged = io::Error::new(
+            io::ErrorKind::ConnectionReset,
+            super::super::chain::test_support::hop_tagged(
+                "hop 1 (shadowtls_v3)",
+                io::Error::new(io::ErrorKind::ConnectionReset, ShadowTlsHandshakeError::version_mismatch()),
+            ),
+        );
+
+        let mapped = classify_shadowtls_handshake_error(tagged);
+        assert!(
+            mapped.to_string().contains("chain hop 1 (shadowtls_v3)")
+                && mapped.to_string().contains(FailureClass::ShadowTlsVersionMismatch.as_str()),
+            "the diagnostic must keep both the hop context and the failure token, got: {mapped}"
+        );
+    }
+
+    #[test]
+    fn classifier_passes_through_untyped_hop_tagged_errors() {
+        let tagged = super::super::chain::test_support::hop_tagged(
+            "hop 0 (trojan)",
+            io::Error::new(io::ErrorKind::ConnectionRefused, "connection refused"),
+        );
+        let mapped = classify_shadowtls_handshake_error(io::Error::new(io::ErrorKind::ConnectionRefused, tagged));
+        assert_eq!(io::ErrorKind::ConnectionRefused, mapped.kind());
+        assert!(mapped.to_string().contains("chain hop 0 (trojan)"), "unexpected error: {mapped}");
     }
 }

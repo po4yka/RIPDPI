@@ -146,8 +146,9 @@ impl RelayRuntime {
         match self.state.drain_sessions(SESSION_DRAIN_GRACE).await {
             SessionDrainOutcome::Graceful => {}
             SessionDrainOutcome::Aborted => {
-                self.state
-                    .record_error("relay session drain exceeded grace window; remaining tasks aborted".to_string());
+                self.state.record_listener_error(
+                    "relay session drain exceeded grace window; remaining tasks aborted".to_string(),
+                );
             }
             SessionDrainOutcome::AbortTimedOut => {
                 self.state.set_running(false);

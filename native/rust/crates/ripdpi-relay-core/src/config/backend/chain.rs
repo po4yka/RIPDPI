@@ -129,7 +129,7 @@ fn default_chain_hop_tls_fingerprint_profile() -> String {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub kind: String,

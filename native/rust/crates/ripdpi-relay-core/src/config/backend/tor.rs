@@ -10,7 +10,7 @@ pub struct TorRelayConfig {
 impl_redacted_debug!(TorRelayConfig { state_dir, cache_dir, transports });
 
 #[derive(Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TorPluggableTransportConfig {
     #[serde(default)]
     pub protocols: Vec<String>,

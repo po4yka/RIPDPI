@@ -1,6 +1,6 @@
 pub(crate) use super::*;
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResolvedRelayFinalmaskConfig {
     #[serde(default)]
     pub r#type: String,

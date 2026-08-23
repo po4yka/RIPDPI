@@ -63,7 +63,7 @@ pub(super) async fn run_accept_loop(
                     }
                     None => {
                         drop(stream);
-                        runtime.state.record_error(format!(
+                        runtime.state.record_listener_error(format!(
                             "relay SOCKS admission saturated at {max_concurrent_sessions} sessions"
                         ));
                     }
@@ -71,7 +71,7 @@ pub(super) async fn run_accept_loop(
             }
             Ok(Err(error)) => {
                 consecutive_accept_errors = consecutive_accept_errors.saturating_add(1);
-                runtime.state.record_error(error.to_string());
+                runtime.state.record_listener_error(error.to_string());
                 // The wait is chunked at the poll interval so a stop request
                 // is honored within one poll window even during the longest
                 // backoff step.

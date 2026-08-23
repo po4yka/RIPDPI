@@ -92,7 +92,26 @@ where
     }
 
     let is_xudp = config.backend_kind == "vless_reality";
-    let mut udp_session = match backend.open_udp_session().await {
+    // The carrier open is bounded by `connect_deadline` and cancel-aware,
+    // mirroring the TCP CONNECT dial: a saturated pool or a stalled QUIC
+    // handshake must not pin the admission permit indefinitely, and runtime
+    // shutdown must win over the open. Pre-reply: abandoning the open by drop
+    // is safe — no reply is on the wire yet.
+    let open_result = tokio::select! {
+        biased;
+        () = cancel.cancelled() => {
+            if is_xudp {
+                telemetry.record_xudp_open_failure();
+            }
+            return Ok(());
+        }
+        result = crate::socks::connect::with_deadline(
+            backend.open_udp_session(),
+            config.timeouts.connect_deadline,
+            "relay upstream UDP session timed out",
+        ) => result,
+    };
+    let mut udp_session = match open_result {
         Ok(session) => session,
         Err(error) => {
             if is_xudp {

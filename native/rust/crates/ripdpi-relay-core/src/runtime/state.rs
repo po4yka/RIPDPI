@@ -240,6 +240,15 @@ impl RuntimeState {
         self.session_error_streak.fetch_add(1, Ordering::Relaxed);
     }
 
+    /// Record a listener/admission failure (accept error, admission
+    /// saturation, drain abort). These surface in `last_error` for visibility
+    /// but deliberately do NOT advance the session error streak: EMFILE or a
+    /// full admission permit set is not a relayed-session failure, and letting
+    /// it drive `health = "failed"` would misreport healthy sessions as dead.
+    pub(super) fn record_listener_error(&self, error: String) {
+        self.last_error.store(Some(Arc::new(error)));
+    }
+
     pub(super) fn record_session_success(&self) {
         // Ordering: this is a standalone telemetry counter and does not publish other state.
         self.session_error_streak.store(0, Ordering::Relaxed);
@@ -615,5 +624,32 @@ mod tests {
         assert_eq!(64, recovered.downlink_bytes);
         assert_eq!(0, recovered.consecutive_udp_failures);
         assert!(recovered.last_successful_downlink_at.is_some());
+    }
+}
+
+#[cfg(test)]
+mod listener_error_tests {
+    use super::*;
+
+    /// Listener/admission failures surface in `last_error` for visibility but
+    /// must NOT advance the session error streak: EMFILE or a saturated
+    /// admission permit set is not a relayed-session failure, and letting it
+    /// drive `health = "failed"` would misreport healthy sessions as dead.
+    #[test]
+    fn record_listener_error_keeps_the_session_error_streak_clean() {
+        let state = RuntimeState::new();
+        assert_eq!(0, state.session_error_streak());
+
+        state.record_listener_error("relay SOCKS admission saturated at 256 sessions".to_string());
+        state.record_listener_error("accept: EMFILE".to_string());
+
+        assert_eq!(0, state.session_error_streak(), "listener errors must not pollute the session streak");
+        assert!(state.last_error().is_some(), "listener failures stay visible in last_error");
+
+        // The session path still drives the streak as before.
+        state.record_error("session failed".to_string());
+        assert_eq!(1, state.session_error_streak());
+        state.record_session_success();
+        assert_eq!(0, state.session_error_streak());
     }
 }

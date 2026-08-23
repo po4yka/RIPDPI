@@ -36,7 +36,7 @@ impl ResolvedRelayRuntimeConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CommonRelayConfig {
     pub enabled: bool,
     pub profile_id: String,

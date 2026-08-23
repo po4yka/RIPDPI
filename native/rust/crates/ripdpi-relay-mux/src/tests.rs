@@ -287,3 +287,113 @@ async fn lease_guard_drop_does_not_panic_when_mutex_is_poisoned() {
     // The recovery paths in `health()` must also not panic after poison.
     let _ = mux.health();
 }
+
+/// A cached carrier that the server/NAT closed during the idle window:
+/// its FIRST open succeeded (so it got cached), but every later open fails
+/// until the mux evicts it and dials a fresh session.
+#[derive(Clone)]
+struct StaleFirstCarrierFactory {
+    creations: Arc<AtomicUsize>,
+}
+
+struct StaleFirstCarrierSession {
+    generation: usize,
+    opens: AtomicUsize,
+}
+
+impl RelaySession for StaleFirstCarrierSession {
+    type Stream = tokio::io::DuplexStream;
+    type Datagram = usize;
+    type Error = std::io::Error;
+
+    async fn open_stream(&self, _target: &str) -> Result<Self::Stream, Self::Error> {
+        if self.generation == 0 && self.opens.fetch_add(1, Ordering::SeqCst) == 0 {
+            Ok(duplex(64).0)
+        } else if self.generation == 0 {
+            Err(std::io::Error::new(std::io::ErrorKind::ConnectionReset, "carrier closed by peer"))
+        } else {
+            Ok(duplex(64).0)
+        }
+    }
+
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Ok(7)
+    }
+}
+
+impl RelaySessionFactory for StaleFirstCarrierFactory {
+    type Session = StaleFirstCarrierSession;
+    type Error = std::io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        let generation = self.creations.fetch_add(1, Ordering::SeqCst);
+        Ok(Arc::new(StaleFirstCarrierSession { generation, opens: AtomicUsize::new(0) }))
+    }
+}
+
+#[tokio::test]
+async fn stale_cached_carrier_failure_is_retried_once_on_a_fresh_session() {
+    let creations = Arc::new(AtomicUsize::new(0));
+    let mux = RelayMux::new(StaleFirstCarrierFactory { creations: Arc::clone(&creations) }, RelayPoolConfig::default());
+
+    // Warm the cache: the first carrier opens fine and is reused afterward.
+    let warm = mux.open_stream("example.com:443").await.expect("warm-up open");
+    drop(warm);
+    assert_eq!(1, creations.load(Ordering::SeqCst));
+
+    // The peer closed the carrier meanwhile: this lease hits the CACHE and
+    // must be transparently retried on a freshly created session.
+    let stream = mux
+        .open_stream("example.com:443")
+        .await
+        .expect("a stale cached carrier must be retried on a fresh session, not surfaced");
+    drop(stream);
+
+    assert_eq!(2, creations.load(Ordering::SeqCst), "exactly one fresh-carrier retry must happen");
+}
+
+#[tokio::test]
+async fn fresh_carrier_failure_surfaces_without_a_retry() {
+    // A factory whose EVERY carrier fails: from_cache is false for a freshly
+    // created session, so no retry may run — otherwise a hard outage would
+    // double the dial cost per request.
+    struct AlwaysFailingFactory;
+    struct AlwaysFailingSession;
+
+    impl RelaySession for AlwaysFailingSession {
+        type Stream = tokio::io::DuplexStream;
+        type Datagram = usize;
+        type Error = std::io::Error;
+
+        async fn open_stream(&self, _target: &str) -> Result<Self::Stream, Self::Error> {
+            Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "relay unreachable"))
+        }
+
+        async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+            Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "relay unreachable"))
+        }
+    }
+
+    impl RelaySessionFactory for AlwaysFailingFactory {
+        type Session = AlwaysFailingSession;
+        type Error = std::io::Error;
+
+        fn capabilities(&self) -> RelayCapabilities {
+            RelayCapabilities { tcp: true, udp: true, reusable: true }
+        }
+
+        async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+            Ok(Arc::new(AlwaysFailingSession))
+        }
+    }
+
+    let mux = RelayMux::new(AlwaysFailingFactory, RelayPoolConfig::default());
+    let Err(error) = mux.open_stream("example.com:443").await else {
+        panic!("a failing fresh carrier must surface its error");
+    };
+    assert_eq!(std::io::ErrorKind::ConnectionRefused, error.kind());
+}

@@ -12,7 +12,7 @@ fn default_shadowtls_inner_xhttp_mode() -> String {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResolvedShadowTlsInnerRelayConfig {
     pub kind: String,
     pub profile_id: String,

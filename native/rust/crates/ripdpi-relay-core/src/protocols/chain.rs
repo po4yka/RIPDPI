@@ -32,6 +32,20 @@ pub(crate) enum ChainHopConnector {
 }
 
 impl ChainHopConnector {
+    /// Registry kind id for diagnostics (`chain hop N ({kind})` error tags).
+    fn kind_label(&self) -> &'static str {
+        match self {
+            Self::VlessReality(_) => "vless_reality",
+            Self::Masque(_) => "masque",
+            Self::Trojan(_) => "trojan",
+            Self::AnyTls(_) => "anytls",
+            Self::Shadowsocks(_) => "shadowsocks",
+            Self::ShadowTls(_) => "shadowtls_v3",
+            Self::Hysteria2(_) => "hysteria2",
+            Self::Tuic(_) => "tuic_v5",
+        }
+    }
+
     /// The `host:port` authority a *prior* hop must dial to reach this hop.
     ///
     /// Used to chain hop `i` over hop `i-1`: the previous hop's `connect_over`
@@ -206,6 +220,39 @@ impl ChainRelaySession {
     fn record(&self, index: usize, state: &str, latency_ms: Option<u64>) {
         self.telemetry.record(ChainHopRole::Hop(index), state, latency_ms);
     }
+
+    /// Prefix a hop failure with its position and transport kind.
+    ///
+    /// A raw upstream io error ("connection refused") is useless across a
+    /// 4-hop chain: nothing says WHICH hop died. The wrapper preserves the
+    /// original [`io::ErrorKind`] and chains the original error as `source`,
+    /// so typed payloads (`ShadowTlsHandshakeError`, `ClassifiedRelayError`)
+    /// stay reachable by downstream classifiers walking the source chain.
+    fn tag_hop_error(&self, index: usize, error: io::Error) -> io::Error {
+        io::Error::new(
+            error.kind(),
+            HopTaggedError { label: format!("hop {index} ({})", self.hops[index].kind_label()), source: error },
+        )
+    }
+}
+
+/// Payload produced by [`ChainRelaySession::tag_hop_error`].
+#[derive(Debug)]
+struct HopTaggedError {
+    label: String,
+    source: io::Error,
+}
+
+impl std::fmt::Display for HopTaggedError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "chain {}: {}", self.label, self.source)
+    }
+}
+
+impl std::error::Error for HopTaggedError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.get_ref().map(|inner| inner as _)
+    }
 }
 
 impl RelaySession for ChainRelaySession {
@@ -224,7 +271,17 @@ impl RelaySession for ChainRelaySession {
         // Entry hop (index 0): the only hop that opens a real outbound
         // socket. Its destination is the next hop's proxy authority (for a
         // 2-hop chain that is the exit's authority).
-        let entry_destination = if last_index == 0 { target.to_string() } else { self.hops[1].proxy_target()? };
+        let entry_destination = if last_index == 0 {
+            target.to_string()
+        } else {
+            match self.hops[1].proxy_target() {
+                Ok(destination) => destination,
+                Err(error) => {
+                    self.record(0, "failed", None);
+                    return Err(self.tag_hop_error(1, error));
+                }
+            }
+        };
         self.record(0, "connecting", None);
         let started = Instant::now();
         let mut stream = match self.hops[0].connect(self.outbound_bind_ip, &entry_destination).await {
@@ -234,7 +291,7 @@ impl RelaySession for ChainRelaySession {
             }
             Err(error) => {
                 self.record(0, "failed", Some(started.elapsed().as_millis() as u64));
-                return Err(error);
+                return Err(self.tag_hop_error(0, error));
             }
         };
 
@@ -242,8 +299,17 @@ impl RelaySession for ChainRelaySession {
         // stream. Hop `i` dials hop `i+1`'s proxy authority, except the last
         // hop, which dials the caller's final `target`.
         for index in 1..self.hops.len() {
-            let destination =
-                if index == last_index { target.to_string() } else { self.hops[index + 1].proxy_target()? };
+            let destination = if index == last_index {
+                target.to_string()
+            } else {
+                match self.hops[index + 1].proxy_target() {
+                    Ok(destination) => destination,
+                    Err(error) => {
+                        self.record(index, "failed", None);
+                        return Err(self.tag_hop_error(index + 1, error));
+                    }
+                }
+            };
             self.record(index, "connecting", None);
             let started = Instant::now();
             stream = match self.hops[index].connect_over(stream, &destination).await {
@@ -253,7 +319,7 @@ impl RelaySession for ChainRelaySession {
                 }
                 Err(error) => {
                     self.record(index, "failed", Some(started.elapsed().as_millis() as u64));
-                    return Err(error);
+                    return Err(self.tag_hop_error(index, error));
                 }
             };
         }
@@ -311,5 +377,17 @@ mod tests {
         for kind in ["MASQUE", "Hysteria2"] {
             reject_bind_for_kind(None, kind).expect("a missing bind IP must be accepted");
         }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+
+    /// Build the same hop-tagged payload [`ChainRelaySession::tag_hop_error`]
+    /// produces, so classifier tests in sibling protocol modules can exercise
+    /// the wrapped shape without a live multi-hop fixture.
+    pub(crate) fn hop_tagged(label: &str, source: io::Error) -> io::Error {
+        io::Error::new(source.kind(), super::HopTaggedError { label: label.to_string(), source })
     }
 }

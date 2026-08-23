@@ -17,10 +17,18 @@ use crate::telemetry::{QuicMigrationTelemetryState, sync_quic_migration_state};
 /// `docs/architecture/tuic-v4-policy.md`. Non-version errors pass through
 /// unchanged.
 fn classify_tuic_handshake_error(error: io::Error) -> io::Error {
-    let is_version_unsupported = error
-        .get_ref()
-        .and_then(|inner| inner.downcast_ref::<TuicHandshakeError>())
-        .is_some_and(|handshake| handshake.kind() == TuicFailureKind::VersionUnsupported);
+    // Walk the error's source chain: a chain-relay failure arrives wrapped in
+    // a hop-tagged payload whose source carries the typed handshake error.
+    let mut current = error.get_ref().map(|inner| inner as &(dyn std::error::Error + 'static));
+    let is_version_unsupported = loop {
+        match current {
+            None => break false,
+            Some(inner) => match inner.downcast_ref::<TuicHandshakeError>() {
+                Some(handshake) => break handshake.kind() == TuicFailureKind::VersionUnsupported,
+                None => current = inner.source(),
+            },
+        }
+    };
     if !is_version_unsupported {
         return error;
     }

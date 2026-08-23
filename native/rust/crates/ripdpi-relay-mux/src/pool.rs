@@ -70,7 +70,7 @@ where
         target: &str,
     ) -> Result<MuxStream<<F::Session as RelaySession>::Stream, F::Session>, F::Error> {
         let permit = self.acquire_permit().await;
-        let session = self.session_for_open().await?;
+        let (session, from_cache) = self.session_for_open().await?;
         self.mark_lease_started();
         let guard =
             LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
@@ -79,7 +79,33 @@ where
             Ok(stream) => Ok(MuxStream::new(stream, guard)),
             Err(error) => {
                 self.invalidate_failed_open(Some(&session));
-                Err(error)
+                if !from_cache {
+                    return Err(error);
+                }
+                // A cache hit may be stale: the server or NAT closed the
+                // carrier during the idle window, so the first lease on it
+                // fails through no fault of the caller. Evict the corpse and
+                // retry ONCE on a freshly created carrier; the original error
+                // stays the surfaced cause if the retry path cannot even set
+                // up.
+                drop(guard);
+                let Ok((fresh, _)) = self.session_for_open().await else {
+                    return Err(error);
+                };
+                self.mark_lease_started();
+                let retry_guard = LeaseGuard::new(
+                    self.inner.state.clone(),
+                    Arc::clone(&fresh),
+                    self.inner.capabilities.reusable,
+                    self.acquire_permit().await,
+                );
+                match fresh.open_stream(target).await {
+                    Ok(stream) => Ok(MuxStream::new(stream, retry_guard)),
+                    Err(retry_error) => {
+                        self.invalidate_failed_open(Some(&fresh));
+                        Err(retry_error)
+                    }
+                }
             }
         }
     }
@@ -88,7 +114,7 @@ where
         &self,
     ) -> Result<MuxLease<<F::Session as RelaySession>::Datagram, F::Session>, F::Error> {
         let permit = self.acquire_permit().await;
-        let session = self.session_for_open().await?;
+        let (session, from_cache) = self.session_for_open().await?;
         self.mark_lease_started();
         let guard =
             LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
@@ -97,7 +123,28 @@ where
             Ok(datagram) => Ok(MuxLease::new(datagram, guard)),
             Err(error) => {
                 self.invalidate_failed_open(Some(&session));
-                Err(error)
+                if !from_cache {
+                    return Err(error);
+                }
+                // Mirror open_stream's single stale-carrier retry.
+                drop(guard);
+                let Ok((fresh, _)) = self.session_for_open().await else {
+                    return Err(error);
+                };
+                self.mark_lease_started();
+                let retry_guard = LeaseGuard::new(
+                    self.inner.state.clone(),
+                    Arc::clone(&fresh),
+                    self.inner.capabilities.reusable,
+                    self.acquire_permit().await,
+                );
+                match fresh.open_datagram().await {
+                    Ok(datagram) => Ok(MuxLease::new(datagram, retry_guard)),
+                    Err(retry_error) => {
+                        self.invalidate_failed_open(Some(&fresh));
+                        Err(retry_error)
+                    }
+                }
             }
         }
     }
@@ -112,13 +159,16 @@ where
         self.inner.permits.clone().acquire_owned().await.expect("relay mux semaphore unexpectedly closed")
     }
 
-    async fn session_for_open(&self) -> Result<Arc<F::Session>, F::Error> {
+    /// Returns the session to open a lease on plus whether it came from the
+    /// reuse cache (`true` means the carrier may be stale — the caller gets
+    /// one fresh-carrier retry on a failed open).
+    async fn session_for_open(&self) -> Result<(Arc<F::Session>, bool), F::Error> {
         if !self.inner.capabilities.reusable {
-            return self.inner.factory.create_session().await;
+            return Ok((self.inner.factory.create_session().await?, false));
         }
 
         if let Some(session) = self.cached_session() {
-            return Ok(session);
+            return Ok((session, true));
         }
 
         // The guard is intentionally held across factory creation: it is the
@@ -126,17 +176,17 @@ where
         // the owner releases the gate and lets the next waiter retry.
         let _creation_guard = self.inner.session_creation.lock().await;
         if let Some(session) = self.cached_session() {
-            return Ok(session);
+            return Ok((session, true));
         }
         let created = self.inner.factory.create_session().await?;
         // Recover poison: lease accounting is advisory.
         let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         prune_expired_session(&mut state, self.inner.config.idle_timeout);
         if let Some(session) = state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session)) {
-            return Ok(session);
+            return Ok((session, true));
         }
         state.cached_session = Some(CachedSession::new(Arc::clone(&created)));
-        Ok(created)
+        Ok((created, false))
     }
 
     fn cached_session(&self) -> Option<Arc<F::Session>> {
