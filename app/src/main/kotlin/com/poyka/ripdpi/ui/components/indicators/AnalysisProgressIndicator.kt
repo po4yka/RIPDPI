@@ -177,7 +177,7 @@ private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotio
  *
  * This used to hardcode `[audit] -> [connectivity | dpi_full] -> [strategy]`: segments at indices
  * 0, 1, 2 and 3, arrow glyphs between them, and 1 and 2 stacked as a parallel pair. That topology
- * matched neither the spec nor the runner. `HomeCompositeStageSpecs` is a flat list of eight
+ * matched neither the spec nor the runner. `HomeCompositeStageSpecs` is a flat list of nine
  * sequential stages -- `activeStageIndex` is a single Int, so nothing runs in parallel -- so the
  * hardcoded indices dropped the last four stages of every full run without a trace. A quick scan
  * emits three stages and happened to survive; a two-stage list would have lost its second stage
@@ -269,7 +269,7 @@ private fun PipelineSegment(
                 },
     ) {
         // Empty track. outlineVariant, not muted: muted is #F5F5F5 against a #F1F4FD container,
-        // which measures 1.02:1 and leaves every unstarted stage invisible, so a full eight-stage
+        // which measures 1.02:1 and leaves every unstarted stage invisible, so a full nine-stage
         // run still read as four. outlineVariant is also the token the contrast ladder strengthens
         // for Medium/High, which muted is not, so the segments now respond to that setting at all.
         Box(
@@ -332,7 +332,7 @@ private fun AnalysisProgressIndicatorPreview() {
                 activeStageIndex = 0,
                 stageLabel = "Stage 1 of 3 \u00B7 Initializing scan",
             )
-            // The shape a full run actually produces: HomeCompositeStageSpecs has eight stages.
+            // The shape a full run actually produces: HomeCompositeStageSpecs has nine stages.
             AnalysisProgressIndicator(
                 stages =
                     persistentListOf(

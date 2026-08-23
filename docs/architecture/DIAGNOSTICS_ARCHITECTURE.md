@@ -272,7 +272,7 @@ implementation binds these to the live service. Path mode and the lifecycle
 interact directly: a **raw-path** scan stops the `VpnService` before probing,
 and a DNS-corrected re-probe waits for the service to resume before its
 second pass; an **in-path** scan leaves the service running. A VPN halt
-mid-stage marks that stage `FAILED` (the home composite run sequences four
+mid-stage marks that stage `FAILED` (the home composite run sequences nine
 stages and a failed audit stage skips the rest — see
 [`RUNTIME_MODES.md`](RUNTIME_MODES.md) §3).
 
