@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
@@ -428,14 +429,18 @@ internal class DiagnosticsScanExecutionCoordinator
                     if (runningSession == null) {
                         false
                     } else {
-                        val finalized =
+                        val finalizeFailure =
                             runCatching {
                                 scanFinalizationService.finalize(
                                     prepared = prepared,
                                     reportJson = outcome.reportJson,
                                 )
-                            }.isSuccess
-                        if (!finalized) {
+                            }.exceptionOrNull()
+                        if (finalizeFailure != null) {
+                            if (finalizeFailure is CancellationException) throw finalizeFailure
+                            Logger.w(finalizeFailure) {
+                                "Scan finalization failed; persisted partial session instead"
+                            }
                             persistPartialScanSession(runningSession, outcome.reportJson, scanRecordStore)
                         }
                         true
