@@ -426,25 +426,22 @@ internal class DiagnosticsScanExecutionCoordinator
                 is TerminalReportAwaitOutcome.Terminal -> {
                     val runningSession =
                         scanRecordStore.getScanSession(prepared.sessionId)?.takeIf { it.status == "running" }
-                    if (runningSession == null) {
-                        false
-                    } else {
-                        val finalizeFailure =
-                            runCatching {
-                                scanFinalizationService.finalize(
-                                    prepared = prepared,
-                                    reportJson = outcome.reportJson,
-                                )
-                            }.exceptionOrNull()
-                        if (finalizeFailure != null) {
-                            if (finalizeFailure is CancellationException) throw finalizeFailure
-                            Logger.w(finalizeFailure) {
-                                "Scan finalization failed; persisted partial session instead"
-                            }
-                            persistPartialScanSession(runningSession, outcome.reportJson, scanRecordStore)
+                            ?: return false
+                    val finalizeFailure =
+                        runCatching {
+                            scanFinalizationService.finalize(
+                                prepared = prepared,
+                                reportJson = outcome.reportJson,
+                            )
+                        }.exceptionOrNull()
+                    if (finalizeFailure is CancellationException) throw finalizeFailure
+                    if (finalizeFailure != null) {
+                        Logger.w(finalizeFailure) {
+                            "Scan finalization failed; persisted partial session instead"
                         }
-                        true
+                        persistPartialScanSession(runningSession, outcome.reportJson, scanRecordStore)
                     }
+                    true
                 }
 
                 is TerminalReportAwaitOutcome.TerminalUnavailable -> {

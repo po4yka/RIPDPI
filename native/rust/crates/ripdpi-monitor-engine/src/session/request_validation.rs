@@ -5,7 +5,7 @@ use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_confi
 use crate::types::{ScanKind, ScanPathMode};
 use ripdpi_diagnostics_contracts::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire};
 
-const MAX_REQUEST_WIRE_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_REQUEST_WIRE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_PROFILE_ID_BYTES: usize = 256;
 const MAX_DISPLAY_NAME_BYTES: usize = 1024;
 const MAX_TARGETS_PER_KIND: usize = 256;
@@ -41,7 +41,7 @@ impl Write for RequestSizeWriter {
     }
 }
 
-pub(crate) fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
+pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
     if request.schema_version != DIAGNOSTICS_ENGINE_SCHEMA_VERSION {
         return Err(format!(
             "Unsupported diagnostics schema {} (expected {})",

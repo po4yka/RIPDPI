@@ -9,5 +9,6 @@ mod wire_json;
 mod worker;
 
 pub use lifecycle::MonitorSession;
+pub use request_validation::MAX_REQUEST_WIRE_BYTES;
 #[cfg(test)]
 pub(crate) use request_validation::validate_scan_request;
