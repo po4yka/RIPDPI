@@ -59,7 +59,9 @@ pub struct StrategyProbeSuite {
 }
 
 pub struct StrategyProbeBaseline {
-    pub failure: ClassifiedFailure,
+    /// Classified DNS-tampering failure, or `None` when every evaluated
+    /// target resolved cleanly through both system and encrypted DNS.
+    pub failure: Option<ClassifiedFailure>,
     pub results: Vec<ProbeResult>,
     /// Per-host encrypted-DNS-resolved IPs for targets where DNS tampering was confirmed.
     pub encrypted_ip_overrides: Vec<(String, std::net::IpAddr)>,

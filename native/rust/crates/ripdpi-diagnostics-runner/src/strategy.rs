@@ -101,7 +101,12 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
         }
     });
 
-    classified.map(|failure| StrategyProbeBaseline { failure, results, encrypted_ip_overrides })
+    // Keep the collected DNS-integrity evidence even on a clean network so the
+    // baseline stage still records its results and progress step.
+    if results.is_empty() {
+        return None;
+    }
+    Some(StrategyProbeBaseline { failure: classified, results, encrypted_ip_overrides })
 }
 
 fn visit_strategy_dns_targets_until_cancelled(

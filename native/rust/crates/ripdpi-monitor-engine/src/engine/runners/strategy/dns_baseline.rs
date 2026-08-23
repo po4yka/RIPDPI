@@ -45,28 +45,45 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
         ) else {
             return RunnerOutcome::Completed;
         };
+        let Some(failure) = baseline.failure.as_ref() else {
+            // Clean network: keep the collected DNS-integrity evidence and close
+            // the stage's progress step instead of dropping both.
+            let artifacts = RunnerArtifacts::from_results(
+                baseline.results.clone(),
+                "strategy_probe",
+                "info",
+                format!("Baseline DNS integrity verified across {} targets", baseline.results.len()),
+            );
+            runtime.record_step(
+                plan,
+                self.phase(),
+                "Strategy baseline DNS integrity verified".to_string(),
+                Some("dns_baseline".to_string()),
+                None,
+                None,
+                artifacts,
+            );
+            tracing::info!(targets = baseline.results.len(), "strategy probe: baseline DNS clean");
+            return RunnerOutcome::Completed;
+        };
         let artifacts = RunnerArtifacts::from_results(
             baseline.results.clone(),
             "strategy_probe",
             "warn",
-            format!(
-                "Baseline classified as {} with {}",
-                baseline.failure.class.as_str(),
-                baseline.failure.action.as_str(),
-            ),
+            format!("Baseline classified as {} with {}", failure.class.as_str(), failure.action.as_str(),),
         );
         runtime.record_step(
             plan,
             self.phase(),
             "Strategy baseline DNS classification".to_string(),
             Some("dns_baseline".to_string()),
-            Some(baseline.failure.class.as_str().to_string()),
+            Some(failure.class.as_str().to_string()),
             None,
             artifacts,
         );
-        runtime.results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
-        tracing::info!(failure_class = ?baseline.failure.class, action = ?baseline.failure.action, "strategy probe: baseline classified");
-        runtime.strategy.baseline_failure = Some(baseline.failure);
+        runtime.results.push(classified_failure_probe_result("Current strategy", failure));
+        tracing::info!(failure_class = ?failure.class, action = ?failure.action, "strategy probe: baseline classified");
+        runtime.strategy.baseline_failure = Some(failure.clone());
 
         // If we have encrypted IP overrides, build override targets so TCP/QUIC
         // runners can probe using trusted IPs instead of poisoned system DNS.

@@ -874,8 +874,9 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
     )
     .expect("dns tampering");
 
-    assert_eq!(baseline.failure.class, FailureClass::DnsTampering);
-    assert_eq!(baseline.failure.action, FailureAction::ResolverOverrideRecommended);
+    let failure = baseline.failure.as_ref().expect("dns tampering");
+    assert_eq!(failure.class, FailureClass::DnsTampering);
+    assert_eq!(failure.action, FailureAction::ResolverOverrideRecommended);
     assert_eq!(baseline.results.first().map(|result| result.outcome.as_str()), Some("dns_sinkhole_substitution"));
 }
 
