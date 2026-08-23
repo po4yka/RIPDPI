@@ -260,25 +260,39 @@ where
         .try_acquire()
         .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "target resolution capacity exhausted"))?;
     let (result_tx, result_rx) = mpsc::sync_channel(1);
+    // The permit lives in a shared slot: the worker takes it when it starts
+    // resolving, and the caller takes it back when it abandons the wait, so an
+    // abandoned system resolver cannot starve later targets into false
+    // "capacity exhausted" errors.
+    let permit_slot = Arc::new(Mutex::new(Some(permit)));
+    let worker_permit = Arc::clone(&permit_slot);
     std::thread::Builder::new()
         .name("diagnostics-dns-resolution".to_string())
         .spawn(move || {
-            let _permit = permit;
+            let _permit = worker_permit.lock().ok().and_then(|mut slot| slot.take());
             let _ = result_tx.send(resolver(host, port));
         })
         .map_err(|error| io::Error::other(format!("failed to start bounded target resolution: {error}")))?;
 
+    let abandon_permit = || {
+        if let Ok(mut slot) = permit_slot.lock() {
+            slot.take();
+        }
+    };
     loop {
         if should_stop() {
+            abandon_permit();
             return Err(io::Error::new(io::ErrorKind::Interrupted, "target resolution cancelled"));
         }
         let Some(remaining) = resolution_deadline.checked_duration_since(Instant::now()) else {
+            abandon_permit();
             return Err(io::Error::new(io::ErrorKind::TimedOut, "target resolution timed out"));
         };
         match result_rx.recv_timeout(remaining.min(RESOLUTION_POLL_INTERVAL)) {
             Ok(result) => return result,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => {
+                abandon_permit();
                 return Err(io::Error::other("target resolution worker stopped without a result"));
             }
         }
@@ -848,6 +862,38 @@ mod tests {
         assert_eq!(second.expect_err("second resolver must be rejected").kind(), io::ErrorKind::WouldBlock);
         release_tx.send(()).expect("release first resolver");
         assert!(first.join().expect("join first resolver").is_ok());
+    }
+
+    #[test]
+    fn abandoned_resolution_releases_its_permit_immediately() {
+        let limiter = Arc::new(ResolutionLimiter::new(1));
+        let (release_tx, release_rx) = mpsc::channel();
+        let stop_after_start = AtomicU16::new(0);
+        let abandoned = resolve_host_with_limiter(
+            "abandoned.example.test".to_string(),
+            443,
+            Some(Instant::now() + Duration::from_secs(5)),
+            || stop_after_start.fetch_add(1, Ordering::AcqRel) > 0,
+            move |_, _| {
+                let _ = release_rx.recv();
+                Ok("127.0.0.1:443".parse().expect("address"))
+            },
+            Arc::clone(&limiter),
+        );
+
+        assert_eq!(abandoned.expect_err("wait must be cancelled").kind(), io::ErrorKind::Interrupted);
+        assert_eq!(limiter.active.load(Ordering::Acquire), 0, "permit must be released on abandon");
+
+        let follow_up = resolve_host_with_limiter(
+            "followup.example.test".to_string(),
+            443,
+            Some(Instant::now() + Duration::from_millis(100)),
+            || false,
+            |_, _| Ok("127.0.0.1:443".parse().expect("address")),
+            Arc::clone(&limiter),
+        );
+        assert!(follow_up.is_ok(), "capacity must be available after abandonment");
+        let _ = release_tx.send(());
     }
 
     #[test]
