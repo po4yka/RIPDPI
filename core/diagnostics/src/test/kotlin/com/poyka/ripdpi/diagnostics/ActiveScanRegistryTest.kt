@@ -7,9 +7,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -23,6 +26,42 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActiveScanRegistryTest {
     private val json = diagnosticsTestJson()
+
+    @Test
+    fun `registerExecution refuses when cancellation already claimed the bridge`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    destroyEntered = CompletableDeferred()
+                    releaseDestroy = CompletableDeferred()
+                }
+            registry.registerBridge(bridge, "session-window", registerActiveBridge = false)
+
+            val cancellation = async { registry.cancelScan("session-window") }
+            // cancelScan parks inside destroy() waiting for releaseDestroy; virtual
+            // time idles once every scheduled task has run.
+            repeat(10) {
+                advanceUntilIdle()
+                if (bridge.destroyEntered?.isCompleted == true) {
+                    return@repeat
+                }
+                advanceTimeBy(500)
+            }
+            assertTrue(bridge.destroyEntered?.isCompleted == true)
+
+            // The cancellation claimed the bridge and is parked inside destroy();
+            // startup landing in this window must not start an execution on it.
+            assertFalse(registry.registerExecution("session-window", Job(), registerActiveBridge = false))
+
+            bridge.releaseDestroy?.complete(Unit)
+            advanceUntilIdle()
+            assertTrue(cancellation.await() != null)
+            assertEquals(1, bridge.destroyCount)
+            assertFalse(registry.hasHiddenActiveScan)
+        }
 
     @Test
     fun `cancelScan clears execution and bridge when native cancellation fails`() =
