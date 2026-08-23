@@ -49,7 +49,13 @@ class DefaultDiagnosticsBootstrapper
             }
             archiveExporter.cleanupCache()
             if (importBundledProfilesOnInitialize) {
-                profileImporter.importProfiles()
+                // A corrupted override or unreadable bundled catalog must degrade to
+                // missing persisted profiles instead of crashing every startup caller.
+                runCatching { profileImporter.importProfiles() }
+                    .onFailure { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        Logger.w(error) { "Bundled diagnostics profile import skipped" }
+                    }
             }
             scope.launch {
                 policyHandoverEventStore.events.collect { event ->

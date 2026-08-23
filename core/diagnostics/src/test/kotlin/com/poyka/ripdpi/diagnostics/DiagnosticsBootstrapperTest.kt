@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import javax.inject.Provider
 
@@ -122,12 +123,52 @@ class DiagnosticsBootstrapperTest {
             assertEquals(1, launcher.events.size)
         }
 
+    @Test
+    fun `bundled profile import failure does not abort diagnostics bootstrap`() =
+        runTest {
+            val stores =
+                FakeDiagnosticsHistoryStores().also { history ->
+                    history.telemetryState.value =
+                        listOf(
+                            telemetrySample(createdAt = System.currentTimeMillis()),
+                        )
+                }
+            val runtimeHistoryStartup = RecordingRuntimeHistoryStartup()
+            val archiveExporter = RecordingArchiveExporter()
+            val handoverStore = FakePolicyHandoverEventStore()
+            val launcher = BootstrapperRecordingAutomaticProbeLauncher()
+            val bootstrapper =
+                createBootstrapper(
+                    stores = stores,
+                    runtimeHistoryStartup = runtimeHistoryStartup,
+                    archiveExporter = archiveExporter,
+                    policyHandoverEventStore = handoverStore,
+                    automaticProbeLauncher = launcher,
+                    profileSource = ThrowingBundledDiagnosticsProfileSource(),
+                    importBundledProfilesOnInitialize = true,
+                    scope = backgroundScope,
+                )
+
+            bootstrapper.initialize()
+            runCurrent()
+            handoverStore.publish(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(1, runtimeHistoryStartup.startCalls)
+            assertEquals(1, archiveExporter.cleanupCalls)
+            assertTrue(stores.profilesState.value.isEmpty())
+            assertEquals(1, launcher.events.size)
+        }
+
     private fun createBootstrapper(
         stores: FakeDiagnosticsHistoryStores,
         runtimeHistoryStartup: RuntimeHistoryStartup,
         archiveExporter: RecordingArchiveExporter,
         policyHandoverEventStore: FakePolicyHandoverEventStore = FakePolicyHandoverEventStore(),
         automaticProbeLauncher: AutomaticProbeLauncher = NoopAutomaticProbeLauncher,
+        profileSource: BundledDiagnosticsProfileSource =
+            BootstrapBundledDiagnosticsProfileSource(sampleBundledProfilesJson()),
         importBundledProfilesOnInitialize: Boolean,
         scope: CoroutineScope,
     ): DefaultDiagnosticsBootstrapper =
@@ -135,7 +176,7 @@ class DiagnosticsBootstrapperTest {
             archiveExporter = archiveExporter,
             profileImporter =
                 BundledDiagnosticsProfileImporter(
-                    profileSource = BootstrapBundledDiagnosticsProfileSource(sampleBundledProfilesJson()),
+                    profileSource = profileSource,
                     overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                     profileCatalog = stores,
                     clock = TestDiagnosticsHistoryClock(currentTime = 10L),
@@ -213,6 +254,10 @@ private class BootstrapBundledDiagnosticsProfileSource(
     private val payload: String,
 ) : BundledDiagnosticsProfileSource {
     override fun readProfilesJson(): String = payload
+}
+
+private class ThrowingBundledDiagnosticsProfileSource : BundledDiagnosticsProfileSource {
+    override fun readProfilesJson(): String = error("corrupted bundled catalog")
 }
 
 private class RecordingRuntimeHistoryStartup(
