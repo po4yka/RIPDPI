@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -421,7 +422,7 @@ class DebugAutomationController
 
         private fun automationStrategyProbeReport(): StrategyProbeReport =
             StrategyProbeReport(
-                suiteId = "full_matrix_v1",
+                suiteId = StrategyProbeSuiteFullMatrixV1,
                 tcpCandidates =
                     listOf(
                         automationCandidate(

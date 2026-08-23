@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
@@ -337,7 +338,7 @@ private fun StrategyReportFamilyMatrix(
 private fun reportPresentationFallback(
     report: DiagnosticsStrategyProbeReportUiModel,
 ): DiagnosticsStrategyProbeReportPresentationUiModel {
-    val isFullAudit = report.suiteId == "full_matrix_v1"
+    val isFullAudit = report.suiteId == StrategyProbeSuiteFullMatrixV1
     val isDnsShortCircuited = report.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
     val isPartialResults = report.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS
     val isIncomplete = isDnsShortCircuited || isPartialResults

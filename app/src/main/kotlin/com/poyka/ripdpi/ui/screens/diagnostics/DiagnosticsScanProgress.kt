@@ -34,6 +34,7 @@ import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.ScanNetworkContextUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
+import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.activities.displayLabel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -461,7 +462,7 @@ internal fun DiagnosticsProfileCard(
                     stringResource(R.string.diagnostics_profile_desc_network_full)
             }
 
-            profile.strategyProbeSuiteId == "full_matrix_v1" -> {
+            profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1 -> {
                 stringResource(R.string.diagnostics_profile_audit_badge) to
                     stringResource(R.string.diagnostics_profile_audit_body)
             }

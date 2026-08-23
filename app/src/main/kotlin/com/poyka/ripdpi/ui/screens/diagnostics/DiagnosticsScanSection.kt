@@ -26,6 +26,7 @@ import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -147,7 +148,7 @@ internal fun ScanSection(
                     profile = profile,
                     scan = scan,
                     strategyProbeSelected = strategyProbeSelected,
-                    isFullAudit = profile.strategyProbeSuiteId == "full_matrix_v1",
+                    isFullAudit = profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
                     onRunRawScan = onRunRawScan,
                     onRunInPathScan = onRunInPathScan,
                     onCancelScan = onCancelScan,
