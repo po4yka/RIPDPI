@@ -21,27 +21,25 @@
 //!
 //! * [`yamux`] -- the hashicorp yamux frame codec (12-byte header,
 //!   `Data`/`WindowUpdate`/`Ping`/`GoAway`, `SYN`/`ACK`/`FIN`/`RST` flags).
-//! * [`sing_mux`] -- a legacy internal frame codec. It is not the sing-box
+//! * [`sing_mux`] -- a legacy internal frame codec. It is NOT the sing-box
 //!   sing-mux protocol and must not be selected by any relay backend.
-//! * [`session`] -- the protocol-agnostic session layer: stream-id
-//!   allocation, the [`MuxLimits`] config block outbounds carry, the
-//!   [`MuxTransport`] trait outbounds plug a protocol into, and
+//! * [`session`] -- protocol-agnostic primitives: stream-id allocation and
 //!   [`StreamMailbox`], the bounded per-substream buffer that provides the
 //!   "a slow reader on one stream does not wedge the mux" backpressure
-//!   guarantee.
+//!   property for whoever consumes it.
 //!
-//! Both codecs are pure (no I/O, no async); the session layer composes them
-//! with the bounded-mailbox backpressure model. A future outbound crate must
-//! validate the selected protocol against an upstream-compatible session before it carries a [`MuxLimits`] block and
-//! drives logical flows through the [`MuxTransport`] surface.
+//! Both codecs are pure (no I/O, no async). There is no session driver yet:
+//! nothing demuxes decoded frames into mailboxes or applies per-stream flow
+//! control, so these are building blocks only. TODO(author): implement the
+//! session driver before wiring any outbound backend onto either codec.
 
 pub mod session;
 pub mod sing_mux;
 pub mod yamux;
 
 pub use session::{
-    DEFAULT_MAILBOX_BUFFERED_BYTES, DEFAULT_MAX_STREAMS, DeliverOutcome, MuxError, MuxLimits, MuxProtocol,
-    MuxTransport, StreamIdAllocator, StreamMailbox,
+    DEFAULT_MAILBOX_BUFFERED_BYTES, DeliverOutcome, MuxProtocol, PER_FRAME_ACCOUNTING_OVERHEAD_BYTES,
+    StreamIdAllocator, StreamMailbox,
 };
 pub use sing_mux::{
     Command as SingMuxCommand, FRAME_PREFIX_LEN as SING_MUX_FRAME_PREFIX_LEN, PaddingMode, SingMuxCodecError,

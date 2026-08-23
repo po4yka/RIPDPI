@@ -33,7 +33,7 @@ pub use pool::RelayMux;
 pub use stream::{MuxLease, MuxStream};
 pub use types::{RelayPoolConfig, RelayPoolHealth};
 pub use wire_mux::{
-    DeliverOutcome, GoAwayReason, MuxError, MuxLimits, MuxProtocol, MuxTransport, PaddingMode, SingMuxCodecError,
-    SingMuxCommand, SingMuxDecoder, SingMuxFrame, StreamIdAllocator, StreamMailbox, YamuxCodecError, YamuxDecoder,
-    YamuxFrame, YamuxFrameType, YamuxHeader,
+    DeliverOutcome, GoAwayReason, MuxProtocol, PaddingMode, SingMuxCodecError, SingMuxCommand, SingMuxDecoder,
+    SingMuxFrame, StreamIdAllocator, StreamMailbox, YamuxCodecError, YamuxDecoder, YamuxFrame, YamuxFrameType,
+    YamuxHeader,
 };

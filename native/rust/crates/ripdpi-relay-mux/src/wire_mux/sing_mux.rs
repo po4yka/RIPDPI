@@ -1,9 +1,16 @@
-//! sing-mux (sing-box) wire-multiplexing frame codec.
+//! Legacy internal wire-multiplexing frame codec.
 //!
-//! sing-mux is sing-box's own stream multiplexer. A session opens with a
-//! single **version byte** (`1` for the base protocol, `2` once padding /
-//! Brutal congestion-control extensions are negotiated). After that, the
-//! connection carries a sequence of length-delimited frames:
+//! This is an INTERNAL frame format used as a design exercise; it must not
+//! be selected by any relay backend. It is **not** the sing-box sing-mux
+//! protocol, despite superficially similar framing: verified against
+//! `SagerNet/sing-mux`, sing-box's "smux" multiplexing delegates to the
+//! `sagernet/smux` session implementation (a fork of xtaci/smux, whose frame
+//! header and command set differ from the layout below), and the sing-mux
+//! session itself starts with its own request bytes
+//! (`version`, `protocol`, optional padding flag + pad block). Nothing here
+//! interoperates with a real sing-box server.
+//!
+//! Wire layout of this internal format:
 //!
 //! ```text
 //! +-----------------------+-------+-----------------------+-----------+
@@ -20,20 +27,19 @@
 //! * **data length** + **data** carry the per-frame payload. `KeepAlive`
 //!   frames always carry zero-length data.
 //!
-//! When the `2` version is negotiated, `New` and `Data` frames may be padded:
-//! a `u16` pad length followed by that many discard bytes is appended after
-//! `data`. [`PaddingMode`] controls whether this codec emits padding;
-//! decoding always tolerates it.
+//! When the `2` version byte is negotiated, `New` and `Data` frames may be
+//! padded: a `u16` pad length followed by that many discard bytes is
+//! appended after `data`. [`PaddingMode`] controls whether this codec emits
+//! padding; decoding always tolerates it.
 //!
-//! This module is a pure codec with no I/O. Higher layers ([`super::session`])
-//! drive stream-id allocation, keepalive scheduling, and per-stream
-//! backpressure on top of it.
+//! The module is a pure codec with no I/O. There is no session driver on top
+//! of it yet -- nothing consumes these frames outside this crate's tests.
 
 use rand::RngExt;
 
-/// sing-mux base protocol version (no extensions).
+/// Internal-format base protocol version (no extensions).
 pub const VERSION_BASE: u8 = 1;
-/// sing-mux protocol version with padding / Brutal extensions negotiated.
+/// Internal-format protocol version with padding extensions negotiated.
 pub const VERSION_PADDED: u8 = 2;
 
 /// Fixed prefix length of a sing-mux frame: stream id (4) + cmd (1) + data
@@ -79,11 +85,11 @@ impl Command {
 /// Whether the encoder appends sing-mux v2 padding to `New` / `Data` frames.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PaddingMode {
-    /// Never emit padding (sing-mux v1 wire form). The default.
+    /// Never emit padding (internal-format v1 wire form). The default.
     #[default]
     Disabled,
     /// Emit a random amount of padding (1..=`max`) on each `New` / `Data`
-    /// frame, the sing-mux v2 anti-fingerprinting behavior.
+    /// frame, the internal-format v2 anti-fingerprinting behavior.
     Enabled {
         /// Upper bound on the random pad length added to a frame.
         max: u16,

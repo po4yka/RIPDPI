@@ -1,43 +1,27 @@
-//! Protocol-agnostic wire-multiplexing session driver.
-//!
-//! The [`yamux`](super::yamux) and [`sing_mux`](super::sing_mux) modules are
-//! pure frame codecs. This module sits on top of them and provides the parts
-//! that are common to *both* protocols:
+//! Protocol-agnostic primitives shared by the [`yamux`](super::yamux) and
+//! [`sing_mux`](super::sing_mux) frame codecs:
 //!
 //! * [`StreamIdAllocator`] -- monotonic logical-stream-id allocation. yamux
 //!   wants odd ids for the client side; sing-mux just wants monotonic ids.
-//! * [`MuxLimits`] -- the configurable caps an outbound profile carries:
-//!   max concurrent streams, a per-connection KB/s target hint, and the
-//!   sing-mux padding mode.
-//! * [`MuxTransport`] -- the trait an outbound crate (VLESS, Trojan, VMess)
-//!   plugs either protocol into. It hands back an `AsyncRead + AsyncWrite`
-//!   logical stream per `open_stream` call.
+//! * [`MuxProtocol`] -- which wire multiplexer a session speaks.
 //! * [`StreamMailbox`] -- the per-substream inbound buffer. It is a *bounded*
-//!   channel: this is the backpressure mechanism. A slow reader on one
-//!   substream fills only its own mailbox; the demux loop parks that one
-//!   substream's delivery without blocking frame delivery to the others, so
-//!   one slow stream can never wedge the whole mux. See
-//!   [`StreamMailbox::deliver`] for the precise semantics.
+//!   channel in bytes: this is the backpressure mechanism. A slow reader on
+//!   one substream fills only its own mailbox; delivering to it reports
+//!   [`DeliverOutcome::WouldBlock`] immediately without blocking, so one slow
+//!   stream can never wedge delivery to the others.
 //!
-//! # Backpressure
+//! There is deliberately no session driver here yet: nothing demuxes decoded
+//! frames into mailboxes, applies per-stream flow control (withholding yamux
+//! `WindowUpdate` credit), or schedules keepalives. Until that driver exists,
+//! these are building blocks only -- nothing consumes them outside this
+//! crate's tests, and no liveness guarantee holds end to end.
 //!
-//! Each logical substream owns a bounded mailbox. When the demux loop decodes
-//! a `Data`/`New` frame it routes the payload to that substream's mailbox via
-//! [`StreamMailbox::deliver`]. If the mailbox is full (the substream's reader
-//! is slow), `deliver` returns [`DeliverOutcome::WouldBlock`] *immediately*
-//! rather than blocking -- the session driver then applies protocol-level
-//! flow control to that one stream (yamux: withhold `WindowUpdate`; sing-mux:
-//! stop reading that stream's frames) while continuing to service every other
-//! substream. The whole-mux liveness invariant is therefore: *no single
-//! substream's reader can stall delivery to a different substream.*
+//! TODO(author): implement the session driver (demux loop routing frames to
+//! per-substream mailboxes, per-protocol flow control and keepalive
+//! scheduling) before wiring any outbound backend onto [`MuxProtocol`].
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-
-use super::sing_mux::PaddingMode;
-
-/// Default cap on concurrently open logical substreams over one mux session.
-pub const DEFAULT_MAX_STREAMS: usize = 256;
 
 /// Default per-substream inbound mailbox budget, in buffered payload bytes.
 ///
@@ -62,10 +46,11 @@ pub const PER_FRAME_ACCOUNTING_OVERHEAD_BYTES: usize = 32;
 /// Which wire multiplexer a session speaks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MuxProtocol {
-    /// sing-box's sing-mux.
-    SingMux,
     /// hashicorp yamux.
     Yamux,
+    /// The legacy internal frame codec ([`super::sing_mux`]). Not the
+    /// sing-box sing-mux wire protocol -- see that module's documentation.
+    SingMux,
 }
 
 /// Monotonic logical-stream-id allocator.
@@ -88,7 +73,8 @@ impl StreamIdAllocator {
         match protocol {
             // yamux: client streams are odd, starting at 1.
             MuxProtocol::Yamux => Self { next: Some(1), step: 2 },
-            // sing-mux: monotonic, starting at 1 (0 is the keepalive stream).
+            // The internal codec: monotonic, starting at 1 (0 is the
+            // keepalive stream).
             MuxProtocol::SingMux => Self { next: Some(1), step: 1 },
         }
     }
@@ -109,114 +95,6 @@ impl StreamIdAllocator {
     pub fn peek(&self) -> Option<u32> {
         self.next
     }
-}
-
-/// Configurable per-session multiplexing limits, carried by an outbound
-/// profile (`mux` config block).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MuxLimits {
-    /// Maximum number of substreams open concurrently over one mux session.
-    /// A request to open beyond this is refused so a single session cannot
-    /// be used to exhaust server resources.
-    pub max_concurrent_streams: usize,
-    /// Soft per-connection throughput target hint, in KB/s. `None` means
-    /// "unthrottled". The session driver uses this to pace `WindowUpdate` /
-    /// `KeepAlive` emission; it is a hint, not a hard rate limiter.
-    pub per_connection_kbps: Option<u32>,
-    /// sing-mux padding mode (ignored by yamux sessions).
-    pub padding_mode: PaddingMode,
-    /// Per-substream inbound mailbox budget, in buffered payload bytes --
-    /// the backpressure bound before a slow reader triggers per-stream flow
-    /// control. Byte-based because frame payloads are peer-controlled and
-    /// can be large (yamux allows up to 16 MiB per frame); each buffered
-    /// frame additionally charges [`PER_FRAME_ACCOUNTING_OVERHEAD_BYTES`]
-    /// for allocator overhead so micro-frame floods cannot exceed the
-    /// budget's order of magnitude either.
-    pub mailbox_max_buffered_bytes: usize,
-}
-
-impl Default for MuxLimits {
-    fn default() -> Self {
-        Self {
-            max_concurrent_streams: DEFAULT_MAX_STREAMS,
-            per_connection_kbps: None,
-            padding_mode: PaddingMode::Disabled,
-            mailbox_max_buffered_bytes: DEFAULT_MAILBOX_BUFFERED_BYTES,
-        }
-    }
-}
-
-impl MuxLimits {
-    /// Builder: cap concurrent substreams.
-    pub fn with_max_concurrent_streams(mut self, max: usize) -> Self {
-        self.max_concurrent_streams = max;
-        self
-    }
-
-    /// Builder: set the per-connection KB/s target hint.
-    pub fn with_per_connection_kbps(mut self, kbps: u32) -> Self {
-        self.per_connection_kbps = Some(kbps);
-        self
-    }
-
-    /// Builder: select the sing-mux padding mode.
-    pub fn with_padding_mode(mut self, padding_mode: PaddingMode) -> Self {
-        self.padding_mode = padding_mode;
-        self
-    }
-
-    /// Builder: set the per-substream mailbox budget, in buffered payload
-    /// bytes.
-    pub fn with_mailbox_max_buffered_bytes(mut self, max_buffered_bytes: usize) -> Self {
-        self.mailbox_max_buffered_bytes = max_buffered_bytes.max(1);
-        self
-    }
-}
-
-/// Errors a [`MuxTransport`] can produce.
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
-pub enum MuxError {
-    /// Opening another substream would exceed [`MuxLimits::max_concurrent_streams`].
-    #[error("mux session at capacity: {open} of {max} substreams already open")]
-    AtCapacity {
-        /// Substreams currently open.
-        open: usize,
-        /// Configured maximum.
-        max: usize,
-    },
-    /// The logical-stream-id space is exhausted; the session must be recycled.
-    #[error("mux stream id space exhausted; recycle the session")]
-    StreamIdExhausted,
-    /// The underlying connection carrying the mux session has failed.
-    #[error("mux session connection closed")]
-    SessionClosed,
-}
-
-/// The trait an outbound crate plugs a concrete wire multiplexer into.
-///
-/// VLESS / Trojan / VMess outbounds hold a `dyn MuxTransport` (or a generic
-/// `M: MuxTransport`) and call [`open_stream`](Self::open_stream) per logical
-/// flow. The associated [`Stream`](Self::Stream) is the `AsyncRead +
-/// AsyncWrite` surface the outbound then layers its own protocol framing on.
-pub trait MuxTransport {
-    /// The per-substream byte surface handed back by `open_stream`.
-    type Stream;
-
-    /// Which wire protocol this transport speaks.
-    fn protocol(&self) -> MuxProtocol;
-
-    /// The limits this session was configured with.
-    fn limits(&self) -> MuxLimits;
-
-    /// Number of substreams currently open.
-    fn open_stream_count(&self) -> usize;
-
-    /// Open a new logical substream for `destination` (e.g. `"host:443"`).
-    ///
-    /// Fails with [`MuxError::AtCapacity`] when the configured concurrency
-    /// cap is reached, or [`MuxError::StreamIdExhausted`] once the id space
-    /// runs out.
-    fn open_stream(&mut self, destination: &str) -> Result<Self::Stream, MuxError>;
 }
 
 /// Outcome of routing one inbound frame into a substream's mailbox.
@@ -380,35 +258,6 @@ mod tests {
         assert_eq!(alloc.allocate(), Some(u32::MAX), "the final valid id is still handed out");
         assert_eq!(alloc.peek(), None, "id space is now exhausted");
         assert_eq!(alloc.allocate(), None, "must not wrap the id space");
-    }
-
-    // --- MuxLimits ----------------------------------------------------------
-
-    #[test]
-    fn mux_limits_default_is_unthrottled_and_unpadded() {
-        let limits = MuxLimits::default();
-        assert_eq!(limits.max_concurrent_streams, DEFAULT_MAX_STREAMS);
-        assert_eq!(limits.per_connection_kbps, None);
-        assert_eq!(limits.padding_mode, PaddingMode::Disabled);
-        assert_eq!(limits.mailbox_max_buffered_bytes, DEFAULT_MAILBOX_BUFFERED_BYTES);
-    }
-
-    #[test]
-    fn mux_limits_builder_sets_every_field() {
-        let limits = MuxLimits::default()
-            .with_max_concurrent_streams(8)
-            .with_per_connection_kbps(2048)
-            .with_padding_mode(PaddingMode::Enabled { max: 256 })
-            .with_mailbox_max_buffered_bytes(64 * 1024);
-        assert_eq!(limits.max_concurrent_streams, 8);
-        assert_eq!(limits.per_connection_kbps, Some(2048));
-        assert_eq!(limits.padding_mode, PaddingMode::Enabled { max: 256 });
-        assert_eq!(limits.mailbox_max_buffered_bytes, 64 * 1024);
-    }
-
-    #[test]
-    fn mux_limits_mailbox_budget_clamps_to_at_least_one() {
-        assert_eq!(MuxLimits::default().with_mailbox_max_buffered_bytes(0).mailbox_max_buffered_bytes, 1);
     }
 
     // --- StreamMailbox: the backpressure primitive --------------------------
