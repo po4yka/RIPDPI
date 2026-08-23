@@ -245,7 +245,11 @@ internal class DefaultDiagnosticsScanController
                     )
                 }.fold(
                     onSuccess = { sessionId -> DiagnosticsManualScanResolution.Started(sessionId) },
-                    onFailure = {
+                    onFailure = { failure ->
+                        // Cancellation must propagate so structured concurrency sees the
+                        // caller's scope was torn down; converting it into Failed would
+                        // resume a cancelled coroutine with an unrelated error result.
+                        if (failure is CancellationException) throw failure
                         DiagnosticsManualScanResolution.Failed(
                             DiagnosticsManualScanResolutionFailureReason.START_FAILED,
                         )

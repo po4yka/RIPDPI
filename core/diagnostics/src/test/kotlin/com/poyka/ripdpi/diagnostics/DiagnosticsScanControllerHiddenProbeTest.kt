@@ -1,11 +1,15 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -131,6 +135,77 @@ class DiagnosticsScanControllerHiddenProbeTest {
             val sessionId = resolution.startedSessionId()
             assertEquals("automatic-audit", stores.getScanSession(sessionId)?.profileId)
             assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+        }
+
+    @Test
+    fun `cancellation during manual startup propagates instead of reporting start failure`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val appSettingsRepository = FakeAppSettingsRepository(settings)
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services = createServicesWithHiddenProbeCapable(appSettingsRepository, stores, bridgeFactory)
+
+            assertEquals(
+                AutomaticProbeLaunchOutcome.LAUNCHED,
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
+                ),
+            )
+            val conflict =
+                services.scanController.startScan(ScanPathMode.RAW_PATH)
+                    as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+
+            val hiddenSessionId =
+                stores.sessionsState.value
+                    .single()
+                    .id
+            completeHiddenScan(bridgeFactory, hiddenSessionId, settings)
+            advanceUntilIdle()
+
+            // Park the manual startup inside persistPreparedScan so cancellation lands
+            // inside resolveHiddenProbeConflict itself.
+            stores.afterUpsertScanSession = { awaitCancellation() }
+            val pendingResolution =
+                async {
+                    services.scanController.resolveHiddenProbeConflict(
+                        requestId = conflict.requestId,
+                        action = HiddenProbeConflictAction.WAIT,
+                    )
+                }
+            repeat(100) {
+                runCurrent()
+                if (stores.sessionsState.value.size == 2) {
+                    return@repeat
+                }
+                testScheduler.advanceTimeBy(10)
+            }
+            assertEquals(2, stores.sessionsState.value.size)
+
+            pendingResolution.cancel()
+            val completionError = runCatching { pendingResolution.await() }.exceptionOrNull()
+            val propagated = completionError is CancellationException
+            assertTrue("expected cancellation to propagate, got: $completionError", propagated)
+
+            stores.afterUpsertScanSession = {}
+            val cancelledSession =
+                stores.sessionsState.value.single { it.summary == "Diagnostics scan canceled during startup" }
+            assertEquals("failed", cancelledSession.status)
+            assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+            assertFalse(services.scanController.hasActiveScan())
         }
 
     private fun kotlinx.coroutines.test.TestScope.createServicesWithHiddenProbeCapable(
