@@ -496,18 +496,20 @@ class ActiveScanRegistry
             registerActiveBridge: Boolean,
         ): Boolean =
             bridgeMutex.withLock {
-                // A cancellation that already claimed the bridge is tearing it down;
-                // registering the execution job would start a scan on a dying bridge
-                // when startup lands inside the cancel window.
-                fun executionClaimed(bridge: NetworkDiagnosticsBridge): Boolean = terminalClaims[bridge] != null
+                // A cancellation that already claimed this session's bridge is tearing
+                // it down; registering the execution job would start a scan on a dying
+                // bridge when startup lands inside the cancel window. Claims from other
+                // sessions on a shared bridge instance do not block this session.
+                fun executionClaimedBySameSession(bridge: NetworkDiagnosticsBridge): Boolean =
+                    terminalClaims[bridge]?.takeIf { it.second == ScanTerminalClaim.CANCELLATION }?.first == sessionId
 
                 if (registerActiveBridge) {
                     val existing = visibleScanExecutions[sessionId] ?: return@withLock false
-                    if (executionClaimed(existing.bridge)) return@withLock false
+                    if (executionClaimedBySameSession(existing.bridge)) return@withLock false
                     visibleScanExecutions[sessionId] = existing.copy(executionJob = job)
                 } else {
                     val existing = hiddenScanExecutions[sessionId] ?: return@withLock false
-                    if (executionClaimed(existing.bridge)) return@withLock false
+                    if (executionClaimedBySameSession(existing.bridge)) return@withLock false
                     hiddenScanExecutions[sessionId] = existing.copy(executionJob = job)
                 }
                 true
