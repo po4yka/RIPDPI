@@ -234,35 +234,43 @@ class RuntimeSessionCoordinator
             }
         }
 
-        private fun startSampling() {
-            if (samplingJob?.isActive == true) {
-                return
-            }
-
-            samplingJob =
-                scope.launch {
-                    while (true) {
-                        val settings = appSettingsRepository.snapshot()
-                        val currentSessionId =
-                            stateMutex.withLock {
-                                activeUsageSession?.id
-                            } ?: break
-
-                        if (settings.diagnosticsMonitorEnabled &&
-                            serviceStateStore.status.value.first == AppStatus.Running
-                        ) {
-                            persistSample(currentSessionId)
-                            artifactPersister.trimHistory(settings.diagnosticsHistoryRetentionDays)
-                        }
-
-                        delay(
-                            settings
-                                .diagnosticsSampleIntervalSeconds
-                                .coerceIn(MinDiagnosticsSampleIntervalSeconds, MaxDiagnosticsSampleIntervalSeconds) *
-                                MillisPerSecond,
-                        )
-                    }
+        private suspend fun startSampling() {
+            // Serialize the check-and-launch so two concurrent service-running
+            // events cannot both observe an inactive job and start duplicate
+            // sampler loops.
+            stateMutex.withLock {
+                if (samplingJob?.isActive == true) {
+                    return
                 }
+
+                samplingJob =
+                    scope.launch {
+                        while (true) {
+                            val settings = appSettingsRepository.snapshot()
+                            val currentSessionId =
+                                stateMutex.withLock {
+                                    activeUsageSession?.id
+                                } ?: break
+
+                            if (settings.diagnosticsMonitorEnabled &&
+                                serviceStateStore.status.value.first == AppStatus.Running
+                            ) {
+                                persistSample(currentSessionId)
+                                artifactPersister.trimHistory(settings.diagnosticsHistoryRetentionDays)
+                            }
+
+                            delay(
+                                settings
+                                    .diagnosticsSampleIntervalSeconds
+                                    .coerceIn(
+                                        MinDiagnosticsSampleIntervalSeconds,
+                                        MaxDiagnosticsSampleIntervalSeconds,
+                                    ) *
+                                    MillisPerSecond,
+                            )
+                        }
+                    }
+            }
         }
 
         private fun stopSampling() {
