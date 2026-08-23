@@ -12,6 +12,7 @@ use tokio::net::TcpListener;
 
 use ripdpi_xhttp::XhttpSocketProtector;
 
+use crate::backend::RelayBackend;
 use crate::backend::builder::{build_backend, build_backend_with_socket_protector};
 use crate::config::ResolvedRelayRuntimeConfig;
 use crate::runtime::events::{emit_runtime_ready, emit_runtime_stopped};
@@ -110,6 +111,18 @@ impl RelayRuntime {
             None => Arc::new(build_backend(&self.config).await?),
         };
         validate_runtime_config(&self.config, &backend)?;
+        // Fail closed on a backend that cannot serve in-process (`off`, an
+        // unknown kind, or a subprocess-only kind wired to the native runtime).
+        // Binding the listener and emitting `runtime_ready` here would report
+        // a working relay to Kotlin while every CONNECT failed per session.
+        if let RelayBackend::Unsupported { kind } = backend.as_ref() {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!(
+                    "relay backend {kind} cannot serve in-process; refusing to bind a listener that would fail every session"
+                ),
+            ));
+        }
         self.state.set_backend(Arc::clone(&backend))?;
 
         let bind_addr = format!("{}:{}", self.config.common.local_socks_host, self.config.common.local_socks_port);

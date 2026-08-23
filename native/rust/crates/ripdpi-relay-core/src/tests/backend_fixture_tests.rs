@@ -15,6 +15,27 @@ async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
     assert_eq!("edge.example.com:443", describe_upstream(&config));
 }
 
+/// Regression for the serve-an-`Unsupported`-backend hole: `run()` must fail
+/// closed instead of binding the SOCKS listener and emitting `runtime_ready`
+/// for a backend that fails every session (`off`, unknown kind, subprocess-only
+/// kind wired to the native runtime).
+#[tokio::test]
+async fn relay_runtime_run_fails_closed_for_an_unsupported_backend() {
+    let runtime = RelayRuntime::new(sample_config("totally_unknown"));
+
+    let outcome = tokio::time::timeout(Duration::from_secs(5), Arc::clone(&runtime).run()).await;
+    let result = outcome.expect("run() hung on an unsupported backend");
+    let error = match result {
+        Ok(()) => panic!("run() must not serve an Unsupported backend"),
+        Err(error) => error,
+    };
+    assert_eq!(io::ErrorKind::Unsupported, error.kind());
+    assert!(error.to_string().contains("cannot serve in-process"), "unexpected error: {error}");
+    let telemetry = runtime.telemetry();
+    assert!(telemetry.listener_address.is_none(), "no listener may be bound for an unsupported backend");
+    assert_ne!("running", telemetry.state, "the runtime must never report running");
+}
+
 #[test]
 fn relay_runtime_rejects_invalid_outbound_bind_ip() {
     let mut config = sample_config("vless_reality");
