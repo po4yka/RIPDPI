@@ -494,20 +494,24 @@ class ActiveScanRegistry
             sessionId: String,
             job: Job,
             registerActiveBridge: Boolean,
-        ): Boolean {
-            if (registerActiveBridge) {
-                return bridgeMutex.withLock {
+        ): Boolean =
+            bridgeMutex.withLock {
+                // A cancellation that already claimed the bridge is tearing it down;
+                // registering the execution job would start a scan on a dying bridge
+                // when startup lands inside the cancel window.
+                fun executionClaimed(bridge: NetworkDiagnosticsBridge): Boolean = terminalClaims[bridge] != null
+
+                if (registerActiveBridge) {
                     val existing = visibleScanExecutions[sessionId] ?: return@withLock false
+                    if (executionClaimed(existing.bridge)) return@withLock false
                     visibleScanExecutions[sessionId] = existing.copy(executionJob = job)
-                    true
+                } else {
+                    val existing = hiddenScanExecutions[sessionId] ?: return@withLock false
+                    if (executionClaimed(existing.bridge)) return@withLock false
+                    hiddenScanExecutions[sessionId] = existing.copy(executionJob = job)
                 }
-            }
-            return bridgeMutex.withLock {
-                val existing = hiddenScanExecutions[sessionId] ?: return@withLock false
-                hiddenScanExecutions[sessionId] = existing.copy(executionJob = job)
                 true
             }
-        }
 
         fun cancellationSummaryFor(sessionId: String): String? =
             if (cancelledSessionIds.contains(sessionId)) {
@@ -602,16 +606,19 @@ class ActiveScanRegistry
             sessionId: String,
             progress: ScanProgress?,
         ) {
-            val nextProgress =
-                bridgeMutex.withLock {
-                    if (progress == null) {
-                        visibleScanProgress.remove(sessionId)
-                    } else {
-                        visibleScanProgress[sessionId] = progress
-                    }
-                    visibleProgressForActiveExecution(visibleScanExecutions, visibleScanProgress)
+            // Publish while still holding bridgeMutex: a StateFlow assignment never
+            // blocks, and publishing outside the lock lets an older computation win
+            // the publication race and regress the visible progress.
+            bridgeMutex.withLock {
+                if (progress == null) {
+                    visibleScanProgress.remove(sessionId)
+                } else {
+                    visibleScanProgress[sessionId] = progress
                 }
-            timelineSource.updateActiveScanProgress(nextProgress)
+                timelineSource.updateActiveScanProgress(
+                    visibleProgressForActiveExecution(visibleScanExecutions, visibleScanProgress),
+                )
+            }
         }
 
         private fun rememberCancellation(
