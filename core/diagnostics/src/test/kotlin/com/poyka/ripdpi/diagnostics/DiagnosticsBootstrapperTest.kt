@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
@@ -161,6 +162,41 @@ class DiagnosticsBootstrapperTest {
             assertEquals(1, launcher.events.size)
         }
 
+    @Test
+    fun `initialize marks stale running sessions as interrupted`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.upsertScanSession(
+                ScanSessionEntity(
+                    id = "session-stale",
+                    profileId = "default",
+                    pathMode = "IN_PATH",
+                    serviceMode = "VPN",
+                    status = "running",
+                    summary = "",
+                    reportJson = null,
+                    startedAt = 10L,
+                    finishedAt = null,
+                ),
+            )
+            val runtimeHistoryStartup = RecordingRuntimeHistoryStartup()
+            val archiveExporter = RecordingArchiveExporter()
+            val bootstrapper =
+                createBootstrapper(
+                    stores = stores,
+                    runtimeHistoryStartup = runtimeHistoryStartup,
+                    archiveExporter = archiveExporter,
+                    importBundledProfilesOnInitialize = false,
+                    scope = backgroundScope,
+                )
+
+            bootstrapper.initialize()
+
+            val recovered = stores.getScanSession("session-stale")
+            assertEquals("failed", recovered?.status)
+            assertEquals("Diagnostics scan interrupted by process death", recovered?.summary)
+        }
+
     private fun createBootstrapper(
         stores: FakeDiagnosticsHistoryStores,
         runtimeHistoryStartup: RuntimeHistoryStartup,
@@ -210,6 +246,7 @@ class DiagnosticsBootstrapperTest {
                     scope = scope,
                 ),
             rawPathSettlementBarrier = RawPathSettlementBarrier(stores, stores.rawPathSettlementStore, json),
+            scanRecordStore = stores,
             importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
             scope = scope,
         )

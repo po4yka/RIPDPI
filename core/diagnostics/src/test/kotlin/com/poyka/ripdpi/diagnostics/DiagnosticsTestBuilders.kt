@@ -328,6 +328,7 @@ internal fun createDiagnosticsServices(
                 policyHandoverEventStore = policyHandoverEventStore,
                 automaticProbeScheduler = scheduler,
                 rawPathSettlementBarrier = rawPathSettlementBarrier,
+                scanRecordStore = stores,
                 importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
                 scope = scope,
             ),
