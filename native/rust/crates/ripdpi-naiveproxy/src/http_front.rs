@@ -56,6 +56,12 @@ fn parse_authority(authority: &str) -> io::Result<SocksTarget> {
     let (host, port) = authority
         .rsplit_once(':')
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "HTTP CONNECT authority is missing a port"))?;
+    if !host.starts_with('[') && host.contains(':') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "HTTP CONNECT authority must use bracketed form for IPv6 literals",
+        ));
+    }
     let host = host.trim_matches(['[', ']']);
     if host.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "HTTP CONNECT authority host is empty"));
@@ -65,4 +71,25 @@ fn parse_authority(authority: &str) -> io::Result<SocksTarget> {
     })?;
 
     Ok(SocksTarget::Domain(host.to_owned(), port))
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::*;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 authority must be
+    /// rejected instead of becoming a colon-containing "domain".
+    #[test]
+    fn parse_authority_rejects_bare_ipv6_authority() {
+        assert!(parse_authority("2001:db8::1").is_err(), "bare IPv6 without port must be rejected");
+        assert!(parse_authority("2001:db8::1:443").is_err(), "unbracketed IPv6 with port must be rejected");
+    }
+
+    #[test]
+    fn parse_authority_accepts_bracketed_ipv6_and_domain() {
+        let bracketed = parse_authority("[2001:db8::1]:443").expect("bracketed IPv6 authority parses");
+        assert_eq!(bracketed, SocksTarget::Ip("[2001:db8::1]:443".parse().expect("socket addr")));
+        let domain = parse_authority("example.com:443").expect("domain authority parses");
+        assert_eq!(domain, SocksTarget::Domain("example.com".to_owned(), 443));
+    }
 }

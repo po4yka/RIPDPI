@@ -353,6 +353,9 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
         return Ok(address);
     }
     let (host, port) = value.rsplit_once(':').ok_or(TransportError::MissingSocketPort)?;
+    if !host.starts_with('[') && host.contains(':') {
+        return Err(TransportError::InvalidSocketHost);
+    }
     let host = host.trim().trim_start_matches('[').trim_end_matches(']');
     if host.is_empty() {
         return Err(TransportError::MissingSocketHost);
@@ -372,6 +375,15 @@ mod tests {
     use std::time::Instant;
 
     use super::*;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 authority must be
+    /// rejected with `InvalidSocketHost` instead of reaching the resolver as
+    /// a corrupted host (`"2001:db8:"`).
+    #[test]
+    fn resolve_first_socket_addr_rejects_bare_ipv6_authority() {
+        let error = resolve_first_socket_addr("2001:db8::1").expect_err("bare IPv6 authority must be rejected");
+        assert!(matches!(error, TransportError::InvalidSocketHost), "unexpected error: {error:?}");
+    }
 
     #[test]
     fn domain_connect_target_uses_ip_override() {

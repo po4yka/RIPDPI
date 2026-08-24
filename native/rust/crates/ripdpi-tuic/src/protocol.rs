@@ -375,10 +375,13 @@ fn split_authority(authority: &str) -> io::Result<(String, String)> {
         return Ok((host, remainder.to_owned()));
     }
 
-    trimmed
+    let (host, port) = trimmed
         .rsplit_once(':')
-        .map(|(host, port)| (host.to_owned(), port.to_owned()))
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "authority must include a port"))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "authority must include a port"))?;
+    if host.contains(':') {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "unbracketed IPv6 authority is invalid"));
+    }
+    Ok((host.to_owned(), port.to_owned()))
 }
 
 fn read_u8(input: &mut &[u8]) -> io::Result<u8> {
@@ -500,5 +503,29 @@ mod protocol_version_tests {
         let message = TuicHandshakeError::version_unsupported().to_string();
         assert!(message.contains("v5"), "diagnostic must recommend the v5 upgrade: {message}");
         assert_eq!(TuicHandshakeError::version_unsupported().kind(), TuicFailureKind::VersionUnsupported);
+    }
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::split_authority;
+    use std::io;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 literal must be
+    /// rejected instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) with a bogus port.
+    #[test]
+    fn split_authority_rejects_bare_ipv6_authority() {
+        let error = split_authority("2001:db8::1").expect_err("bare IPv6 authority must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(split_authority("2001:db8::1:443").is_err(), "unbracketed IPv6 with port must be rejected");
+    }
+
+    #[test]
+    fn split_authority_accepts_bracketed_ipv6_and_domain() {
+        let bracketed = split_authority("[2001:db8::1]:443").expect("bracketed IPv6 authority parses");
+        assert_eq!(bracketed, ("2001:db8::1".to_owned(), "443".to_owned()));
+        let domain = split_authority("example.com:443").expect("domain authority parses");
+        assert_eq!(domain, ("example.com".to_owned(), "443".to_owned()));
     }
 }

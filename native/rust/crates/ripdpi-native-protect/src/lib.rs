@@ -115,6 +115,12 @@ impl SocketProtectionPolicy {
         let (host, port) = authority
             .rsplit_once(':')
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay authority must contain a port"))?;
+        if !host.starts_with('[') && host.contains(':') {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "unbracketed IPv6 relay authority must use bracketed form",
+            ));
+        }
         let host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
         let port = port
             .parse::<u16>()
@@ -496,5 +502,33 @@ mod tests {
 
         // The genuine generation still clears it.
         assert!(unregister_protect_callback_if(generation));
+    }
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::*;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 authority must be
+    /// rejected with `InvalidInput` instead of reaching the resolver as a
+    /// corrupted host (`"2001:db8:"`).
+    #[test]
+    fn resolve_authority_rejects_bare_ipv6_authority() {
+        let error = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("test runtime")
+            .block_on(SocketProtectionPolicy::Inactive.resolve_authority("2001:db8::1"))
+            .expect_err("bare IPv6 authority must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn resolve_authority_accepts_bracketed_ipv6_authority() {
+        let addresses = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("test runtime")
+            .block_on(SocketProtectionPolicy::Inactive.resolve_authority("[2001:db8::1]:443"))
+            .expect("bracketed IPv6 authority parses without DNS");
+        assert_eq!(addresses, vec![SocketAddr::new("2001:db8::1".parse().expect("ipv6"), 443)]);
     }
 }

@@ -265,6 +265,9 @@ pub(crate) async fn socks5_connect(writer: &mut DataWriter, reader: &mut DataRea
 pub(crate) fn split_host_port(target: &str) -> Result<(&str, u16)> {
     let (host, port) =
         target.rsplit_once(':').ok_or_else(|| MieruError::Socks5(format!("target `{target}` missing port")))?;
+    if !host.starts_with('[') && host.contains(':') {
+        return Err(MieruError::Socks5(format!("unbracketed IPv6 target `{target}` must use bracketed form")));
+    }
     let port: u16 = port.parse().map_err(|_| MieruError::Socks5(format!("bad port in `{target}`")))?;
     let host = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
     Ok((host, port))
@@ -311,5 +314,27 @@ mod tests {
         assert_eq!(domain[1], 6);
         assert_eq!(&domain[2..8], b"ex.com");
         assert_eq!(&domain[8..], &[0x01, 0xbb]);
+    }
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::split_host_port;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 literal must be
+    /// rejected instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) with a bogus port.
+    #[test]
+    fn split_host_port_rejects_bare_ipv6_target() {
+        assert!(split_host_port("2001:db8::1").is_err(), "bare IPv6 target must be rejected");
+        assert!(split_host_port("2001:db8::1:443").is_err(), "unbracketed IPv6 with port must be rejected");
+    }
+
+    #[test]
+    fn split_host_port_accepts_bracketed_ipv6_and_domain() {
+        let bracketed = split_host_port("[2001:db8::1]:443").expect("bracketed IPv6 target parses");
+        assert_eq!(bracketed, ("2001:db8::1", 443));
+        let domain = split_host_port("example.com:443").expect("domain target parses");
+        assert_eq!(domain, ("example.com", 443));
     }
 }

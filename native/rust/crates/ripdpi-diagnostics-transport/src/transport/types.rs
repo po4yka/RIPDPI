@@ -134,6 +134,7 @@ pub enum TransportError {
     ListenerNotReady(SocketAddr),
     MissingSocketPort,
     MissingSocketHost,
+    InvalidSocketHost,
     InvalidSocketPort(std::num::ParseIntError),
     SocksNegotiationTimedOut,
     SocksAuthFailed([u8; 2]),
@@ -178,6 +179,7 @@ impl std::fmt::Display for TransportError {
             }
             Self::MissingSocketPort => formatter.write_str("missing_socket_port"),
             Self::MissingSocketHost => formatter.write_str("missing_socket_host"),
+            Self::InvalidSocketHost => formatter.write_str("invalid_socket_host"),
             Self::InvalidSocketPort(error) => write!(formatter, "invalid_socket_port: {error}"),
             Self::SocksNegotiationTimedOut => formatter.write_str("SOCKS5 negotiation timed out"),
             Self::SocksAuthFailed(reply) => write!(formatter, "SOCKS5 auth failed: {reply:?}"),

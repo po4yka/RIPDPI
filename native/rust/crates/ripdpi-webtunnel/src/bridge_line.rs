@@ -134,6 +134,9 @@ fn validate_endpoint(endpoint: &str) -> Result<(), BridgeLineError> {
     let Some((host, port)) = endpoint.rsplit_once(':') else {
         return Err(BridgeLineError::InvalidEndpoint);
     };
+    if !host.starts_with('[') && host.contains(':') {
+        return Err(BridgeLineError::InvalidEndpoint);
+    }
     if host.is_empty() || port.parse::<u16>().ok().filter(|value| *value > 0).is_none() {
         return Err(BridgeLineError::InvalidEndpoint);
     }
@@ -167,5 +170,24 @@ fn tls_profile_for_utls(utls: &str) -> Result<&'static str, BridgeLineError> {
         | "helloqq_auto"
         | "helloqq_11_1" => Err(BridgeLineError::UnsupportedUtls(utls.to_owned())),
         _ => Err(BridgeLineError::UnsupportedUtls(utls.to_owned())),
+    }
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::validate_endpoint;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 endpoint must be
+    /// rejected instead of being silently accepted with a corrupted host.
+    #[test]
+    fn validate_endpoint_rejects_bare_ipv6_endpoint() {
+        assert!(validate_endpoint("2001:db8::1").is_err(), "bare IPv6 without port must be rejected");
+        assert!(validate_endpoint("2001:db8::1:443").is_err(), "unbracketed IPv6 with port must be rejected");
+    }
+
+    #[test]
+    fn validate_endpoint_accepts_bracketed_ipv6_and_domain() {
+        assert!(validate_endpoint("[2001:db8::1]:443").is_ok(), "bracketed IPv6 must be accepted");
+        assert!(validate_endpoint("example.com:443").is_ok(), "domain endpoint must be accepted");
     }
 }

@@ -22,6 +22,9 @@ pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) ->
 
 fn split_host_port(value: &str) -> Option<(&str, u16)> {
     let (host, port) = value.rsplit_once(':')?;
+    if !host.starts_with('[') && host.contains(':') {
+        return None;
+    }
     let port = port.parse::<u16>().ok()?;
     Some((host.trim_matches(|ch| ch == '[' || ch == ']'), port))
 }
@@ -111,5 +114,24 @@ mod tests {
     #[test]
     fn split_host_port_empty_string() {
         assert_eq!(split_host_port(""), None);
+    }
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::split_host_port;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 authority must be
+    /// rejected instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) with a bogus port.
+    #[test]
+    fn split_host_port_rejects_bare_ipv6() {
+        assert_eq!(split_host_port("2001:db8::1"), None);
+        assert_eq!(split_host_port("2001:db8::1:443"), None);
+    }
+
+    #[test]
+    fn split_host_port_accepts_bracketed_ipv6() {
+        assert_eq!(split_host_port("[2001:db8::1]:443"), Some(("2001:db8::1", 443)));
     }
 }

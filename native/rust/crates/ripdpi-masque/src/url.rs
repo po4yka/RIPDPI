@@ -99,10 +99,43 @@ pub(crate) fn parse_target(target: &str) -> io::Result<TargetAuthority> {
     let (host, port) = target
         .rsplit_once(':')
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target authority: {target}")))?;
+    if host.contains(':') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unbracketed IPv6 target must use bracketed form: {target}"),
+        ));
+    }
     Ok(TargetAuthority {
         host: host.to_string(),
         port: port
             .parse::<u16>()
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target port: {target}")))?,
     })
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::*;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 literal must be
+    /// rejected instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) with a bogus port.
+    #[test]
+    fn parse_target_rejects_bare_ipv6_target() {
+        let error = match parse_target("2001:db8::1") {
+            Ok(target) => panic!("bare IPv6 target must be rejected, got host `{}` port {}", target.host, target.port),
+            Err(error) => error,
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn parse_target_accepts_bracketed_ipv6_and_domain() {
+        let bracketed = parse_target("[2001:db8::1]:443").expect("bracketed IPv6 target parses");
+        assert_eq!(bracketed.host, "2001:db8::1");
+        assert_eq!(bracketed.port, 443);
+        let domain = parse_target("example.com:443").expect("domain target parses");
+        assert_eq!(domain.host, "example.com");
+        assert_eq!(domain.port, 443);
+    }
 }

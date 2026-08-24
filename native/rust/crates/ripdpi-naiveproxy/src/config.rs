@@ -176,6 +176,9 @@ fn parse_u16(value: Option<&str>, flag: &str) -> io::Result<u16> {
 
 fn split_host_port(authority: &str) -> Option<(&str, u16)> {
     let (host, port) = authority.rsplit_once(':')?;
+    if !host.starts_with('[') && host.contains(':') {
+        return None;
+    }
     let parsed_port = port.parse::<u16>().ok()?;
     if host.is_empty() {
         return None;
@@ -298,5 +301,24 @@ mod tests {
             tracing::error!(config = ?cfg, error = "tls handshake failed", "NaiveProxy connect failed");
         });
         assert_no_credentials(&joined);
+    }
+}
+
+#[cfg(test)]
+mod bare_ipv6_rejection_tests {
+    use super::split_host_port;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 authority must be
+    /// rejected instead of yielding a colon-containing "host".
+    #[test]
+    fn split_host_port_rejects_bare_ipv6_authority() {
+        assert_eq!(split_host_port("2001:db8::1"), None);
+        assert_eq!(split_host_port("2001:db8::1:443"), None);
+    }
+
+    #[test]
+    fn split_host_port_accepts_bracketed_ipv6_and_domain() {
+        assert_eq!(split_host_port("[2001:db8::1]:443"), Some(("2001:db8::1", 443)));
+        assert_eq!(split_host_port("example.com:443"), Some(("example.com", 443)));
     }
 }

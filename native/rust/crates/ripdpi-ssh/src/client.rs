@@ -307,7 +307,13 @@ fn parse_target(target: &str) -> Result<(&str, u16)> {
             tail.strip_prefix(':').ok_or_else(|| SshError::Ssh(format!("missing port in target `{target}`")))?;
         (addr, port_str)
     } else {
-        target.rsplit_once(':').ok_or_else(|| SshError::Ssh(format!("target must be host:port, got `{target}`")))?
+        let (host, port_str) = target
+            .rsplit_once(':')
+            .ok_or_else(|| SshError::Ssh(format!("target must be host:port, got `{target}`")))?;
+        if host.contains(':') {
+            return Err(SshError::Ssh(format!("unbracketed IPv6 target `{target}` must use bracketed form")));
+        }
+        (host, port_str)
     };
     if host.is_empty() {
         return Err(SshError::Ssh(format!("target host must not be empty in `{target}`")));
@@ -324,6 +330,22 @@ mod tests {
     use super::*;
     use crate::config::SshAuth;
     use std::io;
+
+    /// Regression test (audit H4 siblings): a bare IPv6 literal must be
+    /// rejected instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) with a bogus port.
+    #[test]
+    fn parse_target_rejects_bare_ipv6_target() {
+        assert!(parse_target("2001:db8::1").is_err(), "bare IPv6 target must be rejected");
+        assert!(parse_target("2001:db8::1:443").is_err(), "unbracketed IPv6 with port must be rejected");
+    }
+
+    #[test]
+    fn parse_target_accepts_bracketed_ipv6_target() {
+        let (host, port) = parse_target("[2001:db8::1]:443").expect("bracketed IPv6 target parses");
+        assert_eq!(host, "2001:db8::1");
+        assert_eq!(port, 443);
+    }
 
     const FP_A: &str = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg";
     const FP_B: &str = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
