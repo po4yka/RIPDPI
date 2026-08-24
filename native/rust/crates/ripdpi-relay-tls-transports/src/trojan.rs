@@ -100,12 +100,7 @@ fn target_to_trojan(target: &str) -> io::Result<(ripdpi_trojan::TrojanAddr, u16)
     if let Ok(addr) = target.parse::<SocketAddr>() {
         return Ok((ripdpi_trojan::TrojanAddr::from(addr.ip()), addr.port()));
     }
-    let (host, port) = target
-        .rsplit_once(':')
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target authority: {target}")))?;
-    let port = port.parse::<u16>().map_err(|_| {
-        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target port in authority: {target}"))
-    })?;
+    let (host, port) = crate::util::split_target_authority(target)?;
     Ok((ripdpi_trojan::TrojanAddr::Domain(host.to_string()), port))
 }
 
@@ -114,5 +109,31 @@ fn trojan_authority(addr: ripdpi_trojan::TrojanAddr, port: u16) -> String {
         ripdpi_trojan::TrojanAddr::Ipv4(ip) => SocketAddr::new(IpAddr::V4(ip), port).to_string(),
         ripdpi_trojan::TrojanAddr::Ipv6(ip) => SocketAddr::new(IpAddr::V6(ip), port).to_string(),
         ripdpi_trojan::TrojanAddr::Domain(host) => format!("{host}:{port}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression test (audit H4): a bare IPv6 literal must be rejected with
+    /// `InvalidInput` instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) and a bogus port (`1`).
+    #[test]
+    fn target_to_trojan_rejects_bare_ipv6_target() {
+        let error = target_to_trojan("2001:db8::1").expect_err("bare IPv6 target must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn target_to_trojan_accepts_domain_target() {
+        let (_, port) = target_to_trojan("example.com:443").expect("domain target parses");
+        assert_eq!(port, 443);
+    }
+
+    #[test]
+    fn target_to_trojan_accepts_bracketed_ipv6_target() {
+        let (_, port) = target_to_trojan("[2001:db8::1]:443").expect("bracketed IPv6 target parses");
+        assert_eq!(port, 443);
     }
 }

@@ -344,12 +344,7 @@ fn encode_address(target: &str, payload: &[u8]) -> io::Result<Vec<u8>> {
             }
         }
     } else {
-        let (host, port) = target.rsplit_once(':').ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target authority: {target}"))
-        })?;
-        let port = port.parse::<u16>().map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target port in authority: {target}"))
-        })?;
+        let (host, port) = crate::util::split_target_authority(target)?;
         let len = u8::try_from(host.len())
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Shadowsocks domain target exceeds 255 bytes"))?;
         out.push(0x03);
@@ -417,6 +412,22 @@ mod tests {
     use std::task::{Context, Poll};
     use tokio::io::ReadBuf;
     use tokio::sync::Notify;
+
+    /// Regression test (audit H4): a bare IPv6 literal must be rejected with
+    /// `InvalidInput` instead of being silently split into a corrupted host
+    /// (`"2001:db8:"`) and a bogus port (`1`).
+    #[test]
+    fn encode_address_rejects_bare_ipv6_target() {
+        let error = encode_address("2001:db8::1", b"payload").expect_err("bare IPv6 target must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn encode_address_maps_bracketed_ipv6_to_ipv6_type() {
+        let encoded = encode_address("[2001:db8::1]:443", b"payload").expect("bracketed IPv6 target encodes");
+        assert_eq!(encoded[0], 0x04, "bracketed IPv6 must map to the SOCKS5 IPv6 address type");
+        assert_eq!(&encoded[19..], &b"payload"[..]);
+    }
 
     #[tokio::test]
     async fn udp_receive_reuses_session_buffer_across_datagrams() {
